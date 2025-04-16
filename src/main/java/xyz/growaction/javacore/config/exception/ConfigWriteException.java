@@ -1,11 +1,20 @@
 package xyz.growaction.javacore.config.exception;
 
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.growaction.javacore.config.JsonConfig;
 
-public class ConfigWriteException extends ConfigException{
+import java.util.Optional;
+
+public class ConfigWriteException extends ConfigException {
     public ConfigWriteException(final @Nullable Class<? extends JsonConfig> configClass, final @Nullable Throwable cause) {
-        super("", cause);
+        super(
+                String.format(
+                        "Error writing instance of config class [%s] to file",
+                        Optional.ofNullable(configClass)
+                                .map(Class::getName)
+                                .orElse("null")
+                ),
+                cause
+        );
     }
 }

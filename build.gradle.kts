@@ -1,6 +1,7 @@
 plugins {
     id("java")
-    id("com.github.johnrengelman.shadow") version "7.1.2"
+    id("java-library")
+    id("com.github.johnrengelman.shadow") version "8.1.1"
     id("maven-publish")
 }
 
@@ -13,10 +14,16 @@ repositories {
 
 dependencies {
     // https://mvnrepository.com/artifact/org.jetbrains/annotations
-    implementation("org.jetbrains:annotations:26.0.2")
+    api("org.jetbrains:annotations:26.0.2")
 
     // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
-    implementation("ch.qos.logback:logback-classic:1.5.18")
+    api("ch.qos.logback:logback-classic:1.5.18")
+
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+    api("org.apache.commons:commons-lang3:3.17.0")
+
+    // https://mvnrepository.com/artifact/commons-io/commons-io
+    api("commons-io:commons-io:2.19.0")
 
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
     api("com.fasterxml.jackson.core:jackson-databind:2.18.3")
@@ -35,8 +42,17 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.38")
 }
 
-
 publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/growaction/java-core")
+            credentials {
+                username = project.findProperty("gpr.user").toString()
+                password = project.findProperty("gpr.token").toString()
+            }
+        }
+    }
     publications {
         create<MavenPublication>("mavenJava") {
             from(components["java"])

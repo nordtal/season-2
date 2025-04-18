@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "xyz.growaction"
-version = "0.3.0-SNAPSHOT"
+version = "0.3.1-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -42,6 +42,16 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.38")
 }
 
+tasks.register("sourcesJar", Jar::class) {
+    from(sourceSets.main.get().allSource)
+    archiveClassifier.set("sources")
+}
+
+tasks.register("javadocJar", Jar::class) {
+    from(tasks.javadoc)
+    archiveClassifier.set("javadoc")
+}
+
 publishing {
     repositories {
         maven {
@@ -56,6 +66,9 @@ publishing {
     publications {
         create<MavenPublication>("mavenJava") {
             from(components["java"])
+
+            artifact(tasks["sourcesJar"])
+            artifact(tasks["javadocJar"])
         }
     }
 }

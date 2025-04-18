@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "xyz.growaction"
-version = "0.0.0-SNAPSHOT"
+version = "0.3.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -19,7 +19,13 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.5.18")
 
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.3")
+    api("com.fasterxml.jackson.core:jackson-databind:2.18.3")
+
+    // https://mvnrepository.com/artifact/org.hibernate.orm/hibernate-core
+    api("org.hibernate.orm:hibernate-core:7.0.0.Beta5")
+
+    // https://mvnrepository.com/artifact/org.mariadb.jdbc/mariadb-java-client
+    api("org.mariadb.jdbc:mariadb-java-client:3.5.3")
 
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")

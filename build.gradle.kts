@@ -6,10 +6,14 @@ plugins {
 }
 
 group = "xyz.growaction"
-version = "0.3.1-SNAPSHOT"
+version = "0.5.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+}
+
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 }
 
 dependencies {
@@ -20,19 +24,22 @@ dependencies {
     api("ch.qos.logback:logback-classic:1.5.18")
 
     // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
-    api("org.apache.commons:commons-lang3:3.17.0")
+    api("org.apache.commons:commons-lang3:3.18.0")
 
     // https://mvnrepository.com/artifact/commons-io/commons-io
-    api("commons-io:commons-io:2.19.0")
+    api("commons-io:commons-io:2.20.0")
 
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
-    api("com.fasterxml.jackson.core:jackson-databind:2.18.3")
+    api("com.fasterxml.jackson.core:jackson-databind:2.19.2")
 
     // https://mvnrepository.com/artifact/org.hibernate.orm/hibernate-core
-    api("org.hibernate.orm:hibernate-core:7.0.0.Beta5")
+    api("org.hibernate.orm:hibernate-core:7.0.7.Final")
 
     // https://mvnrepository.com/artifact/org.mariadb.jdbc/mariadb-java-client
-    api("org.mariadb.jdbc:mariadb-java-client:3.5.3")
+    api("org.mariadb.jdbc:mariadb-java-client:3.5.4")
+
+    // https://mvnrepository.com/artifact/dev.morphia.morphia/morphia-core
+    api("dev.morphia.morphia:morphia-core:2.5.0")
 
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")

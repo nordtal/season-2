@@ -8,5 +8,19 @@ package xyz.growaction.javacore.config;
  */
 public abstract class JsonConfig {
 
+    /**
+     * No-args-constructor
+     */
+    public JsonConfig() {}
+
+    /**
+     * Method that is run before the config is saved
+     */
+    protected void preSave() {}
+
+    /**
+     * Method that is run after the config is loaded
+     */
+    protected void postLoad() {}
 
 }

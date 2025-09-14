@@ -16,3 +16,13 @@ The following is brief overview of the utility classes provided by java-core.
 
 ### JSON config loading with config classes / objects
 The [JsonConfigLoader](src/main/java/eu/nordtal/jcore/config/JsonConfigLoader.java) provides methods to load and save JSON config files to and from predefined classes / objects which inherit from [JsonConfig](src/main/java/eu/nordtal/jcore/config/JsonConfig.java). The needed inheritance of JsonConfig is currently redundant, but might be used in the future for new features. The JsonConfigLoader automatically adds and removes new config parameters on load.
+
+## Publishing
+
+To release artifacts to Maven Central you need a public GPG key. Publish your key to a public key server so that Sonatype can retrieve it during artifact validation:
+
+```bash
+gpg --send-keys YOUR_KEY_ID --keyserver keyserver.ubuntu.com
+```
+
+Sonatype automatically fetches keys from public key servers, eliminating any manual upload step.

@@ -28,3 +28,38 @@ signing.password=gpg-key-passphrase
 ```
 
 Generate an access token in the [Sonatype Central Portal](https://central.sonatype.com/) and import/export your GPG key if required. Snapshot deployments use the `SONATYPE_USERNAME` and `SONATYPE_PASSWORD` environment variables when properties are absent.
+
+### Generating a GPG signing key
+
+Releases are signed with an OpenPGP (GPG) key. If you have never used one before, follow these steps:
+
+1. **Install GPG** – e.g. `apt install gnupg` or `brew install gpg`. Verify with `gpg --version`.
+2. **Create a key**:
+
+   ```bash
+   gpg --full-generate-key
+   ```
+
+   Choose RSA and a passphrase when prompted.
+3. **Find the key ID**:
+
+   ```bash
+   gpg --list-secret-keys --keyid-format=long
+   ```
+
+4. **Publish the public key** so Maven Central can verify signatures:
+
+   ```bash
+   gpg --keyserver keyserver.ubuntu.com --send-keys <KEY_ID>
+   ```
+
+5. **Export the private key for Gradle** and encode it as a single line:
+
+   ```bash
+   gpg --armor --export-secret-key <KEY_ID> | base64
+   ```
+
+   Put the resulting string into `signing.key` in `gradle.properties`. Use the passphrase you set in step 2 as `signing.password`.
+
+Finally, log in to the Sonatype portal and add the same public key under **Account → Profile → GPG Keys**.
+

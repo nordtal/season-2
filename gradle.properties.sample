@@ -1,4 +1,5 @@
 # Rename to gradle.properties and replace values with your own before publishing.
+# Sonatype user token credentials (see https://central.sonatype.com/)
 sonatype.username=token
 sonatype.password=token-secret
 

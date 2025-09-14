@@ -1,0 +1,7 @@
+# Rename to gradle.properties and replace values with your own before publishing.
+sonatype.username=token
+sonatype.password=token-secret
+
+# ASCII-armored private key for signing (single line with \n literals or multi-line).
+signing.key=
+signing.password=

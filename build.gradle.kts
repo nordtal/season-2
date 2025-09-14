@@ -3,6 +3,7 @@ plugins {
     id("java-library")
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("maven-publish")
+    id("signing")
 }
 
 
@@ -64,11 +65,19 @@ tasks.register("javadocJar", Jar::class) {
 publishing {
     repositories {
         maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/nordtal/jcore")
+            name = "Sonatype"
+            url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
             credentials {
-                username = project.findProperty("gpr.user").toString()
-                password = project.findProperty("gpr.token").toString()
+                username = (project.findProperty("sonatype.username") as String?) ?: System.getenv("SONATYPE_USERNAME")
+                password = (project.findProperty("sonatype.password") as String?) ?: System.getenv("SONATYPE_PASSWORD")
+            }
+        }
+        maven {
+            name = "SonatypeSnapshots"
+            url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+            credentials {
+                username = (project.findProperty("sonatype.username") as String?) ?: System.getenv("SONATYPE_USERNAME")
+                password = (project.findProperty("sonatype.password") as String?) ?: System.getenv("SONATYPE_PASSWORD")
             }
         }
     }
@@ -78,7 +87,43 @@ publishing {
 
             artifact(tasks["sourcesJar"])
             artifact(tasks["javadocJar"])
+
+            pom {
+                name.set("nordtal.eu JCore")
+                description.set("Common utilities for nordtal.eu projects")
+                url.set("https://github.com/nordtal/jcore")
+
+                licenses {
+                    license {
+                        name.set("Apache License 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                    }
+                }
+
+                developers {
+                    developer {
+                        id.set("nordtal")
+                        name.set("nordtal")
+                        email.set("info@nordtal.eu")
+                    }
+                }
+
+                scm {
+                    connection.set("scm:git:https://github.com/nordtal/jcore.git")
+                    developerConnection.set("scm:git:ssh://github.com/nordtal/jcore.git")
+                    url.set("https://github.com/nordtal/jcore")
+                }
+            }
         }
+    }
+}
+
+signing {
+    val signingKey = (findProperty("signing.key") as String?) ?: System.getenv("SIGNING_KEY")
+    val signingPassword = (findProperty("signing.password") as String?) ?: System.getenv("SIGNING_PASSWORD")
+    if (signingKey != null && signingPassword != null) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign(publishing.publications["mavenJava"])
     }
 }
 

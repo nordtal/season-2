@@ -60,6 +60,3 @@ Releases are signed with an OpenPGP (GPG) key. If you have never used one before
    ```
 
    Put the resulting string into `signing.key` in `gradle.properties`. Use the passphrase you set in step 2 as `signing.password`.
-
-Finally, log in to the Sonatype portal and add the same public key under **Account → Profile → GPG Keys**.
-

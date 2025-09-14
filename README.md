@@ -25,8 +25,8 @@ Before running `./gradlew publish` you need to supply the following information
 via `gradle.properties` (see `gradle.properties.sample`) or environment variables:
 
 ```
-sonatype.username=your-sonatype-username-or-token
-sonatype.password=your-sonatype-password-or-token-secret
+sonatypeUsername=your-sonatype-username-or-token
+sonatypePassword=your-sonatype-password-or-token-secret
 signing.key=base64-encoded-GPG-key
 signing.password=gpg-key-passphrase
 ```

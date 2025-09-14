@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("java")
     id("java-library")
@@ -119,11 +121,15 @@ publishing {
 }
 
 signing {
-    val signingKey = (findProperty("signing.key") as String?) ?: System.getenv("SIGNING_KEY")
-    val signingPassword = (findProperty("signing.password") as String?) ?: System.getenv("SIGNING_PASSWORD")
-    if (signingKey != null && signingPassword != null) {
-        useInMemoryPgpKeys(signingKey, signingPassword)
-        sign(publishing.publications["mavenJava"])
+    signing {
+        val signingKey = project.findProperty("signing.key") as String?
+        val signingPassword = project.findProperty("signing.password") as String?
+
+        if (signingKey != null && signingPassword != null) {
+            val decodedKey = String(Base64.getDecoder().decode(signingKey))
+            useInMemoryPgpKeys(decodedKey, signingPassword)
+            sign(publishing.publications["mavenJava"])
+        }
     }
 }
 

@@ -5,8 +5,10 @@ plugins {
     id("maven-publish")
 }
 
-group = "xyz.growaction"
-version = "0.5.0-SNAPSHOT"
+
+group = "eu.nordtal"
+version = "1.0.0"
+
 
 repositories {
     mavenCentral()
@@ -63,7 +65,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/growaction/java-core")
+            url = uri("https://maven.pkg.github.com/nordtal/jcore")
             credentials {
                 username = project.findProperty("gpr.user").toString()
                 password = project.findProperty("gpr.token").toString()

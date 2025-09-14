@@ -1,8 +1,8 @@
-package xyz.growaction.javacore.config.exception;
+package eu.nordtal.jcore.config.exception;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.growaction.javacore.config.JsonConfig;
+import eu.nordtal.jcore.config.JsonConfig;
 
 public class ConfigInitializationException extends ConfigException {
     public ConfigInitializationException(final @NotNull Class<? extends JsonConfig> configClass, final @Nullable Throwable cause) {

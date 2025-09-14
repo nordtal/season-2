@@ -1,4 +1,4 @@
-package xyz.growaction.javacore.persistence.mariadb;
+package eu.nordtal.jcore.persistence.mariadb;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -10,7 +10,7 @@ import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.growaction.javacore.persistence.common.EntityRepository;
+import eu.nordtal.jcore.persistence.common.EntityRepository;
 
 import java.util.List;
 

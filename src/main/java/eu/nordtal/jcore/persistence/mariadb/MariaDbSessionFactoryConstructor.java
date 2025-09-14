@@ -1,4 +1,4 @@
-package xyz.growaction.javacore.persistence.mariadb;
+package eu.nordtal.jcore.persistence.mariadb;
 
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;

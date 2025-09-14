@@ -1,4 +1,4 @@
-package xyz.growaction.javacore.config;
+package eu.nordtal.jcore.config;
 
 /**
  * This class is currently just a reservation for possible future features.

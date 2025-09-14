@@ -1,14 +1,14 @@
-package xyz.growaction.javacore.config;
+package eu.nordtal.jcore.config;
 
 import com.fasterxml.jackson.databind.*;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import xyz.growaction.javacore.config.exception.ConfigException;
-import xyz.growaction.javacore.config.exception.ConfigInitializationException;
-import xyz.growaction.javacore.config.exception.ConfigReadException;
-import xyz.growaction.javacore.config.exception.ConfigWriteException;
+import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.jcore.config.exception.ConfigInitializationException;
+import eu.nordtal.jcore.config.exception.ConfigReadException;
+import eu.nordtal.jcore.config.exception.ConfigWriteException;
 
 import java.io.File;
 import java.io.IOException;

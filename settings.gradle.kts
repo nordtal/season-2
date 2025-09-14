@@ -1,2 +1,2 @@
-rootProject.name = "java-core"
+rootProject.name = "jcore"
 

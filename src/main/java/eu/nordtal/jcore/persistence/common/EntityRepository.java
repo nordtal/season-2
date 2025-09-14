@@ -1,4 +1,4 @@
-package xyz.growaction.javacore.persistence.common;
+package eu.nordtal.jcore.persistence.common;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

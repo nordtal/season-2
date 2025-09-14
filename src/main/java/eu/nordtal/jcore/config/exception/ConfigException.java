@@ -1,10 +1,11 @@
-package xyz.growaction.javacore.config.exception;
+package eu.nordtal.jcore.config.exception;
 
+import eu.nordtal.jcore.config.JsonConfigLoader;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Exception that is thrown if any error occurs in the {@link xyz.growaction.javacore.config.JsonConfigLoader}
+ * Exception that is thrown if any error occurs in the {@link JsonConfigLoader}
  *
  */
 public class ConfigException extends Exception {

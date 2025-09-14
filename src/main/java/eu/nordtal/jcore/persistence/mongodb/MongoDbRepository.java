@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package xyz.growaction.javacore.persistence.mongodb;
+package eu.nordtal.jcore.persistence.mongodb;
 
 import com.mongodb.client.MongoClients;
 import dev.morphia.Datastore;
@@ -24,7 +24,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import xyz.growaction.javacore.persistence.common.EntityRepository;
+import eu.nordtal.jcore.persistence.common.EntityRepository;
 
 import java.util.List;
 

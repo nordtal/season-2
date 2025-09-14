@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package xyz.growaction.javacore.persistence.mongodb;
+package eu.nordtal.jcore.persistence.mongodb;
 
 import lombok.Builder;
 import org.jetbrains.annotations.NotNull;

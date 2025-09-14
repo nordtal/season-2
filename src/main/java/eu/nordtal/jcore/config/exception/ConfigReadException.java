@@ -1,4 +1,4 @@
-package xyz.growaction.javacore.config.exception;
+package eu.nordtal.jcore.config.exception;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

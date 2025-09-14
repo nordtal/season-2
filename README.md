@@ -18,7 +18,11 @@ The following is brief overview of the utility classes provided by java-core.
 The [JsonConfigLoader](src/main/java/eu/nordtal/jcore/config/JsonConfigLoader.java) provides methods to load and save JSON config files to and from predefined classes / objects which inherit from [JsonConfig](src/main/java/eu/nordtal/jcore/config/JsonConfig.java). The needed inheritance of JsonConfig is currently redundant, but might be used in the future for new features. The JsonConfigLoader automatically adds and removes new config parameters on load.
 
 ## Publishing to Maven Central
-The project is configured to publish signed artifacts to Maven Central via Sonatype. Before running `./gradlew publish` you need to supply the following information via `gradle.properties` (see `gradle.properties.sample`) or environment variables:
+The project is configured to publish signed artifacts to Maven Central via Sonatype.
+Sonatype now requires a token-based `Authorization` header. The build script
+derives the header value by base64 encoding the token's username and password.
+Before running `./gradlew publish` you need to supply the following information
+via `gradle.properties` (see `gradle.properties.sample`) or environment variables:
 
 ```
 sonatype.username=your-sonatype-username-or-token

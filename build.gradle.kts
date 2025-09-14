@@ -1,4 +1,6 @@
 import java.util.Base64
+import org.gradle.api.credentials.HttpHeaderCredentials
+import org.gradle.authentication.http.HttpHeaderAuthentication
 
 plugins {
     id("java")
@@ -69,17 +71,31 @@ publishing {
         maven {
             name = "Sonatype"
             url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-            credentials {
-                username = (project.findProperty("sonatype.username") as String?) ?: System.getenv("SONATYPE_USERNAME")
-                password = (project.findProperty("sonatype.password") as String?) ?: System.getenv("SONATYPE_PASSWORD")
+            credentials(HttpHeaderCredentials::class) {
+                val user = (project.findProperty("sonatype.username") as String?) ?: System.getenv("SONATYPE_USERNAME")
+                val pass = (project.findProperty("sonatype.password") as String?) ?: System.getenv("SONATYPE_PASSWORD")
+                if (user != null && pass != null) {
+                    name = "Authorization"
+                    value = "Bearer " + Base64.getEncoder().encodeToString("$user:$pass".toByteArray())
+                }
+            }
+            authentication {
+                create<HttpHeaderAuthentication>("header")
             }
         }
         maven {
             name = "SonatypeSnapshots"
             url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-            credentials {
-                username = (project.findProperty("sonatype.username") as String?) ?: System.getenv("SONATYPE_USERNAME")
-                password = (project.findProperty("sonatype.password") as String?) ?: System.getenv("SONATYPE_PASSWORD")
+            credentials(HttpHeaderCredentials::class) {
+                val user = (project.findProperty("sonatype.username") as String?) ?: System.getenv("SONATYPE_USERNAME")
+                val pass = (project.findProperty("sonatype.password") as String?) ?: System.getenv("SONATYPE_PASSWORD")
+                if (user != null && pass != null) {
+                    name = "Authorization"
+                    value = "Bearer " + Base64.getEncoder().encodeToString("$user:$pass".toByteArray())
+                }
+            }
+            authentication {
+                create<HttpHeaderAuthentication>("header")
             }
         }
     }

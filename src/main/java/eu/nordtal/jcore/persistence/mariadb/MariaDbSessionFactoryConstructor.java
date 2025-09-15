@@ -30,7 +30,7 @@ public record MariaDbSessionFactoryConstructor<T>(@NotNull String uri, @NotNull 
         configuration.setProperty(HIBERNATE_USERNAME_PROPERTY, username());
         configuration.setProperty(HIBERNATE_PASSWORD_PROPERTY, password());
         configuration.setProperty("hibernate.hbm2ddl.auto", "update");
-        configuration.setProperty("hibernate.show_sql", "true");
+        configuration.setProperty("hibernate.show_sql", "false");
 
         configuration.addAnnotatedClass(entityClass);
 

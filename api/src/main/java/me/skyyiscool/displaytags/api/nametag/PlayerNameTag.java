@@ -2,10 +2,10 @@ package me.skyyiscool.displaytags.api.nametag;
 
 import org.bukkit.entity.Player;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class PlayerNameTag {
     protected Player player;
@@ -15,7 +15,9 @@ public abstract class PlayerNameTag {
     public PlayerNameTag(Player player) {
         this.player = player;
         this.data = new NameTagData();
-        this.viewers = new HashSet<>();
+        // Viewers are touched from the name tag scheduler, from Bukkit events and from the API,
+        // so the set has to tolerate concurrent reads and writes.
+        this.viewers = ConcurrentHashMap.newKeySet();
     }
 
     public NameTagData getData() {

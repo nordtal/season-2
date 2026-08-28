@@ -9,12 +9,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class NameTagManagerImpl implements NameTagManager {
-    private final Map<UUID, PlayerNameTag> tags = new HashMap<>();
+    private final Map<UUID, PlayerNameTag> tags = new ConcurrentHashMap<>();
 
     @Override
     public PlayerNameTag createNameTag(Player player) {
@@ -36,7 +37,9 @@ public class NameTagManagerImpl implements NameTagManager {
 
     @Override
     public Collection<PlayerNameTag> getAll() {
-        return this.tags.values();
+        // ConcurrentHashMap's view iterates weakly, so callers may create or remove tags while
+        // they are walking this collection.
+        return Collections.unmodifiableCollection(this.tags.values());
     }
 
     @Override

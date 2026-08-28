@@ -4,6 +4,7 @@ import me.skyyiscool.displaytags.api.DisplayTagsPlugin;
 import me.skyyiscool.displaytags.api.nametag.NameTagManager;
 import me.skyyiscool.displaytags.api.nametag.PlayerNameTag;
 import me.skyyiscool.displaytags.commands.DisplayTagsCommand;
+import me.skyyiscool.displaytags.config.ConfigurationMigrator;
 import me.skyyiscool.displaytags.config.DisplayTagsConfiguration;
 import me.skyyiscool.displaytags.listener.PlayerListener;
 import me.skyyiscool.displaytags.metrics.Metrics;
@@ -34,6 +35,10 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
     @Override
     public void onLoad() {
         INSTANCE = this;
+
+        // Has to happen before the configuration is read, otherwise Spec rewrites the file
+        // with its defaults and a v1 configuration is lost silently.
+        ConfigurationMigrator.migrate(this);
 
         this.config = new DisplayTagsConfiguration(this);
         this.nameTagManager = new NameTagManagerImpl();

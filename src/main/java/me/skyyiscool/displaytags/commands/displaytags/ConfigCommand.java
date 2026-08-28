@@ -58,7 +58,21 @@ public class ConfigCommand extends SubCommand {
     }
 
     private String hover(String text) {
-        return "<hover:show_text:'" + text + "'><gray><u>Hover";
+        return "<hover:show_text:'" + escapeArgument(text) + "'><gray><u>Hover";
+    }
+
+    /**
+     * Escapes a single-quoted MiniMessage tag argument.
+     * <p>
+     * A configured line containing an apostrophe would otherwise close the argument early and leave
+     * the rest of the tag as literal text. MiniMessage unescapes a backslash before the surrounding
+     * quote character (and before a backslash) inside a quoted argument, so escaping those two is
+     * enough - everything else in the line is still parsed as MiniMessage, which is intended.
+     */
+    private String escapeArgument(String text) {
+        return text
+                .replace("\\", "\\\\")
+                .replace("'", "\\'");
     }
 
     private String opacity(int opacity) {

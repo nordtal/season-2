@@ -22,6 +22,7 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:26.2.build.120-stable")
     compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
     compileOnly("me.clip:placeholderapi:2.12.3")
+    compileOnly("com.github.NEZNAMY:TAB-API:6.1.2")
 
     implementation(project(":api"))
     implementation("io.github.revxrsal:spec:1.5")
@@ -34,6 +35,10 @@ tasks {
         downloadPlugins {
             modrinth("packetevents", "2.13.0+spigot")
             hangar("PlaceholderAPI", "2.12.3")
+            // TAB publishes several Modrinth versions numbered "6.1.2" (modern, legacy 1.7-1.12 and
+            // 1.20.5-1.21.4). The version number alone resolves to the wrong one, so pin the id of
+            // the 26.2 build.
+            modrinth("tab-was-taken", "Za7G9fdJ")
         }
     }
 

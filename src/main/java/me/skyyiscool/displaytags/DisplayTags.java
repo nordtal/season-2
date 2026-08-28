@@ -10,6 +10,7 @@ import me.skyyiscool.displaytags.metrics.Metrics;
 import me.skyyiscool.displaytags.nametag.NameTagManagerImpl;
 import me.skyyiscool.displaytags.nametag.NameTagScheduler;
 import me.skyyiscool.displaytags.util.DependencyUtil;
+import me.skyyiscool.displaytags.util.TabUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandMap;
 import org.bukkit.entity.Player;
@@ -43,6 +44,9 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
 
         // Configuration
         this.config.load();
+
+        // Plugin Integrations
+        TabUtil.load(this);
 
         // Name Tags
         this.nameTagScheduler.start();

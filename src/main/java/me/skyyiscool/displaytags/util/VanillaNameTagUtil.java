@@ -22,6 +22,8 @@ public final class VanillaNameTagUtil {
      * Hides {@code target}'s vanilla name tag for a single viewer.
      */
     public static void hide(Player target, UUID viewerId) {
+        if (TabUtil.managesNameTags()) return;
+
         WrapperPlayServerTeams.ScoreBoardTeamInfo teamInfo = new WrapperPlayServerTeams.ScoreBoardTeamInfo(
                 Component.empty(),
                 Component.empty(),
@@ -44,6 +46,8 @@ public final class VanillaNameTagUtil {
      * Restores {@code target}'s vanilla name tag for a single viewer.
      */
     public static void show(Player target, UUID viewerId) {
+        if (TabUtil.managesNameTags()) return;
+
         PacketUtil.sendPacket(viewerId, new WrapperPlayServerTeams(
                 getTeamName(target),
                 WrapperPlayServerTeams.TeamMode.REMOVE,

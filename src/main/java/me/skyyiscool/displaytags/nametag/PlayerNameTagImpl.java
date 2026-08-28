@@ -22,9 +22,16 @@ import org.bukkit.entity.TextDisplay;
 
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerNameTagImpl extends PlayerNameTag {
     private final TextDisplayWrapper display;
+
+    // The viewers whose vanilla name tag for this player is currently suppressed. This is not the
+    // same set as the viewers of the display: the vanilla name has to stay hidden even where the
+    // display is not shown (out of range, spectator, show-to-self), otherwise the vanilla name
+    // would reappear exactly where DisplayTags decided not to render one.
+    private final Set<UUID> vanillaHidden = ConcurrentHashMap.newKeySet();
 
     // The name tag text is cached temporarily, and it is only changed when the name tag ticks.
     private Component cachedText;
@@ -64,7 +71,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     @Override
     public void spawnFor(UUID viewerId) {
         // Suppress the vanilla name tag for this viewer, otherwise they would see two names.
-        VanillaNameTagUtil.hide(this.player, viewerId);
+        this.hideVanillaNameTagFor(viewerId);
 
         // "show-to-self: false" only concerns the tag's own owner; every other viewer still sees it.
         if (!this.data.shouldShowToSelf() && this.isOwner(viewerId)) return;
@@ -131,12 +138,15 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.cachedText = getText();
         this.display.setLocation(this.player.getLocation().setRotation(0, 0));
 
-        this.viewers.removeIf((uuid) -> {
-            Player viewer = Bukkit.getPlayer(uuid);
-            return viewer == null || !viewer.isOnline();
-        });
+        this.viewers.removeIf(PlayerNameTagImpl::isOffline);
+
+        // A reconnecting client starts with an empty scoreboard, so the team packet has to be sent
+        // again - forget who was hidden from as soon as they go offline.
+        this.vanillaHidden.removeIf(PlayerNameTagImpl::isOffline);
 
         for (Player viewer : Bukkit.getOnlinePlayers()) {
+            this.hideVanillaNameTagFor(viewer.getUniqueId());
+
             boolean visible = this.viewers.contains(viewer.getUniqueId());
             boolean shouldBeVisible = this.shouldBeVisibleTo(viewer);
 
@@ -159,6 +169,34 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
         int visibilityDistance = this.data.getVisibilityDistance();
         return viewer.getLocation().distanceSquared(player.getLocation()) < visibilityDistance * visibilityDistance;
+    }
+
+    /**
+     * Suppresses the player's vanilla name tag for a viewer, once. Re-sending the team packet on
+     * every tick would work, but it makes the client log a warning about a team it already knows.
+     */
+    private void hideVanillaNameTagFor(UUID viewerId) {
+        if (!this.vanillaHidden.add(viewerId)) return;
+
+        VanillaNameTagUtil.hide(this.player, viewerId);
+    }
+
+    /**
+     * Hands the vanilla name tag back to every viewer it was hidden from. Called when the name tag
+     * is removed - after that point DisplayTags no longer renders a name for this player, so the
+     * vanilla one has to come back.
+     */
+    void restoreVanillaNameTags() {
+        for (UUID viewerId : List.copyOf(this.vanillaHidden)) {
+            VanillaNameTagUtil.show(this.player, viewerId);
+        }
+
+        this.vanillaHidden.clear();
+    }
+
+    private static boolean isOffline(UUID viewerId) {
+        Player viewer = Bukkit.getPlayer(viewerId);
+        return viewer == null || !viewer.isOnline();
     }
 
     /**

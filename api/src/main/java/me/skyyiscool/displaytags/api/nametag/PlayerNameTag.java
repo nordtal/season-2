@@ -3,6 +3,7 @@ package me.skyyiscool.displaytags.api.nametag;
 import org.bukkit.entity.Player;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -48,20 +49,30 @@ public abstract class PlayerNameTag {
     }
 
     public void teleportForViewers() {
-        for (UUID uuid : this.viewers) {
+        for (UUID uuid : this.currentViewers()) {
             this.teleportFor(uuid);
         }
     }
 
     public void updateForViewers() {
-        for (UUID uuid : this.viewers) {
+        for (UUID uuid : this.currentViewers()) {
             this.updateFor(uuid);
         }
     }
 
     public void despawnForViewers() {
-        for (UUID uuid : this.viewers) {
+        for (UUID uuid : this.currentViewers()) {
             this.despawnFor(uuid);
         }
+    }
+
+    /**
+     * A snapshot of the current viewers.
+     * <p>
+     * The per-viewer methods remove from {@link #viewers} (and implementations or event listeners
+     * may add to it), so the bulk methods above must never iterate the live set.
+     */
+    private List<UUID> currentViewers() {
+        return List.copyOf(this.viewers);
     }
 }

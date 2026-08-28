@@ -8,6 +8,7 @@ import me.skyyiscool.displaytags.api.events.NameTagSpawnEvent;
 import me.skyyiscool.displaytags.config.NameTagConfiguration;
 import me.skyyiscool.displaytags.util.ComponentUtil;
 import me.skyyiscool.displaytags.util.DependencyUtil;
+import me.skyyiscool.displaytags.util.VanillaNameTagUtil;
 import me.skyyiscool.displaytags.wrapper.display.DisplayBillboard;
 import me.skyyiscool.displaytags.wrapper.display.TextAlignment;
 import me.skyyiscool.displaytags.wrapper.display.TextDisplayWrapper;
@@ -51,6 +52,9 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
     @Override
     public void spawnFor(UUID viewerId) {
+        // Suppress the vanilla name tag for this viewer, otherwise they would see two names.
+        VanillaNameTagUtil.hide(this.player, viewerId);
+
         if (!this.data.shouldShowToSelf()) return;
 
         Player viewer = Bukkit.getPlayer(viewerId);

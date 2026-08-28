@@ -21,6 +21,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.List;
+
 public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
     private static final String MODRINTH_PROJECT_ID = "voqEPXf8";
 
@@ -79,12 +81,28 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        // Plugin shutdown logic. Every field here stays null when onEnable (or onLoad) bailed out
+        // early, and Bukkit still calls onDisable in that case - so nothing may be dereferenced
+        // unguarded.
+        if (this.nameTagScheduler != null) this.nameTagScheduler.end();
 
-        this.nameTagScheduler.end();
-        this.metrics.shutdown();
+        // The displays only exist on the clients, so the server forgetting about them is not enough:
+        // without an explicit despawn they would linger until the viewer reconnects.
+        if (this.nameTagManager != null) this.removeAllNameTags();
+
+        if (this.metrics != null) this.metrics.shutdown();
 
         getLogger().info("Disabled DisplayTags.");
+    }
+
+    /**
+     * Removes every name tag that is currently registered, despawning its display for all viewers
+     * and handing the vanilla name tags back.
+     */
+    private void removeAllNameTags() {
+        for (PlayerNameTag tag : List.copyOf(this.nameTagManager.getAll())) {
+            this.nameTagManager.removeNameTag(tag.getPlayer());
+        }
     }
 
     public void checkForUpdates(CommandSender sender) {

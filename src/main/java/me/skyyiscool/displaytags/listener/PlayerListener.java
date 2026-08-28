@@ -22,7 +22,8 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onPlayerClientLoadedWorld(PlayerClientLoadedWorldEvent event) {
         if (plugin.config().nametag().isEnabled()) {
-            this.plugin.getNameTagManager().createNameTag(event.getPlayer());
+            // Tick right away instead of waiting up to one update-interval for the scheduler.
+            this.plugin.getNameTagManager().createNameTag(event.getPlayer()).tick();
         }
     }
 

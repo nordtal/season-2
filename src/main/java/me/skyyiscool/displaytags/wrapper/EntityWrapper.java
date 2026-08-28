@@ -49,6 +49,10 @@ public class EntityWrapper {
         PacketUtil.sendPacket(viewer, this.metadataPacket());
     }
 
+    public void teleportFor(UUID viewer) {
+        PacketUtil.sendPacket(viewer, this.teleportPacket());
+    }
+
     public void despawnFor(UUID viewer) {
         PacketUtil.sendPacket(viewer, this.destroyPacket());
     }

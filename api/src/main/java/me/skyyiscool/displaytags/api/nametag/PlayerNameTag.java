@@ -27,6 +27,7 @@ public abstract class PlayerNameTag {
 
     public abstract void spawnFor(UUID viewerId);
     public abstract void updateFor(UUID viewerId);
+    public abstract void teleportFor(UUID viewerId);
     public abstract void despawnFor(UUID viewerId);
     public abstract void tick();
 
@@ -38,8 +39,18 @@ public abstract class PlayerNameTag {
         this.updateFor(viewer.getUniqueId());
     }
 
+    public void teleportFor(Player viewer) {
+        this.teleportFor(viewer.getUniqueId());
+    }
+
     public void despawnFor(Player viewer) {
         this.despawnFor(viewer.getUniqueId());
+    }
+
+    public void teleportForViewers() {
+        for (UUID uuid : this.viewers) {
+            this.teleportFor(uuid);
+        }
     }
 
     public void updateForViewers() {

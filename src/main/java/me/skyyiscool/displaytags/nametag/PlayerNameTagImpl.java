@@ -87,6 +87,11 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     }
 
     @Override
+    public void teleportFor(UUID viewerId) {
+        this.display.teleportFor(viewerId);
+    }
+
+    @Override
     public void despawnFor(UUID viewerId) {
         if (!this.viewers.contains(viewerId)) return;
 

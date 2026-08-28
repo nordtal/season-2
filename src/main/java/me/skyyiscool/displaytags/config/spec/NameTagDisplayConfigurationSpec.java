@@ -83,7 +83,7 @@ public interface NameTagDisplayConfigurationSpec {
             "Available values: fixed, vertical, horizontal, center"
     })
     default String billboard() {
-        return Display.Billboard.VERTICAL.name().toLowerCase();
+        return Display.Billboard.CENTER.name().toLowerCase();
     }
 
     @Order(8) @Key("offset")

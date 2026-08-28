@@ -123,11 +123,13 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     public void despawnFor(UUID viewerId) {
         if (!this.viewers.contains(viewerId)) return;
 
+        // A viewer that has already logged out cannot be handed to event listeners, but they still
+        // have to leave the viewer set - otherwise the tag would consider them a viewer forever.
         Player viewer = Bukkit.getPlayer(viewerId);
-        if (viewer == null) return;
-
-        NameTagDespawnEvent event = new NameTagDespawnEvent(this, viewer);
-        if (!event.callEvent()) return;
+        if (viewer != null) {
+            NameTagDespawnEvent event = new NameTagDespawnEvent(this, viewer);
+            if (!event.callEvent()) return;
+        }
 
         this.viewers.remove(viewerId);
         this.display.despawnFor(viewerId);
@@ -161,6 +163,9 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     }
 
     private boolean shouldBeVisibleTo(Player viewer) {
+        // A tag whose player has left must never spawn again, even if it is still registered - for
+        // instance when something ticks it between the quit event and the tag being removed.
+        if (!this.player.isOnline()) return false;
         if (viewer == null || !viewer.isOnline() || viewer.isDead()) return false;
         if (!this.data.shouldShowToSelf() && this.isOwner(viewer.getUniqueId())) return false;
         if (!viewer.getWorld().getName().equals(this.player.getWorld().getName())) return false;

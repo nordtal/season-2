@@ -84,7 +84,6 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
         this.viewers.add(viewerId);
         this.display.spawnFor(viewerId);
-        this.display.mountFor(viewerId, this.player.getEntityId());
         this.updateFor(viewerId);
     }
 
@@ -103,6 +102,10 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.display.setScale(this.data.getScale());
         this.display.setText(this.cachedText);
 
+        // The mount is re-sent on every update, not only once at spawn time. A SetPassengers packet
+        // is absolute - it replaces the vehicle's whole passenger list - so resending it is both
+        // idempotent and self-healing if a client ever drops or overwrites the list.
+        this.display.mountFor(viewerId, this.player.getEntityId());
         this.display.updateFor(viewerId);
     }
 

@@ -3,6 +3,7 @@ package me.skyyiscool.displaytags.listener;
 import io.papermc.paper.event.player.PlayerClientLoadedWorldEvent;
 import me.skyyiscool.displaytags.DisplayTags;
 import me.skyyiscool.displaytags.api.nametag.PlayerNameTag;
+import me.skyyiscool.displaytags.config.NameTagConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -32,18 +33,15 @@ public class PlayerListener implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onPlayerSneakToggle(PlayerToggleSneakEvent event) {
-        if (plugin.config().nametag().isEnabled()) {
+        NameTagConfiguration config = this.plugin.config().nametag();
+        if (config.isEnabled() && config.hasSneakTextOpacity()) {
             PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
             if (tag == null) return;
 
-            if (event.isSneaking()) {
-                tag.getData().setTextOpacity(50);
-            } else {
-                tag.getData().setTextOpacity(-1);
-            }
-
+            // -1 is the vanilla "fully opaque" value, so it restores the normal look.
+            tag.getData().setTextOpacity(event.isSneaking() ? config.getSneakTextOpacity() : -1);
             tag.updateForViewers();
         }
     }

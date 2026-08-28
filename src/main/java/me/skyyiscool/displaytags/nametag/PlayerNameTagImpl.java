@@ -51,6 +51,12 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.data.setTranslation(config.getOffset());
         this.data.setScale(config.getScale());
 
+        // A tag created while its player is already sneaking (rejoin, reload, world change) has to
+        // start out dimmed, because no PlayerToggleSneakEvent is going to arrive for that state.
+        if (config.hasSneakTextOpacity() && player.isSneaking()) {
+            this.data.setTextOpacity(config.getSneakTextOpacity());
+        }
+
         this.cachedText = getText();
     }
 
@@ -84,6 +90,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.display.setTextShadow(this.data.hasTextShadow());
         this.display.setSeeThrough(this.data.isSeeThrough());
         this.display.setBackground(this.data.getBackground());
+        this.display.setTextOpacity(this.data.getTextOpacity());
         this.display.setTranslation(this.data.getTranslation());
         this.display.setScale(this.data.getScale());
         this.display.setText(this.cachedText);

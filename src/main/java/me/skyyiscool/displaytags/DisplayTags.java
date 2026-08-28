@@ -10,16 +10,22 @@ import me.skyyiscool.displaytags.metrics.Metrics;
 import me.skyyiscool.displaytags.nametag.NameTagManagerImpl;
 import me.skyyiscool.displaytags.nametag.NameTagScheduler;
 import me.skyyiscool.displaytags.util.DependencyUtil;
+import me.skyyiscool.displaytags.util.MessageUtil;
 import me.skyyiscool.displaytags.util.TabUtil;
+import me.skyyiscool.displaytags.util.UpdateChecker;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandMap;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
+    private static final String MODRINTH_PROJECT_ID = "voqEPXf8";
+
     private static DisplayTags INSTANCE;
     private Metrics metrics;
+    private UpdateChecker updateChecker;
 
     private DisplayTagsConfiguration config;
     private NameTagManager nameTagManager;
@@ -58,6 +64,10 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
         // Metrics
         this.metrics = new Metrics(this, 29009);
 
+        // Updates
+        this.updateChecker = new UpdateChecker(this, MODRINTH_PROJECT_ID);
+        this.checkForUpdates(getServer().getConsoleSender());
+
         String version = getPluginMeta().getVersion();
         getLogger().info(String.format("Enabled DisplayTags v%s.", version));
     }
@@ -70,6 +80,23 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
         this.metrics.shutdown();
 
         getLogger().info("Disabled DisplayTags.");
+    }
+
+    public void checkForUpdates(CommandSender sender) {
+        String current = getPluginMeta().getVersion();
+
+        this.updateChecker.getLatestVersion((latest) -> {
+            if (latest == null) return;
+
+            if (latest.equals(current)) {
+                MessageUtil.success(sender, "This server is using the latest version of DisplayTags (v" + latest + ").");
+                return;
+            }
+
+            String url = "https://modrinth.com/plugin/displaytags/version/" + latest;
+            MessageUtil.warning(sender, "This server is running an outdated version of DisplayTags (v" + current + ")");
+            MessageUtil.warning(sender, "<u><click:open_url:'" + url + "'><hover:show_text:'<#00BFFF>➡ <reset><u>" + url + "'>Click to download the latest version (v" + latest + ")");
+        });
     }
 
     public boolean reloadPlugin() {

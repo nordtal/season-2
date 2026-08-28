@@ -3,36 +3,27 @@ import xyz.jpenilla.runtask.task.AbstractRun
 plugins {
     id 'java'
     id("xyz.jpenilla.run-paper") version "2.3.1"
-    id("com.modrinth.minotaur") version "2.+"
+    id("com.gradleup.shadow") version "9.3.2"
 }
 
-group = 'me.itsskeptical'
-version = '1.1.5'
+group = 'me.skyyiscool'
+version = '2.0.0'
 
 repositories {
     mavenCentral()
-    maven {
-        name = "papermc-repo"
-        url = "https://repo.papermc.io/repository/maven-public/"
-    }
-    maven {
-        name = "sonatype"
-        url = "https://oss.sonatype.org/content/groups/public/"
-    }
+    maven { url = "https://repo.papermc.io/repository/maven-public/" }
     maven { url = "https://repo.codemc.io/repository/maven-releases/" }
-    maven { url = "https://repo.codemc.io/repository/maven-snapshots/" }
-    maven { url = "https://repo.extendedclip.com/content/repositories/placeholderapi/" }
-    maven { url = "https://jitpack.io" }
+    maven { url = "https://repo.extendedclip.com/releases/" }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
-    implementation("net.kyori:adventure-api:4.26.1")
-    implementation("net.kyori:adventure-text-minimessage:4.26.1")
-    implementation("net.kyori:adventure-text-serializer-legacy:4.26.1")
-    compileOnly("com.github.retrooper:packetevents-spigot:2.11.0")
+    compileOnly("com.github.retrooper:packetevents-spigot:2.11.2")
     compileOnly("me.clip:placeholderapi:2.12.2")
-    compileOnly("com.github.NEZNAMY:TAB-API:5.5.0")
+
+    implementation(project(":api"))
+    implementation("io.github.revxrsal:spec:1.5")
+
 }
 
 tasks {
@@ -40,39 +31,14 @@ tasks {
         minecraftVersion("1.21.11")
         downloadPlugins {
             modrinth("packetevents", "2.11.2+spigot")
-            modrinth("VoidGen", "2.3.3")
-            hangar("PlaceholderAPI", "2.12.2")
-            modrinth("tab-was-taken", "5.5.0")
         }
     }
 
-    def vString = rootProject.version.toString()
-    def vType = "release"
-    if (vString.contains("-")) {
-        if (vString.contains("beta")) {
-            vType = "beta"
-        } else if (vString.contains("alpha")) {
-            vType = "alpha"
-        }
-    }
+    shadowJar {
+        relocate("revxrsal.spec", "me.skyyiscool.libs.spec")
 
-    modrinth {
-        token = System.getenv("MODRINTH_TOKEN")
-        projectId = "voqEPXf8"
-        version = rootProject.version
-        versionType = vType
-        changelog = rootProject.file("CHANGELOG.md").text
-        uploadFile = "jar"
-        gameVersions = ["1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11"]
-        uploadFile = "build/libs/${rootProject.name}-${rootProject.version}.jar"
-        loaders = ["paper"]
-        syncBodyFrom = rootProject.file("README.md").text
-        dependencies {
-            required.project("packetevents")
-        }
+        archiveClassifier.set("")
     }
-
-    tasks.modrinth.dependsOn(tasks.modrinthSyncBody)
 }
 
 def targetJavaVersion = 21

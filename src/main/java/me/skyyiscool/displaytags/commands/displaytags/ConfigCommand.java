@@ -34,6 +34,7 @@ public class ConfigCommand extends SubCommand {
         messages.add("  <white>Lines <dark_gray>→ " + hover(String.join("\n", config.getLines())));
         messages.add("  <white>Text Shadow <dark_gray>→ " + booleanToString(config.hasTextShadow()));
         messages.add("  <white>See Through <dark_gray>→ " + booleanToString(config.isSeeThrough()));
+        messages.add("  <white>Sneak Text Opacity <dark_gray>→ " + opacity(config.getSneakTextOpacity()));
         messages.add("  <white>Text Alignment <dark_gray>→ <gray>" + config.getTextAlignment().name());
         messages.add("  <white>Background <dark_gray>→ " + color(background) + background(background));
         messages.add("  <white>Billboard <dark_gray>→ <gray>" + config.getBillboard().name());
@@ -58,6 +59,11 @@ public class ConfigCommand extends SubCommand {
 
     private String hover(String text) {
         return "<hover:show_text:'" + text + "'><gray><u>Hover";
+    }
+
+    private String opacity(int opacity) {
+        if (opacity < 0) return "<red>Disabled";
+        return "<gray>" + opacity + " <dark_gray>(0-255)";
     }
 
     private String booleanToString(boolean value) {

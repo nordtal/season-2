@@ -16,6 +16,7 @@ public class NameTagConfiguration {
     private List<String> lines;
     private boolean textShadow;
     private boolean seeThrough;
+    private int sneakTextOpacity;
     private TextAlignment textAlignment;
     private String background;
     private DisplayBillboard billboard;
@@ -33,6 +34,7 @@ public class NameTagConfiguration {
         this.lines = config.nametag().display().lines();
         this.textShadow = config.nametag().display().textShadow();
         this.seeThrough = config.nametag().display().seeThrough();
+        this.sneakTextOpacity = clampOpacity(config.nametag().display().sneakTextOpacity());
         this.textAlignment = alignment;
         this.background = config.nametag().display().background();
         this.billboard = billboard;
@@ -68,6 +70,18 @@ public class NameTagConfiguration {
         return this.seeThrough;
     }
 
+    /**
+     * The text opacity applied while a player is sneaking, or {@code -1} for
+     * "fully opaque", which disables the effect.
+     */
+    public int getSneakTextOpacity() {
+        return this.sneakTextOpacity;
+    }
+
+    public boolean hasSneakTextOpacity() {
+        return this.sneakTextOpacity >= 0;
+    }
+
     public TextAlignment getTextAlignment() {
         return this.textAlignment;
     }
@@ -86,5 +100,14 @@ public class NameTagConfiguration {
 
     public Vector getScale() {
         return this.scale;
+    }
+
+    /**
+     * Text opacity is sent as a single byte, so anything outside of -1 (fully opaque)
+     * and 0-255 would wrap around into a nonsensical value.
+     */
+    private static int clampOpacity(int opacity) {
+        if (opacity < 0) return -1;
+        return Math.min(opacity, 255);
     }
 }

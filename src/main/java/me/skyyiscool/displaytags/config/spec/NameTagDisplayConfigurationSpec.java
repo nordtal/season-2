@@ -47,7 +47,18 @@ public interface NameTagDisplayConfigurationSpec {
         return false;
     }
 
-    @Order(4) @Key("text-alignment")
+    @Order(4) @Key("sneak-text-opacity")
+    @Comment({
+            "How transparent the name tag's text becomes while the player is sneaking.",
+            "0 = fully transparent, 255 = fully opaque.",
+            "Set this to -1 to disable the effect and always keep the text fully opaque.",
+            "Very low values may be rendered as fully transparent by the client."
+    })
+    default int sneakTextOpacity() {
+        return 50;
+    }
+
+    @Order(5) @Key("text-alignment")
     @Comment({
             "The alignment of the name tag's text display.",
             "Available values: \"left\", \"right\", \"center\""
@@ -56,7 +67,7 @@ public interface NameTagDisplayConfigurationSpec {
         return TextAlignment.CENTER.name().toLowerCase();
     }
 
-    @Order(5) @Key("background")
+    @Order(6) @Key("background")
     @Comment({
             "The background color of the name tag's text display.",
             "Use a hex color (like \"#FFFFFF\" for white), or \"transparent\" for no background.",
@@ -66,7 +77,7 @@ public interface NameTagDisplayConfigurationSpec {
         return "default";
     }
 
-    @Order(6) @Key("billboard")
+    @Order(7) @Key("billboard")
     @Comment({
             "The billboard of the name tag's display.",
             "Available values: fixed, vertical, horizontal, center"
@@ -75,7 +86,7 @@ public interface NameTagDisplayConfigurationSpec {
         return Display.Billboard.VERTICAL.name().toLowerCase();
     }
 
-    @Order(7) @Key("offset")
+    @Order(8) @Key("offset")
     @Comment({
         "The offset of the name tag's display relative to the player's location.",
         "This is measured in blocks. (so, 0.5 = half of a block, 1.0 = a full block)",
@@ -88,7 +99,7 @@ public interface NameTagDisplayConfigurationSpec {
         return new ConfigurationVector(0, 0.25, 0);
     }
 
-    @Order(8) @Key("scale")
+    @Order(9) @Key("scale")
     @Comment({
             "The scale of the name tag's display.",
             "This can be used to change the size of the nametag."

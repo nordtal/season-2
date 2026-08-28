@@ -59,7 +59,8 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         // Suppress the vanilla name tag for this viewer, otherwise they would see two names.
         VanillaNameTagUtil.hide(this.player, viewerId);
 
-        if (!this.data.shouldShowToSelf()) return;
+        // "show-to-self: false" only concerns the tag's own owner; every other viewer still sees it.
+        if (!this.data.shouldShowToSelf() && this.isOwner(viewerId)) return;
 
         Player viewer = Bukkit.getPlayer(viewerId);
         if (viewer == null) return;
@@ -135,13 +136,20 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
     private boolean shouldBeVisibleTo(Player viewer) {
         if (viewer == null || !viewer.isOnline() || viewer.isDead()) return false;
-        if (this.data.shouldShowToSelf() && viewer.getUniqueId().equals(this.player.getUniqueId())) return false;
+        if (!this.data.shouldShowToSelf() && this.isOwner(viewer.getUniqueId())) return false;
         if (!viewer.getWorld().getName().equals(this.player.getWorld().getName())) return false;
         if (this.player.isInvisible() || !viewer.canSee(this.player)) return false;
         if (this.player.isDead() || this.player.getGameMode().equals(GameMode.SPECTATOR)) return false;
 
         int visibilityDistance = this.data.getVisibilityDistance();
         return viewer.getLocation().distanceSquared(player.getLocation()) < visibilityDistance * visibilityDistance;
+    }
+
+    /**
+     * Whether {@code viewerId} is the player this name tag belongs to.
+     */
+    private boolean isOwner(UUID viewerId) {
+        return this.player.getUniqueId().equals(viewerId);
     }
 
     private Component getText() {

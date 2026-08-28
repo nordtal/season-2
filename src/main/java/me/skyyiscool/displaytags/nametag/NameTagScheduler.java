@@ -13,8 +13,13 @@ public class NameTagScheduler {
     }
 
     public void start() {
+        // Never leave a previous timer running: start() is called again on every reload.
+        this.end();
+
         if (plugin.config().nametag().isEnabled()) {
-            int interval = (plugin.config().nametag().getUpdateInterval()) * 20;
+            // An update-interval of 0 would ask for a task on every server tick, so keep one tick
+            // as the floor rather than letting the value fall through as a period of 0.
+            int interval = Math.max(1, plugin.config().nametag().getUpdateInterval() * 20);
             task = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
                 for (PlayerNameTag nametag : plugin.getNameTagManager().getAll()) {
                     nametag.tick();
@@ -31,6 +36,7 @@ public class NameTagScheduler {
     public void end() {
         if (task != null) {
             task.cancel();
+            task = null;
             plugin.getLogger().info("Stopped the Name Tag Scheduler.");
         }
     }

@@ -126,14 +126,18 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
         getLogger().info("Reloading DisplayTags...");
 
         this.nameTagScheduler.end();
-        for (PlayerNameTag tag : this.nameTagManager.getAll()) {
-            tag.despawnForViewers();
-        }
+
+        // Drop the old tags entirely instead of only despawning them. They were built from the
+        // previous configuration and the fresh ones below replace them; leaving them registered
+        // would keep stale entries around for every player whose tag is not recreated (for
+        // instance when name tags end up disabled by the new configuration).
+        this.removeAllNameTags();
 
         try {
             this.config.reload();
         } catch (Exception error) {
-            getLogger().severe("Failed to reload plugin configuration:" + error.getMessage());
+            getLogger().severe("Failed to reload the plugin configuration: " + error.getMessage());
+            getLogger().severe("Name tags stay disabled until the configuration reloads successfully.");
             error.printStackTrace();
 
             return false;

@@ -1,6 +1,7 @@
 package me.skyyiscool.displaytags.commands;
 
 import me.skyyiscool.displaytags.DisplayTags;
+import me.skyyiscool.displaytags.commands.displaytags.ConfigCommand;
 import me.skyyiscool.displaytags.commands.displaytags.HelpCommand;
 import me.skyyiscool.displaytags.commands.displaytags.ReloadCommand;
 import me.skyyiscool.displaytags.commands.framework.CommandGroup;
@@ -16,6 +17,7 @@ public class DisplayTagsCommand extends CommandGroup {
         this.setAliases(List.of("dt"));
 
         this.addCommand(new ReloadCommand(this));
+        this.addCommand(new ConfigCommand(this));
         this.addCommand(new HelpCommand(this));
     }
 

@@ -132,8 +132,18 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
         this.updateChecker.getLatestVersion((latest) -> {
             if (latest == null) return;
 
-            if (latest.equals(current)) {
+            // Comparing the strings for equality would flag every build that is newer than the
+            // latest release - a development build of 2.0.0 against a released 1.1.5, for example -
+            // as outdated.
+            int comparison = UpdateChecker.compare(current, latest);
+
+            if (comparison == 0) {
                 MessageUtil.success(sender, "This server is using the latest version of DisplayTags (v" + latest + ").");
+                return;
+            }
+
+            if (comparison > 0) {
+                MessageUtil.success(sender, "This server is running DisplayTags v" + current + ", which is newer than the latest release (v" + latest + ").");
                 return;
             }
 

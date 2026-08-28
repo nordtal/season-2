@@ -58,6 +58,50 @@ public class UpdateChecker {
         });
     }
 
+    /**
+     * Compares two version numbers such as {@code 1.1.5} and {@code 2.0.0}.
+     * <p>
+     * Numeric components are compared from left to right, a missing or unreadable component counts
+     * as zero, and a pre-release suffix ({@code 2.0.0-beta.1}) ranks below the matching final
+     * release.
+     *
+     * @return a negative number if {@code left} is older, zero if both are the same, a positive
+     *         number if {@code left} is newer
+     */
+    public static int compare(String left, String right) {
+        String[] leftParts = release(left).split("\\.");
+        String[] rightParts = release(right).split("\\.");
+
+        for (int index = 0; index < Math.max(leftParts.length, rightParts.length); index++) {
+            int comparison = Integer.compare(component(leftParts, index), component(rightParts, index));
+            if (comparison != 0) return comparison;
+        }
+
+        // Same numbers: a pre-release ("2.0.0-rc.1") is older than the release it leads up to.
+        return Boolean.compare(isRelease(left), isRelease(right));
+    }
+
+    private static String release(String version) {
+        if (version == null) return "";
+
+        int suffix = version.indexOf('-');
+        return suffix < 0 ? version.trim() : version.substring(0, suffix).trim();
+    }
+
+    private static boolean isRelease(String version) {
+        return version != null && version.indexOf('-') < 0;
+    }
+
+    private static int component(String[] parts, int index) {
+        if (index >= parts.length) return 0;
+
+        try {
+            return Integer.parseInt(parts[index].trim());
+        } catch (NumberFormatException error) {
+            return 0;
+        }
+    }
+
     private String fetchLatestVersion() throws Exception {
         URL url = URI.create(API_URL + "/project/" + this.projectId + "/version").toURL();
 

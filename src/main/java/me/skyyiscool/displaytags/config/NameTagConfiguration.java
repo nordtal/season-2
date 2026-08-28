@@ -1,11 +1,15 @@
 package me.skyyiscool.displaytags.config;
 
+import me.skyyiscool.displaytags.api.Util;
 import me.skyyiscool.displaytags.config.spec.DisplayTagsConfigurationSpec;
 import me.skyyiscool.displaytags.wrapper.display.DisplayBillboard;
 import me.skyyiscool.displaytags.wrapper.display.TextAlignment;
 import org.bukkit.util.Vector;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 public class NameTagConfiguration {
     private boolean enabled;
@@ -24,8 +28,9 @@ public class NameTagConfiguration {
     private Vector scale;
 
     public void load(DisplayTagsConfigurationSpec config) {
-        TextAlignment alignment = TextAlignment.valueOf(config.nametag().display().textAlignment().toUpperCase());
-        DisplayBillboard billboard = DisplayBillboard.valueOf(config.nametag().display().billboard().toUpperCase());
+        TextAlignment alignment = parse(TextAlignment.class, "display.text-alignment", config.nametag().display().textAlignment());
+        DisplayBillboard billboard = parse(DisplayBillboard.class, "display.billboard", config.nametag().display().billboard());
+        parseBackground(config.nametag().display().background());
 
         this.enabled = config.nametag().enabled();
         this.showToSelf = config.nametag().showToSelf();
@@ -100,6 +105,43 @@ public class NameTagConfiguration {
 
     public Vector getScale() {
         return this.scale;
+    }
+
+    /**
+     * Reads an enum-valued setting and reports what is actually allowed if it does not match, so a
+     * typo produces a readable message instead of a bare {@code IllegalArgumentException}.
+     */
+    private static <E extends Enum<E>> E parse(Class<E> type, String key, String value) {
+        if (value != null) {
+            try {
+                return Enum.valueOf(type, value.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ignored) {
+                // Falls through to the error below.
+            }
+        }
+
+        String allowed = Arrays.stream(type.getEnumConstants())
+                .map((constant) -> constant.name().toLowerCase(Locale.ROOT))
+                .collect(Collectors.joining(", "));
+
+        throw new IllegalArgumentException(
+                "nametag." + key + ": '" + value + "' is not a valid value. Available values: " + allowed + "."
+        );
+    }
+
+    /**
+     * Validates the background setting at load time. Without this the failure would only surface
+     * later, while a player is joining and their name tag is being built.
+     */
+    private static void parseBackground(String background) {
+        try {
+            Util.parseDisplayBackground(background);
+        } catch (RuntimeException error) {
+            throw new IllegalArgumentException(
+                    "nametag.display.background: '" + background + "' is not a valid value. " +
+                            "Available values: 'default', 'transparent', or a hex colour such as '#FFFFFF'."
+            );
+        }
     }
 
     /**

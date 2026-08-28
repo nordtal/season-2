@@ -28,6 +28,10 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     // The name tag text is cached temporarily, and it is only changed when the name tag ticks.
     private Component cachedText;
 
+    // The line list the resolved lines were derived from, kept to detect API-side changes.
+    private List<String> sourceLines;
+    private List<String> resolvedLines;
+
     public PlayerNameTagImpl(Player player) {
         super(player);
         this.display = new TextDisplayWrapper();
@@ -141,11 +145,10 @@ public class PlayerNameTagImpl extends PlayerNameTag {
     }
 
     private Component getText() {
-        List<String> lines = this.data.getLines()
+        List<String> lines = this.getResolvedLines()
                 .stream()
                 .map((line) -> {
                     String modified = line
-                            .replace("{player}", player.getName())
                             .replace("{health}", String.valueOf(new DecimalFormat("#.##").format(player.getHealth())));
                     if (DependencyUtil.enabledPlaceholderAPI())
                         modified = PlaceholderAPI.setPlaceholders(this.player, modified);
@@ -155,5 +158,24 @@ public class PlayerNameTagImpl extends PlayerNameTag {
                 .toList();
 
         return ComponentUtil.render(lines);
+    }
+
+    /**
+     * The configured lines with {@code {player}} already substituted.
+     * <p>
+     * A player's name is static, so it is resolved once instead of on every tick. The raw lines stay
+     * in {@link me.skyyiscool.displaytags.api.nametag.NameTagData} so that API consumers still read
+     * back what was configured; the substitution is redone whenever they replace the line list.
+     */
+    private List<String> getResolvedLines() {
+        List<String> lines = this.data.getLines();
+        if (lines != this.sourceLines) {
+            this.sourceLines = lines;
+            this.resolvedLines = lines.stream()
+                    .map((line) -> line.replace("{player}", this.player.getName()))
+                    .toList();
+        }
+
+        return this.resolvedLines;
     }
 }

@@ -66,7 +66,16 @@ public final class VanillaNameTagUtil {
         return true;
     }
 
+    /**
+     * The client-side team name used for a player.
+     * <p>
+     * Keyed by the player's UUID rather than their entity id: the entity id changes on respawn, which
+     * would orphan the team on the client and let the vanilla name come back. The UUID is written
+     * without its dashes, which keeps the name at 44 characters - far below the 32767 the team name
+     * field allows since 1.18 (PacketEvents 2.13.0 {@code WrapperPlayServerTeams}, and Paper 26.2's
+     * {@code ClientboundSetPlayerTeamPacket} reads it with the default {@code readUtf()} limit).
+     */
     private static String getTeamName(Player target) {
-        return "displaytags_" + target.getEntityId();
+        return "displaytags_" + target.getUniqueId().toString().replace("-", "");
     }
 }

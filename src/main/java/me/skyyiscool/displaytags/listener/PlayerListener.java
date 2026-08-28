@@ -3,7 +3,6 @@ package me.skyyiscool.displaytags.listener;
 import io.papermc.paper.event.player.PlayerClientLoadedWorldEvent;
 import me.skyyiscool.displaytags.DisplayTags;
 import me.skyyiscool.displaytags.api.nametag.PlayerNameTag;
-import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -73,25 +72,20 @@ public class PlayerListener implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onPlayerGameModeChange(PlayerGameModeChangeEvent event) {
         if (plugin.config().nametag().isEnabled()) {
             Player player = event.getPlayer();
-            PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(player);
-            if (tag == null) return;
+            if (this.plugin.getNameTagManager().getByPlayer(player) == null) return;
 
-            GameMode previousGameMode = player.getGameMode();
-            GameMode newGameMode = event.getNewGameMode();
-
-            // If the player was previously in spectator mode, update the player's name tag.
-            if (previousGameMode == GameMode.SPECTATOR) {
-                tag.tick();
-            }
-
-            // If the player is now entering spectator mode, despawn the player's name tag.
-            if (newGameMode == GameMode.SPECTATOR) {
-                tag.despawnForViewers();
-            }
+            // The game mode is only applied once every listener has run, so Player#getGameMode()
+            // still reports the mode the player is leaving. Ticking here would evaluate visibility
+            // against the old mode - a player leaving spectator would stay hidden. Re-evaluate on
+            // the next tick instead, when the new mode is actually in effect.
+            this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+                PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
+                if (current != null) current.tick();
+            });
         }
     }
 

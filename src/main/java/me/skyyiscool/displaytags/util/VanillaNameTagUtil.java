@@ -20,9 +20,12 @@ public final class VanillaNameTagUtil {
 
     /**
      * Hides {@code target}'s vanilla name tag for a single viewer.
+     *
+     * @return {@code true} if a team packet was sent, {@code false} if TAB is handling the vanilla
+     *         name tags and DisplayTags left the scoreboard alone
      */
-    public static void hide(Player target, UUID viewerId) {
-        if (TabUtil.managesNameTags()) return;
+    public static boolean hide(Player target, UUID viewerId) {
+        if (TabUtil.managesNameTags()) return false;
 
         WrapperPlayServerTeams.ScoreBoardTeamInfo teamInfo = new WrapperPlayServerTeams.ScoreBoardTeamInfo(
                 Component.empty(),
@@ -40,13 +43,18 @@ public final class VanillaNameTagUtil {
                 teamInfo,
                 target.getName()
         ));
+
+        return true;
     }
 
     /**
      * Restores {@code target}'s vanilla name tag for a single viewer.
+     *
+     * @return {@code true} if a team packet was sent, {@code false} if TAB is handling the vanilla
+     *         name tags and DisplayTags left the scoreboard alone
      */
-    public static void show(Player target, UUID viewerId) {
-        if (TabUtil.managesNameTags()) return;
+    public static boolean show(Player target, UUID viewerId) {
+        if (TabUtil.managesNameTags()) return false;
 
         PacketUtil.sendPacket(viewerId, new WrapperPlayServerTeams(
                 getTeamName(target),
@@ -54,6 +62,8 @@ public final class VanillaNameTagUtil {
                 (WrapperPlayServerTeams.ScoreBoardTeamInfo) null,
                 target.getName()
         ));
+
+        return true;
     }
 
     private static String getTeamName(Player target) {

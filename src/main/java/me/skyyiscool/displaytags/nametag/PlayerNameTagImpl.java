@@ -181,9 +181,11 @@ public class PlayerNameTagImpl extends PlayerNameTag {
      * every tick would work, but it makes the client log a warning about a team it already knows.
      */
     private void hideVanillaNameTagFor(UUID viewerId) {
-        if (!this.vanillaHidden.add(viewerId)) return;
+        if (this.vanillaHidden.contains(viewerId)) return;
 
-        VanillaNameTagUtil.hide(this.player, viewerId);
+        // Only remember the viewer when a packet really went out: with TAB present nothing is sent,
+        // and marking them anyway would suppress the packet for good if TAB ever stops handling it.
+        if (VanillaNameTagUtil.hide(this.player, viewerId)) this.vanillaHidden.add(viewerId);
     }
 
     /**

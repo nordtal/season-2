@@ -19,13 +19,15 @@ public class NameTagManagerImpl implements NameTagManager {
 
     @Override
     public PlayerNameTag createNameTag(Player player) {
+        // The previous tag has to go first: it owns display entities on the viewers' clients, and
+        // leaving it in place while a second one spawns is what makes name tags appear twice.
+        if (this.tags.containsKey(player.getUniqueId())) this.removeNameTag(player);
+
         PlayerNameTag tag = new PlayerNameTagImpl(player);
+        this.tags.put(player.getUniqueId(), tag);
 
         NameTagCreateEvent event = new NameTagCreateEvent(tag);
         event.callEvent();
-
-        if (tags.containsKey(player.getUniqueId())) this.removeNameTag(player);
-        tags.put(player.getUniqueId(), tag);
 
         return tag;
     }

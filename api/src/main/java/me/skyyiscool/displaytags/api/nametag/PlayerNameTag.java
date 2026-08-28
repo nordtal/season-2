@@ -1,5 +1,6 @@
 package me.skyyiscool.displaytags.api.nametag;
 
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 import java.util.List;
@@ -34,6 +35,19 @@ public abstract class PlayerNameTag {
     public abstract void despawnFor(UUID viewerId);
     public abstract void tick();
 
+    /**
+     * Moves the name tag's display to an explicit position for a single viewer.
+     * <p>
+     * {@link org.bukkit.event.player.PlayerTeleportEvent} fires <em>before</em> the player is
+     * actually moved, so at that point {@link #getPlayer()}'s location is still the origin and a
+     * teleport packet derived from it would carry the position the player is leaving. Callers that
+     * already know the destination pass it here instead.
+     *
+     * @param viewerId the viewer to send the teleport to
+     * @param location the position the display is moved to; not modified by this call
+     */
+    public abstract void teleportFor(UUID viewerId, Location location);
+
     public void spawnFor(Player viewer) {
         this.spawnFor(viewer.getUniqueId());
     }
@@ -53,6 +67,17 @@ public abstract class PlayerNameTag {
     public void teleportForViewers() {
         for (UUID uuid : this.currentViewers()) {
             this.teleportFor(uuid);
+        }
+    }
+
+    /**
+     * Moves the name tag's display to an explicit position for every current viewer.
+     *
+     * @see #teleportFor(UUID, Location)
+     */
+    public void teleportForViewers(Location location) {
+        for (UUID uuid : this.currentViewers()) {
+            this.teleportFor(uuid, location);
         }
     }
 

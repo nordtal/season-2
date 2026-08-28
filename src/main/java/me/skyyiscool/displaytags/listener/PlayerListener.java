@@ -46,14 +46,22 @@ public class PlayerListener implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         if (plugin.config().nametag().isEnabled()) {
-            PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(event.getPlayer());
+            Player player = event.getPlayer();
+            PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(player);
             if (tag == null) return;
 
-            tag.teleportForViewers();
-            tag.tick();
+            // The event fires before the player is moved, so the destination has to be taken from
+            // the event - the player's own location is still the one they are leaving.
+            tag.teleportForViewers(event.getTo());
+
+            // Distance and world can only be re-evaluated once the move has actually happened.
+            this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+                PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
+                if (current != null) current.tick();
+            });
         }
     }
 

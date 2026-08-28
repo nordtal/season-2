@@ -15,6 +15,7 @@ import me.skyyiscool.displaytags.wrapper.display.TextDisplayWrapper;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
@@ -100,6 +101,14 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
     @Override
     public void teleportFor(UUID viewerId) {
+        this.display.teleportFor(viewerId);
+    }
+
+    @Override
+    public void teleportFor(UUID viewerId, Location location) {
+        // setRotation(0, 0) keeps the display upright; clone() so the caller's Location - which is
+        // usually the live PlayerTeleportEvent destination - is left alone.
+        this.display.setLocation(location.clone().setRotation(0, 0));
         this.display.teleportFor(viewerId);
     }
 

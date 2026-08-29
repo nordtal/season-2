@@ -7,7 +7,7 @@ A full rewrite of DisplayTags, now targeting the 26.2 generation of Minecraft. *
 - **Requires Minecraft 26.2 and Java 25.** This build is compiled for Java 25 and will not load on an older server, no matter which `api-version` you set. If you are still on 1.21.x, stay on **DisplayTags 1.1.5**.
 - **Requires PacketEvents 2.13.0 or newer.** Older PacketEvents builds do not support 26.2.
 - **The configuration layout changed.** The `nametags` section became `nametag`, and `show-self` became `show-to-self`. You do **not** have to edit anything by hand: an existing v1 `config.yml` is migrated automatically the first time the server starts, and your original file is kept next to it as `config.yml.v1.bak`. Everything you had configured is carried over.
-- **The plugin's Java package changed** from `me.itsskeptical.displaytags` to `me.skyyiscool.displaytags`. This only matters if another plugin was reaching into DisplayTags' internals.
+- **The plugin's Java package changed** from `me.itsskeptical.displaytags` to `eu.nordtal.displaytags`. This only matters if another plugin was reaching into DisplayTags' internals.
 
 ## New
 

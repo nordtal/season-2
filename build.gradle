@@ -7,7 +7,7 @@ plugins {
     id("com.modrinth.minotaur") version "2.9.0"
 }
 
-group = 'me.skyyiscool'
+group = 'eu.nordtal'
 version = '2.0.0'
 
 repositories {
@@ -50,7 +50,7 @@ tasks {
     }
 
     shadowJar {
-        relocate("revxrsal.spec", "me.skyyiscool.libs.spec")
+        relocate("revxrsal.spec", "eu.nordtal.libs.spec")
 
         archiveClassifier.set("")
     }

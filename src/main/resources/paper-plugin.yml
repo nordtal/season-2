@@ -1,6 +1,6 @@
 name: DisplayTags
 version: '${version}'
-main: me.skyyiscool.displaytags.DisplayTags
+main: eu.nordtal.displaytags.DisplayTags
 api-version: '26.2'
 authors: [ SkyyIsCool ]
 description: Modern plugin for rich player nametags powered by Text Displays!

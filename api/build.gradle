@@ -1,10 +1,22 @@
 plugins {
     id 'java'
+    id 'maven-publish'
 }
+
+group = 'eu.nordtal'
+version = System.getenv('VERSION') ?: 'local'
 
 repositories {
     mavenCentral()
     maven { url = "https://repo.papermc.io/repository/maven-public/" }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
 }
 
 dependencies {

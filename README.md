@@ -1,17 +1,14 @@
-# DisplayTags
+# papermc-display-tags
 
-<a href="https://github.com/imskeptical/DisplayTags/wiki" target="_blank">
+<a href="API.md" target="_blank">
   <img alt="generic" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/documentation/generic_vector.svg">
 </a>
-<a href="https://github.com/imskeptical/DisplayTags" target="_blank">
+<a href="https://github.com/nordtal/papermc-display-tags" target="_blank">
   <img alt="github" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/available/github_vector.svg">
-</a>
-<a href="https://modrinth.com/project/voqEPXf8" target="_blank">
-  <img alt="modrinth" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/available/modrinth_vector.svg">
 </a>
 <hr />
 
-A lightweight plugin for Minecraft for replacing boring old vanilla Minecraft player nametags with fast & customizable text displays!
+**DisplayTags** is a lightweight plugin for Minecraft for replacing boring old vanilla Minecraft player nametags with fast & customizable text displays!
 
 ## Features
 - 🔗 **Custom** Player Nametags
@@ -39,17 +36,6 @@ Still on Minecraft 1.21.x? Use **DisplayTags 1.1.5** instead — this release do
 ## For developers
 DisplayTags publishes a small `api` module containing the nametag manager, the nametag data model, and `NameTagCreate`, `NameTagRemove`, `NameTagSpawn` and `NameTagDespawn` events. Depend on that module only — everything outside it is internal and may change without notice.
 
-### Using the API
-The `api` module is published on [JitPack](https://jitpack.io/#nordtal/papermc-display-tags). Add the repository and depend on it using a release tag or commit hash as the version:
-
-```groovy
-repositories {
-    maven { url 'https://jitpack.io' }
-}
-
-dependencies {
-    compileOnly 'com.github.nordtal:papermc-display-tags:VERSION'
-}
-```
+See [API.md](API.md) for how to get a DisplayTags instance to develop against, add the API as a dependency (Gradle Groovy, Gradle Kotlin and Maven), and use it from your own plugin.
 
 ![DisplayTags Example](https://imagedelivery.net/W9K_l6ndK9x4x8m3rurakg/ebf31098-5459-46e7-e9a7-ac07cf1c0500/original)

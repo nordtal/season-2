@@ -1,20 +1,20 @@
 plugins {
-    id("java")
+    id("nordtal.jvm-app")
 }
 
-group = "eu.nordtal"
-version = "1.0-SNAPSHOT"
+application.mainClass.set("eu.nordtal.s2.paymentsbot.NordTalPayments")
 
 repositories {
-    mavenCentral()
+    maven("https://jitpack.io")
 }
 
 dependencies {
-    testImplementation(platform("org.junit:junit-bom:6.0.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
+    implementation(libs.jda)
+    implementation(libs.bunq.sdk)
+    implementation(libs.guava)
 
-tasks.test {
-    useJUnitPlatform()
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
+    testCompileOnly(libs.lombok)
+    testAnnotationProcessor(libs.lombok)
 }

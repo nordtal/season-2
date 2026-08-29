@@ -1,0 +1,6 @@
+before_install:
+  - sdk install java 21.0.8-tem
+  - sdk use java 21.0.8-tem
+
+install:
+  - ./gradlew build publishToMavenLocal

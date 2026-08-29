@@ -17,50 +17,30 @@ The following is brief overview of the utility classes provided by java-core.
 ### JSON config loading with config classes / objects
 The [JsonConfigLoader](src/main/java/eu/nordtal/jcore/config/JsonConfigLoader.java) provides methods to load and save JSON config files to and from predefined classes / objects which inherit from [JsonConfig](src/main/java/eu/nordtal/jcore/config/JsonConfig.java). The needed inheritance of JsonConfig is currently redundant, but might be used in the future for new features. The JsonConfigLoader automatically adds and removes new config parameters on load.
 
-## Publishing to Maven Central
-The project is configured to publish signed artifacts to Maven Central via Sonatype.
-Sonatype now requires a token-based `Authorization` header. The build script
-derives the header value by base64 encoding the token's username and password.
-Before running `./gradlew publish` you need to supply the following information
-via `gradle.properties` (see `gradle.properties.sample`) or environment variables:
+## Publishing via JitPack
+Releases are built and served by [JitPack](https://jitpack.io) straight from this repository — no Sonatype account, no GPG signing, no manual upload.
 
+### Consuming jcore
+Add the JitPack repository and the dependency:
+
+```kotlin
+repositories {
+    mavenCentral()
+    maven("https://jitpack.io")
+}
+
+dependencies {
+    implementation("com.github.nordtal:jcore:<tag>")
+}
 ```
-sonatypeUsername=your-sonatype-username-or-token
-sonatypePassword=your-sonatype-password-or-token-secret
-signing.key=base64-encoded-GPG-key
-signing.password=gpg-key-passphrase
-```
 
-Generate an access token in the [Sonatype Central Portal](https://central.sonatype.com/) and import/export your GPG key if required. Snapshot deployments use the `SONATYPE_USERNAME` and `SONATYPE_PASSWORD` environment variables when properties are absent.
+Replace `<tag>` with a released git tag (e.g. `1.0.2`). A commit hash or `master-SNAPSHOT` also works.
 
-### Generating a GPG signing key
+### Releasing
+1. Push a git tag: `git tag 1.0.2 && git push origin 1.0.2`
+2. That is it. JitPack builds the tag the first time somebody requests it; the build config lives in [jitpack.yml](jitpack.yml) (Java 21 toolchain, `./gradlew build publishToMavenLocal`). Build status and logs are at https://jitpack.io/#nordtal/jcore.
 
-Releases are signed with an OpenPGP (GPG) key. If you have never used one before, follow these steps:
+The version is taken from the `VERSION` environment variable JitPack sets; local builds fall back to `local`.
 
-1. **Install GPG** – e.g. `apt install gnupg` or `brew install gpg`. Verify with `gpg --version`.
-2. **Create a key**:
-
-   ```bash
-   gpg --full-generate-key
-   ```
-
-   Choose RSA and a passphrase when prompted.
-3. **Find the key ID**:
-
-   ```bash
-   gpg --list-secret-keys --keyid-format=long
-   ```
-
-4. **Publish the public key** so Maven Central can verify signatures:
-
-   ```bash
-   gpg --keyserver keyserver.ubuntu.com --send-keys <KEY_ID>
-   ```
-
-5. **Export the private key for Gradle** and encode it as a single line:
-
-   ```bash
-   gpg --armor --export-secret-key <KEY_ID> | base64
-   ```
-
-   Put the resulting string into `signing.key` in `gradle.properties`. Use the passphrase you set in step 2 as `signing.password`.
+### Note on the old Maven Central artifact
+`eu.nordtal:jcore:1.0.1` on Maven Central is superseded and will not receive further updates. Use the `com.github.nordtal:jcore` coordinates via JitPack instead.

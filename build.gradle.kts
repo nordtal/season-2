@@ -1,16 +1,13 @@
-import java.util.Base64
-
 plugins {
     id("java")
     id("java-library")
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("signing")
-    id("eu.kakde.gradle.sonatype-maven-central-publisher") version "1.0.6"
+    id("maven-publish")
 }
 
 
 group = "eu.nordtal"
-version = "1.0.0"
+version = System.getenv("VERSION") ?: "local"
 
 
 repositories {
@@ -64,54 +61,11 @@ tasks.register("javadocJar", Jar::class) {
     archiveClassifier.set("javadoc")
 }
 
-val sonatypeUsername: String? by project
-val sonatypePassword: String? by project
-
-sonatypeCentralPublishExtension {
-    groupId.set("eu.nordtal")
-    artifactId.set("jcore")
-    version.set("1.0.0")
-    componentType.set("java")
-    publishingType.set("USER_MANAGED")
-
-    username.set(System.getenv("SONATYPE_USERNAME") ?: sonatypeUsername)
-    password.set(System.getenv("SONATYPE_PASSWORD") ?: sonatypePassword)
-
-    pom {
-        name.set("nordtal.eu JCore")
-        description.set("Common utilities for nordtal.eu projects")
-        url.set("https://github.com/nordtal/jcore")
-
-        licenses {
-            license {
-                name.set("Apache License 2.0")
-                url.set("https://www.apache.org/licenses/LICENSE-2.0")
-            }
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
         }
-
-        developers {
-            developer {
-                id.set("nordtal")
-                name.set("nordtal")
-                email.set("info@nordtal.eu")
-            }
-        }
-
-        scm {
-            connection.set("scm:git:https://github.com/nordtal/jcore.git")
-            developerConnection.set("scm:git:ssh://github.com/nordtal/jcore.git")
-            url.set("https://github.com/nordtal/jcore")
-        }
-    }
-}
-
-signing {
-    val signingKey = project.findProperty("signing.key") as String?
-    val signingPassword = project.findProperty("signing.password") as String?
-
-    if (signingKey != null && signingPassword != null) {
-        val decodedKey = String(Base64.getDecoder().decode(signingKey))
-        useInMemoryPgpKeys(decodedKey, signingPassword)
     }
 }
 

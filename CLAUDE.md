@@ -17,10 +17,12 @@ be implemented in its own session. `payments-bot` is the exception: its source w
 
 Deliberately **not** set up, so nobody adds it by accident thinking it was forgotten:
 
-- **No persistence anywhere.** No database, no `jcore` dependency in any plugin. MariaDB via
-  `jcore` is the leading candidate, but the owner has open doubts about whether season 2 needs
-  much persistence at all and about whether `jcore`'s own DAO layer is the right shape. Decide
-  per module when implementing, and raise it rather than assuming.
+- **No persistence in any plugin.** No database, no `jcore` dependency in `common` or in any of
+  the four server-side modules. MariaDB via `jcore` is the leading candidate, but the owner has
+  open doubts about whether season 2 needs much persistence at all and about whether `jcore`'s
+  own DAO layer is the right shape. Decide per module when implementing, and raise it rather
+  than assuming. **`payments-bot` is the single exception** — it was ported from season 1 and
+  cannot compile without `jcore`. Do not copy its dependency block into a plugin.
 - **No command framework, no message/config system.** Season 1 used Incendo Cloud and
   `jcore`'s `JsonConfigLoader`; neither has been chosen for season 2.
 
@@ -102,6 +104,10 @@ then pushes `ghcr.io/nordtal/payments-bot:<version>`.
 Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymentsbot` →
 `eu.nordtal.s2.paymentsbot`. It will change substantially, but the season 1 code is the base.
 
+- **It is the only module that depends on `jcore`** (`com.github.nordtal:jcore:1.0.2`, published
+  via JitPack). That pulls Hibernate, `jakarta.persistence`, commons-lang3, logback and
+  `org.jetbrains:annotations` in transitively as `api` dependencies, which is why the shaded jar
+  is ~58 MB. Fine for a container; it would not be fine inside a Paper plugin.
 - **It shadows a bunq SDK class.** `src/main/java/com/bunq/sdk/http/BunqRequestBuilder.java` is a
   patched copy of a class from `com.github.bunq:sdk_java`, sitting in the library's own package so
   it wins on the classpath. Nobody currently knows what the patch fixes. **Do not delete it and do

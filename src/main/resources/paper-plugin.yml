@@ -2,7 +2,7 @@ name: DisplayTags
 version: '${version}'
 main: eu.nordtal.displaytags.DisplayTags
 api-version: '26.2'
-authors: [ SkyyIsCool ]
+authors: [ Nordtal ]
 description: Modern plugin for rich player nametags powered by Text Displays!
 dependencies:
   server:

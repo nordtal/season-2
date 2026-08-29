@@ -8,7 +8,7 @@ import revxrsal.spec.annotation.*;
         "----------------------------------",
         "This is the configuration file for DisplayTags.",
         "To apply any changes you make here, run: /displaytags reload",
-        "Wiki: https://github.com/imskeptical/DisplayTags/wiki"
+        "Docs: https://github.com/nordtal/papermc-display-tags"
 })
 public interface DisplayTagsConfigurationSpec {
     @Order(1) @Key("nametag")

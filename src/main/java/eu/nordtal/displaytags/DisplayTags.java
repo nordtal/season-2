@@ -7,16 +7,12 @@ import eu.nordtal.displaytags.commands.DisplayTagsCommand;
 import eu.nordtal.displaytags.config.ConfigurationMigrator;
 import eu.nordtal.displaytags.config.DisplayTagsConfiguration;
 import eu.nordtal.displaytags.listener.PlayerListener;
-import eu.nordtal.displaytags.metrics.Metrics;
 import eu.nordtal.displaytags.nametag.NameTagManagerImpl;
 import eu.nordtal.displaytags.nametag.NameTagScheduler;
 import eu.nordtal.displaytags.util.DependencyUtil;
-import eu.nordtal.displaytags.util.MessageUtil;
 import eu.nordtal.displaytags.util.TabUtil;
-import eu.nordtal.displaytags.util.UpdateChecker;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandMap;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -24,11 +20,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.List;
 
 public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
-    private static final String MODRINTH_PROJECT_ID = "voqEPXf8";
-
     private static DisplayTags INSTANCE;
-    private Metrics metrics;
-    private UpdateChecker updateChecker;
 
     private DisplayTagsConfiguration config;
     private NameTagManager nameTagManager;
@@ -82,13 +74,6 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
             // Register Listeners & Commands
             pluginManager.registerEvents(new PlayerListener(this), this);
             commandMap.register("displaytags", new DisplayTagsCommand(this));
-
-            // Metrics
-            this.metrics = new Metrics(this, 29009);
-
-            // Updates
-            this.updateChecker = new UpdateChecker(this, MODRINTH_PROJECT_ID);
-            this.checkForUpdates(getServer().getConsoleSender());
         } catch (Exception error) {
             getLogger().severe("DisplayTags failed to start up: " + error);
             error.printStackTrace();
@@ -111,8 +96,6 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
         // without an explicit despawn they would linger until the viewer reconnects.
         if (this.nameTagManager != null) this.removeAllNameTags();
 
-        if (this.metrics != null) this.metrics.shutdown();
-
         getLogger().info("Disabled DisplayTags.");
     }
 
@@ -124,33 +107,6 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
         for (PlayerNameTag tag : List.copyOf(this.nameTagManager.getAll())) {
             this.nameTagManager.removeNameTag(tag.getPlayer());
         }
-    }
-
-    public void checkForUpdates(CommandSender sender) {
-        String current = getPluginMeta().getVersion();
-
-        this.updateChecker.getLatestVersion((latest) -> {
-            if (latest == null) return;
-
-            // Comparing the strings for equality would flag every build that is newer than the
-            // latest release - a development build of 2.0.0 against a released 1.1.5, for example -
-            // as outdated.
-            int comparison = UpdateChecker.compare(current, latest);
-
-            if (comparison == 0) {
-                MessageUtil.success(sender, "This server is using the latest version of DisplayTags (v" + latest + ").");
-                return;
-            }
-
-            if (comparison > 0) {
-                MessageUtil.success(sender, "This server is running DisplayTags v" + current + ", which is newer than the latest release (v" + latest + ").");
-                return;
-            }
-
-            String url = "https://modrinth.com/plugin/displaytags/version/" + latest;
-            MessageUtil.warning(sender, "This server is running an outdated version of DisplayTags (v" + current + ")");
-            MessageUtil.warning(sender, "<u><click:open_url:'" + url + "'><hover:show_text:'<#00BFFF>➡ <reset><u>" + url + "'>Click to download the latest version (v" + latest + ")");
-        });
     }
 
     public boolean reloadPlugin() {

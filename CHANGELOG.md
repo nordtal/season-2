@@ -15,7 +15,6 @@ A full rewrite of DisplayTags, now targeting the 26.2 generation of Minecraft. *
 - **Developer API.** A separate `:api` module exposes the name tag manager plus create, remove, spawn and despawn events, so other plugins can read and change name tags without touching internals.
 - **Configurable offset.** The name tag's position relative to the player's head is now a setting (`display.offset`) instead of a fixed value.
 - **Sneak transparency.** Name tags fade out while a player is sneaking. Tune it with `display.sneak-text-opacity`, or set it to `-1` to turn the effect off.
-- **Anonymous usage statistics** via bStats, so the plugin's reach is actually visible. Opt out in `plugins/bStats/config.yml`.
 - `/displaytags config` now shows every setting, including the new ones.
 
 ## Fixed

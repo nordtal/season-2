@@ -40,7 +40,7 @@ Still on Minecraft 1.21.x? Use **DisplayTags 1.1.5** instead — this release do
 DisplayTags publishes a small `api` module containing the nametag manager, the nametag data model, and `NameTagCreate`, `NameTagRemove`, `NameTagSpawn` and `NameTagDespawn` events. Depend on that module only — everything outside it is internal and may change without notice.
 
 ### Using the API
-The `api` module is published on [JitPack](https://jitpack.io/#nordtal/papermc-display-tags). Add the repository and depend on the `api` module using a release tag or commit hash as the version:
+The `api` module is published on [JitPack](https://jitpack.io/#nordtal/papermc-display-tags). Add the repository and depend on it using a release tag or commit hash as the version:
 
 ```groovy
 repositories {
@@ -48,7 +48,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'com.github.nordtal.papermc-display-tags:api:VERSION'
+    compileOnly 'com.github.nordtal:papermc-display-tags:VERSION'
 }
 ```
 

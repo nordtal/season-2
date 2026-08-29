@@ -1,3 +1,6 @@
 before_install:
   - sdk install java 25.0.4-tem
   - sdk use java 25.0.4-tem
+
+install:
+  - ./gradlew :api:build :api:publishToMavenLocal

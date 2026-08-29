@@ -1,12 +1,24 @@
-# smp-resource-pack
+# resource-pack
 The nordtal.eu resource pack provides assets for the game in the form of characters within the range of `\uE000` to `\uF8FF`. It also has some vanilla overrides.
 
-## Setup
-Proper run configurations will be added soon. For now, using JetBrains Fleet, "Deploy Resourcepack" copies the contents of [`src/`](src/) into the specified `TARGET`. Only works on Windows. Make sure to adjust the `TARGET` variable to your needs in [`.fleet/run.json`](.fleet/run.json).
+## Building and deploying
 
-If you're not using Fleet, just find another way that works best for you to copy the [`src/`](src/) content into a folder inside your game's resource pack folder.
+This is a module of the [season-2](../) build. From the repository root:
 
-For building, just compress the contents of [`src/`](src/) into a ZIP file.
+```bash
+./gradlew :resource-pack:packZip
+```
+
+produces `resource-pack/build/distributions/nordtal-resource-pack-<version>.zip` and a
+`.sha1` file next to it. The zip's root is the contents of [`src/`](src/) — `pack.mcmeta` and
+`assets/` must sit at the top level, not inside a `src/` folder.
+
+The client is sent the zip's URL **and** its SHA-1, and refuses the pack if they disagree, which
+is why the hash is generated on every build rather than written down. The zip and its hash are
+attached to each GitHub release; `resource-pack-coercion` serves them to players.
+
+To test locally, copy the contents of [`src/`](src/) into a folder in your game's
+`resourcepacks/` directory.
 
 # Complete asset overview
 

@@ -1,7 +1,7 @@
 plugins {
     id("java")
     id("java-library")
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("com.gradleup.shadow") version "9.6.1"
     id("maven-publish")
 }
 
@@ -65,6 +65,10 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
+            // maven-publish does not pick these up by convention the way the Sonatype plugin
+            // did, so consumers get no in-IDE sources or docs unless they are added explicitly.
+            artifact(tasks["sourcesJar"])
+            artifact(tasks["javadocJar"])
         }
     }
 }

@@ -1,0 +1,112 @@
+{
+    "providers": [
+        {
+            "type": "bitmap",
+            "file": "nordtal:tags/settler.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE000"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:tags/citizen.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE001"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:tags/knight.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE002"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:tags/lord.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE003"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:tags/a.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE004"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:flags/other.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE010"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:flags/germany.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE011"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:flags/netherlands.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE012"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:flags/unitedkingdom.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE013"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:flags/unitedstates.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uE014"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:assets/logo.png",
+            "ascent": 0,
+            "height": 24,
+            "chars": [
+                "\uE020"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:assets/logo.png",
+            "ascent": 25,
+            "height": 32,
+            "chars": [
+                "\uE021"
+            ]
+        }
+    ]
+}

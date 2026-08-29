@@ -1,0 +1,7 @@
+name: hunger-games
+version: '${version}'
+main: eu.nordtal.s2.hungergames.HungerGamesPlugin
+description: The hunger games start event of season 2.
+author: nordtal
+website: https://nordtal.eu
+api-version: '26.2'

@@ -1,0 +1,7 @@
+name: resource-pack-coercion
+version: '${version}'
+main: eu.nordtal.s2.resourcepackcoercion.ResourcePackCoercionPlugin
+description: Applies and enforces the nordtal resource pack on the pack-install server.
+author: nordtal
+website: https://nordtal.eu
+api-version: '26.2'

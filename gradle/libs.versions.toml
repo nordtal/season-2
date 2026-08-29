@@ -1,0 +1,44 @@
+# Every external version used anywhere in this build lives here.
+# Verified 2026-08-29 against the publishing repository's maven-metadata.xml — re-check before bumping.
+[versions]
+# Paper dropped the -R0.1-SNAPSHOT suffix with the 26.x version scheme.
+paper = "26.2.build.121-stable"
+# velocity-api 4.1.1 is compiled for Java 25 and ships the @Plugin annotation processor
+# that generates velocity-plugin.json.
+velocity = "4.1.1"
+# SimpleCloud's API is published only to repo.simplecloud.app/snapshots and is still 0.1.0.
+# It must stay compileOnly and must never be shaded — the simplecloud-api platform plugin
+# provides it at runtime.
+simplecloud = "0.1.0-platform.54-dev.1.1-770dcc6"
+jda = "6.0.0-rc.4"
+bunq = "1.28.0.6"
+guava = "33.6.0-jre"
+jackson = "2.19.2"
+logback = "1.5.18"
+adventure = "5.2.0"
+lombok = "1.18.40"
+annotations = "26.0.2"
+junit = "6.0.0"
+shadow = "9.6.1"
+runpaper = "3.1.0"
+
+[libraries]
+paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
+velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity" }
+simplecloud-api = { module = "app.simplecloud.api:api", version.ref = "simplecloud" }
+jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
+bunq-sdk = { module = "com.github.bunq:sdk_java", version.ref = "bunq" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+adventure-api = { module = "net.kyori:adventure-api", version.ref = "adventure" }
+adventure-minimessage = { module = "net.kyori:adventure-text-minimessage", version.ref = "adventure" }
+annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+[plugins]
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+run-paper = { id = "xyz.jpenilla.run-paper", version.ref = "runpaper" }

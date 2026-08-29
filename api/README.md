@@ -17,7 +17,7 @@ sh gradlew runServer
 ```
 
 This starts a local Paper 26.2 server with DisplayTags, PacketEvents, PlaceholderAPI and TAB
-already installed. Build your own plugin and drop its jar into `run/plugins/`, then restart the
+already installed. Build your own plugin and drop its jar into `../run/plugins`, then restart the
 server to test against a live DisplayTags instance.
 
 **Option B — any Paper 26.2 server.** Build the plugin jar yourself with `sh gradlew build` (the

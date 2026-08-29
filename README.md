@@ -1,6 +1,6 @@
 # papermc-display-tags
 
-<a href="API.md" target="_blank">
+<a href="api/README.md" target="_blank">
   <img alt="generic" height="56" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/documentation/generic_vector.svg">
 </a>
 <a href="https://github.com/nordtal/papermc-display-tags" target="_blank">
@@ -34,8 +34,6 @@ Still on Minecraft 1.21.x? Use **DisplayTags 1.1.5** instead — this release do
 - [**TAB**](https://modrinth.com/plugin/tab-was-taken) — when TAB is present, DisplayTags stops sending its own scoreboard team packets and lets TAB hide the vanilla nametags.
 
 ## For developers
-DisplayTags publishes a small `api` module containing the nametag manager, the nametag data model, and `NameTagCreate`, `NameTagRemove`, `NameTagSpawn` and `NameTagDespawn` events. Depend on that module only — everything outside it is internal and may change without notice.
-
-See [API.md](API.md) for how to get a DisplayTags instance to develop against, add the API as a dependency (Gradle Groovy, Gradle Kotlin and Maven), and use it from your own plugin.
+See the [**API reference**](api/README.md) for how to get a DisplayTags instance to develop against, add the API as a dependency (Gradle Groovy, Gradle Kotlin and Maven), and use it from your own plugin.
 
 ![DisplayTags Example](https://imagedelivery.net/W9K_l6ndK9x4x8m3rurakg/ebf31098-5459-46e7-e9a7-ac07cf1c0500/original)

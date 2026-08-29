@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 @Plugin(
         id = "network-control",
         name = "network-control",
-        version = "@version@",
+        version = "${version}",
         description = "Season 2 phase control and backend routing.",
         url = "https://nordtal.eu",
         authors = {"nordtal"}

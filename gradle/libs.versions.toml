@@ -10,6 +10,9 @@ velocity = "4.1.1"
 # It must stay compileOnly and must never be shaded — the simplecloud-api platform plugin
 # provides it at runtime.
 simplecloud = "0.1.0-platform.54-dev.1.1-770dcc6"
+# jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the
+# git tag. Only payments-bot uses it — see CLAUDE.md before adding it to a plugin.
+jcore = "1.0.2"
 jda = "6.0.0-rc.4"
 bunq = "1.28.0.6"
 guava = "33.6.0-jre"
@@ -26,6 +29,7 @@ runpaper = "3.1.0"
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
 velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity" }
 simplecloud-api = { module = "app.simplecloud.api:api", version.ref = "simplecloud" }
+jcore = { module = "com.github.nordtal:jcore", version.ref = "jcore" }
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
 bunq-sdk = { module = "com.github.bunq:sdk_java", version.ref = "bunq" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }

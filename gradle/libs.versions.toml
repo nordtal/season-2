@@ -27,6 +27,20 @@ annotations = "26.0.2"
 # PostgreSQL JDBC driver. jcore already carries it as a runtime dependency; payments-bot
 # declares it so the version is visible here rather than implied by jcore's POM.
 postgresql = "42.7.13"
+# JDBI, HikariCP and Flyway are pinned to exactly what jcore 3.0.0 depends on (checked against
+# jcore's build.gradle.kts on 2026-08-30). :common needs the first two directly for the access
+# API and must NOT pull jcore in to get them - a Paper plugin cannot carry the bot's ~33 MB
+# dependency block. Keeping the versions identical means the bot, which has both on its
+# classpath, resolves one copy rather than two.
+jdbi = "3.54.0"
+hikaricp = "7.1.0"
+# Flyway is a test-only dependency of :common: the access schema is owned by payments-bot's
+# db/migration and applied there by jcore's Database, but :common's integration tests apply the
+# same migration themselves so they test the real DDL rather than a copy.
+flyway = "13.4.0"
+# slf4j-api only - :common never binds a backend. jdbi3-core pulls the same artifact transitively;
+# it is declared so the version is visible here.
+slf4j = "2.0.18"
 # Testcontainers: only the postgresql module, driven manually from @BeforeAll. The
 # junit-jupiter module is deliberately not used - it is built against JUnit 5 and this
 # repo is on the JUnit 6 BOM.
@@ -49,6 +63,13 @@ adventure-minimessage = { module = "net.kyori:adventure-text-minimessage", versi
 annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 postgresql-driver = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+jdbi-core = { module = "org.jdbi:jdbi3-core", version.ref = "jdbi" }
+jdbi-sqlobject = { module = "org.jdbi:jdbi3-sqlobject", version.ref = "jdbi" }
+jdbi-postgres = { module = "org.jdbi:jdbi3-postgres", version.ref = "jdbi" }
+hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }

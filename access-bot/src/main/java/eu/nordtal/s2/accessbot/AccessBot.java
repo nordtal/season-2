@@ -12,6 +12,7 @@ import eu.nordtal.s2.accessbot.discord.AccessRoles;
 import eu.nordtal.s2.accessbot.discord.AdminCommands;
 import eu.nordtal.s2.accessbot.discord.AdminLog;
 import eu.nordtal.s2.accessbot.discord.GuildState;
+import eu.nordtal.s2.accessbot.discord.LinkFlow;
 import eu.nordtal.s2.accessbot.discord.ManagedMessages;
 import eu.nordtal.s2.accessbot.discord.PurchaseFlow;
 import eu.nordtal.s2.accessbot.payment.PaymentProcessor;
@@ -26,10 +27,13 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -123,9 +127,13 @@ public class AccessBot implements AutoCloseable {
             jda.addEventListener(
                     guildState,
                     new PurchaseFlow(accessConfig, tiers, purchases, requests, messages, roles, admin, worker),
+                    new LinkFlow(access, roles, messages, admin, worker),
                     new AdminCommands(access, roles, requests, admin, messages, worker));
 
-            jda.updateCommands().addCommands(AdminCommands.commands()).queue();
+            final List<CommandData> commands = new ArrayList<>();
+            commands.addAll(AdminCommands.commands());
+            commands.addAll(LinkFlow.commands());
+            jda.updateCommands().addCommands(commands).queue();
 
             new ManagedMessages(jda, accessConfig, tiers, messages, database.jdbi()).publishAll();
             guildState.reconcile();

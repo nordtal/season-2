@@ -14,11 +14,28 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Replacement for the Bunq SDK builder that is compatible with OkHttp5.
- * The original class overrides Request.Builder#delete(), which became final
- * in newer OkHttp versions. This implementation avoids overriding that method
- * and delegates to the superclass instead.
- * Needed because JDA uses OkHttp5 alongside the Bunq SDK.
+ * A patched copy of {@code com.bunq.sdk.http.BunqRequestBuilder} from
+ * {@code com.github.bunq:sdk_java}, sitting in the library's own package so it wins on the
+ * classpath.
+ *
+ * <h2>Why it exists</h2>
+ * <b>JDA pulls OkHttp 5 and the bunq SDK is written against OkHttp 3.</b> Two things broke, and
+ * both are in this one class upstream:
+ * <ul>
+ *   <li>{@code Request.Builder.delete()} - the no-argument overload - is {@code final} in OkHttp
+ *       5, and the SDK's original class overrides exactly that method. That is a
+ *       {@code VerifyError} at class load, not a compile error you would notice.</li>
+ *   <li>{@code okhttp3.internal.Util} no longer exists, and the original used it.</li>
+ * </ul>
+ * This version does not override {@code delete()} - it delegates to the superclass - and does not
+ * touch OkHttp internals.
+ *
+ * <h2>Rules</h2>
+ * <b>Do not delete this file.</b> It is required as long as JDA and the bunq SDK share a
+ * classpath, which they do in this module and only in this module. <b>Re-check it against the
+ * SDK's own sources on any bunq SDK or JDA bump</b>: it is a copy, so a fix upstream does not
+ * reach us, and a change upstream that we do not mirror silently reverts to old behaviour.
+ * Diffed against the 1.28.0.6 sources on 2026-08-30.
  */
 @Getter
 @Setter

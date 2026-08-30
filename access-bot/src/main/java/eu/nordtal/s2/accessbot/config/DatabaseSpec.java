@@ -41,14 +41,14 @@ public interface DatabaseSpec {
             "The SQL dialect is implied by this URL; jcore names no database itself."
     })
     default String jdbcUrl() {
-        return "jdbc:postgresql://localhost:5432/payments";
+        return "jdbc:postgresql://localhost:5432/access";
     }
 
     @Order(2)
     @Key("username")
     @Comment("Database user.")
     default String username() {
-        return "payments";
+        return "access";
     }
 
     @Order(3)

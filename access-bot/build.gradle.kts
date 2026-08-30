@@ -28,9 +28,14 @@ dependencies {
     // Declared here anyway so the version is pinned in this repo's catalog rather than inherited.
     runtimeOnly(libs.postgresql.driver)
 
+    // The access API (eu.nordtal.s2.common.access) and the message system live here. :common
+    // declares JDBI, HikariCP and slf4j compileOnly, so this brings no transitive stack of its
+    // own - the bot already has all three at runtime through jcore, and pinning both to the same
+    // versions in the catalog is what keeps it one copy of each rather than two.
+    implementation(project(":common"))
+
     implementation(libs.jda)
     implementation(libs.bunq.sdk)
-    implementation(libs.guava)
 
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)

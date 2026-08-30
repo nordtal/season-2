@@ -1,33 +1,38 @@
 package eu.nordtal.s2.accessbot.config;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.jcore.config.exception.ConfigReadException;
+
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 
 /**
- * Where the bot's config files live, and the one place that knows they used to be JSON.
+ * Where the bot's config files live, and every rule about what a valid value is.
  * <p>
- * Each file gets its own environment namespace - {@code NORDTAL_DATABASE_*},
- * {@code NORDTAL_BOT_*}, {@code NORDTAL_PAYMENT_PROCESSING_*}. A single shared {@code NORDTAL}
- * prefix would make generic keys collide across files: {@code password} in {@code database.yml}
- * and a {@code password} in any other config would both be {@code NORDTAL_PASSWORD}.
+ * Each file gets its own environment namespace - {@code NORDTAL_DATABASE_*}, {@code NORDTAL_BOT_*},
+ * {@code NORDTAL_ACCESS_*}. A single shared {@code NORDTAL} prefix would make generic keys collide
+ * across files: {@code password} in {@code database.yml} and a {@code password} anywhere else
+ * would both be {@code NORDTAL_PASSWORD}.
+ * </p>
+ * <p>
+ * <b>Every check here runs at startup and stops the process.</b> Season 1's bot loaded its config
+ * inside the service that used it, caught the failure and carried on with hardcoded defaults, so a
+ * broken file ran the bot against the wrong Discord channels. Nothing here is lenient.
+ * </p>
+ * <p>
+ * The one-time jcore 1.x {@code config/*.json} conversion that lived here until stage B is gone.
+ * It existed to carry season 1's deployed config volume forward, and season 2 does not carry
+ * anything forward - new bot, new database, new Discord application, new config volume (see the
+ * workspace {@code CLAUDE.md}: nothing is ever migrated between seasons). {@code access.yml} did
+ * not exist in season 1, so there is nothing it could have converted anyway.
+ * </p>
  */
 @Slf4j
 public final class Configs {
@@ -35,12 +40,10 @@ public final class Configs {
     /**
      * Where the config files live. Mounted as a Docker volume; see the module Dockerfile.
      * <p>
-     * Overridable with {@code -Daccess.config.dir=...} so the tests can point it at a
-     * temporary directory. Nothing in production sets it.
+     * Overridable with {@code -Daccess.config.dir=...} so the tests can point it at a temporary
+     * directory. Nothing in production sets it.
      */
     static final String DIRECTORY_PROPERTY = "access.config.dir";
-
-    private static final Gson JSON = new Gson();
 
     private Configs() {
     }
@@ -52,7 +55,7 @@ public final class Configs {
     // ------------------------------------------------------------------ the three configs
 
     public static @NotNull ConfigHandle<DatabaseSpec> database() throws ConfigException {
-        return load("database", DatabaseSpec.class, "NORDTAL_DATABASE", Map.of(), config -> {
+        return load("database", DatabaseSpec.class, "NORDTAL_DATABASE", config -> {
             requireText("jdbc-url", config.jdbcUrl());
             requireText("username", config.username());
             if (!config.jdbcUrl().startsWith("jdbc:postgresql:")) {
@@ -66,52 +69,97 @@ public final class Configs {
     }
 
     public static @NotNull ConfigHandle<BotSpec> bot() throws ConfigException {
-        return load("bot", BotSpec.class, "NORDTAL_BOT", Map.of(), config -> {
+        return load("bot", BotSpec.class, "NORDTAL_BOT", config -> {
             requireSecret("token", "NORDTAL_BOT_TOKEN", config.token());
             requireSecret("bunq.api-key", "NORDTAL_BOT_BUNQ_API_KEY", config.bunq().apiKey());
             requireSecret("bunq.account-id", "NORDTAL_BOT_BUNQ_ACCOUNT_ID", config.bunq().accountId());
             try {
                 Long.parseLong(config.bunq().accountId().trim());
-            } catch (NumberFormatException e) {
-                // The old code called Long.parseLong inside the poll loop, so a wrong value
+            } catch (final NumberFormatException e) {
+                // The season 1 code called Long.parseLong inside the poll loop, so a wrong value
                 // surfaced as a NumberFormatException minutes into a run.
                 throw new IllegalArgumentException("bunq.account-id must be a number");
+            }
+            final String environment = config.bunq().environment();
+            if (!"PRODUCTION".equals(environment) && !"SANDBOX".equals(environment)) {
+                throw new IllegalArgumentException(
+                        "bunq.environment must be PRODUCTION or SANDBOX, was: " + environment);
             }
         });
     }
 
-    public static @NotNull ConfigHandle<PaymentProcessingSpec> paymentProcessing() throws ConfigException {
-        // The two balance settings were flat in the JSON file and are nested now, so the plain
-        // underscore-to-hyphen rule is not enough to convert them.
-        final Map<String, String> renames = Map.of(
-                "balance_channel_id", "balance.channel-id",
-                "balance_channel_format", "balance.name-format");
+    public static @NotNull ConfigHandle<AccessSpec> access() throws ConfigException {
+        return load("access", AccessSpec.class, "NORDTAL_ACCESS", Configs::validateAccess);
+    }
 
-        return load("payment-processing", PaymentProcessingSpec.class, "NORDTAL_PAYMENT_PROCESSING",
-                renames, config -> {
-                    if (config.checkIntervalSeconds() <= 0) {
-                        throw new IllegalArgumentException(
-                                "check-interval-seconds must be greater than zero, was "
-                                        + config.checkIntervalSeconds());
-                    }
-                    requireText("confirmation-channel-id", config.confirmationChannelId());
-                    requireText("balance.channel-id", config.balance().channelId());
-                    if (!config.balance().nameFormat().contains("%s")) {
-                        throw new IllegalArgumentException(
-                                "balance.name-format must contain %s, where the balance goes");
-                    }
-                });
+    /**
+     * Everything {@code access.yml} has to get right before the bot is allowed to touch a guild.
+     * <p>
+     * Snowflakes are checked for being numeric rather than merely non-empty: a role id with a
+     * stray character is otherwise a {@code null} role deep inside a role assignment, hours later.
+     * </p>
+     */
+    private static void validateAccess(final AccessSpec config) {
+        requireSnowflake("guild-id", config.guildId());
+
+        requireSnowflake("roles.access", config.roles().access());
+        requireSnowflake("roles.donor", config.roles().donor());
+        requireSnowflake("roles.german", config.roles().german());
+        requireSnowflake("roles.english", config.roles().english());
+        requireSnowflake("roles.admin-ping", config.roles().adminPing());
+
+        requireSnowflake("channels.contribution-en", config.channels().contributionEn());
+        requireSnowflake("channels.contribution-de", config.channels().contributionDe());
+        requireSnowflake("channels.link-en", config.channels().linkEn());
+        requireSnowflake("channels.link-de", config.channels().linkDe());
+        requireSnowflake("channels.admin", config.channels().admin());
+
+        requirePositive("tiers.short-days", config.tiers().shortDays());
+        requirePositive("tiers.short-price-cents", config.tiers().shortPriceCents());
+        requirePositive("tiers.medium-days", config.tiers().mediumDays());
+        requirePositive("tiers.medium-price-cents", config.tiers().mediumPriceCents());
+        requirePositive("tiers.long-days", config.tiers().longDays());
+        requirePositive("tiers.long-price-cents", config.tiers().longPriceCents());
+
+        // The "pay what you get" rule picks the highest tier an amount covers, so the tiers have
+        // to be ordered by price for the answer to be the one a human would give.
+        if (config.tiers().shortPriceCents() >= config.tiers().mediumPriceCents()
+                || config.tiers().mediumPriceCents() >= config.tiers().longPriceCents()) {
+            throw new IllegalArgumentException(
+                    "tiers must be strictly increasing in price: short < medium < long");
+        }
+        if (config.tiers().shortDays() >= config.tiers().mediumDays()
+                || config.tiers().mediumDays() >= config.tiers().longDays()) {
+            throw new IllegalArgumentException(
+                    "tiers must be strictly increasing in days: short < medium < long");
+        }
+
+        requirePositive("donation-cents", config.donationCents());
+        requirePositive("link-code-ttl-minutes", config.linkCodeTtlMinutes());
+        requirePositive("expiry-reminder-lead-days", config.expiryReminderLeadDays());
+        requirePositive("role-reconcile-interval-minutes", config.roleReconcileIntervalMinutes());
+        requirePositive("payment.poll-interval-seconds", config.payment().pollIntervalSeconds());
+        requirePositive("payment.request-ttl-hours", config.payment().requestTtlHours());
+        requirePositive("payment.recent-payment-count", config.payment().recentPaymentCount());
+
+        requireText("payment.watermark", config.payment().watermark());
+        try {
+            Instant.parse(config.payment().watermark().trim());
+        } catch (final DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    "payment.watermark must be an ISO-8601 instant such as 2026-09-01T00:00:00Z, was: "
+                            + config.payment().watermark());
+        }
     }
 
     // ------------------------------------------------------------------ loading
 
     private static <T> ConfigHandle<T> load(final String name, final Class<T> specType,
-                                            final String envPrefix, final Map<String, String> renames,
+                                            final String envPrefix,
                                             final ConfigValidator<T> validator) throws ConfigException {
         final Path file = directory().resolve(name + ".yml");
-        convertLegacyJson(name, file, renames);
-
         final boolean fresh = !Files.isRegularFile(file);
+
         final ConfigHandle<T> handle = ConfigLoader.builder(file, specType)
                 .envPrefix(envPrefix)
                 .validator(validator)
@@ -122,70 +170,6 @@ public final class Configs {
                     + "not what you want", file.toAbsolutePath());
         }
         return handle;
-    }
-
-    /**
-     * Converts a jcore 1.x {@code config/<name>.json} to {@code config/<name>.yml} once, the
-     * first time the new bot starts.
-     * <p>
-     * The alternative was a documented manual step, which was rejected: the production config
-     * lives in a Docker volume that nobody edits between pulling an image and starting it, so a
-     * manual step would in practice mean the bot starting on defaults - and after this change,
-     * refusing to start at all. Converting keeps the operator's values and their meaning.
-     * <p>
-     * The JSON file is renamed rather than deleted, so nothing is lost if the conversion turns
-     * out to have got something wrong.
-     */
-    private static void convertLegacyJson(final String name, final Path yaml,
-                                          final Map<String, String> renames) throws ConfigException {
-        final Path json = directory().resolve(name + ".json");
-        if (Files.isRegularFile(yaml) || !Files.isRegularFile(json)) {
-            return;
-        }
-
-        log.info("Found a jcore 1.x config at {}. Converting it to {}.", json, yaml.getFileName());
-        try {
-            final JsonElement root = JsonParser.parseString(Files.readString(json, StandardCharsets.UTF_8));
-            if (!root.isJsonObject()) {
-                throw new ConfigReadException(json + " is not a JSON object; convert it by hand.", null);
-            }
-
-            final Map<String, Object> converted = new LinkedHashMap<>();
-            for (Map.Entry<String, JsonElement> entry : root.getAsJsonObject().entrySet()) {
-                final String target = renames.getOrDefault(entry.getKey(), kebab(entry.getKey()));
-                put(converted, target, JSON.fromJson(entry.getValue(), Object.class));
-            }
-
-            // Written as JSON, which is valid YAML, so the real loader parses it on the next line
-            // and immediately rewrites it properly, with comments and the header.
-            Files.createDirectories(yaml.toAbsolutePath().getParent());
-            Files.writeString(yaml, JSON.toJson(converted), StandardCharsets.UTF_8);
-            Files.move(json, json.resolveSibling(json.getFileName() + ".migrated"),
-                    StandardCopyOption.REPLACE_EXISTING);
-
-            log.info("Converted {} settings. The old file is kept as {}.json.migrated",
-                    converted.size(), name);
-        } catch (IOException | RuntimeException e) {
-            throw new ConfigReadException("Could not convert " + json + " to YAML. Convert it by "
-                    + "hand, or move it aside to start with defaults.", e);
-        }
-    }
-
-    /** {@code check_interval_seconds} -> {@code check-interval-seconds}. */
-    private static String kebab(final String snakeCase) {
-        return snakeCase.replace('_', '-').toLowerCase(Locale.ROOT);
-    }
-
-    /** Writes a possibly dotted path into a nested map. */
-    @SuppressWarnings("unchecked")
-    private static void put(final Map<String, Object> root, final String path, final Object value) {
-        final String[] segments = path.split("\\.");
-        Map<String, Object> current = root;
-        for (int i = 0; i < segments.length - 1; i++) {
-            current = (Map<String, Object>) current
-                    .computeIfAbsent(segments[i], key -> new LinkedHashMap<String, Object>());
-        }
-        current.put(segments[segments.length - 1], value);
     }
 
     // ------------------------------------------------------------------ validation helpers
@@ -200,6 +184,25 @@ public final class Configs {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(
                     key + " is empty. Set " + variable + " in the environment.");
+        }
+    }
+
+    private static void requireSnowflake(final String key, final String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(
+                    key + " is empty. Fill in the Discord id; the bot will not guess one.");
+        }
+        for (int index = 0; index < value.length(); index++) {
+            if (!Character.isDigit(value.charAt(index))) {
+                throw new IllegalArgumentException(
+                        key + " must be a Discord snowflake (digits only), was: " + value);
+            }
+        }
+    }
+
+    private static void requirePositive(final String key, final long value) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(key + " must be greater than zero, was " + value);
         }
     }
 }

@@ -16,8 +16,11 @@ RUN mkdir -p config bunq \
     && chmod 700 bunq
 
 # The bunq API context holds credentials and is kept in a Docker-managed volume, never on
-# the host filesystem. Everything else is configured through environment variables:
-# BOT_TOKEN, MARIADB_URI, MARIADB_USERNAME, MARIADB_PASSWORD, BUNQ_API_KEY, BUNQ_ACCOUNT_ID.
+# the host filesystem. Environment variables: BOT_TOKEN, BUNQ_API_KEY, BUNQ_ACCOUNT_ID.
+#
+# The PostgreSQL connection is NOT an environment variable - it is read from
+# /app/config/database.json (jdbc_url, username, password), which lives in the config volume.
+# The MARIADB_* variables the season 1 bot used are gone along with Hibernate.
 ENV BUNQ_CONFIG_PATH=/app/bunq/bunq-config.conf
 
 VOLUME ["/app/config", "/app/bunq"]

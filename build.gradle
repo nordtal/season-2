@@ -7,14 +7,14 @@ plugins {
 }
 
 group = 'eu.nordtal'
-version = '2.0.0'
+version = '2.1.0'
 
 repositories {
     mavenCentral()
     maven { url = "https://repo.papermc.io/repository/maven-public/" }
     maven { url = "https://repo.codemc.io/repository/maven-releases/" }
     maven { url = "https://repo.extendedclip.com/releases/" }
-    maven { url = "https://jitpack.io" }
+    maven { url = "https://jitpack.io" }   // TAB-API and jcore
 }
 
 dependencies {
@@ -24,7 +24,31 @@ dependencies {
     compileOnly("com.github.NEZNAMY:TAB-API:6.1.2")
 
     implementation(project(":api"))
-    implementation("io.github.revxrsal:spec:1.5")
+
+    // The configuration system. jcore vendors Spec (the library this plugin used directly until
+    // 3.0.0) and hardens it: unknown keys abort instead of being deleted silently, writes are
+    // atomic, reload is locked, and the Gson number policy this file used to have to set itself
+    // is applied there now.
+    //
+    // Only eu.nordtal.jcore.config is used here. jcore also exports its JDBI/HikariCP/Flyway
+    // persistence layer, which is another ~8 MB of shaded jar this plugin has no use for, so the
+    // whole persistence side is excluded. If this plugin ever needs a database, drop the
+    // exclusions rather than adding a second dependency.
+    implementation("com.github.nordtal:jcore:3.0.0") {
+        exclude group: "org.jdbi"
+        exclude group: "com.zaxxer"
+        exclude group: "org.flywaydb"
+        exclude group: "org.postgresql"
+        exclude group: "org.apache.commons"
+        exclude group: "commons-io"
+    }
+
+    // Paper 26.2 ships gson 2.14.0 and snakeyaml 2.6 in its libraries/ directory and the plugin
+    // classloader resolves both - verified on this repo's own runServer on 2026-08-30 with
+    // Class.forName in onEnable. They are compileOnly so they stay out of the shaded jar; see
+    // the shadowJar block.
+    compileOnly("com.google.code.gson:gson:2.14.0")
+    compileOnly("org.yaml:snakeyaml:2.6")
 
 }
 
@@ -48,7 +72,18 @@ tasks {
     }
 
     shadowJar {
-        relocate("revxrsal.spec", "eu.nordtal.libs.spec")
+        // jcore's config package is already under eu.nordtal, so there is nothing to relocate -
+        // the old relocate("revxrsal.spec", "eu.nordtal.libs.spec") is gone with the direct
+        // Spec dependency.
+        //
+        // Gson and SnakeYAML come from Paper at runtime (see the dependency block). Excluding
+        // them keeps a second copy out of the jar and avoids a version clash with the platform's
+        // own. If a future Paper release stops shipping either, this is what breaks - re-run the
+        // Class.forName check before bumping the platform.
+        dependencies {
+            exclude(dependency("com.google.code.gson:gson"))
+            exclude(dependency("org.yaml:snakeyaml"))
+        }
 
         archiveClassifier.set("")
     }

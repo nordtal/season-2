@@ -1,6 +1,6 @@
 package eu.nordtal.displaytags.config.spec;
 
-import revxrsal.spec.annotation.*;
+import eu.nordtal.jcore.config.spec.annotation.*;
 
 @ConfigSpec(header = {
         "----------------------------------",

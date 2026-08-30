@@ -1,5 +1,6 @@
 package eu.nordtal.displaytags;
 
+import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.displaytags.api.DisplayTagsPlugin;
 import eu.nordtal.displaytags.api.nametag.NameTagManager;
 import eu.nordtal.displaytags.api.nametag.PlayerNameTag;
@@ -36,12 +37,20 @@ public final class DisplayTags extends JavaPlugin implements DisplayTagsPlugin {
             ConfigurationMigrator.migrate(this);
 
             this.config = new DisplayTagsConfiguration(this);
-        } catch (Exception error) {
+        } catch (ConfigException | RuntimeException error) {
             // A bad value in config.yml must not take the server down with a raw stack trace.
-            // The plugin is disabled in onEnable, which Bukkit calls either way.
+            // The plugin is disabled in onEnable, which Bukkit calls either way; the rest of the
+            // server keeps running.
+            //
+            // Since 2.1.0 this also covers a setting that does not exist: jcore refuses the file,
+            // names the key and suggests the one that was probably meant, and leaves the file
+            // exactly as the operator wrote it. Previously such a key was deleted on the next
+            // save, taking the operator's line with it.
             this.config = null;
             getLogger().severe("Could not read plugins/DisplayTags/config.yml:");
-            getLogger().severe("  " + error.getMessage());
+            for (String line : String.valueOf(error.getMessage()).split("\n")) {
+                getLogger().severe("  " + line);
+            }
             return;
         }
 

@@ -3,10 +3,10 @@ package eu.nordtal.displaytags.config.spec;
 import eu.nordtal.displaytags.config.typings.ConfigurationVector;
 import eu.nordtal.displaytags.wrapper.display.TextAlignment;
 import org.bukkit.entity.Display;
-import revxrsal.spec.annotation.Comment;
-import revxrsal.spec.annotation.ConfigSpec;
-import revxrsal.spec.annotation.Key;
-import revxrsal.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Comment;
+import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Order;
 
 import java.util.List;
 

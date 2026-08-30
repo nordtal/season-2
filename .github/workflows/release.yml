@@ -45,7 +45,7 @@ jobs:
           cp hunger-games/build/libs/hunger-games-${VERSION}.jar dist/
           cp smp-farm-world/build/libs/smp-farm-world-${VERSION}.jar dist/
           cp network-control/build/libs/network-control-${VERSION}.jar dist/
-          cp payments-bot/build/libs/payments-bot-${VERSION}.jar dist/
+          cp access-bot/build/libs/access-bot-${VERSION}.jar dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
           ls -la dist
@@ -66,9 +66,9 @@ jobs:
       - name: Build and push the payments bot image
         uses: docker/build-push-action@v6
         with:
-          context: payments-bot
-          build-args: JAR=build/libs/payments-bot-${{ env.VERSION }}.jar
+          context: access-bot
+          build-args: JAR=build/libs/access-bot-${{ env.VERSION }}.jar
           push: true
           tags: |
-            ghcr.io/nordtal/payments-bot:${{ env.VERSION }}
-            ghcr.io/nordtal/payments-bot:latest
+            ghcr.io/nordtal/access-bot:${{ env.VERSION }}
+            ghcr.io/nordtal/access-bot:latest

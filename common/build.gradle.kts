@@ -33,7 +33,7 @@ dependencies {
     compileOnly(libs.hikaricp)
     compileOnly(libs.slf4j.api)
 
-    // The integration tests apply payments-bot's real Flyway migration against a real PostgreSQL
+    // The integration tests apply access-bot's real Flyway migration against a real PostgreSQL
     // container (see AccessSchema in src/test/java). Flyway is a test dependency only - :common
     // never migrates anything at runtime; the bot owns that.
     // :common's own tests exercise the access API, so they need the runtime stack that consumers
@@ -49,14 +49,14 @@ dependencies {
     testRuntimeOnly(libs.logback.classic)
 }
 
-// The access schema lives in payments-bot (it is the only module that migrates), but the API that
+// The access schema lives in access-bot (it is the only module that migrates), but the API that
 // reads it lives here. Rather than keeping a second copy of the DDL in test resources - which
 // would drift the first time a column changes - the tests apply the migration directory itself.
 //
-// Referenced through rootProject.file rather than project(":payments-bot") so no cross-project
+// Referenced through rootProject.file rather than project(":access-bot") so no cross-project
 // model access happens at configuration time.
 val accessMigrations: Directory = rootProject.layout.projectDirectory
-    .dir("payments-bot/src/main/resources/db/migration")
+    .dir("access-bot/src/main/resources/db/migration")
 
 tasks.named<Test>("test") {
     inputs.dir(accessMigrations).withPropertyName("accessMigrations").withPathSensitivity(PathSensitivity.RELATIVE)

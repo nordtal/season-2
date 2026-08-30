@@ -14,7 +14,7 @@ The network is a Velocity proxy with three backend servers, run by
          (pack install)         (start event)  (the SMP)
 ```
 
-`payments-bot` runs alongside as a standalone Discord bot, and `resource-pack` holds the pack
+`access-bot` runs alongside as a standalone Discord bot, and `resource-pack` holds the pack
 those servers serve.
 
 ## Modules
@@ -25,7 +25,7 @@ those servers serve.
 | `resource-pack-coercion` | Paper | Applying and enforcing the resource pack before a player goes anywhere else. |
 | `hunger-games` | Paper | The hunger games start event. |
 | `smp-farm-world` | Paper | Farm world lifecycle and resets on the SMP. |
-| `payments-bot` | JVM app | Discord bot: contributions and bunq payments. Ported from `nordtal-payments`. |
+| `access-bot` | JVM app | Discord bot: contributions and bunq payments. Ported from `nordtal-payments`. |
 | `common` | library | Shared across the plugins: resource pack glyph constants, the phase enum. |
 | `resource-pack` | assets | The pack itself, and the zip + SHA-1 the release ships. |
 
@@ -64,7 +64,7 @@ git tag v2.0.0 && git push origin v2.0.0
 
 The `release` workflow refuses a tag that disagrees with `gradle.properties`, then builds every
 module and attaches to one GitHub release: four plugin jars, the bot jar, and the resource pack
-zip with its SHA-1. It also pushes `ghcr.io/nordtal/payments-bot:<version>`.
+zip with its SHA-1. It also pushes `ghcr.io/nordtal/access-bot:<version>`.
 
 ## Configuration
 

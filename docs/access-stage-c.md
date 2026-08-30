@@ -18,13 +18,23 @@ On login, one call to `AccessDirectory.accessState(uuid)`, then:
    from `discord_user.locale`.
 4. Otherwise route on.
 
-This runs on the login path: one query, a short timeout, and a decision for what happens when the
-database is unreachable. **Decide it deliberately** — failing open lets everyone in for free,
-failing closed keeps everyone out. Default to failing closed with a message that says the server is
-having trouble, and log loudly.
+This runs on the login path: one query and a short timeout.
 
-Expiry mid-session is not handled by the gate. Either accept it (access ends at the next login) or
-add a periodic check that disconnects — pick one and write down which.
+**When the database is unreachable** (decided 2026-08-30): fall back to a short-lived in-memory
+cache of last-known states, and let through only players who are in it with access that was active
+when it was cached. Everyone else is refused with a "we are having trouble" message, and the failure
+is logged loudly. Rules that keep this from becoming a second source of truth:
+
+- The cache is written only on a successful query — it never invents an entry.
+- Entries are usable in fallback for a bounded window (start at 15 minutes) and are then gone. A
+  long outage therefore closes the door rather than leaving it open forever.
+- It is consulted **only** while the database is unreachable, never as a read-through cache on the
+  healthy path. Access must not be decided from stale data while the truth is available.
+- It lives in the proxy process and dies with it. No file, no second database.
+
+**Expiry mid-session** (decided 2026-08-30): a periodic check warns the player in chat a few minutes
+before their access ends, then disconnects them when it does. Warning lead time and check interval
+come from configuration. The warning is in the player's language.
 
 ## 2. Link redemption
 
@@ -44,6 +54,7 @@ The proxy shades JDBI + HikariCP + driver + `common`, not `jcore`. `app.simplecl
 ## Verification
 
 Testcontainers for code lifecycle (issue, refresh, expire, redeem, redeem twice, redeem someone
-else's) and the 1:1 constraint. Then a real client against a running proxy: unlinked join shows a
+else's) and the 1:1 constraint. The fallback cache needs its own tests: an unreachable database lets
+a recently-seen player in, refuses an unknown one, and refuses everyone once the window has passed. Then a real client against a running proxy: unlinked join shows a
 code, the code works in Discord, the second join routes through, an expired grant is refused in the
 right language. Packet- and login-path work is not done until a real client has done it.

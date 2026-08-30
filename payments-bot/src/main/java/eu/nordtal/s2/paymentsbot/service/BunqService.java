@@ -6,6 +6,7 @@ import com.bunq.sdk.context.BunqContext;
 import com.bunq.sdk.http.BunqResponse;
 import com.bunq.sdk.model.generated.endpoint.*;
 import com.bunq.sdk.model.generated.object.AmountObject;
+import eu.nordtal.s2.paymentsbot.config.BotSpec;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -21,6 +22,35 @@ public class BunqService {
 
     private static boolean loaded = false;
 
+    /**
+     * Set once at startup by {@code NordTalPayments}. The credentials used to be read from the
+     * environment at each use site, which meant nothing checked they were present until the poll
+     * loop happened to need them - a missing account id surfaced as a NumberFormatException
+     * minutes into a run.
+     */
+    private static BotSpec config;
+
+    /**
+     * Hands this service its credentials. Must be called before anything else here.
+     *
+     * @param botConfig the validated bot configuration
+     */
+    public static void configure(final BotSpec botConfig) {
+        config = botConfig;
+    }
+
+    private static BotSpec config() {
+        if (config == null) {
+            throw new IllegalStateException("BunqService.configure(...) was never called.");
+        }
+        return config;
+    }
+
+    /** The configured monetary account. Validated at startup, so this cannot fail here. */
+    private static long accountId() {
+        return Long.parseLong(config().bunq().accountId().trim());
+    }
+
     public static void acc() {
         assureApiLoaded();
         MonetaryAccountApiObject.list().getValue().stream()
@@ -31,7 +61,7 @@ public class BunqService {
 
     public static String balanceStr() {
         assureApiLoaded();
-        return MonetaryAccountJointApiObject.get(Long.parseLong(System.getenv("BUNQ_ACCOUNT_ID")))
+        return MonetaryAccountJointApiObject.get(accountId())
                 .getValue()
                 .getBalance()
                 .getValue();
@@ -42,14 +72,14 @@ public class BunqService {
         final BunqResponse<Long> re = BunqMeTabApiObject.create(new BunqMeTabEntryApiObject(
                 new AmountObject(String.valueOf(euroAmount), "EUR"),
                 userId + ":" + receiverId
-        ), Long.parseLong(System.getenv("BUNQ_ACCOUNT_ID")));
+        ), accountId());
         final BunqMeTabApiObject entry = BunqMeTabApiObject.get(re.getValue()).getValue();
         return entry.getBunqmeTabShareUrl();
     }
 
     public static java.util.List<PaymentApiObject> listPayments(final int count) {
         assureApiLoaded();
-        return PaymentApiObject.list(Long.parseLong(System.getenv("BUNQ_ACCOUNT_ID")), Map.of("count", String.valueOf(count))).getValue();
+        return PaymentApiObject.list(accountId(), Map.of("count", String.valueOf(count))).getValue();
     }
 
     private static void assureApiLoaded() {
@@ -66,7 +96,7 @@ public class BunqService {
     }
 
     private static Path resolveApiContextPath() {
-        final String configuredPath = System.getenv("BUNQ_CONFIG_PATH");
+        final String configuredPath = config().bunq().contextPath();
         if (configuredPath == null || configuredPath.isBlank()) {
             return Paths.get(API_CONTEXT_FILE);
         }
@@ -80,7 +110,7 @@ public class BunqService {
     private static void initApi(final Path apiContextPath) {
         ApiContext apiContext = ApiContext.create(
                 ApiEnvironmentType.PRODUCTION,
-                System.getenv("BUNQ_API_KEY"),
+                config().bunq().apiKey(),
                 "nordtal payments app"
         );
         ensureDirectoryExists(apiContextPath);

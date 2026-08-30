@@ -23,6 +23,23 @@ tasks.named<xyz.jpenilla.runpaper.task.RunServer>("runServer") {
     minecraftVersion("26.2")
 }
 
+// Paper 26.2 ships Gson and SnakeYAML in its own libraries/ directory (gson 2.14.0,
+// snakeyaml 2.6) and the plugin classloader resolves both - verified on a running 26.2 server
+// on 2026-08-30 by calling Class.forName("com.google.gson.Gson") and
+// Class.forName("org.yaml.snakeyaml.Yaml") from onEnable. jcore's config system needs them, but
+// bundling a second copy in every plugin jar only adds ~700 KB per plugin and invites a version
+// clash with the platform's own. They are excluded here and NOT in nordtal.jvm-app, which has no
+// platform to provide them.
+//
+// If a future Paper release drops either of them, this exclusion is what breaks - re-run that
+// Class.forName check before bumping the platform.
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
+    dependencies {
+        exclude(dependency("com.google.code.gson:gson"))
+        exclude(dependency("org.yaml:snakeyaml"))
+    }
+}
+
 // paper-plugin.yml carries ${version} so the descriptor never drifts from gradle.properties.
 tasks.named<ProcessResources>("processResources") {
     val props = mapOf("version" to project.version.toString())

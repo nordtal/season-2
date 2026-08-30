@@ -75,6 +75,13 @@ junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 
+[bundles]
+# The runtime stack the access API in :common needs. :common itself declares these compileOnly,
+# so a module that never touches the database stays a 20 KB jar. Every consumer of
+# eu.nordtal.s2.common.access adds this bundle - and gets a NoClassDefFoundError at runtime if it
+# forgets, which is the deliberate trade for not shading 3 MB into plugins that have no use for it.
+access-persistence = ["jdbi-core", "jdbi-sqlobject", "jdbi-postgres", "hikaricp", "slf4j-api"]
+
 [plugins]
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 run-paper = { id = "xyz.jpenilla.run-paper", version.ref = "runpaper" }

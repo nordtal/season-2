@@ -5,6 +5,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -204,4 +205,59 @@ interface AccessDao {
             WHERE link.mc_uuid = :mcUuid
             """)
     Optional<String> localeOf(@Bind("mcUuid") UUID mcUuid);
+
+    // ---------------------------------------------------------------- link_code
+
+    /**
+     * Issues a code for one Minecraft account, or hands back the one already live - stage C's
+     * "a repeat attempt shows the same code rather than minting another".
+     * <p>
+     * One statement, so two logins racing for the same UUID cannot both decide "no code exists"
+     * and each write one: {@code link_code.mc_uuid} is {@code UNIQUE}, so the second writer either
+     * blocks on the first's row lock and then re-evaluates the {@code WHERE}, or (if the first one
+     * left a still-valid code) falls straight through to the {@code SELECT} half and returns that
+     * one instead of writing anything.
+     * </p>
+     * <p>
+     * The {@code WHERE link_code.expires <= now()} on the update clause is what makes this an
+     * upsert-if-stale rather than an unconditional overwrite: when a live code already exists, the
+     * {@code INSERT ... ON CONFLICT} branch matches zero rows (the update's WHERE excludes it), so
+     * the CTE returns nothing and the plain {@code SELECT} below - guarded by
+     * {@code NOT EXISTS (SELECT 1 FROM upsert)} - reads back the code that is actually current.
+     * Exactly one of the two branches ever returns a row.
+     * </p>
+     * <p>
+     * A candidate code can still collide with a <em>different</em> account's still-live code - a
+     * violation of the {@code code} primary key, which this statement's {@code ON CONFLICT} target
+     * (scoped to {@code mc_uuid}) does not catch. That surfaces as a thrown exception; the caller
+     * retries with a freshly generated candidate.
+     * </p>
+     */
+    @SqlQuery("""
+            WITH upsert AS (
+                INSERT INTO link_code (code, mc_uuid, expires)
+                VALUES (:code, :mcUuid, :expires)
+                ON CONFLICT (mc_uuid) DO UPDATE
+                    SET code = EXCLUDED.code, created = now(), expires = EXCLUDED.expires
+                    WHERE link_code.expires <= now()
+                RETURNING code, mc_uuid, expires
+            )
+            SELECT code, mc_uuid, expires FROM upsert
+            UNION ALL
+            SELECT code, mc_uuid, expires FROM link_code
+            WHERE mc_uuid = :mcUuid AND NOT EXISTS (SELECT 1 FROM upsert)
+            """)
+    @RegisterRowMapper(LinkCodeMapper.class)
+    LinkCode upsertLinkCode(@Bind("code") String code, @Bind("mcUuid") UUID mcUuid, @Bind("expires") Instant expires);
+
+    /** @return the Minecraft account the code was issued for, empty when unknown or expired */
+    @SqlQuery("SELECT mc_uuid FROM link_code WHERE code = :code AND expires > now()")
+    Optional<UUID> mcUuidForActiveCode(@Bind("code") String code);
+
+    /**
+     * Deletes one code, only once it has actually been redeemed - a failed redemption (an already
+     * linked account, say) leaves the code alone so a legitimate retry is not punished.
+     */
+    @SqlUpdate("DELETE FROM link_code WHERE code = :code")
+    int deleteLinkCode(@Bind("code") String code);
 }

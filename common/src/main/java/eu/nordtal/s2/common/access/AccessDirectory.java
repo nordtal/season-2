@@ -1,6 +1,7 @@
 package eu.nordtal.s2.common.access;
 
 import javax.sql.DataSource;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -183,4 +184,38 @@ public interface AccessDirectory extends AutoCloseable {
     /** Releases the connection pool if this instance owns one. Idempotent. */
     @Override
     void close();
+
+    // ---------------------------------------------------------------- linking (stage C)
+
+    /**
+     * Issues a link code for an unlinked Minecraft account, or hands back the one already live.
+     * <p>
+     * "One per UUID, a repeat attempt returns the same code" is enforced by
+     * {@code link_code.mc_uuid} being {@code UNIQUE} in the database, not by anything in this
+     * class - see {@code AccessDao#upsertLinkCode}. Nothing here checks whether {@code mcUuid} is
+     * already linked; the proxy only calls this for the unlinked branch of the login decision, and
+     * a code for an already-linked account is simply never redeemable (redemption still enforces
+     * the 1:1).
+     * </p>
+     *
+     * @param mcUuid the Minecraft account attempting to join
+     * @param ttl    how long a freshly minted code stays valid; ignored when an unexpired code
+     *               already exists for this account
+     * @return the live code
+     * @throws IllegalArgumentException if {@code ttl} is not positive
+     */
+    LinkCode issueLinkCode(UUID mcUuid, Duration ttl);
+
+    /**
+     * Redeems a code typed into the link modal in Discord: validates it, checks expiry, enforces
+     * the 1:1 (the database's constraints are what actually enforce it - see
+     * {@link #link(String, UUID)}), writes {@code account_link} and deletes the code, all in one
+     * transaction. The code is left in place on any failure, so a wrong click does not burn a
+     * legitimate retry.
+     *
+     * @param discordId the Discord account submitting the code
+     * @param code      what they typed
+     * @return the outcome; never throws for an invalid or already-claimed code
+     */
+    LinkRedemption redeemLinkCode(String discordId, String code);
 }

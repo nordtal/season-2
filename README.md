@@ -9,20 +9,104 @@ The following is a list of all libraries that come with jcore. For details view 
 - **SLF4J API** (the logging *facade* - retrieve a `org.slf4j.Logger` from `org.slf4j.LoggerFactory`)
 - **Apache Commons Lang 3** (Java utilities)
 - **Commons IO** (IO utilities)
-- **FasterXML's Jackson databind** (for working with JSON and mapping objects)
+- **Gson** (config values are serialized through it; `ConfigLoader.gsonBuilder()` returns a `GsonBuilder`)
+- **SnakeYAML** (the YAML reader/writer under the config system)
 - **JDBI 3 Core** (`Jdbi` is returned by `Database#jdbi()`)
 - **JDBI 3 SqlObject** (so consumers can declare `@SqlQuery` / `@SqlUpdate` DAO interfaces)
 
 **Runtime only (not on your compile classpath)**
 - **JDBI 3 Postgres**, **HikariCP**, **Flyway** (`flyway-core` + `flyway-database-postgresql`), **PostgreSQL JDBC driver**
 
+> **Breaking change in 2.0.0 — Jackson is gone.** `com.fasterxml.jackson.core:jackson-databind` was an `api` dependency up to 1.0.2, purely for the JSON config loader. That loader has been replaced (see below) and nothing in jcore uses Jackson any more, so it was dropped rather than demoted. **A consumer that uses Jackson must now declare it itself.** In exchange jcore brings Gson 2.14.0 and SnakeYAML 2.6 — both of which Paper 26.2 already ships in its `libraries/` directory (verified on a running 26.2 server on 2026-08-30), so a Paper plugin can declare them `compileOnly` and keep them out of its shaded jar. Jackson is not among Paper's libraries.
+
 > **Breaking change in 2.0.0:** jcore no longer exports a logging *backend*. Up to 1.0.2 `logback-classic` was an `api` dependency, so every consumer got it for free. A library must not pick the backend for its consumers, so it is now test-scoped. **Consumers that log via Logback must declare `ch.qos.logback:logback-classic` themselves.** Without any SLF4J binding on the classpath you get the "no providers were found" warning and silent logs.
 
 ## List of utilities included
 The following is brief overview of the utility classes provided by jcore.
 
-### JSON config loading with config classes / objects
-The [JsonConfigLoader](src/main/java/eu/nordtal/jcore/config/JsonConfigLoader.java) provides methods to load and save JSON config files to and from predefined classes / objects which inherit from [JsonConfig](src/main/java/eu/nordtal/jcore/config/JsonConfig.java). The needed inheritance of JsonConfig is currently redundant, but might be used in the future for new features. The JsonConfigLoader automatically adds and removes new config parameters on load.
+### Commented YAML configuration
+
+`eu.nordtal.jcore.config` describes a config file as an **annotated interface** and keeps a
+commented YAML file in step with it. It replaces `JsonConfigLoader` and `JsonConfig`, which are
+gone in 2.0.0.
+
+```java
+@ConfigSpec(header = {
+        "Payment processing",
+        "Any setting here can be overridden with NORDTAL_<SETTING>."
+})
+public interface PaymentProcessingSpec {
+
+    @Order(1) @Key("check-interval-seconds")
+    @Comment("How often the bunq account is polled for new payments, in seconds.")
+    default long checkIntervalSeconds() { return 10; }
+
+    @Order(2) @Key("confirmation-channel-id")
+    @Comment("Discord channel that receives payment confirmations.")
+    default String confirmationChannelId() { return "1397264662545957056"; }
+
+    @Reload void reload();
+}
+
+ConfigHandle<PaymentProcessingSpec> handle = ConfigLoader
+        .builder(Path.of("config/payment-processing.yml"), PaymentProcessingSpec.class)
+        .validator(config -> {
+            if (config.checkIntervalSeconds() <= 0)
+                throw new IllegalArgumentException("check-interval-seconds must be positive");
+        })
+        .onLoad(config -> log.info("Polling every {}s", config.checkIntervalSeconds()))
+        .load();
+
+PaymentProcessingSpec config = handle.get();   // stable across reloads, safe to keep in a field
+```
+
+The generated file carries the header and every `@Comment`, in `@Order`:
+
+```yaml
+# Payment processing
+# Any setting here can be overridden with NORDTAL_<SETTING>.
+
+# How often the bunq account is polled for new payments, in seconds.
+check-interval-seconds: 10
+# Discord channel that receives payment confirmations.
+confirmation-channel-id: '1397264662545957056'
+```
+
+**What a load does, in order.** Write a defaults file if none exists; read it; reject any key the
+interface does not declare; deserialize; if the canonical rendering differs from what is on disk —
+a new setting, a reworded comment — back the file up to `.bak` and rewrite it *atomically*; apply
+the environment overlay; validate; run the `onLoad` hook. The hook runs **every** time, whether or
+not anything changed.
+
+**Unknown keys stop the start.** A key the interface does not declare aborts the load, names the
+key with its full path — including its index inside a list, `worlds[1].display-color` — and
+suggests the key that was probably meant. **The file is never trimmed**: a mistyped line is left
+exactly where the operator put it. The old loader deleted such keys silently, so a typo cost both
+the setting and any trace of it, and the application ran on a default until somebody noticed.
+
+**Every value can be overridden by an environment variable**, named `NORDTAL_<PATH>` with `.` and
+`-` both becoming `_` — `balance.channel-id` is `NORDTAL_BALANCE_CHANNEL_ID`. The environment wins
+over the file, and an overridden value is **never written back**, so a secret handed to a container
+cannot leak into a mounted config volume. Which settings were overridden is logged; the values are
+not. Two settings whose variable names would collide are rejected the first time the config loads,
+so a collision is a bug in the interface rather than a surprise in production.
+
+**Reload and threading.** A `@Reload` method on the interface re-reads the file through the same
+strict path, which is what a `/reload` command should call. Reads through `get()` are lock-free;
+reload and save take a write lock shared by every handle on the same file.
+
+**Validation is by hand**, in a `ConfigValidator`, modelled on
+[`DatabaseConfig`](src/main/java/eu/nordtal/jcore/persistence/sql/DatabaseConfig.java). Jakarta Bean
+Validation was considered and rejected: roughly 1.4 MiB in every plugin jar for a handful of
+if-statements.
+
+Spec interfaces must be `public` — they are served by a reflective proxy. jcore checks this when
+the config is built rather than letting it fail later.
+
+The comment machinery is [Spec](https://github.com/Revxrsal/spec) (MIT, Copyright (c) 2021
+Revxrsal), **vendored** into `eu.nordtal.jcore.config.spec` rather than depended on, because it is
+unmaintained (last push 2025-05-01) and needed the hardening above. See [NOTICE](NOTICE) for the
+licence, and the header of each vendored file for what was changed.
 
 ### SQL persistence (JDBI 3 + HikariCP + Flyway)
 `eu.nordtal.jcore.persistence.sql` replaces the Hibernate and Morphia repositories that jcore shipped up to 1.0.2. MongoDB support is gone entirely, and the relational side is now JDBI 3 against PostgreSQL.
@@ -70,6 +154,24 @@ Replace `<tag>` with a released git tag (e.g. `2.0.0`). A commit hash or `master
 2. That is it. JitPack builds the tag the first time somebody requests it; the build config lives in [jitpack.yml](jitpack.yml) (Java 25 toolchain, `./gradlew build publishToMavenLocal`). Build status and logs are at https://jitpack.io/#nordtal/jcore.
 
 The version is taken from the `VERSION` environment variable JitPack sets; local builds fall back to `local`.
+
+## Migrating to 2.0.0
+
+| 1.0.2 | 2.0.0 |
+|---|---|
+| `class Foo extends JsonConfig` with fields | `public interface FooSpec` with `@ConfigSpec`, one default method per setting |
+| `JsonConfigLoader.load(file, Foo.class)` | `ConfigLoader.builder(path, FooSpec.class).load()` returning a `ConfigHandle` |
+| `JsonConfigLoader.save(file, foo)` | `handle.save()` |
+| `postLoad()` — only ran when the file differed | `.onLoad(...)` — runs on every load |
+| `preSave()` | do it before calling `handle.save()` |
+| `config.json`, Jackson, `SNAKE_CASE` field names | `config.yml`, Gson + SnakeYAML, explicit `@Key` |
+| unknown keys deleted silently | unknown keys abort the load, file untouched |
+| scattered `System.getenv` calls | `NORDTAL_<SETTING>` overlay on every value |
+| `ConfigInitializationException` | gone — there is no reflective instantiation of a config class any more |
+| `jackson-databind` on your compile classpath | declare it yourself if you need it |
+
+An existing JSON file is **not** read by the new loader. Convert it — `payments-bot` does this
+once, automatically, on first start; see its `Configs` class.
 
 ### Note on the old Maven Central artifact
 `eu.nordtal:jcore:1.0.1` on Maven Central is superseded and will not receive further updates. Use the `com.github.nordtal:jcore` coordinates via JitPack instead.

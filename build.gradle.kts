@@ -36,9 +36,15 @@ dependencies {
     // https://mvnrepository.com/artifact/commons-io/commons-io  (org-wide toolbox, see README)
     api("commons-io:commons-io:2.20.0")
 
-    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
-    // Consumers annotate their own JsonConfig subclasses with Jackson annotations, so this stays exported.
-    api("com.fasterxml.jackson.core:jackson-databind:2.19.2")
+    // https://mvnrepository.com/artifact/com.google.code/gson  (config values are serialized through Gson)
+    // ConfigLoader#gsonBuilder() returns a GsonBuilder, so this is part of the public contract.
+    // 2.14.0 is both the current release and exactly what Paper 26.2 ships in its libraries/
+    // directory, so a Paper plugin can leave it out of its shaded jar - verified 2026-08-30.
+    api("com.google.code.gson:gson:2.14.0")
+
+    // https://mvnrepository.com/artifact/org.yaml/snakeyaml  (the YAML reader/writer under CommentedConfiguration)
+    // 2.6 for the same reason as Gson above: current release and Paper 26.2's own version.
+    api("org.yaml:snakeyaml:2.6")
 
     // https://mvnrepository.com/artifact/org.jdbi/jdbi3-core  (Jdbi is returned by Database#jdbi())
     api("org.jdbi:jdbi3-core:3.54.0")

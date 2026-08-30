@@ -12,6 +12,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Where the bot's config files live, and every rule about what a valid value is.
@@ -114,25 +118,7 @@ public final class Configs {
         requireSnowflake("channels.link-de", config.channels().linkDe());
         requireSnowflake("channels.admin", config.channels().admin());
 
-        requirePositive("tiers.short-days", config.tiers().shortDays());
-        requirePositive("tiers.short-price-cents", config.tiers().shortPriceCents());
-        requirePositive("tiers.medium-days", config.tiers().mediumDays());
-        requirePositive("tiers.medium-price-cents", config.tiers().mediumPriceCents());
-        requirePositive("tiers.long-days", config.tiers().longDays());
-        requirePositive("tiers.long-price-cents", config.tiers().longPriceCents());
-
-        // The "pay what you get" rule picks the highest tier an amount covers, so the tiers have
-        // to be ordered by price for the answer to be the one a human would give.
-        if (config.tiers().shortPriceCents() >= config.tiers().mediumPriceCents()
-                || config.tiers().mediumPriceCents() >= config.tiers().longPriceCents()) {
-            throw new IllegalArgumentException(
-                    "tiers must be strictly increasing in price: short < medium < long");
-        }
-        if (config.tiers().shortDays() >= config.tiers().mediumDays()
-                || config.tiers().mediumDays() >= config.tiers().longDays()) {
-            throw new IllegalArgumentException(
-                    "tiers must be strictly increasing in days: short < medium < long");
-        }
+        validateTiers(config.tiers());
 
         requirePositive("donation-cents", config.donationCents());
         requirePositive("link-code-ttl-minutes", config.linkCodeTtlMinutes());
@@ -142,13 +128,68 @@ public final class Configs {
         requirePositive("payment.request-ttl-hours", config.payment().requestTtlHours());
         requirePositive("payment.recent-payment-count", config.payment().recentPaymentCount());
 
-        requireText("payment.watermark", config.payment().watermark());
-        try {
-            Instant.parse(config.payment().watermark().trim());
-        } catch (final DateTimeParseException e) {
-            throw new IllegalArgumentException(
-                    "payment.watermark must be an ISO-8601 instant such as 2026-09-01T00:00:00Z, was: "
-                            + config.payment().watermark());
+        // Blank is the normal case: the bot stamps its own first-start instant into the database
+        // and uses that. A value here is an explicit override and has to be readable.
+        final String watermark = config.payment().watermark();
+        if (watermark != null && !watermark.isBlank()) {
+            try {
+                Instant.parse(watermark.trim());
+            } catch (final DateTimeParseException e) {
+                throw new IllegalArgumentException(
+                        "payment.watermark must be empty or an ISO-8601 instant such as "
+                                + "2026-09-01T00:00:00Z, was: " + watermark);
+            }
+        }
+    }
+
+    /**
+     * The price list.
+     * <p>
+     * The ordering is a validation rather than a sort, because the tiers are what the purchase
+     * buttons offer and what the downgrade rule walks. A list where a longer period is cheaper is
+     * not something to quietly reorder - it is a mistake, and the person who made it is the only
+     * one who knows which of the two numbers is wrong.
+     * </p>
+     */
+    private static void validateTiers(final List<AccessSpec.TierSpec> tiers) {
+        if (tiers == null || tiers.isEmpty()) {
+            throw new IllegalArgumentException("""
+                    tiers is empty, so there is nothing to buy. Write at least one entry:
+
+                      tiers:
+                      - days: 30
+                        price-cents: 300
+                      - days: 60
+                        price-cents: 500
+                      - days: 90
+                        price-cents: 700""");
+        }
+
+        final Set<Integer> days = new HashSet<>();
+        for (int index = 0; index < tiers.size(); index++) {
+            final AccessSpec.TierSpec tier = tiers.get(index);
+            requirePositive("tiers[" + index + "].days", tier.days());
+            requirePositive("tiers[" + index + "].price-cents", tier.priceCents());
+            if (!days.add(tier.days())) {
+                // A tier is identified by its day count - that is what a purchase button carries -
+                // so two entries offering the same number of days is an ambiguous lookup.
+                throw new IllegalArgumentException(
+                        "tiers[" + index + "] offers " + tier.days() + " days, which another tier "
+                                + "already offers. Day counts identify a tier and must be unique.");
+            }
+        }
+
+        final List<AccessSpec.TierSpec> byDays = tiers.stream()
+                .sorted(Comparator.comparingInt(AccessSpec.TierSpec::days))
+                .toList();
+        for (int index = 1; index < byDays.size(); index++) {
+            if (byDays.get(index).priceCents() <= byDays.get(index - 1).priceCents()) {
+                throw new IllegalArgumentException(
+                        "tiers must get more expensive as they get longer: " + byDays.get(index).days()
+                                + " days costs " + byDays.get(index).priceCents() + "c but "
+                                + byDays.get(index - 1).days() + " days costs "
+                                + byDays.get(index - 1).priceCents() + "c");
+            }
         }
     }
 

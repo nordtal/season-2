@@ -10,7 +10,7 @@ tasks.register("releaseArtifacts") {
         ":hunger-games:shadowJar",
         ":smp-farm-world:shadowJar",
         ":network-control:shadowJar",
-        ":payments-bot:shadowJar",
+        ":access-bot:shadowJar",
         ":resource-pack:packZip",
     )
 }

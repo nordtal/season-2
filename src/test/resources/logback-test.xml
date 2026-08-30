@@ -1,0 +1,15 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Testcontainers and the Docker client are extremely chatty at DEBUG. -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <!-- Keep this at DEBUG so DatabaseIntegrationTest actually exercises Slf4jSqlLogger. -->
+    <logger name="eu.nordtal.jcore" level="DEBUG"/>
+</configuration>

@@ -1,6 +1,8 @@
 before_install:
-  - sdk install java 21.0.8-tem
-  - sdk use java 21.0.8-tem
+  - sdk install java 25.0.4-tem
+  - sdk use java 25.0.4-tem
 
 install:
+  # The Testcontainers-backed tests skip themselves when no Docker daemon is reachable,
+  # so this stays a plain `build` even though JitPack's builders have no Docker.
   - ./gradlew build publishToMavenLocal

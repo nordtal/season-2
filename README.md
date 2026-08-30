@@ -25,8 +25,8 @@ those servers serve.
 | `resource-pack-coercion` | Paper | Applying and enforcing the resource pack before a player goes anywhere else. |
 | `hunger-games` | Paper | The hunger games start event. |
 | `smp-farm-world` | Paper | Farm world lifecycle and resets on the SMP. |
-| `access-bot` | JVM app | Discord bot: contributions and bunq payments. Ported from `nordtal-payments`. |
-| `common` | library | Shared across the plugins: resource pack glyph constants, the phase enum. |
+| `access-bot` | JVM app | Discord bot: sells access periods, books bunq payments, owns the access schema. |
+| `common` | library | Shared: the access API (`AccessDirectory`), the message system, glyph constants, the phase enum. |
 | `resource-pack` | assets | The pack itself, and the zip + SHA-1 the release ships. |
 
 `DisplayTags` also runs on this network but ships from its own repo,

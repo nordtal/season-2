@@ -3,57 +3,80 @@ package eu.nordtal.s2.accessbot;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.accessbot.bunq.BunqGateway;
+import eu.nordtal.s2.accessbot.config.AccessSpec;
 import eu.nordtal.s2.accessbot.config.BotSpec;
 import eu.nordtal.s2.accessbot.config.Configs;
 import eu.nordtal.s2.accessbot.config.DatabaseSpec;
-import eu.nordtal.s2.accessbot.config.PaymentProcessingSpec;
-import eu.nordtal.s2.accessbot.service.BunqService;
-import eu.nordtal.s2.accessbot.events.ContributionEventListeners;
-import eu.nordtal.s2.accessbot.events.SlashCommandInteractionListener;
-import eu.nordtal.s2.accessbot.service.ContributionService;
-import eu.nordtal.s2.accessbot.service.PaymentProcessingService;
+import eu.nordtal.s2.accessbot.discord.AccessRoles;
+import eu.nordtal.s2.accessbot.discord.AdminCommands;
+import eu.nordtal.s2.accessbot.discord.AdminLog;
+import eu.nordtal.s2.accessbot.discord.GuildState;
+import eu.nordtal.s2.accessbot.discord.ManagedMessages;
+import eu.nordtal.s2.accessbot.discord.PurchaseFlow;
+import eu.nordtal.s2.accessbot.payment.PaymentProcessor;
+import eu.nordtal.s2.accessbot.payment.PaymentRequests;
+import eu.nordtal.s2.accessbot.payment.Purchases;
+import eu.nordtal.s2.accessbot.payment.Tiers;
+import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.message.Messages;
 
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
-import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
-import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.ChunkingFilter;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
+
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Entry point and owner of everything with a lifecycle: the connection pool, the JDA session and
- * the payment poll loop.
+ * Entry point and owner of everything with a lifecycle: the connection pool, the JDA session, the
+ * bunq poll loop and the two sweeps.
+ * <p>
+ * The startup order is deliberate. Configuration is read and validated first, so a bad value stops
+ * the process here - with a message naming the file and the setting - rather than surfacing hours
+ * later against the wrong channel. Then the database, so bad credentials and a broken schema are
+ * found before a Discord session exists. Then Discord, and only once it is ready are the managed
+ * messages published, the guild state reconciled and the timers started.
+ * </p>
  */
 @Slf4j
 public class AccessBot implements AutoCloseable {
 
-    /**
-     * The one connection pool of the process. Everything that touches the database goes through
-     * this instance; it is closed in {@link #close()}.
-     */
-    private final Database database;
+    /** Where the DE/EN message bundles live on the classpath. */
+    private static final String MESSAGE_ROOT = "messages/access";
 
-    @Getter
+    private final Database database;
+    private final AccessDirectory access;
     private final JDA jda;
 
-    @Getter
-    private final PaymentProcessingService paymentProcessingService;
+    /**
+     * Everything that blocks: bunq HTTP calls and the database work behind an interaction. JDA's
+     * gateway threads must not do either - an interaction that is not acknowledged within three
+     * seconds is dead, and a gateway thread waiting on a bank stalls every other interaction.
+     */
+    private final ExecutorService worker = Executors.newFixedThreadPool(4, runnable -> {
+        final Thread thread = new Thread(runnable, "access-bot-worker");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    private final ScheduledExecutorService timers = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "access-bot-timer");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public AccessBot() throws InterruptedException, ConfigException {
-        // Configuration comes first, then persistence, then Discord. Every config is read and
-        // validated before anything with a lifecycle starts, so a bad value stops the process
-        // here - with a message naming the file and the setting - instead of surfacing hours
-        // later against the wrong channel or account. Database.create then fails fast on bad
-        // credentials or an unreachable host, and Flyway on a broken schema, both of which are
-        // better discovered before a Discord session is live and slash commands are registered.
         final DatabaseSpec databaseConfig = Configs.database().get();
         final BotSpec botConfig = Configs.bot().get();
-        final PaymentProcessingSpec paymentConfig = Configs.paymentProcessing().get();
-
-        BunqService.configure(botConfig);
+        final AccessSpec accessConfig = Configs.access().get();
 
         this.database = Database.create(toDatabaseConfig(databaseConfig));
 
@@ -61,29 +84,51 @@ public class AccessBot implements AutoCloseable {
         try {
             log.info("Applied {} database migration(s)", database.migrate());
 
-            jda = JDABuilder.createDefault(botConfig.token())
-                    .enableIntents(GatewayIntent.getIntents(GatewayIntent.ALL_INTENTS))
-                    .build().awaitReady();
+            // The bot borrows the pool it already owns rather than opening a second one. Closing a
+            // borrowed pool is a no-op, so ownership stays here.
+            this.access = AccessDirectory.using(database.dataSource());
 
-            jda.getPresence().setPresence(Activity.of(Activity.ActivityType.CUSTOM_STATUS, "Counting stacks 💶"), false);
+            final Messages messages = Messages.load(MESSAGE_ROOT, Locale.ENGLISH, Locale.GERMAN);
+            final Tiers tiers = Tiers.of(accessConfig);
+            final BunqGateway bunq = new BunqGateway(botConfig);
+            final PaymentRequests requests = new PaymentRequests(database.jdbi());
+            final Purchases purchases = new Purchases(requests, bunq, tiers, accessConfig);
 
-            jda.updateCommands().addCommands(
-                    Commands.slash("send-contribution-embed", "Sends the contribution embed to the channel you are in.")
-                            .setDefaultPermissions(DefaultMemberPermissions.DISABLED),
-                    Commands.slash("test-con", "Adds test contribution.")
-                            .addOption(OptionType.INTEGER, "amount", "Amount", true)
-                            .setDefaultPermissions(DefaultMemberPermissions.DISABLED),
-                    Commands.slash("manual-con", "Adds a manual contribution.")
-                            .addOption(OptionType.USER, "user", "User", true)
-                            .addOption(OptionType.INTEGER, "amount", "Amount", true)
-                            .setDefaultPermissions(DefaultMemberPermissions.DISABLED)
-            ).queue();
+            // GUILD_MEMBERS is privileged and has to be enabled for the application in Discord's
+            // developer portal. It is not optional here: without it there is no member cache, so
+            // the role reconcile and the guild-state reconcile have nothing to read.
+            // GUILD_MODERATION carries the ban and unban events. Nothing else is requested -
+            // season 1 asked for ALL_INTENTS, including message content.
+            this.jda = JDABuilder.createLight(botConfig.token())
+                    .enableIntents(GatewayIntent.GUILD_MEMBERS, GatewayIntent.GUILD_MODERATION)
+                    .setMemberCachePolicy(MemberCachePolicy.ALL)
+                    .setChunkingFilter(ChunkingFilter.ALL)
+                    .build()
+                    .awaitReady();
 
-            paymentProcessingService =
-                    new PaymentProcessingService(jda, new ContributionService(database), paymentConfig);
+            jda.getPresence().setPresence(
+                    Activity.of(Activity.ActivityType.CUSTOM_STATUS, "nordtal.eu"), false);
 
-            jda.addEventListener(new SlashCommandInteractionListener(this), new ContributionEventListeners());
+            final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi());
+            final AccessRoles roles = new AccessRoles(jda, accessConfig, access, messages, admin, database.jdbi());
+            final PaymentProcessor processor = new PaymentProcessor(accessConfig, bunq, requests, purchases,
+                    tiers, access, roles, admin, messages, jda);
+            final GuildState guildState = new GuildState(jda, accessConfig, access, database.jdbi());
+
+            jda.addEventListener(
+                    guildState,
+                    new PurchaseFlow(accessConfig, tiers, purchases, requests, messages, roles, admin, worker),
+                    new AdminCommands(access, roles, requests, admin, messages, worker));
+
+            jda.updateCommands().addCommands(AdminCommands.commands()).queue();
+
+            new ManagedMessages(jda, accessConfig, tiers, messages, database.jdbi()).publishAll();
+            guildState.reconcile();
+            roles.reconcile();
+
+            schedule(accessConfig, processor, roles);
             started = true;
+            log.info("access-bot is up");
         } finally {
             if (!started) {
                 database.close();
@@ -92,25 +137,53 @@ public class AccessBot implements AutoCloseable {
     }
 
     /**
-     * Stops the poll loop, ends the Discord session and closes the connection pool. Idempotent as
-     * far as its parts are.
+     * The three timers.
+     * <p>
+     * Each task is wrapped so a thrown exception cannot silently kill its schedule -
+     * {@code scheduleAtFixedRate} cancels a task that throws, and the failure mode of that is a
+     * bot that looks healthy and stops booking payments.
+     * </p>
      */
+    private void schedule(final AccessSpec config, final PaymentProcessor processor, final AccessRoles roles) {
+        final int poll = config.payment().pollIntervalSeconds();
+        timers.scheduleWithFixedDelay(guarded("payment poll", processor::poll), poll, poll, TimeUnit.SECONDS);
+
+        final int reconcile = config.roleReconcileIntervalMinutes();
+        timers.scheduleWithFixedDelay(guarded("role reconcile", roles::reconcile),
+                reconcile, reconcile, TimeUnit.MINUTES);
+
+        // Expiry DMs and the link-code sweep are cheap and do not need to be frequent; an hour
+        // means a reminder is at most an hour late, against a three-day lead time.
+        timers.scheduleWithFixedDelay(guarded("expiry sweep", () -> {
+            roles.sweepExpiryNotices();
+            roles.sweepLinkCodes();
+        }), 1, 1, TimeUnit.HOURS);
+    }
+
+    private Runnable guarded(final String name, final Runnable task) {
+        return () -> {
+            try {
+                task.run();
+            } catch (final RuntimeException exception) {
+                log.error("The {} task failed; it will run again on schedule", name, exception);
+            }
+        };
+    }
+
+    /** Stops the timers, ends the Discord session and closes the connection pool. */
     @Override
     public void close() {
         log.info("Shutting down");
+        timers.shutdownNow();
+        worker.shutdownNow();
         try {
-            paymentProcessingService.close();
             jda.shutdown();
         } finally {
+            access.close();
             database.close();
         }
     }
 
-    /**
-     * Turns the config settings into the record jcore's {@code Database.create} takes. The pool
-     * knobs jcore exposes but nobody has needed to tune here (idle timeout, max lifetime,
-     * connection timeout) stay at jcore's defaults rather than being mirrored into the file.
-     */
     private static DatabaseConfig toDatabaseConfig(final DatabaseSpec config) {
         return DatabaseConfig.builder(config.jdbcUrl())
                 .username(config.username())
@@ -125,7 +198,7 @@ public class AccessBot implements AutoCloseable {
         final AccessBot bot;
         try {
             bot = new AccessBot();
-        } catch (ConfigException e) {
+        } catch (final ConfigException e) {
             // Deliberately not a stack trace: the message is written for whoever has to fix the
             // file, and it already names the file, the setting and what is wrong with it.
             log.error("access-bot is not starting because its configuration could not be read.");
@@ -137,6 +210,4 @@ public class AccessBot implements AutoCloseable {
         // hook is the only place the pool would ever get closed.
         Runtime.getRuntime().addShutdownHook(new Thread(bot::close, "access-bot-shutdown"));
     }
-
-
 }

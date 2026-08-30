@@ -31,6 +31,10 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
         "  NORDTAL_BOT_BUNQ_API_KEY      the bunq API key",
         "  NORDTAL_BOT_BUNQ_ACCOUNT_ID   the bunq monetary account id",
         "",
+        "Not a credential, but it lives here with them:",
+        "",
+        "  NORDTAL_BOT_BUNQ_ENVIRONMENT  PRODUCTION or SANDBOX",
+        "",
         "An environment value is never written back into this file. Anything",
         "written here does end up in the config volume, so only do that for a",
         "local checkout.",
@@ -73,6 +77,20 @@ public interface BotSpec {
         }
 
         @Order(3)
+        @Key("environment")
+        @Comment({
+                "Which bunq API to talk to: PRODUCTION or SANDBOX.",
+                "",
+                "It used to be hardcoded to PRODUCTION, which made the sandbox end-to-end test",
+                "in docs/access-system.md impossible to run without editing code. The context",
+                "file below belongs to one environment: switching this needs a fresh one, so",
+                "point context-path somewhere else when you switch."
+        })
+        default String environment() {
+            return "PRODUCTION";
+        }
+
+        @Order(4)
         @Key("context-path")
         @Comment({
                 "Where the bunq API context file is kept. It holds credentials and lives in a",

@@ -48,6 +48,11 @@ exactly. Access ends at a timestamp; a role is on or off and moves on a sync cyc
 not used at all — the account link is built in-house (stage C), which also means no chat bridge; if
 one is wanted later, that is a separate decision.
 
+The schema stays owned by the bot module (`db/migration` there, applied by the bot at startup) even
+though the API that reads it lives in `:common` — decided 2026-08-30. Exactly one process may change
+the schema, and Flyway must not come anywhere near `:common`, or it lands in every plugin jar. The
+cost is a documented path from `:common`'s tests to the bot's migration directory.
+
 Plugins and the proxy read the database directly through a `common` API and shade only what they
 need (JDBI + HikariCP + driver), never the full `jcore` dependency block — a Paper plugin must not
 carry the bot's ~33 MB jar.
@@ -103,6 +108,10 @@ The proxy (`network-control`) decides, in this order:
 3. **Access active?** If not: disconnect pointing at the contribution channel, in the player's
    language.
 4. Otherwise: route to the game server.
+
+If the database is unreachable, the proxy falls back to a short-lived cache of last-known states and
+admits only players it saw recently with active access; everyone else is refused. Access that runs
+out mid-session warns the player in chat and then disconnects them. Both are specified in stage C.
 
 Membership state is not queryable from the proxy, so the bot maintains `discord_user.member_state`
 from guild events (join / leave / ban / unban) plus a reconcile at startup for anything it missed

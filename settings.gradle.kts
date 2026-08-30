@@ -35,7 +35,7 @@ include("smp-farm-world")
 include("network-control")
 
 // Standalone JVM application.
-include("payments-bot")
+include("access-bot")
 
 // Shared code, shaded into the plugins that use it.
 include("common")

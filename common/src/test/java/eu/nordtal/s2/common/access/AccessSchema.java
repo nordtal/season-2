@@ -8,7 +8,7 @@ import java.io.File;
 /**
  * Applies the real access schema to a test database.
  * <p>
- * The migration lives in {@code payments-bot/src/main/resources/db/migration} - the bot is the
+ * The migration lives in {@code access-bot/src/main/resources/db/migration} - the bot is the
  * only module that migrates - while the API that reads it lives here. Rather than keeping a second
  * copy of the DDL in this module's test resources, which would drift the first time a column
  * changes, these tests run the migration directory itself. Its absolute path is handed in by

@@ -2,7 +2,7 @@
 
 Everything nordtal.eu season 2 deploys. A Velocity proxy (`network-control`) in front of three
 Paper backends (`resource-pack-coercion` → `hunger-games` → `smp-farm-world`), plus the
-`payments-bot` Discord bot and the `resource-pack` assets. Production runs on
+`access-bot` Discord bot and the `resource-pack` assets. Production runs on
 [SimpleCloud](https://simplecloud.app) on a remote host.
 
 The workspace-level [../CLAUDE.md](../CLAUDE.md) carries the standing instructions and the map of
@@ -12,7 +12,7 @@ the sibling repos. Read it too.
 
 Set up 2026-08-29 from a bare IntelliJ scaffold. **The four server-side plugins are scaffolds with
 no behaviour** — a main class that logs on enable, a descriptor, and nothing else. Each is meant to
-be implemented in its own session. `payments-bot` is the exception: its source was ported from
+be implemented in its own session. `access-bot` is the exception: its source was ported from
 `nordtal-payments` and is real, working code.
 
 Deliberately **not** set up, so nobody adds it by accident thinking it was forgotten:
@@ -21,7 +21,7 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   database, no `jcore` dependency in `common` or in any of the four server-side modules") was
   lifted by the owner on 2026-08-30. Plugins may take a `jcore` dependency and may persist.
   Two things still hold: **decide per module whether that module actually needs persistence**
-  rather than adding it by reflex, and **do not copy `payments-bot`'s dependency block** — its
+  rather than adding it by reflex, and **do not copy `access-bot`'s dependency block** — its
   shaded jar is ~33 MB, which is fine for a container and not fine inside a Paper plugin. A
   plugin that only needs the config system does not need the JDBI/Flyway/PostgreSQL side of
   `jcore` on its runtime classpath; shade what you use.
@@ -80,7 +80,7 @@ before working around it.
   (measured 2026-08-30). Nothing from JDBI or HikariCP appears on `AccessDirectory`'s signature —
   the factories take a `javax.sql.DataSource` or a JDBC URL — so a consumer never compiles against
   them.
-- **The access schema is owned by `payments-bot`** (`src/main/resources/db/migration`), because
+- **The access schema is owned by `access-bot`** (`src/main/resources/db/migration`), because
   the bot is the only process that migrates, but the API that reads it lives in `:common`. A
   column change is therefore an edit in two modules. `:common`'s tests apply that migration
   directory directly (its path is handed to the test JVM by `common/build.gradle.kts`) rather than
@@ -91,7 +91,7 @@ before working around it.
 ## Configuration
 
 Every config file in this repo is a commented YAML file described by an interface, loaded through
-`eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). `payments-bot` is the only module with configs
+`eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). `access-bot` is the only module with configs
 today; the four plugins have none yet and get this as the standing instruction for their first one.
 
 ```java
@@ -132,7 +132,7 @@ What this buys, and the rules that come with it:
 - **Gson and SnakeYAML must not be shaded into a Paper plugin.** Paper 26.2 ships gson 2.14.0 and
   snakeyaml 2.6 in `libraries/`, and the plugin classloader resolves both — verified on a running
   26.2 server on 2026-08-30 with `Class.forName` in `onEnable`. `nordtal.paper-plugin` excludes
-  them from `shadowJar` for that reason. They are *not* excluded for `payments-bot`, which has no
+  them from `shadowJar` for that reason. They are *not* excluded for `access-bot`, which has no
   platform to provide them.
 
 ## Build wiring
@@ -147,7 +147,7 @@ block plus its own dependencies.
 | `nordtal.shaded` | every deployable | shadow; thin jar moved to the `thin` classifier so `shadowJar` takes the plain name |
 | `nordtal.paper-plugin` | the three Paper modules | paper-api, `:common`, `runServer` on 26.2, `${version}` expansion |
 | `nordtal.velocity-plugin` | `network-control` | velocity-api as compileOnly + annotationProcessor, `:common` |
-| `nordtal.jvm-app` | `payments-bot` | `application`, Main-Class in the shaded manifest |
+| `nordtal.jvm-app` | `access-bot` | `application`, Main-Class in the shaded manifest |
 
 Every external version lives in `gradle/libs.versions.toml`. Nothing pins a version in a module
 build file.
@@ -160,11 +160,11 @@ platform plugin provides it at runtime; a bundled copy causes class-loading conf
 One repo-wide version in `gradle.properties` drives everything. `.github/workflows/release.yml`
 fires on a `v*` tag, refuses a tag that disagrees with `gradle.properties`, runs `releaseArtifacts`,
 and attaches four plugin jars + the bot jar + the pack zip and its `.sha1` to one GitHub release,
-then pushes `ghcr.io/nordtal/payments-bot:<version>`.
+then pushes `ghcr.io/nordtal/access-bot:<version>`.
 
 `season-2` itself produces no combined build, and does not republish jars built in other repos.
 
-## payments-bot → access-bot
+## access-bot
 
 **The season 2 model was decided on 2026-08-30 and is written down in
 [docs/access-system.md](docs/access-system.md), with the three implementation stages in
@@ -179,7 +179,7 @@ login, the account link is built in-house, and the module is renamed to `access-
 (`eu.nordtal.s2.accessbot`) as part of stage B.
 
 Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymentsbot` →
-`eu.nordtal.s2.paymentsbot`. It will change substantially, but the season 1 code is the base.
+`eu.nordtal.s2.accessbot`. It will change substantially, but the season 1 code is the base.
 
 - **It is the only module that depends on `jcore`** (`com.github.nordtal:jcore:2.0.0`, published
   via JitPack). That exports jdbi3-core, jdbi3-sqlobject, slf4j-api, commons-lang3, commons-io,
@@ -190,7 +190,7 @@ Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymen
   declares `ch.qos.logback:logback-classic` itself. Remove that and SLF4J binds to a no-op: every
   log line disappears behind a single "no providers found" warning.
 - **Persistence is JDBI 3 + HikariCP + Flyway on PostgreSQL** — no Hibernate, no JPA, no MariaDB.
-  One `Database` per process, created and closed by `NordTalPayments`. The schema is owned by
+  One `Database` per process, created and closed by `AccessBot`. The schema is owned by
   `src/main/resources/db/migration/`, applied by `database.migrate()` at startup.
   **Stage A rewrote `V1` in place into the season 2 access schema** (`V1__access.sql`, renamed from
   `V1__contribution.sql`): `discord_user`, `account_link`, `link_code`, `payment_request`,
@@ -233,7 +233,7 @@ Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymen
   that moved into a nested `balance` section and so need more than the snake-case-to-kebab rule.
   A manual step was rejected: the production config lives in a volume nobody edits between pulling
   an image and starting it.
-- **The bot fails fast on configuration.** `NordTalPayments` loads and validates all three files
+- **The bot fails fast on configuration.** `AccessBot` loads and validates all three files
   before anything with a lifecycle starts, and `main` exits with status 1 on a `ConfigException`.
   `PaymentProcessingService` no longer loads its own config: it used to catch the failure, log it
   and carry on with `new PaymentProcessingConfig()`, so a broken file ran the bot against default
@@ -260,7 +260,7 @@ to be `make_interval(hours => days * 24)`, because `interval 'N days'` on a `tim
 calendar arithmetic in the *client session's* time zone and a period spanning the end of summer
 time came out an hour long. **Never express an access duration in days in SQL.**
 
-`payments-bot`: `ContributionRepositoryTest` covers the
+`access-bot`: `ContributionRepositoryTest` covers the
 contribution-scheduling logic in memory, and `ContributionRepositoryIntegrationTest` runs the DAO
 layer against a real PostgreSQL container (Testcontainers, driven by hand from `@BeforeAll` —
 the `org.testcontainers:junit-jupiter` extension is built against JUnit 5 and this repo is on the

@@ -236,14 +236,16 @@ public final class ConfigHandle<T> {
                     file.getFileName(), overridden.size(), String.join(", ", overridden));
         }
 
-        reference.set(value);
-        this.overriddenPaths = List.copyOf(overridden);
-
+        // Validate before the new value is published. Otherwise a reload that fails validation
+        // would leave this handle holding values the application never accepted.
         try {
-            validator.validate(reference.get());
+            validator.validate(value);
         } catch (IllegalArgumentException e) {
             throw new ConfigValidationException(file, e.getMessage(), e);
         }
+
+        reference.set(value);
+        this.overriddenPaths = List.copyOf(overridden);
 
         // Unconditional. Whether the file changed says nothing about whether the application
         // still needs its post-load wiring done.

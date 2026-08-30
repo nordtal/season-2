@@ -478,6 +478,27 @@ class ConfigLoaderTest {
     }
 
     @Test
+    @DisplayName("a reload that fails validation leaves the previously loaded values in place")
+    void failedValidationOnReloadKeepsOldValues() throws Exception {
+        final ConfigValidator<TestSpecs.Payments> validator = config -> {
+            if (config.checkIntervalSeconds() <= 0) {
+                throw new IllegalArgumentException("check-interval-seconds must be positive");
+            }
+        };
+        final ConfigHandle<TestSpecs.Payments> handle = ConfigLoader
+                .builder(file(), TestSpecs.Payments.class)
+                .withoutEnvironmentOverlay().validator(validator).load();
+        final TestSpecs.Payments config = handle.get();
+
+        Files.writeString(file(), Files.readString(file())
+                .replace("check-interval-seconds: 10", "check-interval-seconds: -1"));
+
+        assertThrows(ConfigValidationException.class, handle::reload);
+        assertEquals(10L, config.checkIntervalSeconds(),
+                "values the application rejected must never become visible");
+    }
+
+    @Test
     @DisplayName("a failed reload leaves the previously loaded values in place")
     void failedReloadKeepsOldValues() throws Exception {
         final ConfigHandle<TestSpecs.Payments> handle = ConfigLoader

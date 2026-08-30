@@ -81,7 +81,7 @@ same way.
 
 Two independent paths, both stored on the request:
 
-1. **Primary — the tab itself.** `BunqMeTabApiObject.get(tabId, accountId).getResultInquiries()`
+1. **Primary — the tab itself.** `BunqMeTabApiObject.get(tabId, accountId).getValue().getResultInquiries()`
    returns the actual `PaymentApiObject`s that settled that tab. This is an exact link, verified in
    the SDK sources on 2026-08-30 (`BunqMeTabResultInquiryApiObject.getPayment()`), and needs no text
    parsing at all.

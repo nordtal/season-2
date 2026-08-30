@@ -151,7 +151,19 @@ then pushes `ghcr.io/nordtal/payments-bot:<version>`.
 
 `season-2` itself produces no combined build, and does not republish jars built in other repos.
 
-## payments-bot
+## payments-bot → access-bot
+
+**The season 2 model was decided on 2026-08-30 and is written down in
+[docs/access-system.md](docs/access-system.md), with the three implementation stages in
+`docs/access-stage-{a,b,c}.md`. Read the concept before touching this module or the access path in
+`common` and `network-control` — the code below still describes season 1's model.**
+
+In short: contribution tiers, bank transfer and the receiver select are gone. Season 2 sells
+**access periods** (30/60/90 days at 3/5/7 €, optional +5 € donation) bound to a Discord account,
+paid by bunq.me card payment only. The database is the source of truth for access, donor status and
+language; Discord roles are a projection of it and LuckPerms is not involved. The proxy gates the
+login, the account link is built in-house, and the module is renamed to `access-bot`
+(`eu.nordtal.s2.accessbot`) as part of stage B.
 
 Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymentsbot` →
 `eu.nordtal.s2.paymentsbot`. It will change substantially, but the season 1 code is the base.
@@ -172,9 +184,11 @@ Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymen
   column is the source of truth for the value.
 - **It shadows a bunq SDK class.** `src/main/java/com/bunq/sdk/http/BunqRequestBuilder.java` is a
   patched copy of a class from `com.github.bunq:sdk_java`, sitting in the library's own package so
-  it wins on the classpath. Nobody currently knows what the patch fixes. **Do not delete it and do
-  not bump the bunq SDK without working out what it was for** — that investigation is owed when
-  work on the bot is picked up.
+  it wins on the classpath. **Resolved 2026-08-30 by diffing it against the 1.28.0.6 sources:** JDA
+  pulls **OkHttp 5**, where `Request.Builder.delete()` (no argument) is `final` and
+  `okhttp3.internal.Util` no longer exists — and the SDK's original class overrides exactly that
+  method. The patch is required as long as JDA and the bunq SDK share a classpath. Do not delete it,
+  and re-check it on any bunq SDK or JDA bump.
 - The Dockerfile is runtime-only: Gradle builds the jar, `docker build --build-arg JAR=...` wraps
   it. A self-contained build stage would have to copy this whole multi-module repo.
 - **Configuration is `config/*.yml`, loaded through jcore 3.0.0's config system** — three files:

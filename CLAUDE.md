@@ -10,10 +10,13 @@ the sibling repos. Read it too.
 
 ## Repository state (READ THIS FIRST)
 
-Set up 2026-08-29 from a bare IntelliJ scaffold. **The four server-side plugins are scaffolds with
-no behaviour** — a main class that logs on enable, a descriptor, and nothing else. Each is meant to
-be implemented in its own session. `access-bot` is the exception: it was rebuilt for season 2 in
-stage B (2026-08-30) and is real code — see its section below.
+Set up 2026-08-29 from a bare IntelliJ scaffold. **`hunger-games`, `smp-farm-world` and
+`resource-pack-coercion` are still scaffolds with no behaviour** — a main class that logs on
+enable, a descriptor, and nothing else. Each is meant to be implemented in its own session.
+`access-bot` and `network-control` are the exceptions: `access-bot` was rebuilt for season 2 in
+stage B (2026-08-30) and `network-control` got the stage C access login gate on top of its own
+scaffold the same day — see the "access-bot" section below for both; `network-control` has no
+section of its own yet.
 
 Deliberately **not** set up, so nobody adds it by accident thinking it was forgotten:
 
@@ -166,7 +169,7 @@ then pushes `ghcr.io/nordtal/access-bot:<version>`.
 
 ## access-bot
 
-Season 2's Discord bot. **Stage B is implemented (2026-08-30)**; the concept is
+Season 2's Discord bot. **Stage C is implemented (2026-08-30)**; the concept is
 [docs/access-system.md](docs/access-system.md) and the stage plans are
 `docs/access-stage-{a,b,c}.md`. Read the concept before changing anything here or in the access
 path in `common` and `network-control`.
@@ -175,9 +178,31 @@ It sells **access periods** (30/60/90 days at 3/5/7 €, optional +5 € donatio
 account, paid by bunq.me card payment only. Season 1's contribution tiers, bank transfer, receiver
 select and balance voice channel are gone. The database is the source of truth for access, donor
 status and language; Discord roles are a projection of it and LuckPerms is not involved.
-**Stage C is not built**: the proxy gate and link-code issuing do not exist yet, which is why the
-two link messages carry an explanation and no button, and why `link_code` is only swept, never
-written.
+
+**Stage C added the proxy login gate (`network-control`) and account linking end to end.** The two
+managed link messages now carry a working button that opens a modal for the code; `/unlink` is a
+self-service, no-waiting-period command that always writes to the admin channel. `link_code` is
+issued by `network-control` (`AccessDirectory#issueLinkCode`, package-private SQL in `common`'s
+`AccessDao`) and redeemed by the bot (`AccessDirectory#redeemLinkCode`), so the sweep in
+`ReconcileDao#deleteExpiredLinkCodes` now actually cleans up rows something else writes, rather
+than a table nothing has ever put a row into.
+
+**Two things this stage left open, not silently resolved:**
+
+- `access.yml#link-code-ttl-minutes` (added in stage B, still unused by any bot code path) and
+  `network-control/config/gate.yml#link-code-ttl-minutes` (added in stage C, the one that is
+  actually read) are two independently configured values for the same 10-minute default. The bot
+  never reads its own copy - the sweep only ever compares `expires` to `now()` - so nothing breaks
+  if they diverge, but an operator changing one and expecting the other to follow will be
+  surprised. Either drop the bot's copy or wire it through; see `network-control/config/GateSpec`'s
+  class doc for the detail.
+- A bad `network-control` config (`database.yml` or `gate.yml`) is logged loudly and the login gate
+  is simply never registered - the proxy itself keeps running and keeps accepting logins
+  **un-gated**, rather than refusing to start the way a Paper plugin disables itself on a bad
+  config. Velocity has no per-plugin disable to fall back to instead, and "the proxy is up but
+  nobody can join" seemed worse than "the proxy is up but the gate is not enforced until somebody
+  notices the error log and fixes the file" - this was not put to the owner before landing and is
+  worth a second look.
 
 ### Shape
 
@@ -300,30 +325,41 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-Two modules have tests. `:common` has 35 (2026-08-30): `AccessDirectoryIntegrationTest` drives the
-access API against a real PostgreSQL container running the real migration — the append rule, the
-expiry boundary, revocation, the four `accessState` cases and the unique constraints that stop a
-double booking — plus `MessagesTest` and `LocalesTest` in memory. It found one real bug: a day has
-to be `make_interval(hours => days * 24)`, because `interval 'N days'` on a `timestamptz` is
-calendar arithmetic in the *client session's* time zone and a period spanning the end of summer
-time came out an hour long. **Never express an access duration in days in SQL.**
+Three modules have tests now. `:common` has 47 (2026-08-30, up from 35 in stage B):
+`AccessDirectoryIntegrationTest` (22) drives the access API against a real PostgreSQL container
+running the real migration — the append rule, the expiry boundary, revocation, the four
+`accessState` cases and the unique constraints that stop a double booking. `LinkCodeIntegrationTest`
+(12, stage C) drives the same container through the link-code lifecycle: issuing, "a repeat attempt
+returns the same code", an expired code being replaced rather than returned, redemption, redeeming
+the same code twice, redeeming a code nobody typed for the account it was meant for, and the 1:1
+that redemption enforces. `MessagesTest` and `LocalesTest` (13, in memory) round it out. The
+`make_interval(hours => days * 24)` bug from stage A (see below) is still the reason a day is never
+expressed in SQL as `interval 'N days'`.
 
-`access-bot` has 45 (2026-08-30): `ConfigsTest` (16, in memory) covers every value that used to be
-able to reach production — a mistyped key, an empty channel id, a role id that is not a snowflake,
-an empty or unordered tier list, duplicate day counts, an unparseable watermark override, an
-unknown bunq environment. `TiersTest` (12, in memory) is the settlement rule: an order honoured
-exactly, surplus below and above the surcharge, two kinds of shortfall, the orderless fallback, and
-an order priced from a tier that no longer exists. `PaymentRequestIntegrationTest` (17) drives the
-request state machine against a real PostgreSQL container running the real migrations: one open
-request per person, superseding, the expiry sweep, edit-in-place before a tab and refusal after
-one, manual settlement, both halves of the double-booking guard, and that the watermark is written
-exactly once and is not moved by a restart or by an override.
+`access-bot` has 45 (2026-08-30, unchanged by stage C - `LinkFlow`, the redemption side, is
+untested by anything but `common`'s DAO-level tests and a manual guild check; see "what none of it
+proves"): `ConfigsTest` (16, in memory), `TiersTest` (12, in memory), and
+`PaymentRequestIntegrationTest` (17) against a real PostgreSQL container.
 
-**What none of it proves.** Nothing here touches bunq or Discord. Tab creation, cancellation and
-result inquiries need the **bunq sandbox** (`bunq.environment: SANDBOX`); buttons, ephemeral
-messages, DMs, role assignment and the managed messages need the **real guild** in an admin-only
-channel; a 3 € real purchase is the last step, never the development loop. The integration tests
-also skip themselves when no Docker daemon is reachable, so a green build on a machine without
-Docker proves less than it looks. `./gradlew build` compiling is not verification. Anything
-touching players, packets or world state has to be exercised on `runServer` with real clients
-before it is called done.
+`network-control` has 16 (2026-08-30, stage C, new module): `FallbackCacheTest` (10, in memory,
+driven by a settable `Clock` rather than `Thread.sleep`) covers the four fallback rules - a
+recently-seen player with active access is let in, an unknown player is refused, everyone is
+refused once the window has passed, and a state that could never let anyone in is never stored at
+all rather than lingering as a stale positive. `ConfigsTest` (6, in memory) covers `database.yml`
+and `gate.yml` the same way `access-bot`'s does its own three files. Nothing here touches
+PostgreSQL - the login gate's database calls are exercised by `common`'s tests, and
+`network-control` itself has no schema of its own to test against a container.
+
+**What none of it proves.** Nothing here touches bunq, Discord, or a running Velocity proxy. Tab
+creation, cancellation and result inquiries need the **bunq sandbox**
+(`bunq.environment: SANDBOX`); buttons, ephemeral messages, DMs, role assignment and the managed
+messages need the **real guild** in an admin-only channel; a 3 € real purchase is the last step,
+never the development loop. **Stage C added a third gap of the same shape**: the login gate
+(`LoginGate`), the kick messages it produces, and code redemption through the actual Discord modal
+all need a **running Velocity proxy with a real client** plus a **real Discord guild** to be
+verified at all - nothing in this repository's test suite exercises any of them, and none of it was
+exercised as part of building stage C either. The integration tests also skip themselves when no
+Docker daemon is reachable, so a green build on a machine without Docker proves less than it looks.
+`./gradlew build` compiling is not verification. Anything touching players, packets or world state
+has to be exercised on `runServer` (or, for the proxy, a real client against a running proxy) with
+real clients before it is called done.

@@ -74,12 +74,10 @@ public final class ManagedMessages {
         }
 
         final MessageEmbed embed = kind.contribution() ? contributionEmbed(locale) : linkEmbed(locale);
-        final List<ActionRow> components = kind.contribution()
-                ? List.of(ActionRow.of(Button.primary(Ids.BUY, messages.get(locale, "contribution.button"))))
-                // The link button opens a modal that takes a code, and codes are issued by the
-                // proxy in stage C. Until then the message explains itself and carries no button:
-                // a button that answers "not yet" is worse than no button.
-                : List.of();
+        final List<ActionRow> components = List.of(ActionRow.of(kind.contribution()
+                ? Button.primary(Ids.BUY, messages.get(locale, "contribution.button"))
+                // Stage C: opens a modal for the code the proxy showed on the login screen.
+                : Button.primary(Ids.LINK, messages.get(locale, "link.button"))));
         final String banner = kind.contribution() ? CONTRIBUTION_BANNER : LINK_BANNER;
 
         try {
@@ -149,7 +147,7 @@ public final class ManagedMessages {
                 .setColor(COLOUR)
                 .setTitle(messages.get(locale, "link.title"))
                 .setDescription(messages.get(locale, "link.body")
-                        + "\n\n*" + messages.get(locale, "link.pending") + "*")
+                        + "\n\n" + messages.get(locale, "link.unlink-hint"))
                 .setImage("attachment://" + LINK_BANNER)
                 .build();
     }

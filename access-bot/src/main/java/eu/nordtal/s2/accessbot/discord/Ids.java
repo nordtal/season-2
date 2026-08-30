@@ -27,6 +27,15 @@ public final class Ids {
     /** Toggles the donation surcharge on the open request. */
     public static final String DONATION = "access:donation";
 
+    /** The button on the managed link message. Opens {@link #LINK_MODAL}. */
+    public static final String LINK = "access:link";
+
+    /** The modal a code is typed into. */
+    public static final String LINK_MODAL = "access:link-modal";
+
+    /** The text input inside {@link #LINK_MODAL} carrying the code itself. */
+    public static final String LINK_CODE_INPUT = "access:link-code";
+
     private Ids() {
     }
 }

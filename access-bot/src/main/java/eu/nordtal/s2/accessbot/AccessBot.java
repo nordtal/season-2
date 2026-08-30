@@ -17,6 +17,7 @@ import eu.nordtal.s2.accessbot.discord.PurchaseFlow;
 import eu.nordtal.s2.accessbot.payment.PaymentProcessor;
 import eu.nordtal.s2.accessbot.payment.PaymentRequests;
 import eu.nordtal.s2.accessbot.payment.Purchases;
+import eu.nordtal.s2.accessbot.payment.Watermark;
 import eu.nordtal.s2.accessbot.payment.Tiers;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.message.Messages;
@@ -111,8 +112,12 @@ public class AccessBot implements AutoCloseable {
 
             final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi());
             final AccessRoles roles = new AccessRoles(jda, accessConfig, access, messages, admin, database.jdbi());
+            // Resolved once, at startup: the first start ever stamps its own instant into
+            // bot_setting and every later start reads it back. Payments older than it are ignored
+            // forever, which is what stops the first poll booking fifty historical payments.
             final PaymentProcessor processor = new PaymentProcessor(accessConfig, bunq, requests, purchases,
-                    tiers, access, roles, admin, messages, jda);
+                    tiers, access, roles, admin, messages, jda,
+                    Watermark.resolve(database.jdbi(), accessConfig.payment().watermark()));
             final GuildState guildState = new GuildState(jda, accessConfig, access, database.jdbi());
 
             jda.addEventListener(

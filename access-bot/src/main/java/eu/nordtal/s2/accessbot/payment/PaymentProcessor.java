@@ -58,7 +58,7 @@ public final class PaymentProcessor {
     public PaymentProcessor(final AccessSpec config, final BunqGateway bunq, final PaymentRequests requests,
                             final Purchases purchases, final Tiers tiers, final AccessDirectory access,
                             final AccessRoles roles, final AdminLog admin, final Messages messages,
-                            final JDA jda) {
+                            final JDA jda, final Instant watermark) {
         this.config = config;
         this.bunq = bunq;
         this.requests = requests;
@@ -69,7 +69,7 @@ public final class PaymentProcessor {
         this.admin = admin;
         this.messages = messages;
         this.jda = jda;
-        this.watermark = Instant.parse(config.payment().watermark().trim());
+        this.watermark = watermark;
     }
 
     /** One poll. Never throws: a poll loop that dies on one bad response stops booking payments. */
@@ -171,8 +171,11 @@ public final class PaymentProcessor {
      * @param cents   what actually arrived - not what the request asked for
      */
     public void settle(final PaymentRequest request, final long paymentId, final int cents) {
-        final Optional<Tiers.Settlement> settlement = tiers.resolve(cents);
-        if (settlement.isEmpty()) {
+        // The order first, the amount second. What the row records is what the payer asked for,
+        // and it is honoured whenever the money covers it - the tiers are only re-derived when the
+        // payment falls short of the order.
+        final Optional<Tiers.Settlement> resolved = tiers.resolve(cents, Tiers.Order.of(request));
+        if (resolved.isEmpty()) {
             // Deliberately leaves the request open: the money is real, it is simply not enough for
             // anything, and what to do about that is a decision for a human.
             raise(paymentId, "BELOW_MINIMUM",
@@ -187,12 +190,12 @@ public final class PaymentProcessor {
             return;
         }
 
-        final Tier tier = settlement.get().tier();
+        final Tiers.Settlement settlement = resolved.get();
         final AccessGrant grant = access.grantAccess(
-                request.discordId(), tier.days(), AccessSource.PURCHASE, request.id());
+                request.discordId(), settlement.days(), AccessSource.PURCHASE, request.id());
         final Locale locale = roles.localeOf(request.discordId());
 
-        if (settlement.get().donation()) {
+        if (settlement.donation()) {
             access.setDonor(request.discordId(), true);
             roles.grantDonorRole(request.discordId());
         }
@@ -200,24 +203,25 @@ public final class PaymentProcessor {
 
         // "Downgraded" means the payer edited the amount down on the bunq.me page. Saying so is
         // the difference between a confusing purchase and an obvious one.
-        final boolean asOrdered = tier.days() == request.days();
-        roles.dm(request.discordId(), asOrdered
-                ? messages.format(locale, "dm.granted", "until", AccessRoles.timestamp(grant.validUntil()))
-                : messages.format(locale, "dm.granted.short",
+        roles.dm(request.discordId(), settlement.downgraded()
+                ? messages.format(locale, "dm.granted.short",
                 "paid", Money.format(cents),
-                "days", tier.days(),
-                "until", AccessRoles.timestamp(grant.validUntil())));
+                "days", settlement.days(),
+                "until", AccessRoles.timestamp(grant.validUntil()))
+                : messages.format(locale, "dm.granted", "until", AccessRoles.timestamp(grant.validUntil())));
 
-        if (settlement.get().donation()) {
+        if (settlement.donation()) {
             roles.dm(request.discordId(), messages.get(locale, "dm.donor"));
-            announceDonation(request.discordId(), cents - tier.priceCents(), locale);
+            announceDonation(request.discordId(), settlement.donationCents(), locale);
         }
 
         admin.record("SETTLE", null, request.discordId(), null,
                 "reference=" + request.reference() + " payment=" + paymentId
-                        + " received=" + cents + "c granted=" + tier.days() + "d"
-                        + (settlement.get().donation() ? " donation" : ""));
-        log.info("Booked {} on {} - {} days for {}", paymentId, request.reference(), tier.days(),
+                        + " received=" + cents + "c ordered=" + request.days() + "d"
+                        + " granted=" + settlement.days() + "d"
+                        + (settlement.donation() ? " donation=" + settlement.donationCents() + "c" : "")
+                        + (settlement.downgraded() ? " DOWNGRADED" : ""));
+        log.info("Booked {} on {} - {} days for {}", paymentId, request.reference(), settlement.days(),
                 request.discordId());
     }
 

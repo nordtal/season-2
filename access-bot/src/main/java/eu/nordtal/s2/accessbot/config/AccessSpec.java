@@ -6,6 +6,8 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 
+import java.util.List;
+
 /**
  * {@code config/access.yml} - everything about the product, the guild and the poll loop.
  * <p>
@@ -30,7 +32,7 @@ import eu.nordtal.jcore.config.spec.annotation.Reload;
         "Every setting here can be overridden with an environment variable",
         "named NORDTAL_ACCESS_<PATH>, with '.' and '-' both becoming '_':",
         "",
-        "  tiers.short-price-cents -> NORDTAL_ACCESS_TIERS_SHORT_PRICE_CENTS",
+        "  donation-cents  ->  NORDTAL_ACCESS_DONATION_CENTS",
         "",
         "The environment wins over this file and is never written back into",
         "it. A setting this file does not declare stops the bot from starting",
@@ -55,18 +57,33 @@ public interface AccessSpec {
     @Order(2)
     @Key("tiers")
     @Comment({
-            "What can be bought. Three fixed slots - short, medium and long - each with its own",
-            "number of days and its own price. The names are labels for this file only; nothing",
-            "user-visible uses them, and the embed is rendered from the numbers below."
+            "What can be bought. A list, so a fourth tier is an edit here and not a release.",
+            "",
+            "Each entry is a number of days and what it costs in cents. They must be ordered:",
+            "more days must cost more, and no two entries may offer the same number of days.",
+            "A tier is identified by its day count everywhere else - that is what a purchase",
+            "button carries - so changing 'days' on an existing entry retires that tier.",
+            "",
+            "The list may not be empty. If you have emptied it, this is the shape:",
+            "",
+            "  tiers:",
+            "  - days: 30",
+            "    price-cents: 300",
+            "  - days: 60",
+            "    price-cents: 500"
     })
-    TiersSpec tiers();
+    default List<TierSpec> tiers() {
+        return DefaultTiers.LIST;
+    }
 
     @Order(3)
     @Key("donation-cents")
     @Comment({
             "The optional surcharge that grants the permanent donor role, in cents.",
-            "Paying a tier price plus this amount counts as a donation - see the",
-            "'pay what you get' rule in docs/access-system.md."
+            "",
+            "It is also how a payment larger than the order is read: money left over above the",
+            "ordered total is a donation once it reaches this amount, and is otherwise ignored.",
+            "See the settlement rule in docs/access-system.md."
     })
     default int donationCents() {
         return 500;
@@ -120,58 +137,29 @@ public interface AccessSpec {
     void reload();
 
     /**
-     * The three purchasable periods, as six flat settings rather than three nested objects.
+     * One purchasable period: a number of days for a price.
      * <p>
-     * A nested {@code TierSpec} reused three times would be tidier to read and would write a
-     * <b>wrong</b> defaults file: one interface has one set of defaults, so a fresh
-     * {@code access.yml} would offer 30 days three times. Six keys with six correct defaults are
-     * worth the flatness. Three interfaces with one set of defaults each would also work and is
-     * three times the boilerplate for the same six numbers.
-     * </p>
-     * <p>
-     * The number of tiers is fixed at three by this shape. That is the product as agreed
-     * (30/60/90); a fourth tier is a change here and in {@code Tiers}, not a config edit.
+     * A list of these rather than a fixed set of keys, because the owner has to be able to add a
+     * fourth tier without a release. jcore can carry a non-empty default for a list of nested
+     * specs - see {@link DefaultTiers} - so a fresh {@code access.yml} still ships with the agreed
+     * 3/5/7 EUR price list rather than an empty list nobody can buy from.
      * </p>
      */
     @ConfigSpec
-    interface TiersSpec {
+    interface TierSpec {
 
         @Order(1)
-        @Key("short-days")
-        @Comment("Days of access in the smallest tier. A day is exactly 24 hours.")
-        default int shortDays() {
+        @Key("days")
+        @Comment("How many days of access this buys. A day is exactly 24 hours.")
+        default int days() {
             return 30;
         }
 
         @Order(2)
-        @Key("short-price-cents")
+        @Key("price-cents")
         @Comment("What it costs, in cents. Integer cents everywhere; never a float.")
-        default int shortPriceCents() {
+        default int priceCents() {
             return 300;
-        }
-
-        @Order(3)
-        @Key("medium-days")
-        default int mediumDays() {
-            return 60;
-        }
-
-        @Order(4)
-        @Key("medium-price-cents")
-        default int mediumPriceCents() {
-            return 500;
-        }
-
-        @Order(5)
-        @Key("long-days")
-        default int longDays() {
-            return 90;
-        }
-
-        @Order(6)
-        @Key("long-price-cents")
-        default int longPriceCents() {
-            return 700;
         }
     }
 
@@ -296,15 +284,22 @@ public interface AccessSpec {
         @Key("watermark")
         @Comment({
                 "Payments created before this instant are ignored, completely and forever.",
-                "ISO-8601, UTC, e.g. 2026-09-01T00:00:00Z.",
                 "",
-                "This is not an optimisation. bunq returns the last 50 payments on the account",
-                "whatever the database knows, so the first run against an empty database would",
-                "otherwise book up to 50 historical payments - grants, roles, DMs and public",
-                "thank-yous included. Set it to the moment season 2 opens."
+                "LEAVE THIS EMPTY. On its first start the bot stamps the current instant into the",
+                "database and uses that from then on, so the cut-off is the moment this bot first",
+                "ran rather than a date somebody guessed. The stored value is written once and",
+                "never rewritten.",
+                "",
+                "Set it only to deliberately choose a different cut-off; ISO-8601, UTC, e.g.",
+                "2026-09-01T00:00:00Z. A value here overrides the stored one without replacing it,",
+                "so emptying this again falls back to the original first-start instant.",
+                "",
+                "The cut-off is not an optimisation: bunq returns the last 50 payments on the",
+                "account whatever the database knows, so without one the first poll would book up",
+                "to 50 historical payments - grants, roles, DMs and public thank-yous included."
         })
         default String watermark() {
-            return "2026-09-01T00:00:00Z";
+            return "";
         }
 
         @Order(4)

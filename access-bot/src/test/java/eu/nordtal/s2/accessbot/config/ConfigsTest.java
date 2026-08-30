@@ -31,16 +31,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ConfigsTest {
 
-    /** A complete access.yml, so a test about one setting does not trip over the other twenty. */
-    private static final String VALID_ACCESS = """
-            guild-id: '1'
+    /** The agreed price list, as YAML. Substituted into {@link #access(String)}. */
+    private static final String VALID_TIERS = """
             tiers:
-              short-days: 30
-              short-price-cents: 300
-              medium-days: 60
-              medium-price-cents: 500
-              long-days: 90
-              long-price-cents: 700
+            - days: 30
+              price-cents: 300
+            - days: 60
+              price-cents: 500
+            - days: 90
+              price-cents: 700""";
+
+    /** Everything but the tiers, so a test about one setting does not trip over the other twenty. */
+    private static final String REST = """
+            guild-id: '1'
             donation-cents: 500
             roles:
               access: '10'
@@ -57,12 +60,27 @@ class ConfigsTest {
             payment:
               poll-interval-seconds: 30
               request-ttl-hours: 24
-              watermark: '2026-09-01T00:00:00Z'
+              watermark: ''
               recent-payment-count: 50
             link-code-ttl-minutes: 10
             expiry-reminder-lead-days: 3
             role-reconcile-interval-minutes: 10
             """;
+
+    /**
+     * A complete access.yml with the given tiers block.
+     *
+     * @param tiers the {@code tiers:} section to use
+     * @return the whole file
+     */
+    private static String access(final String tiers) {
+        return tiers + "\n" + REST;
+    }
+
+    /** A complete, valid access.yml. */
+    private static String access() {
+        return access(VALID_TIERS);
+    }
 
     @TempDir
     Path directory;
@@ -82,14 +100,15 @@ class ConfigsTest {
     @Test
     @DisplayName("a complete access.yml loads, with the prices as integer cents")
     void completeAccessConfigLoads() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), VALID_ACCESS);
+        Files.writeString(directory.resolve("access.yml"), access());
 
         final AccessSpec config = Configs.access().get();
 
         assertAll(
                 () -> assertEquals("1", config.guildId()),
-                () -> assertEquals(30, config.tiers().shortDays()),
-                () -> assertEquals(700, config.tiers().longPriceCents()),
+                () -> assertEquals(3, config.tiers().size()),
+                () -> assertEquals(30, config.tiers().getFirst().days()),
+                () -> assertEquals(700, config.tiers().getLast().priceCents()),
                 () -> assertEquals(500, config.donationCents()),
                 () -> assertEquals("10", config.roles().access()),
                 () -> assertEquals("24", config.channels().admin()),
@@ -100,7 +119,7 @@ class ConfigsTest {
     @Test
     @DisplayName("the bot refuses to start while a channel id is empty")
     void emptyChannelIdStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("access.yml"), VALID_ACCESS.replace("admin: '24'", "admin: ''"));
+        Files.writeString(directory.resolve("access.yml"), access().replace("admin: '24'", "admin: ''"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("channels.admin"), error.getMessage());
@@ -110,29 +129,64 @@ class ConfigsTest {
     @DisplayName("a role id that is not a snowflake stops the bot")
     void nonNumericRoleIdStopsTheBot() throws Exception {
         Files.writeString(directory.resolve("access.yml"),
-                VALID_ACCESS.replace("access: '10'", "access: '<@&10>'"));
+                access().replace("access: '10'", "access: '<@&10>'"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("roles.access"), error.getMessage());
     }
 
     @Test
-    @DisplayName("tiers that are not increasing in price stop the bot")
+    @DisplayName("a longer tier that costs less stops the bot")
     void unorderedTiersStopTheBot() throws Exception {
-        // "Pay what you get" takes the highest tier an amount covers, which is only the answer a
-        // human would give if the tiers are ordered.
+        // A shortfall is settled by walking down to the highest tier the amount covers, which is
+        // only the answer a human would give if more days cost more money.
         Files.writeString(directory.resolve("access.yml"),
-                VALID_ACCESS.replace("medium-price-cents: 500", "medium-price-cents: 900"));
+                access(VALID_TIERS.replace("- days: 60\n  price-cents: 500", "- days: 60\n  price-cents: 900")));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
-        assertTrue(error.getMessage().contains("increasing in price"), error.getMessage());
+        assertTrue(error.getMessage().contains("more expensive as they get longer"), error.getMessage());
     }
 
     @Test
-    @DisplayName("a watermark that is not an instant stops the bot")
+    @DisplayName("two tiers offering the same number of days stop the bot")
+    void duplicateDayCountsStopTheBot() throws Exception {
+        // A purchase button carries a day count, so two tiers with the same one is an ambiguous
+        // lookup rather than a cosmetic mistake.
+        Files.writeString(directory.resolve("access.yml"),
+                access(VALID_TIERS.replace("- days: 90", "- days: 30")));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("Day counts identify a tier"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("an empty tier list stops the bot and prints the shape to write")
+    void emptyTiersStopTheBotWithTheShape() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), access("tiers: []"));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertAll(
+                () -> assertTrue(error.getMessage().contains("nothing to buy"), error.getMessage()),
+                () -> assertTrue(error.getMessage().contains("price-cents: 300"),
+                        "the message has to show what to write: " + error.getMessage()),
+                () -> assertTrue(error.getMessage().contains("access.yml"),
+                        "and name the file: " + error.getMessage())
+        );
+    }
+
+    @Test
+    @DisplayName("an empty watermark is the normal case - the bot stamps its own")
+    void emptyWatermarkIsAccepted() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), access());
+
+        assertEquals("", Configs.access().get().payment().watermark());
+    }
+
+    @Test
+    @DisplayName("a watermark override that is not an instant stops the bot")
     void badWatermarkStopsTheBot() throws Exception {
         Files.writeString(directory.resolve("access.yml"),
-                VALID_ACCESS.replace("'2026-09-01T00:00:00Z'", "'1 September 2026'"));
+                access().replace("watermark: ''", "watermark: '1 September 2026'"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("ISO-8601"), error.getMessage());
@@ -142,7 +196,7 @@ class ConfigsTest {
     @DisplayName("a mistyped setting stops the bot and says what was meant")
     void mistypedSettingStopsTheBot() throws Exception {
         Files.writeString(directory.resolve("access.yml"),
-                VALID_ACCESS.replace("donation-cents:", "donation-cent:"));
+                access().replace("donation-cents:", "donation-cent:"));
 
         // jcore's predecessor deleted a key it did not know, so a typo cost both the setting and
         // any trace of it.
@@ -167,8 +221,10 @@ class ConfigsTest {
                 () -> assertTrue(Files.isRegularFile(file)),
                 () -> assertTrue(Files.readString(file).contains("access: ''"),
                         "the role ids are written empty, never guessed"),
-                () -> assertTrue(Files.readString(file).contains("short-price-cents: 300"),
-                        "but the prices have real defaults")
+                () -> assertTrue(Files.readString(file).contains("price-cents: 300"),
+                        "but the price list is written in full - a fresh install is ready to sell"),
+                () -> assertTrue(Files.readString(file).contains("price-cents: 700"),
+                        "all three tiers, not just the first")
         );
     }
 

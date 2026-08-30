@@ -20,8 +20,9 @@ access), one optional extra (a donation that earns a permanent role).
 | 90 days of access | 7 € |
 | donation surcharge | +5 €, optional, grants a permanent donor role |
 
-Prices, role ids and channel ids live in configuration, never in an enum. A price change must not
-need a release.
+Prices, role ids and channel ids live in configuration, never in an enum, and the tiers are a
+**list** rather than a fixed set — a fourth tier is a config edit. A price change must not need a
+release.
 
 ### The rules
 
@@ -88,14 +89,37 @@ Two independent paths, both stored on the request:
 2. **Fallback — the reference.** Payments are scanned for `NT-[0-9A-F]{6}` and matched against open
    requests. This covers anything that reaches the account outside a tab.
 
-Both are gated by a configured **watermark timestamp**: payments older than it are ignored. Without
-it the first run against an empty database books up to 50 historical payments, roles and messages
-included.
+Both are gated by a **watermark timestamp**: payments older than it are ignored, completely and
+forever. Without it the first run against an empty database books up to 50 historical payments,
+roles and messages included.
+
+The watermark **sets itself**: the first start that finds none stores the instant of that start in
+`bot_setting`, and it is never rewritten. A configured value in `access.yml` overrides it for
+somebody who deliberately wants a different cut-off, without replacing the stored one — so removing
+the override falls back to the original first start rather than to whenever the bot last restarted.
+A date written into the config in advance was the earlier design and is unguessable: too early
+books history, too late silently ignores real purchases.
 
 Amounts are not trusted to match: a bunq.me amount is a suggestion the payer can edit. The rule is
-**pay what you get** — the highest tier whose price is covered by the amount actually received; a
-remaining 5 € on top counts as the donation. Below the lowest price nothing is granted and the case
-is raised to admins.
+**the order wins when the money covers it**, and it is deliberately asymmetric:
+
+- The `payment_request` row records what was ordered — how many days, and whether the donation was
+  included. When the amount that arrives covers that total, **exactly what was ordered is granted**.
+  Ordering 60 days with a donation and paying the 10 € it asks for gives 60 days and the donor
+  role.
+- Only a payment that falls **short** of the order is re-derived from the amount: the granted tier
+  becomes the highest one the amount does cover, and a remainder of at least the surcharge on top
+  of *that* price is a donation. Below the lowest price nothing is granted and the case is raised
+  to admins.
+- **Surplus** above the ordered total is a donation once it reaches the surcharge and one was not
+  already ordered. Otherwise it is ignored — no extra days, no partial credit. Days are bought in
+  tiers.
+- A payment with no order behind it — an unknown reference — falls back to the amount alone. In
+  practice that case is raised to admins rather than booked, so nothing settles without an order.
+
+An earlier version of this document derived both directions from the amount ("the highest tier
+whose price is covered"). That was wrong: it meant paying the asked-for 10 € on a
+60-days-with-donation order bought 90 days and *no* donor role. Corrected 2026-08-30.
 
 ### Joining Minecraft
 

@@ -198,9 +198,15 @@ written.
   (`getResultInquiries()` → `getPayment()`), which needs no text parsing. Fallback: recent payments
   are scanned for `NT-[0-9A-F]{6}`. Both are gated by `payment.watermark` — without it the first
   run books up to 50 historical payments, roles and messages included.
-- **"Pay what you get" lives in `Tiers.resolve`**, and it maximises days: with 3/5/7 € tiers and a
-  5 € donation, 10 € is 90 days and *no* donor role. That is the agreed rule read literally and it
-  has its own test, because it is what a support ticket will be about.
+- **The settlement rule lives in `Tiers.resolve` and is asymmetric.** The `payment_request` row
+  records what was ordered, and when the money covers that total **exactly what was ordered is
+  granted** — the tiers are not re-derived from the amount. Only a payment that falls *short* is
+  downgraded to the highest tier it covers. Surplus above the ordered total is a donation once it
+  reaches the surcharge, otherwise ignored. The amount-only rule survives as `resolve(int)` for the
+  orderless case and is currently unreachable in production, because an unknown reference is raised
+  to admins rather than booked. The earlier version derived both directions from the amount, so
+  paying the asked-for 10 € on a 60-days-with-donation order bought 90 days and no donor role;
+  corrected 2026-08-30 and covered by `TiersTest`.
 - **A payment on a reference that is not `OPEN` is never booked automatically.** It goes to the
   admin channel with `/settle` as the manual path.
 - **The access role is bot-owned; the donor role is never removed.** The reconcile reads JDA's
@@ -231,6 +237,16 @@ written.
     restart posts a second managed message, re-pings admins about the same payment every poll, and
     re-sends yesterday's expiry DMs. `V2__legacy_contribution.sql` and the whole `contribution`
     code path were deleted in stage B.
+  - `V3__bot_setting.sql` (stage B): `bot_setting`, holding the payment watermark. **The watermark
+    sets itself** — the first start that finds none stores that instant and nothing ever rewrites
+    it (`ON CONFLICT DO NOTHING`, no update path anywhere). `payment.watermark` in `access.yml` is
+    an optional override that does *not* replace the stored value, so removing it falls back to the
+    original first start rather than to the current restart. It was a guessed date in the config
+    until 2026-08-30, which is a value nobody can get right in advance: too early books up to 50
+    historical bunq payments, too late silently ignores real purchases.
+    A separate migration rather than an edit to `V2`, because `V2` has been applied to local
+    databases and Flyway validates checksums — rewriting in place (as stage A did to `V1`) is only
+    safe while nothing anywhere has run it.
 - **Money is integer cents** in Java and in the database. `Money` is the only place that converts
   to and from bunq's decimal strings, and it goes through `BigDecimal`. Season 1 used
   `Float.parseFloat` and `<`.
@@ -259,9 +275,14 @@ deliberately not used: generic keys such as `password` would collide across file
 - `bot.yml` gained `bunq.environment` (`PRODUCTION` / `SANDBOX`). It was hardcoded, which made the
   sandbox test in the concept impossible to run. The bunq context file belongs to one environment:
   switching also means pointing `bunq.context-path` at a fresh file.
-- **The tiers are three flat slots** (`short-`, `medium-`, `long-` × `days` / `price-cents`) rather
-  than a list. A reused nested `TierSpec` has one set of defaults, so a fresh file would offer 30
-  days three times. The cost is that the number of tiers is fixed at three.
+- **The tiers are a list**, so a fourth tier is a config edit and not a release. The obstacle was
+  that jcore initialises a `List<NestedSpec>` to empty, which would ship a fresh install with no
+  prices — solved with `Specs.createUnsafe` in `DefaultTiers`, which builds real default entries
+  that jcore's writer serialises and reads back (**verified 2026-08-30**, not assumed). A fresh
+  `access.yml` therefore comes out carrying 30/60/90 at 3/5/7 €. Validated at load: not empty, day
+  counts unique, price rising with days — and an empty list fails with the YAML to write.
+  A tier is identified by its **day count** (that is what a purchase button carries), so editing
+  `days` on an existing entry retires that tier.
 - **The one-time jcore 1.x `config/*.json` conversion was removed.** It existed to carry season 1's
   deployed config volume forward, and nothing is ever migrated between seasons — new bot, new
   database, new Discord application, new volume.
@@ -287,14 +308,16 @@ to be `make_interval(hours => days * 24)`, because `interval 'N days'` on a `tim
 calendar arithmetic in the *client session's* time zone and a period spanning the end of summer
 time came out an hour long. **Never express an access duration in days in SQL.**
 
-`access-bot` has 34 (2026-08-30): `ConfigsTest` (13, in memory) covers every value that used to be
+`access-bot` has 45 (2026-08-30): `ConfigsTest` (16, in memory) covers every value that used to be
 able to reach production — a mistyped key, an empty channel id, a role id that is not a snowflake,
-unordered tiers, an unparseable watermark, an unknown bunq environment. `TiersTest` (7, in memory)
-is the "pay what you get" rule, including the 10 € case that gives 90 days and no donor role.
-`PaymentRequestIntegrationTest` (14) drives the request state machine against a real PostgreSQL
-container running the real migrations: one open request per person, superseding, the expiry sweep,
-edit-in-place before a tab and refusal after one, manual settlement, and both halves of the
-double-booking guard.
+an empty or unordered tier list, duplicate day counts, an unparseable watermark override, an
+unknown bunq environment. `TiersTest` (12, in memory) is the settlement rule: an order honoured
+exactly, surplus below and above the surcharge, two kinds of shortfall, the orderless fallback, and
+an order priced from a tier that no longer exists. `PaymentRequestIntegrationTest` (17) drives the
+request state machine against a real PostgreSQL container running the real migrations: one open
+request per person, superseding, the expiry sweep, edit-in-place before a tab and refusal after
+one, manual settlement, both halves of the double-booking guard, and that the watermark is written
+exactly once and is not moved by a restart or by an override.
 
 **What none of it proves.** Nothing here touches bunq or Discord. Tab creation, cancellation and
 result inquiries need the **bunq sandbox** (`bunq.environment: SANDBOX`); buttons, ephemeral

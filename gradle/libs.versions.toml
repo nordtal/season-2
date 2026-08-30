@@ -14,11 +14,12 @@ simplecloud = "0.1.0-platform.54-dev.1.1-770dcc6"
 # git tag. Only payments-bot uses it — see CLAUDE.md before adding it to a plugin.
 # 2.0.0 dropped Hibernate/Morphia for JDBI 3 + HikariCP + Flyway on PostgreSQL and no longer
 # exports a logging backend, so consumers declare logback themselves.
-jcore = "2.0.0"
+# 3.0.0 replaced the JSON config loader with commented YAML (a vendored, hardened Spec) and
+# dropped jackson-databind entirely, adding gson and snakeyaml instead. Verified 2026-08-30.
+jcore = "3.0.0"
 jda = "6.0.0-rc.4"
 bunq = "1.28.0.6"
 guava = "33.6.0-jre"
-jackson = "2.19.2"
 logback = "1.5.18"
 adventure = "5.2.0"
 lombok = "1.18.40"
@@ -42,7 +43,6 @@ jcore = { module = "com.github.nordtal:jcore", version.ref = "jcore" }
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
 bunq-sdk = { module = "com.github.bunq:sdk_java", version.ref = "bunq" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
-jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 adventure-api = { module = "net.kyori:adventure-api", version.ref = "adventure" }
 adventure-minimessage = { module = "net.kyori:adventure-text-minimessage", version.ref = "adventure" }

@@ -1,9 +1,7 @@
 package eu.nordtal.s2.paymentsbot.service;
 
 import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
-import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.s2.paymentsbot.config.Configs;
-import eu.nordtal.s2.paymentsbot.config.PaymentProcessingConfig;
+import eu.nordtal.s2.paymentsbot.config.PaymentProcessingSpec;
 import eu.nordtal.s2.paymentsbot.model.ContributionTier;
 import eu.nordtal.s2.paymentsbot.persistence.model.Contribution;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +25,12 @@ import java.util.regex.Pattern;
 /**
  * Service that periodically polls the bunq account for new payments and assigns contribution
  * roles to users.
+ * <p>
+ * The configuration is handed in rather than loaded here. This class used to call
+ * {@code Configs.load(...)} in its own constructor, catch the failure, log it and carry on with
+ * {@code new PaymentProcessingConfig()} - so a broken or mistyped config file started the bot
+ * against default Discord channel ids instead of stopping it. Loading now happens once, in
+ * {@code NordTalPayments}, and a failure there stops the process.
  */
 @Slf4j
 public class PaymentProcessingService implements AutoCloseable {
@@ -35,14 +39,19 @@ public class PaymentProcessingService implements AutoCloseable {
     private static final long DEFAULT_CONTRIBUTION_DURATION_SECONDS = Duration.ofDays(30).toSeconds();
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-    private final PaymentProcessingConfig config;
+    private final PaymentProcessingSpec config;
     private final JDA jda;
     private final ContributionService contributionService;
 
-    public PaymentProcessingService(final JDA jda, final ContributionService contributionService) {
+    /**
+     * @param config the payment processing configuration, already loaded and validated. It used
+     *               to be loaded in here, and a failure was swallowed - see the class javadoc.
+     */
+    public PaymentProcessingService(final JDA jda, final ContributionService contributionService,
+                                    final PaymentProcessingSpec config) {
         this.jda = jda;
         this.contributionService = contributionService;
-        this.config = loadConfig();
+        this.config = config;
         schedule();
     }
 
@@ -60,19 +69,8 @@ public class PaymentProcessingService implements AutoCloseable {
         executor.scheduleAtFixedRate(() -> {
             checkPayments();
             updateRoles();
-        }, 0, config.getCheckIntervalSeconds(), TimeUnit.SECONDS);
+        }, 0, config.checkIntervalSeconds(), TimeUnit.SECONDS);
         executor.scheduleAtFixedRate(this::updateBalanceChannel, 1, 5, TimeUnit.MINUTES);
-    }
-
-    private PaymentProcessingConfig loadConfig() {
-        try {
-            return Configs.load("payment-processing", PaymentProcessingConfig.class);
-        } catch (ConfigException e) {
-            // Unlike the database settings, these all have workable defaults, so a broken file
-            // degrades the bot rather than stopping it.
-            log.error("Unable to load payment processing config", e);
-            return new PaymentProcessingConfig();
-        }
     }
 
     private void checkPayments() {
@@ -126,7 +124,7 @@ public class PaymentProcessingService implements AutoCloseable {
             if (member == null) {
                 throw new RuntimeException("Unable to find member for contribution: " + receiverId);
             }
-            final MessageChannel channel = jda.getTextChannelById(config.getConfirmationChannelId());
+            final MessageChannel channel = jda.getTextChannelById(config.confirmationChannelId());
             if (channel != null) {
                 final User initiator = jda.retrieveUserById(initiatorId).complete();
                 final String msg;
@@ -179,14 +177,14 @@ public class PaymentProcessingService implements AutoCloseable {
     }
 
     private void updateBalanceChannel() {
-        final String channelId = config.getBalanceChannelId();
+        final String channelId = config.balance().channelId();
         final VoiceChannel ch = jda.getVoiceChannelById(channelId);
         if (ch == null) {
             log.error("Voice channel {} not found", channelId);
             return;
         }
         final String currentName = ch.getName();
-        final String newName = String.format(config.getBalanceChannelFormat(), BunqService.balanceStr());
+        final String newName = String.format(config.balance().nameFormat(), BunqService.balanceStr());
         if (!newName.equals(currentName)) {
             log.info("Old balance channel's name '{}' is not equal '{}', updating.", currentName, newName);
             ch.getManager().setName(newName).queue();

@@ -12,28 +12,34 @@ dependencies {
     // The access API (eu.nordtal.s2.common.access) talks to PostgreSQL directly, because the
     // database is the source of truth for access and the proxy has to read it on the login path.
     //
-    // These four - and only these four - are what a consumer of :common shades. jcore is
-    // deliberately NOT used here even though it wraps exactly this stack: its dependency block
-    // (JDA-adjacent config system, Flyway, commons-*, gson, snakeyaml) is what makes the bot's
-    // jar ~33 MB, and a Paper plugin must not carry that. The versions are pinned to jcore's own
-    // in gradle/libs.versions.toml, so the bot - which has both on its classpath - resolves one
-    // copy of each.
+    // They are compileOnly ON PURPOSE. Declared as implementation they would be shaded into every
+    // consumer of :common, including hunger-games and resource-pack-coercion, which never touch a
+    // database - measured at 3.12 MB per plugin jar instead of 20 KB. A module that actually uses
+    // eu.nordtal.s2.common.access opts in with `implementation(libs.bundles.access.persistence)`
+    // plus `runtimeOnly(libs.postgresql.driver)`; one that forgets fails with a
+    // NoClassDefFoundError the first time it calls the access API. That is the accepted trade.
+    //
+    // jcore is deliberately NOT used here even though it wraps exactly this stack: its dependency
+    // block (config system, Flyway, commons-*, gson, snakeyaml) is what makes the bot's jar ~33 MB.
+    // The versions are pinned to jcore's own in gradle/libs.versions.toml, so the bot - which has
+    // both on its classpath - resolves one copy of each.
     //
     // Nothing from these libraries appears on the public API of :common: the factories take a
     // javax.sql.DataSource or a JDBC URL, both JDK types. A consumer therefore never compiles
     // against JDBI itself.
-    implementation(libs.jdbi.core)
-    implementation(libs.jdbi.sqlobject)
-    implementation(libs.jdbi.postgres)
-    implementation(libs.hikaricp)
-    implementation(libs.slf4j.api)
-
-    // Loaded by service lookup, never referenced by name.
-    runtimeOnly(libs.postgresql.driver)
+    compileOnly(libs.jdbi.core)
+    compileOnly(libs.jdbi.sqlobject)
+    compileOnly(libs.jdbi.postgres)
+    compileOnly(libs.hikaricp)
+    compileOnly(libs.slf4j.api)
 
     // The integration tests apply payments-bot's real Flyway migration against a real PostgreSQL
     // container (see AccessSchema in src/test/java). Flyway is a test dependency only - :common
     // never migrates anything at runtime; the bot owns that.
+    // :common's own tests exercise the access API, so they need the runtime stack that consumers
+    // otherwise bring themselves.
+    testImplementation(libs.bundles.access.persistence)
+
     testImplementation(libs.flyway.core)
     testImplementation(libs.flyway.postgresql)
     testImplementation(libs.testcontainers.postgresql)

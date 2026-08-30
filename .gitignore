@@ -7,9 +7,13 @@ build/
 gradle.properties.local
 *.env
 .env
-config/
-run/
 bunq-config.conf
+# Runtime working directories, anchored. An unanchored `config/` also matches the Java package
+# eu.nordtal.s2.paymentsbot.config and silently kept its sources out of the first commits.
+/config/
+/*/config/
+/*/run/
+run/
 
 ### IDE ###
 .idea/

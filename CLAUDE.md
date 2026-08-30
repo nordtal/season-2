@@ -104,10 +104,20 @@ then pushes `ghcr.io/nordtal/payments-bot:<version>`.
 Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymentsbot` →
 `eu.nordtal.s2.paymentsbot`. It will change substantially, but the season 1 code is the base.
 
-- **It is the only module that depends on `jcore`** (`com.github.nordtal:jcore:1.0.2`, published
-  via JitPack). That pulls Hibernate, `jakarta.persistence`, commons-lang3, logback and
-  `org.jetbrains:annotations` in transitively as `api` dependencies, which is why the shaded jar
-  is ~58 MB. Fine for a container; it would not be fine inside a Paper plugin.
+- **It is the only module that depends on `jcore`** (`com.github.nordtal:jcore:2.0.0`, published
+  via JitPack). That exports jdbi3-core, jdbi3-sqlobject, slf4j-api, commons-lang3, commons-io,
+  jackson-databind and `org.jetbrains:annotations` as `api` dependencies, and brings HikariCP,
+  Flyway and the PostgreSQL driver along at runtime. The shaded jar is ~33 MB. Fine for a
+  container; it would not be fine inside a Paper plugin.
+- **jcore 2.0.0 does not export a logging backend** (logback is `testRuntimeOnly` there). The bot
+  declares `ch.qos.logback:logback-classic` itself. Remove that and SLF4J binds to a no-op: every
+  log line disappears behind a single "no providers found" warning.
+- **Persistence is JDBI 3 + HikariCP + Flyway on PostgreSQL** — no Hibernate, no JPA, no MariaDB.
+  One `Database` per process, created and closed by `NordTalPayments`. The schema is owned by
+  `src/main/resources/db/migration/`, applied by `database.migrate()` at startup. The
+  `contribution` table starts empty by design; season 1's rows are deliberately not migrated.
+  `euro_amount` is `numeric(10,2)` in PostgreSQL while the Java field is still a `float` — the
+  column is the source of truth for the value.
 - **It shadows a bunq SDK class.** `src/main/java/com/bunq/sdk/http/BunqRequestBuilder.java` is a
   patched copy of a class from `com.github.bunq:sdk_java`, sitting in the library's own package so
   it wins on the classpath. Nobody currently knows what the patch fixes. **Do not delete it and do
@@ -115,8 +125,11 @@ Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymen
   work on the bot is picked up.
 - The Dockerfile is runtime-only: Gradle builds the jar, `docker build --build-arg JAR=...` wraps
   it. A self-contained build stage would have to copy this whole multi-module repo.
-- Secrets are environment variables (`BOT_TOKEN`, `MARIADB_*`, `BUNQ_API_KEY`, `BUNQ_ACCOUNT_ID`).
-  The bunq API context lives in a Docker volume, never on the host.
+- Secrets are environment variables (`BOT_TOKEN`, `BUNQ_API_KEY`, `BUNQ_ACCOUNT_ID`) **except**
+  the database credentials, which are read from `config/database.json` in the config volume via
+  jcore's `JsonConfigLoader` (`jdbc_url`, `username`, `password` — the loader is on `SNAKE_CASE`).
+  The `MARIADB_*` variables are gone. The bunq API context lives in a Docker volume, never on the
+  host.
 
 ## resource-pack
 
@@ -129,6 +142,11 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-There are **no tests** in this repo, and nothing has been run on a real server. `./gradlew build`
-compiling is not verification. Anything touching players, packets or world state has to be
-exercised on `runServer` with real clients before it is called done.
+The only tested module is `payments-bot`: `ContributionRepositoryTest` covers the
+contribution-scheduling logic in memory, and `ContributionRepositoryIntegrationTest` runs the DAO
+layer against a real PostgreSQL container (Testcontainers, driven by hand from `@BeforeAll` —
+the `org.testcontainers:junit-jupiter` extension is built against JUnit 5 and this repo is on the
+JUnit 6 BOM). It skips itself when no Docker daemon is reachable, so a green build on a machine
+without Docker proves less than it looks. Nothing else has tests, and nothing has been run on a
+real server. `./gradlew build` compiling is not verification. Anything touching players,
+packets or world state has to be exercised on `runServer` with real clients before it is called done.

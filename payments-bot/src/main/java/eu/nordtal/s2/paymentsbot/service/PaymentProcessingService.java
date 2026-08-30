@@ -1,8 +1,8 @@
 package eu.nordtal.s2.paymentsbot.service;
 
 import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
-import eu.nordtal.jcore.config.JsonConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.paymentsbot.config.Configs;
 import eu.nordtal.s2.paymentsbot.config.PaymentProcessingConfig;
 import eu.nordtal.s2.paymentsbot.model.ContributionTier;
 import eu.nordtal.s2.paymentsbot.persistence.model.Contribution;
@@ -14,7 +14,6 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 
-import java.io.File;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,10 +37,11 @@ public class PaymentProcessingService implements AutoCloseable {
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private final PaymentProcessingConfig config;
     private final JDA jda;
-    private final ContributionService contributionService = new ContributionService();
+    private final ContributionService contributionService;
 
-    public PaymentProcessingService(final JDA jda) {
+    public PaymentProcessingService(final JDA jda, final ContributionService contributionService) {
         this.jda = jda;
+        this.contributionService = contributionService;
         this.config = loadConfig();
         schedule();
     }
@@ -65,16 +65,11 @@ public class PaymentProcessingService implements AutoCloseable {
     }
 
     private PaymentProcessingConfig loadConfig() {
-        final File file = new File("config/payment-processing.json");
-        log.info("Loading config from {}", file.getAbsolutePath());
         try {
-            if (!file.exists()) {
-                final PaymentProcessingConfig cfg = new PaymentProcessingConfig();
-                JsonConfigLoader.save(file, cfg);
-                return cfg;
-            }
-            return JsonConfigLoader.load(file, PaymentProcessingConfig.class);
+            return Configs.load("payment-processing", PaymentProcessingConfig.class);
         } catch (ConfigException e) {
+            // Unlike the database settings, these all have workable defaults, so a broken file
+            // degrades the bot rather than stopping it.
             log.error("Unable to load payment processing config", e);
             return new PaymentProcessingConfig();
         }

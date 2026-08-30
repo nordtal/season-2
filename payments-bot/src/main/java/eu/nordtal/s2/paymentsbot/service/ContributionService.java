@@ -1,28 +1,37 @@
 package eu.nordtal.s2.paymentsbot.service;
 
+import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.paymentsbot.model.ContributionTier;
 import eu.nordtal.s2.paymentsbot.persistence.dao.ContributionRepository;
 import eu.nordtal.s2.paymentsbot.persistence.model.Contribution;
-import eu.nordtal.s2.paymentsbot.model.ContributionTier;
+
 import org.jetbrains.annotations.NotNull;
-import eu.nordtal.jcore.persistence.mariadb.MariaDbSessionFactoryConstructor;
 
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Application-level view of the contribution table.
+ * <p>
+ * It takes the {@link Database} rather than building one: with jcore 2.0.0 there is exactly one
+ * connection pool per application, owned and closed by {@link eu.nordtal.s2.paymentsbot.NordTalPayments}.
+ * The 1.x code built a {@code MariaDbSessionFactoryConstructor} in this constructor, which meant
+ * a pool per service instance and nothing that ever closed it.
+ * </p>
+ */
 public class ContributionService {
 
     private final ContributionRepository repository;
 
-    public ContributionService() {
-        this.repository = new ContributionRepository(new MariaDbSessionFactoryConstructor<>(
-                System.getenv("MARIADB_URI"),
-                System.getenv("MARIADB_USERNAME"),
-                System.getenv("MARIADB_PASSWORD"),
-                Contribution.class
-        ));
+    public ContributionService(@NotNull final Database database) {
+        this.repository = new ContributionRepository(database);
     }
 
+    /**
+     * Inserts the contribution. The returned instance is the one passed in, with
+     * {@link Contribution#getId()} filled in from the database.
+     */
     public Contribution save(@NotNull final Contribution contribution) {
         return repository.save(contribution);
     }

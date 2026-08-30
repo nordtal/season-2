@@ -8,7 +8,12 @@
         </layout>
     </appender>
 
-    <logger name="org.hibernate" level="WARN"/>
+    <!-- Hikari announces every pool state change at DEBUG; Flyway narrates each migration at
+         INFO, which is worth keeping. jcore's SQL logger sits on
+         eu.nordtal.jcore.persistence.sql.Slf4jSqlLogger at DEBUG and is off unless log_sql is
+         enabled in config/database.json AND this logger is turned up. -->
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+    <logger name="org.jdbi" level="INFO"/>
 
     <root level="info">
         <appender-ref ref="CONSOLE"/>

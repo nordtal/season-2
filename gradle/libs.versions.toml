@@ -12,7 +12,9 @@ velocity = "4.1.1"
 simplecloud = "0.1.0-platform.54-dev.1.1-770dcc6"
 # jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the
 # git tag. Only payments-bot uses it — see CLAUDE.md before adding it to a plugin.
-jcore = "1.0.2"
+# 2.0.0 dropped Hibernate/Morphia for JDBI 3 + HikariCP + Flyway on PostgreSQL and no longer
+# exports a logging backend, so consumers declare logback themselves.
+jcore = "2.0.0"
 jda = "6.0.0-rc.4"
 bunq = "1.28.0.6"
 guava = "33.6.0-jre"
@@ -21,6 +23,13 @@ logback = "1.5.18"
 adventure = "5.2.0"
 lombok = "1.18.40"
 annotations = "26.0.2"
+# PostgreSQL JDBC driver. jcore already carries it as a runtime dependency; payments-bot
+# declares it so the version is visible here rather than implied by jcore's POM.
+postgresql = "42.7.13"
+# Testcontainers: only the postgresql module, driven manually from @BeforeAll. The
+# junit-jupiter module is deliberately not used - it is built against JUnit 5 and this
+# repo is on the JUnit 6 BOM.
+testcontainers = "1.21.4"
 junit = "6.0.0"
 shadow = "9.6.1"
 runpaper = "3.1.0"
@@ -39,6 +48,8 @@ adventure-api = { module = "net.kyori:adventure-api", version.ref = "adventure" 
 adventure-minimessage = { module = "net.kyori:adventure-text-minimessage", version.ref = "adventure" }
 annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+postgresql-driver = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }

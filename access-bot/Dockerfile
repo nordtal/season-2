@@ -18,31 +18,30 @@ RUN mkdir -p config bunq \
 # The bunq API context holds credentials and is kept in a Docker-managed volume, never on
 # the host filesystem.
 #
-# CONFIGURATION (changed with jcore 3.0.0 - the old variable names are no longer read):
+# CONFIGURATION - three files, one environment namespace each:
 #
-#   config/bot.yml                 config/database.yml          config/payment-processing.yml
-#   NORDTAL_BOT_TOKEN              NORDTAL_DATABASE_JDBC_URL    NORDTAL_PAYMENT_PROCESSING_*
+#   config/bot.yml                 config/database.yml          config/access.yml
+#   NORDTAL_BOT_TOKEN              NORDTAL_DATABASE_JDBC_URL    NORDTAL_ACCESS_*
 #   NORDTAL_BOT_BUNQ_API_KEY       NORDTAL_DATABASE_USERNAME
 #   NORDTAL_BOT_BUNQ_ACCOUNT_ID    NORDTAL_DATABASE_PASSWORD
+#   NORDTAL_BOT_BUNQ_ENVIRONMENT
 #
 # Every setting in every file can be overridden this way: the variable is the setting's path
-# with '.' and '-' turned into '_'. The environment always wins over the file and is never
-# written back into it, so a secret handed to this container cannot leak into the config volume.
+# with '.' and '-' turned into '_'. So the price of the 30-day tier is
+# NORDTAL_ACCESS_TIERS_SHORT_PRICE_CENTS. The environment always wins over the file and is
+# never written back into it, so a secret handed to this container cannot leak into the
+# config volume.
 #
-# Renamed from the season 1 / jcore 1.x names:
-#   BOT_TOKEN        -> NORDTAL_BOT_TOKEN
-#   BUNQ_API_KEY     -> NORDTAL_BOT_BUNQ_API_KEY
-#   BUNQ_ACCOUNT_ID  -> NORDTAL_BOT_BUNQ_ACCOUNT_ID
-#   BUNQ_CONFIG_PATH -> NORDTAL_BOT_BUNQ_CONTEXT_PATH
-#   POSTGRES_URL     -> NORDTAL_DATABASE_JDBC_URL
-#   POSTGRES_USER    -> NORDTAL_DATABASE_USERNAME
-#   POSTGRES_PASSWORD-> NORDTAL_DATABASE_PASSWORD
+# access.yml has NO usable defaults for the guild id, the role ids or the channel ids - they
+# are empty and the bot refuses to start until they are filled in. That is deliberate: a
+# default id would be a real channel in somebody's guild.
 #
-# An existing config/*.json from jcore 1.x is converted to YAML once, on the first start, and
-# kept as *.json.migrated. The MARIADB_* variables the season 1 bot used are long gone.
+# NORDTAL_ACCESS_PAYMENT_WATERMARK matters on a first deploy. Payments created before it are
+# ignored forever; without it the first poll books up to 50 historical payments on the bunq
+# account, roles, DMs and public thank-yous included.
 #
 # The bot REFUSES TO START on a config it cannot read, a setting that does not exist, or an
-# empty credential. It no longer falls back to defaults.
+# empty credential. It never falls back to defaults.
 ENV NORDTAL_BOT_BUNQ_CONTEXT_PATH=/app/bunq/bunq-config.conf
 
 VOLUME ["/app/config", "/app/bunq"]

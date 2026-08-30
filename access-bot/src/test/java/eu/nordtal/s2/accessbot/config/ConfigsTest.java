@@ -13,15 +13,56 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The bot's side of the config change: the one-time JSON conversion for the existing Docker
- * deploy, and the fail-fast that replaced "log it and carry on with defaults".
+ * The fail-fast that replaced "log it and carry on with defaults".
+ * <p>
+ * Every test here is a value that used to be able to reach production: a mistyped key that the old
+ * loader deleted silently, a bunq account id that was only parsed inside the poll loop, a channel
+ * id nobody filled in. The point of the config layer is that none of them get past startup.
+ * </p>
+ * <p>
+ * What these tests <b>cannot</b> prove: that the ids in a real {@code access.yml} point at the
+ * channels and roles somebody meant. A snowflake is checked for being a snowflake, not for
+ * existing - that only shows up against a real guild.
+ * </p>
  */
 class ConfigsTest {
+
+    /** A complete access.yml, so a test about one setting does not trip over the other twenty. */
+    private static final String VALID_ACCESS = """
+            guild-id: '1'
+            tiers:
+              short-days: 30
+              short-price-cents: 300
+              medium-days: 60
+              medium-price-cents: 500
+              long-days: 90
+              long-price-cents: 700
+            donation-cents: 500
+            roles:
+              access: '10'
+              donor: '11'
+              german: '12'
+              english: '13'
+              admin-ping: '14'
+            channels:
+              contribution-en: '20'
+              contribution-de: '21'
+              link-en: '22'
+              link-de: '23'
+              admin: '24'
+            payment:
+              poll-interval-seconds: 30
+              request-ttl-hours: 24
+              watermark: '2026-09-01T00:00:00Z'
+              recent-payment-count: 50
+            link-code-ttl-minutes: 10
+            expiry-reminder-lead-days: 3
+            role-reconcile-interval-minutes: 10
+            """;
 
     @TempDir
     Path directory;
@@ -36,152 +77,102 @@ class ConfigsTest {
         System.clearProperty(Configs.DIRECTORY_PROPERTY);
     }
 
-    // ------------------------------------------------------------- JSON -> YAML conversion
+    // ------------------------------------------------------------- access.yml
 
     @Test
-    @DisplayName("an existing payment-processing.json is converted once, keeping every value")
-    void convertsLegacyPaymentProcessingJson() throws Exception {
-        // Exactly the shape the deployed config volume holds: jcore 1.x wrote SNAKE_CASE.
-        Files.writeString(directory.resolve("payment-processing.json"), """
-                {
-                  "check_interval_seconds" : 25,
-                  "confirmation_channel_id" : "111222333",
-                  "balance_channel_id" : "444555666",
-                  "balance_channel_format" : "BAL %s EUR"
-                }
-                """);
+    @DisplayName("a complete access.yml loads, with the prices as integer cents")
+    void completeAccessConfigLoads() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), VALID_ACCESS);
 
-        final PaymentProcessingSpec config = Configs.paymentProcessing().get();
+        final AccessSpec config = Configs.access().get();
 
         assertAll(
-                () -> assertEquals(25L, config.checkIntervalSeconds()),
-                () -> assertEquals("111222333", config.confirmationChannelId()),
-                // These two were flat in the JSON and are nested now, so the plain
-                // underscore-to-hyphen rule is not enough on its own.
-                () -> assertEquals("444555666", config.balance().channelId()),
-                () -> assertEquals("BAL %s EUR", config.balance().nameFormat())
-        );
-
-        assertAll(
-                () -> assertTrue(Files.isRegularFile(directory.resolve("payment-processing.yml"))),
-                () -> assertFalse(Files.exists(directory.resolve("payment-processing.json")),
-                        "the JSON file is moved aside so the conversion cannot run twice"),
-                () -> assertTrue(Files.isRegularFile(directory.resolve("payment-processing.json.migrated")),
-                        "and it is kept, not deleted")
+                () -> assertEquals("1", config.guildId()),
+                () -> assertEquals(30, config.tiers().shortDays()),
+                () -> assertEquals(700, config.tiers().longPriceCents()),
+                () -> assertEquals(500, config.donationCents()),
+                () -> assertEquals("10", config.roles().access()),
+                () -> assertEquals("24", config.channels().admin()),
+                () -> assertEquals(24, config.payment().requestTtlHours())
         );
     }
 
     @Test
-    @DisplayName("the converted file comes out with its comments and header in place")
-    void convertedFileIsCommented() throws Exception {
-        Files.writeString(directory.resolve("payment-processing.json"),
-                "{\"check_interval_seconds\": 25}");
+    @DisplayName("the bot refuses to start while a channel id is empty")
+    void emptyChannelIdStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), VALID_ACCESS.replace("admin: '24'", "admin: ''"));
 
-        Configs.paymentProcessing();
-
-        final String yaml = Files.readString(directory.resolve("payment-processing.yml"));
-        assertAll(
-                () -> assertTrue(yaml.contains("#   access-bot - payment processing"), yaml),
-                () -> assertTrue(yaml.contains("# How often the bunq account is polled"), yaml),
-                () -> assertTrue(yaml.contains("check-interval-seconds: 25"), yaml),
-                () -> assertTrue(yaml.contains("balance:"), "settings absent from the JSON get their defaults")
-        );
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("channels.admin"), error.getMessage());
     }
 
     @Test
-    @DisplayName("conversion does not run when a YAML file already exists")
-    void doesNotConvertOverAnExistingYaml() throws Exception {
-        Files.writeString(directory.resolve("payment-processing.yml"), "check-interval-seconds: 7\n");
-        Files.writeString(directory.resolve("payment-processing.json"),
-                "{\"check_interval_seconds\": 25}");
+    @DisplayName("a role id that is not a snowflake stops the bot")
+    void nonNumericRoleIdStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("access.yml"),
+                VALID_ACCESS.replace("access: '10'", "access: '<@&10>'"));
 
-        assertAll(
-                () -> assertEquals(7L, Configs.paymentProcessing().get().checkIntervalSeconds()),
-                () -> assertTrue(Files.isRegularFile(directory.resolve("payment-processing.json")),
-                        "the JSON file is left alone")
-        );
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("roles.access"), error.getMessage());
     }
 
     @Test
-    @DisplayName("a legacy database.json converts with the plain snake-case rule")
-    void convertsLegacyDatabaseJson() throws Exception {
-        Files.writeString(directory.resolve("database.json"), """
-                {
-                  "jdbc_url" : "jdbc:postgresql://db:5432/payments",
-                  "username" : "deploy-user",
-                  "password" : "from-the-volume",
-                  "maximum_pool_size" : 4,
-                  "log_sql" : true
-                }
-                """);
+    @DisplayName("tiers that are not increasing in price stop the bot")
+    void unorderedTiersStopTheBot() throws Exception {
+        // "Pay what you get" takes the highest tier an amount covers, which is only the answer a
+        // human would give if the tiers are ordered.
+        Files.writeString(directory.resolve("access.yml"),
+                VALID_ACCESS.replace("medium-price-cents: 500", "medium-price-cents: 900"));
 
-        final DatabaseSpec config = Configs.database().get();
-
-        assertAll(
-                () -> assertEquals("jdbc:postgresql://db:5432/payments", config.jdbcUrl()),
-                () -> assertEquals("deploy-user", config.username()),
-                () -> assertEquals("from-the-volume", config.password()),
-                () -> assertEquals(4, config.maximumPoolSize()),
-                () -> assertTrue(config.logSql())
-        );
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("increasing in price"), error.getMessage());
     }
 
-    // ------------------------------------------------------------- fail fast
+    @Test
+    @DisplayName("a watermark that is not an instant stops the bot")
+    void badWatermarkStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("access.yml"),
+                VALID_ACCESS.replace("'2026-09-01T00:00:00Z'", "'1 September 2026'"));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("ISO-8601"), error.getMessage());
+    }
 
     @Test
     @DisplayName("a mistyped setting stops the bot and says what was meant")
     void mistypedSettingStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("payment-processing.yml"), """
-                check-interval-secondz: 10
-                """);
+        Files.writeString(directory.resolve("access.yml"),
+                VALID_ACCESS.replace("donation-cents:", "donation-cent:"));
 
-        // The old code caught this, logged it and returned new PaymentProcessingConfig(), so the
-        // bot ran against default channel ids for as long as nobody read the log.
+        // jcore's predecessor deleted a key it did not know, so a typo cost both the setting and
+        // any trace of it.
         final UnknownConfigKeyException error =
-                assertThrows(UnknownConfigKeyException.class, Configs::paymentProcessing);
+                assertThrows(UnknownConfigKeyException.class, Configs::access);
 
         assertAll(
-                () -> assertEquals("check-interval-secondz", error.unknownKeys().get(0).path()),
-                () -> assertEquals("check-interval-seconds", error.unknownKeys().get(0).suggestion())
+                () -> assertEquals("donation-cent", error.unknownKeys().getFirst().path()),
+                () -> assertEquals("donation-cents", error.unknownKeys().getFirst().suggestion())
         );
     }
 
     @Test
-    @DisplayName("a non-positive poll interval stops the bot")
-    void nonPositiveIntervalStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("payment-processing.yml"), "check-interval-seconds: 0\n");
+    @DisplayName("a defaults access.yml is written, and it cannot start the bot")
+    void defaultsAreWrittenButRefused() {
+        // Season 1 shipped real channel and role ids as defaults, so a config that failed to load
+        // wrote into somebody's production channel. Empty ids cannot do that.
+        assertThrows(ConfigValidationException.class, Configs::access);
 
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, Configs::paymentProcessing);
-        assertTrue(error.getMessage().contains("greater than zero"), error.getMessage());
+        final Path file = directory.resolve("access.yml");
+        assertAll(
+                () -> assertTrue(Files.isRegularFile(file)),
+                () -> assertTrue(Files.readString(file).contains("access: ''"),
+                        "the role ids are written empty, never guessed"),
+                () -> assertTrue(Files.readString(file).contains("short-price-cents: 300"),
+                        "but the prices have real defaults")
+        );
     }
 
-    @Test
-    @DisplayName("a balance format without %s stops the bot")
-    void badBalanceFormatStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("payment-processing.yml"), """
-                check-interval-seconds: 10
-                confirmation-channel-id: '1'
-                balance:
-                  channel-id: '2'
-                  name-format: 'no placeholder here'
-                """);
-
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, Configs::paymentProcessing);
-        assertTrue(error.getMessage().contains("%s"), error.getMessage());
-    }
-
-    @Test
-    @DisplayName("a non-PostgreSQL jdbc-url stops the bot")
-    void wrongDatabaseUrlStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("database.yml"),
-                "jdbc-url: jdbc:mysql://db:3306/payments\nusername: u\n");
-
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, Configs::database);
-        assertTrue(error.getMessage().contains("PostgreSQL"), error.getMessage());
-    }
+    // ------------------------------------------------------------- bot.yml
 
     @Test
     @DisplayName("the bot refuses to start while the credentials are empty")
@@ -203,6 +194,7 @@ class ConfigsTest {
                 bunq:
                   api-key: a-key
                   account-id: not-a-number
+                  environment: PRODUCTION
                   context-path: ''
                 """);
 
@@ -212,25 +204,44 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("a complete bot.yml loads")
+    @DisplayName("an unknown bunq environment stops the bot")
+    void badBunqEnvironmentStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("bot.yml"), """
+                token: a-token
+                bunq:
+                  api-key: a-key
+                  account-id: '1234'
+                  environment: staging
+                  context-path: ''
+                """);
+
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, Configs::bot);
+        assertTrue(error.getMessage().contains("PRODUCTION or SANDBOX"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("a complete bot.yml loads, including the sandbox switch")
     void completeBotConfigLoads() throws Exception {
         Files.writeString(directory.resolve("bot.yml"), """
                 token: a-token
                 bunq:
                   api-key: a-key
                   account-id: '1234'
+                  environment: SANDBOX
                   context-path: ''
                 """);
 
         final BotSpec config = Configs.bot().get();
         assertAll(
                 () -> assertEquals("a-token", config.token()),
-                () -> assertEquals("1234", config.bunq().accountId())
+                () -> assertEquals("1234", config.bunq().accountId()),
+                () -> assertEquals("SANDBOX", config.bunq().environment())
         );
     }
 
     @Test
-    @DisplayName("a defaults file is written when nothing exists, and the secrets slot stays empty")
+    @DisplayName("a defaults bot.yml is written and the secrets slot stays empty")
     void writesDefaultsWithoutSecrets() {
         assertThrows(ConfigValidationException.class, Configs::bot);
 
@@ -242,5 +253,18 @@ class ConfigsTest {
                 () -> assertTrue(Files.readString(file).contains("LEAVE THESE EMPTY"),
                         "and the header says so")
         );
+    }
+
+    // ------------------------------------------------------------- database.yml
+
+    @Test
+    @DisplayName("a non-PostgreSQL jdbc-url stops the bot")
+    void wrongDatabaseUrlStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("database.yml"),
+                "jdbc-url: jdbc:mysql://db:3306/access\nusername: u\n");
+
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, Configs::database);
+        assertTrue(error.getMessage().contains("PostgreSQL"), error.getMessage());
     }
 }

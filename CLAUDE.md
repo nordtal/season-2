@@ -12,8 +12,8 @@ the sibling repos. Read it too.
 
 Set up 2026-08-29 from a bare IntelliJ scaffold. **The four server-side plugins are scaffolds with
 no behaviour** — a main class that logs on enable, a descriptor, and nothing else. Each is meant to
-be implemented in its own session. `access-bot` is the exception: its source was ported from
-`nordtal-payments` and is real, working code.
+be implemented in its own session. `access-bot` is the exception: it was rebuilt for season 2 in
+stage B (2026-08-30) and is real code — see its section below.
 
 Deliberately **not** set up, so nobody adds it by accident thinking it was forgotten:
 
@@ -166,80 +166,107 @@ then pushes `ghcr.io/nordtal/access-bot:<version>`.
 
 ## access-bot
 
-**The season 2 model was decided on 2026-08-30 and is written down in
-[docs/access-system.md](docs/access-system.md), with the three implementation stages in
-`docs/access-stage-{a,b,c}.md`. Read the concept before touching this module or the access path in
-`common` and `network-control` — the code below still describes season 1's model.**
+Season 2's Discord bot. **Stage B is implemented (2026-08-30)**; the concept is
+[docs/access-system.md](docs/access-system.md) and the stage plans are
+`docs/access-stage-{a,b,c}.md`. Read the concept before changing anything here or in the access
+path in `common` and `network-control`.
 
-In short: contribution tiers, bank transfer and the receiver select are gone. Season 2 sells
-**access periods** (30/60/90 days at 3/5/7 €, optional +5 € donation) bound to a Discord account,
-paid by bunq.me card payment only. The database is the source of truth for access, donor status and
-language; Discord roles are a projection of it and LuckPerms is not involved. The proxy gates the
-login, the account link is built in-house, and the module is renamed to `access-bot`
-(`eu.nordtal.s2.accessbot`) as part of stage B.
+It sells **access periods** (30/60/90 days at 3/5/7 €, optional +5 € donation) bound to a Discord
+account, paid by bunq.me card payment only. Season 1's contribution tiers, bank transfer, receiver
+select and balance voice channel are gone. The database is the source of truth for access, donor
+status and language; Discord roles are a projection of it and LuckPerms is not involved.
+**Stage C is not built**: the proxy gate and link-code issuing do not exist yet, which is why the
+two link messages carry an explanation and no button, and why `link_code` is only swept, never
+written.
 
-Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymentsbot` →
-`eu.nordtal.s2.accessbot`. It will change substantially, but the season 1 code is the base.
+### Shape
 
-- **It is the only module that depends on `jcore`** (`com.github.nordtal:jcore:2.0.0`, published
-  via JitPack). That exports jdbi3-core, jdbi3-sqlobject, slf4j-api, commons-lang3, commons-io,
-  gson, snakeyaml and `org.jetbrains:annotations` as `api` dependencies, and brings HikariCP,
-  Flyway and the PostgreSQL driver along at runtime. The shaded jar is ~33 MB. Fine for a
-  container; it would not be fine inside a Paper plugin.
+| package | what |
+|---|---|
+| `config` | `access.yml`, `bot.yml`, `database.yml` and every validation rule |
+| `bunq` | `BunqGateway` (tabs, cancellation, result inquiries, recent payments), `Money` |
+| `payment` | `payment_request` and its state machine, the price list, the poll loop |
+| `discord` | managed messages, the purchase flow, roles, guild state, admin commands, the admin log |
+
+- **The purchase flow's state is the `payment_request` row**, not a cache. Season 1 kept it in
+  Guava, so a restart answered "setup expired" to everyone mid-purchase. A request is written when
+  the day count is picked, before a bunq tab exists; `bunq_tab_id IS NULL` is exactly the
+  difference between "chose 60 days" and "asked for a payment link".
+- **Closing a request closes its bunq tab** (`BunqMeTabApiObject.update(id, account, "CANCELLED")`),
+  never just a status flip. `Purchases` is the only place that does either.
+- **Matching is two paths, one gate.** Primary: a tab knows the payments that settled it
+  (`getResultInquiries()` → `getPayment()`), which needs no text parsing. Fallback: recent payments
+  are scanned for `NT-[0-9A-F]{6}`. Both are gated by `payment.watermark` — without it the first
+  run books up to 50 historical payments, roles and messages included.
+- **"Pay what you get" lives in `Tiers.resolve`**, and it maximises days: with 3/5/7 € tiers and a
+  5 € donation, 10 € is 90 days and *no* donor role. That is the agreed rule read literally and it
+  has its own test, because it is what a support ticket will be about.
+- **A payment on a reference that is not `OPEN` is never booked automatically.** It goes to the
+  admin channel with `/settle` as the manual path.
+- **The access role is bot-owned; the donor role is never removed.** The reconcile reads JDA's
+  member cache (chunked once when the session opens) against one indexed query — not
+  `loadMembers()` on a timer, which is what season 1 did every ten seconds.
+- **Blocking work is off the gateway threads.** bunq HTTP calls and the database work behind an
+  interaction run on `access-bot-worker`; an interaction not acknowledged within three seconds is
+  dead, and a gateway thread waiting on a bank stalls the whole guild.
+
+### Persistence
+
+- **It is the only module that depends on `jcore`** (`com.github.nordtal:jcore:3.0.0`, via
+  JitPack), which exports jdbi3-core, jdbi3-sqlobject, slf4j-api, commons-lang3, commons-io, gson,
+  snakeyaml and `org.jetbrains:annotations`, and brings HikariCP, Flyway, jdbi3-postgres and the
+  PostgreSQL driver at runtime. The shaded jar is ~30 MB — fine for a container, not for a plugin.
+  It also depends on `:common` for the access API and the message system; `:common` declares its
+  JDBI/Hikari/slf4j `compileOnly`, so that adds no second copy of anything.
 - **jcore does not export a logging backend** (logback is `testRuntimeOnly` there). The bot
-  declares `ch.qos.logback:logback-classic` itself. Remove that and SLF4J binds to a no-op: every
-  log line disappears behind a single "no providers found" warning.
-- **Persistence is JDBI 3 + HikariCP + Flyway on PostgreSQL** — no Hibernate, no JPA, no MariaDB.
-  One `Database` per process, created and closed by `AccessBot`. The schema is owned by
-  `src/main/resources/db/migration/`, applied by `database.migrate()` at startup.
-  **Stage A rewrote `V1` in place into the season 2 access schema** (`V1__access.sql`, renamed from
-  `V1__contribution.sql`): `discord_user`, `account_link`, `link_code`, `payment_request`,
-  `access_grant`, `audit_log`. Money is integer cents or `numeric`, never `float`, and every point
-  in time is `timestamptz`. The 1:1 account link, the one-open-request-per-person rule and the
-  double-booking guard are unique constraints, not application code.
-  **`V2__legacy_contribution.sql` is a temporary bridge**: it re-creates season 1's `contribution`
-  table only so the not-yet-rewritten season 1 bot code keeps working until stage B. Delete that
-  file in stage B together with `Contribution`, `ContributionDao`, `ContributionRepository`,
-  `ContributionService` and `ContributionTier`. Nothing else refers to it.
+  declares `ch.qos.logback:logback-classic` itself. Remove it and every log line disappears behind
+  one "no providers found" warning.
+- **The schema is owned here** (`src/main/resources/db/migration/`), applied by `database.migrate()`
+  at startup, while the API that reads it lives in `:common` — so a column change is an edit in two
+  modules. `:common`'s tests apply this directory directly rather than keeping a copy of the DDL.
+  - `V1__access.sql` (stage A): `discord_user`, `account_link`, `link_code`, `payment_request`,
+    `access_grant`, `audit_log`.
+  - `V2__bot_state.sql` (stage B): `managed_message`, `payment_notice`, `expiry_notice` — three
+    tables that exist so something the bot does exactly once survives a restart. Without them a
+    restart posts a second managed message, re-pings admins about the same payment every poll, and
+    re-sends yesterday's expiry DMs. `V2__legacy_contribution.sql` and the whole `contribution`
+    code path were deleted in stage B.
+- **Money is integer cents** in Java and in the database. `Money` is the only place that converts
+  to and from bunq's decimal strings, and it goes through `BigDecimal`. Season 1 used
+  `Float.parseFloat` and `<`.
 - **It shadows a bunq SDK class.** `src/main/java/com/bunq/sdk/http/BunqRequestBuilder.java` is a
-  patched copy of a class from `com.github.bunq:sdk_java`, sitting in the library's own package so
-  it wins on the classpath. **Resolved 2026-08-30 by diffing it against the 1.28.0.6 sources:** JDA
-  pulls **OkHttp 5**, where `Request.Builder.delete()` (no argument) is `final` and
-  `okhttp3.internal.Util` no longer exists — and the SDK's original class overrides exactly that
-  method. The patch is required as long as JDA and the bunq SDK share a classpath. Do not delete it,
-  and re-check it on any bunq SDK or JDA bump.
+  patched copy from `com.github.bunq:sdk_java`, in the library's own package so it wins on the
+  classpath. JDA pulls **OkHttp 5**, where `Request.Builder.delete()` is `final` and
+  `okhttp3.internal.Util` is gone — and the SDK's original overrides exactly that method. Do not
+  delete it; re-check it on any bunq SDK or JDA bump. Diffed against the 1.28.0.6 sources
+  2026-08-30.
 - The Dockerfile is runtime-only: Gradle builds the jar, `docker build --build-arg JAR=...` wraps
   it. A self-contained build stage would have to copy this whole multi-module repo.
-- **Configuration is `config/*.yml`, loaded through jcore 3.0.0's config system** — three files:
-  `bot.yml` (Discord token, bunq credentials), `database.yml` and `payment-processing.yml`, each
-  with its own environment namespace: `NORDTAL_BOT_*`, `NORDTAL_DATABASE_*`,
-  `NORDTAL_PAYMENT_PROCESSING_*`. A shared `NORDTAL` prefix was deliberately not used — generic
-  keys such as `password` would collide across files.
-- **Every environment variable was renamed.** `BOT_TOKEN` → `NORDTAL_BOT_TOKEN`, `BUNQ_API_KEY` →
-  `NORDTAL_BOT_BUNQ_API_KEY`, `BUNQ_ACCOUNT_ID` → `NORDTAL_BOT_BUNQ_ACCOUNT_ID`,
-  `BUNQ_CONFIG_PATH` → `NORDTAL_BOT_BUNQ_CONTEXT_PATH`, `POSTGRES_URL` →
-  `NORDTAL_DATABASE_JDBC_URL`, `POSTGRES_USER` → `NORDTAL_DATABASE_USERNAME`, `POSTGRES_PASSWORD`
-  → `NORDTAL_DATABASE_PASSWORD`. **The old names are no longer read.** The compose file or
-  orchestrator secrets have to be updated before the next deploy, or the bot starts on the file
-  values — and refuses to start at all if the credentials are then empty. The `MARIADB_*`
-  variables are long gone.
-- **The credentials are config values with empty defaults, not bare `getenv` calls.** They are
-  validated once at startup; the bot refuses to start while any of them is empty or the bunq
-  account id is not numeric. Previously a missing account id surfaced as a `NumberFormatException`
-  inside the poll loop, minutes into a run. An environment value is never written back to the
-  file, so the config volume never sees a real token unless somebody types one in.
-- **An existing jcore 1.x `config/*.json` is converted to YAML once, on first start**, and kept as
-  `*.json.migrated`. `Configs` owns that conversion, including the two payment-processing keys
-  that moved into a nested `balance` section and so need more than the snake-case-to-kebab rule.
-  A manual step was rejected: the production config lives in a volume nobody edits between pulling
-  an image and starting it.
-- **The bot fails fast on configuration.** `AccessBot` loads and validates all three files
-  before anything with a lifecycle starts, and `main` exits with status 1 on a `ConfigException`.
-  `PaymentProcessingService` no longer loads its own config: it used to catch the failure, log it
-  and carry on with `new PaymentProcessingConfig()`, so a broken file ran the bot against default
-  Discord channel ids. In production the password still belongs in the environment; the files
-  exist so a local checkout runs without setting anything. The bunq API context lives in a Docker
-  volume, never on the host.
+
+### Configuration
+
+Three files under `config/`, loaded through jcore 3.0.0, each with its own environment namespace —
+`NORDTAL_BOT_*`, `NORDTAL_DATABASE_*`, `NORDTAL_ACCESS_*`. A shared `NORDTAL` prefix was
+deliberately not used: generic keys such as `password` would collide across files.
+
+- `access.yml` is new in stage B and carries **everything that used to be an enum or a constant**:
+  tier days and prices, the donation surcharge, the guild id, five role ids, five channel ids, the
+  poll interval, the request TTL, the watermark, the link-code TTL and the reminder lead time. A
+  price change is a config edit, never a release.
+- **The ids default to empty and the bot refuses to start until they are filled in.** Season 1
+  shipped real channel and role ids as defaults, so a config that failed to load wrote into a
+  production channel. Prices do have real defaults; ids never will.
+- `bot.yml` gained `bunq.environment` (`PRODUCTION` / `SANDBOX`). It was hardcoded, which made the
+  sandbox test in the concept impossible to run. The bunq context file belongs to one environment:
+  switching also means pointing `bunq.context-path` at a fresh file.
+- **The tiers are three flat slots** (`short-`, `medium-`, `long-` × `days` / `price-cents`) rather
+  than a list. A reused nested `TierSpec` has one set of defaults, so a fresh file would offer 30
+  days three times. The cost is that the number of tiers is fixed at three.
+- **The one-time jcore 1.x `config/*.json` conversion was removed.** It existed to carry season 1's
+  deployed config volume forward, and nothing is ever migrated between seasons — new bot, new
+  database, new Discord application, new volume.
+- The bot fails fast: all three files are read and validated before anything with a lifecycle
+  starts, and `main` exits 1 on a `ConfigException`.
 
 ## resource-pack
 
@@ -260,11 +287,20 @@ to be `make_interval(hours => days * 24)`, because `interval 'N days'` on a `tim
 calendar arithmetic in the *client session's* time zone and a period spanning the end of summer
 time came out an hour long. **Never express an access duration in days in SQL.**
 
-`access-bot`: `ContributionRepositoryTest` covers the
-contribution-scheduling logic in memory, and `ContributionRepositoryIntegrationTest` runs the DAO
-layer against a real PostgreSQL container (Testcontainers, driven by hand from `@BeforeAll` —
-the `org.testcontainers:junit-jupiter` extension is built against JUnit 5 and this repo is on the
-JUnit 6 BOM). It skips itself when no Docker daemon is reachable, so a green build on a machine
-without Docker proves less than it looks. Nothing else has tests, and nothing has been run on a
-real server. `./gradlew build` compiling is not verification. Anything touching players,
-packets or world state has to be exercised on `runServer` with real clients before it is called done.
+`access-bot` has 34 (2026-08-30): `ConfigsTest` (13, in memory) covers every value that used to be
+able to reach production — a mistyped key, an empty channel id, a role id that is not a snowflake,
+unordered tiers, an unparseable watermark, an unknown bunq environment. `TiersTest` (7, in memory)
+is the "pay what you get" rule, including the 10 € case that gives 90 days and no donor role.
+`PaymentRequestIntegrationTest` (14) drives the request state machine against a real PostgreSQL
+container running the real migrations: one open request per person, superseding, the expiry sweep,
+edit-in-place before a tab and refusal after one, manual settlement, and both halves of the
+double-booking guard.
+
+**What none of it proves.** Nothing here touches bunq or Discord. Tab creation, cancellation and
+result inquiries need the **bunq sandbox** (`bunq.environment: SANDBOX`); buttons, ephemeral
+messages, DMs, role assignment and the managed messages need the **real guild** in an admin-only
+channel; a 3 € real purchase is the last step, never the development loop. The integration tests
+also skip themselves when no Docker daemon is reachable, so a green build on a machine without
+Docker proves less than it looks. `./gradlew build` compiling is not verification. Anything
+touching players, packets or world state has to be exercised on `runServer` with real clients
+before it is called done.

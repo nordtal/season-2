@@ -2,8 +2,12 @@ package eu.nordtal.s2.paymentsbot;
 
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
-import eu.nordtal.s2.paymentsbot.config.BotDatabaseConfig;
+import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.paymentsbot.config.BotSpec;
 import eu.nordtal.s2.paymentsbot.config.Configs;
+import eu.nordtal.s2.paymentsbot.config.DatabaseSpec;
+import eu.nordtal.s2.paymentsbot.config.PaymentProcessingSpec;
+import eu.nordtal.s2.paymentsbot.service.BunqService;
 import eu.nordtal.s2.paymentsbot.events.ContributionEventListeners;
 import eu.nordtal.s2.paymentsbot.events.SlashCommandInteractionListener;
 import eu.nordtal.s2.paymentsbot.service.ContributionService;
@@ -39,18 +43,25 @@ public class NordTalPayments implements AutoCloseable {
     private final PaymentProcessingService paymentProcessingService;
 
     public NordTalPayments() throws InterruptedException, ConfigException {
-        // Persistence comes first on purpose. Database.create fails fast on bad credentials or an
-        // unreachable host, and Flyway fails fast on a broken schema - both are better discovered
-        // before a Discord session is live and slash commands are registered.
-        final BotDatabaseConfig databaseConfig = Configs.load("database", BotDatabaseConfig.class);
-        this.database = Database.create(databaseConfig.toDatabaseConfig());
+        // Configuration comes first, then persistence, then Discord. Every config is read and
+        // validated before anything with a lifecycle starts, so a bad value stops the process
+        // here - with a message naming the file and the setting - instead of surfacing hours
+        // later against the wrong channel or account. Database.create then fails fast on bad
+        // credentials or an unreachable host, and Flyway on a broken schema, both of which are
+        // better discovered before a Discord session is live and slash commands are registered.
+        final DatabaseSpec databaseConfig = Configs.database().get();
+        final BotSpec botConfig = Configs.bot().get();
+        final PaymentProcessingSpec paymentConfig = Configs.paymentProcessing().get();
+
+        BunqService.configure(botConfig);
+
+        this.database = Database.create(toDatabaseConfig(databaseConfig));
 
         boolean started = false;
         try {
             log.info("Applied {} database migration(s)", database.migrate());
 
-            final String token = System.getenv("BOT_TOKEN");
-            jda = JDABuilder.createDefault(token)
+            jda = JDABuilder.createDefault(botConfig.token())
                     .enableIntents(GatewayIntent.getIntents(GatewayIntent.ALL_INTENTS))
                     .build().awaitReady();
 
@@ -68,7 +79,8 @@ public class NordTalPayments implements AutoCloseable {
                             .setDefaultPermissions(DefaultMemberPermissions.DISABLED)
             ).queue();
 
-            paymentProcessingService = new PaymentProcessingService(jda, new ContributionService(database));
+            paymentProcessingService =
+                    new PaymentProcessingService(jda, new ContributionService(database), paymentConfig);
 
             jda.addEventListener(new SlashCommandInteractionListener(this), new ContributionEventListeners());
             started = true;
@@ -94,8 +106,33 @@ public class NordTalPayments implements AutoCloseable {
         }
     }
 
-    public static void main(final String[] args) throws InterruptedException, ConfigException {
-        final NordTalPayments bot = new NordTalPayments();
+    /**
+     * Turns the config settings into the record jcore's {@code Database.create} takes. The pool
+     * knobs jcore exposes but nobody has needed to tune here (idle timeout, max lifetime,
+     * connection timeout) stay at jcore's defaults rather than being mirrored into the file.
+     */
+    private static DatabaseConfig toDatabaseConfig(final DatabaseSpec config) {
+        return DatabaseConfig.builder(config.jdbcUrl())
+                .username(config.username())
+                .password(config.password())
+                .poolName("payments-bot")
+                .maximumPoolSize(config.maximumPoolSize())
+                .logSql(config.logSql())
+                .build();
+    }
+
+    public static void main(final String[] args) throws InterruptedException {
+        final NordTalPayments bot;
+        try {
+            bot = new NordTalPayments();
+        } catch (ConfigException e) {
+            // Deliberately not a stack trace: the message is written for whoever has to fix the
+            // file, and it already names the file, the setting and what is wrong with it.
+            log.error("payments-bot is not starting because its configuration could not be read.");
+            log.error("{}", e.getMessage());
+            System.exit(1);
+            return;
+        }
         // The process is normally stopped by SIGTERM from the container runtime, so the shutdown
         // hook is the only place the pool would ever get closed.
         Runtime.getRuntime().addShutdownHook(new Thread(bot::close, "payments-bot-shutdown"));

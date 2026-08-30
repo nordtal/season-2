@@ -11,6 +11,21 @@ plugins {
 
 rootProject.name = "season-2"
 
+// Optional composite build against a jcore checkout sitting next to this repo, for working on
+// both at once without publishing a tag first. Off by default; turn it on with
+//   ./gradlew <task> -PuseLocalJcore
+// jcore's own coordinate is eu.nordtal:jcore - JitPack rewrites the group to com.github.nordtal -
+// so the substitution has to be spelled out.
+if (providers.gradleProperty("useLocalJcore").isPresent) {
+    val jcore = file("../jcore")
+    require(jcore.isDirectory) { "-PuseLocalJcore was set but $jcore does not exist" }
+    includeBuild(jcore) {
+        dependencySubstitution {
+            substitute(module("com.github.nordtal:jcore")).using(project(":"))
+        }
+    }
+}
+
 // Paper plugins, one per backend server of the season 2 network.
 include("resource-pack-coercion")
 include("hunger-games")

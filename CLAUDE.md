@@ -17,14 +17,19 @@ be implemented in its own session. `payments-bot` is the exception: its source w
 
 Deliberately **not** set up, so nobody adds it by accident thinking it was forgotten:
 
-- **No persistence in any plugin.** No database, no `jcore` dependency in `common` or in any of
-  the four server-side modules. MariaDB via `jcore` is the leading candidate, but the owner has
-  open doubts about whether season 2 needs much persistence at all and about whether `jcore`'s
-  own DAO layer is the right shape. Decide per module when implementing, and raise it rather
-  than assuming. **`payments-bot` is the single exception** — it was ported from season 1 and
-  cannot compile without `jcore`. Do not copy its dependency block into a plugin.
-- **No command framework, no message/config system.** Season 1 used Incendo Cloud and
-  `jcore`'s `JsonConfigLoader`; neither has been chosen for season 2.
+- **Persistence and `jcore` are now in scope for the plugins.** The earlier rule here ("no
+  database, no `jcore` dependency in `common` or in any of the four server-side modules") was
+  lifted by the owner on 2026-08-30. Plugins may take a `jcore` dependency and may persist.
+  Two things still hold: **decide per module whether that module actually needs persistence**
+  rather than adding it by reflex, and **do not copy `payments-bot`'s dependency block** — its
+  shaded jar is ~33 MB, which is fine for a container and not fine inside a Paper plugin. A
+  plugin that only needs the config system does not need the JDBI/Flyway/PostgreSQL side of
+  `jcore` on its runtime classpath; shade what you use.
+- **The config system is chosen: `eu.nordtal.jcore.config`** (jcore 3.0.0). Commented YAML
+  described by a `@ConfigSpec` interface. It is the default for every new config in this repo;
+  none of the four plugins has one yet, so there is nothing to migrate — see "Configuration"
+  below before writing the first one.
+- **No command framework.** Season 1 used Incendo Cloud; nothing has been chosen for season 2.
 
 `name-displays` was removed from the module list: nametags are owned by the
 [papermc-display-tags](https://github.com/nordtal/papermc-display-tags) fork, which ships from its
@@ -70,6 +75,53 @@ before working around it.
 - `Glyphs` in `:common` mirrors `resource-pack/src/assets/minecraft/font/default.json`. A change
   to either is a change to both, plus the pack's README table.
 
+## Configuration
+
+Every config file in this repo is a commented YAML file described by an interface, loaded through
+`eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). `payments-bot` is the only module with configs
+today; the four plugins have none yet and get this as the standing instruction for their first one.
+
+```java
+@ConfigSpec(header = "hunger-games")
+public interface HungerGamesSpec {
+
+    @Order(1) @Key("countdown-seconds")
+    @Comment("How long the lobby countdown runs.")
+    default int countdownSeconds() { return 60; }
+
+    @Reload void reload();
+}
+
+ConfigHandle<HungerGamesSpec> handle = ConfigLoader
+        .builder(getDataFolder().toPath().resolve("config.yml"), HungerGamesSpec.class)
+        .envPrefix("NORDTAL_HUNGER_GAMES")
+        .validator(config -> { /* plain if-statements, see jcore's README */ })
+        .load();
+```
+
+What this buys, and the rules that come with it:
+
+- **A spec interface must be `public`** — it is served by a reflective proxy. jcore rejects a
+  package-private one when the config is built rather than failing later.
+- **A setting the interface does not declare stops the load**, names the key with its full path
+  (including its index inside a list) and suggests the one that was probably meant. The file is
+  never trimmed. In a Paper plugin, catch `ConfigException` in `onLoad`/`onEnable` and call
+  `getServer().getPluginManager().disablePlugin(this)` — **the plugin goes down, the server keeps
+  running**. `papermc-display-tags` is the worked example.
+- **Every value can be overridden by an environment variable.** Give each config its own prefix
+  (`NORDTAL_<MODULE>`); a single shared `NORDTAL` prefix makes generic keys such as `password`
+  collide across files. jcore rejects a collision within one spec at load time.
+- **Validate by hand** in a `ConfigValidator` — plain if-statements throwing
+  `IllegalArgumentException`. Jakarta Bean Validation was considered and rejected: ~1.4 MiB in
+  every plugin jar for a handful of checks.
+- **`@Reload` on the spec** re-reads the file through the same strict path; wire it to the
+  plugin's reload command.
+- **Gson and SnakeYAML must not be shaded into a Paper plugin.** Paper 26.2 ships gson 2.14.0 and
+  snakeyaml 2.6 in `libraries/`, and the plugin classloader resolves both — verified on a running
+  26.2 server on 2026-08-30 with `Class.forName` in `onEnable`. `nordtal.paper-plugin` excludes
+  them from `shadowJar` for that reason. They are *not* excluded for `payments-bot`, which has no
+  platform to provide them.
+
 ## Build wiring
 
 Shared build configuration lives in the `build-logic` included build as precompiled convention
@@ -106,10 +158,10 @@ Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymen
 
 - **It is the only module that depends on `jcore`** (`com.github.nordtal:jcore:2.0.0`, published
   via JitPack). That exports jdbi3-core, jdbi3-sqlobject, slf4j-api, commons-lang3, commons-io,
-  jackson-databind and `org.jetbrains:annotations` as `api` dependencies, and brings HikariCP,
+  gson, snakeyaml and `org.jetbrains:annotations` as `api` dependencies, and brings HikariCP,
   Flyway and the PostgreSQL driver along at runtime. The shaded jar is ~33 MB. Fine for a
   container; it would not be fine inside a Paper plugin.
-- **jcore 2.0.0 does not export a logging backend** (logback is `testRuntimeOnly` there). The bot
+- **jcore does not export a logging backend** (logback is `testRuntimeOnly` there). The bot
   declares `ch.qos.logback:logback-classic` itself. Remove that and SLF4J binds to a no-op: every
   log line disappears behind a single "no providers found" warning.
 - **Persistence is JDBI 3 + HikariCP + Flyway on PostgreSQL** — no Hibernate, no JPA, no MariaDB.
@@ -125,14 +177,36 @@ Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymen
   work on the bot is picked up.
 - The Dockerfile is runtime-only: Gradle builds the jar, `docker build --build-arg JAR=...` wraps
   it. A self-contained build stage would have to copy this whole multi-module repo.
-- Secrets are environment variables (`BOT_TOKEN`, `BUNQ_API_KEY`, `BUNQ_ACCOUNT_ID`). The database
-  credentials have two sources: `config/database.json` in the config volume, loaded via jcore's
-  `JsonConfigLoader` (`jdbc_url`, `username`, `password` — the loader is on `SNAKE_CASE`), with
-  `POSTGRES_URL`, `POSTGRES_USER` and `POSTGRES_PASSWORD` overriding the file when they are set and
-  non-blank. **In production the password belongs in the environment, not in the volume**; the file
-  exists so a local checkout runs without setting anything. A variable that is set but empty counts
-  as unset. The `MARIADB_*` variables are gone. The bunq API context lives in a Docker volume,
-  never on the host.
+- **Configuration is `config/*.yml`, loaded through jcore 3.0.0's config system** — three files:
+  `bot.yml` (Discord token, bunq credentials), `database.yml` and `payment-processing.yml`, each
+  with its own environment namespace: `NORDTAL_BOT_*`, `NORDTAL_DATABASE_*`,
+  `NORDTAL_PAYMENT_PROCESSING_*`. A shared `NORDTAL` prefix was deliberately not used — generic
+  keys such as `password` would collide across files.
+- **Every environment variable was renamed.** `BOT_TOKEN` → `NORDTAL_BOT_TOKEN`, `BUNQ_API_KEY` →
+  `NORDTAL_BOT_BUNQ_API_KEY`, `BUNQ_ACCOUNT_ID` → `NORDTAL_BOT_BUNQ_ACCOUNT_ID`,
+  `BUNQ_CONFIG_PATH` → `NORDTAL_BOT_BUNQ_CONTEXT_PATH`, `POSTGRES_URL` →
+  `NORDTAL_DATABASE_JDBC_URL`, `POSTGRES_USER` → `NORDTAL_DATABASE_USERNAME`, `POSTGRES_PASSWORD`
+  → `NORDTAL_DATABASE_PASSWORD`. **The old names are no longer read.** The compose file or
+  orchestrator secrets have to be updated before the next deploy, or the bot starts on the file
+  values — and refuses to start at all if the credentials are then empty. The `MARIADB_*`
+  variables are long gone.
+- **The credentials are config values with empty defaults, not bare `getenv` calls.** They are
+  validated once at startup; the bot refuses to start while any of them is empty or the bunq
+  account id is not numeric. Previously a missing account id surfaced as a `NumberFormatException`
+  inside the poll loop, minutes into a run. An environment value is never written back to the
+  file, so the config volume never sees a real token unless somebody types one in.
+- **An existing jcore 1.x `config/*.json` is converted to YAML once, on first start**, and kept as
+  `*.json.migrated`. `Configs` owns that conversion, including the two payment-processing keys
+  that moved into a nested `balance` section and so need more than the snake-case-to-kebab rule.
+  A manual step was rejected: the production config lives in a volume nobody edits between pulling
+  an image and starting it.
+- **The bot fails fast on configuration.** `NordTalPayments` loads and validates all three files
+  before anything with a lifecycle starts, and `main` exits with status 1 on a `ConfigException`.
+  `PaymentProcessingService` no longer loads its own config: it used to catch the failure, log it
+  and carry on with `new PaymentProcessingConfig()`, so a broken file ran the bot against default
+  Discord channel ids. In production the password still belongs in the environment; the files
+  exist so a local checkout runs without setting anything. The bunq API context lives in a Docker
+  volume, never on the host.
 
 ## resource-pack
 

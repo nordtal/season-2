@@ -9,10 +9,14 @@ repositories {
 }
 
 dependencies {
-    // The only jcore dependency in this repo. It carries the JSON config loader and the
-    // eu.nordtal.jcore.persistence.sql layer (JDBI 3 + HikariCP + Flyway) the bot is built on,
-    // and exports jdbi3-core, jdbi3-sqlobject, slf4j-api, commons-lang3, commons-io,
-    // jackson-databind and org.jetbrains:annotations as transitive api dependencies.
+    // The only jcore dependency in this repo. It carries the commented-YAML config system
+    // (eu.nordtal.jcore.config) and the eu.nordtal.jcore.persistence.sql layer
+    // (JDBI 3 + HikariCP + Flyway) the bot is built on, and exports jdbi3-core,
+    // jdbi3-sqlobject, slf4j-api, commons-lang3, commons-io, gson, snakeyaml and
+    // org.jetbrains:annotations as transitive api dependencies.
+    //
+    // 3.0.0 removed JsonConfig / JsonConfigLoader and dropped jackson-databind entirely.
+    // Nothing in this module used Jackson, so it is not declared here either.
     implementation(libs.jcore)
 
     // jcore stopped exporting a logging backend with 2.0.0 (it is testRuntimeOnly there), so the

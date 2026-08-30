@@ -125,11 +125,14 @@ Ported from `nordtal-payments` on 2026-08-29; package renamed `eu.nordtal.paymen
   work on the bot is picked up.
 - The Dockerfile is runtime-only: Gradle builds the jar, `docker build --build-arg JAR=...` wraps
   it. A self-contained build stage would have to copy this whole multi-module repo.
-- Secrets are environment variables (`BOT_TOKEN`, `BUNQ_API_KEY`, `BUNQ_ACCOUNT_ID`) **except**
-  the database credentials, which are read from `config/database.json` in the config volume via
-  jcore's `JsonConfigLoader` (`jdbc_url`, `username`, `password` — the loader is on `SNAKE_CASE`).
-  The `MARIADB_*` variables are gone. The bunq API context lives in a Docker volume, never on the
-  host.
+- Secrets are environment variables (`BOT_TOKEN`, `BUNQ_API_KEY`, `BUNQ_ACCOUNT_ID`). The database
+  credentials have two sources: `config/database.json` in the config volume, loaded via jcore's
+  `JsonConfigLoader` (`jdbc_url`, `username`, `password` — the loader is on `SNAKE_CASE`), with
+  `POSTGRES_URL`, `POSTGRES_USER` and `POSTGRES_PASSWORD` overriding the file when they are set and
+  non-blank. **In production the password belongs in the environment, not in the volume**; the file
+  exists so a local checkout runs without setting anything. A variable that is set but empty counts
+  as unset. The `MARIADB_*` variables are gone. The bunq API context lives in a Docker volume,
+  never on the host.
 
 ## resource-pack
 

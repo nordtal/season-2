@@ -5,9 +5,10 @@ import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 
-import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
+
+import net.kyori.adventure.text.Component;
 
 import org.slf4j.Logger;
 
@@ -90,17 +91,19 @@ public final class ExpiryWatch {
         fallback.remember(uuid, state);
 
         if (!state.mayJoin()) {
-            // mayJoin() is phase-aware since 2026-08-31, so this now also catches a player who was
-            // let in during PRE_EVENT or START_EVENT and is still connected when the phase moves on
-            // - docs/season-phases.md#routing: "a switch to SMP disconnects a player who has no
-            // active access". Which screen they get is the one difference the phase makes here:
-            // MAINTENANCE is not an expiry and must not claim to be one. A natural expiry and a
-            // mid-session /revoke-access are still one message, because by the time somebody is
-            // already connected there is nothing left to distinguish - both mean "you do not have
-            // access any more".
-            player.disconnect(state.phase() == SeasonPhase.MAINTENANCE
-                    ? messages.maintenance(state.locale())
-                    : messages.expired(state.locale()));
+            // mayJoin() is phase-aware since 2026-08-31, so this also catches a player who was let
+            // in during PRE_EVENT or START_EVENT and is still connected when the phase moves on -
+            // docs/season-phases.md#routing: "a switch to SMP disconnects a player who has no active
+            // access". PhaseRouting normally gets there first, on the change itself; this sweep is
+            // the safety net for a player whose access simply ran out mid-phase.
+            //
+            // The MAINTENANCE branch that used to be here is gone with the 2026-08-31 reversal:
+            // maintenance no longer refuses a linked member, so !mayJoin() can only mean one of two
+            // things now. Either they stopped being a member or unlinked mid-session, or they are in
+            // SMP without access. A natural expiry and a mid-session /revoke-access are still one
+            // message, because by the time somebody is already connected there is nothing left to
+            // distinguish - both mean "you do not have access any more".
+            player.disconnect(reasonFor(state));
             warned.remove(uuid);
             return;
         }
@@ -124,5 +127,25 @@ public final class ExpiryWatch {
             // pushed-back deadline warn again instead of staying silently "already warned".
             warned.remove(uuid);
         }
+    }
+
+    /**
+     * Picks the screen for a player this sweep has just decided may no longer be here.
+     * <p>
+     * It goes through {@link GateOutcome} rather than re-deriving the reason so that the sweep and
+     * the login gate can never tell the same player two different stories. Only the {@code NO_ACCESS}
+     * wording differs from the gate's, and deliberately: mid-session, "your access has just run out"
+     * is the true sentence and "buy a period" is not the whole of it.
+     * </p>
+     */
+    private Component reasonFor(final AccessState state) {
+        return switch (GateOutcome.of(state)) {
+            case NOT_LINKED -> messages.unlinked(state.locale());
+            case NOT_MEMBER -> messages.notMember(state.locale());
+            case NO_ACCESS -> messages.expired(state.locale());
+            // Unreachable: this method is only called when mayJoin() was false, and GateOutcome
+            // agrees with mayJoin() for every combination (asserted by GateOutcomeTest).
+            case ALLOW -> messages.trouble(state.locale());
+        };
     }
 }

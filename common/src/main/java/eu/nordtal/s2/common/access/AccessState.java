@@ -34,8 +34,11 @@ import java.util.UUID;
  *                         this is the end of the whole appended chain, not of one grant
  * @param donor            whether the linked account has the permanent donor flag
  * @param admin            whether the linked account carries the admin flag mirrored from the
- *                         Discord admin role; this is what {@code MAINTENANCE} and the proxy's
- *                         emergency {@code /phase} command are authorised by
+ *                         Discord admin role; it authorises the proxy's emergency {@code /phase}
+ *                         command, and during {@code MAINTENANCE} it is what keeps a player off
+ *                         {@code limbo}. Since 2026-08-31 it is no longer part of
+ *                         {@link #mayJoin()} - maintenance holds non-admins in {@code limbo}
+ *                         instead of refusing them
  * @param locale           the player's language, English when unknown - never {@code null}
  * @param phase            the season phase the {@code season_phase} row carried when this state was
  *                         read; {@link SeasonPhase#MAINTENANCE} when it could not be read at all,
@@ -55,8 +58,15 @@ public record AccessState(
     /**
      * A {@code null} phase becomes {@link SeasonPhase#MAINTENANCE} rather than staying {@code null}.
      * {@link #mayJoin()} switches on this field, so a null would be a {@code NullPointerException}
-     * on the login path; and of the four values, {@code MAINTENANCE} is the only one it is safe to
-     * guess, because it is the one that lets nobody in.
+     * on the login path.
+     * <p>
+     * {@code MAINTENANCE} is still the value to guess, but the reason changed on 2026-08-31 and is
+     * worth stating exactly. It is no longer "the one that lets nobody in" - it lets in the same
+     * linked member every other phase does. It is the safe guess because it is the one phase that
+     * puts a player somewhere <b>harmless</b>: {@code limbo} shows nothing and nobody, so a proxy
+     * that cannot read the phase parks players in a waiting room rather than guessing them onto a
+     * game server that may not be theirs.
+     * </p>
      */
     public AccessState {
         if (phase == null) {
@@ -134,19 +144,29 @@ public record AccessState(
      *   <tr><td>{@code PRE_EVENT}</td><td>linked Discord member, not banned</td></tr>
      *   <tr><td>{@code START_EVENT}</td><td>linked Discord member, not banned</td></tr>
      *   <tr><td>{@code SMP}</td><td>the above <b>plus active access</b></td></tr>
-     *   <tr><td>{@code MAINTENANCE}</td><td>admins only</td></tr>
+     *   <tr><td>{@code MAINTENANCE}</td><td>the same linked, non-banned member - see below</td></tr>
      * </table>
+     *
+     * <h2>{@code MAINTENANCE} lets players onto the network, decided 2026-08-31</h2>
+     * It used to answer {@code admin} here, i.e. maintenance disconnected everybody else at the
+     * login gate. {@code docs/season-phases.md} left that as an unresolved either/or - "disconnect
+     * <b>or</b> hold in limbo with a bilingual explanation" - while its own phase table said
+     * non-admins land in {@code limbo}. The owner settled it on <b>hold in limbo</b>, so this method
+     * now answers {@code true} for any linked, non-banned member during maintenance and the
+     * <em>destination</em> is what makes maintenance different, not admission.
      * <p>
-     * The admin check in {@code MAINTENANCE} still goes through {@link #linkedMember()} first: the
-     * flag is a column on the linked {@code discord_user} row, so an unlinked account can never
-     * carry it, and a banned admin is still banned.
+     * That is why {@link #admin()} no longer appears in this method at all. The flag has not become
+     * irrelevant - it decides <em>where</em> a player goes during maintenance
+     * ({@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting}: an admin is left where they are,
+     * everyone else is put in {@code limbo}) - but it is no longer part of "may they join". A banned
+     * admin is still banned, because {@link #linkedMember()} is still asked first.
      * </p>
      * <p>
      * <b>What this method deliberately does not do is pick the disconnect screen.</b> "Refused
-     * because unlinked", "refused because banned", "refused because no access" and "refused because
-     * maintenance" are four different messages, and {@code network-control}'s {@code LoginGate}
-     * walks the same table itself to choose between them. This method is the single-boolean form,
-     * for callers - the fallback cache and the mid-session expiry sweep - that only need the answer.
+     * because unlinked", "refused because banned" and "refused because no access" are three
+     * different messages, and {@code network-control}'s {@code LoginGate} walks the same table
+     * itself to choose between them. This method is the single-boolean form, for callers - the
+     * fallback cache and the mid-session expiry sweep - that only need the answer.
      * </p>
      *
      * @return whether this account may join right now, in the phase this state was read in
@@ -156,9 +176,10 @@ public record AccessState(
             return false;
         }
         return switch (phase) {
-            case PRE_EVENT, START_EVENT -> true;
+            // Every phase admits the same linked, non-banned member; only SMP asks for more. The
+            // phase decides where they land, and that is not this method's question.
+            case PRE_EVENT, START_EVENT, MAINTENANCE -> true;
             case SMP -> accessActive;
-            case MAINTENANCE -> admin;
         };
     }
 }

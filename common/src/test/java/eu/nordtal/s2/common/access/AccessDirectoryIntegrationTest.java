@@ -1,5 +1,7 @@
 package eu.nordtal.s2.common.access;
 
+import eu.nordtal.s2.common.message.PlayerLocales;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,7 +85,8 @@ class AccessDirectoryIntegrationTest {
     void freshDirectory() {
         // TRUNCATE ... CASCADE rather than dropping the schema: it keeps the migration applied
         // once per class while every test still starts from an empty database.
-        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, discord_user CASCADE");
+        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
+                + "player_playtime, discord_user CASCADE");
         directory = AccessDirectory.using(dataSource);
     }
 
@@ -240,6 +243,7 @@ class AccessDirectoryIntegrationTest {
         assertNull(state.memberState());
         assertFalse(state.accessActive());
         assertFalse(state.donor());
+        assertFalse(state.admin());
         assertEquals(Locale.ENGLISH, state.locale());
         assertFalse(state.mayJoin());
     }
@@ -336,6 +340,117 @@ class AccessDirectoryIntegrationTest {
         assertFalse(directory.isDonor("999999999999999999"));
     }
 
+    // ---------------------------------------------------------------- the admin flag (V4)
+
+    @Test
+    void nobodyIsAnAdminUntilTheMirrorSaysSo() {
+        directory.link(DISCORD_ID, MC_UUID);
+
+        assertFalse(directory.accessState(MC_UUID).admin(),
+                "the column defaults to false - a user the mirror has never run for is not an admin");
+    }
+
+    @Test
+    void theAdminFlagRidesAlongOnTheQueryTheLoginPathAlreadyMakes() {
+        directory.link(DISCORD_ID, MC_UUID);
+        directory.setAdmin(DISCORD_ID, true);
+
+        final AccessState state = directory.accessState(MC_UUID);
+
+        assertTrue(state.admin(),
+                "this is what MAINTENANCE and the proxy's emergency /phase command are authorised by");
+        assertFalse(state.mayJoin(),
+                "being an admin is not access - mayJoin() is deliberately unchanged by this field");
+    }
+
+    @Test
+    void theAdminFlagIsClearedAgainUnlikeDonor() {
+        directory.link(DISCORD_ID, MC_UUID);
+        directory.setAdmin(DISCORD_ID, true);
+        directory.setDonor(DISCORD_ID, true);
+
+        directory.setAdmin(DISCORD_ID, false);
+
+        final AccessState state = directory.accessState(MC_UUID);
+        assertFalse(state.admin(), "losing the Discord role has to lose the permission");
+        assertTrue(state.donor(), "the donor flag is permanent, and clearing admin must not touch it");
+    }
+
+    @Test
+    void settingTheAdminFlagCreatesTheUserRowIfItIsNotThereYet() {
+        directory.setAdmin("400000000000000001", true);
+
+        assertEquals(1, count("SELECT count(*) FROM discord_user WHERE discord_id = '400000000000000001' AND admin"));
+    }
+
+    // ---------------------------------------------------------------- the join-time locale component
+
+    @Test
+    void playerLocalesReadsTheLanguageFromTheDatabaseAtJoin() {
+        directory.link(DISCORD_ID, MC_UUID);
+        directory.setLocale(DISCORD_ID, Locale.GERMAN);
+
+        // The wiring every module uses: the access directory is the LocaleSource.
+        final PlayerLocales locales = new PlayerLocales(directory::locale);
+
+        assertEquals(Locale.GERMAN, locales.join(MC_UUID));
+        assertEquals(Locale.GERMAN, locales.of(MC_UUID));
+    }
+
+    @Test
+    void playerLocalesHoldsTheLanguageForTheSessionAndPicksAChangeUpOnTheNextJoin() {
+        directory.link(DISCORD_ID, MC_UUID);
+        directory.setLocale(DISCORD_ID, Locale.GERMAN);
+
+        final PlayerLocales locales = new PlayerLocales(directory::locale);
+        locales.join(MC_UUID);
+
+        // The player picks the English role in Discord; the bot mirrors it.
+        directory.setLocale(DISCORD_ID, Locale.ENGLISH);
+        assertEquals(Locale.GERMAN, locales.of(MC_UUID),
+                "docs/i18n.md: a language changed mid-session takes effect on the next join, which is "
+                        + "the trade for not re-querying on every message");
+
+        locales.quit(MC_UUID);
+        assertEquals(Locale.ENGLISH, locales.join(MC_UUID));
+    }
+
+    @Test
+    void playerLocalesFallsBackToEnglishForAnAccountNobodyHasLinked() {
+        final PlayerLocales locales = new PlayerLocales(directory::locale);
+
+        assertEquals(Locale.ENGLISH, locales.join(UUID.randomUUID()));
+    }
+
+    // ---------------------------------------------------------------- player_playtime (V4)
+
+    @Test
+    void playtimeHangsOffDiscordUserAndNotOffTheMinecraftUuid() throws SQLException {
+        final SQLException orphan = assertThrows(SQLException.class,
+                () -> executeChecked("INSERT INTO player_playtime (discord_id, seconds) VALUES ('999999999999999999', 60)"));
+        assertTrue(orphan.getMessage().contains("player_playtime_discord_id_fkey"), orphan.getMessage());
+
+        directory.ensureUser(DISCORD_ID);
+        executeChecked("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 60)");
+        assertEquals(1, count("SELECT count(*) FROM player_playtime WHERE seconds = 60"));
+    }
+
+    @Test
+    void playtimeIsAnIntegerCountOfSecondsThatCannotGoBackwardsPastZero() {
+        directory.ensureUser(DISCORD_ID);
+
+        final SQLException negative = assertThrows(SQLException.class,
+                () -> executeChecked("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', -1)"));
+        assertTrue(negative.getMessage().contains("player_playtime_seconds_not_negative"), negative.getMessage());
+
+        // Seconds, not an interval: the proxy's periodic flush is a plain addition, and no part of
+        // it is calendar arithmetic in whatever time zone the writing JVM happens to be in.
+        execute("INSERT INTO player_playtime (discord_id, seconds) VALUES ('" + DISCORD_ID + "', 0)");
+        execute("UPDATE player_playtime SET seconds = seconds + 86400, updated = now() WHERE discord_id = '"
+                + DISCORD_ID + "'");
+        assertEquals(86400, count("SELECT seconds FROM player_playtime WHERE discord_id = '" + DISCORD_ID + "'"));
+    }
+
     // ---------------------------------------------------------------- the double-booking guard
 
     @Test
@@ -426,11 +541,29 @@ class AccessDirectoryIntegrationTest {
     }
 
     private static void execute(final String sql) {
+        try {
+            executeChecked(sql);
+        } catch (final SQLException exception) {
+            throw new IllegalStateException("Test setup statement failed: " + sql, exception);
+        }
+    }
+
+    /** Like {@link #execute(String)}, but hands the failure back so a constraint can be asserted on. */
+    private static void executeChecked(final String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
             statement.execute(sql);
+        }
+    }
+
+    private static long count(final String sql) {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             var rs = statement.executeQuery(sql)) {
+            assertTrue(rs.next(), "expected a row from: " + sql);
+            return rs.getLong(1);
         } catch (final SQLException exception) {
-            throw new IllegalStateException("Test setup statement failed: " + sql, exception);
+            throw new IllegalStateException("Test query failed: " + sql, exception);
         }
     }
 

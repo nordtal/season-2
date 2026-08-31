@@ -14,6 +14,7 @@ import eu.nordtal.s2.discordbot.discord.AdminLog;
 import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.discord.LinkFlow;
 import eu.nordtal.s2.discordbot.discord.ManagedMessages;
+import eu.nordtal.s2.discordbot.discord.PhaseCommand;
 import eu.nordtal.s2.discordbot.discord.PurchaseFlow;
 import eu.nordtal.s2.discordbot.payment.PaymentProcessor;
 import eu.nordtal.s2.discordbot.payment.PaymentRequests;
@@ -22,6 +23,7 @@ import eu.nordtal.s2.discordbot.payment.Watermark;
 import eu.nordtal.s2.discordbot.payment.Tiers;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.phase.PhaseDirectory;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -92,6 +94,9 @@ public class AccessBot implements AutoCloseable {
             // The bot borrows the pool it already owns rather than opening a second one. Closing a
             // borrowed pool is a no-op, so ownership stays here.
             this.access = AccessDirectory.using(database.dataSource());
+            // Over the pool the bot already owns, like the access directory. Nothing here holds a
+            // resource, so there is nothing to close.
+            final PhaseDirectory phases = PhaseDirectory.using(database.dataSource());
 
             final Messages messages = Messages.load(MESSAGE_ROOT, Locale.ENGLISH, Locale.GERMAN);
             final Tiers tiers = Tiers.of(accessConfig);
@@ -128,11 +133,13 @@ public class AccessBot implements AutoCloseable {
                     guildState,
                     new PurchaseFlow(accessConfig, tiers, purchases, requests, messages, roles, admin, worker),
                     new LinkFlow(access, roles, messages, admin, worker),
-                    new AdminCommands(access, roles, requests, admin, messages, worker));
+                    new AdminCommands(access, roles, requests, admin, messages, worker),
+                    new PhaseCommand(phases, admin, database.jdbi(), worker));
 
             final List<CommandData> commands = new ArrayList<>();
             commands.addAll(AdminCommands.commands());
             commands.addAll(LinkFlow.commands());
+            commands.addAll(PhaseCommand.commands());
             jda.updateCommands().addCommands(commands).queue();
 
             new ManagedMessages(jda, accessConfig, tiers, messages, database.jdbi()).publishAll();

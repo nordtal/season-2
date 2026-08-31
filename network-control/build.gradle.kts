@@ -3,16 +3,19 @@ plugins {
 }
 
 repositories {
-    maven("https://repo.simplecloud.app/snapshots")
-    maven("https://buf.build/gen/maven")
+    // jcore only. `app.simplecloud.api:api` used to be declared here as a compileOnly placeholder
+    // for routing, together with repo.simplecloud.app/snapshots and buf.build/gen/maven for its
+    // protobuf stubs. Routing was written on 2026-08-31 and imported none of it: the `routing`
+    // package resolves backends by the names in gate.yml through Velocity's own
+    // ProxyServer.getServer(name), which is exactly the fallback docs/operations.md had written
+    // down for the case where the SimpleCloud coordinate turned out not to resolve. Four fixed
+    // servers lose nothing by being named instead of discovered, so the dependency, its two
+    // repositories and its version-catalog entry were all removed on 2026-09-01 rather than left
+    // as a build file implying a SimpleCloud integration that does not exist.
     maven("https://jitpack.io")
 }
 
 dependencies {
-    // Provided at runtime by the simplecloud-api platform plugin. Shading it causes
-    // class-loading conflicts, so it must stay compileOnly.
-    compileOnly(libs.simplecloud.api)
-
     // eu.nordtal.jcore.config is the config system used everywhere in this repo (see the module
     // CLAUDE.md, "Configuration") - database.yml and gate.yml are both loaded through it. jcore
     // 3.0.0 also exports JDBI 3 (api) and HikariCP + the PostgreSQL driver (implementation /

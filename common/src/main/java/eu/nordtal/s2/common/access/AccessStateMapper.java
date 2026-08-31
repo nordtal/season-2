@@ -21,6 +21,7 @@ public final class AccessStateMapper implements RowMapper<AccessState> {
                 rs.getBoolean("access_active"),
                 AccessGrantMapper.instant(rs, "valid_until"),
                 rs.getBoolean("donor"),
+                rs.getBoolean("admin"),
                 Locales.parse(rs.getString("locale")));
     }
 }

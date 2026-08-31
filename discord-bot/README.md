@@ -47,13 +47,24 @@ Check the startup log: every load prints which settings the environment overrode
 ```bash
 cp .env.example .env      # fill it in — .env is gitignored and must never be committed
 ../gradlew :discord-bot:shadowJar
-docker build -t ghcr.io/nordtal/discord-bot:2.0.0 \
-  --build-arg JAR=build/libs/discord-bot-2.0.0.jar .
-docker compose up -d
+docker compose up -d --build
 ```
 
-Once a `v*` tag has been released the build step is unnecessary — the workflow pushes
-`ghcr.io/nordtal/discord-bot:<version>` and `BOT_IMAGE` can just point at it.
+**The Gradle step is not optional.** The image only copies a finished jar, and Compose cannot run
+Gradle, so `--build` builds the *image* from a jar that has to exist already. `BOT_VERSION` in
+`.env` names that jar and is also the image tag, so it has to match `gradle.properties`; a
+mismatch fails the build on the missing file rather than quietly shipping the wrong version.
+
+A production host runs the released image instead and never builds:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+`up -d` without `--build` builds only when the image is not present locally — on a host without a
+checkout that fails on the missing jar, which is the loud outcome rather than a surprising one.
+`BOT_IMAGE` only needs a value to run an image that is not
+`ghcr.io/nordtal/discord-bot:$BOT_VERSION`.
 
 `COMPOSE_PROFILES=db` in `.env` brings up a PostgreSQL alongside the bot; leave it empty to run only
 the bot against a database that already exists. There is deliberately **no `depends_on`**: recent
@@ -65,7 +76,7 @@ brings it back, so the first boot may log one connection failure.
 
 The compose is meant to be the production one. What changes is `.env`:
 
-- `BOT_IMAGE` points at the released tag rather than a locally built image.
+- Nothing is built: `docker compose pull` first, and `BOT_VERSION` is the released tag.
 - `POSTGRES_BIND` moves off `127.0.0.1` once the proxy and the Paper plugins need to reach the same
   database from another host.
 - `NORDTAL_BOT_BUNQ_ENVIRONMENT=PRODUCTION`, with the `bunq-context` volume emptied first — a bunq
@@ -101,8 +112,8 @@ roles, the reconciles, expiry DMs, the admin log and `/settle` — is exercisabl
 
 ## Verified 2026-08-31
 
-Built from this tree and started with `docker compose`, with only environment variables set and no
-config file anywhere: all three configs loaded (15 settings taken from the environment), Flyway
+Built from this tree with `docker compose up -d --build` and started with only environment
+variables set and no config file anywhere: all three configs loaded (15 settings taken from the environment), Flyway
 applied all five migrations to an empty PostgreSQL 17, and the process stopped exactly where it
 should — on the deliberately invalid Discord token. bunq and Discord themselves are untested; see
 [../docs/operations.md](../docs/operations.md#open-verification).

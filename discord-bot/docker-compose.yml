@@ -7,11 +7,14 @@
 #
 #   cp .env.example .env      # fill it in; .env is gitignored and must never be committed
 #   ../gradlew :discord-bot:shadowJar
-#   docker build -t "$BOT_IMAGE" --build-arg JAR=build/libs/discord-bot-<version>.jar .
-#   docker compose --profile db up -d
+#   docker compose up -d --build
 #
-# The image is pulled, not built here, so that a production host can run the released
-# ghcr.io/nordtal/discord-bot:<version> without a checkout. See README.md.
+# A production host runs the released image instead and never builds:
+#
+#   docker compose pull && docker compose up -d
+#
+# `up -d` on its own builds only when the image is not present locally, which on a host without
+# a checkout fails on the missing jar rather than doing something surprising.
 #
 # THE DATABASE IS OPTIONAL. `--profile db` (or COMPOSE_PROFILES=db in .env) brings up a PostgreSQL
 # alongside the bot; without it only the bot starts and NORDTAL_DATABASE_JDBC_URL is expected to
@@ -50,7 +53,16 @@ services:
         max-file: "3"
 
   bot:
-    image: ${BOT_IMAGE:?set BOT_IMAGE in .env, e.g. ghcr.io/nordtal/discord-bot:2.0.0}
+    # BOT_VERSION is the version in gradle.properties - the same number the jar is named after and
+    # the release workflow tags. BOT_IMAGE only has to be set to run an image from somewhere else.
+    image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${BOT_VERSION:?set BOT_VERSION in .env; it must match gradle.properties}}
+    build:
+      # The context is this directory, and .dockerignore reduces it to the one jar Gradle wrote.
+      # Compose cannot run Gradle, so `./gradlew :discord-bot:shadowJar` still has to happen first
+      # - a build against a stale or missing jar is exactly what the explicit version here catches.
+      context: .
+      args:
+        JAR: build/libs/discord-bot-${BOT_VERSION}.jar
     # The bot fails fast and exits on a bad config, an unreachable database or a rejected Discord
     # token. Restarting is right for the last two and a crash loop for the first - the log line
     # names the file and the setting, so read the log before assuming the container is at fault.

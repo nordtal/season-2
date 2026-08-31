@@ -128,11 +128,11 @@ class FallbackCacheTest {
 
     private AccessState activeState(final Locale locale) {
         return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, true,
-                clock.instant().plus(Duration.ofDays(1)), false, locale);
+                clock.instant().plus(Duration.ofDays(1)), false, false, locale);
     }
 
     private AccessState inactiveState() {
-        return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, false, null, false, Locale.ENGLISH);
+        return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, false, null, false, false, Locale.ENGLISH);
     }
 
     /** A settable {@link Clock}, so these tests advance time instead of sleeping through it. */

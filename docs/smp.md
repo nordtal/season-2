@@ -33,13 +33,27 @@ here is changed:
 
 | world | permanent | how you get in | how you get out | border |
 |---|---|---|---|---|
-| **Nordtal** | yes — the build world, holds the spawn | you spawn here; every return lands here | the balloon at the spawn, or a Nether portal once unlocked | grows with milestones |
+| **Nordtal** | yes — the build world, holds the spawn | you spawn here; every return lands here | the balloon at the spawn, or a Nether portal once unlocked | grows with milestones, 20 → **4000** |
 | **Farm world** | **no — regenerated daily** | balloon at the Nordtal spawn | balloon at the farm-world spawn, or any Nether portal | fixed, 2000 × 2000 |
-| **Nether** | yes | balloon or a Nether portal, both once unlocked | balloon at the Nether spawn, or a Nether portal back to Nordtal | fixed, generous |
-| **End** | yes | balloon, once unlocked | the vanilla exit portal — **only after the dragon** | fixed, generous |
+| **Nether** | yes | balloon or a Nether portal, both once unlocked | balloon at the Nether spawn, or a Nether portal back to Nordtal | fixed, **2000** |
+| **End** | yes | balloon, once unlocked | the vanilla exit portal — **only after the dragon** | fixed, **2000** |
 
 Every world is pre-generated to its border before players may enter it; until then they wait in
 [`limbo`](architecture.md#modules).
+
+**Nordtal is pre-generated once, to its *final* border of 4000, before the SMP phase opens** —
+decided 2026-08-31. A milestone unlock then only moves a number and never starts a generator. The
+alternative, generating each step in the background during the season, would have run a second
+generator alongside the farm world's daily one — which this document already calls the single
+biggest technical risk in the concept — and it would have made the season's crowning moment depend
+on a background job finishing in time. Done once, with no players online and no throttling, it
+costs hours of wall clock and disk space in the order of a few gigabytes. **Both figures have to be
+measured, not assumed**, before the phase is scheduled.
+
+**The Nether's 2000 is deliberately larger than the 1:8 mapping requires.** A 4000 overworld needs
+only 500 blocks of Nether to be fully reachable, so 2000 is oversized several times over — which
+costs nothing, because Minecraft already handles portal search and linking beyond a world border,
+and it leaves room for any milestone appended above 4000 without a second pre-generation.
 
 ### Travel
 
@@ -112,6 +126,13 @@ The Nordtal spawn is a **tavern on a hill** and carries everything social:
 | NPC | click to open the full objective GUI and the hand-in interface |
 | wheel of fortune | a GUI, one free spin per day |
 
+**The balloon's position is load-bearing, not decorative.** It has to stand *outside* radius 10 and
+*inside* radius 21.5 of the border centre, because that is what makes border 20 withhold the farm
+world and the opening expansion to 43 hand it over — see
+[the track](#milestones--the-community-objective-system). Everything else social — tavern, NPC,
+both boards, both duel platforms — sits inside radius 10, so the only thing the opening minutes
+withhold is travel. Get this wrong in the build and the season's first milestone means nothing.
+
 The farm-world spawn is a small schematic — the balloon plus a little built around it — placed on a
 **landing site found programmatically** after the pre-generation, so a fresh seed cannot put the
 arrival point in lava or over a ravine.
@@ -162,35 +183,92 @@ sequenceDiagram
 One linear track. Each milestone carries several objectives, **all** of which must be finished
 before the milestone unlocks and the next one begins.
 
+**The track was designed on 2026-08-31** and is below in full. Every number in it is a config
+default and expected to be retuned — but each one was derived from a rule rather than picked, and
+the rules are written down underneath so that retuning is arithmetic instead of a fresh argument.
+
 ```mermaid
 flowchart LR
-    M0["Border 20<br/>waiting for the start"] --> M1["Border 43<br/>opened by an admin"]
-    M1 --> M2["Border 99"]
-    M2 --> M3["Border 400<br/>base building"]
-    M3 --> M4["Nether unlocked"]
-    M4 --> M5["Border 800"]
-    M5 --> M6["End unlocked"]
-    M6 --> M7["Final border expansion<br/>deliberately a large effort"]
-    M7 --> DONE["No further milestones<br/>— more can be added later"]
+    M0["waiting · border 20<br/>no objectives"] --> M1["departure · border 43<br/>admin-unlocked"]
+    M1 --> M2["foothold · border 99<br/>4 objectives · 20 h"]
+    M2 --> M3["settlement · border 400<br/>4 objectives · 45 h"]
+    M3 --> M4["nether unlocked<br/>4 objectives · 60 h"]
+    M4 --> M5["end unlocked<br/>5 objectives · 75 h"]
+    M5 --> M6["expanse · border 900<br/>5 objectives · 110 h"]
+    M6 --> M7["frontier · border 4000<br/>5 objectives · 170 h"]
+    M7 --> DONE["no further milestones<br/>— more can be appended"]
 
+    classDef start fill:#1f4f6f,stroke:#0f2a3f,color:#fff
     classDef last fill:#7a5c11,stroke:#4a3708,color:#fff
     classDef none fill:#3b3b3b,stroke:#222,color:#fff
+    class M0,M1 start
     class M7 last
     class DONE none
 ```
 
-**The order and the numbers above are a starting proposal, not a decision.** What *is* decided:
+### The track
 
-- **Only objectives unlock a milestone.** There is no timer anywhere. The "pause durations" in the
-  original notes are expectations for planning, not a rule in the code.
-- **The Nether and the End should be reachable within the first days.** The track front-loads them
-  deliberately; the season's long stretch is the *final* border expansion, which is meant to be a
-  genuinely large effort — on the order of two weeks.
+| # | key | unlocks | objectives | budget | pot each | participation gate | expected |
+|---|---|---|---|---|---|---|---|
+| M0 | `waiting` | border **20** | — | — | — | — | the phase switch |
+| M1 | `departure` | border **43** | — | — | — | — | admin, at the opening |
+| M2 | `foothold` | border **99** | 4 | 20 h | 30 | 10 players | day 1 |
+| M3 | `settlement` | border **400** | 4 | 45 h | 60 | 10 players | day 1–2 |
+| M4 | `nether` | **the Nether** | 4 | 60 h | 80 | 8 players | day 2–3 |
+| M5 | `end` | **the End** | 5 | 75 h | 80 | 8 players | day 3–4 |
+| M6 | `expanse` | border **900** | 5 | 110 h | 110 | 6 players | ~5 days |
+| M7 | `frontier` | border **4000** | 5 | 170 h | 170 | 5 players | ~2 weeks |
+
+Border numbers are **diameters**, because that is what Minecraft's world border takes. "Budget" is
+*community* play hours — the whole server's effort, not one player's. There are 480 of them across
+the track.
+
+### How every number in that table was derived
+
+Four rules. They are the reason the table can be retuned without reopening the design.
+
+- **The budget is play hours against a pessimistic population.** The final milestone is sized as
+  **8 active players × 14 days × 1.5 h = 170 hours**, deliberately *not* against the 15–30 who show
+  up on day one. The season's most demanding stretch has to be finishable by whoever is still there
+  in week three, not by the launch crowd.
+- **The pot follows from the budget.** `pot = round((budget ÷ objectives) × 5, to 10)`. There is no
+  minimum pot: a minimum flattens the ramp, which is exactly what the ramp is for. An opening
+  objective pays 30 and a final one 170 — a ratio of 1 : 5.7 against a work ratio of about 1 : 7.
+- **The front is short and the back is long.** 200 of the 480 hours sit before the End unlocks, so
+  at 20 players × 2.5 h a day the End falls on day three. That is the "Nether and End in the first
+  days" constraint, expressed as a number instead of a hope.
+- **The gate falls as the population falls.** The participation gate is a count of *distinct*
+  players, so it must stay under the number expected to be around at that point: 10 at the start,
+  5 at the end.
+
+**A strong turnout finishes early, and that is the accepted trade.** With 20 players still active
+in week three the final milestone takes about six days rather than fourteen. Scaling targets to the
+live population was rejected: a target that moves overnight reads as a shifted goalpost, not as
+fair scaling, and a player cannot check it against the board. The answer to an early finish is to
+**append another milestone** — which is precisely why milestones live in a reloadable file and are
+not compiled in.
+
+### What was decided, and what protects it
+
+- **Only objectives unlock a milestone.** There is no timer anywhere in the track. The "pause
+  durations" in the original notes are expectations for planning, not a rule in the code, and the
+  "expected" column above is the same kind of estimate.
+- **The Nether and the End are their own milestones and carry no border step.** The dimension *is*
+  the reward and it is larger than any number; pairing it with a border step would chain the one to
+  the other and give the track fewer occasions to celebrate over more surface to block on.
+- **Border 20 and 43 are a real gate, not ceremony.** The balloon at the Nordtal spawn stands
+  *outside* radius 10 and *inside* radius 21.5, so border 20 physically withholds the farm world and
+  the opening expansion to 43 hands it over. That is the whole content of the season's first
+  minutes, and it is why the spawn build has a hard geometric constraint — see [Spawns](#spawns).
+- **The final expansion is worth two weeks because it is a frontier, not because it is bigger.**
+  The intermediate steps stay tight on purpose (400, then 900) so that 4000 is genuinely new land
+  with new biomes and structures. It also has to be worth two weeks *despite* Nether highways: with
+  vanilla 1:8 linking, 4000 blocks of overworld is 500 blocks of tunnel, so a large border costs
+  travel time only until somebody digs. That is intended — the highway is the payoff for the
+  expansion, not its defeat.
 - **After the last milestone there simply are none.** The season carries on with building, duels,
   aura and prestige. New milestones can be appended at any time, which is exactly why they are not
-  compiled in.
-- An admin command can unlock a milestone manually — needed for testing, and for the day an
-  objective turns out to be impossible.
+  compiled in — and appending one is the planned response to a track that finishes early.
 
 ### Where a milestone is defined
 
@@ -199,7 +277,10 @@ repository; the *progress* lives in the database. Adding a milestone is a file e
 `/smp reload` — no release, no restart.
 
 The loader validates the file against the stored progress and refuses a change that would orphan
-it, rather than silently discarding a finished milestone because somebody renamed its key.
+it, rather than silently discarding a finished milestone because somebody renamed its key. It must
+nonetheless **permit lowering the `target` of a live objective** — that is the finest of the three
+escape hatches and it is worth nothing if the validation blocks it. See
+[when an objective turns out to be impossible](#when-an-objective-turns-out-to-be-impossible).
 
 ### Objective types
 
@@ -208,13 +289,95 @@ Three, which cover every example in the original notes and are each unambiguousl
 | type | what it counts | how an individual's share is measured |
 |---|---|---|
 | `HAND_IN` | items delivered at the spawn | the amount that player delivered |
-| `STATISTIC` | a vanilla statistic summed across all players (endermen killed, blocks mined, distance walked) | that player's own increase since the objective started |
+| `STATISTIC` | a vanilla statistic summed across all players — endermen killed, coal ore mined, items crafted; **active statistics only**, never distance walked or time played | that player's own increase since the objective started |
 | `ADVANCEMENT` | how many distinct players earned a given advancement | 1 or 0 |
 
 Hand-in goes through **a GUI on the spawn NPC**, which shows what is currently needed and how much
 is already there. Items are only consumed on an explicit confirmation — a misplaced shift-click
 must not swallow an inventory — and nothing can be handed in that no objective wants. There is no
 hopper-fed chest: automated delivery would turn contribution counting into a race between farms.
+
+### The objectives
+
+One concrete example per objective, as a config default. What is *decided* is the shape: how many
+objectives a milestone has, which type each is, which role it serves, and its share of the budget.
+The items and advancements themselves are expected to be corrected in the config, and the roles are
+what stops a correction from accidentally producing four mining objectives.
+
+| milestone | role | type | example objective | target | hours |
+|---|---|---|---|---|---|
+| **M2** `foothold` | gathering | `HAND_IN` | logs, any kind | 2 048 | 5 |
+| | mining | `STATISTIC` | `minecraft:mined` coal ore | 1 500 | 5 |
+| | combat | `STATISTIC` | `minecraft:killed` zombie | 500 | 4 |
+| | **participation** | `ADVANCEMENT` | `story/iron_tools` | **10 players** | 6 |
+| **M3** `settlement` | production | `HAND_IN` | iron ingots | 512 | 12 |
+| | mining | `HAND_IN` | diamonds | 64 | 12 |
+| | combat | `STATISTIC` | `minecraft:killed`, hostile mobs | 2 000 | 10 |
+| | **participation** | `ADVANCEMENT` | `story/mine_diamond` | **10 players** | 11 |
+| **M4** `nether` | mining | `HAND_IN` | obsidian | 64 | 12 |
+| | crafting | `HAND_IN` | stone bricks | 1 024 | 15 |
+| | mining | `STATISTIC` | `minecraft:mined` gold ore | 512 | 15 |
+| | **participation** | `ADVANCEMENT` | `story/form_obsidian` | **8 players** | 18 |
+| **M5** `end` | combat | `HAND_IN` | blaze rods | 64 | 15 |
+| | trade / combat | `HAND_IN` | ender pearls | 96 | 15 |
+| | mining | `HAND_IN` | ancient debris | 32 | 18 |
+| | combat | `STATISTIC` | `minecraft:killed` enderman | 400 | 12 |
+| | **participation** | `ADVANCEMENT` | `nether/obtain_blaze_rod` | **8 players** | 15 |
+| **M6** `expanse` | production | `HAND_IN` | iron ingots | 4 096 | 25 |
+| | mining | `HAND_IN` | bulk building blocks | 16 384 | 25 |
+| | mining | `HAND_IN` | diamonds | 128 | 20 |
+| | combat | `STATISTIC` | `minecraft:killed` raider | 1 000 | 20 |
+| | **participation** | `ADVANCEMENT` | `adventure/hero_of_the_village` | **6 players** | 20 |
+| **M7** `frontier` | production | `HAND_IN` | iron ingots | 8 192 | 35 |
+| | mining | `HAND_IN` | netherite scrap | 128 | 35 |
+| | production | `HAND_IN` | bulk building blocks | 32 768 | 35 |
+| | exploration | `HAND_IN` | shulker shells | 16 | 30 |
+| | **participation** | `ADVANCEMENT` | `nether/netherite_armor` | **5 players** | 35 |
+
+### The rules the content has to obey
+
+Written down because they are what a later config edit can break without noticing.
+
+- **Every milestone carries exactly one participation gate**, and it is always an `ADVANCEMENT`
+  objective — the only type that counts *distinct players* rather than a total, and therefore the
+  only one that three industrious people cannot finish alone. It is also the type that survives
+  churn best: a player who earned the advancement and never logs in again **stays counted**, because
+  progress lives in the database and is never recomputed.
+- **`STATISTIC` objectives use active statistics only** — blocks of a given type mined, mobs of a
+  given kind killed, items crafted, trades made. Never distance walked, time played, damage taken or
+  anything else that accrues from being present. A passive statistic would hand every player the
+  contribution share simply for being online, which is the free-riding the payout rules exist to
+  prevent.
+- **`HAND_IN` deliberately includes farmable materials, in rising quantities.** Nothing farmable
+  appears before **M3**, because farms can only be built in Nordtal — the farm world deletes itself
+  daily — and border 99 has no room for them. From M3 they appear; at M6 the quantities make a farm
+  clearly worth building; at M7 they cannot be met by hand in two weeks. Building the farm is meant
+  to *be* the content of the second week, not a way around it. The constraint that hand-in stays
+  reachable without automation is met by the budget rule, not by banning farms.
+- **The Nordtal border grows, but the world does not.** Nordtal is pre-generated to 4000 once,
+  before the phase opens — see [Worlds](#worlds). A milestone unlock moves a number; it never starts
+  a generator.
+
+### When an objective turns out to be impossible
+
+A linear chain in which every objective is mandatory has one failure mode, and it stops the whole
+server: one wrong number, one seed without the right structure, or one departure of the only person
+who could do it. Three escape hatches, from finest to bluntest:
+
+| tool | what it does | what it pays |
+|---|---|---|
+| **lower the target** in the YAML, then `/smp reload` | if the progress already collected is at or above the new target, the objective completes at once and pays normally | the full pot |
+| **admin completes one objective** | marks a single objective done without opening the milestone; its siblings still have to be finished | `pot × (reached ÷ original target)` |
+| **admin unlocks the milestone** | the blunt tool, also used for testing | each open objective pays `pot × (reached ÷ original target)` |
+
+**Every admin completion pays proportionally to the progress that was actually made.** People who
+worked on an objective that turned out to be impossible are paid for the work they did — our
+planning error is not theirs — and an admin command cannot mint aura out of nothing.
+
+This has a consequence for the loader that is easy to get wrong: today's validation exists to
+refuse a change that would **orphan** stored progress. It must **explicitly permit changing the
+`target` of a live objective**, or the first and finest escape hatch does not exist at the config
+level and every rescue becomes an admin command.
 
 ### The boards and the NPC
 
@@ -245,19 +408,64 @@ cost of explaining two figures for one word. Aura is simply not a currency.
 
 | source | default | note |
 |---|---|---|
-| duel win | **+10** | the loser pays the same |
+| duel win | **+10** | the loser pays exactly the same, so a duel only ever *moves* aura between two players |
 | duel loss | **−10** | **aura may go negative** |
+| ordinary death | **−5** | anywhere except the duel arena |
+| death by a listed "embarrassing" cause | **−20** | a short curated list of damage types in config |
 | objective contribution | a per-objective pot | see below |
-| selected vanilla advancements | 5–25 each, once | a curated list in config, not all advancements |
+| selected vanilla advancements | **2–10** each, once | a curated list in config, not all advancements |
 
 **Play time is deliberately not an aura source.** It would turn the leaderboard into an attendance
 list. Time is what earns *prestige* instead — a different signal in a different place.
 
-**Contribution payout: a guaranteed floor plus a proportional share.** Each objective has a
-configured aura pot. Everyone who contributed at all receives a small fixed floor; the rest of the
-pot is split by share. The floor keeps a small contribution worth making, the proportional part
-keeps the person who did the work visible. Payout happens **when the objective completes**, not
-continuously — aura is recognition, not a running tally of diligence.
+### Deaths cost aura
+
+Decided 2026-08-31. Aura is meant to be a number with risk in it, not a collection meter that only
+ever rises — otherwise carefulness counts for nothing and the leaderboard measures diligence alone.
+Against a season total of roughly 2 480 aura in objective pots and a top contributor around 350,
+fifty deaths at −5 are a meaningful drag without being able to bury a hard-working player.
+
+- **The duel arena is the only exemption**, and it is not really an exemption: the ±10 stake already
+  settles the fight, and adding a death penalty on top would make every duel a net loss for both
+  sides. It is also already the one place with no grave, because nothing real was at stake.
+- **Everything else costs**, including the world border, the void, and dying in the End during the
+  dragon fight — where, until the dragon falls, dying is the only way home. Alternatives were
+  considered and dropped: a list of exemptions is a list somebody has to maintain and argue about,
+  and one rule that always applies is easier to explain to a player than four that sometimes do.
+- **There is no protection against a death drain, and that is deliberate.** PvP is on everywhere,
+  there are no claims, and repeatedly killing somebody now damages a number that is publicly visible
+  in the tab list — so it is, for the first time, a form of griefing with a scoreboard attached.
+  A daily cap and a per-killer cooldown were both considered and rejected: this server is peaceful
+  by agreement, and the same agreement that governs raiding and grave-emptying governs this. The
+  aura ledger records every change with its reason, so it is at least always explicable.
+
+### Contribution payout
+
+**Each objective's pot is split, never topped up.** The earlier "guaranteed floor plus proportional
+share" was an absolute number sitting next to a relative pot, and it broke: a small objective's pot
+could be smaller than the sum of its own floors. The rule that replaced it on 2026-08-31 cannot
+overspend by construction:
+
+| part | share of the pot | who gets it |
+|---|---|---|
+| the equal part | **30 %** | split evenly among everyone who qualified |
+| the proportional part | **70 %** | split by each contributor's share of the target |
+
+- **Qualifying takes 2 % of the target.** Below that, a contributor gets their proportional share
+  only, which is negligible. The floor exists to make a *small* contribution worth making, not a
+  symbolic one — without the threshold, dropping one item into every objective on the track would
+  have paid hundreds of aura for a few clicks.
+- **The equal part is at least 1 aura per qualifier**, taken out of the proportional part if the
+  arithmetic demands it. At an early pot of 30 with twelve qualifiers, 30 % is nine aura, which in
+  whole numbers rounds to nothing at all — and paying a participant zero is exactly what the equal
+  part is there to prevent. Aura stays an `int`; a decimal column would be a schema change for a
+  rounding problem.
+- **`ADVANCEMENT` objectives split evenly.** A player's share is 1 or 0, so the proportional part
+  divides equally too, and everybody who earned the advancement qualifies — including those beyond
+  the target count.
+- **Payout happens when the objective completes**, not continuously — aura is recognition, not a
+  running tally of diligence. On an admin completion it is `pot × (reached ÷ original target)`.
+- Shares are floored to whole aura; the remainder is simply not paid out.
 
 Every change is written to an aura ledger with its reason, so a leaderboard position can always be
 explained.
@@ -413,20 +621,35 @@ full experience** back.
 
 - **The grave stands forever** and **anyone may open it.** No timer, no ownership lock. The tone is
   peaceful, and the point is that a death is a walk back, not a loss.
+- **A death costs aura** — −5 ordinarily, −20 for a listed cause, nothing in the duel arena. See
+  [Aura](#aura--recognition-not-currency).
 - The location of a player's last death is a built-in `/navigate` target.
 - **A grave in the farm world dies with the daily reset.** That is the one real risk of going there.
 
 **Stated plainly, because it follows from two decisions that were taken separately:** PvP is on
 everywhere and a grave is open to everyone, so killing a player and then emptying their grave is
 mechanically possible. That is accepted rather than closed off. This is a peaceful server by
-agreement, that kind of thing is settled socially and not technically, and both the block log and
-the duel history make it traceable anyway. Locking a grave to its owner was considered and
-rejected: it would also stop a friend from bringing somebody's things back.
+agreement and that kind of thing is settled socially, not technically. Locking a grave to its owner
+was considered and rejected: it would also stop a friend from bringing somebody's things back.
+
+**No claim is made that grave-emptying is traceable.** An earlier version of this document said the
+block log made it so; that was struck on 2026-08-31. Graves are plugin-managed inventories, so
+whether a third-party logger sees a withdrawal at all depends on implementation details that do not
+exist yet — and there may be no block-logging plugin running at all when the phase opens
+([World rules](#world-rules)). A promise the design cannot keep is worse than the open gap it was
+written to soften.
 
 ## The wheel of fortune
 
 A GUI in the tavern. **One free spin per day**, plus extra spins earned by contributing to
 objectives. It costs no aura — aura is not a currency.
+
+**Extra spins are staggered by contribution share**, granted when the objective completes: one spin
+at the 2 % qualifying threshold, two at 10 %, three at 25 %. The wheel is the only reward channel
+that pays out actual items, so it is the one worth abusing — hanging it off the same threshold as
+the aura share means there is one rule to understand and one place to change it. That the biggest
+contributors collect both the aura and the most items is accepted: this is the only place in the
+design where effort compounds, and it compounds into loot rather than into rank.
 
 The prize pool lives in config with weights. The intent, in three bands:
 
@@ -448,15 +671,45 @@ retuned from config without a release.
 | keep inventory | off — graves handle it instead |
 | griefing / raiding | not designed against; the server is peaceful by agreement |
 | land claims | **none** |
-| block logging | a third-party plugin as insurance only; nothing in this design depends on it. **Its Minecraft 26.2 availability is unverified.** |
+| block logging | **CoreProtect**, as insurance only; nothing in this design depends on it. Its own SQLite file, not our PostgreSQL. **No 26.2 release exists yet** — see below |
 | teleport commands | **none** — no `/home`, no `/tpa`, no `/back`, no `/spawn` |
 | difficulty, weather, day cycle | vanilla |
 | border centre | configurable; the working value is X 106 / Z 88 |
 | border expansion speed | roughly a quarter to a half of walking speed, configurable |
 
-Border sizes are **diameters**, because that is what Minecraft's world border takes. The values
-from the original notes — 20, 43, 99, 400, 800, 1600 — are defaults in config and expected to
-change.
+Border sizes are **diameters**, because that is what Minecraft's world border takes. The values are
+20 · 43 · 99 · 400 · 900 · 4000 and they live in the milestone file, not here — they are config
+defaults like everything else, and the reasoning that produced them is in
+[the track](#the-track). At a quarter to a half of walking speed, the final expansion's edge takes
+somewhere between a quarter of an hour and half an hour to travel its 1 550 blocks, which is a
+ceremony rather than a hiccup and is meant to be.
+
+### Block logging — checked 2026-08-31
+
+Researched against the real artefacts rather than from memory: the GitHub releases API, the Modrinth
+v2 and Hangar v1 APIs, and the `pom.xml` / `gradle.properties` on each project's default branch.
+
+| plugin | Minecraft 26.2 | Java | database | how you get it |
+|---|---|---|---|---|
+| **CoreProtect 24.0** | **no.** Last release 2026-07-07, whose changelog reads "Added support for Minecraft 26.1"; Modrinth's version tags stop at `26.1.2`. `master` now compiles against `paper-api:26.2.build.48-alpha` and is actively committed (last on 2026-08-25), so a 26.2 release is coming without a date attached | `release 11` | SQLite, MySQL, ClickHouse, DuckDB — **no PostgreSQL** | Modrinth / Hangar / Patreon; no jars on GitHub |
+| Prism 4.4 | **yes**, explicitly — the release notes carry a "26.2 Support" heading and PRs #357 and #363 name Paper 26.2 API changes; both Modrinth and Hangar tag `26.2` | 21 bytecode, runs on 25 | PostgreSQL, MySQL, MariaDB, H2 | GitHub release jar (2.35 MB), Modrinth, Hangar; MIT |
+| LogBlock | source yes — commit "Update for Minecraft 26.2" on 2026-08-02, builds against `spigot-api [26.2.build,26.3-alpha)` with `<release>25</release>` | 25 | **MySQL only** | no GitHub release since 2018; builds only from a third-party Jenkins |
+
+**The decision is CoreProtect, on its own SQLite file.** It is the plugin with the largest install
+base and the least surprise potential, and there is time: the SMP is weeks of work away from
+opening, so a release that is already being built against 26.2 is very likely to arrive first.
+SQLite keeps it entirely out of our PostgreSQL, which matters because
+[exactly one process migrates](architecture.md#schema-ownership) — a third-party plugin creating
+its own tables in our database would make that sentence only nearly true.
+
+**If it still is not there when the phase is ready, nothing blocks.** Block logging is insurance and
+this document depends on none of it, so the phase opens without it and CoreProtect is added when it
+ships. Prism 4.4 is the documented fallback if waiting stops being reasonable — it is the only
+option today with a *released* 26.2 artefact — with the caveats that it compiles against
+`paper-api:1.21.11` and only *tests* against 26.2, that it pulls `de.tr7zw:item-nbt-api-plugin` at a
+**SNAPSHOT** version, and that its user base is a fraction of CoreProtect's.
+
+None of the above was tested on a running server. It is metadata, and metadata is not verification.
 
 ## Admins
 
@@ -589,7 +842,13 @@ Everything in this section is a config default chosen to be reasonable, and ever
 expected to be retuned. They are gathered here so nobody mistakes them for agreed values.
 
 - The 13 prestige thresholds
-- The duel stake of 10 aura, the advancement values of 5–25, and the objective pot floor
+- The duel stake of 10 aura and the advancement values of 2–10
+- The death penalties of −5 and −20, and **which damage types count as the "embarrassing" −20**
+- The pot factor of 5, the 30 / 70 split, the 2 % qualifying threshold and the 1-aura minimum share
+- Every budget, target and pot in [the track](#the-track) — the *rules* that produced them are the
+  decision; the numbers they produced are defaults
+- The participation-gate counts of 10 · 10 · 8 · 8 · 6 · 5
+- The wheel's extra-spin thresholds of 2 / 10 / 25 %
 - The border step sizes and the expansion speed
 - The wheel's prize pool and its weights
 - The concurrent-duel limit
@@ -598,11 +857,13 @@ expected to be retuned. They are gathered here so nobody mistakes them for agree
 
 ## Still open
 
-- **The milestone track itself** — which objectives sit on which milestone, in what order, with
-  what targets. The mechanism is decided; the content is a design pass of its own.
 - **The advancement list** that grants aura, and the amount per advancement.
+- **The damage types that count as an "embarrassing" death** and cost −20 instead of −5.
 - **The duel loadouts**, item by item, for both types.
-- **Which block-logging plugin**, and whether one exists for Minecraft 26.2 at all.
+- **The exact items and advancements behind each objective.** The track's shape — how many
+  objectives per milestone, of which type, serving which role, with which budget and pot — was
+  decided on 2026-08-31 and is [above](#the-objectives); the one example given per objective is a
+  config default and is expected to be corrected in the diff.
 - **The server rules as written for players.** Deliberately not settled yet: the working principle
   is that anything goes as long as everyone involved agrees to it. A rules text has to exist before
   the phase opens, in both languages, but it is not a design decision.
@@ -626,5 +887,17 @@ clients:
   arenas.
 - **Per-player Text Display boards** seen simultaneously by two clients with different languages.
 - A **milestone unlocking** while players are online: the border move, the balloon entry lighting
-  up, the announcement in both languages, and the aura payout.
+  up, the announcement in both languages, and the aura payout — including a payout where one
+  qualifier sits exactly on the 2 % threshold and the equal part has to be rounded up to 1 aura.
+- **Nordtal's one-off pre-generation to border 4000**: how long it takes and how much disk it eats,
+  both measured, before the phase is scheduled. It is the cheapest measurement in this document and
+  the one that decides whether the final milestone is deliverable at all.
+- **The balloon standing between radius 10 and 21.5**, checked in the built spawn against border 20
+  and then 43 — a player must be unable to reach it before the opening expansion and able to
+  immediately after.
+- Each **escape hatch**: a target lowered below its collected progress by `/smp reload` (the
+  objective must complete and pay at once), a single objective completed by an admin, and a whole
+  milestone unlocked by one — each paying `pot × (reached ÷ target)`.
 - A **grave** across a relog, and a grave opened by somebody other than its owner.
+- A **death aura penalty** in each of its cases: an ordinary death, a listed one, and a duel death
+  that must cost nothing beyond the ±10 stake.

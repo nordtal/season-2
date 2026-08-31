@@ -69,15 +69,15 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 | `limbo` waiting room and pack enforcement | **designed, not built** |
 | Language config list, plugin-side locale lookup | **designed, not built** |
 | Hunger games, both halves | **designed, not built** |
-| SMP: worlds, travel, milestones, aura, prestige, duels, graves, POIs | **designed, not built** — 2026-08-31 |
+| SMP: worlds, travel, aura, prestige, duels, graves, POIs | **designed, not built** — 2026-08-31 |
+| SMP: the milestone track — chain, budgets, targets, pots, participation gates | **designed, not built** — 2026-08-31, the last open design decision |
 
 That table is a summary. [state-of-play.md](state-of-play.md) is the same question answered from the
 code, module by module, with the places where these documents and the code disagree — **nine of
 them** as of 2026-08-31, three of which came out of that day's planning session.
 
-**One design decision is still genuinely open**, and it has a session of its own waiting: the
-milestone track — which objectives sit on which milestone, in what order, with what targets
-([smp.md](smp.md#still-open)). Everything else left in
+**No design decision is open any more.** The milestone track — the last one, and the season's spine
+— was designed on 2026-08-31 and is in [smp.md](smp.md#the-track). Everything left in
 [state-of-play.md §3](state-of-play.md#3-what-still-needs-a-decision) is a config default, a
 drawing, a text, or a build.
 
@@ -142,6 +142,21 @@ reason is in the linked document — that is what stops it from being reopened b
 | Spectators may join at any time, and **there is no team chat** — one per-server chat, as everywhere else | [hunger-games.md](hunger-games.md#the-lobby) |
 | **SimpleCloud runs Minecraft 26.2** — confirmed by the owner against the v3 dashboard; the platform question is closed and the API-artefact question is now its own row | [operations.md](operations.md#closed-2026-08-31) |
 | The open-verification table is ordered by **which session owns the answer**, and every row now says **what happens if the answer is no** — an unverified assumption with no written fallback is a decision nobody has made | [operations.md](operations.md#open-verification) |
+| **Decided 2026-08-31 — the milestone track and block logging** | |
+| The track is **20 · 43 · 99 · 400 · Nether · End · 900 · 4000** — eight milestones, of which `departure` (43) is opened by an admin at the season's start and six are objective-driven. The Nether and the End are their own milestones and carry no border step | [smp.md](smp.md#the-track) |
+| **Border 20 and 43 are a physical gate, not ceremony**: the balloon stands outside radius 10 and inside radius 21.5, so the opening expansion is what hands the community the farm world. This is a hard constraint on the spawn build | [smp.md](smp.md#spawns) |
+| Objective **budgets are community play hours sized against a pessimistic population** — the final milestone is 8 players × 14 days × 1.5 h = 170 h. A strong turnout therefore finishes early, and the answer to that is to append a milestone, not to scale targets to the live player count | [smp.md](smp.md#how-every-number-in-that-table-was-derived) |
+| `pot = round((budget ÷ objectives) × 5, to 10)`, **no minimum pot** — a minimum flattens the ramp the track exists to create | [smp.md](smp.md#how-every-number-in-that-table-was-derived) |
+| **Every milestone carries exactly one `ADVANCEMENT` participation gate** (10 · 10 · 8 · 8 · 6 · 5 distinct players) — the only objective type three people cannot finish alone, and the only one whose progress survives a player leaving | [smp.md](smp.md#the-rules-the-content-has-to-obey) |
+| `STATISTIC` objectives use **active statistics only** — never distance walked or time played, which would pay every present player a contribution share | [smp.md](smp.md#the-rules-the-content-has-to-obey) |
+| `HAND_IN` **deliberately demands farmable materials in rising quantities** from M3 onward, so that building the farm becomes the content of the late game; the no-automation constraint is met by the budget, not by banning farms | [smp.md](smp.md#the-rules-the-content-has-to-obey) |
+| Contribution payout is a **split of the pot — 30 % equally among qualifiers, 70 % by share** — with a 2 % qualifying threshold and a minimum of 1 aura per qualifier. The old absolute floor was replaced because it could exceed a small objective's whole pot | [smp.md](smp.md#contribution-payout) |
+| Three escape hatches for an impossible objective — lower the target and reload, complete one objective, unlock the milestone — and **every admin completion pays `pot × (reached ÷ target)`**, so a rescue neither robs the contributors nor mints aura | [smp.md](smp.md#when-an-objective-turns-out-to-be-impossible) |
+| **Deaths cost aura**: −5 ordinarily, −20 for a listed cause, nothing in the duel arena. No exemptions beyond the arena and no protection against a death drain — the same agreement that governs raiding governs this | [smp.md](smp.md#deaths-cost-aura) |
+| Advancements grant **2–10** aura, not 5–25; a duel only ever moves ±10 between two players | [smp.md](smp.md#aura--recognition-not-currency) |
+| **Nordtal is pre-generated once, to its final border of 4000, before the phase opens.** A milestone unlock moves a number and never starts a generator; the Nether and End borders are a fixed 2000 | [smp.md](smp.md#worlds) |
+| Block logging is **CoreProtect on its own SQLite file**, and we wait for its 26.2 release — checked 2026-08-31: it has none, its `master` builds against 26.2-alpha, and Prism 4.4 is the only released 26.2 option and the documented fallback. Nothing blocks on it | [smp.md](smp.md#block-logging--checked-2026-08-31) |
+| The claim that **grave-emptying is traceable through the block log was struck** — graves are plugin-managed inventories and there may be no logger running at all | [smp.md](smp.md#death-and-graves) |
 
 ## Working rules that apply to all of it
 

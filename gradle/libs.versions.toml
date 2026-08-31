@@ -13,6 +13,11 @@ velocity = "4.1.1"
 # 3.0.0 replaced the JSON config loader with commented YAML (a vendored, hardened Spec) and
 # dropped jackson-databind entirely, adding gson and snakeyaml instead. Verified 2026-08-30.
 jcore = "3.0.0"
+# Our own Paper plugin, published from github.com/nordtal/papermc-display-tags via JitPack; the
+# coordinate version is the git tag. `smp` takes it compileOnly and NEVER shades it - the api module
+# is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to be
+# installed on the SMP server. Checked against the repository's own api/README.md on 2026-09-01.
+displaytags = "2.0.0"
 jda = "6.0.0-rc.4"
 bunq = "1.28.0.6"
 guava = "33.6.0-jre"
@@ -49,6 +54,7 @@ runpaper = "3.1.0"
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
 velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity" }
 jcore = { module = "com.github.nordtal:jcore", version.ref = "jcore" }
+display-tags = { module = "com.github.nordtal:papermc-display-tags", version.ref = "displaytags" }
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
 bunq-sdk = { module = "com.github.bunq:sdk_java", version.ref = "bunq" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }

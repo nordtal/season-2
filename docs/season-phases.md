@@ -236,8 +236,9 @@ here so nobody looks for them in prose:
 
 - **What `velocity.toml` calls the three backends.** No document in this repository says. The three
   `gate.yml#server-*` keys default to the module directory names and are the single place to
-  correct it. It will be answered by the first real deployment, which is also where the SimpleCloud
-  runbook [operations.md](operations.md#deployment) does not have will come from.
+  correct it. It will be answered by the first real deployment — which is now a `compose.yml` whose
+  service names *are* those backend names, so the two stop being independent facts the moment the
+  stack in [operations.md](operations.md#deployment) is written.
 - **Whether a Velocity `LoginEvent`-allowed player can be disconnected from
   `PlayerChooseInitialServerEvent`**, which is what the missing-`limbo` fallback does — and since
   2026-09-01 that fallback covers every phase, not only `MAINTENANCE`. It is the documented way to

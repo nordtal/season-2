@@ -4,16 +4,20 @@ How season 2 runs, gets deployed and gets released — and which parts of it nob
 
 ## Deployment
 
+**Season 2 does not run on SimpleCloud.** Decided 2026-09-01, before anything was deployed — the
+reasoning is [below](#why-simplecloud-was-dropped). Production is **one `docker compose` stack on
+one host**, driven through [Arcane](https://github.com/ofkm/arcane).
+
 ```mermaid
 flowchart TB
-    subgraph host["Remote host — SimpleCloud"]
-        PX["Velocity proxy<br/>network-control"]
+    subgraph host["Remote host — one compose stack"]
+        PX["network-control<br/>Velocity"]
         LBS["limbo<br/>Paper"]
         HGS["hunger-games<br/>Paper"]
         SMPS["smp<br/>Paper — four worlds"]
-        BOTC["discord-bot<br/>container"]
+        BOTC["discord-bot"]
+        PGSQL[("PostgreSQL")]
     end
-    PGSQL[("PostgreSQL")]
     GHR["GitHub release<br/>jars · bot image · pack zip + sha1"]
 
     PX --> PGSQL
@@ -21,28 +25,116 @@ flowchart TB
     HGS --> PGSQL
     SMPS --> PGSQL
     BOTC --> PGSQL
-    GHR -.->|"deployed from"| host
+    GHR -.->|"jars pulled at container start"| host
     GHR -.->|"pack downloaded by players"| PX
 ```
 
-- Production runs on [SimpleCloud](https://simplecloud.app) on a remote host.
-- **The proxy needs database access.** PostgreSQL must be reachable from the proxy host, and the
-  credentials therefore exist in more than one config file. That is a consequence of the database
-  being the source of truth, and it is accepted.
-- **The bot is the only process that migrates.** Every other process expects the schema to be
-  current; bring the bot up first after a schema change.
-- **There is no backup concept for that database, and this is the gap in this document.** Access
-  periods, payment records, aura, milestone progress and graves all live in one PostgreSQL, and
-  nothing here says how it is backed up, how a restore is performed, or whether a restore has ever
-  been tried. It is the only irreversible risk in the project — everything else can be rebuilt from
-  the repository — and it needs to be settled before the SMP phase opens, in its own session. Also
-  unwritten: what the SimpleCloud groups and templates look like, and how jars and configs reach the
-  host.
-- **The bot deploys on its own, and does so today.** It has no Minecraft dependency at all - its
-  runtime dependencies are PostgreSQL, the Discord gateway and bunq - so it does not wait for the
-  proxy or any backend. `discord-bot/docker-compose.yml` runs it, optionally with a PostgreSQL
-  beside it, configured entirely through environment variables; the runbook and what cannot be
-  tested without the network are in [../discord-bot/README.md](../discord-bot/README.md).
+- **One `compose.yml`, three profiles** — `db`, `bot`, `mc`. The bot keeps the property this
+  document has always claimed for it: it has no Minecraft dependency at all, and `--profile bot`
+  brings it up without a proxy or a backend. What changed is that it no longer needs a compose file
+  of its own to do that; `discord-bot/docker-compose.yml` is superseded. The bot's runbook and what
+  cannot be tested without the network stay in [../discord-bot/README.md](../discord-bot/README.md).
+- **Every service keeps its state in a named volume** — one per Minecraft server, one for the bot's
+  config, one for the bunq context, one for PostgreSQL. **No bind mounts.** The stack is operated
+  through Arcane, which can reach volumes directly, and a bind-mounted world folder is a
+  uid/permission problem whose symptom is a corrupted save. Hand-built content — the hunger games
+  map, the Nordtal spawn — is uploaded into the volume once per world; that is a deliberate manual
+  step and is not part of any release.
+- **The proxy needs database access.** PostgreSQL is a service in the same stack now, so this is a
+  compose network rather than a firewall rule. The credentials still exist in more than one config
+  file, because the database is the source of truth, and that is still accepted.
+- **The bot is the only process that migrates.** Bring it up first after a schema change. Compose
+  `depends_on` can express "PostgreSQL is healthy" and cannot express "the schema is current", so
+  this stays an operator rule and not a dependency.
+- **There is still no backup concept for that database, and it is still the gap in this document.**
+  Access periods, payment records, aura, milestone progress and graves all live in one PostgreSQL,
+  and nothing here says how it is backed up, how a restore is performed, or whether a restore has
+  ever been tried. It remains the only irreversible risk in the project — everything else can be
+  rebuilt from the repository. What the compose stack changes is only that the fix is now local and
+  obvious, a `pg_dump` sidecar against the same volume. That is a reason to settle it before the SMP
+  phase opens, in its own session; it is not a reason it is settled.
+
+### The server containers
+
+All four Minecraft services — the Velocity proxy and the three Paper backends — run the **same
+image**, built from one Dockerfile in the style of `discord-bot/Dockerfile`: a JRE 25 base, the
+server jar, and a wrapper as PID 1. itzg/docker-minecraft-server was considered and rejected; see
+[below](#why-not-itzgdocker-minecraft-server).
+
+- **The console is a `tmux` session, not stdin of PID 1.** Arcane's per-container shell is a
+  `docker exec`, which by construction cannot reach PID 1's stdin — a server started as a plain
+  `java -jar` would therefore have a console you can read and not write. The server instead runs
+  inside a tmux session whose socket lives in the container, and the image ships two scripts:
+  `console` attaches to it for full interactive read-and-write, and `mc <command>` sends a single
+  command through `tmux send-keys` and needs no TTY at all. `tmux pipe-pane` mirrors the output to
+  stdout, so `docker logs` and Arcane's log view keep showing everything they would have shown.
+- **RCON is not used, because it would not be uniform.** Paper has it; **Velocity has no RCON at
+  all** — checked 2026-09-01, the only option is the third-party Velocircon plugin. Choosing RCON
+  would mean one mechanism for three servers, a different one for the proxy, and a third-party
+  plugin on the single process whose whole job is deciding who may join. tmux costs two scripts and
+  covers all four identically.
+- **PID 1 traps SIGTERM**, sends `stop` into the session and waits for the JVM to exit. That is the
+  price of putting tmux in the picture and it is not optional: without it, `docker stop` kills a
+  wrapper and leaves the JVM to be SIGKILLed. **`stop_grace_period` is 180 s** on every Minecraft
+  service — the compose default of 10 s does not save a Nordtal world at border 4000, and a save cut
+  off halfway is the failure mode that stays invisible for days.
+- **Plugin jars are pulled at container start from the GitHub release** named by one version in
+  `.env`, into the server's own named volume. An update is a version bump and `up -d`; a rollback is
+  the bump back. This is the job the SimpleCloud dashboard could not do at all, because its plugin
+  management only understands Modrinth-hosted jars and every jar we deploy is either ours or a fork
+  of ours.
+- **The download policy is cache-first, with a hard failure only on a missing jar.** If the pinned
+  version is already in the volume, nothing is fetched — a GitHub outage does not stop a restart. If
+  a jar the pin requires is absent and cannot be fetched, the container **does not start**; it never
+  silently falls back to an older jar, because "the server is up, running last week's plugin" is
+  precisely the class of fault that is discovered late. Same doctrine as `network-control` failing
+  closed on a bad config.
+- **The Paper and Velocity server builds are pinned in `.env`**, matching the API versions in
+  `gradle/libs.versions.toml`. Nothing resolves "latest" at runtime.
+- **DisplayTags and PacketEvents arrive the same way**, onto the `smp` service only — see
+  [Third-party plugins](#third-party-plugins).
+
+### Why SimpleCloud was dropped
+
+Recorded because this repository carried SimpleCloud as a premise for two weeks, and the reasons
+should outlive the decision.
+
+- **Its three selling points are dynamic instances, group templates and failover, and season 2 uses
+  none of them.** Every service is a permanent singleton on one host. The one place templates would
+  ordinarily still earn their keep — a fresh copy per game round — does not apply either: the hunger
+  games run [exactly once](hunger-games.md#lifecycle), and the SMP's farm-world reset is an
+  in-process unload/rename/load that never restarts a container.
+- **Its plugin management only handles Modrinth-hosted jars**, so every release of ours was a manual
+  file copy regardless. That was the daily cost, and it bought nothing back.
+- **v3 is reachable only through a hosted closed-beta insider programme**, and
+  `repo.simplecloud.app` has no releases channel at all — only `0.1.0-platform.NN-dev.*` snapshots
+  (HTTP 404, checked 2026-08-31). A network that sells access for real money and is meant to run for
+  about a year would have depended on a control plane we neither own nor can pin a version of, and
+  nothing in this repository ever wrote a fallback for losing it.
+- **It cost nothing to leave, today.** `app.simplecloud.api:api` was already gone, no line of code
+  ever referenced SimpleCloud, and the runbook — groups, templates, how jars and configs reach the
+  host — was still unwritten. This deleted an empty chapter instead of rewriting a full one, which
+  is what it would have been a month later.
+
+The two facts that were established about SimpleCloud remain true and stop mattering: it runs
+Minecraft 26.2, and its API artefact is not something anyone can depend on.
+
+### Why not itzg/docker-minecraft-server
+
+The de-facto standard image and the obvious candidate. Checked 2026-09-01: it publishes `java25`
+tags and `latest`/`stable` point at Java 25, but its documentation says nothing about 26.x version
+numbering, so Paper on 26.2 would have had to be verified before trusting it. That question was
+overtaken by three others:
+
+- It does not cover Velocity. That is a **second** image, `itzg/bungeecord`, with its own
+  conventions and its own env vocabulary.
+- Neither image solves the console problem for the proxy, because Velocity has no RCON — so our own
+  wrapper would have been layered on top either way.
+- We want a **pinned** server build rather than runtime version resolution, and the pin already
+  exists in the version catalog.
+
+One Dockerfile of our own covers all four services identically, in the style the repository already
+uses for the bot, and keeps third-party images out of the deployment path entirely.
 
 ## Configuration and secrets
 
@@ -122,9 +214,39 @@ earlier session should be blocked waiting for it.
 | **Background pre-generation of a 2000 × 2000 world without perceptible lag** | the **`smp`** session, measured on the real host with players online | tick-time measurement during a full pre-generation, not a guess | The farm world gets smaller — 2000 × 2000 is a config default and is [listed as a proposal](smp.md#numbers-that-are-proposals-not-decisions). If even a small world lags, pre-generate off-peak only, or generate on a separate process and copy the folder in. A config change, then an operational one; never a redesign. |
 | **Simple Voice Chat on 26.2** | before the **event rehearsal** | check for a build | Dropped without replacement, as [hunger-games.md](hunger-games.md#still-open) already says. It needs a client mod, so vanilla players could never have used it anyway. Zero cost. |
 | **Disconnecting a player from `PlayerChooseInitialServerEvent`** — what the missing-`limbo` fallback does. Since 2026-09-01 this covers **every** phase, not only `MAINTENANCE`: a proxy with no waiting room refuses every login rather than letting anybody past the pack station. `player.disconnect()` is the documented way to remove a player and the event is `@AwaitingEvent`, but a login-allowed player being kicked *during* initial server selection has not been seen happen | **the rehearsal below** | running proxy, real client, `gate.yml#server-limbo` pointed at a name `velocity.toml` does not have | Set the initial server to a server that does exist and disconnect from `ServerPostConnectEvent` instead, or move the whole check back into the `LoginEvent` gate as a maintenance refusal — which is the pre-2026-08-31 behaviour and is a one-line reversal |
+| **`console` — the *interactive* attach — behaves inside Arcane's browser terminal.** `mc <command>` through a plain `docker exec` is already verified (below); what is untested is whether Arcane's xterm hands tmux a usable TTY, and whether detaching there really detaches | the **first deployment** session | open Arcane's shell on a running server container, run `console`, issue a command, then detach with `Ctrl-b d` and confirm the server is still up | Use `mc <command>` and the log view instead — that is send-and-read without a TTY and covers every command a runbook actually issues. Only the live scrollback is lost, and `docker exec -it <container> console` from an SSH session still gives it. |
 | **Proxy-only pack enforcement**, making `limbo` unnecessary for packs | **after the event**, never on the critical path | an experiment on a running proxy | Nothing changes — `limbo` stays, which is the current design. This is the one row that can only *save* work, which is exactly why it is last. |
 
 ### Closed 2026-09-01
+
+**The container design was built and measured, not just written.** A Velocity 4.1.1 build 24 and a
+Paper 26.2 build 121 container were run from the image in `deploy/minecraft` on 2026-09-01:
+
+- The **Fill API resolution works and is verified end to end** — the pinned build is fetched, its
+  sha256 is checked against what the API reports, and a cached jar means no network call at all.
+  Paper booted in 39 s from a cold volume, Velocity in 9 s.
+- **The console is writable from a plain `docker exec`** — `mc "list"` and `mc "glist"` both
+  executed and their output appeared in the container log. That is the mechanism Arcane's shell
+  uses; only the interactive `console` attach inside its browser terminal is still untested.
+- **`docker stop` shuts down gracefully and fast.** Paper: 3 s, exit 143, with
+  `All dimensions are saved` and `All RegionFile I/O tasks to complete` in the log. Velocity: 2 s,
+  exit 143, with `Shutting down the proxy...`. The 180 s `stop_grace_period` is headroom for a
+  large world, not the expected duration.
+- **The EULA gate fails closed** with the message that names it, before anything starts.
+
+**The one that cost the session an hour: never mirror the console with
+`tmux pipe-pane … > /proc/1/fd/1`.** It is the obvious way to get the tmux console into
+`docker logs`, and it **wedges the container**. Measured on Docker 29.4.1: with that line, SIGTERM
+never reaches PID 1, the shutdown trap never runs, the container survives the SIGKILL at the end of
+the grace period, and `docker rm -f` then fails with *"tried to kill container, but did not receive
+an exit event"* — a container that can only be cleared by restarting the Docker daemon. With the
+same image and only that line removed, `docker stop` finishes in **one second**. A pipe-pane writer
+holds a second handle on the container's stdout pipe from a process whose lifetime the shim does
+not track; `tail -F` on the server's own `logs/latest.log` is a plain child of PID 1 inheriting its
+stdout, does not do that, and additionally gives a container log free of terminal escape sequences.
+An A/B of the identical image, one variable, both directions — this is written down because
+rediscovering it costs the same hour.
+
 
 **`app.simplecloud.api:api` is not needed and is gone.** This used to be the table's first row: the
 artefact is published only as `0.1.0-platform.NN-dev.*` snapshots, with no releases channel on
@@ -150,6 +272,10 @@ written fallback. The one sentence this *did* cost: smp.md no longer claims that
 else's grave is traceable.
 
 **SimpleCloud runs Minecraft 26.2.** Confirmed by the owner against SimpleCloud v3's dashboard.
+*Superseded 2026-09-01 — season 2 does not run on SimpleCloud any more, so this answer no longer
+applies to anything. It is kept because it is what the row asked and the answer was yes; see
+[Why SimpleCloud was dropped](#why-simplecloud-was-dropped) for why the platform question stopped
+being the interesting one.*
 This was the first row in the table and the one everything else was told to wait behind; it no
 longer blocks anything. What it does *not* settle is the API artefact, which is why that half is
 now its own row above — the platform supporting 26.2 and the API being safe to compile against are
@@ -166,7 +292,7 @@ it looks.
 ## Rehearsal — the login path
 
 **Written 2026-09-01, when `limbo` and the pack station were built, and not yet run.** Nothing in
-this repository's 369 tests touches a proxy, a client or a packet: what they prove is the wire
+this repository's 435 tests touches a proxy, a client or a packet: what they prove is the wire
 format, the hold rule, the routing table and the config validation. Everything below is what those
 tests cannot say anything about, and the three open verifications this session owns are steps 4, 6
 and 8.
@@ -273,6 +399,99 @@ A sketch to be filled in once the module exists:
 ## Running the SMP
 
 The SMP's concept is [smp.md](smp.md); what it costs to operate is here.
+
+### Measuring the pre-generation — do this first
+
+**Written 2026-09-01, not yet run.** Two numbers gate the SMP and neither can be guessed: how long
+Nordtal's one-off pre-generation to border 4000 takes in wall clock and how much disk it eats, and
+what the farm world's *daily* pre-generation does to tick time while people are playing. The first
+decides whether the season's last milestone is deliverable at all; the second is what
+[smp.md](smp.md#the-farm-world-reset) calls the single biggest technical risk in the concept.
+
+They are cheap, they are independent of every line of plugin code, and they have to happen **on the
+real host** — a laptop measurement says something about disk and almost nothing about wall clock.
+
+**The tool is [Chunky](https://modrinth.com/plugin/chunky).** Version **1.5.3**, published
+2026-05-04, tags Minecraft **26.2** for the `paper` loader explicitly — checked against the Modrinth
+v2 API on 2026-09-01, not from memory. It is not a dependency of this build and never will be: it is
+an operator's tool that runs on the server for an afternoon and is then taken off again. The plugin
+this repository ships neither knows nor cares that it was used.
+
+#### A — Nordtal to border 4000, once, with nobody online
+
+A radius of **2000** blocks (the border is a diameter of 4000) around the working centre
+**X 106 / Z 88**.
+
+```bash
+chunky world nordtal && chunky center 106 88 && chunky radius 2000 && chunky start
+```
+
+Write down, in this order:
+
+| | how |
+|---|---|
+| **when it started** | `date` before `chunky start` — Chunky's own ETA is a projection, not a measurement |
+| **wall clock to completion** | `date` when it prints that it is done |
+| **disk before and after** | `du -sh nordtal/` at both ends, and the delta |
+| **the host** | CPU model, core count, RAM, and whether the disk is NVMe or spinning. A number with no machine attached to it cannot be compared to anything later |
+
+**What each answer means.** Under about six hours and a few gigabytes: nothing changes, the phase
+can be scheduled around one quiet night. A day or more, or tens of gigabytes: the final border of
+4000 is the number to reconsider — it is a config default in the milestone file and lowering it is
+one line, whereas discovering the problem the week the milestone is due is not.
+[smp.md](smp.md#the-track) is explicit that every number in the track is a default and the *rules*
+are the decision, so a smaller frontier is a retune and not a redesign.
+
+**Do the Nether and the End in the same sitting**, radius 1000 each, and note them separately. They
+are a fixed 2000 diameter and are generated once before their own milestones unlock, so a surprise
+there is the same kind of surprise a month later.
+
+#### B — the farm world's daily pre-generation, with players online
+
+This is the one that is easy to get wrong by measuring the wrong thing. What matters is not how
+long the generation takes but **what the server feels like while it runs**, because it runs every
+day, throttled, alongside a live server.
+
+1. Get the baseline first. With the usual number of players online and nothing generating, sample
+   `tps` and, more importantly, the **millisecond tick time** — Paper's `/tps` rounds to a number
+   that hides the problem, so use `/mspt` or `spark` if it is installed. Ten minutes is enough.
+2. Start a farm-world pre-generation at the size the config actually uses (radius 1000 for the
+   2000 × 2000 default), with Chunky throttled: `chunky quiet 5` and a low `chunky trim`/task rate
+   are the levers.
+3. Sample again for the same ten minutes, at the same time of day, with roughly the same player
+   count.
+
+Write down both distributions, not just the averages: **the 95th percentile of tick time is the
+number players actually notice.** An average that moves from 20 ms to 24 ms with a p95 that moves
+from 30 ms to 180 ms is a server that stutters, and the average would have said it was fine.
+
+**What each answer means, and all three outcomes are already written down as decisions rather than
+as problems:**
+
+- **Imperceptible** — p95 barely moves. Nothing changes; the daily reset is built as
+  [smp.md](smp.md#the-farm-world-reset) describes it.
+- **Perceptible** — the farm world gets smaller. Its 2000 × 2000 is
+  [a proposal, not a decision](smp.md#numbers-that-are-proposals-not-decisions), and halving the
+  radius quarters the work.
+- **Perceptible even when small** — pre-generate off-peak only, or generate into a folder on a
+  separate process and move it in. That is an operational change, not a redesign: the reset is
+  already a swap of folders, so where the folder came from is not something the plugin has an
+  opinion about.
+
+**Whatever the answer, the reset postpones itself rather than swapping in a half-built world.** That
+rule is in the design already and does not depend on these numbers; what the numbers decide is how
+often the postponement would fire.
+
+#### C — while you are on the host anyway
+
+Two more things that cost minutes and answer questions nothing else can:
+
+- **`du -sh` the finished farm world**, so that "the daily reset writes and deletes this much" is a
+  known quantity rather than a surprise on a full disk. Two farm worlds exist at once during the
+  swap — today's and tomorrow's — so the headroom needed is twice this.
+- **Confirm the world folders can be unloaded and deleted at runtime at all.** That is its own row
+  in [the table above](#open-verification), owned by the `smp` session, and the drill is cheapest on
+  a server that is already up for these measurements.
 
 ### The daily farm-world reset
 

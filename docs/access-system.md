@@ -230,9 +230,11 @@ integration tests skip themselves there.
 
 ## Known risks
 
-- ~~SimpleCloud on Minecraft 26.2 is unconfirmed.~~ **Confirmed 2026-08-31** by the owner against
-  SimpleCloud v3's dashboard. The API artefact was a separate question and was answered by deleting
-  the dependency — see [operations.md](operations.md#closed-2026-09-01).
+- ~~SimpleCloud on Minecraft 26.2 is unconfirmed.~~ **Moot since 2026-09-01: season 2 does not run
+  on SimpleCloud.** It was confirmed to run 26.2 on 2026-08-31 and the platform was then dropped
+  anyway — production is a single `docker compose` stack, see
+  [operations.md](operations.md#why-simplecloud-was-dropped). The API artefact was a separate
+  question and was answered earlier by deleting the dependency.
 - **The proxy needs database access**, so PostgreSQL must be reachable from the proxy host and the
   credentials exist in more than one config file.
 - **No chat bridge.** Dropping DiscordSRV drops that too; nobody has asked for it, but it is a

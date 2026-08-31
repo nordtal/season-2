@@ -1,7 +1,18 @@
 name: smp
 version: '${version}'
 main: eu.nordtal.s2.smp.SmpPlugin
-description: 'The season 2 SMP - worlds, milestones, aura, prestige, duels, POIs and graves.'
+description: The season 2 SMP - Nordtal, the farm world, the Nether and the End.
 author: nordtal
 website: https://nordtal.eu
 api-version: '26.2'
+
+# DisplayTags owns every nametag on this network (docs/smp.md#what-a-player-looks-like). The API is
+# an interface over the running plugin, so it has to be installed and it has to load first.
+# required: true on purpose - a server missing it should fail loudly at start rather than run for a
+# week with plain nametags nobody notices are plain. PacketEvents comes with DisplayTags' own
+# dependencies and is not declared here.
+dependencies:
+  server:
+    DisplayTags:
+      load: BEFORE
+      required: true

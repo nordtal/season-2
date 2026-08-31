@@ -11,7 +11,7 @@ import eu.nordtal.s2.networkcontrol.config.DatabaseSpec;
  * Not {@code AccessDirectory.open(String, String, String)}: that factory hands out a small, fixed
  * pool with no way to tune {@code connectionTimeout} or the PostgreSQL driver's own
  * {@code socketTimeout}, and both matter on the login path - "one query and a short timeout"
- * (docs/access-stage-c.md) has to be an actual property of the connection, not a hope.
+ * (docs/access-system.md) has to be an actual property of the connection, not a hope.
  * {@code AccessDirectory.using(DataSource)} accepts any pool, so this builds one with both
  * timeouts driven by {@link DatabaseSpec#queryTimeoutSeconds()} and hands it in; the proxy owns
  * and closes this pool itself, since a pool handed to {@code using(...)} is one

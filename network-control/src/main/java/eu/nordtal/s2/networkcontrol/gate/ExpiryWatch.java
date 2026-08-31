@@ -17,7 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Mid-session expiry, per docs/access-stage-c.md: warn a few minutes before access ends, then
+ * Mid-session expiry, per docs/access-system.md: warn a few minutes before access ends, then
  * disconnect when it does.
  * <p>
  * <b>Every pass re-checks the database</b> rather than counting down from whatever

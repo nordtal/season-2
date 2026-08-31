@@ -25,7 +25,7 @@ import java.util.concurrent.ExecutorService;
 
 /**
  * Stage C's half of account linking: the managed link message's button opens a modal for the
- * code, and {@code /unlink} lets a user remove their own link. See docs/access-stage-c.md.
+ * code, and {@code /unlink} lets a user remove their own link. See docs/access-system.md.
  *
  * <h2>The code does the validating</h2>
  * Nothing here parses or checks the code beyond trimming and upper-casing it -

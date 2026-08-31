@@ -31,6 +31,15 @@ public final class AccessPool {
         hikari.setPoolName("network-control-access");
         hikari.setMaximumPoolSize(config.maximumPoolSize());
         hikari.setConnectionTimeout(config.queryTimeoutSeconds() * 1000L);
+        // Without this, HikariCP asks java.sql.DriverManager for a driver instead of loading the
+        // class itself - and DriverManager's automatic ServiceLoader discovery only sees drivers
+        // visible to whichever classloader happened to trigger its static init first, which on
+        // Velocity is not necessarily this plugin's own isolated classloader. Found and fixed for
+        // the same reason in hunger-games/db/HungerGamesPool.java (verified there with runServer
+        // against no running PostgreSQL: "No suitable driver" was thrown before any connection
+        // attempt, even though the driver is shaded in correctly) - not independently reproduced
+        // against a running Velocity proxy, since that needs its own smoke test.
+        hikari.setDriverClassName("org.postgresql.Driver");
 
         // Bounds a query that is already running, not just connection acquisition - without this,
         // a database that accepts a connection and then hangs on the query itself would not be

@@ -34,8 +34,16 @@ import java.util.UUID;
  *   <tr><td>{@code PRE_EVENT}</td><td>linked member, not banned</td><td>-</td></tr>
  *   <tr><td>{@code START_EVENT}</td><td>linked member, not banned</td><td>-</td></tr>
  *   <tr><td>{@code SMP}</td><td>the above plus active access</td><td>{@code gate.no-access}</td></tr>
- *   <tr><td>{@code MAINTENANCE}</td><td>admins only</td><td>{@code gate.maintenance}</td></tr>
+ *   <tr><td>{@code MAINTENANCE}</td><td>linked member, not banned</td><td>-</td></tr>
  * </table>
+ *
+ * <h2>Maintenance no longer refuses anybody here, decided 2026-08-31</h2>
+ * This class used to deny every non-admin during {@code MAINTENANCE} with {@code gate.maintenance}.
+ * docs/season-phases.md left "disconnect <b>or</b> hold in limbo" open while its own phase table
+ * already said non-admins land in {@code limbo}; the owner settled it on holding them. The gate now
+ * lets them onto the proxy and {@code eu.nordtal.s2.networkcontrol.routing.PlayerRouter} puts them
+ * in {@code limbo}, which is where the explanation is shown. An <b>unlinked</b> player is still
+ * refused with a link code, in maintenance as in every other phase - that half was not reversed.
  *
  * <p>
  * The phase arrives on the <b>same row</b> as the access state ({@link AccessState#phase()}):
@@ -100,12 +108,12 @@ public final class LoginGate {
 
         switch (GateOutcome.of(state)) {
             // ALLOW leaves the event's own default result (ComponentResult.allowed()) standing.
+            // Where the player then lands is PlayerRouter's question, and in MAINTENANCE the answer
+            // is limbo - which is the whole of what that phase now does to a non-admin.
             case ALLOW -> { }
             case NOT_LINKED -> issueCodeAndDeny(event, player, uuid);
             case NOT_MEMBER -> event.setResult(ComponentResult.denied(messages.notMember(state.locale())));
             case NO_ACCESS -> event.setResult(ComponentResult.denied(messages.noAccess(state.locale())));
-            case MAINTENANCE_CLOSED ->
-                    event.setResult(ComponentResult.denied(messages.maintenance(state.locale())));
         }
     }
 
@@ -115,9 +123,11 @@ public final class LoginGate {
      * own; that failure is treated the same as the database being unreachable in the first place,
      * because there is no code to show either way.
      * <p>
-     * Note that this happens in every phase, {@code MAINTENANCE} included: an unlinked player is
-     * refused everywhere, and handing them the code they will need anyway costs one statement and
-     * saves them a second wasted attempt later.
+     * Note that this happens in every phase, {@code MAINTENANCE} included, and that it is the one
+     * refusal maintenance still produces. An unlinked player cannot be held in {@code limbo} in any
+     * useful way - there is nothing to wait for, because linking happens in Discord, not here - so
+     * handing them the code they will need anyway costs one statement and saves them a second
+     * wasted attempt later.
      * </p>
      */
     private void issueCodeAndDeny(final LoginEvent event, final Player player, final UUID uuid) {

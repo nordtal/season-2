@@ -359,16 +359,24 @@ class AccessDirectoryIntegrationTest {
     }
 
     @Test
-    void maintenanceIsAdminsOnlyAndPaidAccessDoesNotHelp() {
+    void maintenanceAdmitsAnyLinkedMemberSoTheProxyCanHoldThemInLimbo() {
+        // Reversed 2026-08-31. This used to assert "MAINTENANCE is admins only"; docs/season-phases
+        // .md left "disconnect OR hold in limbo" open while its own phase table already said
+        // non-admins land in `limbo`, and the owner settled it on holding them. Admission is
+        // therefore identical to the two event phases, and the admin flag has moved out of
+        // mayJoin() entirely - it now only decides where a player goes, which is network-control's
+        // PhaseRouting and not this record's business.
         directory.link(DISCORD_ID, MC_UUID);
-        directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
         phase(SeasonPhase.MAINTENANCE);
 
-        assertFalse(directory.accessState(MC_UUID).mayJoin(),
-                "MAINTENANCE is admins only - having bought access is not being an admin");
+        assertTrue(directory.accessState(MC_UUID).mayJoin(),
+                "a linked member is let in during maintenance and then routed to limbo");
+
+        directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+        assertTrue(directory.accessState(MC_UUID).mayJoin(), "buying access changes nothing here");
 
         directory.setAdmin(DISCORD_ID, true);
-        assertTrue(directory.accessState(MC_UUID).mayJoin());
+        assertTrue(directory.accessState(MC_UUID).mayJoin(), "and neither does the admin flag");
     }
 
     @Test
@@ -377,20 +385,25 @@ class AccessDirectoryIntegrationTest {
         directory.setAdmin(DISCORD_ID, true);
 
         phase(SeasonPhase.MAINTENANCE);
-        assertTrue(directory.accessState(MC_UUID).mayJoin(), "the flag is the whole rule here");
+        assertTrue(directory.accessState(MC_UUID).mayJoin(),
+                "an admin gets in during maintenance - as does everybody else, since 2026-08-31");
 
         phase(SeasonPhase.SMP);
         assertFalse(directory.accessState(MC_UUID).mayJoin(),
-                "the admin flag is not a free access period; docs/season-phases.md's table gives "
-                        + "MAINTENANCE the exemption and SMP none");
+                "the admin flag is not a free access period: SMP is the one phase that asks every "
+                        + "linked member for access, admin or not");
     }
 
     @Test
-    void aDeletedPhaseRowRefusesEverybodyRatherThanLookingLikeAnUnlinkedAccount() {
+    void aDeletedPhaseRowReadsAsMaintenanceRatherThanLookingLikeAnUnlinkedAccount() {
         // The phase now rides on the login query, so the query has to survive the one row it reads
         // being gone. Two things must hold: the account still reads as linked (otherwise every
-        // player would be handed a link code they do not need), and the phase reads as MAINTENANCE
-        // (the state that lets nobody in is the safe one to guess).
+        // player would be handed a link code they do not need), and the phase reads as MAINTENANCE.
+        //
+        // Since the 2026-08-31 reversal MAINTENANCE is no longer "the state that lets nobody in" -
+        // it is the state that puts everybody somewhere harmless. A proxy that cannot read the
+        // phase therefore parks players in limbo rather than guessing them onto a game server, and
+        // mayJoin() is true here where it used to be false.
         directory.link(DISCORD_ID, MC_UUID);
         directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
         execute("DELETE FROM season_phase");
@@ -400,7 +413,7 @@ class AccessDirectoryIntegrationTest {
             assertTrue(state.linked(), "a missing phase row must not make a linked player look unlinked");
             assertTrue(state.accessActive());
             assertEquals(SeasonPhase.MAINTENANCE, state.phase());
-            assertFalse(state.mayJoin());
+            assertTrue(state.mayJoin(), "admitted, and then held in the waiting room");
         } finally {
             execute("INSERT INTO season_phase (phase) VALUES ('PRE_EVENT')");
         }

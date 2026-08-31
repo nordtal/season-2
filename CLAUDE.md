@@ -37,7 +37,18 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   described by a `@ConfigSpec` interface. It is the default for every new config in this repo;
   none of the four plugins has one yet, so there is nothing to migrate — see "Configuration"
   below before writing the first one.
-- **No command framework.** Season 1 used Incendo Cloud; nothing has been chosen for season 2.
+- **No command framework, decided 2026-08-31.** Season 1 used Incendo Cloud; season 2 uses
+  **Brigadier directly, through each platform's own API** — `io.papermc.paper.command.brigadier.
+  Commands` on the Lifecycle API for the three Paper plugins, `BrigadierCommand` through
+  `CommandManager.metaBuilder` on Velocity. `BasicCommand` is not used, and there is no shared
+  helper in `:common`: Paper resolves `com.mojang:brigadier:1.3.10`, Velocity resolves
+  `com.velocitypowered:velocity-brigadier:1.0.0-SNAPSHOT`, and neither is on Maven Central.
+  **Brigadier is never shaded** — both platforms provide `com.mojang.brigadier.*` at runtime, the
+  same way they provide Gson and SnakeYAML. Incendo Cloud 2.0.0 and Lamp 4.0.0-rc.18 were both
+  checked against `paper-api:26.2.build.121-stable` and `velocity-api:4.1.1` and both work; they
+  were rejected on cost and on maintenance signal. The full reasoning, the measurements and the
+  rules that follow are in [docs/architecture.md](docs/architecture.md#commands) — read that
+  before writing the first command.
 
 **`smp-farm-world` → `smp` was carried out on 2026-08-31** (`eu.nordtal.s2.smp`, `SmpPlugin`,
 `name: smp`) — the module owns the build world, the spawn, milestones, aura, prestige, duels, POIs

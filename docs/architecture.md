@@ -127,6 +127,83 @@ flowchart LR
   prestige, milestone progress, contributions, POIs, duels and graves all outlive a restart. Do not
   add a database because the neighbouring module has one.
 
+## Commands
+
+**Decided 2026-08-31: no command framework. Brigadier directly, on each platform's own API.**
+
+Season 1 used Incendo Cloud. Season 2 does not — and not because Cloud is unavailable. All three
+candidates work; what decided it is that most of what a framework sells is already owned here.
+
+### What was checked, and against what
+
+Every candidate was resolved against the artefacts this build actually pins, on **2026-08-31**.
+For each one, every `org/bukkit`, `io/papermc` and `com/velocitypowered` method reference was
+extracted from its constant pool and resolved against `paper-api:26.2.build.121-stable` and
+`velocity-api:4.1.1` — class *and* descriptor, with apparent misses traced to the supertype that
+declares them. This is a static reference check, not a running server: it proves nothing about
+behaviour, only that nothing has been renamed or removed underneath.
+
+| candidate | published | Paper 26.2 | Velocity 4.1.1 | class file | shaded bytes |
+|---|---|---|---|---|---|
+| Incendo Cloud `2.0.0` (`cloud-core 2.1.0`) | 2026-07-20, **stable** | 63/63 refs resolve | 19/19 refs resolve | major 52 | **879,377** / **661,748** |
+| Lamp `4.0.0-rc.18` | 2026-08-02, **release candidate** | 81/81 refs resolve | 12/12 refs resolve | major 52 | 463,503 / 399,470 |
+| the platforms themselves | — | `Commands`, `BasicCommand` present | `BrigadierCommand`, `CommandManager.metaBuilder` present | — | **0** |
+
+Class file major 52 is Java 8, so neither framework has a problem with the Java 25 toolchain. The
+byte counts are the sum of the jars that would actually be shaded, annotation-only artefacts
+(`checker-qual`, `org.immutables`, `apiguardian`) excluded.
+
+### Why none of them
+
+- **The surface is small and shallow.** Roughly twenty commands across `smp`, `hunger-games` and
+  the proxy, with arguments that are strings, players, integers and enums. Brigadier parses and
+  suggests all of them natively on both platforms, and the client gets syntax highlighting and
+  real tab completion for free.
+- **What a framework adds *on top of* Brigadier is mostly help text, error text and captions** —
+  and every one of those has to come out of this repository's own `Messages` against the player's
+  database locale ([i18n.md](i18n.md)). A framework's caption registry would be replaced rather
+  than used.
+- **The house rule already exists.** Jakarta Bean Validation was rejected for the config system at
+  ~1.4 MiB for a handful of checks. This is the same trade with a bigger number.
+- **Minecraft 26.2 changed the whole version scheme.** A dependency that has to track that line is
+  a liability on a platform this fresh; the platform's own API cannot fall behind itself.
+
+### Rejected, with the reason
+
+- **Incendo Cloud 2.0.0.** The strongest candidate, stable, and the one season 1's authors already
+  know. It costs **879,377 bytes in each of three Paper jars** and **661,748 on the proxy** for a
+  surface Brigadier already covers, and its modern Paper path (`PaperCommandManager.Bootstrapped`)
+  needs a `bootstrapper:` entry in every `paper-plugin.yml` — a change to the
+  `nordtal.paper-plugin` convention for the sake of commands alone.
+- **Lamp 4.0.0-rc.18.** Compatible and smaller, but still a release candidate after eighteen
+  pre-releases, and written by the author of Spec — which this organisation vendored *precisely
+  because it is unmaintained* (`jcore/NOTICE`). That is not a dependency to hand four modules.
+- **A shared Brigadier helper in `:common`.** Rejected 2026-08-31. Paper resolves
+  `com.mojang:brigadier:1.3.10`, Velocity resolves `com.velocitypowered:velocity-brigadier:
+  1.0.0-SNAPSHOT`; the two are different artefacts, **neither is on Maven Central**, and `:common`
+  is deliberately compiled against no platform at all. The abstraction would exist to serve *one*
+  command on the proxy. What genuinely is shared is shared already: the message system.
+- **`BasicCommand` on Paper.** Simpler per command, but it parses arguments as `String[]` and
+  supplies its own suggestions, so the commands that carry arguments would need a Brigadier tree
+  anyway — and then the repository has two shapes. One shape, learned once.
+
+### The rules that follow
+
+- **Paper:** Brigadier trees through `io.papermc.paper.command.brigadier.Commands`, registered on
+  the Lifecycle API. `BasicCommand` is not used anywhere.
+- **Velocity:** `BrigadierCommand`, registered through `CommandManager.metaBuilder`.
+- **Brigadier is never shaded.** Both platforms provide `com.mojang.brigadier.*` at runtime, the
+  same way they provide Gson and SnakeYAML. Declare it `compileOnly` if a module needs it on its
+  own compile classpath at all; the platform API already exports it transitively.
+- **Every string a command prints comes from `Messages`** and the player's locale. A command that
+  hardcodes English is a bug, not a shortcut.
+- **The proxy's emergency `/phase` is authorised by the database admin flag**, not by console and
+  not by a permission node — see [season-phases.md](season-phases.md#who-may-switch-it) for what
+  that costs when the database is the thing that is down.
+- Bukkit permission nodes, where a vanilla or third-party command wants one, still come from the
+  `PermissionAttachment` in [smp.md](smp.md#admins). Brigadier's own `requires` predicate is what
+  gates our commands.
+
 ## Schema ownership
 
 **Exactly one process migrates: the bot.** That has not changed. What changed on **2026-08-31** is

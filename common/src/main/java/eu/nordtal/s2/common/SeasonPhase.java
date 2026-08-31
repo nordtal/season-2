@@ -44,10 +44,19 @@ public enum SeasonPhase {
     SMP,
 
     /**
-     * Planned work. <b>Admins only</b> - recognised by {@code discord_user.admin} - and everyone
-     * else waits in {@code limbo} or is refused. It is also the value a process falls back to when
-     * it has never managed to read the row at all: the state that lets nobody in is the safe one to
-     * guess.
+     * Planned work. <b>Everyone else waits in {@code limbo}</b>: a linked, non-banned member is let
+     * onto the network exactly as in every other phase and is then held in the waiting room, where
+     * the explanation is shown. An admin - recognised by {@code discord_user.admin} - is not moved
+     * and reaches the servers being worked on.
+     * <p>
+     * <b>Decided 2026-08-31.</b> {@code docs/season-phases.md} used to leave "disconnect <b>or</b>
+     * hold in limbo" open while its own phase table already said {@code limbo}; the owner settled it
+     * on holding them. Before that, maintenance refused every non-admin at the login gate.
+     * </p><p>
+     * It is also the value a process falls back to when it has never managed to read the row at
+     * all - not because it lets nobody in any more, but because it is the one phase that puts a
+     * player somewhere harmless while the proxy works out where they really belong.
+     * </p>
      */
     MAINTENANCE;
 

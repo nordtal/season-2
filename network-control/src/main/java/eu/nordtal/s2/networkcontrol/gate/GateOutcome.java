@@ -21,7 +21,20 @@ import eu.nordtal.s2.common.access.MemberState;
  *
  * <p>The order below is the order the questions are asked in, and it matters: an unlinked account
  * is refused as unlinked in every phase including {@code MAINTENANCE}, because being handed a link
- * code is more useful than being told the network is closed.
+ * code is more useful than being told anything else.
+ *
+ * <h2>There is no maintenance refusal any more, decided 2026-08-31</h2>
+ * This enum used to carry a fifth constant, {@code MAINTENANCE_CLOSED}, and
+ * {@link SeasonPhase#MAINTENANCE} used to answer it for everybody but an admin.
+ * docs/season-phases.md left "disconnect <b>or</b> hold in limbo" open while its own phase table
+ * already said non-admins land in {@code limbo}; the owner settled it on <b>holding them</b>.
+ * Maintenance is therefore not a gate decision at all now - it is a <em>routing</em> decision, made
+ * by {@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting} after this class has already said
+ * {@link #ALLOW}. The one place a maintenance screen still appears is that router's fallback for a
+ * {@code limbo} server the proxy does not have.
+ *
+ * <p>{@link AccessState#admin()} consequently plays no part in this class. It decides where a
+ * player goes during maintenance, not whether they get in.
  */
 public enum GateOutcome {
 
@@ -34,11 +47,8 @@ public enum GateOutcome {
     /** Linked, but that Discord account has left the guild or is banned. */
     NOT_MEMBER,
 
-    /** {@link SeasonPhase#SMP} and no access period is running. */
-    NO_ACCESS,
-
-    /** {@link SeasonPhase#MAINTENANCE} and not an admin. */
-    MAINTENANCE_CLOSED;
+    /** {@link SeasonPhase#SMP} and no access period is running. The only phase that refuses. */
+    NO_ACCESS;
 
     /**
      * Walks docs/season-phases.md's phase table once.
@@ -54,11 +64,11 @@ public enum GateOutcome {
             return NOT_MEMBER;
         }
         return switch (state.phase()) {
-            // Free for every linked member. This is the decision the whole phase mechanism exists
-            // to serve: the start event costs nothing but a linked account.
-            case PRE_EVENT, START_EVENT -> ALLOW;
+            // Free for every linked member. For the two event phases this is the decision the whole
+            // phase mechanism exists to serve - the start event costs nothing but a linked account.
+            // For MAINTENANCE it is the 2026-08-31 reversal: they are let in and then held in limbo.
+            case PRE_EVENT, START_EVENT, MAINTENANCE -> ALLOW;
             case SMP -> state.accessActive() ? ALLOW : NO_ACCESS;
-            case MAINTENANCE -> state.admin() ? ALLOW : MAINTENANCE_CLOSED;
         };
     }
 

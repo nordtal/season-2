@@ -64,7 +64,8 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 | Resource pack: glyphs, boss bar sprites, reproducible zip | **built**, carries season 1 leftovers |
 | Glyph code point allocation, both fonts | **decided 2026-08-31** — the table exists, the artwork does not |
 | Command surfaces in every module | **unblocked 2026-08-31** — Brigadier directly, no framework |
-| Phase model, phase-aware gate, phase propagation | **designed, not built** |
+| Phase model, phase-aware gate, phase propagation | **built** in `network-control`, 2026-08-31 |
+| Phase routing: re-route on a switch, `MAINTENANCE` into `limbo` | **built** in `network-control`, 2026-08-31 — minus the limbo-first pack station, which needs `limbo` |
 | `limbo` waiting room and pack enforcement | **designed, not built** |
 | Language config list, plugin-side locale lookup | **designed, not built** |
 | Hunger games, both halves | **designed, not built** |
@@ -131,6 +132,8 @@ reason is in the linked document — that is what stops it from being reopened b
 | **The HUD needs no digit glyphs**: the boss bar font already overrides printable ASCII at the bar's metrics | [resource-pack/README.md](../resource-pack/README.md#---and-above--ascii-override) |
 | `\uE000`–`\uE003`, freed by deleting season 1's role tags, are re-used rather than left empty — nothing persists a glyph, so a code point cannot be read back meaning the wrong thing | [resource-pack/README.md](../resource-pack/README.md#minecraftdefault) |
 | A phase switch to `SMP` **disconnects** a player who now lacks access, with the login gate's own message — it does not push them to `limbo` | [season-phases.md](season-phases.md#routing) |
+| **`MAINTENANCE` holds non-admins in `limbo` rather than disconnecting them**; admission during maintenance is the same rule as the event phases, and `discord_user.admin` decides only that an admin is *not* moved. An unlinked player is still refused with a link code | [season-phases.md](season-phases.md#the-phases) |
+| A phase's backend is named in `gate.yml`, defaulting to the module directory name — nothing here says what `velocity.toml` calls them. A missing backend disconnects the player (the maintenance screen during `MAINTENANCE`, `gate.no-server` otherwise) rather than dropping them somewhere undefined | [season-phases.md](season-phases.md#routing) |
 | Phase propagation polls every **30 s** on channel `nordtal_phase`, and `NOTIFY` is built in the first pass rather than deferred | [season-phases.md](season-phases.md#source-of-truth-and-propagation) |
 | The proxy's emergency `/phase` is authorised by `discord_user.admin`, not by console — with the outage case written down rather than left to be rediscovered | [season-phases.md](season-phases.md#who-may-switch-it) |
 | `access.yml#link-code-ttl-minutes` is retired; `gate.yml`'s copy is the only one | [../CLAUDE.md](../CLAUDE.md) |

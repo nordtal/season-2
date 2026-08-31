@@ -44,15 +44,28 @@ Built, and it works as documented as far as it goes:
   the deadline (`ExpiryWatch.java:96`).
 - `Configs` / `DatabaseSpec` / `GateSpec` — `database.yml` and `gate.yml` through jcore, 6 tests.
 
-Not built, and each is named in [architecture.md](architecture.md#modules) as this module's:
+Built since this section was first written, on 2026-08-31:
 
-- **Phase.** Nothing reads or writes a phase. `SeasonPhase` is imported by
-  `NetworkControlPlugin` for a javadoc `{@link}` and for nothing else.
-- **Routing.** There is no `PlayerChooseInitialServerEvent` handler and no plugin-message channel.
-  The class's own javadoc says so (`NetworkControlPlugin.java:37`). `app.simplecloud.api:api` is a
-  declared `compileOnly` dependency that **no source file in the module imports**.
+- **Phase.** `PhaseWatch` (the 30-second poll and the last-known-phase fallback), `PhaseListener`
+  (`LISTEN nordtal_phase` on a dedicated connection), `PhaseCommand` (the emergency `/phase`).
+- **Play time.** `PlaytimeWriter` / `PlaytimeStore` into `player_playtime`, flushed on disconnect,
+  on shutdown and every `gate.yml#playtime-flush-interval-seconds` (300, decided 2026-08-31).
+- **Routing, in part.** The `routing` package: `PhaseServers` (the phase-to-backend table),
+  `PhaseRouting` (the decision, in memory and exhaustively tested) and `PlayerRouter` (the Velocity
+  glue). A phase change re-routes every connected player; a `MAINTENANCE` login is put into
+  `limbo`; a switch to `SMP` still disconnects a player without access.
+
+Still not built:
+
+- **The limbo-first pack station.** `PlayerRouter` deliberately leaves the initial server alone in
+  every phase but `MAINTENANCE`, because [architecture.md](architecture.md#the-login-path-end-to-end)
+  puts *every* login through `limbo` for the resource pack and then back out on a `nordtal:` plugin
+  message — and `limbo` is a scaffold with no pack code and no channel. Routing a `PRE_EVENT` login
+  straight to `hunger-games` would be a different design, not that one. The `limbo` session owns it.
 - **Pack enforcement.** No resource-pack code of any kind on the proxy.
-- **Play time.** No `player_playtime` writer, and no such table in the schema.
+- `app.simplecloud.api:api` is still a declared `compileOnly` dependency that **no source file in
+  the module imports** — routing named backends from `gate.yml` and never needed it, which is what
+  [operations.md](operations.md#open-verification) said would happen.
 
 ### `common`
 
@@ -109,6 +122,16 @@ finding 7.
 
 **Nine findings**, in descending order of how much they matter. Findings 7 to 9 are new on
 2026-08-31; finding 3 is closed.
+
+> **This list has not been rewritten since the work it describes was done, and says so rather than
+> being trusted.** As of 2026-08-31 finding **1** is fixed (the gate is phase-aware, and
+> `MAINTENANCE` now holds players in `limbo` rather than refusing them), finding **2** is fixed
+> (`MisconfiguredGate` is the deny-all handler), and finding **4** is out of date in one direction:
+> phase, play time and the routing rules that do not need `limbo` all have code now. Finding **5**
+> is unchanged and, if anything, more true — routing was built and did not import
+> `app.simplecloud.api`. Re-deriving the whole list from the code belongs to the session that next
+> audits this document; the individual entries below are left as they were written so the diff is
+> readable.
 
 1. **The login gate is phase-blind, and therefore behaves as if the network were permanently in
    `SMP`.** `LoginGate.java:78` refuses any linked member without active access, unconditionally;

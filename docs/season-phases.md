@@ -4,8 +4,8 @@ Season 2 moves through phases, and the phase decides **who may join** and **wher
 That makes it a security-relevant value, not a cosmetic one: the wrong phase either opens the SMP
 to everyone or locks everybody out.
 
-Status: **design agreed 2026-08-30, not built.** `SeasonPhase` exists in `:common` today and no
-module reads it.
+Status: **the phase model, the gate and routing are built in `network-control`** (2026-08-30 and
+2026-08-31); the resource-pack station on the login path is not — see [Routing](#routing).
 
 ## The phases
 
@@ -29,12 +29,23 @@ stateDiagram-v2
 | `PRE_EVENT` | linked Discord member, not banned | `hunger-games` lobby | Network is open, the lobby stands, teams register |
 | `START_EVENT` | linked Discord member, not banned | `hunger-games` | The event itself, from countdown to winner |
 | `SMP` | the above **plus active access** | `smp` | The season proper |
-| `MAINTENANCE` | admins only | `limbo` | Planned work; everyone else waits or is refused |
+| `MAINTENANCE` | linked Discord member, not banned | `limbo` (admins are not moved) | Planned work; everyone else waits in the waiting room |
 
 **Access is only required from `SMP` onwards.** The start event is free for anyone who has linked
 their Minecraft account to their Discord account — that is the decision the whole phase mechanism
 exists to serve. Selling access before the SMP begins is still possible and simply banks days;
 see [access-system.md](access-system.md) for the append rule.
+
+**`MAINTENANCE` holds players, it does not refuse them — settled 2026-08-31.** The flowchart below
+used to say "disconnect **or** hold in limbo" while the table above already said non-admins land in
+`limbo`; the owner settled it on holding them. Admission during maintenance is therefore exactly the
+admission rule of the two event phases, and `discord_user.admin` no longer decides *whether* a
+player gets in — only *where* they go, which is "not moved". Implemented 2026-08-31 in
+`AccessState#mayJoin`, `GateOutcome` (whose `MAINTENANCE_CLOSED` value was deleted) and
+`network-control`'s `routing` package.
+
+An **unlinked** player is still refused with a link code during maintenance, and that half was not
+reversed: linking happens in Discord, so there is nothing for them to wait for.
 
 `RESOURCE_PACK_INSTALL` is gone from the enum. Installing the pack is a station every login passes
 in every phase, not a period of the season.
@@ -49,7 +60,7 @@ flowchart TD
     C -->|no| C1["Disconnect pointing at Discord"]
     C -->|yes| D{"Phase"}
     D -->|MAINTENANCE| D1{"Admin?"}
-    D1 -->|no| D2["Disconnect or hold in limbo<br/>with a bilingual explanation"]
+    D1 -->|no| D2["Hold in limbo, which shows<br/>the explanation"]
     D1 -->|yes| F
     D -->|PRE_EVENT or START_EVENT| F["Route to limbo, enforce pack"]
     D -->|SMP| E{"Access active?"}
@@ -150,6 +161,26 @@ decide it wants a player somewhere — that would put the routing rules in two p
 A phase switch while players are online moves everyone: the proxy re-routes connected players to
 the new phase's server, holding them in `limbo` if it is not up yet.
 
+**Built 2026-08-31, minus one part.** `network-control`'s `routing` package re-reads each connected
+player's access state when the phase changes and moves, leaves or disconnects them accordingly, and
+a login during `MAINTENANCE` is put into `limbo`. What is **not** built is
+[architecture.md](architecture.md#the-login-path-end-to-end)'s "every login lands on `limbo` first,
+whatever the phase" — the resource-pack station. That needs a `limbo` that applies a pack and
+answers on a `nordtal:` plugin-message channel, and `limbo` is still a scaffold, so a login in
+`PRE_EVENT`, `START_EVENT` or `SMP` keeps `velocity.toml`'s own `try` list for now. It belongs to
+the `limbo` session.
+
+**Which servers, and what if one is missing.** The names are `gate.yml#server-limbo`,
+`#server-hunger-games` and `#server-smp`, defaulting to the module directory names — nothing in
+these documents says what `velocity.toml` calls them. The phase-to-server *mapping* is the table
+above and is not configurable. A name this proxy has no registered server for is not a startup
+failure, because the phase it belongs to may never be entered; it fails at the moment it is needed,
+and the player is disconnected rather than dropped somewhere undefined. During `MAINTENANCE` that
+disconnect is the old `gate.maintenance` screen — the "disconnect" half of the either/or above,
+kept for exactly the case where holding them is impossible. In any other phase it is
+`gate.no-server`. A server that is registered but *down* cannot be told apart until the connection
+is attempted, and that failure ends the same way.
+
 **With one exception, settled 2026-08-31: a switch to `SMP` disconnects a player who has no active
 access, with the same message the login gate uses.** It does not push them to `limbo`.
 
@@ -183,7 +214,18 @@ is an admin switching the phase to `MAINTENANCE` on a day nobody has picked yet.
 
 ## Open questions
 
-**None.** The last two — the poll interval with the `NOTIFY` channel name, and whether a switch
-kicks or moves — were settled on 2026-08-31 and are written into the sections above. The
-`PermissionAttachment` question that used to live here was settled on the same day by
-[smp.md](smp.md#admins).
+**None as a design question.** The poll interval with the `NOTIFY` channel name, whether a switch
+kicks or moves, and whether `MAINTENANCE` disconnects or holds were all settled on 2026-08-31 and
+are written into the sections above. The `PermissionAttachment` question that used to live here was
+settled on the same day by [smp.md](smp.md#admins).
+
+Two things are unanswered **as facts about the deployment**, not as decisions, and both are named
+here so nobody looks for them in prose:
+
+- **What `velocity.toml` calls the three backends.** No document in this repository says. The three
+  `gate.yml#server-*` keys default to the module directory names and are the single place to
+  correct it.
+- **Whether a Velocity `LoginEvent`-allowed player can be disconnected from
+  `PlayerChooseInitialServerEvent`**, which is what the missing-`limbo` fallback does. It is the
+  documented way to remove a player and the event is `@AwaitingEvent`, but it has not been run
+  against a real client. See [operations.md](operations.md#open-verification).

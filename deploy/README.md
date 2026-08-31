@@ -14,8 +14,9 @@ deploy/
   minecraft/
     Dockerfile         one image for all four Minecraft services
     entrypoint.sh      PID 1: resolve the jar, pull the plugins, run tmux, trap SIGTERM
-    bin/console        attach to the real server console (read + write)
-    bin/mc             send one command, no TTY needed
+    scripts/console    attach to the real server console (read + write)
+    scripts/mc         send one command, no TTY needed
+                       (named scripts/ and not bin/ - .gitignore has a repo-wide bin/ rule)
 ```
 
 ## First deployment, in order

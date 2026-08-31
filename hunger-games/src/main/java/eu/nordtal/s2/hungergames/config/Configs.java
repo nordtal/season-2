@@ -60,6 +60,7 @@ public final class Configs {
                                 "jdbc-url must be a PostgreSQL URL (jdbc:postgresql://host:port/database)");
                     }
                     requirePositive("maximum-pool-size", config.maximumPoolSize());
+                    requirePositive("query-timeout-seconds", config.queryTimeoutSeconds());
                 })
                 .load();
 

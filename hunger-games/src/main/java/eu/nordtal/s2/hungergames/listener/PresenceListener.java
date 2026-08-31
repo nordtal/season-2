@@ -44,7 +44,21 @@ public final class PresenceListener implements Listener {
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
-        locales.join(player.getUniqueId());
+
+        // Off the main thread, settled 2026-09-01. This used to be a blocking PlayerLocales#join
+        // right here, which on a healthy database is a millisecond and on a database that has
+        // stopped answering is the pool's whole connection timeout with the server stopped behind
+        // it - per join. Nothing renders from it synchronously: the HUD, the boss bar and every
+        // message go through PlayerLocales#of, which answers English until the real value lands and
+        // never queries. See limbo's PresenceListener for the same change on the login path, where
+        // the same freeze would take the network down rather than one backend.
+        locales.joinAsync(player.getUniqueId(), task -> plugin.getServer().getScheduler()
+                        .runTaskAsynchronously(plugin, task))
+                .thenRun(() -> {
+                    if (!player.isOnline()) {
+                        locales.quit(player.getUniqueId());
+                    }
+                });
 
         if (state.isRunning() && bodies.hasBody(player.getUniqueId())) {
             final var marker = Bukkit.getEntity(bodies.markerOf(player.getUniqueId()));

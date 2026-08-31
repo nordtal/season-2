@@ -28,10 +28,8 @@ flowchart TB
     classDef built fill:#1f6f3f,stroke:#0f3f22,color:#fff
     classDef partly fill:#7a5c11,stroke:#4a3708,color:#fff
     classDef planned fill:#3b3b3b,stroke:#222,color:#fff
-    class BOT,DC,BQ partly
-    class NC partly
-    class LB,HG,SMP planned
-    class DB built
+    class BOT,DC,BQ,HG,DB,NC,LB built
+    class SMP planned
 ```
 
 The database is the source of truth for access, language, phase and event state. Discord roles are
@@ -57,29 +55,46 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 
 ## What is built and what is not
 
+**Re-derived from the code 2026-09-01, and updated the same day when `limbo` was built.** An
+earlier version of this table described three modules as unbuilt that had been built the evening
+before; it was committed after the implementation it failed to describe. Numbers come from a
+`./gradlew build` run — **379 tests, none skipped, all green** — not from the last plan.
+
 | area | state |
 |---|---|
-| Access system: schema, `AccessDirectory`, purchase flow, bunq matching, linking, login gate | **built** — stages A–C, 2026-08-30 |
-| Message system in `:common` (`Messages`, `Locales`) | **built** |
-| Resource pack: glyphs, boss bar sprites, reproducible zip | **built**, carries season 1 leftovers |
-| Glyph code point allocation, both fonts | **decided 2026-08-31** — the table exists, the artwork does not |
-| Command surfaces in every module | **unblocked 2026-08-31** — Brigadier directly, no framework |
-| Phase model, phase-aware gate, phase propagation | **built** in `network-control`, 2026-08-31 |
-| Phase routing: re-route on a switch, `MAINTENANCE` into `limbo` | **built** in `network-control`, 2026-08-31 — minus the limbo-first pack station, which needs `limbo` |
-| `limbo` waiting room and pack enforcement | **designed, not built** |
-| Language config list, plugin-side locale lookup | **designed, not built** |
-| Hunger games, both halves | **designed, not built** |
-| SMP: worlds, travel, aura, prestige, duels, graves, POIs | **designed, not built** — 2026-08-31 |
-| SMP: the milestone track — chain, budgets, targets, pots, participation gates | **designed, not built** — 2026-08-31, the last open design decision |
+| Access system: schema, `AccessDirectory`, purchase flow, bunq matching, linking, login gate | **built** |
+| Message system in `:common` (`Messages`, `Locales`) and the join-time `PlayerLocales` | **built** |
+| Language config list, plugin-side locale lookup | **built** 2026-08-31 |
+| Phase model, phase-aware gate, `LISTEN`/`NOTIFY` propagation, the admin flag | **built** |
+| Phase routing: re-route on a switch, `MAINTENANCE` into `limbo` | **built** |
+| Limbo-first login route, the forced pack offer, `pack.yml`, the `nordtal:limbo` channel | **built** 2026-09-01 |
+| Network-wide play time counter on the proxy | **built** |
+| Hunger games, the Paper half: border, loot, HUD, lobby, bodies, colours, win and ceremony | **built** 2026-08-31 |
+| Hunger games, the Discord half: registration, team names, partner invitations | **built** 2026-08-31 |
+| Resource pack: three fonts, every code point allocated **and drawn** as placeholder or final-candidate art | **built** 2026-08-31 |
+| Command surfaces: Brigadier directly, no framework | **built** where a module exists |
+| SMP schema — `smp_*` tables, V6 | **built** 2026-09-01 |
+| `limbo` waiting room and pack enforcement | **built** 2026-09-01 — and unrehearsed: three open verifications now have a written probe |
+| SMP: worlds, travel, aura, prestige, milestones, duels, graves, POIs | **designed, not built** |
+| PostgreSQL backup and restore | **not designed** — the one open piece of concept work |
+
+**One implementation session is left: `smp`.** `limbo` and the pack station were built on
+2026-09-01; what they still owe is a rehearsal, not code — see
+[operations.md](operations.md#rehearsal--the-login-path).
 
 That table is a summary. [state-of-play.md](state-of-play.md) is the same question answered from the
-code, module by module, with the places where these documents and the code disagree — **nine of
-them** as of 2026-08-31, three of which came out of that day's planning session.
+code, module by module, with the places where these documents and the code disagree. Of the nine
+findings it carried on 2026-08-31, **eight are closed**; what is left is the boss bar font's
+positive space advances sitting outside the private-use area, which breaks nothing and would cost a
+change to HUD code that now exists.
 
-**No design decision is open any more.** The milestone track — the last one, and the season's spine
-— was designed on 2026-08-31 and is in [smp.md](smp.md#the-track). Everything left in
+**One piece of concept work is open, and it is not a game design question: PostgreSQL backup and
+restore.** Every gameplay decision is taken — the milestone track, the last and the season's spine,
+was designed on 2026-08-31 and is in [smp.md](smp.md#the-track) — and everything else left in
 [state-of-play.md §3](state-of-play.md#3-what-still-needs-a-decision) is a config default, a
-drawing, a text, or a build.
+drawing, a text, or a build. But the whole season lives in one database that
+[operations.md](operations.md) does not say how to back up, and that is the only irreversible risk
+in the project.
 
 `smp-farm-world` → `smp`, `resource-pack-coercion` → `limbo` and `access-bot` → `discord-bot` were
 all carried out by 2026-08-31. One rename is still part of the plan and is cheap only until
@@ -157,6 +172,20 @@ reason is in the linked document — that is what stops it from being reopened b
 | **Nordtal is pre-generated once, to its final border of 4000, before the phase opens.** A milestone unlock moves a number and never starts a generator; the Nether and End borders are a fixed 2000 | [smp.md](smp.md#worlds) |
 | Block logging is **CoreProtect on its own SQLite file**, and we wait for its 26.2 release — checked 2026-08-31: it has none, its `master` builds against 26.2-alpha, and Prism 4.4 is the only released 26.2 option and the documented fallback. Nothing blocks on it | [smp.md](smp.md#block-logging--checked-2026-08-31) |
 | The claim that **grave-emptying is traceable through the block log was struck** — graves are plugin-managed inventories and there may be no logger running at all | [smp.md](smp.md#death-and-graves) |
+| **Decided 2026-09-01 — after the first full re-derivation of the docs from the code** | |
+| **`limbo` takes a database connection** and reads the player's language through `PlayerLocales`, like every other module. `architecture.md`'s guess that it "probably does not" need persistence lost against `i18n.md`'s rule, which had already rejected the proxy sending the language in a plugin message | [architecture.md](architecture.md#dependencies-and-the-rules-attached-to-them) |
+| **Nametags come from `papermc-display-tags`' `:api` module** — `com.github.nordtal:papermc-display-tags` from JitPack, `compileOnly`, never shaded, declared in `paper-plugin.yml`. The consequence is that **PacketEvents becomes a required plugin on the SMP server**, the network's first mandatory third-party runtime dependency | [smp.md](smp.md#what-a-player-looks-like) |
+| **The SMP grants the hunger games winner's head start on that player's first join**, deriving the winner from `hg_game.winner_member_id`; `hunger-games` writes nothing into the SMP's tables. `smp_player.hg_winner_reward_granted` exists only because "have I already paid out" is the one thing that cannot be derived | [smp.md](smp.md#the-hunger-games-winners-head-start) |
+| **The `nordtal:` channel is `nordtal:limbo`, and it runs both ways.** `limbo` sends `READY` once per join; the proxy sends `WAIT <reason>` whenever what the player is waiting for changes. The codec lives in `:common`, because a wire format written twice is one that drifts — and a plugin message that does not parse is indistinguishable from one that was never sent | [architecture.md](architecture.md#the-login-path-end-to-end) |
+| **Three waiting reasons plus one**: `PACK`, `BACKEND`, `MAINTENANCE` — and `UNKNOWN` for the moment before the proxy has spoken, because a black screen with no text is what a crash looks like. The proxy decides which; two of the three are facts only it has | [i18n.md](i18n.md#bundles) |
+| **The pack URL and hash live in `network-control`'s own `pack.yml`**, not in `gate.yml`: they change on every pack release and the file that decides who may join should not be edited on that rhythm. Both default to empty and the proxy fails closed | [operations.md](operations.md#resource-pack-hosting) |
+| **The offer is forced, and our own decline screen works by disconnecting first.** On 1.17+ the client enforces a forced pack and Velocity kicks a decliner with its own text — `setOverwriteKick` throws rather than preventing it. Forcing is the only thing that shows the prompt to a player who has packs switched off, so it stays; whether our screen wins the race is a rehearsal step | [operations.md](operations.md#rehearsal--the-login-path) |
+| **A proxy with no `limbo` server refuses every login**, not only a `MAINTENANCE` one. The alternative is everybody joining without the resource pack, silently — a fault that reports itself on an event day rather than in seconds | [season-phases.md](season-phases.md#routing) |
+| **A `READY` is believed only from a backend connection.** Registering a channel advertises it to the client too, so a forged `READY` would be a player releasing themselves from the waiting room — which is to say skipping the pack | [architecture.md](architecture.md#the-login-path-end-to-end) |
+| **A Paper plugin never queries the database from the main thread.** The join-time language lookup moved to `PlayerLocales#joinAsync` in both `limbo` and `hunger-games`, and every plugin `database.yml` gained a `query-timeout-seconds` that sets HikariCP's `connectionTimeout` *and* the driver's `socketTimeout`. The visible cost is that a German player may see one English line at the start of a session | [i18n.md](i18n.md#how-a-plugin-knows-a-players-language) |
+| **GitHub release assets redirect to `release-assets.githubusercontent.com`, with a signed URL that expires within the hour** — measured with `curl`, and *not* `objects.githubusercontent.com` as this knowledge base used to say. The config carries the `github.com/...` URL and never the resolved one | [operations.md](operations.md#resource-pack-hosting) |
+| **`app.simplecloud.api:api` was removed** from `network-control`, along with its two repositories and its catalog entry. Routing was written and imported none of it — the fallback `operations.md` had recorded is what happened | [state-of-play.md](state-of-play.md#where-the-documents-and-the-code-disagree) |
+| A documentation commit that lands *after* an implementation commit is **not** evidence that it describes it. The 2026-08-31 knowledge base was committed at 23:33 against work done at 21:17 and described three built modules as scaffolds | [state-of-play.md](state-of-play.md) |
 
 ## Working rules that apply to all of it
 

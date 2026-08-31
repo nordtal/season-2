@@ -174,6 +174,117 @@ class ConfigsTest {
      * key the interface does not declare <em>and</em> on a missing one, so every test needs the
      * whole file rather than the one value it cares about.
      */
+    // ------------------------------------------------------------- pack.yml
+
+    private static final String REAL_LOOKING_SHA1 = "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c";
+
+    @Test
+    void aFreshPackConfigIsEnabledButRefusesToStartUntilItIsFilledIn() throws Exception {
+        // The standing rule for every value nobody can guess (docs/README.md, "Ids never get real
+        // defaults"), applied to the pack: enabled by default because a production network has one,
+        // and empty by default because a default pointing at somebody's release would be worse than
+        // none. The proxy therefore fails closed on a fresh install rather than letting everybody in
+        // without the pack, which is exactly the outcome limbo exists to prevent.
+        assertThrows(ConfigValidationException.class, () -> Configs.pack(directory, LOGGER));
+        assertTrue(Files.isRegularFile(directory.resolve("pack.yml")),
+                "the defaults must still be written out, or there is nothing to fill in");
+    }
+
+    @Test
+    void aFilledInPackConfigLoadsWithTheDocumentedDefaults() throws Exception {
+        writePack("https://github.com/nordtal/season-2/releases/download/v0.1.0/pack.zip",
+                REAL_LOOKING_SHA1, true, true, 180);
+
+        final PackSpec config = Configs.pack(directory, LOGGER).get();
+
+        assertTrue(config.enabled());
+        assertTrue(config.force(), "docs/architecture.md: the offer is forced, decided 2026-09-01");
+        assertEquals(REAL_LOOKING_SHA1, config.sha1());
+        assertEquals(180, config.applyTimeoutSeconds());
+    }
+
+    @Test
+    void aDisabledPackIsAllowedToLeaveTheUrlAndHashEmpty() throws Exception {
+        // The escape hatch for a development proxy and for the hours between "the network is up" and
+        // "the first pack release exists". Refusing to start over values nothing reads would make
+        // the escape hatch harder to use than the thing it escapes.
+        writePack("", "", false, true, 180);
+
+        final PackSpec config = Configs.pack(directory, LOGGER).get();
+
+        assertFalse(config.enabled());
+        assertEquals("", config.url());
+    }
+
+    @Test
+    void anEmptyUrlIsRejectedWhileThePackIsEnabled() throws Exception {
+        writePack("", REAL_LOOKING_SHA1, true, true, 180);
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+                () -> Configs.pack(directory, LOGGER));
+        assertTrue(error.getMessage().contains("url"), error.getMessage());
+    }
+
+    @Test
+    void aUrlTheClientCannotDownloadFromIsRejected() throws Exception {
+        // A path or a file: URL is the mistake somebody makes once, and the client's answer to it is
+        // INVALID_URL for every player at the same moment.
+        writePack("/var/www/pack.zip", REAL_LOOKING_SHA1, true, true, 180);
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+                () -> Configs.pack(directory, LOGGER));
+        assertTrue(error.getMessage().contains("url"), error.getMessage());
+    }
+
+    @Test
+    void aHashThatIsNotFortyHexCharactersIsRejected() throws Exception {
+        // The mistake this file exists to prevent: a hash typed by hand, truncated in a copy, or
+        // left behind from the previous release. Length and alphabet are all that can be checked
+        // here - whether it is the hash of the zip at `url` is a question only the client answers,
+        // and it answers it with FAILED_DOWNLOAD, which reads as a network problem and is not one.
+        for (final String wrong : new String[]{"deadbeef", REAL_LOOKING_SHA1 + "0", "sha1-" + REAL_LOOKING_SHA1,
+                "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3g"}) {
+            writePack("https://example.invalid/pack.zip", wrong, true, true, 180);
+
+            final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+                    () -> Configs.pack(directory, LOGGER), wrong);
+            assertTrue(error.getMessage().contains("sha1"), error.getMessage());
+        }
+    }
+
+    @Test
+    void anUppercaseHashIsAccepted() throws Exception {
+        // Some tools write it uppercase. Refusing that would be a rule about typography, not safety.
+        writePack("https://example.invalid/pack.zip", REAL_LOOKING_SHA1.toUpperCase(java.util.Locale.ROOT),
+                true, true, 180);
+
+        assertEquals(REAL_LOOKING_SHA1.toUpperCase(java.util.Locale.ROOT),
+                Configs.pack(directory, LOGGER).get().sha1());
+    }
+
+    @Test
+    void aZeroApplyTimeoutIsRejectedEvenWhenThePackIsOff() throws Exception {
+        // Checked before the enabled/disabled branch, because a zero here would disconnect every
+        // player the instant they were offered the pack - and the value is read by the sweep
+        // regardless of which way `enabled` is set.
+        writePack("", "", false, true, 0);
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+                () -> Configs.pack(directory, LOGGER));
+        assertTrue(error.getMessage().contains("apply-timeout-seconds"), error.getMessage());
+    }
+
+    private void writePack(final String url, final String sha1, final boolean enabled,
+                           final boolean force, final int timeout) throws Exception {
+        Files.writeString(directory.resolve("pack.yml"), """
+                enabled: %s
+                url: '%s'
+                sha1: '%s'
+                force: %s
+                apply-timeout-seconds: %d
+                """.formatted(enabled, url, sha1, force, timeout));
+    }
+
     private void writeGate(final String override) throws Exception {
         final String[] defaults = {
                 "discord-invite-url: ''",

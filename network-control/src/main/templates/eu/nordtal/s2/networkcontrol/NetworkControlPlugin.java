@@ -19,6 +19,7 @@ import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.networkcontrol.config.Configs;
 import eu.nordtal.s2.networkcontrol.config.DatabaseSpec;
 import eu.nordtal.s2.networkcontrol.config.GateSpec;
+import eu.nordtal.s2.networkcontrol.config.PackSpec;
 import eu.nordtal.s2.networkcontrol.db.AccessPool;
 import eu.nordtal.s2.networkcontrol.gate.ExpiryWatch;
 import eu.nordtal.s2.networkcontrol.gate.FallbackCache;
@@ -26,6 +27,9 @@ import eu.nordtal.s2.networkcontrol.gate.GateMessages;
 import eu.nordtal.s2.networkcontrol.gate.LoginGate;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 import eu.nordtal.s2.networkcontrol.gate.MisconfiguredGate;
+import eu.nordtal.s2.networkcontrol.pack.PackMessages;
+import eu.nordtal.s2.networkcontrol.pack.PackOffer;
+import eu.nordtal.s2.networkcontrol.pack.PackStation;
 import eu.nordtal.s2.networkcontrol.phase.PhaseCommand;
 import eu.nordtal.s2.networkcontrol.phase.PhaseListener;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
@@ -38,6 +42,7 @@ import eu.nordtal.s2.networkcontrol.routing.PlayerRouter;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
@@ -59,8 +64,10 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li>{@link PlaytimeWriter} - {@code player_playtime}, written on disconnect and periodically
  *       in between (docs/smp.md#prestige--a-crest-earned-by-time).</li>
  *   <li>{@link MisconfiguredGate} - the fail-closed handler, below.</li>
- *   <li>{@link PlayerRouter} - the phase-change re-route and the {@code MAINTENANCE} hop into
- *       {@code limbo} (docs/season-phases.md#routing).</li>
+ *   <li>{@link PlayerRouter} - the limbo-first login route and the phase-change re-route
+ *       (docs/season-phases.md#routing).</li>
+ *   <li>{@link PackStation} - the forced resource-pack offer, the {@code nordtal:limbo} channel and
+ *       the release out of the waiting room (docs/architecture.md#the-login-path-end-to-end).</li>
  * </ul>
  *
  * <p><b>Configuration failure fails closed</b> (docs/operations.md#configuration-and-secrets,
@@ -71,15 +78,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * disable, built by hand. Admins are not exempted and cannot be: the admin flag lives in the
  * database that a bad {@code database.yml} cannot reach.
  *
- * <p><b>Routing is half built, on purpose.</b> {@link PlayerRouter} carries out the two rules that
- * do not depend on the {@code limbo} module existing as code: a phase change moves connected
- * players to the new phase's backend (disconnecting a player a switch to {@code SMP} catches without
- * access), and a login during {@code MAINTENANCE} is put in the waiting room instead of being
- * refused. What is <em>not</em> here is docs/architecture.md's "every login lands on {@code limbo}
- * first, whatever the phase": that is the resource-pack station, and it needs a {@code limbo} that
- * applies a pack and answers on a {@code nordtal:} plugin-message channel. Neither exists, so
- * non-maintenance logins keep {@code velocity.toml}'s own {@code try} list and the {@code limbo}
- * session builds the rest.
+ * <p><b>The login path is complete since 2026-09-01.</b> {@link PlayerRouter} sends every admitted
+ * login to {@code limbo} whatever the phase, {@link PackStation} offers the resource pack there and
+ * releases the player onto the phase's backend once the pack is applied, and a phase change moves
+ * everybody - disconnecting a player a switch to {@code SMP} catches without access, and leaving a
+ * player still in the waiting room to the pack station rather than connecting them without a pack.
+ * The three parts that used to be missing are the {@code pack.yml} config, the
+ * {@code nordtal:limbo} plugin-message channel and the {@code limbo} plugin at the other end of it.
  */
 @Plugin(
         id = "network-control",
@@ -119,6 +124,7 @@ public final class NetworkControlPlugin {
         try {
             start(Configs.database(dataDirectory, logger).get(),
                     Configs.gate(dataDirectory, logger).get(),
+                    Configs.pack(dataDirectory, logger).get(),
                     messages);
         } catch (final ConfigException | RuntimeException failure) {
             failClosed(messages, failure);
@@ -126,7 +132,7 @@ public final class NetworkControlPlugin {
     }
 
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
-                       final Messages messages) {
+                       final PackSpec packConfig, final Messages messages) {
         this.pool = AccessPool.open(databaseConfig);
         this.access = AccessDirectory.using(pool);
 
@@ -149,10 +155,37 @@ public final class NetworkControlPlugin {
             }
         });
 
+        // ------------------------------------------------------------ the pack station
+
+        final PackMessages packMessages = new PackMessages(messages);
+        final PackOffer offer = packConfig.enabled()
+                ? new PackOffer(proxy, packConfig, packMessages)
+                : null;
+        if (offer == null) {
+            logger.warn("pack.yml#enabled is false: NO RESOURCE PACK IS OFFERED. Players still pass "
+                    + "through '{}', but every glyph in the tab list, the nametags, the boards and "
+                    + "the HUD will render as a missing-glyph box.", gateConfig.serverLimbo());
+        } else {
+            logger.info("Offering the resource pack from {} (sha1 {}, forced: {})", packConfig.url(),
+                    packConfig.sha1(), packConfig.force());
+        }
+
+        final PackStation packs = new PackStation(proxy, logger, routing, phaseWatch, roster,
+                packMessages, packConfig, offer, Clock.systemUTC());
+        packs.registerChannel();
+
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
-                roster, fallback, gateMessages);
+                roster, fallback, gateMessages, packs);
         routerRef.set(router);
+        packs.onRelease(router::releaseFromLimbo);
         proxy.getEventManager().register(this, router);
+        proxy.getEventManager().register(this, packs);
+
+        final Duration sweepInterval = Duration.ofSeconds(gateConfig.limboSweepIntervalSeconds());
+        proxy.getScheduler().buildTask(this, packs::sweep)
+                .delay(sweepInterval)
+                .repeat(sweepInterval)
+                .schedule();
 
         // Read once, before the first player can arrive, so the proxy never runs on the
         // never-read-it MAINTENANCE fallback longer than it has to.
@@ -208,10 +241,12 @@ public final class NetworkControlPlugin {
                 phaseCommand.build());
 
         logger.info("Access login gate is up in phase {} (query timeout {}s, fallback cache window "
-                        + "{}m, expiry check every {}s, phase poll every {}s, play time flushed every {}s)",
+                        + "{}m, expiry check every {}s, phase poll every {}s, play time flushed every "
+                        + "{}s, waiting room '{}' swept every {}s)",
                 phaseWatch.lastKnown(), databaseConfig.queryTimeoutSeconds(),
                 gateConfig.fallbackCacheWindowMinutes(), gateConfig.expiryCheckIntervalSeconds(),
-                pollInterval.toSeconds(), flushInterval.toSeconds());
+                pollInterval.toSeconds(), flushInterval.toSeconds(), gateConfig.serverLimbo(),
+                sweepInterval.toSeconds());
     }
 
     /**

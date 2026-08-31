@@ -223,6 +223,81 @@ class PhaseRoutingTest {
         assertThrows(IllegalArgumentException.class, () -> new RouteDecision(Action.CONNECT, null));
     }
 
+    // ---------------------------------------------------------------- the limbo-first login route
+
+    @Test
+    void everyLoginLandsInTheWaitingRoomWhateverThePhase() {
+        // docs/architecture.md#the-login-path-end-to-end, built 2026-09-01. Before the pack station
+        // existed this was true of MAINTENANCE only and every other phase kept velocity.toml's own
+        // try list, which is what let a player onto a backend without the resource pack.
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            final RouteDecision decision = routing.decideInitial(phase, false, ALL);
+
+            assertEquals(Action.CONNECT, decision.action(), phase.toString());
+            assertEquals("limbo", decision.server(), phase.toString());
+        }
+    }
+
+    @Test
+    void anAdminIsTheOnePlayerMaintenanceDoesNotSendToTheWaitingRoom() {
+        assertEquals(Action.STAY, routing.decideInitial(SeasonPhase.MAINTENANCE, true, ALL).action());
+    }
+
+    @Test
+    void anAdminInEveryOtherPhaseGoesThroughTheWaitingRoomLikeEverybodyElse() {
+        // The admin exemption is about not being moved during maintenance, not about skipping the
+        // pack: an admin joining a running network needs the glyphs as much as anybody.
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            if (phase == SeasonPhase.MAINTENANCE) {
+                continue;
+            }
+            assertEquals(Action.CONNECT, routing.decideInitial(phase, true, ALL).action(), phase.toString());
+            assertEquals("limbo", routing.decideInitial(phase, true, ALL).server(), phase.toString());
+        }
+    }
+
+    @Test
+    void aMissingWaitingRoomRefusesEveryLoginRatherThanLettingThemInWithoutThePack() {
+        final Set<String> withoutLimbo = Set.of("hunger-games", "smp");
+
+        // MAINTENANCE keeps the screen it has always had for this case.
+        assertEquals(Action.REFUSE_MAINTENANCE_UNAVAILABLE,
+                routing.decideInitial(SeasonPhase.MAINTENANCE, false, withoutLimbo).action());
+
+        // And the three phases that used to fall through to velocity.toml now refuse instead. The
+        // phase's own backend being registered is deliberately not enough - the waiting room is
+        // where the pack is applied, so skipping it is the failure this refuses.
+        for (final SeasonPhase phase : new SeasonPhase[]{SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT,
+                SeasonPhase.SMP}) {
+            final RouteDecision decision = routing.decideInitial(phase, false, withoutLimbo);
+
+            assertEquals(Action.REFUSE_NO_SERVER, decision.action(), phase.toString());
+            assertNull(decision.server(), phase.toString());
+        }
+    }
+
+    @Test
+    void theInitialRouteIgnoresThePhasesOwnBackendEntirely() {
+        // Only limbo has to exist to get a player in. Whether hunger-games or smp is up is asked
+        // again at release time, and until then it is the pack station's BACKEND wait, not a login
+        // refusal - a player whose backend is down should sit in the waiting room, not be kicked.
+        assertEquals(Action.CONNECT, routing.decideInitial(SeasonPhase.SMP, false, Set.of("limbo")).action());
+        assertEquals(Action.CONNECT,
+                routing.decideInitial(SeasonPhase.PRE_EVENT, false, Set.of("limbo")).action());
+    }
+
+    @Test
+    void theInitialRouteAndTheReleaseRouteDisagreeInEveryPhaseButMaintenance() {
+        // The two methods exist precisely because they differ; if they ever agreed everywhere, one
+        // of them would be sending players back into the waiting room they had just left.
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            final boolean same = routing.decideInitial(phase, false, ALL)
+                    .equals(routing.decideAdmitted(phase, false, ALL));
+
+            assertEquals(phase == SeasonPhase.MAINTENANCE, same, phase.toString());
+        }
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static AccessState member(final SeasonPhase phase, final boolean accessActive) {

@@ -4,8 +4,8 @@ Season 2 moves through phases, and the phase decides **who may join** and **wher
 That makes it a security-relevant value, not a cosmetic one: the wrong phase either opens the SMP
 to everyone or locks everybody out.
 
-Status: **the phase model, the gate and routing are built in `network-control`** (2026-08-30 and
-2026-08-31); the resource-pack station on the login path is not — see [Routing](#routing).
+Status: **the phase model, the gate, routing and the resource-pack station are all built in
+`network-control`** (2026-08-30, 2026-08-31 and 2026-09-01) — see [Routing](#routing).
 
 ## The phases
 
@@ -161,14 +161,26 @@ decide it wants a player somewhere — that would put the routing rules in two p
 A phase switch while players are online moves everyone: the proxy re-routes connected players to
 the new phase's server, holding them in `limbo` if it is not up yet.
 
-**Built 2026-08-31, minus one part.** `network-control`'s `routing` package re-reads each connected
+**Built in full 2026-09-01.** `network-control`'s `routing` package re-reads each connected
 player's access state when the phase changes and moves, leaves or disconnects them accordingly, and
-a login during `MAINTENANCE` is put into `limbo`. What is **not** built is
-[architecture.md](architecture.md#the-login-path-end-to-end)'s "every login lands on `limbo` first,
-whatever the phase" — the resource-pack station. That needs a `limbo` that applies a pack and
-answers on a `nordtal:` plugin-message channel, and `limbo` is still a scaffold, so a login in
-`PRE_EVENT`, `START_EVENT` or `SMP` keeps `velocity.toml`'s own `try` list for now. It belongs to
-the `limbo` session.
+`PlayerRouter#onChooseInitialServer` now sends **every** admitted login to `limbo`, whatever the
+phase — [architecture.md](architecture.md#the-login-path-end-to-end)'s "every login lands on `limbo`
+first". The channel is **`nordtal:limbo`**; `limbo` sends `READY` once per join, the proxy sends
+`WAIT <reason>` whenever what the player is waiting for changes, and `PackStation` releases them
+onto the phase's backend when the pack is applied and that backend is there.
+
+Two consequences worth stating plainly, because both are changes from the pre-2026-09-01 behaviour:
+
+- **A proxy with no `limbo` server refuses every login**, not only a `MAINTENANCE` one. Falling
+  through to `velocity.toml`'s own `try` list would put players on a backend *without the resource
+  pack* — silently, because nothing about a plain-looking tab list announces that every glyph in the
+  HUD, the nametags and the boards is missing. "Nobody can join" reports itself in seconds;
+  "everybody joined without the pack" reports itself on an event day.
+- **A player still in the waiting room is not connected by a phase change.** Their admission is
+  re-checked like everybody's — a switch to `SMP` still disconnects them if they have no access —
+  but the connection is left to the pack station, which is the only thing that knows whether their
+  pack has arrived. The re-check does update the title they are looking at, so a switch into
+  `MAINTENANCE` turns *downloading* into *maintenance* without moving anybody.
 
 **Which servers, and what if one is missing.** The names are `gate.yml#server-limbo`,
 `#server-hunger-games` and `#server-smp`, defaulting to the module directory names — nothing in
@@ -224,8 +236,10 @@ here so nobody looks for them in prose:
 
 - **What `velocity.toml` calls the three backends.** No document in this repository says. The three
   `gate.yml#server-*` keys default to the module directory names and are the single place to
-  correct it.
+  correct it. It will be answered by the first real deployment, which is also where the SimpleCloud
+  runbook [operations.md](operations.md#deployment) does not have will come from.
 - **Whether a Velocity `LoginEvent`-allowed player can be disconnected from
-  `PlayerChooseInitialServerEvent`**, which is what the missing-`limbo` fallback does. It is the
-  documented way to remove a player and the event is `@AwaitingEvent`, but it has not been run
-  against a real client. See [operations.md](operations.md#open-verification).
+  `PlayerChooseInitialServerEvent`**, which is what the missing-`limbo` fallback does — and since
+  2026-09-01 that fallback covers every phase, not only `MAINTENANCE`. It is the documented way to
+  remove a player and the event is `@AwaitingEvent`, but it has not been run against a real client.
+  It is step 8 of [operations.md](operations.md#rehearsal--the-login-path).

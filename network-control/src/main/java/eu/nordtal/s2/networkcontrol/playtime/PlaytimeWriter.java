@@ -33,15 +33,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * single {@code seconds = seconds + N} statement, so a periodic flush and the final one cannot
  * disagree about anything.
  * <p>
- * <b>The interval that "periodically" means is not settled by any document</b> - docs/smp.md says
- * "minutes" and stops there. It is therefore configuration
- * ({@code gate.yml#playtime-flush-interval-seconds}) rather than a constant, and its default is a
- * proposal, not a decision. See the comment on that key.
+ * <b>"Periodically" means every five minutes, decided 2026-08-31.</b> docs/smp.md only says
+ * "minutes"; the owner picked the number inside that sentence. It stays configuration
+ * ({@code gate.yml#playtime-flush-interval-seconds}) rather than a constant, but the default is now
+ * a decision rather than a proposal: a proxy crash costs each connected player up to five minutes of
+ * counted time, and against a 13-tier crest earned over a whole season that is invisible. See the
+ * comment on that key.
  * </p>
  *
  * <h2>No time is lost to rounding</h2>
  * A flush advances the session's start marker by exactly the whole seconds it wrote, not to "now".
- * Flushing every sixty seconds otherwise discards the sub-second remainder each time, which over a
+ * Flushing on a fixed interval otherwise discards the sub-second remainder each time, which over a
  * long session is real time thrown away for no reason.
  *
  * <h2>The Discord id is captured at join</h2>

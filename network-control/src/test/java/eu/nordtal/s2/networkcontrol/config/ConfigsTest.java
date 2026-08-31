@@ -92,7 +92,9 @@ class ConfigsTest {
                 "thirty seconds is the decided poll interval, docs/season-phases.md 2026-08-31");
         assertTrue(config.phaseListenEnabled(),
                 "LISTEN/NOTIFY is built in the first pass rather than deferred, so it is on by default");
-        assertEquals(60, config.playtimeFlushIntervalSeconds());
+        assertEquals(300, config.playtimeFlushIntervalSeconds(),
+                "five minutes is the decided flush interval, settled 2026-08-31 - a proxy crash "
+                        + "costing up to five minutes of play time is the accepted trade");
     }
 
     @Test
@@ -155,7 +157,7 @@ class ConfigsTest {
                 "expiry-warning-lead-minutes: 5",
                 "phase-poll-interval-seconds: 30",
                 "phase-listen-enabled: true",
-                "playtime-flush-interval-seconds: 60",
+                "playtime-flush-interval-seconds: 300",
         };
         final String key = override.substring(0, override.indexOf(':') + 1);
         final StringBuilder yaml = new StringBuilder();

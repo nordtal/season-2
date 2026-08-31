@@ -104,25 +104,20 @@ public interface AccessSpec {
     @Comment("The bunq poll loop and the life cycle of a payment request.")
     PaymentSpec payment();
 
-    @Order(7)
-    @Key("link-code-ttl-minutes")
-    @Comment({
-            "How long a link code shown on the Minecraft login screen stays valid.",
-            "Stage C issues the codes; the value lives here because the bot owns the",
-            "sweep that deletes expired ones."
-    })
-    default int linkCodeTtlMinutes() {
-        return 10;
-    }
+    // There is deliberately no link-code-ttl-minutes here. It used to sit between `payment` and
+    // `expiry-reminder-lead-days` and nothing in this process ever read it - the sweep
+    // (ReconcileDao#deleteExpiredLinkCodes) compares `expires` to now(), and the proxy is the
+    // process that issues codes and therefore the only one that can act on a TTL at all.
+    // `network-control`'s gate.yml#link-code-ttl-minutes is the only one, decided 2026-08-31.
 
-    @Order(8)
+    @Order(7)
     @Key("expiry-reminder-lead-days")
     @Comment("How many days before access runs out the reminder DM is sent.")
     default int expiryReminderLeadDays() {
         return 3;
     }
 
-    @Order(9)
+    @Order(8)
     @Key("role-reconcile-interval-minutes")
     @Comment({
             "How often the access role is reconciled against the database.",

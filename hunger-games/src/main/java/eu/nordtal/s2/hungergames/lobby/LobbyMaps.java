@@ -25,11 +25,12 @@ import java.io.InputStream;
  * docs/hunger-games.md#the-lobby: "the plugin's job is only to slice a PNG onto a map grid and show
  * each player the image for their language; producing the image is design work, not code."
  * <p>
- * <b>The actual artwork does not exist yet</b> (no {@code lobby/map-en.png} ships in this
- * repository - see this plugin's task brief, "the same 'code exists, art doesn't yet' situation as
- * the HUD glyphs"). {@link #render(World)} tolerates that: a missing file is logged once, clearly,
- * and skipped rather than failing {@code onEnable} - the whole reason this method never throws for
- * a missing resource.
+ * <b>The shipped {@code lobby/map-en.png} and {@code lobby/map-de.png} are dummy placeholders</b>
+ * (2026-08-31 dummy-texture pass) - a flat 384x384 3x3 grid with gridlines and a language-accent
+ * swatch, not the real hand-prepared aerial image, which is still a design task. {@link
+ * #render(World)} still tolerates a missing file for a language that never gets one: logged once,
+ * clearly, and skipped rather than failing {@code onEnable} - the whole reason this method never
+ * throws for a missing resource.
  * </p>
  */
 public final class LobbyMaps {

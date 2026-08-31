@@ -98,8 +98,8 @@ reason is in the linked document — that is what stops it from being reopened b
 | Spectator and cross-teaming rules are announced, not enforced | [hunger-games.md](hunger-games.md#the-lobby) |
 | **Decided 2026-08-31 — the SMP** | |
 | The SMP is peaceful by agreement: PvP is on everywhere, but nothing is designed against griefing, raiding or theft | [smp.md](smp.md#what-kind-of-server-this-is) |
-| No teleport commands at all — the balloon is the only fast travel, and it only reaches world spawns | [smp.md](smp.md#travel) |
-| Nordtal portals never ignite and stronghold End portals stay inactive; every portal elsewhere leads to the spawn | [smp.md](smp.md#travel) |
+| No teleport commands at all — the only *given* fast travel is the balloon, and it only reaches world spawns | [smp.md](smp.md#travel) |
+| Nordtal Nether portals stay dead until the Nether milestone, then link to the Nether exactly like vanilla, 1:8 mapping included; stronghold End portals stay inactive; farm-world portals lead to the spawn | [smp.md](smp.md#travel) |
 | Aura is prestige and buys nothing; it may go negative | [smp.md](smp.md#aura--recognition-not-currency) |
 | Prestige is a 13-tier crest earned by online time, AFK included; the tab list sorts by it | [smp.md](smp.md#prestige--a-crest-earned-by-time) |
 | Milestones are defined in a reloadable YAML file, unlocked **only** by objectives, never by time | [smp.md](smp.md#milestones--the-community-objective-system) |

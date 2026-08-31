@@ -48,6 +48,7 @@ a projection of it; LuckPerms is not involved anywhere.
 | [smp.md](smp.md) | The SMP in full: worlds, travel, milestones, aura, prestige, duels, graves, POIs |
 | [operations.md](operations.md) | Deployment, secrets, pack hosting, the release path, and everything still unverified |
 | [access-system.md](access-system.md) | The paid access concept: product, rules, payment matching, linking |
+| [state-of-play.md](state-of-play.md) | Where the **code** stands against all of the above, what can be built today, and what still needs a decision |
 
 Repository rules — build conventions, platform versions, package layout, what not to shade — live
 in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
@@ -65,6 +66,9 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 | Language config list, plugin-side locale lookup | **designed, not built** |
 | Hunger games, both halves | **designed, not built** |
 | SMP: worlds, travel, milestones, aura, prestige, duels, graves, POIs | **designed, not built** — 2026-08-31 |
+
+That table is a summary. [state-of-play.md](state-of-play.md) is the same question answered from the
+code, module by module, with the places where these documents and the code disagree.
 
 `smp-farm-world` → `smp` was carried out on 2026-08-31. Three renames are still part of the plan
 and are cheap only until something runs in production: `resource-pack-coercion` → `limbo`,

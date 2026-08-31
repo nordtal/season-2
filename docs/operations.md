@@ -171,7 +171,22 @@ happens if there is none.
 
 ## Release
 
-One repo-wide version in `gradle.properties` drives every artifact; a `v*` tag that disagrees with
-it fails the workflow. One release carries the plugin jars, the bot jar and the pack zip with its
+One repo-wide version in `gradle.properties` drives every artifact; a tag that disagrees with it
+fails the workflow. One release carries the plugin jars, the bot jar and the pack zip with its
 `.sha1`, and pushes the bot's container image. `season-2` produces no combined build and does not
 republish jars built in other repositories.
+
+**A release is a published GitHub release, not a pushed tag.** Tag the commit, then publish a
+release for that tag - `git push --tags` alone builds nothing. This was `push: tags` until
+2026-08-31, which meant a release published from an already-existing tag never fired the workflow
+and ended up with no assets on it. A build that failed is re-run with `workflow_dispatch` and the
+tag name; the release itself does not have to be touched.
+
+The release job runs `./gradlew check releaseArtifacts`, so a red test stops a release, and it
+verifies the pack zip against its own `.sha1` and checks that `pack.mcmeta` is at the root of the
+zip - both are things a Minecraft client punishes by refusing the pack and a build does not notice.
+The release notes are left alone; a human writes them.
+
+`.github/workflows/build.yml` builds and tests every push to `main` and every pull request.
+
+**Nothing here has ever run**: there are no tags and no releases on the remote as of 2026-08-31.

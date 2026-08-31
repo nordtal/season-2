@@ -3,21 +3,21 @@
         {
             "type": "space",
             "advances": {
-                "\uF001": -1,
-                "\uF002": -2,
-                "\uF004": -4,
-                "\uF008": -8,
-                "\uF016": -16,
-                "\uF032": -32,
-                "\uF064": -64,
-                "\uF128": -128,
-                "\uFF01": 1,
-                "\uFF02": 2,
+                "": -1,
+                "": -2,
+                "": -4,
+                "": -8,
+                "": -16,
+                "": -32,
+                "": -64,
+                "": -128,
+                "！": 1,
+                "＂": 2,
                 " ": 3,
-                "\uFF04": 4,
-                "\uFF08": 8,
-                "\uFF16": 16,
-                "\uFF32": 32
+                "＄": 4,
+                "（": 8,
+                "６": 16,
+                "Ｒ": 32
             }
         },
         {
@@ -26,7 +26,7 @@
             "ascent": 6,
             "height": 14,
             "chars": [
-                "\uE001"
+                ""
             ]
         },
         {
@@ -35,7 +35,7 @@
             "ascent": 6,
             "height": 14,
             "chars": [
-                "\uE002"
+                ""
             ]
         },
         {
@@ -44,7 +44,7 @@
             "ascent": 6,
             "height": 14,
             "chars": [
-                "\uE004"
+                ""
             ]
         },
         {
@@ -53,7 +53,7 @@
             "ascent": 6,
             "height": 14,
             "chars": [
-                "\uE008"
+                ""
             ]
         },
         {
@@ -62,7 +62,7 @@
             "ascent": 6,
             "height": 14,
             "chars": [
-                "\uE016"
+                ""
             ]
         },
         {
@@ -71,7 +71,7 @@
             "ascent": 6,
             "height": 14,
             "chars": [
-                "\uE032"
+                ""
             ]
         },
         {
@@ -80,7 +80,7 @@
             "ascent": 6,
             "height": 14,
             "chars": [
-                "\uE064"
+                ""
             ]
         },
         {
@@ -89,7 +89,7 @@
             "ascent": 6,
             "height": 14,
             "chars": [
-                "\uE128"
+                ""
             ]
         },
         {
@@ -98,52 +98,52 @@
             "ascent": 6,
             "height": 14,
             "chars": [
-                "\uE000"
+                ""
             ]
         },
         {
             "type": "bitmap",
             "file": "nordtal:ui/bossbar/icons/compass.png",
-           "ascent": 4,
-           "height": 10,
+            "ascent": 4,
+            "height": 10,
             "chars": [
-                "\uEF00"
+                ""
             ]
         },
         {
             "type": "bitmap",
             "file": "nordtal:ui/bossbar/icons/fblue.png",
-           "ascent": 4,
-           "height": 10,
+            "ascent": 4,
+            "height": 10,
             "chars": [
-                "\uEF01"
+                ""
             ]
         },
         {
             "type": "bitmap",
             "file": "nordtal:ui/bossbar/icons/fgreen.png",
-           "ascent": 4,
-           "height": 10,
+            "ascent": 4,
+            "height": 10,
             "chars": [
-                "\uEF02"
+                ""
             ]
         },
         {
             "type": "bitmap",
             "file": "nordtal:ui/bossbar/icons/fred.png",
-           "ascent": 4,
-           "height": 10,
+            "ascent": 4,
+            "height": 10,
             "chars": [
-                "\uEF03"
+                ""
             ]
         },
         {
             "type": "bitmap",
             "file": "nordtal:ui/bossbar/icons/fwhite.png",
-           "ascent": 4,
-           "height": 10,
+            "ascent": 4,
+            "height": 10,
             "chars": [
-                "\uEF04"
+                ""
             ]
         },
         {
@@ -168,6 +168,222 @@
                 "╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀",
                 "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000∅∈\u0000",
                 "≡±≥≤⌠⌡÷≈°∙\u0000√ⁿ²■\u0000"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/icons/dim_overworld.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/icons/dim_farmworld.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/icons/dim_nether.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/icons/dim_end.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/icons/status_alive.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/icons/status_deaths.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/icons/status_loot.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/icons/status_border.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_000_0.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_022_5.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_045_0.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_067_5.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_090_0.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_112_5.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_135_0.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_157_5.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_180_0.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_202_5.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_225_0.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_247_5.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_270_0.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_292_5.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_315_0.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/bossbar/arrows/arrow_337_5.png",
+            "ascent": 4,
+            "height": 10,
+            "chars": [
+                ""
             ]
         }
     ]

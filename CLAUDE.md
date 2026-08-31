@@ -351,9 +351,19 @@ Three files under `config/`, loaded through jcore 3.0.0, each with its own envir
 deliberately not used: generic keys such as `password` would collide across files.
 
 - `access.yml` is new in stage B and carries **everything that used to be an enum or a constant**:
-  tier days and prices, the donation surcharge, the guild id, five role ids, five channel ids, the
-  poll interval, the request TTL, the watermark, the link-code TTL and the reminder lead time. A
-  price change is a config edit, never a release.
+  tier days and prices, the donation surcharge, the guild id, four role ids, the admin channel id,
+  the `languages` list (each entry carrying a role and two channel ids), the poll interval, the
+  request TTL, the watermark and the reminder lead time. A price change is a config edit, never a
+  release.
+- **The `languages` list is the only source for the language roles and the per-language channels**,
+  since 2026-08-31. `roles.german`, `roles.english`, `channels.contribution-en|de` and
+  `channels.link-en|de` are **deleted** — they were a second source of truth for the same ids and
+  made a third language a code change. `eu.nordtal.s2.discordbot.config.Languages` is the one place
+  that reads the list: `GuildState` mirrors a member's role through it, `ManagedMessages` publishes
+  two messages per entry (the `managed_message.kind` is derived from the tag, so `CONTRIBUTION_EN`
+  and friends keep their primary keys), `PaymentProcessor` picks the thank-you channel through it,
+  and `AccessBot` loads message bundles for exactly the configured tags. Adding a language is an
+  entry plus a `<tag>.properties`; see [docs/i18n.md](docs/i18n.md).
 - **The ids default to empty and the bot refuses to start until they are filled in.** Season 1
   shipped real channel and role ids as defaults, so a config that failed to load wrote into a
   production channel. Prices do have real defaults; ids never will.
@@ -396,10 +406,14 @@ that redemption enforces. `MessagesTest` and `LocalesTest` (13, in memory) round
 `make_interval(hours => days * 24)` bug from stage A (see below) is still the reason a day is never
 expressed in SQL as `interval 'N days'`.
 
-`discord-bot` has 45 (2026-08-30, unchanged by stage C - `LinkFlow`, the redemption side, is
-untested by anything but `common`'s DAO-level tests and a manual guild check; see "what none of it
-proves"): `ConfigsTest` (16, in memory), `TiersTest` (12, in memory), and
-`PaymentRequestIntegrationTest` (17) against a real PostgreSQL container.
+`discord-bot` has 92 (2026-08-31): `ConfigsTest` (28, in memory), `LanguagesTest` (16, in memory),
+`PhaseCommandTest` (14, in memory), `TiersTest` (12, in memory), `AdminFlagIntegrationTest` (5) and
+`PaymentRequestIntegrationTest` (17) against a real PostgreSQL container. `LanguagesTest` owns every
+rule the `languages` list decides - which of several held roles wins, which channel a locale posts
+in, what a `managed_message.kind` is called - because none of the three classes that use them
+(`GuildState`, `ManagedMessages`, `PaymentProcessor`) can be exercised without a real guild.
+`LinkFlow`, the redemption side, is still untested by anything but `common`'s DAO-level tests and a
+manual guild check; see "what none of it proves".
 
 `network-control` has 16 (2026-08-30, stage C, new module): `FallbackCacheTest` (10, in memory,
 driven by a settable `Clock` rather than `Thread.sleep`) covers the four fallback rules - a

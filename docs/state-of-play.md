@@ -93,14 +93,18 @@ Four admin commands exist (`grant-access`, `revoke-access`, `access-status`, `se
 - **No `/phase set`.** [season-phases.md](season-phases.md#who-may-switch-it) makes this the normal
   path for switching the phase.
 - **No admin-role mirror.** `discord_user` (`V1__access.sql:22`) has `locale`, `member_state` and
-  `donor`, and **no admin flag**. `AccessSpec.RolesSpec` has `access`, `donor`, `german`,
+  `donor`, and **no admin flag**. `AccessSpec.RolesSpec` had `access`, `donor`, `german`,
   `english` and `admin-ping` — `admin-ping` is who gets mentioned in the admin channel, not who is
-  an admin. The decision in [season-phases.md](season-phases.md#how-an-admin-is-recognised) is
+  an admin. (It now has `access`, `donor`, `admin` and `admin-ping`: the admin mirror landed in
+  stage C, and the two language roles moved onto the `languages` list on 2026-08-31.) The decision in [season-phases.md](season-phases.md#how-an-admin-is-recognised) is
   therefore unimplemented in both the schema and the config, and
   [smp.md](smp.md#admins)'s `PermissionAttachment` has nothing to read.
-- **Languages are two fixed roles**, `roles.german` and `roles.english`
-  (`AccessSpec.java:191-203`), and four fixed channels. [i18n.md](i18n.md#the-configuration-model)
-  replaces both with a list. The mirroring itself works (`GuildState.java:177-189`).
+- ~~**Languages are two fixed roles**, `roles.german` and `roles.english`, and four fixed
+  channels.~~ **Done 2026-08-31.** `roles.german`, `roles.english` and the four
+  `channels.contribution-*` / `channels.link-*` keys are deleted; `access.yml`'s `languages` list is
+  the only source, read through `Languages` (`discord-bot/.../config/Languages.java`). A third
+  language is a config edit: `LanguagesTest` and `ConfigsTest#aThirdLanguageIsPurelyAConfigEdit`
+  drive an `fr` entry no source file mentions.
 
 ### `resource-pack`
 

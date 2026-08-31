@@ -1,7 +1,0 @@
-name: smp-farm-world
-version: '${version}'
-main: eu.nordtal.s2.smpfarmworld.SmpFarmWorldPlugin
-description: Farm world lifecycle and resets on the season 2 SMP.
-author: nordtal
-website: https://nordtal.eu
-api-version: '26.2'

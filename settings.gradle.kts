@@ -29,7 +29,7 @@ if (providers.gradleProperty("useLocalJcore").isPresent) {
 // Paper plugins, one per backend server of the season 2 network.
 include("resource-pack-coercion")
 include("hunger-games")
-include("smp-farm-world")
+include("smp")
 
 // Velocity plugin on the proxy.
 include("network-control")

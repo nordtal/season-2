@@ -43,7 +43,7 @@ jobs:
           mkdir -p dist
           cp resource-pack-coercion/build/libs/resource-pack-coercion-${VERSION}.jar dist/
           cp hunger-games/build/libs/hunger-games-${VERSION}.jar dist/
-          cp smp-farm-world/build/libs/smp-farm-world-${VERSION}.jar dist/
+          cp smp/build/libs/smp-${VERSION}.jar dist/
           cp network-control/build/libs/network-control-${VERSION}.jar dist/
           cp access-bot/build/libs/access-bot-${VERSION}.jar dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip dist/

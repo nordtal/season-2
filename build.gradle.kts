@@ -8,7 +8,7 @@ tasks.register("releaseArtifacts") {
     dependsOn(
         ":resource-pack-coercion:shadowJar",
         ":hunger-games:shadowJar",
-        ":smp-farm-world:shadowJar",
+        ":smp:shadowJar",
         ":network-control:shadowJar",
         ":access-bot:shadowJar",
         ":resource-pack:packZip",

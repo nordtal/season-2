@@ -95,6 +95,32 @@ class ConfigsTest {
         assertEquals(300, config.playtimeFlushIntervalSeconds(),
                 "five minutes is the decided flush interval, settled 2026-08-31 - a proxy crash "
                         + "costing up to five minutes of play time is the accepted trade");
+        assertEquals("limbo", config.serverLimbo());
+        assertEquals("hunger-games", config.serverHungerGames());
+        assertEquals("smp", config.serverSmp());
+    }
+
+    @Test
+    void theServerNamesDefaultToTheModuleDirectoryNames() throws Exception {
+        // Nothing in docs/ says what velocity.toml calls the three backends. The defaults are the
+        // module directory names, which are already the runtime identity of the three Paper
+        // plugins; if the proxy calls them something else, these are the keys to change.
+        final GateSpec config = Configs.gate(directory, LOGGER).get();
+
+        assertEquals("limbo", config.serverLimbo(), "MAINTENANCE routes here");
+        assertEquals("hunger-games", config.serverHungerGames(), "PRE_EVENT and START_EVENT route here");
+        assertEquals("smp", config.serverSmp(), "SMP routes here");
+    }
+
+    @Test
+    void aBlankServerNameIsRejected() throws Exception {
+        // A name that could never resolve to a registered server is certainly a mistake, unlike a
+        // name that simply does not match this proxy's velocity.toml - which is not checkable here.
+        writeGate("server-limbo: ''");
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+                () -> Configs.gate(directory, LOGGER));
+        assertTrue(error.getMessage().contains("server-limbo"), error.getMessage());
     }
 
     @Test
@@ -158,6 +184,9 @@ class ConfigsTest {
                 "phase-poll-interval-seconds: 30",
                 "phase-listen-enabled: true",
                 "playtime-flush-interval-seconds: 300",
+                "server-limbo: limbo",
+                "server-hunger-games: hunger-games",
+                "server-smp: smp",
         };
         final String key = override.substring(0, override.indexOf(':') + 1);
         final StringBuilder yaml = new StringBuilder();

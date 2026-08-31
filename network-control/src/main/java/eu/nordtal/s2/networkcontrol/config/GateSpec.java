@@ -163,4 +163,42 @@ public interface GateSpec {
     default int playtimeFlushIntervalSeconds() {
         return 300;
     }
+
+    @Order(9)
+    @Key("server-limbo")
+    @Comment({
+            "The three keys below name the backends this proxy routes to, per phase:",
+            "",
+            "  PRE_EVENT / START_EVENT  ->  server-hunger-games",
+            "  SMP                      ->  server-smp",
+            "  MAINTENANCE              ->  server-limbo",
+            "",
+            "That mapping is docs/season-phases.md's phase table and is not configurable; only",
+            "the names are. NOTHING IN docs/ SAYS WHAT THE SERVERS ARE CALLED IN velocity.toml,",
+            "so these defaults are the module directory names, which are already the runtime",
+            "identity of the three Paper plugins. If velocity.toml calls them something else,",
+            "these are the keys to change - the proxy resolves them with",
+            "ProxyServer.getServer(name) and never discovers a backend any other way.",
+            "",
+            "A name this proxy has no server for is not a startup failure, because the phase it",
+            "belongs to may never be entered. It fails at the moment it is needed: the player is",
+            "disconnected rather than dropped somewhere undefined. See routing/PhaseRouting."
+    })
+    default String serverLimbo() {
+        return "limbo";
+    }
+
+    @Order(10)
+    @Key("server-hunger-games")
+    @Comment("The backend for PRE_EVENT and START_EVENT. See server-limbo above.")
+    default String serverHungerGames() {
+        return "hunger-games";
+    }
+
+    @Order(11)
+    @Key("server-smp")
+    @Comment("The backend for SMP. See server-limbo above.")
+    default String serverSmp() {
+        return "smp";
+    }
 }

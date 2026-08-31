@@ -4,6 +4,7 @@ import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
 import eu.nordtal.s2.discordbot.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.bunq.Money;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
 import eu.nordtal.s2.common.access.AccessDirectory;
@@ -44,6 +45,7 @@ import java.util.regex.Matcher;
 public final class PaymentProcessor {
 
     private final AccessSpec config;
+    private final Languages languages;
     private final BunqGateway bunq;
     private final PaymentRequests requests;
     private final Purchases purchases;
@@ -55,11 +57,13 @@ public final class PaymentProcessor {
     private final JDA jda;
     private final Instant watermark;
 
-    public PaymentProcessor(final AccessSpec config, final BunqGateway bunq, final PaymentRequests requests,
+    public PaymentProcessor(final AccessSpec config, final Languages languages, final BunqGateway bunq,
+                            final PaymentRequests requests,
                             final Purchases purchases, final Tiers tiers, final AccessDirectory access,
                             final AccessRoles roles, final AdminLog admin, final Messages messages,
                             final JDA jda, final Instant watermark) {
         this.config = config;
+        this.languages = languages;
         this.bunq = bunq;
         this.requests = requests;
         this.purchases = purchases;
@@ -231,9 +235,9 @@ public final class PaymentProcessor {
      * in the channel of the donor's own language.
      */
     private void announceDonation(final String discordId, final int donationCents, final Locale locale) {
-        final String channelId = "de".equals(locale.getLanguage())
-                ? config.channels().contributionDe()
-                : config.channels().contributionEn();
+        // A language that is not configured - a tag left in discord_user.locale by an entry since
+        // removed from access.yml - lands in the fallback channel rather than nowhere.
+        final String channelId = languages.forLocale(locale).contributionChannelId();
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
             log.error("Contribution channel {} is not available; the thank-you was not posted", channelId);

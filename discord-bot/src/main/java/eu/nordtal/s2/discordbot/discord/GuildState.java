@@ -1,6 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.MemberState;
 
@@ -21,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -58,12 +59,15 @@ public final class GuildState extends ListenerAdapter {
 
     private final JDA jda;
     private final AccessSpec config;
+    private final Languages languages;
     private final AccessDirectory access;
     private final ReconcileDao dao;
 
-    public GuildState(final JDA jda, final AccessSpec config, final AccessDirectory access, final Jdbi jdbi) {
+    public GuildState(final JDA jda, final AccessSpec config, final Languages languages,
+                      final AccessDirectory access, final Jdbi jdbi) {
         this.jda = jda;
         this.config = config;
+        this.languages = languages;
         this.access = access;
         this.dao = jdbi.onDemand(ReconcileDao.class);
     }
@@ -208,8 +212,7 @@ public final class GuildState extends ListenerAdapter {
     }
 
     private boolean touchesLanguage(final List<Role> changed) {
-        return changed.stream().anyMatch(role ->
-                role.getId().equals(config.roles().german()) || role.getId().equals(config.roles().english()));
+        return changed.stream().anyMatch(role -> languages.isLanguageRole(role.getId()));
     }
 
     private boolean touchesAdmin(final List<Role> changed) {
@@ -217,23 +220,18 @@ public final class GuildState extends ListenerAdapter {
     }
 
     /**
-     * Writes the member's language, taking German over English when somebody holds both - a
-     * German-speaking member who also picked English is better served in German than in a language
-     * chosen by whichever role happens to sort first.
+     * Writes the member's language, from whatever {@code access.yml} lists.
+     * <p>
+     * Every rule about which of several held roles wins lives in
+     * {@link Languages#resolve(java.util.Collection)}, which is where it can be tested without a
+     * guild. No language role at all is {@link Optional#empty()} and nothing is written: the column
+     * defaults to English, and overwriting a real choice because onboarding is mid-flight would be
+     * worse than being a little stale.
+     * </p>
      */
     private void mirrorLocale(final Member member) {
-        final boolean german = member.getRoles().stream()
-                .anyMatch(role -> role.getId().equals(config.roles().german()));
-        final boolean english = member.getRoles().stream()
-                .anyMatch(role -> role.getId().equals(config.roles().english()));
-
-        if (german) {
-            access.setLocale(member.getId(), Locale.GERMAN);
-        } else if (english) {
-            access.setLocale(member.getId(), Locale.ENGLISH);
-        }
-        // Neither role: leave whatever is stored. The column defaults to English, and overwriting
-        // a real choice because onboarding is mid-flight would be worse than being a little stale.
+        languages.resolve(member.getRoles().stream().map(Role::getId).toList())
+                .ifPresent(language -> access.setLocale(member.getId(), language.locale()));
     }
 
     /**

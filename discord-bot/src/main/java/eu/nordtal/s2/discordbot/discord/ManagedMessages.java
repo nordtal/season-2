@@ -1,7 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.discordbot.bunq.Money;
-import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.payment.Tier;
 import eu.nordtal.s2.discordbot.payment.Tiers;
 import eu.nordtal.s2.common.message.Messages;
@@ -23,7 +23,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * The four bot-maintained messages: contribution DE/EN and link DE/EN.
+ * The bot-maintained messages: a contribution message and a link message per configured language.
  * <p>
  * On startup the bot <b>edits</b> the message it posted last time, or posts a new one if there
  * isn't one. The id is remembered in {@code managed_message}, so a restart never leaves a second
@@ -31,6 +31,14 @@ import java.util.Optional;
  * price from living on in an embed nobody re-posted. Season 1's answer was a
  * {@code /send-contribution-embed} command with the prices, role ids and image URLs written into
  * the source; those image URLs have since expired and render as broken images.
+ * </p>
+ * <p>
+ * <b>How many there are is a config question.</b> It was four - {@code CONTRIBUTION_EN},
+ * {@code CONTRIBUTION_DE}, {@code LINK_EN}, {@code LINK_DE}, hard-coded as an enum against four
+ * fixed channel keys. It is now two per entry of {@code access.yml}'s {@code languages} list, with
+ * the same names: the {@code managed_message.kind} is derived from the language tag, so the rows
+ * the bot has already written keep their keys and a third language adds two rows rather than
+ * needing a migration. {@code V2__bot_state.sql} left {@code kind} unconstrained for exactly this.
  * </p>
  */
 @Slf4j
@@ -43,29 +51,34 @@ public final class ManagedMessages {
     private static final String LINK_BANNER = "link.png";
 
     private final JDA jda;
-    private final AccessSpec config;
+    private final Languages languages;
     private final Tiers tiers;
     private final Messages messages;
     private final ManagedMessageDao dao;
 
-    public ManagedMessages(final JDA jda, final AccessSpec config, final Tiers tiers,
+    public ManagedMessages(final JDA jda, final Languages languages, final Tiers tiers,
                            final Messages messages, final Jdbi jdbi) {
         this.jda = jda;
-        this.config = config;
+        this.languages = languages;
         this.tiers = tiers;
         this.messages = messages;
         this.dao = jdbi.onDemand(ManagedMessageDao.class);
     }
 
-    /** Posts or edits all four. Failures are logged per message: one bad channel id must not stop the others. */
+    /**
+     * Posts or edits two messages per configured language, in the order {@code access.yml} lists
+     * them. Failures are logged per message: one bad channel id must not stop the others.
+     */
     public void publishAll() {
-        publish(Kind.CONTRIBUTION_EN, config.channels().contributionEn(), Locale.ENGLISH);
-        publish(Kind.CONTRIBUTION_DE, config.channels().contributionDe(), Locale.GERMAN);
-        publish(Kind.LINK_EN, config.channels().linkEn(), Locale.ENGLISH);
-        publish(Kind.LINK_DE, config.channels().linkDe(), Locale.GERMAN);
+        for (final Languages.Language language : languages.all()) {
+            final Locale locale = language.locale();
+            publish(language.contributionKind(), true, language.contributionChannelId(), locale);
+            publish(language.linkKind(), false, language.linkChannelId(), locale);
+        }
     }
 
-    private void publish(final Kind kind, final String channelId, final Locale locale) {
+    private void publish(final String kind, final boolean contribution, final String channelId,
+                         final Locale locale) {
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
             log.error("Channel {} for the {} message does not exist, or the bot cannot see it. "
@@ -73,15 +86,15 @@ public final class ManagedMessages {
             return;
         }
 
-        final MessageEmbed embed = kind.contribution() ? contributionEmbed(locale) : linkEmbed(locale);
-        final List<ActionRow> components = List.of(ActionRow.of(kind.contribution()
+        final MessageEmbed embed = contribution ? contributionEmbed(locale) : linkEmbed(locale);
+        final List<ActionRow> components = List.of(ActionRow.of(contribution
                 ? Button.primary(Ids.BUY, messages.get(locale, "contribution.button"))
                 // Stage C: opens a modal for the code the proxy showed on the login screen.
                 : Button.primary(Ids.LINK, messages.get(locale, "link.button"))));
-        final String banner = kind.contribution() ? CONTRIBUTION_BANNER : LINK_BANNER;
+        final String banner = contribution ? CONTRIBUTION_BANNER : LINK_BANNER;
 
         try {
-            final Optional<String> existing = dao.messageIdOf(kind.name(), channelId);
+            final Optional<String> existing = dao.messageIdOf(kind, channelId);
             if (existing.isPresent() && edit(channel, existing.get(), embed, components, banner)) {
                 return;
             }
@@ -90,7 +103,7 @@ public final class ManagedMessages {
                     .addFiles(FileUpload.fromData(banner(banner), banner))
                     .complete()
                     .getId();
-            dao.remember(kind.name(), channelId, posted);
+            dao.remember(kind, channelId, posted);
             log.info("Posted the {} message as {} in {}", kind, posted, channelId);
         } catch (final RuntimeException exception) {
             log.error("Could not maintain the {} message in channel {}", kind, channelId, exception);
@@ -152,23 +165,13 @@ public final class ManagedMessages {
                 .build();
     }
 
+    // ---------------------------------------------------------------- resources
+
     private InputStream banner(final String name) {
         final InputStream stream = getClass().getClassLoader().getResourceAsStream("banners/" + name);
         if (stream == null) {
             throw new IllegalStateException("banners/" + name + " is missing from the jar");
         }
         return stream;
-    }
-
-    /** The four managed messages. The name is the primary key of {@code managed_message}. */
-    private enum Kind {
-        CONTRIBUTION_EN,
-        CONTRIBUTION_DE,
-        LINK_EN,
-        LINK_DE;
-
-        boolean contribution() {
-            return this == CONTRIBUTION_EN || this == CONTRIBUTION_DE;
-        }
     }
 }

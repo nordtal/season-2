@@ -5,9 +5,12 @@ and rebuilt every day, and a community that unlocks its own world step by step b
 objectives. Peaceful in tone, competitive at the edges: two duel platforms, one number in the tab
 list, and a crest that only time can earn.
 
-Status: **concept agreed 2026-08-31; the module is still a scaffold, but its schema exists.**
-`V6__smp.sql` landed in `:common` on 2026-09-01 and every table in [Data model](#data-model) is
-migrated and applied. This document is what an implementation session works from.
+Status: **concept agreed 2026-08-31. The schema and the module's server-free half are built;
+the world half is not.** `V6__smp.sql` landed in `:common` on 2026-09-01, and later the same day so
+did `milestones.yml` and the three pure cores - aura, prestige and the milestone engine, 56 tests.
+What is still missing is everything that touches a world: the farm-world swap, the balloon, portal
+gating, spawn protection, graves, POIs, `/navigate`, the duels, the boards and the wheel. See
+[state-of-play.md](state-of-play.md).
 
 **Access is required from this phase onward** ([season-phases.md](season-phases.md)) — that is the
 whole reason the phase model exists.
@@ -115,6 +118,11 @@ Protection is **a list of configured regions in the SMP plugin itself**, not Wor
 needed is a handful of event handlers over a few fixed boxes, not a region system with claims,
 flags and ownership — and it avoids a large third-party dependency whose Minecraft 26.2
 availability is unverified.
+
+**The config shape was decided 2026-09-01 and is `config.yml#spawn-regions`:** a list of boxes, each
+naming its world and two corners, inclusive on both, checked in order. The coordinates that ship are
+placeholders, because the spawn build does not exist yet — the one hard constraint on that build
+stays the balloon's radius, below.
 
 The Nordtal spawn is a **tavern on a hill** and carries everything social:
 
@@ -276,6 +284,24 @@ not compiled in.
 **In a YAML config file, reloadable with a command.** The definition is versioned in the
 repository; the *progress* lives in the database. Adding a milestone is a file edit plus
 `/smp reload` — no release, no restart.
+
+**Built 2026-09-01 as `plugins/smp/milestones.yml`**, through `eu.nordtal.jcore.config` like every
+other config in this repository — a list of milestones, each carrying its own list of objectives.
+Two levels of nesting was one more than anything here had used, and it works: each nested interface
+needs its own `@ConfigSpec`, which is easy to forget and fails as a Gson error about a `Proxy`
+rather than as anything readable. `MilestonesTest` writes a fresh file, reads it back and asserts
+the whole track survives, so the format is verified rather than assumed.
+
+Three things about the format were this session's choice, because the table above is the *content*
+and not a schema:
+
+- **The objectives live inside their milestone**, rather than in a second flat list keyed by
+  milestone name. The thing being edited is a milestone.
+- **One record shape covers all three types**, with the fields that do not apply left empty — a
+  jcore spec cannot be polymorphic. The loader says plainly when a field belongs to another type,
+  because a leftover `items` list is what a half-finished type change looks like.
+- **The pot is per milestone, not per objective.** It is derived rather than chosen, and a
+  per-objective pot would let that derivation drift one objective at a time.
 
 The loader validates the file against the stored progress and refuses a change that would orphan
 it, rather than silently discarding a finished milestone because somebody renamed its key. It must
@@ -668,6 +694,14 @@ full experience** back.
 - The location of a player's last death is a built-in `/navigate` target.
 - **A grave in the farm world dies with the daily reset.** That is the one real risk of going there.
 
+**`smp_grave.contents` is `ItemStack.serializeItemsAsBytes` — decided 2026-09-01.** The column is
+`bytea` precisely so the format stays the plugin's choice, and Paper's own byte serialisation is the
+one that survives a Minecraft update: it is NBT with the server's data fixers behind it, so a grave
+written before an update still opens after one. Bukkit's `ConfigurationSerializable` map was
+rejected because it loses data components that have no map representation, and a hand-rolled format
+because it would have to be taught every new item component by hand. Nothing ever queries *into* a
+grave — it is written once and read back whole — so there is nothing traded away.
+
 **Stated plainly, because it follows from two decisions that were taken separately:** PvP is on
 everywhere and a grave is open to everyone, so killing a player and then emptying their grave is
 mechanically possible. That is accepted rather than closed off. This is a peaceful server by
@@ -908,15 +942,19 @@ expected to be retuned. They are gathered here so nobody mistakes them for agree
 
 ## Still open
 
-- **The advancement list** that grants aura, and the amount per advancement.
-- **The damage types that count as an "embarrassing" death** and cost −20 instead of −5.
-- **The duel loadouts**, item by item, for both types.
-- **The hunger games winner's head start** — how much aura, and which one or two items
-  ([above](#the-hunger-games-winners-head-start)). The mechanism is decided; the numbers are not.
-- **The exact items and advancements behind each objective.** The track's shape — how many
-  objectives per milestone, of which type, serving which role, with which budget and pot — was
-  decided on 2026-08-31 and is [above](#the-objectives); the one example given per objective is a
-  config default and is expected to be corrected in the diff.
+**All six config points that used to head this list were proposed as defaults on 2026-09-01** and
+now live in `config.yml` and `milestones.yml`, each with its reasoning in the comment beside it —
+the advancement list and its 2–10 values, the "embarrassing" damage types, both duel loadouts, the
+winner's head start, the wheel's pool and weights, and the items and advancements behind every
+objective. They are proposals, and the point of putting a proposal in a config file is that
+correcting it is a diff rather than an argument.
+
+What is genuinely still open:
+
+- **What the spawn NPC is** — a villager with its AI off, a custom entity, or a player-skin NPC.
+  Left open deliberately: it belongs with the world half, and Citizens would be a *second* mandatory
+  third-party dependency after DisplayTags, which needs an explicit argument rather than a default.
+- **The contents of the balloon, hand-in and wheel GUIs** beyond what this document states.
 - **The server rules as written for players.** Deliberately not settled yet: the working principle
   is that anything goes as long as everyone involved agrees to it. A rules text has to exist before
   the phase opens, in both languages, but it is not a design decision.

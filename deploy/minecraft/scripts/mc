@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Send one command to the server console without needing a TTY.
+#
+#   mc list
+#   mc "say the server restarts in 5 minutes"
+#
+# Output is not returned here - it goes to the console and therefore to `docker logs`. This is the
+# fallback for any environment where attaching an interactive session does not work.
+set -euo pipefail
+if [ "$#" -eq 0 ]; then
+    echo "usage: mc <command...>" >&2
+    exit 2
+fi
+exec tmux -S "${MC_TMUX_SOCKET:-/run/mc/tmux.sock}" send-keys \
+    -t "${MC_TMUX_SESSION:-mc}" -- "$*" Enter

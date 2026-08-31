@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Attach to the real server console - read and write. Detach with Ctrl-b then d.
+#
+# Ctrl-C here goes to the SERVER, not to this shell: it is the same console the server would have
+# had on a terminal. Use `mc stop` or `docker stop` to shut the server down, never Ctrl-C.
+exec tmux -S "${MC_TMUX_SOCKET:-/run/mc/tmux.sock}" attach-session -t "${MC_TMUX_SESSION:-mc}"

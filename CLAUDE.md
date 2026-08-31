@@ -2,7 +2,10 @@
 
 Everything nordtal.eu season 2 deploys. A Velocity proxy (`network-control`) in front of three
 Paper backends (`limbo` → `hunger-games` → `smp`), plus the `discord-bot` Discord bot and the
-`resource-pack` assets. Production runs on [SimpleCloud](https://simplecloud.app) on a remote host.
+`resource-pack` assets. Production runs as **one `docker compose` stack** on a remote host, driven
+through [Arcane](https://github.com/ofkm/arcane). SimpleCloud was dropped on 2026-09-01 — the
+reasoning, the container design and the console mechanism are in
+[docs/operations.md](docs/operations.md#deployment).
 
 The workspace-level [../CLAUDE.md](../CLAUDE.md) carries the standing instructions and the map of
 the sibling repos. Read it too.
@@ -17,8 +20,10 @@ conventions, platform versions and repository rules.
 Set up 2026-08-29 from a bare IntelliJ scaffold. **Re-derived from the code 2026-09-01**, and
 updated the same day when `limbo` and the pack station were built.
 
-**One module is a scaffold: `smp`** — a main class that logs on enable, a descriptor, and nothing
-else. It is the last one, and it is the largest.
+**No module is a scaffold any more.** `smp` is half built: everything that needs no world — the
+milestone track, the aura payout, the prestige function and the milestone engine — landed on
+2026-09-01 with 56 tests. What is missing is the world half, which is the larger one, and
+`SmpPlugin` is still the scaffold's two log lines because there is nothing to wire together yet.
 
 Everything else has behaviour: `common` (access API, messages, `PlayerLocales`, the phase directory,
 `Glyphs`, the `nordtal:limbo` protocol, migrations V1–V6), `network-control` (login gate, phase,
@@ -49,9 +54,9 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
 - **The config system is chosen: `eu.nordtal.jcore.config`** (jcore 3.0.0). Commented YAML
   described by a `@ConfigSpec` interface. It is the default for every new config in this repo.
   `network-control` (`database.yml`, `gate.yml`, `pack.yml`), `hunger-games` (`config.yml`,
-  `database.yml`), `limbo` (`config.yml`, `database.yml`) and `discord-bot` (`access.yml`,
-  `bot.yml`, `database.yml`) all use it — read one of them, and "Configuration" below, before
-  writing `smp`'s.
+  `database.yml`), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`, `database.yml`,
+  `milestones.yml`) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`) all use it — read
+  one of them, and "Configuration" below, before writing the next.
 - **No command framework, decided 2026-08-31.** Season 1 used Incendo Cloud; season 2 uses
   **Brigadier directly, through each platform's own API** — `io.papermc.paper.command.brigadier.
   Commands` on the Lifecycle API for the three Paper plugins, `BrigadierCommand` through
@@ -95,10 +100,17 @@ Minecraft **26.2** / Java **25** / Gradle **9.7.1**. Notes:
 - Resource pack `pack_format` for 26.2 is **88** (26.1 was 84, 26.3 snapshots are 89). Season 1's
   pack was on 64.
 
-**SimpleCloud runs 26.2 — confirmed by the owner on 2026-08-31** against SimpleCloud v3's
-dashboard. That was the biggest open platform risk and it is closed.
+**SimpleCloud is gone, decided 2026-09-01.** It ran 26.2 — confirmed by the owner on 2026-08-31
+against the v3 dashboard — and that answer stopped mattering: season 2 uses none of its dynamic
+instances, templates or failover, its plugin management only handles Modrinth-hosted jars, and v3
+exists only inside a hosted closed-beta programme. Production is a single `docker compose` stack;
+the four Minecraft services share one image with a tmux console and a SIGTERM trap, because
+Arcane's per-container shell is a `docker exec` and cannot reach PID 1's stdin. Full reasoning in
+[docs/operations.md](docs/operations.md#why-simplecloud-was-dropped). **Do not reintroduce a
+cloud/orchestrator dependency without a concrete need** — the same rule the API artefact below
+already carries.
 
-**The API artefact question is closed too, by deletion.** `app.simplecloud.api:api` is published
+**The API artefact question was closed earlier, by deletion.** `app.simplecloud.api:api` is published
 *only* as `0.1.0-platform.NN-dev.*` snapshots — `repo.simplecloud.app` has no releases channel at
 all (HTTP 404, checked 2026-08-31). It sat in `network-control` as a `compileOnly` placeholder for
 routing; routing was written on 2026-08-31 and imported none of it, resolving backends by the names
@@ -145,16 +157,18 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
 
   | jar | bytes | measured |
   |---|---|---|
-  | `smp-0.1.0.jar` | 51,273 | 2026-08-31 |
+  | `smp-0.1.0.jar` | 4,619,974 | 2026-09-01, after the server-free half |
   | `limbo-0.1.0.jar` | 4,576,946 | 2026-09-01, after the module was built |
   | `hunger-games-0.1.0.jar` | 4,640,946 | 2026-08-31 |
   | `network-control-0.1.0.jar` | 5,291,760 | 2026-09-01, after the pack station |
   | `discord-bot-0.1.0.jar` | 30,952,094 | 2026-08-31 |
 
-  `smp` still carries `:common`'s own classes plus ~14 KB of SQL and **nothing else**, precisely
-  because the JDBI/Hikari/slf4j declarations are `compileOnly` and it has not opted into `jcore`.
-  `limbo` weighed the same 51 KB until 2026-09-01 and now weighs 4.6 MB, because it took the
-  persistence stack for one query — the language lookup docs/i18n.md requires of every module. `hunger-games` and `network-control` weigh what they weigh because they *did* opt
+  The 51 KB figure was what a plugin weighs that carries `:common`'s own classes plus ~14 KB of SQL
+  and **nothing else** — which is what `smp` and `limbo` both were until 2026-09-01, precisely
+  because the JDBI/Hikari/slf4j declarations are `compileOnly` and neither had opted into `jcore`.
+  Both now weigh ~4.6 MB, because both took the persistence stack: `smp` for the reason
+  docs/architecture.md gives ("heavily"), and `limbo` for one query per join — the language lookup
+  docs/i18n.md requires of every module. `hunger-games` and `network-control` weigh what they weigh because they *did* opt
   in — the persistence stack, not `:common`, is the weight. The 3.12 MB figure in
   `common/build.gradle.kts` is the **counterfactual** — what a plugin jar would weigh if those
   declarations were `implementation` — and it was read as a measurement of the jars as they are.
@@ -182,8 +196,14 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
 Every config file in this repo is a commented YAML file described by an interface, loaded through
 `eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). Six modules have one:
 `network-control` (`database.yml`, `gate.yml`, **`pack.yml`**), `hunger-games` (`config.yml`,
-`database.yml`), `limbo` (`config.yml`, `database.yml`) and `discord-bot` (`access.yml`, `bot.yml`,
-`database.yml`). `smp` has none yet and gets this as the standing instruction for its first one.
+`database.yml`), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`, `database.yml`,
+**`milestones.yml`**) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`).
+
+**A nested spec interface needs its own `@ConfigSpec`, and two levels of nesting work.** `smp`'s
+`milestones.yml` is a list of milestones each carrying a list of objectives, which is one level
+deeper than anything here had used. It works — and a nested interface *without* the annotation
+fails as a Gson error about making `java.lang.reflect.Proxy#h` accessible, which names nothing
+useful. `MilestonesTest` is the standing proof.
 
 ```java
 @ConfigSpec(header = "hunger-games")
@@ -243,10 +263,12 @@ block plus its own dependencies.
 Every external version lives in `gradle/libs.versions.toml`. Nothing pins a version in a module
 build file.
 
-**`app.simplecloud.api:api` is not a dependency of this build any more** (removed 2026-09-01, see
-"Target platform" above). If a future need ever brings it back, the rule it used to carry still
-applies: `compileOnly`, never shaded — the `simplecloud-api` platform plugin provides it at runtime
-and a bundled copy causes class-loading conflicts.
+**`app.simplecloud.api:api` is not a dependency of this build any more** (removed 2026-09-01), and
+**there is no reason left for it to come back**: SimpleCloud itself was dropped the same day, so
+nothing in production would provide that API at runtime. Both decisions are under "Target platform"
+above. The rule it used to carry is kept only as the general one it is an instance of: an API that a
+platform provides at runtime is `compileOnly` and never shaded, because a bundled copy causes
+class-loading conflicts. That is the same rule Gson, SnakeYAML, Brigadier and DisplayTags follow.
 
 **`smp` will take `com.github.nordtal:papermc-display-tags` from JitPack**, `compileOnly` and never
 shaded, for the nametag API (decided 2026-09-01, `docs/smp.md#what-a-player-looks-like`). It is an
@@ -456,10 +478,10 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**Five modules have tests: 369 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Six modules have tests: 435 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-01). The counts below are what the JUnit XML reports, not `@Test` counts.
 
-`:common` has **95**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
+`:common` has **98**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
 the access API and the link-code lifecycle against a real PostgreSQL container running the real
 migrations off `classpath:db/migration` — which also proves the location the bot depends on
 resolves, and now applies V1 through V6. `PhaseDirectoryIntegrationTest` (11) does the same for the
@@ -492,6 +514,15 @@ world, a title, a potion effect or a plugin message. What they cover is that eve
 a title and a subtitle in both languages and that no title runs past forty characters - a missing
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
+
+`smp` has **56**, and they are the module's server-free half in full: `MilestonesTest` (9) writes a
+fresh `milestones.yml`, reads it back and asserts the whole track survives — which is also the proof
+that two levels of jcore nesting work; `AuraPayoutTest` (13) covers the 30/70 split, the 2 %
+threshold, the concept's own worked example, the case it never named (more qualifiers than there is
+aura in the pot) and the invariant that the pot is never overspent; `TrackValidationTest` (13)
+asserts both halves of the reload rule, including the one that must *permit* a lowered target;
+`PrestigeTest` (8), `ObjectiveProgressTest` (7) and `DeathPenaltyTest` (7) are the rest. Not one of
+them touches a world, a packet or a player, because not one of those exists in this module yet.
 
 `hunger-games` has **41**, all in memory and all of them arithmetic the game would otherwise get
 wrong in front of players: `BorderMathTest` (the step, the extension of a running shrink, the

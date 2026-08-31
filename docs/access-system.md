@@ -1,8 +1,8 @@
 # Access system — concept
 
-Status: agreed 2026-08-30. This document is the shared understanding the three stage plans in
-`docs/access-stage-*.md` implement. It replaces season 1's contribution model entirely; nothing is
-migrated (see the workspace `CLAUDE.md`).
+Status: agreed 2026-08-30, built the same day. This is the shared understanding behind the code;
+the three stage plans it was written for are gone, because the code is now the fact. It replaces
+season 1's contribution model entirely; nothing is migrated (see the workspace `CLAUDE.md`).
 
 ## What is being built
 
@@ -27,7 +27,8 @@ release.
 ### The rules
 
 - Access is bought by and bound to a **Discord account**. The Minecraft account linked to it may
-  join; nothing else may.
+  join; nothing else may. Buying for somebody else is not offered — season 1's receiver select is
+  gone with the rest of the contribution model.
 - Buying while access is still running **appends**: the new period starts when the current one
   ends. Nobody loses paid time by renewing early.
 - The **donor role is permanent**. The bot grants it and never takes it away — which is also what
@@ -36,6 +37,8 @@ release.
   reconcile; `/grant-access` is the supported path.
 - A Discord ban does not pause anything: the paid period keeps running down. Unbanned before it
   expires, the rest is still usable; otherwise it is gone.
+- Expiry is announced: the bot DMs the user **three days before** access ends and again when it
+  does. A DM that cannot be delivered is reported to the admin channel, never logged and forgotten.
 
 ## Source of truth
 
@@ -57,6 +60,12 @@ cost is a documented path from `:common`'s tests to the bot's migration director
 Plugins and the proxy read the database directly through a `common` API and shade only what they
 need (JDBI + HikariCP + driver), never the full `jcore` dependency block — a Paper plugin must not
 carry the bot's ~33 MB jar.
+
+Two rules belong to that API rather than to any of its callers. **Appending is the API's job**:
+granting computes `valid_from = max(now, current valid_until)` in one statement, so two callers
+cannot each write their own version of that rule. And **`accessState` answers all of the proxy's
+questions in one query** — linked, member, banned, valid until — because a login path must not make
+three round trips.
 
 ## Flow
 
@@ -133,9 +142,21 @@ The proxy (`network-control`) decides, in this order:
    language.
 4. Otherwise: route to the game server.
 
-If the database is unreachable, the proxy falls back to a short-lived cache of last-known states and
-admits only players it saw recently with active access; everyone else is refused. Access that runs
-out mid-session warns the player in chat and then disconnects them. Both are specified in stage C.
+If the database is unreachable, the proxy falls back to a short-lived in-memory cache of last-known
+states and admits only players it saw recently with active access; everyone else is refused with a
+"we are having trouble" message, and the failure is logged loudly. Four rules keep that cache from
+turning into a second source of truth:
+
+- It is written only on a successful query — it never invents an entry.
+- Entries are usable for a bounded window (15 minutes to start with) and are then gone, so a long
+  outage closes the door rather than leaving it open forever.
+- It is consulted **only** while the database is unreachable, never as a read-through cache on the
+  healthy path. Access must not be decided from stale data while the truth is available.
+- It lives in the proxy process and dies with it. No file, no second database.
+
+Access that runs out mid-session is caught by a periodic check: it warns the player in chat, in
+their language, a few minutes before the end and disconnects them when it arrives. The lead time
+and the check interval are configuration, not constants.
 
 Membership state is not queryable from the proxy, so the bot maintains `discord_user.member_state`
 from guild events (join / leave / ban / unban) plus a reconcile at startup for anything it missed
@@ -158,9 +179,12 @@ onboarding as a role** — configured by hand, the bot owns none of it. The bot 
 mirrors it into `discord_user.locale` on `GuildMemberRoleUpdate`, plus a reconcile at startup, so
 the value is current for players who are offline or change it months later.
 
-Four bot-maintained messages in four role-gated channels: contribution DE/EN and link DE/EN. Banner
-images live in the module's resources and are attached via `attachment://`, never a Discord CDN URL
-— season 1's embed URLs carried expiry parameters and are dead.
+Four bot-maintained messages in four role-gated channels: contribution DE/EN and link DE/EN. Their
+message ids are stored, so a restart edits the existing message instead of posting a second one, and
+the prices they show are rendered from configuration every time — a stale price in an embed nobody
+re-posted is exactly what that prevents. Banner images live in the module's resources and are
+attached via `attachment://`, never a Discord CDN URL — season 1's embed URLs carried expiry
+parameters and are dead.
 
 Season 2 is multilingual beyond the bot: `common` gets the message system (bundle format, locale
 resolution, EN fallback) that the plugins use for their own text.
@@ -176,6 +200,9 @@ One admin channel; entries that need a human mention an admin role, routine audi
 - Reported there: unmatchable payments, payments on expired references, failed DMs, role errors,
   and every link/unlink
 
+Every one of these commands is `DefaultMemberPermissions.DISABLED` and writes to the append-only
+audit log; being admin-only in Discord's UI is not the same as being recorded.
+
 ## Deployment
 
 The module is renamed **`payments-bot` → `access-bot`** (`eu.nordtal.s2.accessbot`,
@@ -185,7 +212,9 @@ application is to be named "Nordtal Access".
 ## Verification
 
 1. Testcontainers against real PostgreSQL for the time logic: appending, expiry, downgrade on a
-   short payment, one-open-request-per-person.
+   short payment, one-open-request-per-person. Containers are started and stopped from `@BeforeAll`
+   by hand — this repo is on the JUnit 6 BOM and the `junit-jupiter` Testcontainers extension is
+   built for 5.
 2. bunq **sandbox** for the payment path end to end. `ApiEnvironmentType.PRODUCTION` is hardcoded
    today; an environment switch is part of stage B.
 3. The real guild, in a channel only admins can see, for buttons, modals, ephemeral messages and

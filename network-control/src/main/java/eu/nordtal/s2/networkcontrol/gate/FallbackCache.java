@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The short-lived, in-memory last-known-state cache the login gate falls back to while the
- * database is unreachable. See docs/access-stage-c.md.
+ * database is unreachable. See docs/access-system.md.
  *
  * <h2>The four rules</h2>
  * <ul>

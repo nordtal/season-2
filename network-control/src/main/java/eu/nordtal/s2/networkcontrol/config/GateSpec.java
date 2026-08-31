@@ -7,7 +7,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
  * {@code config/gate.yml} - everything the login gate and the mid-session expiry check need that
- * is not a database credential. See docs/access-stage-c.md.
+ * is not a database credential. See docs/access-system.md.
  * <p>
  * <b>{@link #linkCodeTtlMinutes()} duplicates {@code access-bot}'s
  * {@code access.yml#link-code-ttl-minutes}.</b> That field's own comment says the value "lives
@@ -67,7 +67,7 @@ public interface GateSpec {
             "How long a player's last-known state stays usable once the database becomes",
             "unreachable. Only entries with active access at the moment they were cached are",
             "ever used to let somebody in; everyone else is refused outright. A long outage",
-            "closes the door rather than leaving it open forever - see docs/access-stage-c.md."
+            "closes the door rather than leaving it open forever - see docs/access-system.md."
     })
     default int fallbackCacheWindowMinutes() {
         return 15;

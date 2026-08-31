@@ -112,6 +112,10 @@ reason is in the linked document — that is what stops it from being reopened b
 | Play time is counted by the proxy into `player_playtime`; the prestige tier is derived, never stored | [smp.md](smp.md#prestige--a-crest-earned-by-time) |
 | No web map and no Discord map render | [smp.md](smp.md#discord) |
 | There is no fixed season end date, so nothing may depend on one | [smp.md](smp.md#what-kind-of-server-this-is) |
+| **Decided 2026-08-31 — the planning session on commands, glyphs, loose ends and verification** | |
+| **No command framework.** Brigadier directly: Paper's `Commands` on the Lifecycle API, Velocity's `BrigadierCommand`. Cloud 2.0.0 and Lamp 4.0.0-rc.18 were both verified compatible and both rejected — on 879,377 shaded bytes per Paper jar and on eighteen release candidates respectively | [architecture.md](architecture.md#commands) |
+| No shared Brigadier helper in `:common`: two different brigadier artefacts, neither on Maven Central, for one command on the proxy | [architecture.md](architecture.md#commands) |
+| `BasicCommand` is not used — one command shape across the repository | [architecture.md](architecture.md#commands) |
 
 ## Working rules that apply to all of it
 

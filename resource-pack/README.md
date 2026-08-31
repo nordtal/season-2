@@ -201,10 +201,10 @@ Height 10, ascent 4.
 | Char code | File | Description | Status |
 |---|---|---|---|
 | `\uEF00` | `ui/bossbar/icons/compass.png`, 10 × 10 | Compass | keep — season 1 |
-| `\uEF01` | `ui/bossbar/icons/fblue.png`, 8 × 10 | Purpose undocumented | season 1 — **confirm before re-use** |
-| `\uEF02` | `ui/bossbar/icons/fgreen.png` | Purpose undocumented | season 1 — **confirm before re-use** |
-| `\uEF03` | `ui/bossbar/icons/fred.png` | Purpose undocumented | season 1 — **confirm before re-use** |
-| `\uEF04` | `ui/bossbar/icons/fwhite.png` | Purpose undocumented | season 1 — **confirm before re-use** |
+| `\uEF01` | `ui/bossbar/icons/fblue.png`, 8 × 10 | Land flag, blue — inside a player's preserved area | keep — season 1 |
+| `\uEF02` | `ui/bossbar/icons/fgreen.png`, 8 × 10 | Land flag, green — permanent land, untouched by the reset | keep — season 1 |
+| `\uEF03` | `ui/bossbar/icons/fred.png`, 8 × 10 | Land flag, red — reset zone | keep — season 1 |
+| `\uEF04` | `ui/bossbar/icons/fwhite.png`, 8 × 10 | Land flag, white — server-protected spawn area | keep — season 1 |
 | `\uEF05` | — | Dimension: Nordtal (overworld) | **new** |
 | `\uEF06` | — | Dimension: farm world | **new** |
 | `\uEF07` | — | Dimension: Nether | **new** |
@@ -215,10 +215,26 @@ Height 10, ascent 4.
 | `\uEF0C` | — | World border | **new** |
 | `\uEF0D` – `\uEF0F` | — | reserved | — |
 
-`fblue`, `fgreen`, `fred` and `fwhite` are four 8 × 10 sprites named after four of Minecraft's boss
-bar colours. That they are coloured bar caps is a **guess**, not a fact — season 1's plugin is the
-only thing that ever drew them and nothing in this repository does. Do not delete them and do not
-re-use their code points until somebody has looked at the images.
+`fblue`, `fgreen`, `fred` and `fwhite` are **land-status flags**, established 2026-08-31 by decoding
+the four PNGs and reading season 1's plugin. The `f` is *flag*, not a boss bar colour: all four are
+pixel-identical 8 × 10 sprites of a pennant on a dark-brown pole down the left edge, differing only
+in the banner's colour ramp. The earlier note here — that they were coloured bar caps named after
+Minecraft's boss bar colours — was a guess, and it was wrong.
+
+What fixes each colour's meaning is `SmpWorldsService#getInfoIconText`, which picked exactly one of
+them for the player's current position and paired it with a label:
+
+| Sprite | Season 1 label | Position |
+|---|---|---|
+| `fwhite` | `Server-protected` | inside the spawn area |
+| `fblue` | the area's display name and its owner | inside a player's preserved area |
+| `fred` | `Reset zone` | land the farm-world reset clears |
+| `fgreen` | `Permanent` | land the reset leaves alone |
+
+`\uEF00`'s compass was the companion icon naming the world itself — `spawnAreaIcon`,
+`preservedAreaIcon` and `resetAreaIcon` all defaulted to it. **Nothing in season 2 draws any of the
+five yet**, so the meanings above are recorded rather than in force: they are what the sprites meant,
+so that whatever builds the SMP HUD inherits them instead of re-inventing them.
 
 ### `\uEF10` – `\uEF1F` — bearing arrows
 

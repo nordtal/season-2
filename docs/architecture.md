@@ -3,8 +3,9 @@
 What season 2 is made of, how the pieces depend on each other, and which rules that dependency
 graph enforces. Start at [README.md](README.md) if you have not read the index yet.
 
-Status of every statement here: **design agreed 2026-08-30**. What is already built is marked as
-such in the module table; everything else is a plan and nothing more.
+Status of every statement here: **design agreed 2026-08-30**, with the SMP module and the schema
+location revised **2026-08-31**. What is already built is marked as such in the module table;
+everything else is a plan and nothing more.
 
 ## The network
 
@@ -21,7 +22,7 @@ flowchart TB
     subgraph backends["Paper 26.2 backends"]
         LB["limbo<br/>waiting room + pack"]
         HG["hunger-games<br/>the start event"]
-        SMP["smp-farm-world<br/>the SMP"]
+        SMP["smp<br/>the SMP: four worlds"]
     end
 
     subgraph side["Alongside"]
@@ -55,26 +56,33 @@ the proxy to route on; the proxy decides where by [phase](season-phases.md).
 
 | module | platform | owns | state |
 |---|---|---|---|
-| `network-control` | Velocity | Login gate, pack enforcement decision, current phase, routing | login gate built (stage C), phase and pack not built |
+| `network-control` | Velocity | Login gate, pack enforcement decision, current phase, routing, **network-wide play time** | login gate built (stage C), phase, pack and play time not built |
 | `limbo` | Paper | The waiting room: pack application, and every state that means "wait" | not built; today's scaffold is named `resource-pack-coercion` and is to be renamed |
 | `hunger-games` | Paper | The start event in full | not built, scaffold only |
-| `smp-farm-world` | Paper | The SMP, farm world lifecycle and resets | not built, scaffold only; [concept still open](smp.md) |
+| `smp` | Paper | The SMP: Nordtal, farm world, Nether, End, milestones, aura, prestige, duels, POIs, graves | not built, scaffold only; still named `smp-farm-world`. [Concept agreed 2026-08-31](smp.md) |
 | `discord-bot` | JVM app | Discord: access sales, account linking, HG registration, admin surface, **the schema** | built as `access-bot` (access half only); rename and HG half not done |
 | `common` | library | `AccessDirectory`, message system, locale resolution, `SeasonPhase`, `Glyphs` | access API and messages built; phase and locale components not built |
 | `resource-pack` | assets | Glyphs, HUD sprites, vanilla overrides, the released zip | built, carries season 1 leftovers to clean up |
 
-Three renames are part of this plan and are cheap **only until something runs in production**:
+Four renames are part of this plan and are cheap **only until something runs in production**:
 
 - `resource-pack-coercion` → **`limbo`** (`eu.nordtal.s2.limbo`). The module is a waiting room for
   every waiting state, not just the pack.
 - `access-bot` → **`discord-bot`** (`eu.nordtal.s2.discordbot`, `ghcr.io/nordtal/discord-bot`),
   with `access/` and `hungergames/` as sibling feature packages. There is one Discord application,
   one token, one deployment — but the module must not be named after one of its features.
+- `smp-farm-world` → **`smp`** (`eu.nordtal.s2.smp`). Decided 2026-08-31: the module owns the build
+  world, the spawn, milestones, aura, prestige, duels, POIs and graves — the farm world is one part
+  of it, not the whole. See [smp.md](smp.md).
 - `SeasonPhase.RESOURCE_PACK_INSTALL` → the phase enum becomes `PRE_EVENT`, `START_EVENT`, `SMP`,
   `MAINTENANCE`. See [season-phases.md](season-phases.md).
 
 A Paper plugin's `name:` is its runtime identity — the `plugins/<name>/` data folder and the
 permission prefix. Renaming after deployment means moving data folders on the production host.
+
+**What `limbo` shows, decided 2026-08-31:** nothing. Black, no visible world, no other players and
+**no chat**. A title in the player's language says what they are waiting for, and that is the
+entire interface. Every other server has ordinary per-server chat.
 
 ## Dependencies, and the rules attached to them
 
@@ -90,7 +98,7 @@ flowchart LR
     NC["network-control"] --> COMMON
     LB["limbo"] --> COMMON
     HG["hunger-games"] --> COMMON
-    SMP["smp-farm-world"] --> COMMON
+    SMP["smp"] --> COMMON
     BOT["discord-bot"] --> COMMON
     BOT --> JCORE
     COMMON -.->|"compileOnly"| JDBI
@@ -113,21 +121,39 @@ flowchart LR
   The bot has no platform to provide them and therefore does bundle them.
 - **`app.simplecloud.api:api` stays `compileOnly` and is never shaded.**
 - **Decide per module whether it needs persistence.** `limbo` probably does not: it holds nobody's
-  state. `hunger-games` does — its registrations arrive from Discord. Do not add a database because
-  the neighbouring module has one.
+  state. `hunger-games` does — its registrations arrive from Discord. `smp` does, heavily: aura,
+  prestige, milestone progress, contributions, POIs, duels and graves all outlive a restart. Do not
+  add a database because the neighbouring module has one.
 
 ## Schema ownership
 
-**Exactly one process migrates: the bot.** `discord-bot/src/main/resources/db/migration/` holds
-every migration, applied at bot startup; Flyway must never reach `:common`, or it lands in every
-plugin jar. The APIs that *read* those tables live in `:common`, so a column change is an edit in
-two modules. `:common`'s tests apply the bot's migration directory directly rather than keeping a
-second copy of the DDL.
+**Exactly one process migrates: the bot.** That has not changed. What changed on **2026-08-31** is
+*where the SQL lives*: the migration files move to `:common/src/main/resources/db/migration/`, and
+the bot applies them at startup from there. **The move itself has not been carried out** — today
+the files still sit under `access-bot/src/main/resources/db/migration/` and `:common`'s tests still
+reach into that directory.
 
-That rule extends unchanged to the new tables in this plan: the phase row
-([season-phases.md](season-phases.md)) and the hunger games tables
-([hunger-games.md](hunger-games.md)) are migrated by the bot and read — and their game-state rows
-written — by the plugins.
+The two questions are separate and were being answered as one:
+
+- **Who runs Flyway?** Only the bot — unchanged, and the reason is unchanged: Flyway must never
+  reach `:common`, or it lands in every plugin jar.
+- **Where do the `.sql` files live?** In `:common`, alongside the APIs that read those tables. SMP
+  DDL living inside a Discord bot module was an oddity nobody could justify on reading it.
+
+The cost is that every plugin jar carries a few KB of SQL text it never reads. That is the whole
+price, and it buys a schema that sits next to its reading API instead of inside an unrelated
+module. `:common`'s tests apply that directory directly — which is now simply a local path rather
+than a documented reach into the bot module.
+
+One table is written by the proxy rather than by a plugin: **`player_playtime`**. Play time is a
+network-wide fact and only the proxy sees a whole session, so `network-control` accumulates it and
+writes it on disconnect and periodically. It carries no `smp_` prefix for exactly that reason,
+even though the SMP is what reads it — see [smp.md](smp.md#prestige--a-crest-earned-by-time).
+
+That arrangement covers every table in this plan: the phase row
+([season-phases.md](season-phases.md)), the hunger games tables
+([hunger-games.md](hunger-games.md)) and the SMP tables ([smp.md](smp.md#data-model)) are all
+migrated by the bot and read — and their game-state rows written — by the plugins.
 
 ## The login path, end to end
 

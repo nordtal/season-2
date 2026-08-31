@@ -21,14 +21,14 @@ stateDiagram-v2
     MAINTENANCE --> PRE_EVENT
     MAINTENANCE --> START_EVENT
     MAINTENANCE --> SMP
-    SMP --> [*]: season ends
+    SMP --> [*]: season ends — no fixed date
 ```
 
 | phase | who gets in | where they land | what it is |
 |---|---|---|---|
 | `PRE_EVENT` | linked Discord member, not banned | `hunger-games` lobby | Network is open, the lobby stands, teams register |
 | `START_EVENT` | linked Discord member, not banned | `hunger-games` | The event itself, from countdown to winner |
-| `SMP` | the above **plus active access** | `smp-farm-world` | The season proper |
+| `SMP` | the above **plus active access** | `smp` | The season proper |
 | `MAINTENANCE` | admins only | `limbo` | Planned work; everyone else waits or is refused |
 
 **Access is only required from `SMP` onwards.** The start event is free for anyone who has linked
@@ -127,12 +127,29 @@ decide it wants a player somewhere — that would put the routing rules in two p
 A phase switch while players are online moves everyone: the proxy re-routes connected players to
 the new phase's server, holding them in `limbo` if it is not up yet.
 
+## How an admin is recognised
+
+**Settled 2026-08-31, and LuckPerms is still not used.** The bot mirrors the Discord admin role
+into the database as a flag, exactly the way it already mirrors language and access. Every process
+reads it with the query it makes anyway — the proxy on the login path, the plugins at join. An
+admin is appointed in Discord and is an admin everywhere; there is no second list to forget.
+
+Rejected: a UUID list in `gate.yml` (it lives in several places and goes stale), and LuckPerms
+(a third truth between the Discord role and its effect, with a sync cycle — the same chain the
+access system deliberately avoids).
+
+Bukkit permissions, where a vanilla or third-party command needs them, come from a
+`PermissionAttachment` the SMP plugin applies at join and removes at quit. See
+[smp.md](smp.md#admins).
+
+## The end of the season
+
+**There is no fixed end date.** The season runs until it stops, and nothing may depend on knowing
+when that is — no countdown in the HUD, no ceremony wired into the code. The `SMP → [*]` edge above
+is an admin switching the phase to `MAINTENANCE` on a day nobody has picked yet.
+
 ## Open questions
 
-- **How is an admin recognised?** LuckPerms is deliberately not used, and Velocity has no
-  permission source of its own. Candidates: a list of UUIDs in `gate.yml`, or an admin flag derived
-  from the Discord admin role through the existing account link — which would be one more reason
-  the link exists. Undecided; must be settled before `MAINTENANCE` can mean anything.
 - **Poll interval and `NOTIFY` channel name** — trivial, but they belong in config with the rest.
 - **Does a phase switch kick or move?** The plan says move; whether an SMP switch should also
   disconnect players who now lack access (rather than bouncing them to `limbo`) is unsettled.

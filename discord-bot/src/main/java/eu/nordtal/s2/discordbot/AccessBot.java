@@ -8,6 +8,7 @@ import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.BotSpec;
 import eu.nordtal.s2.discordbot.config.Configs;
 import eu.nordtal.s2.discordbot.config.DatabaseSpec;
+import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.discord.AdminCommands;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
@@ -36,7 +37,6 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -56,7 +56,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class AccessBot implements AutoCloseable {
 
-    /** Where the DE/EN message bundles live on the classpath. */
+    /** Where the message bundles live on the classpath - one {@code <tag>.properties} per language. */
     private static final String MESSAGE_ROOT = "messages/access";
 
     private final Database database;
@@ -98,7 +98,11 @@ public class AccessBot implements AutoCloseable {
             // resource, so there is nothing to close.
             final PhaseDirectory phases = PhaseDirectory.using(database.dataSource());
 
-            final Messages messages = Messages.load(MESSAGE_ROOT, Locale.ENGLISH, Locale.GERMAN);
+            // Which bundles are loaded is a config question, not a code one: the list drives it,
+            // so adding a language is an edit to access.yml plus a <tag>.properties file. A
+            // language whose file is missing is logged once and reads English rather than failing.
+            final Languages languages = Languages.of(accessConfig);
+            final Messages messages = Messages.load(MESSAGE_ROOT, languages.locales());
             final Tiers tiers = Tiers.of(accessConfig);
             final BunqGateway bunq = new BunqGateway(botConfig);
             final PaymentRequests requests = new PaymentRequests(database.jdbi());
@@ -124,10 +128,10 @@ public class AccessBot implements AutoCloseable {
             // Resolved once, at startup: the first start ever stamps its own instant into
             // bot_setting and every later start reads it back. Payments older than it are ignored
             // forever, which is what stops the first poll booking fifty historical payments.
-            final PaymentProcessor processor = new PaymentProcessor(accessConfig, bunq, requests, purchases,
-                    tiers, access, roles, admin, messages, jda,
+            final PaymentProcessor processor = new PaymentProcessor(accessConfig, languages, bunq, requests,
+                    purchases, tiers, access, roles, admin, messages, jda,
                     Watermark.resolve(database.jdbi(), accessConfig.payment().watermark()));
-            final GuildState guildState = new GuildState(jda, accessConfig, access, database.jdbi());
+            final GuildState guildState = new GuildState(jda, accessConfig, languages, access, database.jdbi());
 
             jda.addEventListener(
                     guildState,
@@ -142,7 +146,7 @@ public class AccessBot implements AutoCloseable {
             commands.addAll(PhaseCommand.commands());
             jda.updateCommands().addCommands(commands).queue();
 
-            new ManagedMessages(jda, accessConfig, tiers, messages, database.jdbi()).publishAll();
+            new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();
             guildState.reconcile();
             roles.reconcile();
 

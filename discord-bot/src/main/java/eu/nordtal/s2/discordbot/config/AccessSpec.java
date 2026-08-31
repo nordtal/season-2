@@ -91,12 +91,18 @@ public interface AccessSpec {
 
     @Order(4)
     @Key("roles")
-    @Comment("Role ids. Snowflakes, as strings - a snowflake does not fit in a YAML integer safely.")
+    @Comment({
+            "Role ids that are not per-language. Snowflakes, as strings - a snowflake does not fit",
+            "in a YAML integer safely. Each language's own role is on its entry under 'languages'."
+    })
     RolesSpec roles();
 
     @Order(5)
     @Key("channels")
-    @Comment("Channel ids. Snowflakes, as strings.")
+    @Comment({
+            "Channel ids that are not per-language. Snowflakes, as strings. The buy-access and",
+            "account-link channels are on the 'languages' entries below, one pair per language."
+    })
     ChannelsSpec channels();
 
     @Order(6)
@@ -258,30 +264,18 @@ public interface AccessSpec {
             return "";
         }
 
+        // There are deliberately no language roles here. `german` and `english` used to sit between
+        // `donor` and `admin`, and they made a third language a code change - the whole reason
+        // `languages` above is a list (docs/i18n.md). Each language carries its own role there.
+
         @Order(3)
-        @Key("german")
-        @Comment({
-                "The German language role from Discord's own onboarding. The bot never assigns",
-                "it - it only mirrors it into discord_user.locale."
-        })
-        default String german() {
-            return "";
-        }
-
-        @Order(4)
-        @Key("english")
-        @Comment("The English language role from onboarding. Also read-only for the bot.")
-        default String english() {
-            return "";
-        }
-
-        @Order(5)
         @Key("admin")
         @Comment({
-                "Who is an admin. Read-only for the bot, exactly like the language roles: it is",
-                "mirrored into discord_user.admin and every other process reads the flag from",
-                "there - the proxy on the login path, the plugins at join. An admin is appointed",
-                "in Discord and is an admin everywhere; there is no second list.",
+                "Who is an admin. Read-only for the bot, exactly like the language roles on the",
+                "'languages' entries below: it is mirrored into discord_user.admin and every other",
+                "process reads the flag from there - the proxy on the login path, the plugins at",
+                "join. An admin is appointed in Discord and is an admin everywhere; there is no",
+                "second list.",
                 "",
                 "The mirror is live, not a grant: losing the role clears the flag on the next",
                 "role event or reconcile. This is what /phase set and the MAINTENANCE phase are",
@@ -291,7 +285,7 @@ public interface AccessSpec {
             return "";
         }
 
-        @Order(6)
+        @Order(4)
         @Key("admin-ping")
         @Comment({
                 "Mentioned in the admin channel for entries that need a human.",
@@ -305,39 +299,21 @@ public interface AccessSpec {
         }
     }
 
-    /** Channel ids the bot writes to. */
+    /**
+     * Channel ids the bot writes to that are not per-language.
+     * <p>
+     * The four per-language channels - {@code contribution-en}, {@code contribution-de},
+     * {@code link-en} and {@code link-de} - used to sit here. They are gone: each entry of
+     * {@link #languages()} carries its own {@code contribution-channel} and {@code link-channel},
+     * which is what makes a third language an edit to this file rather than a release
+     * ({@code docs/i18n.md}). The admin channel stays here because there is exactly one of it,
+     * whatever languages the guild speaks.
+     * </p>
+     */
     @ConfigSpec
     interface ChannelsSpec {
 
         @Order(1)
-        @Key("contribution-en")
-        @Comment("Carries the English buy-access message and its public donation thank-yous.")
-        default String contributionEn() {
-            return "";
-        }
-
-        @Order(2)
-        @Key("contribution-de")
-        @Comment("The German one.")
-        default String contributionDe() {
-            return "";
-        }
-
-        @Order(3)
-        @Key("link-en")
-        @Comment("Carries the English account-link message. Stage C fills the button in.")
-        default String linkEn() {
-            return "";
-        }
-
-        @Order(4)
-        @Key("link-de")
-        @Comment("The German one.")
-        default String linkDe() {
-            return "";
-        }
-
-        @Order(5)
         @Key("admin")
         @Comment({
                 "Everything a human may need to act on: unmatchable payments, payments on an",

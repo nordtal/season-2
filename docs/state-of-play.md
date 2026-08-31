@@ -30,12 +30,12 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `common` | 26 files, 2671 lines | 98 | Access API, messages, locales, phase, glyphs, **the limbo protocol**, V1–V6 |
 | `resource-pack` | — | — | Three fonts, every code point allocated and drawn |
 | `limbo` | 10 files, 1139 lines | 11 | The waiting room, in full |
-| `smp` | 1 file, 23 lines | — | Two log lines |
+| `smp` | 22 files, 2914 lines | 56 | The track, aura, prestige and the milestone engine — no world |
 
-379 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
+435 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
 
-**One of the seven modules is a scaffold**, and it is the one that carries the most design: the
-phase the season spends its life in.
+**No module is a scaffold any more.** What is left is not a module but a half of one: everything in
+`smp` that touches a world.
 
 ### `common`
 
@@ -161,8 +161,30 @@ this module uses `GameRules` throughout, which is worth knowing before the SMP w
 
 ### `smp`
 
-A scaffold: one class, `onEnable`/`onDisable` logging its own name, a `paper-plugin.yml`, and a
-`build.gradle.kts` holding a single `plugins {}` block. It has taken a dependency on nothing.
+**Half built, 2026-09-01: the half that needs no world.** The split is deliberate and follows
+docs/state-of-play.md's own §2b/§2c division - what is here can be asserted in a test, and what is
+not needs a running server and real clients before it means anything.
+
+- `config/` - `SmpSpec` (`config.yml`), `DatabaseSpec`, and **`MilestonesSpec` + `DefaultTrack`**,
+  which is the track of docs/smp.md#the-track written out entry for entry. `DefaultSmp` carries the
+  six config points that used to be listed as open: the advancement awards, the death causes, both
+  duel loadouts, the winner's head start, the wheel's pool and the spawn regions.
+- `milestone/` - `MilestoneTrack`, `Milestone`, `Objective`, the three enums, `StoredProgress`,
+  `TrackShape` (is this file a track at all), `TrackValidation` (may it replace the running one) and
+  `ObjectiveProgress`.
+- `aura/` - `AuraPayout` (the 30/70 split, the 2 % threshold, the minimum share and the admin
+  scaling), `AuraReason`, `DeathPenalty`.
+- `prestige/` - `Prestige`, thirteen tiers derived from `player_playtime.seconds` and never stored.
+
+`build.gradle.kts` takes jcore, HikariCP, jdbi3-postgres and - `compileOnly`, never shaded -
+`com.github.nordtal:papermc-display-tags:2.0.0`; `paper-plugin.yml` declares DisplayTags with
+`load: BEFORE` and `required: true`. The jar is 4,619,974 bytes.
+
+**What is not here is the whole world half**, and it is the larger half: the farm-world swap, the
+balloon and the travel rules, portal gating, spawn protection, graves, POIs, `/navigate`, the duel
+arenas, the per-player Text Display boards, the wheel, the HUD, the commands, the DAO, and the
+plugin main class that would wire any of it together. `SmpPlugin` is still the scaffold's two log
+lines.
 
 ### Where the documents and the code disagree
 
@@ -179,6 +201,7 @@ The nine findings of the previous version are resolved as follows. **Only two st
 | 7 | The jar-size claim was wrong | **closed** — corrected in both documents |
 | 8 | A whole font was undocumented | **closed** — the pack's README owns all three fonts |
 | 9 | The bossbar font's positive space advances sit outside the private-use area | **stands.** `！` and friends are `FULLWIDTH EXCLAMATION MARK`, not private use, while the pack states its range as ``–``. Confined to `nordtal:bossbar` and `nordtal:board`, so nothing is broken; moving them would change the HUD code that composes the bar, which now exists |
+| 13 | **New 2026-09-01:** jcore's config system had never been asked for two levels of nesting, and nothing said whether it could do it | **closed by building it.** It can - a `List<NestedSpec>` inside a `NestedSpec` round-trips - but **every nested interface needs its own `@ConfigSpec`**, and one without it fails as a Gson error about making `java.lang.reflect.Proxy#h` accessible, which names nothing useful. `MilestonesTest` is the standing proof; this is worth knowing before the next nested config is written |
 | 12 | **New 2026-09-01:** `hunger-games` read a player's language with a blocking JDBC call from its `PlayerJoinEvent` handler, on the main thread, and its pool had no timeout of any kind | **closed the same day, in both modules.** `PlayerLocales#joinAsync` runs the lookup on Bukkit's async scheduler; `limbo` redraws its title when the value lands, `hunger-games` needs no redraw. Both `database.yml` files gained `query-timeout-seconds` (default 3), setting HikariCP's `connectionTimeout` and the driver's `socketTimeout`. Found while building `limbo`, where the same line would have frozen the server every login passes through |
 | 11 | **New 2026-09-01:** the knowledge base named `objects.githubusercontent.com` as what a GitHub release asset redirects to | **closed by measurement.** It is `release-assets.githubusercontent.com`, one hop, with a signed URL that expires within the hour. Corrected in `operations.md` and in `PackSpec`'s own comment, which now says in capitals not to paste the resolved address into the config |
 | 10 | **New 2026-09-01:** the knowledge base described three modules as unbuilt that were built hours earlier, and `season-2/CLAUDE.md` still opens with "`hunger-games`, `smp` and `limbo` are still scaffolds" | **closed by this pass** in both places. The cause is worth keeping: a documentation commit that lands *after* an implementation commit is not evidence that it describes it |
@@ -213,7 +236,7 @@ One measurement did come out of it. `curl` against a real GitHub release asset o
 hour. This knowledge base said `objects.githubusercontent.com`, which is wrong and is corrected. It
 does not settle whether a Minecraft client follows the redirect — only where it goes.
 
-### b. The SMP's server-free core
+### b. The SMP's server-free core — **built 2026-09-01**
 
 **Specified by** [smp.md](smp.md). **Touches** `smp`. **Depends on** V6, which exists.
 
@@ -231,7 +254,7 @@ Three pieces of the SMP are pure logic, testable the way `BorderMath` and `Demot
   does not exist — progress accounting per objective type, and the three escape hatches with their
   `pot × (reached ÷ target)` payout.
 
-### c. The SMP's world half
+### c. The SMP's world half — **the one implementation session left**
 
 Same document, same module, but every feature ends at a rehearsal rather than a green build: the
 farm-world swap, the balloon and the travel rules, portal gating, spawn protection, graves, POIs,
@@ -267,14 +290,27 @@ its own, or a config default that is cheaper to propose in a diff than to argue 
 ### Concept work, and it has no home yet
 
 **PostgreSQL backup and restore.** The entire season lives in one database — access periods,
-payments, aura, milestone progress, graves. [operations.md](operations.md) describes deployment in
-one sentence and says nothing about backups, restore, or how a restore would be tested. This is the
-only genuinely irreversible risk in the project and it is the one thing here that is not a
-config default, a drawing or a build. It belongs before the SMP phase opens.
+payments, aura, milestone progress, graves. [operations.md](operations.md) still says nothing about
+backups, restore, or how a restore would be tested. This is the only genuinely irreversible risk in
+the project and it is the one thing here that is not a config default, a drawing or a build. It
+belongs before the SMP phase opens. Since 2026-09-01 the fix is at least local — PostgreSQL is a
+service in the same compose stack, so a `pg_dump` sidecar against the same volume is the whole of
+it — which makes it cheaper, not done.
 
-The SimpleCloud runbook — what the groups and templates look like, how jars and configs reach the
-host — is the same gap one step less urgent, and it will largely write itself during the first real
-deployment.
+**The deployment runbook is no longer part of that gap at all.** SimpleCloud was dropped on
+2026-09-01 in favour of a single `docker compose` stack, and the stack was built the same day:
+[`deploy/`](../deploy) holds the compose file, the image for all four Minecraft services, the
+entrypoint and the runbook. It is **measured, not just written** — a Velocity and a Paper container
+were run from that image, the pinned build resolved and checksum-verified through the Fill API, the
+console proved writable from a `docker exec`, and `docker stop` shut Paper down in 3 s with
+`All dimensions are saved` in the log. See
+[operations.md](operations.md#closed-2026-09-01), which also records the one design that had to be
+thrown away.
+
+What is left there is one open verification and one manual step, not a build: whether the
+*interactive* `console` attach behaves inside Arcane's browser terminal (`mc <command>` through a
+plain exec is already proven, and is the fallback), and pasting the Velocity forwarding secret into
+each backend's `config/paper-global.yml`. Neither blocks anything before the first deployment.
 
 ### Config defaults, cheapest to propose in a diff
 
@@ -328,9 +364,12 @@ One implementation session and one concept session are left, plus one rehearsal.
   account and not a session.
 - **The backup concept** (§3). Not code, and it should not wait for the SMP: the database it
   protects already holds real payment records the moment the bot is deployed.
-- **The SMP** (§2b, §2c, §2d), by a wide margin the largest and now the only implementation session
-  left. Start with the pre-generation measurement and the milestone YAML, then the three server-free
-  pieces, then the world half.
+- **The SMP's world half** (§2c) plus the winner's head start (§2d). §2b is built: the milestone
+  YAML, the aura payout, the prestige function and the milestone engine, 56 tests. What is left is
+  every feature that ends at a rehearsal rather than at a green build.
+- **The pre-generation measurement**, which does not need this repository at all and should happen
+  before the world half is designed around a number nobody has:
+  [operations.md](operations.md#measuring-the-pre-generation--do-this-first) is the recipe.
 
 One thing to keep in view throughout: **nothing here has been exercised against a running server, a
 real client, Discord or bunq.** The test suite covers the access API, the config specs, the fallback

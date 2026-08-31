@@ -21,7 +21,7 @@ container.
 
 ## Configuration is environment variables only
 
-`docker-compose.yml` carries no values. Every setting in `bot.yml`, `database.yml` and `access.yml`
+[`../deploy/compose.yml`](../deploy/compose.yml) carries no values. Every setting in `bot.yml`, `database.yml` and `access.yml`
 arrives as an environment variable; jcore applies the environment *after* it writes the file and
 *before* it validates, so a container that has never seen a config file starts correctly from the
 environment alone, and **an overridden value is never written back into the config volume**.
@@ -44,10 +44,15 @@ Check the startup log: every load prints which settings the environment overrode
 
 ## Start it
 
+The bot no longer has a compose file of its own: since 2026-09-01 the whole deployment is one
+stack in [`../deploy`](../deploy), and the bot is the `bot` profile inside it. It keeps every
+property this document claims for it — no Minecraft dependency, no waiting for a proxy or a
+backend — because that profile can be brought up alone. Run these from `deploy/`:
+
 ```bash
 cp .env.example .env      # fill it in — .env is gitignored and must never be committed
 ../gradlew :discord-bot:shadowJar
-docker compose up -d --build
+COMPOSE_PROFILES=db,bot docker compose up -d --build
 ```
 
 **The Gradle step is not optional.** The image only copies a finished jar, and Compose cannot run
@@ -66,19 +71,21 @@ checkout that fails on the missing jar, which is the loud outcome rather than a 
 `BOT_IMAGE` only needs a value to run an image that is not
 `ghcr.io/nordtal/discord-bot:$BOT_VERSION`.
 
-`COMPOSE_PROFILES=db` in `.env` brings up a PostgreSQL alongside the bot; leave it empty to run only
-the bot against a database that already exists. There is deliberately **no `depends_on`**: recent
-Compose implicitly enables the profile of a dependency, which would start the database even when the
-deployment does not want one. The bot exits when the database is unreachable and the restart policy
-brings it back, so the first boot may log one connection failure.
+`COMPOSE_PROFILES` in `.env` decides what comes up. `bot` is the bot alone, against a database that
+already exists; `db,bot` adds a PostgreSQL beside it; `db,bot,mc` is the production network. There
+is deliberately **no `depends_on`** anywhere in that file: recent Compose implicitly enables the
+profile of a dependency, which would start the database even when the deployment does not want one.
+The bot exits when the database is unreachable and the restart policy brings it back, so the first
+boot may log one connection failure.
 
 ## The same file in production
 
 The compose is meant to be the production one. What changes is `.env`:
 
 - Nothing is built: `docker compose pull` first, and `BOT_VERSION` is the released tag.
-- `POSTGRES_BIND` moves off `127.0.0.1` once the proxy and the Paper plugins need to reach the same
-  database from another host.
+- `POSTGRES_BIND` stays on `127.0.0.1`. The proxy and the Paper plugins read the same database, but
+  they are services in the same stack now and reach it over the compose network; the published port
+  exists only for backups and for a `psql` from the host.
 - `NORDTAL_BOT_BUNQ_ENVIRONMENT=PRODUCTION`, with the `bunq-context` volume emptied first — a bunq
   context file belongs to exactly one environment.
 

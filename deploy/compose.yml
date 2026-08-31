@@ -1,0 +1,211 @@
+# nordtal.eu season 2 - the whole deployment.
+#
+# One stack, three profiles. SimpleCloud was dropped on 2026-09-01; the reasoning is in
+# docs/operations.md#why-simplecloud-was-dropped.
+#
+#   cp .env.example .env        # fill it in; .env is gitignored and must never be committed
+#   docker compose up -d
+#
+# COMPOSE_PROFILES in .env decides what "everything" means. The default is `db,bot,mc`.
+#
+#   COMPOSE_PROFILES=bot        just the Discord bot, against a database that already exists
+#   COMPOSE_PROFILES=db,bot     bot and database, no Minecraft at all
+#   COMPOSE_PROFILES=db,bot,mc  the production network
+#
+# The bot has no Minecraft dependency and never waits for a proxy or a backend; the `bot` profile
+# is what preserves that. It replaces discord-bot/docker-compose.yml.
+#
+# THERE IS NO depends_on ON THE DATABASE, deliberately. Compose pulls a profiled dependency in
+# whether you asked for it or not, which would make "point at an external PostgreSQL" impossible
+# without editing this file. Every service here fails fast on an unreachable database and
+# `restart: unless-stopped` retries it, so start-up ordering resolves itself within seconds. The
+# one ordering rule that matters is an operator rule and cannot be expressed here anyway: after a
+# schema change, bring the bot up first, because it is the only process that migrates.
+
+name: nordtal-s2
+
+# ---------------------------------------------------------------------------------------------
+# Shared by the four Minecraft services. They differ only in environment: which server software,
+# which build, which plugin jars. Nothing about a specific server is baked into the image.
+# ---------------------------------------------------------------------------------------------
+x-minecraft: &minecraft
+  profiles: ["mc"]
+  build:
+    context: ./minecraft
+  image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:${MC_IMAGE_TAG:-local}}
+  restart: unless-stopped
+  # The entrypoint MUST be PID 1: it traps SIGTERM and mirrors the console to /proc/1/fd/1.
+  # `init: true` would put tini there instead and break both.
+  init: false
+  # 10s (the default) does not save a border-4000 world. The entrypoint forwards SIGTERM to the
+  # JVM, whose shutdown hook saves and stops; this is the time it is given to finish.
+  stop_grace_period: 180s
+  environment: &minecraft-env
+    TZ: ${TZ:-Europe/Berlin}
+    SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
+    SEASON_RELEASE: ${SEASON_RELEASE:?set SEASON_RELEASE in .env - the release tag the jars come from}
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+
+  # -------------------------------------------------------------------------------------------
+  postgres:
+    profiles: ["db"]
+    # The version every integration test in this repository runs against.
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      TZ: ${TZ:-Europe/Berlin}
+    ports:
+      # Everything that reads this database is now in the same stack, so this publish exists only
+      # for backups and for a psql from the host. It binds to loopback until POSTGRES_BIND says
+      # otherwise: a PostgreSQL on 0.0.0.0 with a password from a .env file is a bad first day.
+      - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging: *logging
+
+  # -------------------------------------------------------------------------------------------
+  # The Discord bot. No Minecraft dependency: PostgreSQL, the Discord gateway and bunq. It is also
+  # the only process that applies the schema. Its runbook is in ../discord-bot/README.md.
+  bot:
+    profiles: ["bot"]
+    image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${BOT_VERSION:?set BOT_VERSION in .env; it must match gradle.properties}}
+    build:
+      # Compose cannot run Gradle: `../gradlew :discord-bot:shadowJar` has to happen first.
+      # A production host runs the released image and never builds.
+      context: ../discord-bot
+      args:
+        JAR: build/libs/discord-bot-${BOT_VERSION}.jar
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+
+      # --- database.yml ------------------------------------------------------------------
+      NORDTAL_DATABASE_JDBC_URL: ${NORDTAL_DATABASE_JDBC_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nordtal}}
+      NORDTAL_DATABASE_USERNAME: ${NORDTAL_DATABASE_USERNAME:-${POSTGRES_USER:-nordtal}}
+      NORDTAL_DATABASE_PASSWORD: ${NORDTAL_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD or NORDTAL_DATABASE_PASSWORD in .env}}
+      NORDTAL_DATABASE_MAXIMUM_POOL_SIZE: ${NORDTAL_DATABASE_MAXIMUM_POOL_SIZE:-}
+      NORDTAL_DATABASE_LOG_SQL: ${NORDTAL_DATABASE_LOG_SQL:-}
+
+      # --- bot.yml -----------------------------------------------------------------------
+      NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
+      NORDTAL_BOT_BUNQ_API_KEY: ${NORDTAL_BOT_BUNQ_API_KEY:?set NORDTAL_BOT_BUNQ_API_KEY in .env}
+      NORDTAL_BOT_BUNQ_ACCOUNT_ID: ${NORDTAL_BOT_BUNQ_ACCOUNT_ID:?set NORDTAL_BOT_BUNQ_ACCOUNT_ID in .env}
+      NORDTAL_BOT_BUNQ_ENVIRONMENT: ${NORDTAL_BOT_BUNQ_ENVIRONMENT:?SANDBOX or PRODUCTION}
+
+      # --- access.yml --------------------------------------------------------------------
+      NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in .env}
+      NORDTAL_ACCESS_ROLES_ACCESS: ${NORDTAL_ACCESS_ROLES_ACCESS:?}
+      NORDTAL_ACCESS_ROLES_DONOR: ${NORDTAL_ACCESS_ROLES_DONOR:?}
+      NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?}
+      NORDTAL_ACCESS_ROLES_ADMIN_PING: ${NORDTAL_ACCESS_ROLES_ADMIN_PING:?}
+      NORDTAL_ACCESS_CHANNELS_ADMIN: ${NORDTAL_ACCESS_CHANNELS_ADMIN:?}
+      NORDTAL_ACCESS_LANGUAGES: ${NORDTAL_ACCESS_LANGUAGES:?}
+      NORDTAL_ACCESS_TIERS: ${NORDTAL_ACCESS_TIERS:-}
+      NORDTAL_ACCESS_DONATION_CENTS: ${NORDTAL_ACCESS_DONATION_CENTS:-}
+      NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS: ${NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS:-}
+      NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS: ${NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS:-}
+      # Leave empty on a fresh database. The first start stamps its own instant into bot_setting
+      # and no later start rewrites it. Without it, the first poll books up to 50 historical bunq
+      # payments - roles, DMs and public thank-yous included.
+      NORDTAL_ACCESS_PAYMENT_WATERMARK: ${NORDTAL_ACCESS_PAYMENT_WATERMARK:-}
+      NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT: ${NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT:-}
+      NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS: ${NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS:-}
+      NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES: ${NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES:-}
+    volumes:
+      - bot-config:/app/config
+      # bunq binds an API context to the device it was registered from: this must be created on
+      # the host that will use it, never copied over from a laptop.
+      - bunq-context:/app/bunq
+    logging: *logging
+
+  # -------------------------------------------------------------------------------------------
+  # The Velocity proxy. The only service that publishes a port.
+  network-control:
+    <<: *minecraft
+    environment:
+      <<: *minecraft-env
+      SERVER_KIND: velocity
+      SERVER_VERSION: ${VELOCITY_VERSION:-4.1.1}
+      SERVER_BUILD: ${VELOCITY_BUILD:-24}
+      SEASON_PLUGINS: network-control-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
+      HEAP: ${PROXY_HEAP:-1G}
+      # Modern forwarding. THE SAME SECRET has to be in each backend's config/paper-global.yml -
+      # see README.md, "The forwarding secret". A mismatch shows up as every login being refused.
+      VELOCITY_FORWARDING_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env}
+    ports:
+      - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
+    volumes:
+      - mc-network-control:/data
+
+  # -------------------------------------------------------------------------------------------
+  # The waiting room. Needs the database for one thing only: the player's language.
+  limbo:
+    <<: *minecraft
+    environment:
+      <<: *minecraft-env
+      SERVER_KIND: paper
+      SERVER_VERSION: ${PAPER_VERSION:-26.2}
+      SERVER_BUILD: ${PAPER_BUILD:-121}
+      SEASON_PLUGINS: limbo-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
+      HEAP: ${LIMBO_HEAP:-1G}
+      EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
+    volumes:
+      - mc-limbo:/data
+
+  # -------------------------------------------------------------------------------------------
+  # The start event. Runs once, then the phase turns to SMP and this can be stopped.
+  hunger-games:
+    <<: *minecraft
+    environment:
+      <<: *minecraft-env
+      SERVER_KIND: paper
+      SERVER_VERSION: ${PAPER_VERSION:-26.2}
+      SERVER_BUILD: ${PAPER_BUILD:-121}
+      SEASON_PLUGINS: hunger-games-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
+      HEAP: ${HUNGER_GAMES_HEAP:-4G}
+      EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
+    volumes:
+      - mc-hunger-games:/data
+
+  # -------------------------------------------------------------------------------------------
+  # The SMP - four worlds, and the only service with required third-party plugins.
+  smp:
+    <<: *minecraft
+    environment:
+      <<: *minecraft-env
+      SERVER_KIND: paper
+      SERVER_VERSION: ${PAPER_VERSION:-26.2}
+      SERVER_BUILD: ${PAPER_BUILD:-121}
+      SEASON_PLUGINS: smp-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
+      # DisplayTags is REQUIRED (paper-plugin.yml declares it load: BEFORE, required: true) and
+      # PacketEvents is required under it. Verified 2026-09-01 against the display-tags repo:
+      # 2.13.0 is the first PacketEvents with 26.2 support and is its stated minimum.
+      EXTRA_PLUGIN_URLS: ${SMP_EXTRA_PLUGIN_URLS:-https://github.com/nordtal/papermc-display-tags/releases/download/2.0.0/papermc-display-tags-2.0.0.jar https://github.com/retrooper/packetevents/releases/download/v2.13.0/packetevents-spigot-2.13.0.jar}
+      HEAP: ${SMP_HEAP:-6G}
+      EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
+    volumes:
+      - mc-smp:/data
+
+volumes:
+  postgres-data:
+  bot-config:
+  bunq-context:
+  mc-network-control:
+  mc-limbo:
+  mc-hunger-games:
+  mc-smp:

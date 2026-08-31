@@ -2,8 +2,8 @@
 
 Everything nordtal.eu season 2 deploys: the plugins, the Discord bot and the resource pack.
 
-The network is a Velocity proxy with three backend servers, run by
-[SimpleCloud](https://simplecloud.app):
+The network is a Velocity proxy with three backend servers, deployed as **one `docker compose`
+stack** on a single host:
 
 ```
                   ┌──────────────────────────┐

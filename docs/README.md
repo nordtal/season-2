@@ -29,7 +29,7 @@ flowchart TB
     classDef partly fill:#7a5c11,stroke:#4a3708,color:#fff
     classDef planned fill:#3b3b3b,stroke:#222,color:#fff
     class BOT,DC,BQ,HG,DB,NC,LB built
-    class SMP planned
+    class SMP partly
 ```
 
 The database is the source of truth for access, language, phase and event state. Discord roles are
@@ -45,6 +45,7 @@ a projection of it; LuckPerms is not involved anywhere.
 | [hunger-games.md](hunger-games.md) | The start event in full: registration, teams, border, loot, HUD, winning |
 | [smp.md](smp.md) | The SMP in full: worlds, travel, milestones, aura, prestige, duels, graves, POIs |
 | [operations.md](operations.md) | Deployment, secrets, pack hosting, the release path, and everything still unverified |
+| [../deploy/README.md](../deploy/README.md) | The runbook for the compose stack itself: first deployment, the forwarding secret, the console, updates, stopping |
 | [access-system.md](access-system.md) | The paid access concept: product, rules, payment matching, linking |
 | [state-of-play.md](state-of-play.md) | Where the **code** stands against all of the above, what can be built today, and what still needs a decision |
 | [../resource-pack/README.md](../resource-pack/README.md) | **The glyph code point allocation** — both fonts, one table, and the only place that owns it |
@@ -58,7 +59,7 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 **Re-derived from the code 2026-09-01, and updated the same day when `limbo` was built.** An
 earlier version of this table described three modules as unbuilt that had been built the evening
 before; it was committed after the implementation it failed to describe. Numbers come from a
-`./gradlew build` run — **379 tests, none skipped, all green** — not from the last plan.
+`./gradlew build` run — **435 tests, none skipped, all green** — not from the last plan.
 
 | area | state |
 |---|---|
@@ -75,12 +76,15 @@ before; it was committed after the implementation it failed to describe. Numbers
 | Command surfaces: Brigadier directly, no framework | **built** where a module exists |
 | SMP schema — `smp_*` tables, V6 | **built** 2026-09-01 |
 | `limbo` waiting room and pack enforcement | **built** 2026-09-01 — and unrehearsed: three open verifications now have a written probe |
-| SMP: worlds, travel, aura, prestige, milestones, duels, graves, POIs | **designed, not built** |
+| SMP: the milestone track, aura, prestige, the milestone engine | **built** 2026-09-01 |
+| SMP: worlds, travel, duels, graves, POIs, boards, the wheel | **designed, not built** — the one implementation session left |
 | PostgreSQL backup and restore | **not designed** — the one open piece of concept work |
 
-**One implementation session is left: `smp`.** `limbo` and the pack station were built on
-2026-09-01; what they still owe is a rehearsal, not code — see
-[operations.md](operations.md#rehearsal--the-login-path).
+**What is left is the SMP's world half.** `limbo` and the pack station were built on 2026-09-01,
+and so was the SMP's server-free half — the milestone track, the aura payout, the prestige function
+and the milestone engine. Both owe a rehearsal rather than code:
+[the login path](operations.md#rehearsal--the-login-path) and
+[the pre-generation measurement](operations.md#measuring-the-pre-generation--do-this-first).
 
 That table is a summary. [state-of-play.md](state-of-play.md) is the same question answered from the
 code, module by module, with the places where these documents and the code disagree. Of the nine
@@ -155,7 +159,7 @@ reason is in the linked document — that is what stops it from being reopened b
 | **`network-control` fails closed on a bad config**: a deny-all `LoginEvent` handler, which is the per-plugin disable Velocity does not give you | [operations.md](operations.md#configuration-and-secrets) |
 | Hunger games start: hard minimum 2 participants (the border step divides by `participants − 1`), soft minimum 4 behind a confirmation | [hunger-games.md](hunger-games.md#start) |
 | Spectators may join at any time, and **there is no team chat** — one per-server chat, as everywhere else | [hunger-games.md](hunger-games.md#the-lobby) |
-| **SimpleCloud runs Minecraft 26.2** — confirmed by the owner against the v3 dashboard; the platform question is closed and the API-artefact question is now its own row | [operations.md](operations.md#closed-2026-08-31) |
+| **SimpleCloud runs Minecraft 26.2** — confirmed by the owner against the v3 dashboard; the platform question is closed and the API-artefact question is now its own row. **Superseded 2026-09-01**: season 2 does not run on SimpleCloud, so the answer no longer applies to anything | [operations.md](operations.md#closed-2026-08-31) |
 | The open-verification table is ordered by **which session owns the answer**, and every row now says **what happens if the answer is no** — an unverified assumption with no written fallback is a decision nobody has made | [operations.md](operations.md#open-verification) |
 | **Decided 2026-08-31 — the milestone track and block logging** | |
 | The track is **20 · 43 · 99 · 400 · Nether · End · 900 · 4000** — eight milestones, of which `departure` (43) is opened by an admin at the season's start and six are objective-driven. The Nether and the End are their own milestones and carry no border step | [smp.md](smp.md#the-track) |
@@ -182,10 +186,21 @@ reason is in the linked document — that is what stops it from being reopened b
 | **The offer is forced, and our own decline screen works by disconnecting first.** On 1.17+ the client enforces a forced pack and Velocity kicks a decliner with its own text — `setOverwriteKick` throws rather than preventing it. Forcing is the only thing that shows the prompt to a player who has packs switched off, so it stays; whether our screen wins the race is a rehearsal step | [operations.md](operations.md#rehearsal--the-login-path) |
 | **A proxy with no `limbo` server refuses every login**, not only a `MAINTENANCE` one. The alternative is everybody joining without the resource pack, silently — a fault that reports itself on an event day rather than in seconds | [season-phases.md](season-phases.md#routing) |
 | **A `READY` is believed only from a backend connection.** Registering a channel advertises it to the client too, so a forged `READY` would be a player releasing themselves from the waiting room — which is to say skipping the pack | [architecture.md](architecture.md#the-login-path-end-to-end) |
+| **The milestone track is `milestones.yml`, its own file**, a list of milestones each carrying its own list of objectives. Two levels of nesting through jcore works, and each nested interface needs its own `@ConfigSpec` — without one it fails as a Gson error naming `Proxy#h` | [smp.md](smp.md#where-a-milestone-is-defined) |
+| **The payout's proportional part divides by the total contributed, not by the target.** Read literally, "share of the target" overspends the pot on any objective finished with more than was asked for — which is the ordinary `HAND_IN` case | [smp.md](smp.md#contribution-payout) |
+| **When a pot has fewer aura than it has qualifiers**, the one-aura guarantee is paid to as many as the pot reaches, largest contribution first, ties broken by id. The concept's worked example never left the pot, so it never had to say | [smp.md](smp.md#contribution-payout) |
+| **`smp_grave.contents` is Paper's `ItemStack.serializeItemsAsBytes`** — NBT with the server's own data fixers behind it, so a grave written before a Minecraft update still opens after one | [smp.md](smp.md#death-and-graves) |
+| **Spawn protection is `config.yml#spawn-regions`**: a list of boxes per world, inclusive corners, checked in order. No WorldGuard | [smp.md](smp.md#spawns) |
+| **Chunky 1.5.3 is the pre-generation tool** — it tags Minecraft 26.2 for `paper` explicitly, checked against the Modrinth API. An operator's tool, never a dependency of this build | [operations.md](operations.md#measuring-the-pre-generation--do-this-first) |
 | **A Paper plugin never queries the database from the main thread.** The join-time language lookup moved to `PlayerLocales#joinAsync` in both `limbo` and `hunger-games`, and every plugin `database.yml` gained a `query-timeout-seconds` that sets HikariCP's `connectionTimeout` *and* the driver's `socketTimeout`. The visible cost is that a German player may see one English line at the start of a session | [i18n.md](i18n.md#how-a-plugin-knows-a-players-language) |
 | **GitHub release assets redirect to `release-assets.githubusercontent.com`, with a signed URL that expires within the hour** — measured with `curl`, and *not* `objects.githubusercontent.com` as this knowledge base used to say. The config carries the `github.com/...` URL and never the resolved one | [operations.md](operations.md#resource-pack-hosting) |
 | **`app.simplecloud.api:api` was removed** from `network-control`, along with its two repositories and its catalog entry. Routing was written and imported none of it — the fallback `operations.md` had recorded is what happened | [state-of-play.md](state-of-play.md#where-the-documents-and-the-code-disagree) |
 | A documentation commit that lands *after* an implementation commit is **not** evidence that it describes it. The 2026-08-31 knowledge base was committed at 23:33 against work done at 21:17 and described three built modules as scaffolds | [state-of-play.md](state-of-play.md) |
+| **SimpleCloud is dropped; production is one `docker compose` stack on one host, driven through Arcane.** Season 2 uses none of its dynamic instances, templates or failover — every service is a permanent singleton, the hunger games run exactly once, and the farm-world reset never restarts a container. Its plugin management only handles Modrinth-hosted jars, so every release of ours was a manual copy anyway, and v3 exists only inside a hosted closed-beta programme with no releases channel. It cost nothing to leave because the runbook was never written | [operations.md](operations.md#why-simplecloud-was-dropped) |
+| **One `compose.yml` with `db`/`bot`/`mc` profiles, and named volumes only — no bind mounts.** The bot keeps its independent deployment through its own profile rather than its own file; hand-built worlds are uploaded into the volume once, which is a manual step by design | [operations.md](operations.md#deployment) |
+| **All four Minecraft services share one image, and the console is a `tmux` session rather than stdin of PID 1.** Arcane's per-container shell is a `docker exec` and cannot reach PID 1's stdin. RCON was rejected because **Velocity has no RCON at all** (checked 2026-09-01) — it would mean a third-party plugin on the one process that decides who may join. PID 1 traps SIGTERM and `stop_grace_period` is 180 s, because the 10 s default does not save a border-4000 world | [operations.md](operations.md#the-server-containers) |
+| **Plugin jars are pulled from the GitHub release at container start, cache-first.** A pinned version already in the volume is not re-fetched, so a GitHub outage does not stop a restart; a jar that is required and cannot be fetched stops the container rather than falling back to an older one. Update is a version bump, rollback is the bump back | [operations.md](operations.md#the-server-containers) |
+| **itzg/docker-minecraft-server was rejected**: it does not cover Velocity (that is a second image), it would not have solved the proxy console anyway, and we want a pinned server build rather than runtime resolution. Its 26.x support was never established and stopped mattering | [operations.md](operations.md#why-not-itzgdocker-minecraft-server) |
 
 ## Working rules that apply to all of it
 

@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * The season 2 login decision, per docs/access-stage-c.md: one call to
+ * The season 2 login decision, per docs/access-system.md: one call to
  * {@code AccessDirectory#accessState}, then linked? member and not banned? access active?, each
  * with its own disconnect screen - or, if the database itself could not be reached, the fallback
  * cache instead of any of that.

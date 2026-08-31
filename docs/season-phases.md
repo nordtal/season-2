@@ -1,0 +1,138 @@
+# Season phases
+
+Season 2 moves through phases, and the phase decides **who may join** and **where they land**.
+That makes it a security-relevant value, not a cosmetic one: the wrong phase either opens the SMP
+to everyone or locks everybody out.
+
+Status: **design agreed 2026-08-30, not built.** `SeasonPhase` exists in `:common` today and no
+module reads it.
+
+## The phases
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> PRE_EVENT
+    PRE_EVENT --> START_EVENT: admin starts the event
+    START_EVENT --> SMP: admin switches after the winner is crowned
+    PRE_EVENT --> MAINTENANCE
+    START_EVENT --> MAINTENANCE
+    SMP --> MAINTENANCE
+    MAINTENANCE --> PRE_EVENT
+    MAINTENANCE --> START_EVENT
+    MAINTENANCE --> SMP
+    SMP --> [*]: season ends
+```
+
+| phase | who gets in | where they land | what it is |
+|---|---|---|---|
+| `PRE_EVENT` | linked Discord member, not banned | `hunger-games` lobby | Network is open, the lobby stands, teams register |
+| `START_EVENT` | linked Discord member, not banned | `hunger-games` | The event itself, from countdown to winner |
+| `SMP` | the above **plus active access** | `smp-farm-world` | The season proper |
+| `MAINTENANCE` | admins only | `limbo` | Planned work; everyone else waits or is refused |
+
+**Access is only required from `SMP` onwards.** The start event is free for anyone who has linked
+their Minecraft account to their Discord account — that is the decision the whole phase mechanism
+exists to serve. Selling access before the SMP begins is still possible and simply banks days;
+see [access-system.md](access-system.md) for the append rule.
+
+`RESOURCE_PACK_INSTALL` is gone from the enum. Installing the pack is a station every login passes
+in every phase, not a period of the season.
+
+## The gate
+
+```mermaid
+flowchart TD
+    A["Login"] --> B{"Account linked?"}
+    B -->|no| B1["Issue link code, 10 min, one per UUID<br/>Disconnect showing it — EN, DE below in grey"]
+    B -->|yes| C{"Discord member<br/>and not banned?"}
+    C -->|no| C1["Disconnect pointing at Discord"]
+    C -->|yes| D{"Phase"}
+    D -->|MAINTENANCE| D1{"Admin?"}
+    D1 -->|no| D2["Disconnect or hold in limbo<br/>with a bilingual explanation"]
+    D1 -->|yes| F
+    D -->|PRE_EVENT or START_EVENT| F["Route to limbo, enforce pack"]
+    D -->|SMP| E{"Access active?"}
+    E -->|no| E1["Disconnect pointing at the<br/>contribution channel, player's language"]
+    E -->|yes| F
+    F --> G["Pack applied → route to the phase server"]
+```
+
+One database round trip on the login path carries both the access state and the phase, and both
+are read behind a short timeout. When the database is unreachable the existing fallback cache
+rules apply unchanged ([access-system.md](access-system.md#joining-minecraft)); a phase that cannot
+be read falls back to **the last known phase**, and if there is none, to `MAINTENANCE` — the state
+that lets nobody in is the safe one to guess.
+
+## Source of truth and propagation
+
+The phase is **one row in PostgreSQL**, migrated by the bot like every other table
+([architecture.md](architecture.md#schema-ownership)). Every process reads it; nobody caches it as
+truth.
+
+Propagation is **`NOTIFY` plus polling as a safety net** — decided 2026-08-30 with the trade-off
+understood:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Admin
+    participant BOT as discord-bot
+    participant DB as PostgreSQL
+    participant NC as network-control
+    participant PL as Paper plugins
+
+    A->>BOT: /phase set SMP
+    BOT->>BOT: confirm, write admin log entry
+    BOT->>DB: UPDATE the phase row
+    DB-->>DB: NOTIFY nordtal_phase
+    par instant
+        DB-->>NC: notification
+        NC->>DB: re-read the row
+        DB-->>PL: notification
+        PL->>DB: re-read the row
+    and safety net
+        NC->>DB: poll every N seconds
+        PL->>DB: poll every N seconds
+    end
+```
+
+What that costs, stated plainly so nobody rediscovers it in production:
+
+- `LISTEN` needs a **dedicated connection outside the Hikari pool** and a thread that calls
+  `PGConnection.getNotifications(timeout)`; the pgjdbc driver has no callback API.
+- **Notifications are lost while a process is disconnected.** Every reconnect must re-read the row
+  unconditionally — the notification is an optimisation, never the state.
+- The poll interval is therefore the real guarantee, and the `NOTIFY` path only makes a switch feel
+  instant. Both live behind config.
+
+## Who may switch it
+
+Two paths write the same row, decided 2026-08-30:
+
+1. **`/phase set <phase>` in Discord** — the normal path. Admin-only, with a confirmation step, and
+   an entry in the admin channel like every other access-relevant action.
+2. **A command on the Velocity proxy** — the emergency path, for when the bot or Discord is down.
+
+Both must write the audit entry. Two writers means two places where that is easy to forget; the
+write and the audit belong in one method in `:common` that both call, not in two command handlers.
+
+## Routing
+
+The proxy owns routing; `limbo` never connects a player anywhere itself. When the pack has been
+applied, `limbo` sends a plugin message on a `nordtal:` channel meaning *"this player is ready"*,
+and the proxy connects them to the server for the current phase. A backend must not be able to
+decide it wants a player somewhere — that would put the routing rules in two processes.
+
+A phase switch while players are online moves everyone: the proxy re-routes connected players to
+the new phase's server, holding them in `limbo` if it is not up yet.
+
+## Open questions
+
+- **How is an admin recognised?** LuckPerms is deliberately not used, and Velocity has no
+  permission source of its own. Candidates: a list of UUIDs in `gate.yml`, or an admin flag derived
+  from the Discord admin role through the existing account link — which would be one more reason
+  the link exists. Undecided; must be settled before `MAINTENANCE` can mean anything.
+- **Poll interval and `NOTIFY` channel name** — trivial, but they belong in config with the rest.
+- **Does a phase switch kick or move?** The plan says move; whether an SMP switch should also
+  disconnect players who now lack access (rather than bouncing them to `limbo`) is unsettled.

@@ -201,4 +201,24 @@ public interface GateSpec {
     default String serverSmp() {
         return "smp";
     }
+
+    @Order(12)
+    @Key("limbo-sweep-interval-seconds")
+    @Comment({
+            "How often the players currently held in the waiting room are re-examined.",
+            "",
+            "Two of the three things that end a wait announce themselves and need no sweep: a",
+            "pack status arrives as an event, and a phase switch already re-routes everybody.",
+            "The third does not. 'The backend for this phase is now up' is not an event",
+            "Velocity has - a RegisteredServer that was refusing connections a moment ago looks",
+            "identical to one that was not - so a player waiting on a backend is only released",
+            "by somebody looking again. This is that.",
+            "",
+            "It is also what enforces pack.yml#apply-timeout-seconds, so it should stay well",
+            "below it. Five seconds against a set that is empty on an ordinary network costs",
+            "nothing; the sweep touches no database and makes no network call of its own."
+    })
+    default int limboSweepIntervalSeconds() {
+        return 5;
+    }
 }

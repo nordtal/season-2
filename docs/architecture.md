@@ -4,8 +4,9 @@ What season 2 is made of, how the pieces depend on each other, and which rules t
 graph enforces. Start at [README.md](README.md) if you have not read the index yet.
 
 Status of every statement here: **design agreed 2026-08-30**, with the SMP module and the schema
-location revised **2026-08-31**. What is already built is marked as such in the module table;
-everything else is a plan and nothing more.
+location revised **2026-08-31**, the module table re-derived from the code **2026-09-01**, and the
+login path built the same day. What
+is already built is marked as such in the module table; everything else is a plan and nothing more.
 
 ## The network
 
@@ -56,16 +57,16 @@ the proxy to route on; the proxy decides where by [phase](season-phases.md).
 
 | module | platform | owns | state |
 |---|---|---|---|
-| `network-control` | Velocity | Login gate, pack enforcement decision, current phase, routing, **network-wide play time** | login gate built (stage C), phase, pack and play time not built |
-| `limbo` | Paper | The waiting room: pack application, and every state that means "wait" | not built, scaffold only; renamed from `resource-pack-coercion` 2026-08-31 |
-| `hunger-games` | Paper | The start event in full | not built, scaffold only |
-| `smp` | Paper | The SMP: Nordtal, farm world, Nether, End, milestones, aura, prestige, duels, POIs, graves | not built, scaffold only; renamed from `smp-farm-world` 2026-08-31. [Concept agreed 2026-08-31](smp.md) |
-| `discord-bot` | JVM app | Discord: access sales, account linking, HG registration, admin surface, **the schema** | access half built (renamed from `access-bot` 2026-08-31); HG half not done |
-| `common` | library | `AccessDirectory`, message system, locale resolution, `SeasonPhase`, `Glyphs` | access API and messages built; phase and locale components not built |
-| `resource-pack` | assets | Glyphs, HUD sprites, vanilla overrides, the released zip | built, carries season 1 leftovers to clean up |
+| `network-control` | Velocity | Login gate, pack enforcement decision, current phase, routing, **network-wide play time** | **built in full 2026-09-01** — the pack station (`pack/`, `pack.yml`, the `nordtal:limbo` channel) was the last piece |
+| `limbo` | Paper | The waiting room: the empty world, the one title, and the "ready" message | **built 2026-09-01** — void world, blindness, hidden players, no chat, four waiting titles in two languages; renamed from `resource-pack-coercion` 2026-08-31 |
+| `hunger-games` | Paper | The start event in full | **built 2026-08-31** — border, loot, HUD, lobby, bodies, colours, win, ceremony, `/hg`. Waiting on the hand-built world folder and the aerial images |
+| `smp` | Paper | The SMP: Nordtal, farm world, Nether, End, milestones, aura, prestige, duels, POIs, graves | **not built, scaffold only**; renamed from `smp-farm-world` 2026-08-31. [Concept agreed 2026-08-31](smp.md), schema in V6 since 2026-09-01 |
+| `discord-bot` | JVM app | Discord: access sales, account linking, HG registration, admin surface, **the schema** | **built** — access, `/phase set`, the admin mirror, the language list and HG registration (renamed from `access-bot` 2026-08-31) |
+| `common` | library | `AccessDirectory`, message system, locale resolution, `SeasonPhase`, `Glyphs` | **built in full** — access API, messages, `PlayerLocales`, the phase directory, season 2's `Glyphs`, V1–V6 |
+| `resource-pack` | assets | Glyphs, HUD sprites, vanilla overrides, the released zip | **built** — three fonts, every code point allocated and drawn as placeholder or final-candidate art |
 
-Three of the four planned renames are done; one is left, and it is cheap **only until something
-runs in production**:
+**All four planned renames are done**, the last of them the phase enum. They were cheap only until
+something ran in production, and nothing has:
 
 - `smp-farm-world` → **`smp`** (`eu.nordtal.s2.smp`, `SmpPlugin`, `name: smp`). Decided and
   **carried out 2026-08-31**: the module owns the build world, the spawn, milestones, aura,
@@ -77,8 +78,10 @@ runs in production**:
   **Carried out 2026-08-31**, with `access/` and `hungergames/` as sibling feature packages
   planned. There is one Discord application, one token, one deployment — but the module must not
   be named after one of its features.
-- `SeasonPhase.RESOURCE_PACK_INSTALL` → the phase enum becomes `PRE_EVENT`, `START_EVENT`, `SMP`,
-  `MAINTENANCE`. See [season-phases.md](season-phases.md).
+- `SeasonPhase.RESOURCE_PACK_INSTALL` → the phase enum is `PRE_EVENT`, `START_EVENT`, `SMP`,
+  `MAINTENANCE`. **Carried out 2026-08-31**, with a database `CHECK` on `season_phase.phase`
+  pinning the same four strings. Installing the pack is a station every login passes in every
+  phase, not a period of the season. See [season-phases.md](season-phases.md).
 
 A Paper plugin's `name:` is its runtime identity — the `plugins/<name>/` data folder and the
 permission prefix. Renaming after deployment means moving data folders on the production host.
@@ -122,11 +125,29 @@ flowchart LR
 - **Gson and SnakeYAML are never shaded into a Paper plugin.** Paper 26.2 provides both from
   `libraries/`; verified on a running server 2026-08-30. `nordtal.paper-plugin` excludes them.
   The bot has no platform to provide them and therefore does bundle them.
-- **`app.simplecloud.api:api` stays `compileOnly` and is never shaded.**
-- **Decide per module whether it needs persistence.** `limbo` probably does not: it holds nobody's
-  state. `hunger-games` does — its registrations arrive from Discord. `smp` does, heavily: aura,
-  prestige, milestone progress, contributions, POIs, duels and graves all outlive a restart. Do not
-  add a database because the neighbouring module has one.
+- **`app.simplecloud.api:api` is gone.** It was declared `compileOnly` in `network-control` as a
+  placeholder for routing. Routing was written on 2026-08-31 and imported none of it — it resolves
+  backends by the names in `gate.yml` through Velocity's own `ProxyServer.getServer(name)` — so the
+  dependency, its two repositories and its version-catalog entry were removed on 2026-09-01. Four
+  fixed servers lose nothing by being named instead of discovered.
+- **Decide per module whether it needs persistence.** `hunger-games` does — its registrations arrive
+  from Discord. `smp` does, heavily: aura, prestige, milestone progress, contributions, POIs, duels
+  and graves all outlive a restart. Do not add a database because the neighbouring module has one.
+- **`limbo` does too, and that corrected what this section used to say.** It was listed here as the
+  module that "probably does not" need persistence, because it holds nobody's state — which is true
+  and beside the point. `limbo`'s entire interface is a title in the player's language, and
+  [i18n.md](i18n.md) settles where a language comes from: the plugin reads it from the database at
+  join through `:common`'s `PlayerLocales`, and the alternative of having the proxy send it in a
+  plugin message was rejected there on its own merits. Two documents disagreed and the one that had
+  actually argued the point wins. **Settled and built 2026-09-01:** `limbo` takes the same
+  dependency block `hunger-games` has, and its jar grew from 51 KB to **4,576,946 bytes** for the
+  same reason. One indexed lookup per join, no writes, ever — a `maximum-pool-size` of 3 rather than
+  the 5 every other module uses is the whole of what that costs.
+- **`smp` additionally takes `papermc-display-tags`' `:api` module**, `compileOnly` and never
+  shaded — see [smp.md](smp.md#what-a-player-looks-like). It is the one dependency in this build
+  that implies a *server-side* third-party plugin: DisplayTags itself, and PacketEvents underneath
+  it, must be installed on the SMP server. [operations.md](operations.md#third-party-plugins) is
+  where that consequence is written down.
 
 ## Commands
 
@@ -275,10 +296,25 @@ The order is the logic, which is why all of it lives in **one** Velocity plugin 
 packages (`gate`, `pack`, `phase`, `routing`) rather than in several plugins whose event
 priorities would have to encode it. Decided 2026-08-30.
 
-**Unverified, and load-bearing:** that a forced pack offer sent by the proxy behaves correctly
-while the player is being moved to `limbo`, and that a Minecraft client follows GitHub's redirect
-to `objects.githubusercontent.com` when downloading the pack. Both need a running proxy and a real
-client. See [operations.md](operations.md#open-verification).
+**Built 2026-09-01, and the channel is now named.** The `nordtal:` channel the diagram draws is
+**`nordtal:limbo`**, and it runs in both directions: `limbo` sends `READY` once per join, the proxy
+sends `WAIT <reason>` whenever what the player is waiting for changes. The format is two bytes of
+header and, for a `WAIT`, one UTF string; the codec lives in `:common`
+(`eu.nordtal.s2.common.limbo.LimboProtocol`) because a wire format written twice is a wire format
+that drifts, and a plugin message that does not parse is indistinguishable from one that was never
+sent. The `READY` half is not redundant with the pack status: the proxy knows the pack is applied,
+`limbo` knows the player has finished joining, and neither fact implies the other.
+
+**A `READY` is only believed from a backend.** Registering a channel makes the proxy advertise it to
+the *client*, so a modded client could otherwise write its own `READY` and release itself from the
+waiting room — which is to say skip the resource pack. `PackStation` rejects any message whose
+source is not a `ServerConnection`, and consumes every message on the channel either way.
+
+**Still unverified, and load-bearing:** that a forced pack offer sent by the proxy behaves correctly
+while the player is being moved to `limbo`, that our own decline screen wins the race against
+Velocity's generic forced-pack kick, and that a Minecraft client follows GitHub's redirect when
+downloading the pack. All three need a running proxy and a real client, and all three are steps in
+[operations.md](operations.md#rehearsal--the-login-path).
 
 ## Build and release
 

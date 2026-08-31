@@ -13,6 +13,7 @@ import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.networkcontrol.gate.FallbackCache;
 import eu.nordtal.s2.networkcontrol.gate.GateMessages;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
+import eu.nordtal.s2.networkcontrol.pack.PackStation;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
 
 import net.kyori.adventure.text.Component;
@@ -37,19 +38,19 @@ import java.util.UUID;
  *       the new phase's server". {@link #onPhaseChanged(SeasonPhase, SeasonPhase)} is that, and it
  *       re-reads each player's access state so a switch to {@code SMP} disconnects a player without
  *       access instead of moving them - which is the exception the same section settles.</li>
- *   <li><b>A login during {@code MAINTENANCE} lands in {@code limbo}.</b> Decided 2026-08-31: the
- *       gate admits a linked member during maintenance and the explanation is shown in the waiting
- *       room rather than on a disconnect screen. {@link #onChooseInitialServer} is that.</li>
- *   <li><b>A login in any other phase is left alone.</b> This is the honest gap, not an oversight.
- *       docs/architecture.md says "every login lands on {@code limbo} first, whatever the phase" -
- *       {@code limbo} applies the resource pack and then sends a plugin message on a {@code nordtal:}
- *       channel meaning "this player is ready", and only then does the proxy connect them onward.
- *       None of that exists: {@code limbo} is a scaffold, there is no pack offer and there is no
- *       plugin-message channel. Routing a {@code PRE_EVENT} login straight to {@code hunger-games}
- *       here would not be implementing that design, it would be inventing a different one and
- *       quietly deleting the pack station. So for the three non-maintenance phases the initial
- *       server stays whatever {@code velocity.toml}'s {@code try} list says, and building the real
- *       thing belongs to the {@code limbo} session.</li>
+ *   <li><b>Every login lands in {@code limbo} first, whatever the phase.</b> Built 2026-09-01,
+ *       and it is what docs/architecture.md#the-login-path-end-to-end has always described.
+ *       {@link #onChooseInitialServer} sets the waiting room as the initial server for every
+ *       admitted login; {@link eu.nordtal.s2.networkcontrol.pack.PackStation} offers the resource
+ *       pack there and hands the player back to {@link #releaseFromLimbo(Player)} once the pack is
+ *       applied and the phase's backend will have them. The one exception is an admin during
+ *       {@code MAINTENANCE}, who is not moved at all - see
+ *       {@link PhaseRouting#decideInitial(SeasonPhase, boolean, java.util.Set)}.</li>
+ *   <li><b>A player still in the waiting room is not re-routed by a phase change.</b> Their
+ *       admission is re-checked like everybody's - a switch to {@code SMP} disconnects them if they
+ *       have no access - but the connection is left to the pack station, which is the only thing
+ *       that knows whether their pack has arrived. Connecting them here would be the one way to
+ *       get a player onto a backend without the pack.</li>
  * </ul>
  *
  * <h2>When the destination does not exist</h2>
@@ -77,10 +78,12 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     private final LoginRoster roster;
     private final FallbackCache fallback;
     private final GateMessages messages;
+    private final PackStation packs;
 
     public PlayerRouter(final Object plugin, final ProxyServer proxy, final Logger logger,
                         final AccessDirectory access, final PhaseRouting routing, final PhaseWatch phases,
-                        final LoginRoster roster, final FallbackCache fallback, final GateMessages messages) {
+                        final LoginRoster roster, final FallbackCache fallback, final GateMessages messages,
+                        final PackStation packs) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -90,13 +93,13 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         this.roster = Objects.requireNonNull(roster, "roster");
         this.fallback = Objects.requireNonNull(fallback, "fallback");
         this.messages = Objects.requireNonNull(messages, "messages");
+        this.packs = Objects.requireNonNull(packs, "packs");
     }
 
     // ------------------------------------------------------------------ login
 
     /**
-     * Puts a non-admin into {@code limbo} when the network is in {@code MAINTENANCE}, and does
-     * nothing at all otherwise.
+     * Sends every admitted login to {@code limbo}, whatever the phase.
      * <p>
      * The phase comes from {@link PhaseWatch#lastKnown()} and the admin flag from
      * {@link LoginRoster}, both of which are already in memory. Neither is a second database call:
@@ -105,33 +108,65 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
      * the roster has never heard of was let in by the fallback cache while the database was
      * unreachable, and is treated as a non-admin, which is the safe way round.
      * </p>
+     * <p>
+     * What happens next is not this method's business. The player arrives in the waiting room, the
+     * pack station offers them the pack, and {@link #releaseFromLimbo(Player)} is called when there
+     * is nothing left to wait for.
+     * </p>
      */
     @Subscribe
     public void onChooseInitialServer(final PlayerChooseInitialServerEvent event) {
         final SeasonPhase phase = phases.lastKnown();
-        if (phase != SeasonPhase.MAINTENANCE) {
-            // Every other phase keeps velocity.toml's try list until the limbo session builds the
-            // pack station and the real login route. See this class's documentation.
-            return;
-        }
-
         final Player player = event.getPlayer();
         final UUID uuid = player.getUniqueId();
         final RouteDecision decision =
-                routing.decideAdmitted(phase, roster.isAdmin(uuid), registeredServerNames());
+                routing.decideInitial(phase, roster.isAdmin(uuid), registeredServerNames());
 
         switch (decision.action()) {
             case CONNECT -> proxy.getServer(decision.server()).ifPresent(event::setInitialServer);
             case STAY -> logger.info("{} is an admin, so the {} phase leaves their initial server "
                     + "alone", player.getUsername(), phase);
             default -> {
-                // No limbo to hold them in. Clearing the initial server matters as much as the
-                // disconnect: without it Velocity would still try velocity.toml's try list.
+                // No waiting room. Clearing the initial server matters as much as the disconnect:
+                // without it Velocity would still try velocity.toml's own list, which is exactly
+                // the "everybody joined without the resource pack" outcome this refuses.
                 event.setInitialServer(null);
-                logger.error("No '{}' server is registered on this proxy, so {} cannot be held in "
-                                + "the waiting room during {} and is being disconnected instead",
+                logger.error("No '{}' server is registered on this proxy, so {} cannot be put in the "
+                                + "waiting room in phase {} and is being disconnected instead",
                         routing.servers().limbo(), player.getUsername(), phase);
                 player.disconnect(reasonFor(decision, roster.localeOf(uuid)));
+            }
+        }
+    }
+
+    /**
+     * Connects a player the pack station has finished with to the server their phase points at.
+     * <p>
+     * This is the far end of docs/season-phases.md#routing's rule that "the proxy owns routing;
+     * {@code limbo} never connects a player anywhere itself". {@code limbo}'s message says only
+     * that the player is ready; the destination is worked out here, from the phase, exactly as it
+     * is for a player being moved by a phase change.
+     * </p>
+     *
+     * @param player a player who is in the waiting room and has nothing left to wait for
+     */
+    public void releaseFromLimbo(final Player player) {
+        final SeasonPhase phase = phases.lastKnown();
+        final RouteDecision decision =
+                routing.decideAdmitted(phase, roster.isAdmin(player.getUniqueId()), registeredServerNames());
+
+        switch (decision.action()) {
+            case CONNECT -> connect(player, decision.server(), roster.localeOf(player.getUniqueId()));
+            // Unreachable in practice: the station only releases a player once it has established
+            // that the destination is registered, and STAY needs an admin during MAINTENANCE, who
+            // was never put in the waiting room. Both are left as a log line rather than an
+            // exception - a player sitting in limbo is a better failure than a thrown one.
+            case STAY -> logger.warn("The pack station released {} but routing says to leave them "
+                    + "where they are, in phase {}", player.getUsername(), phase);
+            default -> {
+                logger.error("The pack station released {} but routing now says {}",
+                        player.getUsername(), decision.action());
+                player.disconnect(reasonFor(decision, roster.localeOf(player.getUniqueId())));
             }
         }
     }
@@ -199,6 +234,15 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         roster.remember(uuid, state);
 
         final RouteDecision decision = routing.decide(state, available);
+        if (decision.action() == RouteDecision.Action.CONNECT && packs.isHeld(uuid)) {
+            // Still in the waiting room. Their admission has just been re-checked above and stands,
+            // so the phase change means their destination moved - but whether they may leave at all
+            // is the pack station's question, not this one. Re-asking it here also updates the title
+            // they are looking at: a switch into MAINTENANCE turns "downloading" into "maintenance"
+            // without moving anybody.
+            packs.evaluate(player);
+            return false;
+        }
         return switch (decision.action()) {
             case STAY -> false;
             case CONNECT -> connect(player, decision.server(), state.locale());

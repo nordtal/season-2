@@ -19,12 +19,15 @@ import java.util.Set;
  * decides admission and this class only decides where an admitted player goes.
  *
  * <h2>The limbo problem, stated honestly</h2>
- * The {@code limbo} module is a scaffold: a main class that logs on enable. "Route them to limbo"
- * therefore means "connect them to the backend named by {@code gate.yml#server-limbo}", and that
- * server may not be registered on this proxy at all. This class does not pretend otherwise - it
- * takes the set of names the proxy knows and produces
- * {@link RouteDecision.Action#REFUSE_MAINTENANCE_UNAVAILABLE} when the waiting room is missing,
- * which is the old pre-2026-08-31 behaviour used as a fallback rather than as the rule.
+ * "Route them to limbo" means "connect them to the backend named by
+ * {@code gate.yml#server-limbo}", and that server may not be registered on this proxy at all. This
+ * class does not pretend otherwise - it takes the set of names the proxy knows and produces
+ * {@link RouteDecision.Action#REFUSE_MAINTENANCE_UNAVAILABLE} when the waiting room is missing
+ * during maintenance, and {@link RouteDecision.Action#REFUSE_NO_SERVER} when it is missing on any
+ * other login. Since the pack station exists (2026-09-01) that second case refuses a login the old
+ * code would have let through on {@code velocity.toml}'s {@code try} list - see
+ * {@link #decideInitial(SeasonPhase, boolean, Set)} for why letting them in without the pack is
+ * the worse of the two failures.
  *
  * <p>What it cannot see is a server that <em>is</em> registered and is <em>down</em>. A name in
  * {@code velocity.toml} pointing at a dead process looks identical here to a healthy one; that
@@ -71,6 +74,58 @@ public final class PhaseRouting {
         }
 
         return decideAdmitted(state.phase(), state.admin(), available);
+    }
+
+    /**
+     * Where an admitted login goes <b>first</b>, which since the pack station exists is the waiting
+     * room and nothing else.
+     * <p>
+     * docs/architecture.md#the-login-path-end-to-end: "every login lands on {@code limbo} first,
+     * whatever the phase". {@link #decideAdmitted(SeasonPhase, boolean, Set)} answers the other
+     * question - where a player belongs once they are <em>past</em> the waiting room - and the two
+     * are deliberately separate methods rather than one with a flag, because they disagree in every
+     * phase but {@code MAINTENANCE} and confusing them would either skip the pack or send a player
+     * to the waiting room they just left.
+     * </p>
+     *
+     * <h2>A missing waiting room refuses the login</h2>
+     * If {@code gate.yml#server-limbo} names a server this proxy does not have, the player is
+     * disconnected rather than sent straight to the phase's backend. That is a deliberate
+     * fail-closed, and it is a change from the behaviour before the pack station existed, where a
+     * non-maintenance login simply followed {@code velocity.toml}'s own {@code try} list. The
+     * fallback would mean letting everybody onto the network <em>without the resource pack</em> -
+     * silently, because nothing about a plain-looking tab list announces that every glyph in the
+     * HUD, the nametags and the boards is missing. "Nobody can join" is a fault that reports
+     * itself within seconds; "everybody joined without the pack" is one nobody notices until an
+     * event day.
+     *
+     * @param phase     the phase the network is in
+     * @param admin     whether the player carries {@code discord_user.admin}
+     * @param available the names of the servers this proxy has registered
+     * @return {@code CONNECT limbo}, {@code STAY} for an admin during maintenance, or the refusal
+     *         that fits the phase
+     */
+    public RouteDecision decideInitial(final SeasonPhase phase, final boolean admin,
+                                       final Set<String> available) {
+        Objects.requireNonNull(phase, "phase");
+        Objects.requireNonNull(available, "available");
+
+        if (phase == SeasonPhase.MAINTENANCE && admin) {
+            // Unchanged from before the pack station: an admin during maintenance is the one player
+            // the phase does not move, and the login path is where that starts. The cost is that
+            // they are also the one player who is not offered the pack, which is the right way
+            // round - an admin joining a network under maintenance is there to look at the servers
+            // being worked on, and is the person best placed to fix their own pack.
+            return RouteDecision.of(RouteDecision.Action.STAY);
+        }
+
+        if (available.contains(servers.limbo())) {
+            return RouteDecision.connectTo(servers.limbo());
+        }
+
+        return RouteDecision.of(phase == SeasonPhase.MAINTENANCE
+                ? RouteDecision.Action.REFUSE_MAINTENANCE_UNAVAILABLE
+                : RouteDecision.Action.REFUSE_NO_SERVER);
     }
 
     /**

@@ -5,6 +5,7 @@ import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 
+import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
 
@@ -89,18 +90,26 @@ public final class ExpiryWatch {
         fallback.remember(uuid, state);
 
         if (!state.mayJoin()) {
-            // Covers both a natural expiry and a mid-session /revoke-access; the login gate itself
-            // is the only thing that tells the two apart in its own messages, and by the time
-            // somebody is already connected there is nothing left to distinguish - both mean "you
-            // do not have access any more".
-            player.disconnect(messages.expired(state.locale()));
+            // mayJoin() is phase-aware since 2026-08-31, so this now also catches a player who was
+            // let in during PRE_EVENT or START_EVENT and is still connected when the phase moves on
+            // - docs/season-phases.md#routing: "a switch to SMP disconnects a player who has no
+            // active access". Which screen they get is the one difference the phase makes here:
+            // MAINTENANCE is not an expiry and must not claim to be one. A natural expiry and a
+            // mid-session /revoke-access are still one message, because by the time somebody is
+            // already connected there is nothing left to distinguish - both mean "you do not have
+            // access any more".
+            player.disconnect(state.phase() == SeasonPhase.MAINTENANCE
+                    ? messages.maintenance(state.locale())
+                    : messages.expired(state.locale()));
             warned.remove(uuid);
             return;
         }
 
         final Instant validUntil = state.validUntil().orElse(null);
         if (validUntil == null) {
-            // mayJoin() being true guarantees this is set; defensive only.
+            // Nothing to warn about. This is the normal case in PRE_EVENT and START_EVENT, where
+            // mayJoin() is true for a linked member who has never bought anything - it stopped
+            // being a merely defensive branch when the phase entered the decision.
             return;
         }
 

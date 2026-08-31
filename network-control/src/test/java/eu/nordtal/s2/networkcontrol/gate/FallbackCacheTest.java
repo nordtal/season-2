@@ -1,15 +1,15 @@
 package eu.nordtal.s2.networkcontrol.gate;
 
+import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.MemberState;
+import eu.nordtal.s2.networkcontrol.MutableClock;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -115,6 +115,16 @@ class FallbackCacheTest {
     }
 
     @Test
+    void aMemberWithNoAccessAtAllIsCachedWhileThePhaseAsksForNone() {
+        // Before 2026-08-31 this state was phase-blind and never cacheable, so a database outage
+        // during PRE_EVENT would have refused every player the gate had just been letting in.
+        cache.remember(PLAYER, memberInAFreePhase());
+
+        assertTrue(cache.mayJoin(PLAYER));
+        assertEquals(1, cache.size());
+    }
+
+    @Test
     void aNonPositiveWindowIsRejectedAtConstruction() {
         assertThrows(IllegalArgumentException.class, () -> new FallbackCache(Duration.ZERO));
         assertThrows(IllegalArgumentException.class, () -> new FallbackCache(Duration.ofMinutes(-1)));
@@ -128,39 +138,21 @@ class FallbackCacheTest {
 
     private AccessState activeState(final Locale locale) {
         return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, true,
-                clock.instant().plus(Duration.ofDays(1)), false, false, locale);
+                clock.instant().plus(Duration.ofDays(1)), false, false, locale, SeasonPhase.SMP);
     }
 
     private AccessState inactiveState() {
-        return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, false, null, false, false, Locale.ENGLISH);
+        return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, false, null, false, false,
+                Locale.ENGLISH, SeasonPhase.SMP);
     }
 
-    /** A settable {@link Clock}, so these tests advance time instead of sleeping through it. */
-    private static final class MutableClock extends Clock {
-
-        private Instant now;
-
-        MutableClock(final Instant now) {
-            this.now = now;
-        }
-
-        void advance(final Duration by) {
-            now = now.plus(by);
-        }
-
-        @Override
-        public Instant instant() {
-            return now;
-        }
-
-        @Override
-        public java.time.ZoneId getZone() {
-            return ZoneOffset.UTC;
-        }
-
-        @Override
-        public Clock withZone(final java.time.ZoneId zone) {
-            throw new UnsupportedOperationException();
-        }
+    /**
+     * The same account, in a phase that asks for no access at all. What the cache stores is the
+     * outcome of {@link AccessState#mayJoin()}, so this is a positive entry even though nothing has
+     * been bought - which is the point of the phase model.
+     */
+    private AccessState memberInAFreePhase() {
+        return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, false, null, false, false,
+                Locale.ENGLISH, SeasonPhase.PRE_EVENT);
     }
 }

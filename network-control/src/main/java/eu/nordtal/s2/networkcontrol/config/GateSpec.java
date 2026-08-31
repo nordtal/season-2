@@ -96,4 +96,67 @@ public interface GateSpec {
     default int expiryWarningLeadMinutes() {
         return 5;
     }
+
+    @Order(6)
+    @Key("phase-poll-interval-seconds")
+    @Comment({
+            "How often the season_phase row is re-read. THIRTY SECONDS IS THE DECIDED VALUE",
+            "(docs/season-phases.md, settled 2026-08-31) and this key exists to make an",
+            "emergency change possible, not to invite tuning.",
+            "",
+            "This poll - not the LISTEN/NOTIFY path below - is the actual guarantee. Thirty",
+            "seconds is the worst case a process can sit in the wrong phase after a listener",
+            "connection has silently died. Ten was rejected as triple the standing cost for a",
+            "case that happens three times a season; sixty as a full minute of players on the",
+            "wrong server after a switch to SMP.",
+            "",
+            "The login path does NOT use this: it reads the phase on the same row as the access",
+            "state, in one round trip. This is for everything that is not a login."
+    })
+    default int phasePollIntervalSeconds() {
+        return 30;
+    }
+
+    @Order(7)
+    @Key("phase-listen-enabled")
+    @Comment({
+            "Whether to also hold a dedicated LISTEN connection on the 'nordtal_phase' channel,",
+            "outside the connection pool, so that a phase switch feels instant instead of taking",
+            "up to one poll interval.",
+            "",
+            "Turning this off is the documented fallback in docs/operations.md#open-verification",
+            "if the listener turns out to be more trouble than it is worth: the poll above was",
+            "always the guarantee, and nothing else changes. Notifications carry no payload and",
+            "are lost while a process is disconnected, so every reconnect re-reads the row",
+            "unconditionally - the notification is an optimisation, never the state.",
+            "",
+            "The channel name is not configurable. It has to match the pg_notify() baked into",
+            "the switch statement in :common, and a listener quietly pointed at a different",
+            "channel would look exactly like one that works until the first phase switch."
+    })
+    default boolean phaseListenEnabled() {
+        return true;
+    }
+
+    @Order(8)
+    @Key("playtime-flush-interval-seconds")
+    @Comment({
+            "How often accumulated online time is written to player_playtime for players who are",
+            "still connected. It is also written on disconnect, always; this interval only bounds",
+            "what a proxy crash costs.",
+            "",
+            "NO DOCUMENT SETTLES THIS NUMBER. docs/smp.md says the proxy writes 'on disconnect and",
+            "periodically in between, so a crash costs minutes rather than a whole session' and",
+            "stops there. The default below is a PROPOSAL, not a decision: it matches",
+            "expiry-check-interval-seconds so that the two sweeps over the connected players run",
+            "on the same cadence rather than inventing a second rhythm, and it makes 'minutes'",
+            "read as 'at most one'. Raise it if the write volume matters more than the crash",
+            "window; lower it if it does not.",
+            "",
+            "Nothing is lost to rounding either way: a flush advances the session marker by",
+            "exactly the whole seconds it wrote, so the remainder survives to the next one."
+    })
+    default int playtimeFlushIntervalSeconds() {
+        return 60;
+    }
 }

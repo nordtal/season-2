@@ -64,10 +64,11 @@ session, not this one.
 | `\uE004` | ![source](src/assets/nordtal/textures/tags/a.png) | Admin short tag `A`, 9 × 7 | keep |
 | `\uE005` – `\uE00F` | — | reserved | — |
 
-`\uE000` was the settler tag and is **re-used** rather than left empty; the four season-1 role tags
-— settler, citizen, knight, lord — are gone from season 2 ([smp.md](../docs/smp.md#what-a-player-looks-like)).
-Re-use was chosen over leaving a hole on 2026-08-31: nothing anywhere persists a glyph character,
-so a code point cannot be read back and mean the wrong thing.
+`\uE000` was the settler tag and is **re-used** rather than left empty. The four season-1 role
+tags — settler, citizen, knight, lord — are gone from season 2; see
+[smp.md](../docs/smp.md#what-a-player-looks-like). Re-use was chosen over leaving a hole on
+2026-08-31: nothing anywhere persists a glyph character, so a code point cannot be read back and
+mean the wrong thing.
 
 ### `\uE010` – `\uE01F` — language flags
 

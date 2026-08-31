@@ -171,9 +171,10 @@ finding 7.
    fifteen space advances, and a full printable-ASCII override — and **none of it appeared in the
    pack's README, in `Glyphs`, or anywhere in this knowledge base.** The glyph inventory was
    described everywhere as if `default.json` were the whole of it.
-   **Closed by this session**: [`resource-pack/README.md`](../resource-pack/README.md#code-point-allocation)
-   now owns both fonts, and `Glyphs` still names nothing from the second one — which is now a
-   recorded gap rather than an invisible one.
+   **Closed by this session**: the pack's own README
+   ([the allocation table](../resource-pack/README.md#code-point-allocation)) now owns both fonts,
+   and `Glyphs` still names nothing from the second one — which is now a recorded gap rather than
+   an invisible one.
 
 9. **The boss bar font's positive space advances sit outside the private-use area.** `\uFF01`,
    `\uFF02`, `\uFF04`, `\uFF08`, `\uFF16` and `\uFF32` are `FULLWIDTH EXCLAMATION MARK` and

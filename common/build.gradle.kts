@@ -13,12 +13,12 @@ dependencies {
     // database is the source of truth for access and the proxy has to read it on the login path.
     //
     // They are compileOnly ON PURPOSE. Declared as implementation they would be shaded into every
-    // consumer of :common, including hunger-games and resource-pack-coercion, which never touch a
+    // consumer of :common, including hunger-games and limbo, which never touch a
     // database - 3.12 MB per plugin jar instead of 20 KB.
     //
     // THAT 3.12 MB IS A COUNTERFACTUAL, not a measurement of the jars this build produces. It is
     // what they WOULD weigh with these declarations changed. What they actually weigh, rebuilt
-    // 2026-08-31: smp 34,745 B, hunger-games 34,784 B, resource-pack-coercion 34,886 B - because
+    // 2026-08-31: smp 34,745 B, hunger-games 34,784 B, limbo 34,886 B - because
     // none of the three has opted into libs.bundles.access-persistence yet. network-control is
     // 5,196,184 B because it did (through jcore). The distinction was lost when this number was
     // copied into CLAUDE.md and docs/state-of-play.md as if it described the current jars; do not

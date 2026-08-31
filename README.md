@@ -10,11 +10,11 @@ The network is a Velocity proxy with three backend servers, run by
    players ─────► │ Velocity  network-control│  season phase + routing
                   └────┬─────────┬─────────┬─┘
                        │         │         │
-        resource-pack-coercion  hunger-games       smp
+        limbo                   hunger-games       smp
          (pack install)         (start event)  (the SMP)
 ```
 
-`access-bot` runs alongside as a standalone Discord bot, and `resource-pack` holds the pack
+`discord-bot` runs alongside as a standalone Discord bot, and `resource-pack` holds the pack
 those servers serve.
 
 The concepts behind all of it - phases, languages, the start event, the SMP, operations and the
@@ -25,10 +25,10 @@ decisions already taken - live in [docs/](docs/README.md).
 | module | platform | what it owns |
 |---|---|---|
 | `network-control` | Velocity | Which phase of season 2 we are in, and which backend a player belongs on. |
-| `resource-pack-coercion` | Paper | Applying and enforcing the resource pack before a player goes anywhere else. |
+| `limbo` | Paper | Applying and enforcing the resource pack before a player goes anywhere else. |
 | `hunger-games` | Paper | The hunger games start event. |
 | `smp` | Paper | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels. |
-| `access-bot` | JVM app | Discord bot: sells access periods, books bunq payments, owns the access schema. |
+| `discord-bot` | JVM app | Discord bot: sells access periods, books bunq payments, owns the access schema. |
 | `common` | library | Shared: the access API (`AccessDirectory`), the message system, glyph constants, the phase enum. |
 | `resource-pack` | assets | The pack itself, and the zip + SHA-1 the release ships. |
 
@@ -67,7 +67,7 @@ git tag v2.0.0 && git push origin v2.0.0
 
 The `release` workflow refuses a tag that disagrees with `gradle.properties`, then builds every
 module and attaches to one GitHub release: four plugin jars, the bot jar, and the resource pack
-zip with its SHA-1. It also pushes `ghcr.io/nordtal/access-bot:<version>`.
+zip with its SHA-1. It also pushes `ghcr.io/nordtal/discord-bot:<version>`.
 
 ## Configuration
 

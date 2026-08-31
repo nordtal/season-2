@@ -57,25 +57,26 @@ the proxy to route on; the proxy decides where by [phase](season-phases.md).
 | module | platform | owns | state |
 |---|---|---|---|
 | `network-control` | Velocity | Login gate, pack enforcement decision, current phase, routing, **network-wide play time** | login gate built (stage C), phase, pack and play time not built |
-| `limbo` | Paper | The waiting room: pack application, and every state that means "wait" | not built; today's scaffold is named `resource-pack-coercion` and is to be renamed |
+| `limbo` | Paper | The waiting room: pack application, and every state that means "wait" | not built, scaffold only; renamed from `resource-pack-coercion` 2026-08-31 |
 | `hunger-games` | Paper | The start event in full | not built, scaffold only |
 | `smp` | Paper | The SMP: Nordtal, farm world, Nether, End, milestones, aura, prestige, duels, POIs, graves | not built, scaffold only; renamed from `smp-farm-world` 2026-08-31. [Concept agreed 2026-08-31](smp.md) |
-| `discord-bot` | JVM app | Discord: access sales, account linking, HG registration, admin surface, **the schema** | built as `access-bot` (access half only); rename and HG half not done |
+| `discord-bot` | JVM app | Discord: access sales, account linking, HG registration, admin surface, **the schema** | access half built (renamed from `access-bot` 2026-08-31); HG half not done |
 | `common` | library | `AccessDirectory`, message system, locale resolution, `SeasonPhase`, `Glyphs` | access API and messages built; phase and locale components not built |
 | `resource-pack` | assets | Glyphs, HUD sprites, vanilla overrides, the released zip | built, carries season 1 leftovers to clean up |
 
-One of the four planned renames is done; three are left, and they are cheap **only until something
+Three of the four planned renames are done; one is left, and it is cheap **only until something
 runs in production**:
 
 - `smp-farm-world` → **`smp`** (`eu.nordtal.s2.smp`, `SmpPlugin`, `name: smp`). Decided and
   **carried out 2026-08-31**: the module owns the build world, the spawn, milestones, aura,
   prestige, duels, POIs and graves — the farm world is one part of it, not the whole. See
   [smp.md](smp.md).
-- `resource-pack-coercion` → **`limbo`** (`eu.nordtal.s2.limbo`). The module is a waiting room for
-  every waiting state, not just the pack.
-- `access-bot` → **`discord-bot`** (`eu.nordtal.s2.discordbot`, `ghcr.io/nordtal/discord-bot`),
-  with `access/` and `hungergames/` as sibling feature packages. There is one Discord application,
-  one token, one deployment — but the module must not be named after one of its features.
+- `resource-pack-coercion` → **`limbo`** (`eu.nordtal.s2.limbo`). **Carried out 2026-08-31.** The
+  module is a waiting room for every waiting state, not just the pack.
+- `access-bot` → **`discord-bot`** (`eu.nordtal.s2.discordbot`, `ghcr.io/nordtal/discord-bot`).
+  **Carried out 2026-08-31**, with `access/` and `hungergames/` as sibling feature packages
+  planned. There is one Discord application, one token, one deployment — but the module must not
+  be named after one of its features.
 - `SeasonPhase.RESOURCE_PACK_INSTALL` → the phase enum becomes `PRE_EVENT`, `START_EVENT`, `SMP`,
   `MAINTENANCE`. See [season-phases.md](season-phases.md).
 

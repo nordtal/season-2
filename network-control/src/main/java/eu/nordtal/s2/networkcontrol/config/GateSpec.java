@@ -145,18 +145,22 @@ public interface GateSpec {
             "still connected. It is also written on disconnect, always; this interval only bounds",
             "what a proxy crash costs.",
             "",
-            "NO DOCUMENT SETTLES THIS NUMBER. docs/smp.md says the proxy writes 'on disconnect and",
-            "periodically in between, so a crash costs minutes rather than a whole session' and",
-            "stops there. The default below is a PROPOSAL, not a decision: it matches",
-            "expiry-check-interval-seconds so that the two sweeps over the connected players run",
-            "on the same cadence rather than inventing a second rhythm, and it makes 'minutes'",
-            "read as 'at most one'. Raise it if the write volume matters more than the crash",
-            "window; lower it if it does not.",
+            "FIVE MINUTES IS THE DECIDED VALUE (settled 2026-08-31). docs/smp.md only says the",
+            "proxy writes 'on disconnect and periodically in between, so a crash costs minutes",
+            "rather than a whole session'; the owner picked the number inside that sentence.",
+            "A proxy crash therefore costs each connected player up to five minutes of counted",
+            "play time, and that is the accepted trade: play time feeds a 13-tier prestige crest",
+            "earned over the length of a season, so five minutes is invisible in it, while a",
+            "write per connected player every minute is not.",
+            "",
+            "This deliberately no longer matches expiry-check-interval-seconds. The two sweeps",
+            "are unrelated - one re-reads access from the database, the other writes accumulated",
+            "seconds - and running them on one cadence was never more than a coincidence.",
             "",
             "Nothing is lost to rounding either way: a flush advances the session marker by",
             "exactly the whole seconds it wrote, so the remainder survives to the next one."
     })
     default int playtimeFlushIntervalSeconds() {
-        return 60;
+        return 300;
     }
 }

@@ -24,7 +24,7 @@ produces `resource-pack/build/distributions/nordtal-resource-pack-<version>.zip`
 
 The client is sent the zip's URL **and** its SHA-1, and refuses the pack if they disagree, which
 is why the hash is generated on every build rather than written down. The zip and its hash are
-attached to each GitHub release; `resource-pack-coercion` serves them to players.
+attached to each GitHub release; `limbo` serves them to players.
 
 To test locally, copy the contents of [`src/`](src/) into a folder in your game's
 `resourcepacks/` directory.

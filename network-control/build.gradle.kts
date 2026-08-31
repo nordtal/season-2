@@ -43,4 +43,34 @@ dependencies {
     // pinned to jcore's own version in the catalog, which is what keeps exactly one copy on the
     // classpath rather than two.
     implementation(libs.hikaricp)
+
+    // jcore brings both of these at runtime already (jdbi3-postgres and the driver are declared
+    // `implementation` / `runtimeOnly` inside jcore, not `api`), so this adds no second copy of
+    // anything - it puts them on THIS module's compile classpath, which two classes now need:
+    //
+    //   - PostgresPhaseNotifications unwraps org.postgresql.PGConnection to call
+    //     getNotifications(timeout). docs/season-phases.md states plainly that the pgjdbc driver
+    //     has no callback API, so the LISTEN half of the phase model cannot be written against
+    //     java.sql alone.
+    //   - PlaytimeStore installs jdbi3-core's PostgresPlugin, the same way :common's directories do.
+    //
+    // Versions come from the catalog, which pins them to exactly what jcore depends on.
+    implementation(libs.jdbi.postgres)
+    implementation(libs.postgresql.driver)
+
+    // velocity-api is compileOnly (the convention plugin declares it, plus the annotation
+    // processor that writes velocity-plugin.json), so it is not on the test classpath by default.
+    // The tests need it for Adventure's Component - the fail-closed screen is one - and nothing
+    // more; no test here starts a proxy, and none can.
+    testImplementation(libs.velocity.api)
+
+    // PlaytimeDao's `seconds = seconds + EXCLUDED.seconds` is the one statement this module owns,
+    // and it is exactly the kind of SQL no in-memory test can say anything about. Same shape as
+    // :common's integration tests: a real PostgreSQL container running the real migrations off the
+    // classpath (:common is an `implementation` dependency, so db/migration is already there), and
+    // the test skips itself when no Docker daemon is reachable. Flyway is test-only and never
+    // reaches the shaded jar - network-control does not migrate anything, the bot does.
+    testImplementation(libs.flyway.core)
+    testImplementation(libs.flyway.postgresql)
+    testImplementation(libs.testcontainers.postgresql)
 }

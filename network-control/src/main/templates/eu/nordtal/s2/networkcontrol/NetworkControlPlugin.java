@@ -31,12 +31,16 @@ import eu.nordtal.s2.networkcontrol.phase.PhaseListener;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
 import eu.nordtal.s2.networkcontrol.playtime.PlaytimeStore;
 import eu.nordtal.s2.networkcontrol.playtime.PlaytimeWriter;
+import eu.nordtal.s2.networkcontrol.routing.PhaseRouting;
+import eu.nordtal.s2.networkcontrol.routing.PhaseServers;
+import eu.nordtal.s2.networkcontrol.routing.PlayerRouter;
 
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Owns the season 2 phase state machine, the access login gate and the network-wide play-time
@@ -55,6 +59,8 @@ import java.util.Locale;
  *   <li>{@link PlaytimeWriter} - {@code player_playtime}, written on disconnect and periodically
  *       in between (docs/smp.md#prestige--a-crest-earned-by-time).</li>
  *   <li>{@link MisconfiguredGate} - the fail-closed handler, below.</li>
+ *   <li>{@link PlayerRouter} - the phase-change re-route and the {@code MAINTENANCE} hop into
+ *       {@code limbo} (docs/season-phases.md#routing).</li>
  * </ul>
  *
  * <p><b>Configuration failure fails closed</b> (docs/operations.md#configuration-and-secrets,
@@ -65,9 +71,15 @@ import java.util.Locale;
  * disable, built by hand. Admins are not exempted and cannot be: the admin flag lives in the
  * database that a bad {@code database.yml} cannot reach.
  *
- * <p>Backend routing is still a scaffold and is deliberately not started here: the proxy owns
- * routing (docs/season-phases.md#routing), and {@link PhaseWatch} already exposes the phase-change
- * callback it will hang off. Today that callback only logs.
+ * <p><b>Routing is half built, on purpose.</b> {@link PlayerRouter} carries out the two rules that
+ * do not depend on the {@code limbo} module existing as code: a phase change moves connected
+ * players to the new phase's backend (disconnecting a player a switch to {@code SMP} catches without
+ * access), and a login during {@code MAINTENANCE} is put in the waiting room instead of being
+ * refused. What is <em>not</em> here is docs/architecture.md's "every login lands on {@code limbo}
+ * first, whatever the phase": that is the resource-pack station, and it needs a {@code limbo} that
+ * applies a pack and answers on a {@code nordtal:} plugin-message channel. Neither exists, so
+ * non-maintenance logins keep {@code velocity.toml}'s own {@code try} list and the {@code limbo}
+ * session builds the rest.
  */
 @Plugin(
         id = "network-control",
@@ -125,15 +137,22 @@ public final class NetworkControlPlugin {
 
         // ------------------------------------------------------------ the phase: poll and listen
 
+        // PlayerRouter is the phase-change listener, but it needs the watch it listens to (for the
+        // login-time phase), so the reference is filled in immediately after the watch exists. The
+        // watch never calls its listener from the constructor, only from refresh().
+        final PhaseRouting routing = new PhaseRouting(PhaseServers.from(gateConfig));
+        final AtomicReference<PlayerRouter> routerRef = new AtomicReference<>();
         final PhaseWatch phaseWatch = new PhaseWatch(phases, logger, (previous, current) -> {
-            // Routing is not written yet (docs/season-phases.md#routing is owned by the limbo
-            // session). This is where the re-route hangs when it is; until then the switch is
-            // announced and nothing moves.
-            if (previous != null) {
-                logger.warn("Players are NOT being re-routed for the {} -> {} switch: routing is not "
-                        + "implemented yet. The login gate already applies the new phase.", previous, current);
+            final PlayerRouter router = routerRef.get();
+            if (router != null) {
+                router.onPhaseChanged(previous, current);
             }
         });
+
+        final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
+                roster, fallback, gateMessages);
+        routerRef.set(router);
+        proxy.getEventManager().register(this, router);
 
         // Read once, before the first player can arrive, so the proxy never runs on the
         // never-read-it MAINTENANCE fallback longer than it has to.

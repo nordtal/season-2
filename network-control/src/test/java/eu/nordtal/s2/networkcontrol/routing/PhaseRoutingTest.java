@@ -1,0 +1,238 @@
+package eu.nordtal.s2.networkcontrol.routing;
+
+import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.access.AccessState;
+import eu.nordtal.s2.common.access.MemberState;
+import eu.nordtal.s2.networkcontrol.routing.RouteDecision.Action;
+
+import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * docs/season-phases.md's "where they land" column and its routing section, asserted in memory.
+ * <p>
+ * Two things are being pinned here. The first is the 2026-08-31 maintenance reversal seen from the
+ * routing side: a non-admin during {@code MAINTENANCE} is <b>connected to {@code limbo}</b> rather
+ * than refused, which is what makes the gate's new {@code ALLOW} mean something. The second is the
+ * exception that was <em>not</em> reversed: a switch to {@code SMP} disconnects a player without
+ * access and must never become a redirect to {@code limbo}.
+ * </p>
+ * <p>
+ * What this does not prove is that Velocity connects anybody anywhere. {@link PlayerRouter} is the
+ * class that talks to the proxy and nothing in this repository can drive one; the split exists so
+ * that the rules are testable even though the plumbing is not.
+ * </p>
+ */
+class PhaseRoutingTest {
+
+    private static final UUID PLAYER = UUID.fromString("22222222-2222-2222-2222-222222222222");
+    private static final String DISCORD_ID = "300000000000000002";
+
+    /** What a healthy proxy has registered. */
+    private static final Set<String> ALL = Set.of("limbo", "hunger-games", "smp");
+
+    private final PhaseRouting routing = new PhaseRouting(new PhaseServers("limbo", "hunger-games", "smp"));
+
+    // ---------------------------------------------------------------- the phase table
+
+    @Test
+    void eachPhaseHasItsOwnBackend() {
+        final PhaseServers servers = new PhaseServers("limbo", "hunger-games", "smp");
+
+        assertEquals("hunger-games", servers.forPhase(SeasonPhase.PRE_EVENT));
+        assertEquals("hunger-games", servers.forPhase(SeasonPhase.START_EVENT));
+        assertEquals("smp", servers.forPhase(SeasonPhase.SMP));
+        assertEquals("limbo", servers.forPhase(SeasonPhase.MAINTENANCE));
+    }
+
+    @Test
+    void aBlankServerNameIsRejectedWhereItIsCheapToNotice() {
+        assertThrows(IllegalArgumentException.class, () -> new PhaseServers("", "hunger-games", "smp"));
+        assertThrows(IllegalArgumentException.class, () -> new PhaseServers("limbo", null, "smp"));
+    }
+
+    @Test
+    void theNamesAreConfigurableEvenThoughTheMappingIsNot() {
+        // Nothing in docs/ says what velocity.toml calls these servers, so the names have to be
+        // settable; which phase uses which is the document and is not.
+        final PhaseServers renamed = new PhaseServers("wait", "hg", "survival");
+
+        assertEquals("wait", renamed.forPhase(SeasonPhase.MAINTENANCE));
+        assertEquals("hg", renamed.forPhase(SeasonPhase.START_EVENT));
+        assertEquals("survival", renamed.forPhase(SeasonPhase.SMP));
+    }
+
+    // ---------------------------------------------------------------- the reversal
+
+    @Test
+    void aPlainMemberInMaintenanceIsSentToLimboRatherThanRefused() {
+        final RouteDecision decision = routing.decide(member(SeasonPhase.MAINTENANCE, false), ALL);
+
+        assertEquals(Action.CONNECT, decision.action(),
+                "decided 2026-08-31: hold them in limbo, do not disconnect them");
+        assertEquals("limbo", decision.server());
+        assertTrue(decision.connects());
+    }
+
+    @Test
+    void havingBoughtAccessDoesNotExemptAnybodyFromTheWaitingRoom() {
+        assertEquals("limbo", routing.decide(member(SeasonPhase.MAINTENANCE, true), ALL).server());
+    }
+
+    @Test
+    void anAdminIsTheOnePlayerMaintenanceDoesNotMove() {
+        final RouteDecision decision =
+                routing.decide(state(SeasonPhase.MAINTENANCE, MemberState.MEMBER, false, true), ALL);
+
+        assertEquals(Action.STAY, decision.action(), "admins get in normally, which is not limbo");
+        assertNull(decision.server());
+    }
+
+    @Test
+    void theAdminExemptionIsMaintenanceOnly() {
+        // An admin in SMP without access is refused exactly like anybody else - the flag is not a
+        // free access period, and it is not a routing exemption outside maintenance either.
+        assertEquals(Action.REFUSE_NO_ACCESS,
+                routing.decide(state(SeasonPhase.SMP, MemberState.MEMBER, false, true), ALL).action());
+        assertEquals("hunger-games",
+                routing.decide(state(SeasonPhase.PRE_EVENT, MemberState.MEMBER, false, true), ALL).server());
+    }
+
+    // ---------------------------------------------------------------- what was NOT reversed
+
+    @Test
+    void aSwitchToSmpDisconnectsAPlayerWithoutAccessAndNeverRedirectsThem() {
+        final RouteDecision decision = routing.decide(member(SeasonPhase.SMP, false), ALL);
+
+        assertEquals(Action.REFUSE_NO_ACCESS, decision.action(),
+                "docs/season-phases.md#routing, settled 2026-08-31: it does not push them to limbo");
+        assertNull(decision.server(), "a refusal carries no destination at all");
+        assertTrue(decision.refuses());
+    }
+
+    @Test
+    void aSwitchToSmpStillDisconnectsThemEvenWhenLimboIsPerfectlyAvailable() {
+        // The tempting bug: "we have a waiting room now, so put them in it". limbo is for waiting
+        // on something that ends, and not having bought access does not end by waiting.
+        assertEquals(Action.REFUSE_NO_ACCESS, routing.decide(member(SeasonPhase.SMP, false), ALL).action());
+        assertEquals(Action.REFUSE_NO_ACCESS,
+                routing.decide(member(SeasonPhase.SMP, false), Set.of("limbo")).action());
+    }
+
+    @Test
+    void aMemberWithAccessGoesToTheSmp() {
+        assertEquals("smp", routing.decide(member(SeasonPhase.SMP, true), ALL).server());
+    }
+
+    @Test
+    void theTwoEventPhasesGoToHungerGamesWithNothingBought() {
+        assertEquals("hunger-games", routing.decide(member(SeasonPhase.PRE_EVENT, false), ALL).server());
+        assertEquals("hunger-games", routing.decide(member(SeasonPhase.START_EVENT, false), ALL).server());
+    }
+
+    // ---------------------------------------------------------------- admission still comes first
+
+    @Test
+    void anUnlinkedOrBannedPlayerIsNeverRoutedAnywhere() {
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            assertEquals(Action.REFUSE_UNLINKED,
+                    routing.decide(AccessState.unlinked(PLAYER, phase), ALL).action(), phase.name());
+            assertEquals(Action.REFUSE_NOT_MEMBER,
+                    routing.decide(state(phase, MemberState.BANNED, true, true), ALL).action(), phase.name());
+            assertEquals(Action.REFUSE_NOT_MEMBER,
+                    routing.decide(state(phase, MemberState.LEFT, false, false), ALL).action(), phase.name());
+        }
+    }
+
+    // ---------------------------------------------------------------- limbo is not built
+
+    @Test
+    void maintenanceWithNoLimboServerFallsBackToTheDisconnectItUsedToBe() {
+        // The honest half of the reversal. `limbo` is a scaffold module, so "route them to limbo"
+        // can only mean "connect them to the configured backend" - and that backend may not be
+        // registered on this proxy at all. Rather than an undefined state or a raw Velocity error,
+        // the player gets the maintenance screen: the "disconnect" half of the either/or
+        // docs/season-phases.md used to leave open, kept for exactly the case where holding them
+        // is impossible.
+        final RouteDecision decision =
+                routing.decide(member(SeasonPhase.MAINTENANCE, false), Set.of("hunger-games", "smp"));
+
+        assertEquals(Action.REFUSE_MAINTENANCE_UNAVAILABLE, decision.action());
+        assertTrue(decision.refuses());
+    }
+
+    @Test
+    void anAdminIsUnaffectedByAMissingLimbo() {
+        // They were never going there, so a missing waiting room cannot lock them out of the
+        // network they are maintaining. This is the branch that must not regress: if maintenance
+        // ever locked admins out because limbo is unbuilt, nobody could fix anything.
+        assertEquals(Action.STAY, routing.decide(
+                state(SeasonPhase.MAINTENANCE, MemberState.MEMBER, false, true), Set.of()).action());
+    }
+
+    @Test
+    void aMissingBackendInAnyOtherPhaseIsItsOwnScreen() {
+        assertEquals(Action.REFUSE_NO_SERVER,
+                routing.decide(member(SeasonPhase.PRE_EVENT, false), Set.of("limbo")).action());
+        assertEquals(Action.REFUSE_NO_SERVER,
+                routing.decide(member(SeasonPhase.SMP, true), Set.of("limbo")).action());
+    }
+
+    @Test
+    void aProxyWithNoServersAtAllRefusesEveryPhaseRatherThanDroppingPlayersNowhere() {
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            final RouteDecision decision = routing.decide(member(phase, true), Set.of());
+            assertTrue(decision.refuses(), phase + " must not silently do nothing");
+            assertNull(decision.server());
+        }
+    }
+
+    // ---------------------------------------------------------------- the admitted-only form
+
+    @Test
+    void theAdmittedFormAgreesWithTheFullOneForEveryPhaseAndAdminFlag() {
+        // PlayerRouter uses decideAdmitted() at PlayerChooseInitialServerEvent, where re-reading the
+        // database would be a second round trip on a login path pinned to one. If the two ever
+        // drift, a player is routed one way at login and another way on the next phase change.
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            for (final boolean admin : new boolean[]{false, true}) {
+                final AccessState state = state(phase, MemberState.MEMBER, true, admin);
+
+                assertEquals(routing.decide(state, ALL), routing.decideAdmitted(phase, admin, ALL),
+                        phase + "/admin=" + admin);
+                assertEquals(routing.decide(state, Set.of()), routing.decideAdmitted(phase, admin, Set.of()),
+                        "with nothing registered either - " + phase + "/admin=" + admin);
+            }
+        }
+    }
+
+    @Test
+    void aRefusalMayNotCarryAServerAndAConnectionMayNotOmitOne() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new RouteDecision(Action.REFUSE_NO_ACCESS, "smp"));
+        assertThrows(IllegalArgumentException.class, () -> new RouteDecision(Action.CONNECT, null));
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    private static AccessState member(final SeasonPhase phase, final boolean accessActive) {
+        return state(phase, MemberState.MEMBER, accessActive, false);
+    }
+
+    private static AccessState state(final SeasonPhase phase, final MemberState membership,
+                                     final boolean accessActive, final boolean admin) {
+        return new AccessState(PLAYER, DISCORD_ID, membership, accessActive,
+                accessActive ? Instant.now().plus(Duration.ofDays(1)) : null,
+                false, admin, Locale.ENGLISH, phase);
+    }
+}

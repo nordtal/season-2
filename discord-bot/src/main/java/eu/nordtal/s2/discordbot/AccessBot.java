@@ -3,25 +3,28 @@ package eu.nordtal.s2.discordbot;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
-import eu.nordtal.s2.discordbot.bunq.BunqGateway;
+import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.BotSpec;
 import eu.nordtal.s2.discordbot.config.Configs;
 import eu.nordtal.s2.discordbot.config.DatabaseSpec;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.discordbot.discord.AccessRoles;
-import eu.nordtal.s2.discordbot.discord.AdminCommands;
+import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
+import eu.nordtal.s2.discordbot.access.discord.AdminCommands;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
 import eu.nordtal.s2.discordbot.discord.GuildState;
-import eu.nordtal.s2.discordbot.discord.LinkFlow;
-import eu.nordtal.s2.discordbot.discord.ManagedMessages;
+import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
+import eu.nordtal.s2.discordbot.access.discord.ManagedMessages;
 import eu.nordtal.s2.discordbot.discord.PhaseCommand;
-import eu.nordtal.s2.discordbot.discord.PurchaseFlow;
-import eu.nordtal.s2.discordbot.payment.PaymentProcessor;
-import eu.nordtal.s2.discordbot.payment.PaymentRequests;
-import eu.nordtal.s2.discordbot.payment.Purchases;
-import eu.nordtal.s2.discordbot.payment.Watermark;
-import eu.nordtal.s2.discordbot.payment.Tiers;
+import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
+import eu.nordtal.s2.discordbot.access.payment.PaymentProcessor;
+import eu.nordtal.s2.discordbot.access.payment.PaymentRequests;
+import eu.nordtal.s2.discordbot.access.payment.Purchases;
+import eu.nordtal.s2.discordbot.access.payment.Watermark;
+import eu.nordtal.s2.discordbot.access.payment.Tiers;
+import eu.nordtal.s2.discordbot.hungergames.RegisterFlow;
+import eu.nordtal.s2.discordbot.hungergames.RegisterMessages;
+import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
@@ -132,13 +135,15 @@ public class AccessBot implements AutoCloseable {
                     purchases, tiers, access, roles, admin, messages, jda,
                     Watermark.resolve(database.jdbi(), accessConfig.payment().watermark()));
             final GuildState guildState = new GuildState(jda, accessConfig, languages, access, database.jdbi());
+            final Teams teams = new Teams(database.jdbi());
 
             jda.addEventListener(
                     guildState,
                     new PurchaseFlow(accessConfig, tiers, purchases, requests, messages, roles, admin, worker),
                     new LinkFlow(access, roles, messages, admin, worker),
                     new AdminCommands(access, roles, requests, admin, messages, worker),
-                    new PhaseCommand(phases, admin, database.jdbi(), worker));
+                    new PhaseCommand(phases, admin, database.jdbi(), worker),
+                    new RegisterFlow(jda, teams, messages, worker));
 
             final List<CommandData> commands = new ArrayList<>();
             commands.addAll(AdminCommands.commands());
@@ -147,6 +152,7 @@ public class AccessBot implements AutoCloseable {
             jda.updateCommands().addCommands(commands).queue();
 
             new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();
+            new RegisterMessages(jda, languages, messages, database.jdbi()).publishAll();
             guildState.reconcile();
             roles.reconcile();
 

@@ -77,7 +77,8 @@ public final class Configs {
               - tag: en
                 role: '000000000000000000'
                 contribution-channel: '000000000000000000'
-                link-channel: '000000000000000000'""";
+                link-channel: '000000000000000000'
+                hunger-games-channel: '000000000000000000'""";
 
     private Configs() {
     }
@@ -267,6 +268,7 @@ public final class Configs {
             requireSnowflake(path + ".role", language.role());
             requireSnowflake(path + ".contribution-channel", language.contributionChannel());
             requireSnowflake(path + ".link-channel", language.linkChannel());
+            requireSnowflake(path + ".hunger-games-channel", language.hungerGamesChannel());
         }
 
         if (!tags.contains(FALLBACK_LANGUAGE)) {

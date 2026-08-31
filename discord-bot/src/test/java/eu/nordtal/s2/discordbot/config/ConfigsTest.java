@@ -51,10 +51,12 @@ class ConfigsTest {
               role: '30'
               contribution-channel: '31'
               link-channel: '32'
+              hunger-games-channel: '39'
             - tag: de
               role: '33'
               contribution-channel: '34'
-              link-channel: '35'""";
+              link-channel: '35'
+              hunger-games-channel: '40'""";
 
     /**
      * A third language, to be appended to {@link #VALID_LANGUAGES}. Nothing in the bot knows the
@@ -65,7 +67,8 @@ class ConfigsTest {
             - tag: fr
               role: '36'
               contribution-channel: '37'
-              link-channel: '38'""";
+              link-channel: '38'
+              hunger-games-channel: '41'""";
 
     /**
      * Everything but the tiers and the languages, so a test about one setting does not trip over
@@ -240,7 +243,8 @@ class ConfigsTest {
                 () -> assertEquals("30", config.languages().getFirst().role()),
                 () -> assertEquals("32", config.languages().getFirst().linkChannel()),
                 () -> assertEquals("de", config.languages().getLast().tag()),
-                () -> assertEquals("34", config.languages().getLast().contributionChannel())
+                () -> assertEquals("34", config.languages().getLast().contributionChannel()),
+                () -> assertEquals("40", config.languages().getLast().hungerGamesChannel())
         );
     }
 
@@ -254,7 +258,8 @@ class ConfigsTest {
                 - tag: de
                   role: '33'
                   contribution-channel: '34'
-                  link-channel: '35'"""));
+                  link-channel: '35'
+                  hunger-games-channel: '40'"""));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertAll(
@@ -308,6 +313,16 @@ class ConfigsTest {
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("languages[1].link-channel"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("an empty hunger-games-channel id stops the bot, naming the entry")
+    void emptyHungerGamesChannelStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("access.yml"),
+                languages(VALID_LANGUAGES.replace("hunger-games-channel: '40'", "hunger-games-channel: ''")));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("languages[1].hunger-games-channel"), error.getMessage());
     }
 
     @Test
@@ -367,7 +382,9 @@ class ConfigsTest {
                 () -> assertEquals("fr", languages.resolve(Set.of("36")).orElseThrow().tag()),
                 () -> assertEquals("37", french.contributionChannelId()),
                 () -> assertEquals("38", french.linkChannelId()),
+                () -> assertEquals("41", french.hungerGamesChannelId()),
                 () -> assertEquals("CONTRIBUTION_FR", french.contributionKind()),
+                () -> assertEquals("HG_REGISTER_FR", french.hungerGamesRegisterKind()),
                 () -> assertArrayEquals(new Locale[]{Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH},
                         languages.locales()),
                 // ...and the two that already existed still behave exactly as they did.
@@ -447,7 +464,9 @@ class ConfigsTest {
                 () -> assertTrue(Files.readString(file).contains("tag: de"),
                         "and so is German - both entries, not an empty list: " + read(file)),
                 () -> assertTrue(Files.readString(file).contains("link-channel: ''"),
-                        "with their ids empty, exactly like every other id")
+                        "with their ids empty, exactly like every other id"),
+                () -> assertTrue(Files.readString(file).contains("hunger-games-channel: ''"),
+                        "the hunger games channel id too")
         );
     }
 

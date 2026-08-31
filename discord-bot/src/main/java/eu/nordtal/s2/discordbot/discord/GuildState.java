@@ -1,5 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import eu.nordtal.s2.discordbot.access.discord.ReconcileDao;
+
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.common.access.AccessDirectory;

@@ -1,201 +1,214 @@
 {
     "providers": [
         {
-            "type": "bitmap",
-            "file": "nordtal:tags/a.png",
-            "ascent": 7,
-            "height": 7,
-            "chars": [
-                "\uE004"
-            ]
+            "type": "space",
+            "advances": {
+                "": -1,
+                "": -2,
+                "": -4,
+                "": -8,
+                "": -16,
+                "": -32,
+                "": -64,
+                "": -128
+            }
         },
         {
             "type": "bitmap",
-            "file": "nordtal:flags/other.png",
-            "ascent": 7,
-            "height": 7,
-            "chars": [
-                "\uE010"
-            ]
-        },
-        {
-            "type": "bitmap",
-            "file": "nordtal:flags/germany.png",
-            "ascent": 7,
-            "height": 7,
-            "chars": [
-                "\uE011"
-            ]
-        },
-        {
-            "type": "bitmap",
-            "file": "nordtal:flags/netherlands.png",
-            "ascent": 7,
-            "height": 7,
-            "chars": [
-                "\uE012"
-            ]
-        },
-        {
-            "type": "bitmap",
-            "file": "nordtal:flags/unitedkingdom.png",
-            "ascent": 7,
-            "height": 7,
-            "chars": [
-                "\uE013"
-            ]
-        },
-        {
-            "type": "bitmap",
-            "file": "nordtal:flags/unitedstates.png",
-            "ascent": 7,
-            "height": 7,
-            "chars": [
-                "\uE014"
-            ]
-        },
-        {
-            "type": "bitmap",
-            "file": "nordtal:assets/logo.png",
-            "ascent": 0,
-            "height": 24,
-            "chars": [
-                "\uE020"
-            ]
-        },
-        {
-            "type": "bitmap",
-            "file": "nordtal:assets/logo.png",
-            "ascent": 25,
-            "height": 32,
-            "chars": [
-                "\uE021"
-            ]
-        },
-        {
-            "type": "bitmap",
-            "file": "nordtal:badges/donor_star.png",
-            "ascent": 7,
-            "height": 7,
-            "chars": [
-                "\uE000"
-            ]
-        },
-        {
-            "type": "bitmap",
-            "file": "nordtal:prestige/crest_01.png",
+            "file": "nordtal:ui/board/corner_tl.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE030"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_02.png",
+            "file": "nordtal:ui/board/corner_tr.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE031"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_03.png",
+            "file": "nordtal:ui/board/corner_bl.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE032"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_04.png",
+            "file": "nordtal:ui/board/corner_br.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE033"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_05.png",
+            "file": "nordtal:ui/board/edge_h_1.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE034"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_06.png",
+            "file": "nordtal:ui/board/edge_h_2.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE035"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_07.png",
+            "file": "nordtal:ui/board/edge_h_4.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE036"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_08.png",
+            "file": "nordtal:ui/board/edge_h_8.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE037"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_09.png",
+            "file": "nordtal:ui/board/edge_h_16.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE038"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_10.png",
+            "file": "nordtal:ui/board/edge_h_32.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE039"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_11.png",
+            "file": "nordtal:ui/board/edge_h_64.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE03A"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_12.png",
+            "file": "nordtal:ui/board/edge_h_128.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE03B"
+                ""
             ]
         },
         {
             "type": "bitmap",
-            "file": "nordtal:prestige/crest_13.png",
+            "file": "nordtal:ui/board/edge_v_l.png",
             "ascent": 8,
             "height": 9,
             "chars": [
-                "\uE03C"
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/board/edge_v_r.png",
+            "ascent": 8,
+            "height": 9,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/board/divider_1.png",
+            "ascent": 8,
+            "height": 9,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/board/divider_2.png",
+            "ascent": 8,
+            "height": 9,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/board/divider_4.png",
+            "ascent": 8,
+            "height": 9,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/board/divider_8.png",
+            "ascent": 8,
+            "height": 9,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/board/divider_16.png",
+            "ascent": 8,
+            "height": 9,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/board/divider_32.png",
+            "ascent": 8,
+            "height": 9,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/board/divider_64.png",
+            "ascent": 8,
+            "height": 9,
+            "chars": [
+                ""
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/board/divider_128.png",
+            "ascent": 8,
+            "height": 9,
+            "chars": [
+                ""
             ]
         }
     ]

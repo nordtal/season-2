@@ -10,8 +10,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -53,22 +56,36 @@ class ConfigsTest {
               contribution-channel: '34'
               link-channel: '35'""";
 
-    /** Everything but the tiers, so a test about one setting does not trip over the other twenty. */
+    /**
+     * A third language, to be appended to {@link #VALID_LANGUAGES}. Nothing in the bot knows the
+     * tag {@code fr} exists; that is the point.
+     */
+    private static final String FRENCH = """
+
+            - tag: fr
+              role: '36'
+              contribution-channel: '37'
+              link-channel: '38'""";
+
+    /**
+     * Everything but the tiers and the languages, so a test about one setting does not trip over
+     * the other twenty.
+     * <p>
+     * There are deliberately no {@code roles.german} / {@code roles.english} and no
+     * {@code channels.contribution-*} / {@code channels.link-*} keys here. They were deleted on
+     * 2026-08-31 when the {@code languages} list became the only source for them, and an
+     * undeclared key stops the load - which {@link #retiredLanguageRolesStopTheBot()} asserts.
+     * </p>
+     */
     private static final String REST = """
             guild-id: '1'
             donation-cents: 500
             roles:
               access: '10'
               donor: '11'
-              german: '12'
-              english: '13'
               admin: '14'
               admin-ping: '15'
             channels:
-              contribution-en: '20'
-              contribution-de: '21'
-              link-en: '22'
-              link-de: '23'
               admin: '24'
             payment:
               poll-interval-seconds: 30
@@ -291,6 +308,72 @@ class ConfigsTest {
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("languages[1].link-channel"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("a tag too long for managed_message.kind stops the bot")
+    void anOverlongLanguageTagStopsTheBot() throws Exception {
+        // Not a rule about languages: managed_message.kind is varchar(32) and the bot writes
+        // "CONTRIBUTION_<TAG>" into it. Caught here rather than as an INSERT failure at startup.
+        Files.writeString(directory.resolve("access.yml"),
+                languages(VALID_LANGUAGES.replace("- tag: de", "- tag: " + "a".repeat(20))));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("as long as a managed message's key"), error.getMessage());
+    }
+
+    // ------------------------------------------------------------- the list is the only source
+
+    @Test
+    @DisplayName("the retired roles.german / roles.english are not settings of this file any more")
+    void retiredLanguageRolesStopTheBot() throws Exception {
+        // The list carries each language's role. Leaving the old pair declared alongside it is what
+        // made access.yml have two sources of truth for the same ids; deleting a key is only free
+        // while nothing is deployed, because an undeclared key stops the load.
+        Files.writeString(directory.resolve("access.yml"),
+                access().replace("  donor: '11'", "  donor: '11'\n  german: '12'"));
+
+        final UnknownConfigKeyException error =
+                assertThrows(UnknownConfigKeyException.class, Configs::access);
+        assertEquals("roles.german", error.unknownKeys().getFirst().path());
+    }
+
+    @Test
+    @DisplayName("the retired fixed contribution and link channels are not settings any more")
+    void retiredLanguageChannelsStopTheBot() throws Exception {
+        Files.writeString(directory.resolve("access.yml"),
+                access().replace("  admin: '24'", "  contribution-en: '20'\n  admin: '24'"));
+
+        final UnknownConfigKeyException error =
+                assertThrows(UnknownConfigKeyException.class, Configs::access);
+        assertEquals("channels.contribution-en", error.unknownKeys().getFirst().path());
+    }
+
+    @Test
+    @DisplayName("a third language is a config edit and nothing else")
+    void aThirdLanguageIsPurelyAConfigEdit() throws Exception {
+        // The whole point of the list (docs/i18n.md). Nothing in the bot's source mentions 'fr':
+        // the file below is the entire change, and everything the bot does per language comes out
+        // of it - the role it mirrors, the two channels it posts in, the bundle it loads, and the
+        // managed_message keys it remembers its own messages under.
+        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES + FRENCH));
+
+        final Languages languages = Languages.of(Configs.access().get());
+        final Languages.Language french = languages.byTag("fr").orElseThrow();
+
+        assertAll(
+                () -> assertEquals(3, languages.all().size()),
+                () -> assertEquals(Locale.FRENCH, french.locale()),
+                () -> assertEquals("fr", languages.resolve(Set.of("36")).orElseThrow().tag()),
+                () -> assertEquals("37", french.contributionChannelId()),
+                () -> assertEquals("38", french.linkChannelId()),
+                () -> assertEquals("CONTRIBUTION_FR", french.contributionKind()),
+                () -> assertArrayEquals(new Locale[]{Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH},
+                        languages.locales()),
+                // ...and the two that already existed still behave exactly as they did.
+                () -> assertEquals("de", languages.resolve(Set.of("33")).orElseThrow().tag()),
+                () -> assertEquals("31", languages.forLocale(Locale.ENGLISH).contributionChannelId())
+        );
     }
 
     @Test

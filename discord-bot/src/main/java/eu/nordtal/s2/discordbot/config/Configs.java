@@ -110,6 +110,7 @@ public final class Configs {
         requireSnowflake("roles.donor", config.roles().donor());
         requireSnowflake("roles.german", config.roles().german());
         requireSnowflake("roles.english", config.roles().english());
+        requireSnowflake("roles.admin", config.roles().admin());
         requireSnowflake("roles.admin-ping", config.roles().adminPing());
 
         requireSnowflake("channels.contribution-en", config.channels().contributionEn());

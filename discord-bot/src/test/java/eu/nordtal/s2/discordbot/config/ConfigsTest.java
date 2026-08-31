@@ -50,7 +50,8 @@ class ConfigsTest {
               donor: '11'
               german: '12'
               english: '13'
-              admin-ping: '14'
+              admin: '14'
+              admin-ping: '15'
             channels:
               contribution-en: '20'
               contribution-de: '21'
@@ -110,6 +111,7 @@ class ConfigsTest {
                 () -> assertEquals(700, config.tiers().getLast().priceCents()),
                 () -> assertEquals(500, config.donationCents()),
                 () -> assertEquals("10", config.roles().access()),
+                () -> assertEquals("14", config.roles().admin()),
                 () -> assertEquals("24", config.channels().admin()),
                 () -> assertEquals(24, config.payment().requestTtlHours())
         );
@@ -122,6 +124,17 @@ class ConfigsTest {
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("channels.admin"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("the bot refuses to start while the admin role id is empty")
+    void emptyAdminRoleStopsTheBot() throws Exception {
+        // The flag this role is mirrored into authorises /phase set and admission during
+        // MAINTENANCE. An unset id would mirror "nobody is an admin" onto everybody, silently.
+        Files.writeString(directory.resolve("access.yml"), access().replace("admin: '14'", "admin: ''"));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("roles.admin"), error.getMessage());
     }
 
     @Test

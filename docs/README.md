@@ -49,6 +49,7 @@ a projection of it; LuckPerms is not involved anywhere.
 | [operations.md](operations.md) | Deployment, secrets, pack hosting, the release path, and everything still unverified |
 | [access-system.md](access-system.md) | The paid access concept: product, rules, payment matching, linking |
 | [state-of-play.md](state-of-play.md) | Where the **code** stands against all of the above, what can be built today, and what still needs a decision |
+| [../resource-pack/README.md](../resource-pack/README.md) | **The glyph code point allocation** — both fonts, one table, and the only place that owns it |
 
 Repository rules — build conventions, platform versions, package layout, what not to shade — live
 in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
@@ -61,6 +62,8 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 | Access system: schema, `AccessDirectory`, purchase flow, bunq matching, linking, login gate | **built** — stages A–C, 2026-08-30 |
 | Message system in `:common` (`Messages`, `Locales`) | **built** |
 | Resource pack: glyphs, boss bar sprites, reproducible zip | **built**, carries season 1 leftovers |
+| Glyph code point allocation, both fonts | **decided 2026-08-31** — the table exists, the artwork does not |
+| Command surfaces in every module | **unblocked 2026-08-31** — Brigadier directly, no framework |
 | Phase model, phase-aware gate, phase propagation | **designed, not built** |
 | `limbo` waiting room and pack enforcement | **designed, not built** — scaffold is still named `resource-pack-coercion` |
 | Language config list, plugin-side locale lookup | **designed, not built** |
@@ -68,7 +71,14 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 | SMP: worlds, travel, milestones, aura, prestige, duels, graves, POIs | **designed, not built** — 2026-08-31 |
 
 That table is a summary. [state-of-play.md](state-of-play.md) is the same question answered from the
-code, module by module, with the places where these documents and the code disagree.
+code, module by module, with the places where these documents and the code disagree — **nine of
+them** as of 2026-08-31, three of which came out of that day's planning session.
+
+**One design decision is still genuinely open**, and it has a session of its own waiting: the
+milestone track — which objectives sit on which milestone, in what order, with what targets
+([smp.md](smp.md#still-open)). Everything else left in
+[state-of-play.md §3](state-of-play.md#3-what-still-needs-a-decision) is a config default, a
+drawing, a text, or a build.
 
 `smp-farm-world` → `smp` was carried out on 2026-08-31. Three renames are still part of the plan
 and are cheap only until something runs in production: `resource-pack-coercion` → `limbo`,

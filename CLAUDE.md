@@ -109,10 +109,28 @@ rules use. See [docs/operations.md](docs/operations.md#open-verification).
   (`eu.nordtal.s2.common.message`) since stage A, 2026-08-30. That means it now depends on JDBI 3,
   HikariCP, slf4j-api and the PostgreSQL driver — and on **nothing else**; jcore is deliberately
   not used here even though it wraps the same stack, because its dependency block is what makes
-  the bot's jar 32 MB. Every Paper plugin jar grew from ~20 KB to **~3.0 MB** as a result
-  (measured 2026-08-30). Nothing from JDBI or HikariCP appears on `AccessDirectory`'s signature —
+  the bot's jar ~31 MB. Nothing from JDBI or HikariCP appears on `AccessDirectory`'s signature —
   the factories take a `javax.sql.DataSource` or a JDBC URL — so a consumer never compiles against
   them.
+- **What a jar actually weighs, rebuilt and measured 2026-08-31.** An earlier version of this file
+  and of `docs/state-of-play.md` claimed "every Paper plugin jar grew from ~20 KB to ~3.0 MB".
+  **That was wrong, and backwards.**
+
+  | jar | bytes |
+  |---|---|
+  | `smp-2.0.0.jar` | 34,745 |
+  | `hunger-games-2.0.0.jar` | 34,784 |
+  | `resource-pack-coercion-2.0.0.jar` | 34,886 |
+  | `network-control-2.0.0.jar` | 5,196,184 |
+  | `access-bot-2.0.0.jar` | 30,893,431 |
+
+  The three Paper plugins carry `:common`'s own classes plus ~14 KB of SQL and **nothing else**,
+  precisely because the JDBI/Hikari/slf4j declarations are `compileOnly` and none of the three
+  scaffolds has opted into `libs.bundles.access-persistence` yet. `network-control` weighs 5 MB
+  because it *did* opt in, through `jcore`. The 3.12 MB figure in `common/build.gradle.kts` is the
+  **counterfactual** — what a plugin jar would weigh if those declarations were `implementation` —
+  and it was read as a measurement of the jars as they are. A plugin that starts using the access
+  API will land near 3 MB; none does today.
 - **Exactly one process migrates: `access-bot`.** That is unchanged. **Where the SQL lives changed
   on 2026-08-31, and the move has been carried out**: the migration files sit in
   `common/src/main/resources/db/migration/`, so DDL is next to the API that reads it instead of

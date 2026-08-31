@@ -3,8 +3,15 @@
 The event that opens season 2. One map, 15–30 players, teams of one or two, a border that closes in
 with every death, and **exactly one winner** — teams are an alliance with an expiry date.
 
-Status: **concept agreed 2026-08-30, nothing built.** The `hunger-games` module is a scaffold; the
-Discord half does not exist yet. This document is what an implementation session works from.
+Status: **concept agreed 2026-08-30, built 2026-08-31 — both halves.** The `hunger-games` Paper
+module implements the border, the loot refills, the HUD, the lobby, the disconnected bodies, the
+generated team colours, the win and tie rules and the ceremony; `discord-bot`'s `hungergames`
+package implements registration, team names and partner invitations. 41 tests.
+
+**What is left is not code.** The hand-built world folder, the aerial and rules images (the shipped
+`lobby/map-*.png` are dummy placeholders), and the full rehearsal under
+[Verification](#verification), which nothing substitutes for. This document remains the reference for
+what the code is supposed to do.
 
 **Access is not required to play.** Anyone whose Minecraft account is linked to their Discord
 account may join during `PRE_EVENT` and `START_EVENT`; paid access only starts to matter when the
@@ -252,8 +259,14 @@ now face each other, and the passive border shrink makes sure the question gets 
    decide that.
 
 The winner carries something into the SMP: **extra aura points** while everyone else starts at
-zero, plus one or two special items. Both must be settable through config or a command rather than
-compiled in.
+zero, plus one or two special items. Both are settable through config rather than compiled in.
+
+**This module does not grant it — the SMP does, on the winner's first join.** Decided 2026-09-01.
+The winner is recorded here, once, in `hg_game.winner_member_id`; the SMP reads that row and pays
+out from its own config, tracking that it has done so in `smp_player.hg_winner_reward_granted`. The
+earlier plan had this plugin write into `smp_aura_event` at the moment of the decision, which would
+have pointed a dependency from the event at a module that did not exist and would have paid a winner
+who never turns up for the season. See [smp.md](smp.md#the-hunger-games-winners-head-start).
 
 Aura is now designed ([smp.md](smp.md#aura--recognition-not-currency)) and the head start is worth
 restating in its terms: aura is **prestige only and buys nothing**, so the winner's advantage is
@@ -310,9 +323,11 @@ The Minecraft UUID is not duplicated here: it hangs off `discord_user` through t
 
 ## Still open
 
-- **Loot pool contents.** The schedule is agreed; the item lists are not. An implementation session
-  should propose a full default set in config form for review.
-- **Quiet period and passive shrink rate** — the numbers, not the mechanism.
+- ~~**Loot pool contents.**~~ **Proposed 2026-08-31** as four `DefaultRefillTiers` at 0 / 60 / 120 /
+  150 minutes, from wooden axe and bread through to netherite and a totem. Config defaults, meant to
+  be corrected in a diff.
+- ~~**Quiet period and passive shrink rate.**~~ **Proposed 2026-08-31**: 600 seconds of quiet, then
+  15 blocks of diameter per hour, both in `HungerGamesSpec`.
 - **Simple Voice Chat** is planned as an optional extra **under reservation**: it requires a client
   mod, so vanilla players cannot use it at all, and whether a build for Minecraft 26.2 exists is
   unconfirmed. Check before the event; if there is none, it is dropped without replacement.

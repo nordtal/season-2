@@ -6,10 +6,6 @@ paper = "26.2.build.121-stable"
 # velocity-api 4.1.1 is compiled for Java 25 and ships the @Plugin annotation processor
 # that generates velocity-plugin.json.
 velocity = "4.1.1"
-# SimpleCloud's API is published only to repo.simplecloud.app/snapshots and is still 0.1.0.
-# It must stay compileOnly and must never be shaded — the simplecloud-api platform plugin
-# provides it at runtime.
-simplecloud = "0.1.0-platform.54-dev.1.1-770dcc6"
 # jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the
 # git tag. Only payments-bot uses it — see CLAUDE.md before adding it to a plugin.
 # 2.0.0 dropped Hibernate/Morphia for JDBI 3 + HikariCP + Flyway on PostgreSQL and no longer
@@ -52,7 +48,6 @@ runpaper = "3.1.0"
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
 velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity" }
-simplecloud-api = { module = "app.simplecloud.api:api", version.ref = "simplecloud" }
 jcore = { module = "com.github.nordtal:jcore", version.ref = "jcore" }
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
 bunq-sdk = { module = "com.github.bunq:sdk_java", version.ref = "bunq" }

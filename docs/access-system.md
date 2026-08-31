@@ -206,9 +206,11 @@ audit log; being admin-only in Discord's UI is not the same as being recorded.
 
 ## Deployment
 
-The module is renamed **`payments-bot` → `access-bot`** (`eu.nordtal.s2.accessbot`,
-`ghcr.io/nordtal/access-bot`), which is cheap only while nothing runs in production. The Discord
-application is to be named "Nordtal Access".
+The module is **`discord-bot`** (`eu.nordtal.s2.discordbot`, `ghcr.io/nordtal/discord-bot`). It was
+renamed from season 1's `payments-bot` to `access-bot` on 2026-08-30 and again to `discord-bot` on
+2026-08-31, the second time because the module must not be named after one of its features — it now
+carries `access/` and `hungergames/` as sibling packages. The Discord application is named "Nordtal
+Access". Both renames were free because nothing has ever run in production.
 
 ## Verification
 
@@ -216,8 +218,9 @@ application is to be named "Nordtal Access".
    short payment, one-open-request-per-person. Containers are started and stopped from `@BeforeAll`
    by hand — this repo is on the JUnit 6 BOM and the `junit-jupiter` Testcontainers extension is
    built for 5.
-2. bunq **sandbox** for the payment path end to end. `ApiEnvironmentType.PRODUCTION` is hardcoded
-   today; an environment switch is part of stage B.
+2. bunq **sandbox** for the payment path end to end. The environment is a config key
+   (`BotSpec#bunq().environment()`) rather than a hardcoded `PRODUCTION`, so the sandbox run needs no
+   code change. **Still unrun** — nothing in the test suite touches bunq.
 3. The real guild, in a channel only admins can see, for buttons, modals, ephemeral messages and
    role assignment.
 4. A real 3 € purchase as the final step, never as the development loop.
@@ -227,7 +230,9 @@ integration tests skip themselves there.
 
 ## Known risks
 
-- **SimpleCloud on Minecraft 26.2 is unconfirmed** (carried over from the season-2 notes).
+- ~~SimpleCloud on Minecraft 26.2 is unconfirmed.~~ **Confirmed 2026-08-31** by the owner against
+  SimpleCloud v3's dashboard. The API artefact was a separate question and was answered by deleting
+  the dependency — see [operations.md](operations.md#closed-2026-09-01).
 - **The proxy needs database access**, so PostgreSQL must be reachable from the proxy host and the
   credentials exist in more than one config file.
 - **No chat bridge.** Dropping DiscordSRV drops that too; nobody has asked for it, but it is a

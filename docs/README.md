@@ -14,7 +14,7 @@ flowchart TB
     NC --> LB["limbo<br/>waiting room + resource pack"]
     LB -.->|"ready"| NC
     NC -->|"phase PRE_EVENT / START_EVENT"| HG["hunger-games"]
-    NC -->|"phase SMP"| SMP["smp-farm-world"]
+    NC -->|"phase SMP"| SMP["smp<br/>Nordtal · farm world · Nether · End"]
 
     BOT["discord-bot<br/>access · hunger games · admin"] <--> DC["Discord"]
     BOT <--> BQ["bunq"]
@@ -45,7 +45,7 @@ a projection of it; LuckPerms is not involved anywhere.
 | [season-phases.md](season-phases.md) | The four phases, who gets in during each, where the phase lives and how a switch propagates |
 | [i18n.md](i18n.md) | How German and English work everywhere, and how a third language is added without a release |
 | [hunger-games.md](hunger-games.md) | The start event in full: registration, teams, border, loot, HUD, winning |
-| [smp.md](smp.md) | **Not designed yet.** Only what other decisions already commit us to |
+| [smp.md](smp.md) | The SMP in full: worlds, travel, milestones, aura, prestige, duels, graves, POIs |
 | [operations.md](operations.md) | Deployment, secrets, pack hosting, the release path, and everything still unverified |
 | [access-system.md](access-system.md) | The paid access concept: product, rules, payment matching, linking |
 
@@ -64,11 +64,11 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 | `limbo` waiting room and pack enforcement | **designed, not built** — scaffold is still named `resource-pack-coercion` |
 | Language config list, plugin-side locale lookup | **designed, not built** |
 | Hunger games, both halves | **designed, not built** |
-| SMP, farm world, aura points | **not designed** |
+| SMP: worlds, travel, milestones, aura, prestige, duels, graves, POIs | **designed, not built** — 2026-08-31 |
 
-Three renames are part of the plan and are cheap only until something runs in production:
-`resource-pack-coercion` → `limbo`, `access-bot` → `discord-bot`, and the `SeasonPhase` values.
-See [architecture.md](architecture.md#modules).
+Four renames are part of the plan and are cheap only until something runs in production:
+`resource-pack-coercion` → `limbo`, `access-bot` → `discord-bot`, `smp-farm-world` → `smp`, and the
+`SeasonPhase` values. See [architecture.md](architecture.md#modules).
 
 ## Decisions, and when they were taken
 
@@ -78,7 +78,7 @@ reason is in the linked document — that is what stops it from being reopened b
 | decision | where |
 |---|---|
 | The database is the source of truth; Discord roles are a projection; no LuckPerms, no DiscordSRV | [access-system.md](access-system.md) |
-| The bot owns every migration; the reading APIs live in `:common` | [architecture.md](architecture.md#schema-ownership) |
+| Exactly one process migrates — the bot. The migration SQL lives in `:common`; Flyway never leaves the bot (changed 2026-08-31) | [architecture.md](architecture.md#schema-ownership) |
 | Four phases — `PRE_EVENT`, `START_EVENT`, `SMP`, `MAINTENANCE` — decide who gets in | [season-phases.md](season-phases.md) |
 | Access is required only from `SMP`; the start event is free for every linked member | [season-phases.md](season-phases.md) |
 | The phase is one database row, switched from Discord *and* from the proxy, propagated by `NOTIFY` with polling as a safety net | [season-phases.md](season-phases.md) |
@@ -91,6 +91,22 @@ reason is in the linked document — that is what stops it from being reopened b
 | The border shrinks a fixed step per death **and** slowly with time, so the game cannot stall | [hunger-games.md](hunger-games.md#the-border) |
 | A disconnected player's body stays and stays vulnerable | [hunger-games.md](hunger-games.md#disconnects) |
 | Spectator and cross-teaming rules are announced, not enforced | [hunger-games.md](hunger-games.md#the-lobby) |
+| **Decided 2026-08-31 — the SMP** | |
+| The SMP is peaceful by agreement: PvP is on everywhere, but nothing is designed against griefing, raiding or theft | [smp.md](smp.md#what-kind-of-server-this-is) |
+| No teleport commands at all — the balloon is the only fast travel, and it only reaches world spawns | [smp.md](smp.md#travel) |
+| Nordtal portals never ignite and stronghold End portals stay inactive; every portal elsewhere leads to the spawn | [smp.md](smp.md#travel) |
+| Aura is prestige and buys nothing; it may go negative | [smp.md](smp.md#aura--recognition-not-currency) |
+| Prestige is a 13-tier crest earned by online time, AFK included; the tab list sorts by it | [smp.md](smp.md#prestige--a-crest-earned-by-time) |
+| Milestones are defined in a reloadable YAML file, unlocked **only** by objectives, never by time | [smp.md](smp.md#milestones--the-community-objective-system) |
+| The farm world is swapped, not rebuilt in place: tomorrow's world pre-generates in the background | [smp.md](smp.md#the-farm-world-reset) |
+| Graves everywhere but the duel arena; they stand forever and anyone may open them | [smp.md](smp.md#death-and-graves) |
+| No navigation to players; `/navigate` knows world spawns, the last death and public POIs | [smp.md](smp.md#navigate) |
+| Spawn protection is a list of regions in our own plugin, not WorldGuard | [smp.md](smp.md#spawns) |
+| No LuckPerms: the admin flag comes from the database, Bukkit permissions from a `PermissionAttachment` | [smp.md](smp.md#admins) |
+| Chat is per Paper server; `limbo` has none, shows nothing and nobody, only a title | [smp.md](smp.md#chat) |
+| Play time is counted by the proxy into `player_playtime`; the prestige tier is derived, never stored | [smp.md](smp.md#prestige--a-crest-earned-by-time) |
+| No web map and no Discord map render | [smp.md](smp.md#discord) |
+| There is no fixed season end date, so nothing may depend on one | [smp.md](smp.md#what-kind-of-server-this-is) |
 
 ## Working rules that apply to all of it
 

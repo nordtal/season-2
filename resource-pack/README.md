@@ -245,6 +245,12 @@ Nothing above that is allocated.
 | `minecraft/textures/gui/sprites/boss_bar/white_background.png` | makes the vanilla boss bar frame invisible, so the composed HUD is all that shows |
 | `minecraft/textures/gui/sprites/boss_bar/white_progress.png` | likewise, the progress fill |
 | `minecraft/lang/en_us.json` | `menu.returnToGame`, `menu.game` (the logo glyph) and `menu.disconnect` |
+| `minecraft/lang/de_de.json` | the same three keys in German |
 
 `en_us.json`'s `menu.returnToGame` was fixed in the pack clean-up session (2026-08-31); it no
-longer reads "Return to nordtal smp" from season 1.
+longer reads "Return to nordtal smp" from season 1, and now reads "Continue playing Nordtal".
+
+`de_de.json` was added 2026-08-31 and is **the one place in season 2 where the player's own client
+language decides what they see** — a lang file is a static asset and cannot read `discord_user.locale`
+the way everything else does. It is confined to these three cosmetic pause-menu strings for exactly
+that reason; see [i18n.md](../docs/i18n.md#the-one-exception--the-resource-packs-lang-files).

@@ -102,9 +102,30 @@ A glass-floored box above the map, on the `hunger-games` server, standing throug
   Players have channels we cannot see anyway; this runs on trust, and the announcement is what
   makes it a rule rather than an assumption.
 
+**Spectators may join at any time, including after the countdown — settled 2026-08-31.** That is
+not a new rule, it is the one already stated under [registration](#registration) ("a linked player
+who never registers may still join and watch as a spectator, at any time") applied to the moment it
+was left ambiguous for. Freezing the spectator list at the countdown would buy nothing: this
+document already accepts that coaching is announced rather than enforced, and a spectator who
+cannot get in simply watches a stream instead.
+
+**There is no team chat, and that is what resolves the second half of the question.** Chat here is
+per Paper server, Minecraft's default, needing no plugin — the same rule as everywhere else
+([smp.md](smp.md#chat)). A team is at most two people who are already together in Discord voice;
+giving them a second chat surface would create the spectator question it would then have to answer.
+Considered and dropped for that reason.
+
 ## Start
 
 Triggered by an **admin command**. Registration closes at that moment.
+
+**Minimum participants, settled 2026-08-31: a hard floor of 2 and a configurable soft floor of 4.**
+Two is not taste, it is arithmetic — the border step is `(250 − 1) / (participants − 1)`, which
+divides by zero at one participant, so the command refuses a start below two and says why. Four is
+the point below which the game is not worth playing, and the command asks for a confirmation rather
+than refusing: a rehearsal with two or three real clients is exactly what
+[verification](#verification) demands, and it must not be blocked by a rule meant to catch a
+mis-click. A hard floor of four or eight was rejected for that reason.
 
 1. Every registered, present player is teleported onto a **spawn tower**, arranged in a circle
    around the spawn at equal distance from the centre loot.
@@ -291,12 +312,10 @@ The Minecraft UUID is not duplicated here: it hangs off `discord_user` through t
 
 - **Loot pool contents.** The schedule is agreed; the item lists are not. An implementation session
   should propose a full default set in config form for review.
-- **Minimum player count** to allow a start at all.
 - **Quiet period and passive shrink rate** — the numbers, not the mechanism.
 - **Simple Voice Chat** is planned as an optional extra **under reservation**: it requires a client
   mod, so vanilla players cannot use it at all, and whether a build for Minecraft 26.2 exists is
   unconfirmed. Check before the event; if there is none, it is dropped without replacement.
-- Whether spectators may join *after* the countdown (assumed yes) and what they see of team chat.
 
 ## Verification
 

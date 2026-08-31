@@ -106,6 +106,19 @@ What that costs, stated plainly so nobody rediscovers it in production:
 - The poll interval is therefore the real guarantee, and the `NOTIFY` path only makes a switch feel
   instant. Both live behind config.
 
+**Settled 2026-08-31: poll every 30 seconds, on channel `nordtal_phase`, and build both paths in
+the first pass.** Thirty seconds is the worst case a process can sit in the wrong phase after a
+`LISTEN` connection has silently died; with five processes it is one query every six seconds
+against an indexed single row. Ten seconds was rejected as triple the standing cost for a case
+that happens three times a season, sixty as a full minute of players on the wrong server after a
+switch to `SMP`.
+
+`NOTIFY` is built alongside the poll rather than deferred, even though the poll alone is the
+guarantee: the dedicated connection, the `getNotifications(timeout)` thread and the reconnect
+re-read are easier to get right while the phase model is being written than to retrofit into it,
+and leaving them out would keep
+[operations.md](operations.md#open-verification)'s `LISTEN`/`NOTIFY` row open indefinitely.
+
 ## Who may switch it
 
 Two paths write the same row, decided 2026-08-30:
@@ -113,6 +126,16 @@ Two paths write the same row, decided 2026-08-30:
 1. **`/phase set <phase>` in Discord** — the normal path. Admin-only, with a confirmation step, and
    an entry in the admin channel like every other access-relevant action.
 2. **A command on the Velocity proxy** — the emergency path, for when the bot or Discord is down.
+   A Velocity `BrigadierCommand` ([architecture.md](architecture.md#commands)), **authorised by
+   `discord_user.admin`** — the same flag, read with the same query the login gate already makes.
+   Console was considered and rejected on 2026-08-31: it would be a second, different notion of
+   who may do this, on a proxy that already knows exactly who is an admin.
+
+   **What that costs, stated so nobody rediscovers it in an outage:** if the *database* is what is
+   down, neither path works — the bot cannot write the row and the proxy cannot authorise anybody
+   to. There is no third command that fixes that, because the phase lives in the database. The last
+   resort is an `UPDATE` on the row by hand, and the proxy picks it up on its next poll within
+   thirty seconds. That is a documented escape hatch, not a gap.
 
 Both must write the audit entry. Two writers means two places where that is easy to forget; the
 write and the audit belong in one method in `:common` that both call, not in two command handlers.
@@ -126,6 +149,16 @@ decide it wants a player somewhere — that would put the routing rules in two p
 
 A phase switch while players are online moves everyone: the proxy re-routes connected players to
 the new phase's server, holding them in `limbo` if it is not up yet.
+
+**With one exception, settled 2026-08-31: a switch to `SMP` disconnects a player who has no active
+access, with the same message the login gate uses.** It does not push them to `limbo`.
+
+The reason is that the alternative gives one player state two different outcomes depending on
+timing. The gate already refuses exactly this player at login, with a disconnect screen pointing at
+the contribution channel in their language; bouncing the same player to `limbo` when the switch
+catches them mid-session would say the same thing in a worse place. `limbo` is for waiting on
+something that ends — a pack download, a server coming up — and "you have not bought access" does
+not end by waiting. One rule, one message, one code path.
 
 ## How an admin is recognised
 
@@ -150,6 +183,7 @@ is an admin switching the phase to `MAINTENANCE` on a day nobody has picked yet.
 
 ## Open questions
 
-- **Poll interval and `NOTIFY` channel name** — trivial, but they belong in config with the rest.
-- **Does a phase switch kick or move?** The plan says move; whether an SMP switch should also
-  disconnect players who now lack access (rather than bouncing them to `limbo`) is unsettled.
+**None.** The last two — the poll interval with the `NOTIFY` channel name, and whether a switch
+kicks or moves — were settled on 2026-08-31 and are written into the sections above. The
+`PermissionAttachment` question that used to live here was settled on the same day by
+[smp.md](smp.md#admins).

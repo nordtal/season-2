@@ -76,26 +76,41 @@ Consequences to keep in mind:
 
 ## Open verification
 
-Nothing below has been confirmed. Each one can invalidate a decision in this plan, and each needs a
-running system, not a compiler.
+Nothing below has been confirmed. **Reordered and costed 2026-08-31**, with two columns the table
+did not have: *when* the answer has to exist, and *what happens if it is no*. The second is the
+one that was missing everywhere — an unverified assumption with no written fallback is a decision
+nobody has made yet.
 
-| what | why it matters | how to settle it |
-|---|---|---|
-| **SimpleCloud supports Minecraft 26.2** | its docs name no supported versions and its API ships only as `0.1.0-platform.NN-dev.*` snapshots; if it does not, the platform choice reopens | try a 26.2 server group before anything else depends on it |
-| **A Minecraft client follows GitHub's redirect** to `objects.githubusercontent.com` when downloading the pack | the whole hosting decision rests on it; the fallback is a small HTTP host | one real client against a real release asset |
-| **Forced pack offer from the proxy while routing to `limbo`** | determines whether the pack prompt appears at the right moment and the two failure paths behave | running proxy, real client, both refusal cases |
-| **Proxy-only pack enforcement** (making `limbo` unnecessary for packs) | would remove a server group; the API neither promises nor forbids it — `PlayerChooseInitialServerEvent` is awaited but explicitly asks for little work, with no documented timeout, and `sendResourcePackOffer` before a backend connection is undocumented | an experiment on a running proxy, after the event, never on the critical path |
-| **Simple Voice Chat on 26.2** | an optional event feature that also needs a client mod | check for a build before the event |
-| **`LISTEN`/`NOTIFY` through the pool** | the phase propagation design; a dedicated connection and reconnect handling are required | integration test plus a restart drill |
-| **Background pre-generation of a 2000 × 2000 world without perceptible lag** | the whole daily-swap design rests on it; if it cannot be hidden, the farm world shrinks | measure tick time on the real host during a full pre-generation, with players online |
-| **A block-logging plugin for Minecraft 26.2** | the SMP's only safety net against a bad day; nothing depends on it, but its absence should be a known fact | check availability before the SMP phase opens |
-| **Paper unloading and deleting a loaded world at runtime**, then loading a replacement under the same name | the reset avoids a restart entirely on this assumption | a drill on `runServer` with players in the world |
+Read "when" as ownership: the session named there is the one that produces the answer, and no
+earlier session should be blocked waiting for it.
 
-Existing gaps carried over from the access work: nothing in the test suite touches bunq, Discord or
-a running proxy. Tab creation and settlement need the **bunq sandbox**; buttons, modals, DMs and
-roles need the **real guild** in an admin-only channel; a 3 € real purchase is the last step, never
-the development loop. Integration tests skip themselves without Docker, so a green build on a
-machine without a Docker daemon proves less than it looks.
+| what | when | how to settle it | **if the answer is no** |
+|---|---|---|---|
+| **`app.simplecloud.api:api` is only published as `0.1.0-platform.NN-dev.*` snapshots** — there is no releases channel on `repo.simplecloud.app` at all (HTTP 404, checked 2026-08-31), and the catalog pins `platform.54-dev.1.1-770dcc6` from 2026-08-20 | before routing is written — the **`limbo`** session | watch whether the coordinate still resolves, and whether a stable channel appears | **Routing does not need it.** Velocity already knows its registered servers from `velocity.toml`; `ProxyServer.getServer(name)` and `getAllServers()` are all the routing rules use. Drop the `compileOnly` dependency and route by configured server name. Four fixed servers lose nothing by being named instead of discovered. |
+| **A Minecraft client follows GitHub's redirect** to `objects.githubusercontent.com` when downloading the pack | before the **`limbo`** session, because `limbo` exists largely to apply the pack | one real client against one real release asset | Host the zip on a small static HTTP host instead. The URL and the hash are already configuration and not code, so this is a config edit plus one thing more to keep alive and certificated on event day — cheap, but nobody should discover it that morning. |
+| **A forced pack offer sent by the proxy while the player is being moved to `limbo`** behaves, and both refusal paths work | the **`limbo`** session | running proxy, real client, decline and failed-download both | Offer the pack from `limbo` itself on join instead of from the proxy. That is what `resource-pack-coercion` was named for in the first place, so the fallback is the module doing its original job; the prompt simply appears one hop later. |
+| **`LISTEN`/`NOTIFY` through the pool** — a dedicated connection outside Hikari, a `getNotifications(timeout)` thread, and an unconditional re-read on every reconnect | *inside* the **phase-model** session, not before it — [it is built in the first pass](season-phases.md#source-of-truth-and-propagation) | integration test plus a restart drill with the connection killed underneath | Drop `NOTIFY` and keep the 30-second poll, which was always the actual guarantee. A switch then takes up to thirty seconds to propagate instead of feeling instant. No redesign, one paragraph deleted. |
+| **Paper unloading and deleting a loaded world at runtime**, then loading a replacement under the same name | first days of the **`smp`** session — before the reset is built on top of it | a drill on `runServer` with players standing in the world | **Alternate two names instead of reusing one.** Pre-generate into `farm-world-b` while `farm-world-a` is live, load `-b`, move players, then unload and delete `-a`. That removes the same-name re-load, which is the part Paper is least likely to tolerate. Only if unloading *at all* fails does the reset need a server restart, and then it becomes an announced daily restart at the quiet hour. |
+| **Background pre-generation of a 2000 × 2000 world without perceptible lag** | the **`smp`** session, measured on the real host with players online | tick-time measurement during a full pre-generation, not a guess | The farm world gets smaller — 2000 × 2000 is a config default and is [listed as a proposal](smp.md#numbers-that-are-proposals-not-decisions). If even a small world lags, pre-generate off-peak only, or generate on a separate process and copy the folder in. A config change, then an operational one; never a redesign. |
+| **A block-logging plugin for Minecraft 26.2** | before the **SMP phase opens** to players; it is a search, not an experiment, so any session can do it | check the usual sources for a 26.2 build | Recorded as a known fact and nothing else. Nothing in the design depends on it. But [smp.md](smp.md#what-kind-of-server-this-is) tells players block logging exists as insurance, so if it does not, that sentence has to change before they read it. |
+| **Simple Voice Chat on 26.2** | before the **event rehearsal** | check for a build | Dropped without replacement, as [hunger-games.md](hunger-games.md#still-open) already says. It needs a client mod, so vanilla players could never have used it anyway. Zero cost. |
+| **Proxy-only pack enforcement**, making `limbo` unnecessary for packs | **after the event**, never on the critical path | an experiment on a running proxy | Nothing changes — `limbo` stays, which is the current design. This is the one row that can only *save* work, which is exactly why it is last. |
+
+### Closed 2026-08-31
+
+**SimpleCloud runs Minecraft 26.2.** Confirmed by the owner against SimpleCloud v3's dashboard.
+This was the first row in the table and the one everything else was told to wait behind; it no
+longer blocks anything. What it does *not* settle is the API artefact, which is why that half is
+now its own row above — the platform supporting 26.2 and the API being safe to compile against are
+two different questions that the old single row ran together.
+
+### Carried over from the access work
+
+Nothing in the test suite touches bunq, Discord or a running proxy. Tab creation and settlement
+need the **bunq sandbox**; buttons, modals, DMs and roles need the **real guild** in an admin-only
+channel; a 3 € real purchase is the last step, never the development loop. Integration tests skip
+themselves without Docker, so a green build on a machine without a Docker daemon proves less than
+it looks.
 
 ## Event-day runbook — hunger games
 
@@ -145,7 +160,8 @@ new ring — which happens while players are online and is subject to the same t
 
 The SMP introduces the network's first optional third-party dependency: **a block-logging plugin**,
 kept purely as insurance. Nothing in the design depends on it. **Whether one exists for Minecraft
-26.2 is unverified** and belongs in the table below before anyone counts on it.
+26.2 is unverified** — see [open verification](#open-verification), which now also says what
+happens if there is none.
 
 ## Release
 

@@ -78,10 +78,16 @@ Minecraft **26.2** / Java **25** / Gradle **9.7.1**. Notes:
 - Resource pack `pack_format` for 26.2 is **88** (26.1 was 84, 26.3 snapshots are 89). Season 1's
   pack was on 64.
 
-**Unverified risk:** SimpleCloud's docs state no supported Minecraft versions, and its API is
-published only as `0.1.0-platform.NN-dev.*` snapshots. Whether SimpleCloud actually supports 26.2
-servers has **not** been confirmed. If it turns out it does not, the platform choice reopens — ask
-before working around it.
+**SimpleCloud runs 26.2 — confirmed by the owner on 2026-08-31** against SimpleCloud v3's
+dashboard. That was the biggest open platform risk and it is closed.
+
+**What is still open is the API artefact, which is a different question.** `app.simplecloud.api:api`
+is published *only* as `0.1.0-platform.NN-dev.*` snapshots — `repo.simplecloud.app` has no releases
+channel at all (HTTP 404, checked 2026-08-31), and the catalog pins `platform.54-dev.1.1-770dcc6`
+from 2026-08-20. No source file in this repository imports it yet, so it costs nothing today; it
+becomes real when routing is written. If the coordinate breaks, routing does not need it — Velocity
+knows its own registered servers, and `ProxyServer.getServer(name)` is the whole of what the routing
+rules use. See [docs/operations.md](docs/operations.md#open-verification).
 
 ## Layout and conventions
 

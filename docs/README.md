@@ -127,6 +127,8 @@ reason is in the linked document — that is what stops it from being reopened b
 | **`network-control` fails closed on a bad config**: a deny-all `LoginEvent` handler, which is the per-plugin disable Velocity does not give you | [operations.md](operations.md#configuration-and-secrets) |
 | Hunger games start: hard minimum 2 participants (the border step divides by `participants − 1`), soft minimum 4 behind a confirmation | [hunger-games.md](hunger-games.md#start) |
 | Spectators may join at any time, and **there is no team chat** — one per-server chat, as everywhere else | [hunger-games.md](hunger-games.md#the-lobby) |
+| **SimpleCloud runs Minecraft 26.2** — confirmed by the owner against the v3 dashboard; the platform question is closed and the API-artefact question is now its own row | [operations.md](operations.md#closed-2026-08-31) |
+| The open-verification table is ordered by **which session owns the answer**, and every row now says **what happens if the answer is no** — an unverified assumption with no written fallback is a decision nobody has made | [operations.md](operations.md#open-verification) |
 
 ## Working rules that apply to all of it
 

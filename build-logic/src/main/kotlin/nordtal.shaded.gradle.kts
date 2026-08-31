@@ -13,6 +13,19 @@ tasks.named<Jar>("jar") {
 
 tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
     archiveClassifier.set("")
+
+    // Shadow 9 defaults to EXCLUDE, which drops duplicate entries *before* a transformer ever
+    // sees them - so mergeServiceFiles() below silently does nothing until this is set. Shadow
+    // prints a warning naming every file it affects on any build that hits the pairing.
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+
+    // Without this the last jar carrying a given META-INF/services file wins and every earlier
+    // one is dropped. Not cosmetic: Flyway discovers its entire plugin registry through
+    // ServiceLoader, so the shaded bot jar kept 3 of 41 entries and died inside `new Flyway(...)`
+    // on a null DryRunConfigurationExtensionStub - the bot could not run its own migrations from
+    // its own artifact. Found 2026-08-31 by running the built image; no test catches it, because
+    // tests run against the ordinary runtime classpath and never against a shaded jar.
+    mergeServiceFiles()
 }
 
 tasks.named("build") {

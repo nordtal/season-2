@@ -9,21 +9,15 @@ package eu.nordtal.s2.common;
  * {@code nordtal/font/bossbar.json} - and this class, those two files and that table are three
  * mirrors of one allocation. A change is a change in all of them, in one commit.
  *
- * <p><b>This class is currently behind that table.</b> It still declares season 1's four role
- * tags, which season 2 deletes, and it declares nothing from {@code nordtal/font/bossbar.json} at
- * all - a whole font of bar segments, icons and space advances that no constant here names.
- * Bringing it in line is the resource-pack clean-up, not a change to make in passing.
+ * <p>This class is behind the table for {@code nordtal/font/bossbar.json}: that font has never
+ * had a constant here naming any of it.
  */
 public final class Glyphs {
 
     private Glyphs() {
     }
 
-    // Role tags - U+E000..U+E00F
-    public static final String TAG_SETTLER = "\uE000";
-    public static final String TAG_CITIZEN = "\uE001";
-    public static final String TAG_KNIGHT = "\uE002";
-    public static final String TAG_LORD = "\uE003";
+    // Player badges - U+E000..U+E00F
     public static final String TAG_ADMIN = "\uE004";
 
     // Region flags - U+E010..U+E01F

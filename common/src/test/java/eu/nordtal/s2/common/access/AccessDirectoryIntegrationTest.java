@@ -1,5 +1,6 @@
 package eu.nordtal.s2.common.access;
 
+import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.PlayerLocales;
 
 import org.junit.jupiter.api.AfterAll;
@@ -87,7 +88,19 @@ class AccessDirectoryIntegrationTest {
         // once per class while every test still starts from an empty database.
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
                 + "player_playtime, discord_user CASCADE");
+
+        // season_phase is NOT truncated - it is a singleton the migration seeds, and the login
+        // query now reads it (docs/season-phases.md: one round trip carries both). SMP is the
+        // baseline here on purpose: it is the one phase in which access decides anything, so every
+        // access assertion below keeps meaning exactly what it meant before the merge. The tests
+        // that are about the phase itself set their own.
+        phase(SeasonPhase.SMP);
         directory = AccessDirectory.using(dataSource);
+    }
+
+    /** Puts the season_phase singleton into one phase for the duration of a test. */
+    private static void phase(final SeasonPhase phase) {
+        execute("UPDATE season_phase SET phase = '" + phase.name() + "' WHERE id");
     }
 
     // ---------------------------------------------------------------- appending
@@ -289,6 +302,110 @@ class AccessDirectoryIntegrationTest {
         assertWithinSeconds(Instant.now().plus(Duration.ofDays(60)), state.accessValidUntil(), 60);
     }
 
+    // ------------------------------------------- the merged login query and the phase-aware gate
+
+    @Test
+    void theLoginQueryCarriesThePhaseSoTheProxyNeverMakesASecondRoundTrip() {
+        // docs/season-phases.md:61 - "one database round trip on the login path carries both the
+        // access state and the phase". This is that requirement as an assertion: the phase comes
+        // back on the same record, for a linked account and for a UUID nobody has ever seen.
+        directory.link(DISCORD_ID, MC_UUID);
+        phase(SeasonPhase.START_EVENT);
+
+        assertEquals(SeasonPhase.START_EVENT, directory.accessState(MC_UUID).phase());
+        assertEquals(SeasonPhase.START_EVENT, directory.accessState(UUID.randomUUID()).phase(),
+                "an unlinked UUID still has to learn the phase - the disconnect screen depends on it");
+    }
+
+    @Test
+    void aLinkedMemberWithNoAccessGetsInBeforeTheSmpAndNotAfterIt() {
+        // The whole reason the phase model exists (docs/season-phases.md, the phase table): the
+        // pre-event and the start event are free for anyone who has linked their account.
+        directory.link(DISCORD_ID, MC_UUID);
+
+        phase(SeasonPhase.PRE_EVENT);
+        assertTrue(directory.accessState(MC_UUID).mayJoin(), "PRE_EVENT needs no access");
+
+        phase(SeasonPhase.START_EVENT);
+        assertTrue(directory.accessState(MC_UUID).mayJoin(), "START_EVENT needs no access");
+
+        phase(SeasonPhase.SMP);
+        assertFalse(directory.accessState(MC_UUID).mayJoin(), "SMP is the phase access is for");
+    }
+
+    @Test
+    void anUnlinkedAccountIsRefusedInEveryPhaseIncludingTheFreeOnes() {
+        final UUID stranger = UUID.randomUUID();
+
+        for (final SeasonPhase each : SeasonPhase.values()) {
+            phase(each);
+            assertFalse(directory.accessState(stranger).mayJoin(),
+                    "linking is the one requirement no phase waives, and " + each + " is no exception");
+        }
+    }
+
+    @Test
+    void aBannedMemberIsRefusedInEveryPhaseEvenWithAccessAndTheAdminFlag() {
+        directory.link(DISCORD_ID, MC_UUID);
+        directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+        directory.setAdmin(DISCORD_ID, true);
+        directory.setMemberState(DISCORD_ID, MemberState.BANNED);
+
+        for (final SeasonPhase each : SeasonPhase.values()) {
+            phase(each);
+            assertFalse(directory.accessState(MC_UUID).mayJoin(),
+                    "a ban outranks paid access and the admin flag, in " + each);
+        }
+    }
+
+    @Test
+    void maintenanceIsAdminsOnlyAndPaidAccessDoesNotHelp() {
+        directory.link(DISCORD_ID, MC_UUID);
+        directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+        phase(SeasonPhase.MAINTENANCE);
+
+        assertFalse(directory.accessState(MC_UUID).mayJoin(),
+                "MAINTENANCE is admins only - having bought access is not being an admin");
+
+        directory.setAdmin(DISCORD_ID, true);
+        assertTrue(directory.accessState(MC_UUID).mayJoin());
+    }
+
+    @Test
+    void anAdminWithoutAccessStillGetsIntoMaintenanceButNotIntoTheSmp() {
+        directory.link(DISCORD_ID, MC_UUID);
+        directory.setAdmin(DISCORD_ID, true);
+
+        phase(SeasonPhase.MAINTENANCE);
+        assertTrue(directory.accessState(MC_UUID).mayJoin(), "the flag is the whole rule here");
+
+        phase(SeasonPhase.SMP);
+        assertFalse(directory.accessState(MC_UUID).mayJoin(),
+                "the admin flag is not a free access period; docs/season-phases.md's table gives "
+                        + "MAINTENANCE the exemption and SMP none");
+    }
+
+    @Test
+    void aDeletedPhaseRowRefusesEverybodyRatherThanLookingLikeAnUnlinkedAccount() {
+        // The phase now rides on the login query, so the query has to survive the one row it reads
+        // being gone. Two things must hold: the account still reads as linked (otherwise every
+        // player would be handed a link code they do not need), and the phase reads as MAINTENANCE
+        // (the state that lets nobody in is the safe one to guess).
+        directory.link(DISCORD_ID, MC_UUID);
+        directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+        execute("DELETE FROM season_phase");
+        try {
+            final AccessState state = directory.accessState(MC_UUID);
+
+            assertTrue(state.linked(), "a missing phase row must not make a linked player look unlinked");
+            assertTrue(state.accessActive());
+            assertEquals(SeasonPhase.MAINTENANCE, state.phase());
+            assertFalse(state.mayJoin());
+        } finally {
+            execute("INSERT INTO season_phase (phase) VALUES ('PRE_EVENT')");
+        }
+    }
+
     // ---------------------------------------------------------------- linking
 
     @Test
@@ -360,7 +477,8 @@ class AccessDirectoryIntegrationTest {
         assertTrue(state.admin(),
                 "this is what MAINTENANCE and the proxy's emergency /phase command are authorised by");
         assertFalse(state.mayJoin(),
-                "being an admin is not access - mayJoin() is deliberately unchanged by this field");
+                "being an admin is not access: in SMP an admin without a running grant is refused "
+                        + "like anybody else. MAINTENANCE is the only phase the flag lets somebody in");
     }
 
     @Test

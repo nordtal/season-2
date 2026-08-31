@@ -21,8 +21,10 @@ import java.util.UUID;
  *   <li><b>The append rule.</b> {@link #grantAccess(String, int, AccessSource, UUID)} computes
  *       {@code valid_from = max(now, current valid_until)} in a single SQL statement. A purchase
  *       and an admin grant must not each carry their own copy of that rule.</li>
- *   <li><b>The login decision.</b> {@link #accessState(UUID)} answers linked / member / active in
- *       <b>one</b> query; {@link AccessState#mayJoin()} is the decision itself.</li>
+ *   <li><b>The login decision.</b> {@link #accessState(UUID)} answers linked / member / active
+ *       <b>and the current season phase</b> in <b>one</b> query - {@code docs/season-phases.md}
+ *       requires that single round trip - and {@link AccessState#mayJoin()} is the decision itself,
+ *       phase included.</li>
  * </ul>
  *
  * <h2>Platform</h2>
@@ -75,10 +77,16 @@ public interface AccessDirectory extends AutoCloseable {
     Optional<String> linkedDiscordAccount(UUID mcUuid);
 
     /**
-     * Everything the login path needs, in one round trip.
+     * Everything the login path needs, in one round trip: the access state <b>and</b> the season
+     * phase. There is deliberately no second call to
+     * {@code eu.nordtal.s2.common.phase.PhaseDirectory#currentPhase()} next to this one -
+     * {@code docs/season-phases.md} pins the login path to a single round trip, and
+     * {@link AccessState#phase()} is how the phase arrives on it.
      *
      * @param mcUuid the Minecraft account attempting to join
-     * @return the state; {@link AccessState#unlinked(UUID)} for a UUID nobody has linked
+     * @return the state, with {@link AccessState#linked()} {@code false} for a UUID nobody has
+     *         linked; the phase is filled in either way, because whether the player is refused and
+     *         with which screen depends on it
      */
     AccessState accessState(UUID mcUuid);
 

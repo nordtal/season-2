@@ -217,10 +217,25 @@ platform plugin provides it at runtime; a bundled copy causes class-loading conf
 
 ## Releasing
 
-One repo-wide version in `gradle.properties` drives everything. `.github/workflows/release.yml`
-fires on a `v*` tag, refuses a tag that disagrees with `gradle.properties`, runs `releaseArtifacts`,
-and attaches four plugin jars + the bot jar + the pack zip and its `.sha1` to one GitHub release,
-then pushes `ghcr.io/nordtal/discord-bot:<version>`.
+One repo-wide version in `gradle.properties` drives everything.
+
+**A release is a published GitHub release, not a pushed tag** (changed 2026-08-31).
+`.github/workflows/release.yml` runs on `release: [published]`, so `git push --tags` on its own
+builds nothing - tag, then publish the release. The old `push: tags` trigger never fired for a
+release published from a tag that already existed, which is the ordinary way to make one; that
+release would have carried no assets at all. `workflow_dispatch` with a tag re-runs a build that
+failed. The workflow refuses a tag that disagrees with `gradle.properties`, runs
+`./gradlew check releaseArtifacts` (`check` first: a release must not ship untested jars),
+verifies the pack zip against its own `.sha1` and that `pack.mcmeta` sits at the zip's root,
+attaches four plugin jars + the bot jar + the pack zip and its `.sha1` to that release, and pushes
+`ghcr.io/nordtal/discord-bot:<version>`. It deliberately does **not** touch the release notes.
+
+`.github/workflows/build.yml` runs `./gradlew build` on every push to `main` and every pull
+request. Until 2026-08-31 the release workflow was the only CI in the repository, so a compile
+error on `main` stayed invisible until somebody tagged.
+
+**No workflow has ever run.** There are no tags and no releases on the remote as of 2026-08-31;
+everything above is unexercised.
 
 `season-2` itself produces no combined build, and does not republish jars built in other repos.
 

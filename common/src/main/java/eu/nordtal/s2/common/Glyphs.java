@@ -70,8 +70,10 @@ public final class Glyphs {
 
     // Status icons - U+EF00..U+EF0F, height 10 / ascent 4
     public static final String BOSSBAR_ICON_COMPASS = "\uEF00";
-    // fblue/fgreen/fred/fwhite are season 1 sprites of undocumented purpose - do not build on
-    // these without confirming what they draw, see resource-pack/README.md.
+    // fblue/fgreen/fred/fwhite are one pennant-on-a-pole sprite in four colours - season 1's land
+    // indicator, picked by the player's position: blue inside a player's preserved area, green on
+    // permanent land, red in a reset zone, white in the server-protected spawn. Nothing in season 2
+    // draws them yet; the meanings are recorded in resource-pack/README.md.
     public static final String BOSSBAR_ICON_FBLUE = "\uEF01";
     public static final String BOSSBAR_ICON_FGREEN = "\uEF02";
     public static final String BOSSBAR_ICON_FRED = "\uEF03";

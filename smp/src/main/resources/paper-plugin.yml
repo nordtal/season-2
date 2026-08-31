@@ -1,0 +1,7 @@
+name: smp
+version: '${version}'
+main: eu.nordtal.s2.smp.SmpPlugin
+description: 'The season 2 SMP - worlds, milestones, aura, prestige, duels, POIs and graves.'
+author: nordtal
+website: https://nordtal.eu
+api-version: '26.2'

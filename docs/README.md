@@ -66,9 +66,10 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 | Hunger games, both halves | **designed, not built** |
 | SMP: worlds, travel, milestones, aura, prestige, duels, graves, POIs | **designed, not built** — 2026-08-31 |
 
-Four renames are part of the plan and are cheap only until something runs in production:
-`resource-pack-coercion` → `limbo`, `access-bot` → `discord-bot`, `smp-farm-world` → `smp`, and the
-`SeasonPhase` values. See [architecture.md](architecture.md#modules).
+`smp-farm-world` → `smp` was carried out on 2026-08-31. Three renames are still part of the plan
+and are cheap only until something runs in production: `resource-pack-coercion` → `limbo`,
+`access-bot` → `discord-bot`, and the `SeasonPhase` values. See
+[architecture.md](architecture.md#modules).
 
 ## Decisions, and when they were taken
 

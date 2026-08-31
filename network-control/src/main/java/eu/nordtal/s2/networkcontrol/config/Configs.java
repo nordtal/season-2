@@ -49,6 +49,13 @@ public final class Configs {
             requirePositive("expiry-warning-lead-minutes", config.expiryWarningLeadMinutes());
             requirePositive("phase-poll-interval-seconds", config.phasePollIntervalSeconds());
             requirePositive("playtime-flush-interval-seconds", config.playtimeFlushIntervalSeconds());
+            // A blank server name could never resolve, and an empty string is the one value that is
+            // certainly a mistake rather than "we call it something else". Whether the name matches
+            // a server velocity.toml actually registers is not checkable here - the proxy's server
+            // list is not this class's to see - and is handled where it is needed, in PhaseRouting.
+            requireText("server-limbo", config.serverLimbo());
+            requireText("server-hunger-games", config.serverHungerGames());
+            requireText("server-smp", config.serverSmp());
         });
     }
 

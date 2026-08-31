@@ -62,7 +62,6 @@ class ConfigsTest {
               request-ttl-hours: 24
               watermark: ''
               recent-payment-count: 50
-            link-code-ttl-minutes: 10
             expiry-reminder-lead-days: 3
             role-reconcile-interval-minutes: 10
             """;
@@ -207,6 +206,19 @@ class ConfigsTest {
                 () -> assertEquals("donation-cent", error.unknownKeys().getFirst().path()),
                 () -> assertEquals("donation-cents", error.unknownKeys().getFirst().suggestion())
         );
+    }
+
+    @Test
+    @DisplayName("the retired link-code-ttl-minutes is not a setting of this file any more")
+    void retiredLinkCodeTtlStopsTheBot() throws Exception {
+        // gate.yml carries the only link-code TTL (decided 2026-08-31). The bot never read its own
+        // copy, and an undeclared key stops the load - which is why the deletion was only free
+        // while nothing is deployed.
+        Files.writeString(directory.resolve("access.yml"), access() + "link-code-ttl-minutes: 10\n");
+
+        final UnknownConfigKeyException error =
+                assertThrows(UnknownConfigKeyException.class, Configs::access);
+        assertEquals("link-code-ttl-minutes", error.unknownKeys().getFirst().path());
     }
 
     @Test

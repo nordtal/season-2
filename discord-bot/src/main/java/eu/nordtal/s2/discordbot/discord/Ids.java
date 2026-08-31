@@ -5,9 +5,13 @@ package eu.nordtal.s2.discordbot.discord;
  * <p>
  * All of them are prefixed {@code access:} so a listener can tell at a glance whether an
  * interaction is its business, and so a second bot in the same guild cannot collide with these.
- * Only {@link #DAYS_SELECT} carries a value, and that value is a number of days rather than the
- * name of a tier - the tiers come from configuration and have no stable identity, but the number
- * of days a user clicked on is exactly what has to be looked up again.
+ * Two of them carry a value. {@link #DAYS_SELECT}'s is a number of days rather than the name of a
+ * tier - the tiers come from configuration and have no stable identity, but the number of days a
+ * user clicked on is exactly what has to be looked up again. {@link #PHASE_CONFIRM} is a prefix
+ * with the phase appended, which is what makes the confirmation button mean one specific switch:
+ * the message it sits on is the only place the chosen phase is kept between the command and the
+ * click, so there is no per-user state to expire and a restart simply makes the old button do
+ * nothing.
  * </p>
  */
 public final class Ids {
@@ -35,6 +39,16 @@ public final class Ids {
 
     /** The text input inside {@link #LINK_MODAL} carrying the code itself. */
     public static final String LINK_CODE_INPUT = "access:link-code";
+
+    /**
+     * Prefix of the button that actually performs a phase switch. The {@link
+     * eu.nordtal.s2.common.SeasonPhase} name is appended, so nothing but this button can name a
+     * phase and no phase can be switched to without one confirmed click.
+     */
+    public static final String PHASE_CONFIRM = "access:phase-confirm:";
+
+    /** Backs out of a phase switch without touching the row. */
+    public static final String PHASE_CANCEL = "access:phase-cancel";
 
     private Ids() {
     }

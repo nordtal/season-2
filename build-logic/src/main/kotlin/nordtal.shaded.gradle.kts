@@ -15,9 +15,12 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
     archiveClassifier.set("")
 
     // Shadow 9 defaults to EXCLUDE, which drops duplicate entries *before* a transformer ever
-    // sees them - so mergeServiceFiles() below silently does nothing until this is set. Shadow
-    // prints a warning naming every file it affects on any build that hits the pairing.
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    // sees them - so mergeServiceFiles() below silently does nothing until this is lifted. It is
+    // lifted only for the service files: a blanket INCLUDE would also write every duplicated
+    // *class* into the jar, which is 700 KB of dead weight and a pile of Gradle warnings.
+    filesMatching("META-INF/services/**") {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
 
     // Without this the last jar carrying a given META-INF/services file wins and every earlier
     // one is dropped. Not cosmetic: Flyway discovers its entire plugin registry through

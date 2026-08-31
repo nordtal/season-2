@@ -17,6 +17,9 @@ The network is a Velocity proxy with three backend servers, run by
 `access-bot` runs alongside as a standalone Discord bot, and `resource-pack` holds the pack
 those servers serve.
 
+The concepts behind all of it - phases, languages, the start event, the SMP, operations and the
+decisions already taken - live in [docs/](docs/README.md).
+
 ## Modules
 
 | module | platform | what it owns |
@@ -24,7 +27,7 @@ those servers serve.
 | `network-control` | Velocity | Which phase of season 2 we are in, and which backend a player belongs on. |
 | `resource-pack-coercion` | Paper | Applying and enforcing the resource pack before a player goes anywhere else. |
 | `hunger-games` | Paper | The hunger games start event. |
-| `smp-farm-world` | Paper | Farm world lifecycle and resets on the SMP. |
+| `smp-farm-world` | Paper | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels. To be renamed `smp`. |
 | `access-bot` | JVM app | Discord bot: sells access periods, books bunq payments, owns the access schema. |
 | `common` | library | Shared: the access API (`AccessDirectory`), the message system, glyph constants, the phase enum. |
 | `resource-pack` | assets | The pack itself, and the zip + SHA-1 the release ships. |

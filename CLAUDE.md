@@ -1,12 +1,17 @@
 # season-2 — agent guide
 
 Everything nordtal.eu season 2 deploys. A Velocity proxy (`network-control`) in front of three
-Paper backends (`resource-pack-coercion` → `hunger-games` → `smp-farm-world`), plus the
-`access-bot` Discord bot and the `resource-pack` assets. Production runs on
-[SimpleCloud](https://simplecloud.app) on a remote host.
+Paper backends (`resource-pack-coercion` → `hunger-games` → `smp-farm-world`; to be renamed to
+`limbo` → `hunger-games` → `smp`), plus the `access-bot` Discord bot and the `resource-pack`
+assets. Production runs on [SimpleCloud](https://simplecloud.app) on a remote host.
 
 The workspace-level [../CLAUDE.md](../CLAUDE.md) carries the standing instructions and the map of
 the sibling repos. Read it too.
+
+**The project knowledge base is [docs/README.md](docs/README.md)** - the system map, the phase
+model, the language model, the hunger games and SMP concepts, the decision log and the list of what
+is built versus designed. Read it before planning anything; this file stays the place for build
+conventions, platform versions and repository rules.
 
 ## Repository state (READ THIS FIRST)
 
@@ -33,6 +38,14 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   none of the four plugins has one yet, so there is nothing to migrate — see "Configuration"
   below before writing the first one.
 - **No command framework.** Season 1 used Incendo Cloud; nothing has been chosen for season 2.
+
+**Four renames are planned and are cheap only until something runs in production:**
+`resource-pack-coercion` → `limbo`, `access-bot` → `discord-bot`, `smp-farm-world` → **`smp`**
+(`eu.nordtal.s2.smp`, decided 2026-08-31 — the module owns the build world, the spawn, milestones,
+aura, prestige, duels, POIs and graves, and the farm world is one part of it), and the
+`SeasonPhase` values. A Paper plugin's `name:` is its runtime identity: the `plugins/<name>/` data
+folder and the permission prefix, so a rename after deployment means moving data folders on the
+production host.
 
 `name-displays` was removed from the module list: nametags are owned by the
 [papermc-display-tags](https://github.com/nordtal/papermc-display-tags) fork, which ships from its
@@ -83,11 +96,14 @@ before working around it.
   (measured 2026-08-30). Nothing from JDBI or HikariCP appears on `AccessDirectory`'s signature —
   the factories take a `javax.sql.DataSource` or a JDBC URL — so a consumer never compiles against
   them.
-- **The access schema is owned by `access-bot`** (`src/main/resources/db/migration`), because
-  the bot is the only process that migrates, but the API that reads it lives in `:common`. A
-  column change is therefore an edit in two modules. `:common`'s tests apply that migration
-  directory directly (its path is handed to the test JVM by `common/build.gradle.kts`) rather than
-  keeping a second copy of the DDL.
+- **Exactly one process migrates: `access-bot`.** That is unchanged. **Where the SQL lives changed
+  on 2026-08-31**: the migration files move to `:common/src/main/resources/db/migration/` and the
+  bot applies them from there, so DDL sits next to the API that reads it instead of inside the
+  Discord bot module. Flyway itself must still never reach `:common` — a plugin jar carrying a few
+  KB of SQL text is fine, a plugin jar carrying Flyway is not. `:common`'s tests then apply a local
+  directory rather than reaching into the bot module. **This move has not been carried out yet**;
+  today the files are still under `access-bot/src/main/resources/db/migration`. See
+  [docs/architecture.md](docs/architecture.md#schema-ownership).
 - `Glyphs` in `:common` mirrors `resource-pack/src/assets/minecraft/font/default.json`. A change
   to either is a change to both, plus the pack's README table.
 
@@ -170,9 +186,8 @@ then pushes `ghcr.io/nordtal/access-bot:<version>`.
 ## access-bot
 
 Season 2's Discord bot. **Stage C is implemented (2026-08-30)**; the concept is
-[docs/access-system.md](docs/access-system.md) and the stage plans are
-`docs/access-stage-{a,b,c}.md`. Read the concept before changing anything here or in the access
-path in `common` and `network-control`.
+[docs/access-system.md](docs/access-system.md). Read it before changing anything here or in the
+access path in `common` and `network-control`.
 
 It sells **access periods** (30/60/90 days at 3/5/7 €, optional +5 € donation) bound to a Discord
 account, paid by bunq.me card payment only. Season 1's contribution tiers, bank transfer, receiver

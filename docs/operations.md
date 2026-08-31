@@ -10,7 +10,7 @@ flowchart TB
         PX["Velocity proxy<br/>network-control"]
         LBS["limbo<br/>Paper"]
         HGS["hunger-games<br/>Paper"]
-        SMPS["smp-farm-world<br/>Paper"]
+        SMPS["smp<br/>Paper — four worlds"]
         BOTC["discord-bot<br/>container"]
     end
     PGSQL[("PostgreSQL")]
@@ -74,6 +74,9 @@ running system, not a compiler.
 | **Proxy-only pack enforcement** (making `limbo` unnecessary for packs) | would remove a server group; the API neither promises nor forbids it — `PlayerChooseInitialServerEvent` is awaited but explicitly asks for little work, with no documented timeout, and `sendResourcePackOffer` before a backend connection is undocumented | an experiment on a running proxy, after the event, never on the critical path |
 | **Simple Voice Chat on 26.2** | an optional event feature that also needs a client mod | check for a build before the event |
 | **`LISTEN`/`NOTIFY` through the pool** | the phase propagation design; a dedicated connection and reconnect handling are required | integration test plus a restart drill |
+| **Background pre-generation of a 2000 × 2000 world without perceptible lag** | the whole daily-swap design rests on it; if it cannot be hidden, the farm world shrinks | measure tick time on the real host during a full pre-generation, with players online |
+| **A block-logging plugin for Minecraft 26.2** | the SMP's only safety net against a bad day; nothing depends on it, but its absence should be a known fact | check availability before the SMP phase opens |
+| **Paper unloading and deleting a loaded world at runtime**, then loading a replacement under the same name | the reset avoids a restart entirely on this assumption | a drill on `runServer` with players in the world |
 
 Existing gaps carried over from the access work: nothing in the test suite touches bunq, Discord or
 a running proxy. Tab creation and settlement need the **bunq sandbox**; buttons, modals, DMs and
@@ -93,6 +96,43 @@ A sketch to be filled in once the module exists:
 5. Event: admin starts the countdown, which closes registration for good.
 6. Winner, ceremony in the lobby box, evaluation.
 7. Admin switches the phase to `SMP`. Winner's aura points and items applied.
+
+## Running the SMP
+
+The SMP's concept is [smp.md](smp.md); what it costs to operate is here.
+
+### The daily farm-world reset
+
+The farm world is regenerated every day at a configured time, and the design is a **swap, not a
+rebuild in place**: tomorrow's world is pre-generated in the background during the day into a
+separate folder, and the reset itself is only an unload, a rename and a load.
+
+What an operator needs to know:
+
+- **The window is seconds, not the length of a pre-generation** — but only as long as the
+  background job has finished. If it has not, the reset **postpones itself** rather than swapping
+  in a half-built world. A repeatedly postponed reset means the pre-generation is too slow for the
+  configured size and the farm world should get smaller.
+- **No server restart is involved.** Paper loads and unloads worlds at runtime.
+- **Only players standing in the farm world are moved**, and they go to the Nordtal spawn, not to
+  `limbo`. Nordtal, Nether and End players never notice.
+- **The pre-generation is the biggest operational risk in the SMP**, because it competes with a
+  live server for CPU. It is throttled and off the main thread, and its effect on tick time has to
+  be measured on the real host before the size is trusted.
+- Everything in the farm world is destroyed by the reset, including graves and POIs. That is
+  intended and is announced to players; it is not a fault report.
+
+### Worlds and pre-generation
+
+Every world is pre-generated to its border before players may enter, and players wait in `limbo`
+until it is. A milestone that expands the Nordtal border therefore implies a pre-generation of the
+new ring — which happens while players are online and is subject to the same throttling.
+
+### Third-party plugins
+
+The SMP introduces the network's first optional third-party dependency: **a block-logging plugin**,
+kept purely as insurance. Nothing in the design depends on it. **Whether one exists for Minecraft
+26.2 is unverified** and belongs in the table below before anyone counts on it.
 
 ## Release
 

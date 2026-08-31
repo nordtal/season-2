@@ -224,8 +224,14 @@ now face each other, and the passive border shrink makes sure the question gets 
    decide that.
 
 The winner carries something into the SMP: **extra aura points** while everyone else starts at
-zero, plus one or two special items. Both belong to the SMP concept and must be settable through
-config or a command — see [smp.md](smp.md), where the aura system itself is still an open design.
+zero, plus one or two special items. Both must be settable through config or a command rather than
+compiled in.
+
+Aura is now designed ([smp.md](smp.md#aura--recognition-not-currency)) and the head start is worth
+restating in its terms: aura is **prestige only and buys nothing**, so the winner's advantage is
+recognition in the tab list and on the leaderboard, not purchasing power. It is a visible head
+start on a number everyone else has to earn through duels, objective contributions and
+advancements — which is exactly what winning the start event should be worth, and no more.
 
 ## Data model
 

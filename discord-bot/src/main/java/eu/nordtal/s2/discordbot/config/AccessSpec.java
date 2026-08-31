@@ -200,10 +200,29 @@ public interface AccessSpec {
         }
 
         @Order(5)
+        @Key("admin")
+        @Comment({
+                "Who is an admin. Read-only for the bot, exactly like the language roles: it is",
+                "mirrored into discord_user.admin and every other process reads the flag from",
+                "there - the proxy on the login path, the plugins at join. An admin is appointed",
+                "in Discord and is an admin everywhere; there is no second list.",
+                "",
+                "The mirror is live, not a grant: losing the role clears the flag on the next",
+                "role event or reconcile. This is what /phase set and the MAINTENANCE phase are",
+                "authorised by, so it is not a cosmetic id."
+        })
+        default String admin() {
+            return "";
+        }
+
+        @Order(6)
         @Key("admin-ping")
         @Comment({
                 "Mentioned in the admin channel for entries that need a human.",
-                "Routine audit entries are written without a mention."
+                "Routine audit entries are written without a mention.",
+                "",
+                "Not the same thing as 'admin' above: this one only decides who gets pinged, and",
+                "grants nobody any power. They may be the same role."
         })
         default String adminPing() {
             return "";

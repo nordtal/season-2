@@ -1,22 +1,41 @@
 name: release
 
-# A release is a tag. The version in gradle.properties is the single source of truth for
-# every artifact; the tag must match it (checked below) so the release page and the jars
-# can never disagree.
+# A release is a GitHub release, published by a human. That is the only trigger: publishing a
+# release from a brand-new tag and publishing one from a tag that has existed for weeks both
+# build, which a `push: tags` trigger cannot do - it never fires for the second case, so a
+# release made that way would sit there with no assets at all.
+#
+# `git push --tags` on its own therefore builds nothing. Tag, then publish the release.
+#
+# The version in gradle.properties is the single source of truth for every artifact; the tag
+# must match it (checked below) so the release page and the jars can never disagree.
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
+  # For re-running a release whose build failed, without unpublishing anything.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build, e.g. v2.0.0'
+        required: true
 
 permissions:
   contents: write
   packages: write
+
+# One build per tag. A re-run started by hand while the release build is still going would
+# otherwise upload the same assets twice.
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - uses: actions/setup-java@v4
         with:
@@ -27,16 +46,22 @@ jobs:
 
       - name: Check the tag matches gradle.properties
         run: |
-          tag="${GITHUB_REF_NAME#v}"
+          tag_name="${{ github.event.release.tag_name || inputs.tag }}"
+          tag="${tag_name#v}"
           declared="$(grep '^version=' gradle.properties | cut -d= -f2)"
           if [ "$tag" != "$declared" ]; then
-            echo "tag $GITHUB_REF_NAME does not match version=$declared in gradle.properties" >&2
+            echo "tag $tag_name does not match version=$declared in gradle.properties" >&2
             exit 1
           fi
+          echo "TAG=$tag_name" >> "$GITHUB_ENV"
           echo "VERSION=$declared" >> "$GITHUB_ENV"
 
-      - name: Build every release artifact
-        run: ./gradlew releaseArtifacts
+      # `check` before `releaseArtifacts`, not instead of it: a release must never ship jars
+      # whose tests nobody ran. The integration tests need a Docker daemon, which ubuntu-latest
+      # has - without one Testcontainers tests skip themselves and the run stays green while
+      # proving less.
+      - name: Build and test every release artifact
+        run: ./gradlew check releaseArtifacts
 
       - name: Collect artifacts
         run: |
@@ -50,11 +75,33 @@ jobs:
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
           ls -la dist
 
-      - name: Publish the GitHub release
+      # Both of these are things a Minecraft client punishes and a build does not: the client is
+      # sent the URL and the hash and refuses the pack when they disagree, and it refuses a pack
+      # whose pack.mcmeta is not at the root of the zip. Neither shows up until somebody joins.
+      - name: Verify the resource pack
+        run: |
+          zip="dist/nordtal-resource-pack-${VERSION}.zip"
+          expected="$(cat "$zip.sha1" | tr -d '[:space:]')"
+          actual="$(sha1sum "$zip" | cut -d' ' -f1)"
+          if [ "$expected" != "$actual" ]; then
+            echo "$zip.sha1 says $expected but the zip hashes to $actual" >&2
+            exit 1
+          fi
+          if ! unzip -Z1 "$zip" | grep -qx 'pack.mcmeta'; then
+            echo "pack.mcmeta is not at the root of $zip; the client would refuse the pack" >&2
+            unzip -Z1 "$zip" | head -20 >&2
+            exit 1
+          fi
+          echo "pack ok: sha1 $actual, pack.mcmeta at the root"
+
+      # Uploads the assets onto the release that triggered this run. The release notes are
+      # deliberately left alone - a human wrote them, and generate_release_notes would replace
+      # them with a generated changelog on every re-run.
+      - name: Attach the artifacts to the release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
           files: dist/*
-          generate_release_notes: true
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -63,7 +110,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push the payments bot image
+      - name: Build and push the bot image
         uses: docker/build-push-action@v6
         with:
           context: discord-bot

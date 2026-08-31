@@ -44,10 +44,23 @@ generic keys such as `password` cannot collide across files. A setting the inter
 declare **stops the load** and names the key it probably meant; a Paper plugin catches that and
 disables itself while the server keeps running.
 
-`network-control` is the exception worth knowing about: a bad config there is logged loudly and the
-login gate is simply **never registered** — the proxy keeps running and keeps accepting logins
-un-gated. Velocity has no per-plugin disable. This was flagged rather than resolved when stage C
-landed and is still worth a second look, because a mistyped config silently opens the network.
+`network-control` was the exception, and **it is now decided rather than flagged: on a bad config
+the proxy fails closed.** Settled 2026-08-31.
+
+Today a bad `database.yml` or `gate.yml` is logged loudly and the login gate is simply **never
+registered** — the proxy keeps running and keeps accepting logins un-gated. That is the wrong way
+round for a value whose whole job is deciding who may join: *"the proxy is up but nobody can join"*
+announces itself within seconds of the first player trying, while *"the proxy is up and the gate is
+off"* announces itself never, and a single mistyped key silently opens the network.
+
+The objection this was originally justified with — Velocity has no per-plugin disable — is true and
+beside the point. **A `LoginEvent` handler that refuses everybody with a bilingual "network
+misconfigured" screen is that disable, built by hand**, and it costs one class. Letting admins
+through was considered and is impossible: the admin flag lives in the database that a bad
+`database.yml` cannot reach, so there is nobody to exempt.
+
+Not implemented yet — this is a decision waiting for the session that next opens
+`NetworkControlPlugin`.
 
 ## Resource pack hosting
 

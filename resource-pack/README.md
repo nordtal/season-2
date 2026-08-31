@@ -41,15 +41,15 @@ the surface it is drawn on.
 | `minecraft:default` | [`minecraft/font/default.json`](src/assets/minecraft/font/default.json) | anything rendered as ordinary text — tab list, chat, nametags, Text Display boards | height 7 / ascent 7, except the logo |
 | `nordtal:bossbar` | [`nordtal/font/bossbar.json`](src/assets/nordtal/font/bossbar.json) | the boss bar HUDs only, with the vanilla bar made invisible | height 14 / ascent 6 for bar segments, height 10 / ascent 4 for icons, height 8 / ascent 3 for text |
 
-The two fonts allocate **independently**. `\uE001` is the citizen tag in `minecraft:default` and a
-1-pixel bar segment in `nordtal:bossbar`; that is not a collision, because a component names the
-font it is drawn in. It is still worth knowing before assigning anything new.
+The two fonts allocate **independently**. `\uE001` is a reserved player-badge code point in
+`minecraft:default` and a 1-pixel bar segment in `nordtal:bossbar`; that is not a collision,
+because a component names the font it is drawn in. It is still worth knowing before assigning
+anything new.
 
 **Status of the columns below.** *keep* and *season 1* rows exist today, in the pack and in
 `Glyphs`. ***new*** rows are decided and **not drawn yet** — neither the PNG, the font entry nor
-the `Glyphs` constant exists. *retired* rows still exist in all three places and are to be removed.
-Bringing the pack, `Glyphs` and the two font files in line with this table is the pack clean-up
-session, not this one.
+the `Glyphs` constant exists. *retired* rows are gone from all three places as of the pack
+clean-up session (2026-08-31).
 
 ## `minecraft:default`
 
@@ -58,17 +58,18 @@ session, not this one.
 | Char code | File | Description | Status |
 |---|---|---|---|
 | `\uE000` | — | Donor star, from the permanent donor role | **new** |
-| `\uE001` | — | *(free)* | retired — was the citizen tag |
-| `\uE002` | — | *(free)* | retired — was the knight tag |
-| `\uE003` | — | *(free)* | retired — was the lord tag |
+| `\uE001` | — | *(free)* | removed — was the citizen tag |
+| `\uE002` | — | *(free)* | removed — was the knight tag |
+| `\uE003` | — | *(free)* | removed — was the lord tag |
 | `\uE004` | ![source](src/assets/nordtal/textures/tags/a.png) | Admin short tag `A`, 9 × 7 | keep |
 | `\uE005` – `\uE00F` | — | reserved | — |
 
 `\uE000` was the settler tag and is **re-used** rather than left empty. The four season-1 role
-tags — settler, citizen, knight, lord — are gone from season 2; see
-[smp.md](../docs/smp.md#what-a-player-looks-like). Re-use was chosen over leaving a hole on
-2026-08-31: nothing anywhere persists a glyph character, so a code point cannot be read back and
-mean the wrong thing.
+tags — settler, citizen, knight, lord — are gone from season 2 as of the pack clean-up
+session (2026-08-31): their font entries, PNGs and `Glyphs` constants were removed; see
+[smp.md](../docs/smp.md#what-a-player-looks-like). Re-use was chosen over leaving a hole:
+nothing anywhere persists a glyph character, so a code point cannot be read back and mean the
+wrong thing. `\uE000`'s donor star is still **new** — the code point is reserved but undrawn.
 
 ### `\uE010` – `\uE01F` — language flags
 
@@ -134,7 +135,11 @@ under [vanilla overrides](#vanilla-overrides); the visible bar is composed out o
 
 **None of this font was documented anywhere before 2026-08-31** — not in this README, not in
 `Glyphs`, not in the knowledge base. The first four subsections below are what the pack has been
-shipping since season 1, written down for the first time.
+shipping since season 1, written down for the first time. `Glyphs` now names every code point that
+has an actual font entry below (space advances, bar background segments, the five status icons);
+the code points still marked **new** — dimension icons, bearing arrows and anything else without a
+drawn PNG and a `nordtal/font/bossbar.json` entry — have no `Glyphs` constant yet, because there is
+nothing for one to name.
 
 ### `\uF001` – `\uF128`, `\uFF01` – `\uFF32` — space advances
 
@@ -241,4 +246,5 @@ Nothing above that is allocated.
 | `minecraft/textures/gui/sprites/boss_bar/white_progress.png` | likewise, the progress fill |
 | `minecraft/lang/en_us.json` | `menu.returnToGame`, `menu.game` (the logo glyph) and `menu.disconnect` |
 
-`en_us.json` still reads "Return to nordtal smp" from season 1 and is part of the pack clean-up.
+`en_us.json`'s `menu.returnToGame` was fixed in the pack clean-up session (2026-08-31); it no
+longer reads "Return to nordtal smp" from season 1.

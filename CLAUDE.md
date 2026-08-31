@@ -111,25 +111,25 @@ rules use. See [docs/operations.md](docs/operations.md#open-verification).
   the bot's jar ~31 MB. Nothing from JDBI or HikariCP appears on `AccessDirectory`'s signature —
   the factories take a `javax.sql.DataSource` or a JDBC URL — so a consumer never compiles against
   them.
-- **What a jar actually weighs, rebuilt and measured 2026-08-31.** An earlier version of this file
-  and of `docs/state-of-play.md` claimed "every Paper plugin jar grew from ~20 KB to ~3.0 MB".
-  **That was wrong, and backwards.**
+- **What a jar actually weighs, rebuilt and measured 2026-08-31 at version 0.1.0.** An earlier
+  version of this file and of `docs/state-of-play.md` claimed "every Paper plugin jar grew from
+  ~20 KB to ~3.0 MB". **That was wrong, and backwards.**
 
   | jar | bytes |
   |---|---|
-  | `smp-2.0.0.jar` | 34,745 |
-  | `hunger-games-2.0.0.jar` | 34,784 |
-  | `limbo-2.0.0.jar` | 34,886 |
-  | `network-control-2.0.0.jar` | 5,196,184 |
-  | `discord-bot-2.0.0.jar` | 30,893,431 |
+  | `smp-0.1.0.jar` | 51,273 |
+  | `limbo-0.1.0.jar` | 51,279 |
+  | `hunger-games-0.1.0.jar` | 4,640,946 |
+  | `network-control-0.1.0.jar` | 5,259,904 |
+  | `discord-bot-0.1.0.jar` | 30,952,094 |
 
-  The three Paper plugins carry `:common`'s own classes plus ~14 KB of SQL and **nothing else**,
-  precisely because the JDBI/Hikari/slf4j declarations are `compileOnly` and none of the three
-  scaffolds has opted into `libs.bundles.access-persistence` yet. `network-control` weighs 5 MB
-  because it *did* opt in, through `jcore`. The 3.12 MB figure in `common/build.gradle.kts` is the
-  **counterfactual** — what a plugin jar would weigh if those declarations were `implementation` —
-  and it was read as a measurement of the jars as they are. A plugin that starts using the access
-  API will land near 3 MB; none does today.
+  `smp` and `limbo` carry `:common`'s own classes plus ~14 KB of SQL and **nothing else**,
+  precisely because the JDBI/Hikari/slf4j declarations are `compileOnly` and neither has opted
+  into `jcore`. `hunger-games` and `network-control` weigh what they weigh because they *did* opt
+  in — the persistence stack, not `:common`, is the weight. The 3.12 MB figure in
+  `common/build.gradle.kts` is the **counterfactual** — what a plugin jar would weigh if those
+  declarations were `implementation` — and it was read as a measurement of the jars as they are.
+  A Paper plugin that takes the stack lands near 5 MB, as two of the four now do.
 - **Exactly one process migrates: `discord-bot`.** That is unchanged. **Where the SQL lives changed
   on 2026-08-31, and the move has been carried out**: the migration files sit in
   `common/src/main/resources/db/migration/`, so DDL is next to the API that reads it instead of

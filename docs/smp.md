@@ -315,14 +315,23 @@ Nametags are owned by [`papermc-display-tags`](https://github.com/nordtal/paperm
 which ships from its own repository.
 
 **Season 1's role tags — settler, citizen, knight, lord — are gone** and must be removed from the
-resource pack. The glyph inventory this concept needs:
+resource pack.
 
-- keep: the language flags, the admin `A`, the Nordtal logo
-- **new**: the donor star, 13 prestige crests, HUD arrows and digits, board frame pieces
-- delete: the four season-1 role tags
+**Code points are not listed here any more.** Since 2026-08-31 the allocation is owned by one
+table, [`resource-pack/README.md`](../resource-pack/README.md#code-point-allocation), which covers
+both fonts; `default.json`, `bossbar.json` and `:common`'s `Glyphs` are mirrors of it. What this
+concept needs from it: the donor star (`\uE000`, re-using the retired settler tag), the thirteen
+prestige crests (`\uE030`–`\uE03C`), the board frame pieces (`\uE040`–`\uE04E`), the four
+dimension icons (`\uEF05`–`\uEF08`) and the sixteen bearing arrows (`\uEF10`–`\uEF1F`) that
+`/navigate` draws with.
 
-Every code point lives in `resource-pack/src/assets/minecraft/font/default.json`, is mirrored in
-`:common`'s `Glyphs`, and is listed in the pack's README table. A change is a change in all three.
+Two corrections that came out of writing that table, both of which this document had wrong:
+
+- **The HUD glyphs do not belong in `default.json`.** The boss bar is drawn in `nordtal:bossbar`,
+  whose icons are height 10 / ascent 4 against `default.json`'s height 7 / ascent 7. An arrow
+  allocated in the wrong font sits on the wrong baseline.
+- **The HUD needs no digit glyphs at all.** `nordtal:bossbar` already overrides printable ASCII
+  with `nordtal:font/ascii.png` at the bar's own metrics, digits included.
 
 ## The HUD
 
@@ -593,10 +602,6 @@ expected to be retuned. They are gathered here so nobody mistakes them for agree
   what targets. The mechanism is decided; the content is a design pass of its own.
 - **The advancement list** that grants aura, and the amount per advancement.
 - **The duel loadouts**, item by item, for both types.
-- **Glyph code points** for the donor star, the 13 crests, the HUD arrows and digits, and the board
-  frames — they must be added to `resource-pack` and mirrored in `:common`'s `Glyphs`.
-- **A command framework.** Season 2 has not chosen one, and this module is the first with a real
-  command surface (`/navigate`, POI management, admin commands, `/smp reload`).
 - **Which block-logging plugin**, and whether one exists for Minecraft 26.2 at all.
 - **The server rules as written for players.** Deliberately not settled yet: the working principle
   is that anything goes as long as everyone involved agrees to it. A rules text has to exist before

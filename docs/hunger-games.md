@@ -189,6 +189,13 @@ segments in powers of two, so any width is composed from a handful of glyphs.
 Per player, updated a few times a second, text from the message bundles like everything else
 ([i18n.md](i18n.md)).
 
+**Code points are owned by** [`resource-pack/README.md`](../resource-pack/README.md#nordtalbossbar)
+since 2026-08-31, not by this document. What this HUD draws with: the compass (`\uEF00`, already
+in the pack), the alive / dead / loot-point / border icons (`\uEF09`–`\uEF0C`) and the sixteen
+bearing arrows (`\uEF10`–`\uEF1F`) shared with the SMP's `/navigate`. **No digit glyphs are
+needed** — `nordtal:bossbar` already overrides printable ASCII at the bar's own metrics, and the
+"digits" this document used to ask for do not have to exist.
+
 ## World rules
 
 | rule | setting |
@@ -286,8 +293,6 @@ The Minecraft UUID is not duplicated here: it hangs off `discord_user` through t
   should propose a full default set in config form for review.
 - **Minimum player count** to allow a start at all.
 - **Quiet period and passive shrink rate** — the numbers, not the mechanism.
-- **Glyph inventory for the HUD**: which arrows, compass and digits are needed, and their code
-  points, which must be added to `resource-pack` and mirrored in `:common`'s `Glyphs`.
 - **Simple Voice Chat** is planned as an optional extra **under reservation**: it requires a client
   mod, so vanilla players cannot use it at all, and whether a build for Minecraft 26.2 exists is
   unconfirmed. Check before the event; if there is none, it is dropped without replacement.

@@ -116,6 +116,10 @@ reason is in the linked document — that is what stops it from being reopened b
 | **No command framework.** Brigadier directly: Paper's `Commands` on the Lifecycle API, Velocity's `BrigadierCommand`. Cloud 2.0.0 and Lamp 4.0.0-rc.18 were both verified compatible and both rejected — on 879,377 shaded bytes per Paper jar and on eighteen release candidates respectively | [architecture.md](architecture.md#commands) |
 | No shared Brigadier helper in `:common`: two different brigadier artefacts, neither on Maven Central, for one command on the proxy | [architecture.md](architecture.md#commands) |
 | `BasicCommand` is not used — one command shape across the repository | [architecture.md](architecture.md#commands) |
+| **One table owns every glyph code point**, in `resource-pack/README.md`, covering both fonts; `Glyphs`, `default.json` and `bossbar.json` are mirrors of it and the concept documents carry none | [resource-pack/README.md](../resource-pack/README.md#code-point-allocation) |
+| HUD arrows and icons are allocated in `nordtal:bossbar`, not `default.json` — the two fonts have different metrics, and an arrow in the wrong one sits on the wrong baseline | [resource-pack/README.md](../resource-pack/README.md#nordtalbossbar) |
+| **The HUD needs no digit glyphs**: the boss bar font already overrides printable ASCII at the bar's metrics | [resource-pack/README.md](../resource-pack/README.md#---and-above--ascii-override) |
+| `\uE000`–`\uE003`, freed by deleting season 1's role tags, are re-used rather than left empty — nothing persists a glyph, so a code point cannot be read back meaning the wrong thing | [resource-pack/README.md](../resource-pack/README.md#minecraftdefault) |
 
 ## Working rules that apply to all of it
 

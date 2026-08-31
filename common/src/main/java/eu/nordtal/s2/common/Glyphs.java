@@ -4,9 +4,15 @@ package eu.nordtal.s2.common;
  * Code points of the characters the resource pack defines, so a plugin never hardcodes a
  * private-use escape that the pack has since moved.
  *
- * <p>The authoritative mapping is
- * {@code resource-pack/src/assets/minecraft/font/default.json}. Anything added here must exist
- * there, and the resource pack's README table must be updated in the same change.
+ * <p><b>The authoritative mapping is {@code resource-pack/README.md}</b>, "Code point allocation"
+ * (decided 2026-08-31). It covers both fonts - {@code minecraft/font/default.json} and
+ * {@code nordtal/font/bossbar.json} - and this class, those two files and that table are three
+ * mirrors of one allocation. A change is a change in all of them, in one commit.
+ *
+ * <p><b>This class is currently behind that table.</b> It still declares season 1's four role
+ * tags, which season 2 deletes, and it declares nothing from {@code nordtal/font/bossbar.json} at
+ * all - a whole font of bar segments, icons and space advances that no constant here names.
+ * Bringing it in line is the resource-pack clean-up, not a change to make in passing.
  */
 public final class Glyphs {
 

@@ -116,8 +116,14 @@ before working around it.
   reach `:common` — a plugin jar carrying a few KB of SQL text is fine, a plugin jar carrying
   Flyway is not. `:common`'s tests read the same `classpath:db/migration` off their own runtime
   classpath. See [docs/architecture.md](docs/architecture.md#schema-ownership).
-- `Glyphs` in `:common` mirrors `resource-pack/src/assets/minecraft/font/default.json`. A change
-  to either is a change to both, plus the pack's README table.
+- **The glyph allocation is owned by [`resource-pack/README.md`](resource-pack/README.md)**, section
+  "Code point allocation", decided 2026-08-31. It covers **both** fonts —
+  `minecraft/font/default.json` (ordinary text: tab list, chat, nametags, boards) and
+  `nordtal/font/bossbar.json` (the HUDs, with their own height/ascent). `:common`'s `Glyphs` and the
+  two font files are mirrors of that table; a change is a change in all of them, in one commit.
+  `docs/smp.md` and `docs/hunger-games.md` no longer carry code points of their own. `Glyphs` is
+  knowingly behind the table today — it still declares the four retired season-1 role tags and names
+  nothing at all from the boss bar font.
 
 ## Configuration
 

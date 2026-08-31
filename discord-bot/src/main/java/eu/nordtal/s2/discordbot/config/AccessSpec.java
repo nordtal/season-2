@@ -100,6 +100,31 @@ public interface AccessSpec {
     ChannelsSpec channels();
 
     @Order(6)
+    @Key("languages")
+    @Comment({
+            "Every language the network speaks. A list, so a third language is an edit here and",
+            "not a release: add the role and the two channels in Discord, add an entry, add",
+            "<tag>.properties to every module's messages/ directory, restart.",
+            "",
+            "'en' must be present - it is the fallback everything degrades to, and a missing",
+            "translation shows up as the message key rather than as nothing at all. Tags are",
+            "unique, lower case, and are the bundle file names. A language is identified by its",
+            "tag, so changing 'tag' on an existing entry retires that language.",
+            "",
+            "The ids are EMPTY here for the same reason every other id is. If you have emptied",
+            "the list, this is the shape:",
+            "",
+            "  languages:",
+            "  - tag: en",
+            "    role: '000000000000000000'",
+            "    contribution-channel: '000000000000000000'",
+            "    link-channel: '000000000000000000'"
+    })
+    default List<LanguageSpec> languages() {
+        return DefaultLanguages.LIST;
+    }
+
+    @Order(7)
     @Key("payment")
     @Comment("The bunq poll loop and the life cycle of a payment request.")
     PaymentSpec payment();
@@ -110,14 +135,14 @@ public interface AccessSpec {
     // process that issues codes and therefore the only one that can act on a TTL at all.
     // `network-control`'s gate.yml#link-code-ttl-minutes is the only one, decided 2026-08-31.
 
-    @Order(7)
+    @Order(8)
     @Key("expiry-reminder-lead-days")
     @Comment("How many days before access runs out the reminder DM is sent.")
     default int expiryReminderLeadDays() {
         return 3;
     }
 
-    @Order(8)
+    @Order(9)
     @Key("role-reconcile-interval-minutes")
     @Comment({
             "How often the access role is reconciled against the database.",
@@ -155,6 +180,57 @@ public interface AccessSpec {
         @Comment("What it costs, in cents. Integer cents everywhere; never a float.")
         default int priceCents() {
             return 300;
+        }
+    }
+
+    /**
+     * One language: its tag, the onboarding role that chooses it, and the two channels that carry
+     * the managed messages in it.
+     * <p>
+     * A list of these rather than the fixed {@code roles.german} / {@code roles.english} pair and
+     * four fixed channel keys, because those made a third language a code change
+     * ({@code docs/i18n.md}). jcore can carry a non-empty default for a list of nested specs - see
+     * {@link DefaultLanguages} - so a fresh {@code access.yml} ships with {@code en} and {@code de}
+     * rather than with a list nobody can read a message out of.
+     * </p>
+     */
+    @ConfigSpec
+    interface LanguageSpec {
+
+        @Order(1)
+        @Key("tag")
+        @Comment({
+                "The language tag, lower case. It is the bundle file name in every module's",
+                "messages/ directory and the value stored in discord_user.locale.",
+                "'en' is mandatory: it is what a missing translation falls back to."
+        })
+        default String tag() {
+            return "";
+        }
+
+        @Order(2)
+        @Key("role")
+        @Comment({
+                "The role Discord's own onboarding assigns for this language. Read-only for the",
+                "bot - it only mirrors it into discord_user.locale, and no role at all means",
+                "English."
+        })
+        default String role() {
+            return "";
+        }
+
+        @Order(3)
+        @Key("contribution-channel")
+        @Comment("Carries the buy-access message in this language, and its donation thank-yous.")
+        default String contributionChannel() {
+            return "";
+        }
+
+        @Order(4)
+        @Key("link-channel")
+        @Comment("Carries the account-link message in this language.")
+        default String linkChannel() {
+            return "";
         }
     }
 

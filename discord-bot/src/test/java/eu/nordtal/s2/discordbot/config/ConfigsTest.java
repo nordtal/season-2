@@ -41,6 +41,18 @@ class ConfigsTest {
             - days: 90
               price-cents: 700""";
 
+    /** The agreed language list, as YAML. Substituted into {@link #access(String, String)}. */
+    private static final String VALID_LANGUAGES = """
+            languages:
+            - tag: en
+              role: '30'
+              contribution-channel: '31'
+              link-channel: '32'
+            - tag: de
+              role: '33'
+              contribution-channel: '34'
+              link-channel: '35'""";
+
     /** Everything but the tiers, so a test about one setting does not trip over the other twenty. */
     private static final String REST = """
             guild-id: '1'
@@ -68,18 +80,29 @@ class ConfigsTest {
             """;
 
     /**
-     * A complete access.yml with the given tiers block.
+     * A complete access.yml with the given tiers and languages blocks.
      *
-     * @param tiers the {@code tiers:} section to use
+     * @param tiers     the {@code tiers:} section to use
+     * @param languages the {@code languages:} section to use
      * @return the whole file
      */
+    private static String access(final String tiers, final String languages) {
+        return tiers + "\n" + languages + "\n" + REST;
+    }
+
+    /** A complete access.yml with the agreed language list and the given tiers. */
     private static String access(final String tiers) {
-        return tiers + "\n" + REST;
+        return access(tiers, VALID_LANGUAGES);
+    }
+
+    /** A complete access.yml with the agreed price list and the given languages. */
+    private static String languages(final String languages) {
+        return access(VALID_TIERS, languages);
     }
 
     /** A complete, valid access.yml. */
     private static String access() {
-        return access(VALID_TIERS);
+        return access(VALID_TIERS, VALID_LANGUAGES);
     }
 
     @TempDir
@@ -186,6 +209,90 @@ class ConfigsTest {
         );
     }
 
+    // ------------------------------------------------------------- the language list
+
+    @Test
+    @DisplayName("the language list loads with its tags, role and channels")
+    void languageListLoads() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), access());
+
+        final AccessSpec config = Configs.access().get();
+        assertAll(
+                () -> assertEquals(2, config.languages().size()),
+                () -> assertEquals("en", config.languages().getFirst().tag()),
+                () -> assertEquals("30", config.languages().getFirst().role()),
+                () -> assertEquals("32", config.languages().getFirst().linkChannel()),
+                () -> assertEquals("de", config.languages().getLast().tag()),
+                () -> assertEquals("34", config.languages().getLast().contributionChannel())
+        );
+    }
+
+    @Test
+    @DisplayName("a language list without 'en' stops the bot and prints the shape to write")
+    void missingEnglishStopsTheBot() throws Exception {
+        // English is the floor every missing translation degrades to. Without it a missing key has
+        // nowhere to fall back to, and that would surface on a disconnect screen rather than here.
+        Files.writeString(directory.resolve("access.yml"), languages("""
+                languages:
+                - tag: de
+                  role: '33'
+                  contribution-channel: '34'
+                  link-channel: '35'"""));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertAll(
+                () -> assertTrue(error.getMessage().contains("no 'en' entry"), error.getMessage()),
+                () -> assertTrue(error.getMessage().contains("tag: en"),
+                        "the message has to show what to write: " + error.getMessage())
+        );
+    }
+
+    @Test
+    @DisplayName("an empty language list stops the bot")
+    void emptyLanguageListStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), languages("languages: []"));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertAll(
+                () -> assertTrue(error.getMessage().contains("languages is empty"), error.getMessage()),
+                () -> assertTrue(error.getMessage().contains("link-channel"),
+                        "the message has to show the whole entry: " + error.getMessage())
+        );
+    }
+
+    @Test
+    @DisplayName("two entries with the same tag stop the bot")
+    void duplicateLanguageTagsStopTheBot() throws Exception {
+        // A tag is the bundle file name and the value in discord_user.locale, so two entries
+        // claiming one is an ambiguous lookup rather than a cosmetic mistake.
+        Files.writeString(directory.resolve("access.yml"),
+                languages(VALID_LANGUAGES.replace("- tag: de", "- tag: en")));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("Tags identify a language"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("an upper-case tag stops the bot")
+    void upperCaseLanguageTagStopsTheBot() throws Exception {
+        // Nothing downstream case-folds a .properties file name.
+        Files.writeString(directory.resolve("access.yml"),
+                languages(VALID_LANGUAGES.replace("- tag: de", "- tag: DE")));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("must be lower case"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("an empty id on a language entry stops the bot, naming the entry")
+    void emptyLanguageChannelStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("access.yml"),
+                languages(VALID_LANGUAGES.replace("link-channel: '35'", "link-channel: ''")));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("languages[1].link-channel"), error.getMessage());
+    }
+
     @Test
     @DisplayName("an empty watermark is the normal case - the bot stamps its own")
     void emptyWatermarkIsAccepted() throws Exception {
@@ -249,8 +356,20 @@ class ConfigsTest {
                 () -> assertTrue(Files.readString(file).contains("price-cents: 300"),
                         "but the price list is written in full - a fresh install is ready to sell"),
                 () -> assertTrue(Files.readString(file).contains("price-cents: 700"),
-                        "all three tiers, not just the first")
+                        "all three tiers, not just the first"),
+                // jcore initialises a List<NestedSpec> to empty, so without DefaultLanguages this
+                // comes out as "languages: []" and a fresh install has no language at all.
+                () -> assertTrue(Files.readString(file).contains("tag: en"),
+                        "the fallback language is written: " + read(file)),
+                () -> assertTrue(Files.readString(file).contains("tag: de"),
+                        "and so is German - both entries, not an empty list: " + read(file)),
+                () -> assertTrue(Files.readString(file).contains("link-channel: ''"),
+                        "with their ids empty, exactly like every other id")
         );
+    }
+
+    private static String read(final Path file) throws Exception {
+        return Files.readString(file);
     }
 
     // ------------------------------------------------------------- bot.yml

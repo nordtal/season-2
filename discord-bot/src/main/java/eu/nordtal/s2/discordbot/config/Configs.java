@@ -15,6 +15,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -48,6 +49,25 @@ public final class Configs {
      * directory. Nothing in production sets it.
      */
     static final String DIRECTORY_PROPERTY = "access.config.dir";
+
+    /** The one language {@code access.yml} may not leave out; see {@code docs/i18n.md}. */
+    private static final String FALLBACK_LANGUAGE = "en";
+
+    /**
+     * What to write when the language list is unusable, with a slot for why it is.
+     * <p>
+     * The YAML is in the message rather than only in the file's comments because this is exactly
+     * the moment somebody has a file that does not load and no example to copy from.
+     * </p>
+     */
+    private static final String SHAPE_OF_LANGUAGES = """
+            %s Write at least the fallback:
+
+              languages:
+              - tag: en
+                role: '000000000000000000'
+                contribution-channel: '000000000000000000'
+                link-channel: '000000000000000000'""";
 
     private Configs() {
     }
@@ -120,6 +140,7 @@ public final class Configs {
         requireSnowflake("channels.admin", config.channels().admin());
 
         validateTiers(config.tiers());
+        validateLanguages(config.languages());
 
         requirePositive("donation-cents", config.donationCents());
         requirePositive("expiry-reminder-lead-days", config.expiryReminderLeadDays());
@@ -190,6 +211,53 @@ public final class Configs {
                                 + byDays.get(index - 1).days() + " days costs "
                                 + byDays.get(index - 1).priceCents() + "c");
             }
+        }
+    }
+
+    /**
+     * The language list.
+     * <p>
+     * The rules are {@code docs/i18n.md}'s, enforced by hand like every other rule here.
+     * {@code en} is mandatory because it is what a missing translation falls back to: a list
+     * without it has no floor, and the failure would surface as a message key on a disconnect
+     * screen rather than at startup. Tags are unique because a tag identifies a language
+     * everywhere else - it is the bundle file name and the value in {@code discord_user.locale} -
+     * and they are lower case for the same reason, since nothing downstream case-folds a file name.
+     * </p>
+     */
+    private static void validateLanguages(final List<AccessSpec.LanguageSpec> languages) {
+        if (languages == null || languages.isEmpty()) {
+            throw new IllegalArgumentException(SHAPE_OF_LANGUAGES.formatted(
+                    "languages is empty, so nothing can be said to anybody."));
+        }
+
+        final Set<String> tags = new HashSet<>();
+        for (int index = 0; index < languages.size(); index++) {
+            final AccessSpec.LanguageSpec language = languages.get(index);
+            final String path = "languages[" + index + "]";
+            final String tag = language.tag() == null ? "" : language.tag();
+
+            if (tag.isBlank()) {
+                throw new IllegalArgumentException(path + ".tag is empty. A language is identified "
+                        + "by its tag; it is also the name of its .properties bundle.");
+            }
+            if (!tag.equals(tag.toLowerCase(Locale.ROOT))) {
+                throw new IllegalArgumentException(path + ".tag must be lower case, was: " + tag);
+            }
+            if (!tags.add(tag)) {
+                throw new IllegalArgumentException(path + " uses the tag '" + tag + "', which "
+                        + "another entry already uses. Tags identify a language and must be unique.");
+            }
+
+            requireSnowflake(path + ".role", language.role());
+            requireSnowflake(path + ".contribution-channel", language.contributionChannel());
+            requireSnowflake(path + ".link-channel", language.linkChannel());
+        }
+
+        if (!tags.contains(FALLBACK_LANGUAGE)) {
+            throw new IllegalArgumentException(SHAPE_OF_LANGUAGES.formatted(
+                    "languages has no '" + FALLBACK_LANGUAGE + "' entry. English is the fallback "
+                            + "every missing translation degrades to and cannot be left out."));
         }
     }
 

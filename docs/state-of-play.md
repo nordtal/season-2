@@ -304,23 +304,25 @@ seconds, so the sooner the counter runs, the less the first weeks of the season 
 
 ## 3. What still needs a decision
 
-Much shorter than it was. Everything the 2026-08-31 planning session settled has moved into §2 or
-into the documents themselves.
+**There is no open design decision left.** The milestone track, which used to head this section as
+"one design pass, and it is the season's spine", was designed on 2026-08-31 in a session of its own
+and lives in [smp.md](smp.md#the-track): the chain 20 · 43 · 99 · 400 · Nether · End · 900 · 4000,
+a community play-hour budget per milestone, a pot derived from that budget, an `ADVANCEMENT`
+participation gate on every milestone, three escape hatches for an objective that turns out to be
+impossible, and a payout rule that splits the pot instead of topping it up. What remains of it is a
+config default: the exact items and advancements behind each objective.
 
-### One design pass, and it is the season's spine
+Three things came out of that session that are not track content and are recorded here because they
+change work elsewhere:
 
-**The milestone track.** Which objectives sit on which milestone, in what order, with what targets,
-and what each objective's aura pot is. The mechanism is fully decided — one linear chain, every
-objective of a milestone required, three objective types, YAML definition and database progress
-([smp.md](smp.md#milestones--the-community-objective-system)) — and the mechanism does not imply
-the content. This is **its own session**, and it was deliberately not squeezed into the one that
-settled everything else.
-
-Its constraints are already written down: the Nether and End reachable in the first days, the last
-border expansion a genuine fortnight of effort, hand-in reachable without automation, and a player
-count of 15–30. One thing has changed underneath it and must be checked against rather than
-assumed: **Nether portals now link vanilla with 1:8 mapping once unlocked, and Nether highways are
-accepted**, which changes what a large border number actually costs a player.
+- **Nordtal is pre-generated once, to border 4000, before the phase opens.** That is an operational
+  step with a wall-clock and a disk cost, and both have to be measured before the phase is
+  scheduled — it is now the second entry on the SMP verification list.
+- **The balloon's position at the spawn is load-bearing**: outside radius 10, inside radius 21.5.
+  The spawn build, which is already listed below as work that gates a rehearsal, now has a
+  constraint it can fail.
+- **Deaths cost aura**, which is a new aura source the schema does not need but the SMP
+  implementation does.
 
 ### Config defaults, cheapest to propose in a diff
 
@@ -331,7 +333,9 @@ session and reviewing the diff is cheaper than arguing them in prose.
 |---|---|
 | Hunger games loot pools, item by item, for four refill tiers | [hunger-games.md](hunger-games.md#still-open) |
 | Duel loadouts for sword and bow | [smp.md](smp.md#still-open) |
-| The advancement list that grants aura, and the value of each | [smp.md](smp.md#still-open) |
+| The advancement list that grants aura, and the value of each (now 2–10, not 5–25) | [smp.md](smp.md#still-open) |
+| The damage types that count as an "embarrassing" death and cost −20 rather than −5 | [smp.md](smp.md#deaths-cost-aura) |
+| The items and advancements behind each of the track's objectives — the shape, budget and pot are decided, the contents are a config default | [smp.md](smp.md#the-objectives) |
 | The wheel of fortune's prize pool and weights | [smp.md](smp.md#numbers-that-are-proposals-not-decisions) |
 | Quiet period and passive shrink rate for the hunger games border | [hunger-games.md](hunger-games.md#still-open) |
 
@@ -356,13 +360,13 @@ head that list and block everything behind it, was confirmed by the owner on 202
 
 ## 4. Recommendation
 
-**The next planning session covers exactly one thing: the milestone track.** It is what is left of
-the two-item list this section carried this morning; the command framework is decided. It deserves
-a session of its own because it is the only remaining item that a design pass has to *work out*
-rather than pick a number for, and because it determines how much objective machinery the first
-SMP implementation needs.
+**There is no planning session left to hold.** The milestone track, which this section named as the
+one remaining design pass, was worked out on 2026-08-31 — chain, budgets, targets, pots,
+participation gates, escape hatches and payout formula are all in
+[smp.md](smp.md#the-track). Everything still open is a config default, a drawing, a text or a
+build, and each of those is cheaper inside an implementation session than in front of one.
 
-**Do not wait for it to start implementing.** In parallel, and in this order:
+**So implement.** In this order:
 
 - **Build the phase model, the admin flag, the two `network-control` config decisions and the play
   time counter** (§2a, §2b, §2d, §2g). All four are fully decided and none needs anything from the
@@ -377,6 +381,14 @@ SMP implementation needs.
 That leaves `limbo`, `hunger-games` and `smp` as the three sessions that follow — in that order,
 because `limbo` is on every login path, the start event comes before the SMP in the season, and the
 SMP is by a wide margin the largest of the three.
+
+**Two things belong to the `smp` session's first hour rather than its last.** Measure Nordtal's
+one-off pre-generation to border 4000 — wall clock and disk, on the real host — because the final
+milestone is undeliverable if that measurement comes out badly, and it is the cheapest measurement
+in the whole plan. And write the milestone YAML from
+[the track](smp.md#the-track) early, because it is the artefact everything else in the module reads
+from, and because correcting its items in a diff is exactly how that table was meant to be
+finished.
 
 One thing to keep in view throughout: **nothing here has been exercised against a running server,
 a real client, Discord or bunq.** The test suite covers the access API, the config specs, the

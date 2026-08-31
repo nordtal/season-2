@@ -1,17 +1,20 @@
 # State of play
 
 Where season 2 actually stands, what can be built without another planning session, and what
-cannot. Written **2026-08-31**, after the SMP concept landed (`f16c298`) and after the two
-mechanical changes that concept implied were carried out: `smp-farm-world` → `smp`, and the
-migration SQL moving into `:common`.
+cannot.
 
-**Revised 2026-08-31**, later the same day, after the planning session that settled the command
-framework, the glyph allocation, six loose single decisions and the ordering of the open
-verifications. Three new findings came out of that session and are numbered 7 to 9 below.
+**Re-derived from the code on 2026-09-01, and again the same day after `limbo` and the pack station
+were built.** An earlier version of this document was written on
+2026-08-31 *before* that evening's implementation work and then committed *after* it (`6fcede9`,
+23:33, against `e1dd4ba`, 21:17): it described `hunger-games` as a 22-line scaffold, `common`'s
+`SeasonPhase` as holding three wrong values, `Glyphs` as season 1's inventory and the whole of §2 as
+unbuilt, all of which had stopped being true hours earlier. That is the failure mode this document
+warns about in its own last line, so the numbers below were read out of the repository again rather
+than edited.
 
-This document is a survey of the **code**, not of the plan. Every claim below was read out of the
-repository; where a document says something the code does not support, that is recorded as a
-finding rather than smoothed over. The plan lives in the other documents and is not repeated here.
+This is a survey of the **code**, not of the plan. Where a document says something the code does not
+support, that is recorded as a finding rather than smoothed over. The plan lives in the other
+documents and is not repeated here.
 
 It is expected to go stale. Re-derive it rather than trust it once a module has been implemented.
 
@@ -19,380 +22,318 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 
 ### The short version
 
-| module | main Java | what actually runs | what the plan says it owns |
+| module | main Java | tests | what actually runs |
 |---|---|---|---|
-| `access-bot` | 4326 lines | Access sales, bunq matching, linking, roles, admin commands, the schema | plus the hunger games half, `/phase`, the admin-flag mirror, a language list |
-| `common` | 1489 lines | `AccessDirectory`, `Messages`, `Locales`, `Glyphs`, the migration SQL | plus the phase model, the join-time locale component, season 2's glyph inventory |
-| `network-control` | 875 lines | The login gate, the fallback cache, the mid-session expiry watch | plus phase, pack enforcement, routing, network-wide play time |
-| `resource-pack` | — | Season 1's glyphs, boss bar sprites, the reproducible zip | season 2's glyph inventory |
-| `limbo` | 22 lines | Two log lines | the whole `limbo` waiting room |
-| `hunger-games` | 22 lines | Two log lines | the whole start event |
-| `smp` | 23 lines | Two log lines | the whole SMP |
+| `discord-bot` | 43 files, 6054 lines | 109 | Access end to end, the phase command, the admin mirror, the language list, hunger games registration |
+| `hunger-games` | 40 files, 3777 lines | 41 | The start event, essentially in full |
+| `network-control` | 29 files, 4110 lines | 120 | Login gate, phase, play time, routing, **the pack station** |
+| `common` | 26 files, 2671 lines | 98 | Access API, messages, locales, phase, glyphs, **the limbo protocol**, V1–V6 |
+| `resource-pack` | — | — | Three fonts, every code point allocated and drawn |
+| `limbo` | 10 files, 1139 lines | 11 | The waiting room, in full |
+| `smp` | 1 file, 23 lines | — | Two log lines |
 
-Three of the seven modules are a `JavaPlugin` subclass that logs on enable and on disable. That is
-not a criticism — it is the accurate picture of how much of season 2 exists, and it is why the
-question "what can be built today" has a long answer.
+379 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
 
-### `network-control`
-
-Built, and it works as documented as far as it goes:
-
-- `LoginGate` — one `accessState` call, then linked? member? access active?, each with its own
-  disconnect screen, with the fallback cache under it.
-- `FallbackCache` — the four rules, driven by a settable `Clock`, 10 tests.
-- `ExpiryWatch` — re-reads every connected player's access on a timer, warns once, disconnects at
-  the deadline (`ExpiryWatch.java:96`).
-- `Configs` / `DatabaseSpec` / `GateSpec` — `database.yml` and `gate.yml` through jcore, 6 tests.
-
-Built since this section was first written, on 2026-08-31:
-
-- **Phase.** `PhaseWatch` (the 30-second poll and the last-known-phase fallback), `PhaseListener`
-  (`LISTEN nordtal_phase` on a dedicated connection), `PhaseCommand` (the emergency `/phase`).
-- **Play time.** `PlaytimeWriter` / `PlaytimeStore` into `player_playtime`, flushed on disconnect,
-  on shutdown and every `gate.yml#playtime-flush-interval-seconds` (300, decided 2026-08-31).
-- **Routing, in part.** The `routing` package: `PhaseServers` (the phase-to-backend table),
-  `PhaseRouting` (the decision, in memory and exhaustively tested) and `PlayerRouter` (the Velocity
-  glue). A phase change re-routes every connected player; a `MAINTENANCE` login is put into
-  `limbo`; a switch to `SMP` still disconnects a player without access.
-
-Still not built:
-
-- **The limbo-first pack station.** `PlayerRouter` deliberately leaves the initial server alone in
-  every phase but `MAINTENANCE`, because [architecture.md](architecture.md#the-login-path-end-to-end)
-  puts *every* login through `limbo` for the resource pack and then back out on a `nordtal:` plugin
-  message — and `limbo` is a scaffold with no pack code and no channel. Routing a `PRE_EVENT` login
-  straight to `hunger-games` would be a different design, not that one. The `limbo` session owns it.
-- **Pack enforcement.** No resource-pack code of any kind on the proxy.
-- `app.simplecloud.api:api` is still a declared `compileOnly` dependency that **no source file in
-  the module imports** — routing named backends from `gate.yml` and never needed it, which is what
-  [operations.md](operations.md#open-verification) said would happen.
+**One of the seven modules is a scaffold**, and it is the one that carries the most design: the
+phase the season spends its life in.
 
 ### `common`
 
-`AccessDirectory` and the message system are real and well covered (47 tests, 34 of them against a
-PostgreSQL container). The rest of what the module is supposed to own is not there:
+Everything the plan gives this module exists:
 
-- `SeasonPhase` (`SeasonPhase.java:10-16`) still holds **`RESOURCE_PACK_INSTALL`, `START_EVENT`,
-  `SMP`** — three values. The agreed enum is `PRE_EVENT`, `START_EVENT`, `SMP`, `MAINTENANCE`.
-  Nothing reads it, so replacing it costs nothing today.
-- `Glyphs` (`Glyphs.java:17-32`) is season 1's inventory: the four role tags that
-  [smp.md](smp.md#what-a-player-looks-like) says must be **deleted**, the admin `A`, five flags and
-  two logo sizes. The donor star, the 13 prestige crests, the HUD arrows and digits and the board
-  frames do not exist in `Glyphs`, in `default.json`, or as image files.
-- There is **no join-time locale component**. [i18n.md](i18n.md) specifies "a shared component in
-  `:common` does the loading, the caching and the default, so all four modules behave identically".
-  `Locales` converts a tag to a `Locale` and back; that is all.
+- `access/` — `AccessDirectory` and the login query, unchanged and well covered.
+- `message/` — `Messages`, `Locales`, and **`PlayerLocales`**, the join-time component
+  [i18n.md](i18n.md) asks for: loaded once at join, held for the session, never re-queried from a
+  render path, English for a player nobody called `join` for.
+- `phase/` — `PhaseDirectory`, `PhaseDao`, `JdbiPhaseDirectory`, `PhaseChange`. The switch and its
+  audit entry are one method, which is what [season-phases.md](season-phases.md#who-may-switch-it)
+  demands of two writers.
+- `SeasonPhase` — the four agreed values, with `fromDatabase` falling back to `MAINTENANCE`.
+- `Glyphs` — season 2's inventory across all three fonts: the donor star, thirteen prestige crests,
+  the board frame pieces, the bossbar icons and arrows.
+- `limbo/` — `LimboProtocol` and `WaitReason`, the `nordtal:limbo` wire format (2026-09-01). It is
+  here rather than in either module that speaks it because both ends are in this repository and a
+  format written twice drifts; a plugin message that does not parse looks exactly like one that was
+  never sent, so the failure would be a player sitting in the waiting room forever with nothing in
+  any log.
+- `db/migration/` — V1 access, V2 bot state, V3 bot setting, V4 phase/admin/playtime, V5 hunger
+  games, **V6 the SMP** (2026-09-01).
 
-### `access-bot`
+### `network-control`
 
-The access half is built end to end and is the only part of season 2 that could be deployed today.
-Four admin commands exist (`grant-access`, `revoke-access`, `access-status`, `settle`) plus
-`/unlink`. What the plan gives this module and the code does not have:
+- `gate/` — `LoginGate` decides per phase; `MisconfiguredGate` is the deny-all `LoginEvent` handler
+  that makes a broken config fail closed; `FallbackCache` and `ExpiryWatch` unchanged.
+- `phase/` — `PhaseWatch` (30-second poll, last-known-phase fallback), `PhaseListener` and
+  `PostgresPhaseNotifications` (`LISTEN nordtal_phase` on a dedicated connection outside the pool),
+  `PhaseCommand` (the emergency `/phase`, authorised by the admin flag).
+- `playtime/` — `PlaytimeWriter` / `PlaytimeStore` / `PlaytimeDao` into `player_playtime`, flushed
+  on disconnect, on shutdown and every 300 seconds.
+- `routing/` — `PhaseServers`, `PhaseRouting`, `PlayerRouter`, `RouteDecision`. A phase change
+  re-routes everyone; a `MAINTENANCE` login lands in `limbo`; a switch to `SMP` disconnects a player
+  without access, and `decideInitial` puts every login in `limbo` first.
+- `pack/` — **built 2026-09-01, and it was the module's last gap.** `PackStation` (the forced
+  offer, the `nordtal:limbo` channel, the release), `PackOffer` (one `ResourcePackInfo` per language,
+  id derived from the pack's own hash), `PackMessages` and `LimboHold` — the last of which is the
+  pure rule deciding what a waiting player is told, and the only part of the station a test can
+  reach.
 
-- **No `hungergames` package.** Registration, team names, partner invitations — none of it.
-- **No `/phase set`.** [season-phases.md](season-phases.md#who-may-switch-it) makes this the normal
-  path for switching the phase.
-- **No admin-role mirror.** `discord_user` (`V1__access.sql:22`) has `locale`, `member_state` and
-  `donor`, and **no admin flag**. `AccessSpec.RolesSpec` had `access`, `donor`, `german`,
-  `english` and `admin-ping` — `admin-ping` is who gets mentioned in the admin channel, not who is
-  an admin. (It now has `access`, `donor`, `admin` and `admin-ping`: the admin mirror landed in
-  stage C, and the two language roles moved onto the `languages` list on 2026-08-31.) The decision in [season-phases.md](season-phases.md#how-an-admin-is-recognised) is
-  therefore unimplemented in both the schema and the config, and
-  [smp.md](smp.md#admins)'s `PermissionAttachment` has nothing to read.
-- ~~**Languages are two fixed roles**, `roles.german` and `roles.english`, and four fixed
-  channels.~~ **Done 2026-08-31.** `roles.german`, `roles.english` and the four
-  `channels.contribution-*` / `channels.link-*` keys are deleted; `access.yml`'s `languages` list is
-  the only source, read through `Languages` (`discord-bot/.../config/Languages.java`). A third
-  language is a config edit: `LanguagesTest` and `ConfigsTest#aThirdLanguageIsPurelyAConfigEdit`
-  drive an `fr` entry no source file mentions.
+`PlayerRouter` now sets `limbo` as the initial server in **every** phase, `PhaseRouting#decideInitial`
+is that rule, and a proxy with no waiting room refuses the login rather than falling through to
+`velocity.toml`'s `try` list. `pack.yml` is new and is the first config file in this repository whose
+values change on a release cadence.
+
+**What this module still owes is a rehearsal, not code.** It owns three open verifications and none
+of them can be answered here — see [operations.md](operations.md#rehearsal--the-login-path).
+
+### `discord-bot`
+
+- `access/` — the sales, matching, linking and admin surface, unchanged and deployable.
+- `discord/PhaseCommand` — `/phase set`, the normal path for switching the phase.
+- `discord/AdminFlagDao` — the admin-role mirror into `discord_user.admin`.
+- `config/Languages` + `DefaultLanguages` — the `languages` list; a third language is a config edit,
+  proven by a test that drives an `fr` entry no source file mentions.
+- `hungergames/` — `RegisterFlow`, `Teams`, `RegisterMessages`, the invitation accept/decline, the
+  managed message per language channel.
+- The bunq environment is a config key rather than a hardcoded `PRODUCTION`.
+
+What it does not have is an SMP surface — announcements, admin commands — and that is correct: the
+module it would talk to does not exist.
+
+### `hunger-games`
+
+Built on 2026-08-31 and covering nearly the whole of [hunger-games.md](hunger-games.md):
+`border/` (`BorderController`, `BorderMath`), `loot/` (`LootRefill` with four configured tiers),
+`hud/` (`HudRenderer`, `BossBarWidth`, `Bearing`), `lobby/` (`Lobby`, `LobbyMaps`), `body/`
+(`PlayerBodies` — the disconnected body that stays and stays vulnerable), `color/` (`TeamColours`,
+the generated palette and its nearest-named mapping), `game/` (`HungerGamesManager`, `SpawnTowers`,
+`WinTracker`, `Tiebreak`, `Demotion`, `Ceremony`), `db/` and `command/HungerGamesCommand`
+(`/hg start`, `confirm`, `ready`, `ready-status`, Brigadier only).
+
+The loot pools, the quiet period and the passive shrink rate — three of the four "still open" config
+points in that document — now exist as defaults in `HungerGamesSpec` and `DefaultRefillTiers`.
+
+**Changed on 2026-09-01, from outside its own session:** the join-time language lookup moved off the
+main thread and `database.yml` gained a `query-timeout-seconds`. Nothing about the game changed —
+see finding 12 below for why a `limbo` session touched this module at all.
+
+What is missing is not code:
+
+- The **world folder** — the hand-built map, lobby box, spawn towers and loot points. The plugin
+  disables itself rather than run without it.
+- The **aerial and rules images**. `lobby/map-en.png` and `map-de.png` ship as dummy placeholders,
+  and `LobbyMaps` is deliberately tolerant of them being wrong.
+- The **winner's head start**, which is now the SMP's job and not this module's — see below.
 
 ### `resource-pack`
 
-The zip builds reproducibly with its SHA-1, `pack_format` is 88, and the boss bar override plus the
-power-of-two background segments season 2's HUD design depends on are already there
-(`assets/nordtal/textures/ui/bossbar/`). The **content** is season 1's: settler, citizen, knight and
-lord tags in `default.json`, in `Glyphs` and in the pack's README table, and an `en_us.json` that
-still says "Return to nordtal smp". Nothing season 2 needs has been added.
+Season 1's leftovers are gone: the four role tags are deleted from `default.json` and from the
+textures, and `en_us.json` is season 2's. Three fonts are documented and mirrored in `Glyphs`:
+`minecraft:default`, `nordtal:bossbar` and `nordtal:board` (added 2026-08-31, so the board frame
+does not have to share `default.json`'s metrics).
 
-### `limbo`, `hunger-games`, `smp`
+**Every allocated code point now has a PNG**, generated by `tools/generate_dummy_textures.py` on
+2026-08-31 and marked in the pack's README as either `generated — final candidate` or
+`generated — placeholder`. That is what makes the HUD and the boards exercisable on a running server
+before the real design work happens. The balloon has a scaffolded item model with flat-colour
+textures standing in for the 3D model.
 
-Scaffolds. Each is one class with `onEnable`/`onDisable` logging its own name, a `paper-plugin.yml`,
-and a `build.gradle.kts` holding a single `plugins {}` block. Each shades `:common`, so each jar
-carries ~14 KB of SQL it never reads — the accepted cost of the schema move — and weighs **about
-34 KB in total**, not the ~3 MB this document and `season-2/CLAUDE.md` claimed. See
-finding 7.
+### `limbo`
+
+Built 2026-09-01, and it is small on purpose — its entire interface is one title.
+
+- `world/` — `VoidChunkGenerator` (every `shouldGenerate*` false) and `WaitingWorld`, which creates
+  the empty world, pins its gamerules and owns the one location anybody stands in. Players are put
+  there by `AsyncPlayerSpawnLocationEvent`, *before* they are spawned, so the server's own
+  `level-name` world is never seen for a frame.
+- `waiting/WaitingRoom` — adventure mode, flying, invulnerable, blind, and the title. The title is
+  re-sent on a timer because a Minecraft title expires, and an expired one here is a completely
+  black screen with nothing on it, which looks exactly like a hung client. A *change* of reason
+  fades in; a refresh does not.
+- `net/LimboChannel` — `READY` out, `WAIT` in.
+- `listener/PresenceListener` — no join message, no chat, no damage, no hunger, no interaction, and
+  every player hidden from every other in both directions.
+- `config/`, `db/` — `config.yml`, `database.yml`, and a HikariCP pool of three connections for the
+  one query this module ever makes.
+
+The `GameRule` constants were all renamed in 1.21.11 and the old names are `@Deprecated(forRemoval)`;
+this module uses `GameRules` throughout, which is worth knowing before the SMP writes its own worlds.
+`World#setKeepSpawnInMemory` is a no-op since 1.21.9 and is not called.
+
+### `smp`
+
+A scaffold: one class, `onEnable`/`onDisable` logging its own name, a `paper-plugin.yml`, and a
+`build.gradle.kts` holding a single `plugins {}` block. It has taken a dependency on nothing.
 
 ### Where the documents and the code disagree
 
-**Nine findings**, in descending order of how much they matter. Findings 7 to 9 are new on
-2026-08-31; finding 3 is closed.
+The nine findings of the previous version are resolved as follows. **Only two still stand.**
 
-> **This list has not been rewritten since the work it describes was done, and says so rather than
-> being trusted.** As of 2026-08-31 finding **1** is fixed (the gate is phase-aware, and
-> `MAINTENANCE` now holds players in `limbo` rather than refusing them), finding **2** is fixed
-> (`MisconfiguredGate` is the deny-all handler), and finding **4** is out of date in one direction:
-> phase, play time and the routing rules that do not need `limbo` all have code now. Finding **5**
-> is unchanged and, if anything, more true — routing was built and did not import
-> `app.simplecloud.api`. Re-deriving the whole list from the code belongs to the session that next
-> audits this document; the individual entries below are left as they were written so the diff is
-> readable.
-
-1. **The login gate is phase-blind, and therefore behaves as if the network were permanently in
-   `SMP`.** `LoginGate.java:78` refuses any linked member without active access, unconditionally;
-   `AccessState.mayJoin()` (`AccessState.java:66`) encodes the same rule. The whole point of the
-   phase model ([season-phases.md](season-phases.md)) is that access is required **only from
-   `SMP`** and that the start event is free for every linked member. As the code stands, a
-   `PRE_EVENT` network would refuse everyone who has not paid. Nothing is deployed, so this is an
-   unfinished feature rather than a live fault — but it is the sharpest reason the phase work has
-   to come before anything that opens the network to players.
-
-2. **`network-control` accepts logins un-gated when its own config is broken, and that is now
-   decided against.** A bad `database.yml` or `gate.yml` is logged and the gate is simply never
-   registered. Settled 2026-08-31: it must fail closed, with a `LoginEvent` handler that refuses
-   everybody — see [operations.md](operations.md#configuration-and-secrets). Decided, **not
-   implemented**; until it is, a mistyped key silently opens the network.
-
-3. ~~Two source files point at a document that was deleted.~~ **Closed 2026-08-31.** `GateSpec.java`
-   and `NetworkControlPlugin.java` both referred to "the stage C completion report", removed in
-   `a640dd9`. Both javadocs were rewritten in this session and now carry the decision itself
-   instead of a pointer to nothing.
-
-4. **`docs/README.md` marks `network-control` "partly", which understates how little of that module
-   exists.** Four of the five things [architecture.md](architecture.md#modules) assigns to it —
-   phase, pack, routing, play time — have no code at all.
-
-5. **`app.simplecloud.api:api` is a dependency of a module that does not use it.** Correctly
-   `compileOnly`, correctly never shaded, and imported by **no source file**. It is a placeholder
-   for routing that has not been written. Worth knowing before anyone concludes from the build file
-   that SimpleCloud integration exists — and worth knowing that
-   [operations.md](operations.md#open-verification) now records a fallback which needs the
-   dependency not at all.
-
-6. **The `link-code-ttl-minutes` duplication is still in the code, though no longer undecided.**
-   `access.yml` carries a copy no code path reads and `gate.yml` carries the one the proxy uses.
-   Settled 2026-08-31: the bot's copy is retired. Decided, **not carried out** — and it is free
-   only until something is deployed, because a key the interface does not declare stops the load.
-
-7. **The jar-size claim was wrong, and backwards.** `season-2/CLAUDE.md` and this document both
-   said a Paper plugin jar had grown "from ~20 KB to ~3.0 MB". Rebuilt and measured
-   **2026-08-31**:
-
-   | jar | bytes |
-   |---|---|
-   | `smp-0.1.0.jar` | 51,273 |
-   | `limbo-0.1.0.jar` | 51,279 |
-   | `hunger-games-0.1.0.jar` | 4,640,946 |
-   | `network-control-0.1.0.jar` | 5,259,904 |
-
-   `smp` and `limbo` carry `:common`'s classes plus the SQL and nothing else, because `:common`
-   declares JDBI, HikariCP and slf4j `compileOnly` and neither has taken `jcore`. `hunger-games`
-   and `network-control` weigh what they weigh because they *did* take it. **The 3.12 MB in `common/build.gradle.kts` is a counterfactual** — what the
-   jars would weigh with those declarations changed — and it was copied into two documents as if it
-   described the jars that exist. Corrected in both documents, and the build file now says so
-   itself. The design worked; the documentation reported the opposite.
-
-8. **A whole font was undocumented.** `resource-pack/src/assets/nordtal/font/bossbar.json` defines
-   `nordtal:bossbar` — nine bar-background bitmaps at `\uE000`–`\uE128`, five icons at
-   `\uEF00`–`\uEF04` (one of them a compass, which two documents were about to ask for again),
-   fifteen space advances, and a full printable-ASCII override — and **none of it appeared in the
-   pack's README, in `Glyphs`, or anywhere in this knowledge base.** The glyph inventory was
-   described everywhere as if `default.json` were the whole of it.
-   **Closed by this session**: the pack's own README
-   ([the allocation table](../resource-pack/README.md#code-point-allocation)) now owns both fonts,
-   and `Glyphs` still names nothing from the second one — which is now a recorded gap rather than
-   an invisible one.
-
-9. **The boss bar font's positive space advances sit outside the private-use area.** `\uFF01`,
-   `\uFF02`, `\uFF04`, `\uFF08`, `\uFF16` and `\uFF32` are `FULLWIDTH EXCLAMATION MARK` and
-   friends, not private use, while the pack's README states its range as `\uE000`–`\uF8FF`. The
-   override is confined to `nordtal:bossbar`, so ordinary chat is unaffected and nothing is broken
-   today. Recorded rather than fixed: moving them changes whatever HUD code composes the bar, and
-   no such code exists yet.
+| # | what it was | now |
+|---|---|---|
+| 1 | The login gate is phase-blind | **closed** — `LoginGate` decides per phase, `MAINTENANCE` holds in `limbo` |
+| 2 | The proxy accepts logins un-gated on a broken config | **closed** — `MisconfiguredGate` |
+| 3 | Two files point at a deleted document | **closed** 2026-08-31 |
+| 4 | `docs/README.md` overstates `network-control` | **closed** — four of the five things are built; only the pack station is not |
+| 5 | `app.simplecloud.api:api` is a dependency nothing imports | **closed 2026-09-01** — the dependency, its two repositories and its catalog entry were removed. Routing resolves backends by `gate.yml` name through `ProxyServer.getServer(name)`, which is exactly the fallback [operations.md](operations.md#open-verification) had written down |
+| 6 | `link-code-ttl-minutes` duplicated | **closed** — retired from `AccessSpec`, with a test asserting the key is refused |
+| 7 | The jar-size claim was wrong | **closed** — corrected in both documents |
+| 8 | A whole font was undocumented | **closed** — the pack's README owns all three fonts |
+| 9 | The bossbar font's positive space advances sit outside the private-use area | **stands.** `！` and friends are `FULLWIDTH EXCLAMATION MARK`, not private use, while the pack states its range as ``–``. Confined to `nordtal:bossbar` and `nordtal:board`, so nothing is broken; moving them would change the HUD code that composes the bar, which now exists |
+| 12 | **New 2026-09-01:** `hunger-games` read a player's language with a blocking JDBC call from its `PlayerJoinEvent` handler, on the main thread, and its pool had no timeout of any kind | **closed the same day, in both modules.** `PlayerLocales#joinAsync` runs the lookup on Bukkit's async scheduler; `limbo` redraws its title when the value lands, `hunger-games` needs no redraw. Both `database.yml` files gained `query-timeout-seconds` (default 3), setting HikariCP's `connectionTimeout` and the driver's `socketTimeout`. Found while building `limbo`, where the same line would have frozen the server every login passes through |
+| 11 | **New 2026-09-01:** the knowledge base named `objects.githubusercontent.com` as what a GitHub release asset redirects to | **closed by measurement.** It is `release-assets.githubusercontent.com`, one hop, with a signed URL that expires within the hour. Corrected in `operations.md` and in `PackSpec`'s own comment, which now says in capitals not to paste the resolved address into the config |
+| 10 | **New 2026-09-01:** the knowledge base described three modules as unbuilt that were built hours earlier, and `season-2/CLAUDE.md` still opens with "`hunger-games`, `smp` and `limbo` are still scaffolds" | **closed by this pass** in both places. The cause is worth keeping: a documentation commit that lands *after* an implementation commit is not evidence that it describes it |
 
 ## 2. What can be built today
 
-Everything here is fully decided. The order is a dependency order, not a size order: each entry
-names what it unblocks.
+Everything in §2 of the previous version — the phase model, the admin flag, the language list and
+the join-time locale component, the two `network-control` config decisions, the glyph clean-up and
+the play time counter — **is built**. What follows is what is genuinely left, in dependency order.
 
-**The command framework question is gone.** It blocked four modules and was the single largest
-entry in §3; [architecture.md](architecture.md#commands) now settles it, so every command surface
-below is buildable without waiting for anything.
+### a. `limbo`, and the pack station in `network-control` — **built 2026-09-01**
 
-### a. The phase model
+The three artefacts no document named have been decided and written:
 
-**Specified by** [season-phases.md](season-phases.md) and
-[architecture.md](architecture.md#the-login-path-end-to-end). **Touches** `:common` (the enum, the
-switch-and-audit method), the migration SQL (the phase row), `access-bot` (`/phase set`),
-`network-control` (reading, `LISTEN`/`NOTIFY`, the poll, the emergency command). **Depends on**
-nothing.
+- **The channel is `nordtal:limbo`**, and it runs both ways: `READY` from the backend once per join,
+  `WAIT <reason>` from the proxy whenever the reason changes. Two bytes of header, one UTF string for
+  a `WAIT`, and the codec in `:common` so the two ends cannot drift.
+- **The waiting reasons are `PACK`, `BACKEND`, `MAINTENANCE` — and `UNKNOWN`**, which is the fourth
+  nobody asked for and which exists because a black screen with no text on it is what a crash looks
+  like. All four are translated in both languages.
+- **The pack URL and hash live in `pack.yml`**, a new file in `network-control` with its own
+  environment namespace. Not `gate.yml`: these change on every pack release and that file decides
+  who may join.
 
-This is first because it is what every other piece of player-facing work sits on: routing needs a
-phase to route by, `limbo` needs to know what to say a player is waiting for, and the login gate is
-wrong until it has one (finding 1).
+**What is left is the rehearsal, and it cannot be done from a build machine.** The three open
+verifications this session owned are still open, each is now a numbered step in
+[operations.md](operations.md#rehearsal--the-login-path), and each still has its written fallback —
+so the phase is *built and unproven*, which is a different thing from *unbuilt*.
 
-**Nothing here is open any more.** The poll interval is 30 seconds and the channel is
-`nordtal_phase`; a switch to `SMP` *disconnects* a player who lacks access rather than bouncing
-them to `limbo`; the proxy's emergency command is a Velocity `BrigadierCommand` authorised by the
-admin flag; and `LISTEN`/`NOTIFY` is built in this pass rather than deferred, so that verification
-row belongs to this session too.
+One measurement did come out of it. `curl` against a real GitHub release asset on 2026-09-01: one
+`302`, to **`release-assets.githubusercontent.com`**, with a signed URL that expires within the
+hour. This knowledge base said `objects.githubusercontent.com`, which is wrong and is corrected. It
+does not settle whether a Minecraft client follows the redirect — only where it goes.
 
-### b. The admin flag
+### b. The SMP's server-free core
 
-**Specified by** [season-phases.md](season-phases.md#how-an-admin-is-recognised) and
-[smp.md](smp.md#admins). **Touches** the migration SQL (a column on `discord_user`, so a new `V4`,
-never an edit to `V1`–`V3`), `:common` (`AccessState` gains a field), `access-bot` (the role id in
-config, the mirror in `GuildState`, the reconcile). **Depends on** nothing.
+**Specified by** [smp.md](smp.md). **Touches** `smp`. **Depends on** V6, which exists.
 
-Small, decided, and it unblocks two things rather than one: the `MAINTENANCE` phase, which is
-admins-only, **and the proxy's emergency `/phase` command**, which is authorised by this flag.
-Do it alongside (a).
+Three pieces of the SMP are pure logic, testable the way `BorderMath` and `Demotion` are tested in
+`hunger-games`, and none of them needs a world, a packet or a player:
 
-### c. The language list and the join-time locale component
+- **Aura.** The ledger, the death penalties, the duel stake, and the payout formula — 30 % equally
+  among qualifiers, 70 % by share, a 2 % qualifying threshold, a minimum of 1 aura per qualifier
+  taken out of the proportional part, everything floored. The rounding cases are exactly the kind of
+  arithmetic that is cheap to test and expensive to discover in production.
+- **Prestige.** The tier derived from `player_playtime.seconds` against the thirteen configured
+  thresholds. Never stored, so it is a pure function.
+- **The milestone engine.** The YAML loader and its validation — which must refuse a change that
+  orphans stored progress while explicitly permitting a lowered `target`, or the first escape hatch
+  does not exist — progress accounting per objective type, and the three escape hatches with their
+  `pot × (reached ÷ target)` payout.
 
-**Specified by** [i18n.md](i18n.md). **Touches** `access-bot` (`access.yml` becomes a list, with
-`DefaultTiers`' `Specs.createUnsafe` as the worked example), `:common` (the shared join-time
-lookup). **Depends on** nothing, but every user-facing string in every later module wants the
-`:common` component to exist first, so building it late means retrofitting four modules.
+### c. The SMP's world half
 
-### d. The two config decisions in `network-control`
+Same document, same module, but every feature ends at a rehearsal rather than a green build: the
+farm-world swap, the balloon and the travel rules, portal gating, spawn protection, graves, POIs,
+`/navigate`, the duel arenas, the per-player Text Display boards and the wheel.
 
-**Specified by** [operations.md](operations.md#configuration-and-secrets) and
-`GateSpec`'s class doc. **Touches** `network-control` (a deny-all `LoginEvent` handler for the
-fail-closed path) and `access-bot` (deleting `link-code-ttl-minutes` from `AccessSpec`).
-**Depends on** nothing.
+**Measure Nordtal's one-off pre-generation to border 4000 in this session's first hour**, not its
+last. It is the cheapest measurement in the plan and it is the one that decides whether the final
+milestone is deliverable at all.
 
-New in §2 as of 2026-08-31 — both were open questions until this session. Findings 2 and 6. The
-`AccessSpec` deletion is free **only while nothing is deployed**, which argues for doing it now
-rather than remembering it later.
+**Nametags come from `papermc-display-tags`** — decided 2026-09-01. `smp` takes
+`com.github.nordtal:papermc-display-tags:2.0.0` from JitPack as `compileOnly` and declares
+DisplayTags in its `paper-plugin.yml`. The consequence is operational and is stated in
+[operations.md](operations.md#third-party-plugins): **PacketEvents becomes a required plugin on the
+SMP server**, which makes it the network's first mandatory third-party runtime dependency —
+CoreProtect, the only other one, may be absent without anything failing.
 
-### e. `limbo`
+### d. The hunger games winner's head start
 
-**Specified by** [architecture.md](architecture.md#modules) (what it shows: nothing, and a title)
-and the login path sequence. **Touches** `limbo`, and
-`network-control` (the `nordtal:` plugin channel and the routing that answers it). **Depends on**
-(a) for the phase, (c) for the title's language.
+**Specified by** [hunger-games.md](hunger-games.md#after-the-game) and
+[smp.md](smp.md#the-hunger-games-winners-head-start). **Touches** `smp` only.
 
-The rename itself is the cheapest of the three remaining renames and should be done as the first
-commit of that session, exactly as `smp-farm-world` → `smp` was. This session also owns three of
-the open verifications: the GitHub redirect, the proxy's forced pack offer, and whether the
-SimpleCloud API coordinate is safe to route through.
-
-### f. The glyph clean-up, and everything but the drawings
-
-**Specified by** [`resource-pack/README.md`](../resource-pack/README.md#code-point-allocation),
-which owns the allocation as of 2026-08-31. **Touches** `resource-pack`'s two font files and
-`:common`'s `Glyphs` — both, always, in one commit. **Depends on** nothing for the deletions;
-the additions depend only on the images existing.
-
-Bigger than it was. The deletions (four role tags, the `en_us.json` string) were already decided;
-what is new is that **every code point is now allocated**, so the font entries and the `Glyphs`
-constants can be written in the same session that draws the sprites, rather than waiting on a
-second decision. `Glyphs` should also gain the boss bar font it has never named (finding 8).
-
-Still not decided here, and out of scope for code: the **drawings themselves** — the donor star,
-thirteen crests, four dimension icons, four HUD status icons, sixteen bearing arrows and the board
-frame pieces. That is design work.
-
-### g. `network-control`'s play time counter
-
-**Specified by** [smp.md](smp.md#prestige--a-crest-earned-by-time) and
-[architecture.md](architecture.md#schema-ownership). **Touches** the migration SQL
-(`player_playtime`), `network-control`. **Depends on** nothing.
-
-Independent of everything else and worth building early: prestige tiers are derived from the
-seconds, so the sooner the counter runs, the less the first weeks of the season under-report.
+Decided 2026-09-01, and the decision moved the work: **the SMP grants it on the winner's first
+join**, deriving the winner from `hg_game.winner_member_id` of the `DECIDED` game.
+`hunger-games` writes nothing into the SMP's tables. V6's
+`smp_player.hg_winner_reward_granted` is the only state involved, because it is the only thing the
+SMP cannot derive.
 
 ## 3. What still needs a decision
 
-**There is no open design decision left.** The milestone track, which used to head this section as
-"one design pass, and it is the season's spine", was designed on 2026-08-31 in a session of its own
-and lives in [smp.md](smp.md#the-track): the chain 20 · 43 · 99 · 400 · Nether · End · 900 · 4000,
-a community play-hour budget per milestone, a pot derived from that budget, an `ADVANCEMENT`
-participation gate on every milestone, three escape hatches for an objective that turns out to be
-impossible, and a payout rule that splits the pot instead of topping it up. What remains of it is a
-config default: the exact items and advancements behind each objective.
+No design decision blocks an implementation session. What is listed here is either concept work of
+its own, or a config default that is cheaper to propose in a diff than to argue in prose.
 
-Three things came out of that session that are not track content and are recorded here because they
-change work elsewhere:
+### Concept work, and it has no home yet
 
-- **Nordtal is pre-generated once, to border 4000, before the phase opens.** That is an operational
-  step with a wall-clock and a disk cost, and both have to be measured before the phase is
-  scheduled — it is now the second entry on the SMP verification list.
-- **The balloon's position at the spawn is load-bearing**: outside radius 10, inside radius 21.5.
-  The spawn build, which is already listed below as work that gates a rehearsal, now has a
-  constraint it can fail.
-- **Deaths cost aura**, which is a new aura source the schema does not need but the SMP
-  implementation does.
+**PostgreSQL backup and restore.** The entire season lives in one database — access periods,
+payments, aura, milestone progress, graves. [operations.md](operations.md) describes deployment in
+one sentence and says nothing about backups, restore, or how a restore would be tested. This is the
+only genuinely irreversible risk in the project and it is the one thing here that is not a
+config default, a drawing or a build. It belongs before the SMP phase opens.
+
+The SimpleCloud runbook — what the groups and templates look like, how jars and configs reach the
+host — is the same gap one step less urgent, and it will largely write itself during the first real
+deployment.
 
 ### Config defaults, cheapest to propose in a diff
 
-Each of these is an item list or a number. Proposing them as a config default in an implementation
-session and reviewing the diff is cheaper than arguing them in prose.
-
 | open point | source |
 |---|---|
-| Hunger games loot pools, item by item, for four refill tiers | [hunger-games.md](hunger-games.md#still-open) |
 | Duel loadouts for sword and bow | [smp.md](smp.md#still-open) |
-| The advancement list that grants aura, and the value of each (now 2–10, not 5–25) | [smp.md](smp.md#still-open) |
+| The advancement list that grants aura, and the value of each (2–10) | [smp.md](smp.md#still-open) |
 | The damage types that count as an "embarrassing" death and cost −20 rather than −5 | [smp.md](smp.md#deaths-cost-aura) |
-| The items and advancements behind each of the track's objectives — the shape, budget and pot are decided, the contents are a config default | [smp.md](smp.md#the-objectives) |
+| The items and advancements behind each of the track's objectives | [smp.md](smp.md#the-objectives) |
 | The wheel of fortune's prize pool and weights | [smp.md](smp.md#numbers-that-are-proposals-not-decisions) |
-| Quiet period and passive shrink rate for the hunger games border | [hunger-games.md](hunger-games.md#still-open) |
+| The winner's head start: how much aura, and which one or two items | [smp.md](smp.md#the-hunger-games-winners-head-start) |
+
+The hunger games' own three — loot pools, quiet period, passive shrink rate — were proposed as
+config defaults on 2026-08-31 and are no longer open.
+
+### Technical choices an SMP session has to make for itself
+
+None of these is a design decision the concept withheld; they are implementation choices the concept
+never had reason to name, and an implementation session should make them and write them down rather
+than stop.
+
+- **What the spawn NPC is.** A villager with AI off, a custom entity, or a player-skin NPC. Citizens
+  would be a second mandatory third-party dependency and should be argued for explicitly if chosen.
+- **The milestone YAML's file format** — the table in [the track](smp.md#the-track) is the content,
+  not a schema.
+- **How `smp_grave.contents` is serialised.** The column is `bytea` precisely so this stays the
+  plugin's choice.
+- **The config shape of the spawn protection regions** — a list of boxes, per world.
+- The contents of the balloon, hand-in and wheel GUIs beyond what the concept states.
 
 ### Not decisions at all — writing, drawing and building
 
-These cannot be done by an implementation session, and each gates a rehearsal that nothing else
-substitutes for.
-
 | open point | source |
 |---|---|
-| The server rules as written for players, both languages — must exist before the SMP phase opens | [smp.md](smp.md#still-open) |
-| The spawn build: tavern, balloon model, duel platforms, boards, NPC | [smp.md](smp.md#still-open) |
+| The server rules as written for players, both languages — before the SMP phase opens | [smp.md](smp.md#still-open) |
+| The spawn build: tavern, balloon model, duel platforms, boards, NPC — with the balloon between radius 10 and 21.5 | [smp.md](smp.md#spawns) |
 | The hunger games world folder, lobby, towers, loot points, and the aerial images per language | [hunger-games.md](hunger-games.md#the-lobby) |
-| Every new glyph's artwork — donor star, 13 crests, icons, arrows, frame pieces | [resource-pack/README.md](../resource-pack/README.md#code-point-allocation) |
+| The real artwork behind the generated placeholder glyphs | [resource-pack/README.md](../resource-pack/README.md#code-point-allocation) |
 
 ### The unverified assumptions
 
-They no longer live here. [operations.md](operations.md#open-verification) now orders them by the
-session that owns each one and says, for every row, **what happens if the answer is no** — which is
-what makes them risks with a plan rather than open questions. SimpleCloud on 26.2, which used to
-head that list and block everything behind it, was confirmed by the owner on 2026-08-31.
+They live in [operations.md](operations.md#open-verification), ordered by the session that owns each
+one, and every row says what happens if the answer is no.
 
 ## 4. Recommendation
 
-**There is no planning session left to hold.** The milestone track, which this section named as the
-one remaining design pass, was worked out on 2026-08-31 — chain, budgets, targets, pots,
-participation gates, escape hatches and payout formula are all in
-[smp.md](smp.md#the-track). Everything still open is a config default, a drawing, a text or a
-build, and each of those is cheaper inside an implementation session than in front of one.
+One implementation session and one concept session are left, plus one rehearsal.
 
-**So implement.** In this order:
+- ~~**`limbo` and the pack station** (§2a)~~ — **built 2026-09-01.** What it left behind is a
+  rehearsal against a running proxy and a real client, which is an afternoon with a Minecraft
+  account and not a session.
+- **The backup concept** (§3). Not code, and it should not wait for the SMP: the database it
+  protects already holds real payment records the moment the bot is deployed.
+- **The SMP** (§2b, §2c, §2d), by a wide margin the largest and now the only implementation session
+  left. Start with the pre-generation measurement and the milestone YAML, then the three server-free
+  pieces, then the world half.
 
-- **Build the phase model, the admin flag, the two `network-control` config decisions and the play
-  time counter** (§2a, §2b, §2d, §2g). All four are fully decided and none needs anything from the
-  milestone session. This also closes findings 1, 2 and 6 — the three code-versus-plan gaps with a
-  production consequence.
-- **Build the language list and the `:common` locale component** (§2c). Late is expensive; it is
-  cheap now, and every later module depends on it behaving one way.
-- **Do the glyph clean-up as far as the drawings allow** (§2f): delete the four role tags, fix
-  `en_us.json`, and give `Glyphs` the boss bar font it has never named. The new sprites wait on
-  design, but nothing else does.
-
-That leaves `limbo`, `hunger-games` and `smp` as the three sessions that follow — in that order,
-because `limbo` is on every login path, the start event comes before the SMP in the season, and the
-SMP is by a wide margin the largest of the three.
-
-**Two things belong to the `smp` session's first hour rather than its last.** Measure Nordtal's
-one-off pre-generation to border 4000 — wall clock and disk, on the real host — because the final
-milestone is undeliverable if that measurement comes out badly, and it is the cheapest measurement
-in the whole plan. And write the milestone YAML from
-[the track](smp.md#the-track) early, because it is the artefact everything else in the module reads
-from, and because correcting its items in a diff is exactly how that table was meant to be
-finished.
-
-One thing to keep in view throughout: **nothing here has been exercised against a running server,
-a real client, Discord or bunq.** The test suite covers the access API, the config specs, the
-fallback cache and the tier arithmetic; it touches no packet, no player and no bank. The command
-framework decision was verified against published artefacts and a constant-pool resolution, which
-is a stronger check than a README and still not a running server. Every session above ends with a
+One thing to keep in view throughout: **nothing here has been exercised against a running server, a
+real client, Discord or bunq.** The test suite covers the access API, the config specs, the fallback
+cache, the tier arithmetic, the border and colour maths and the phase directory against a real
+PostgreSQL container. It touches no packet, no player and no bank. Every session above ends with a
 rehearsal, not with a green build.

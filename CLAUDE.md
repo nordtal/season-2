@@ -14,13 +14,27 @@ conventions, platform versions and repository rules.
 
 ## Repository state (READ THIS FIRST)
 
-Set up 2026-08-29 from a bare IntelliJ scaffold. **`hunger-games`, `smp` and
-`limbo` are still scaffolds with no behaviour** — a main class that logs on
-enable, a descriptor, and nothing else. Each is meant to be implemented in its own session.
-`discord-bot` and `network-control` are the exceptions: `discord-bot` was rebuilt for season 2 in
-stage B (2026-08-30) and `network-control` got the stage C access login gate on top of its own
-scaffold the same day — see the "discord-bot" section below for both; `network-control` has no
-section of its own yet.
+Set up 2026-08-29 from a bare IntelliJ scaffold. **Re-derived from the code 2026-09-01**, and
+updated the same day when `limbo` and the pack station were built.
+
+**One module is a scaffold: `smp`** — a main class that logs on enable, a descriptor, and nothing
+else. It is the last one, and it is the largest.
+
+Everything else has behaviour: `common` (access API, messages, `PlayerLocales`, the phase directory,
+`Glyphs`, the `nordtal:limbo` protocol, migrations V1–V6), `network-control` (login gate, phase,
+play time, routing **and the pack station**), `limbo` (the waiting room in full, built 2026-09-01),
+`discord-bot` (access, `/phase set`, the admin mirror, the language list, hunger games registration),
+`hunger-games` (the start event, both halves, built 2026-08-31) and `resource-pack` (three fonts,
+every code point allocated and drawn).
+
+**The login path is complete and unrehearsed.** Every login now lands on `limbo`, is offered the
+forced resource pack from `pack.yml`, and is released onto the phase's backend when the client
+reports it applied. Nothing in the test suite touches a proxy, a client or a packet; the probe that
+would settle it is written out step by step in
+[docs/operations.md](docs/operations.md#rehearsal--the-login-path) and has not been run.
+
+`docs/state-of-play.md` is the module-by-module version of this and is the one to trust; this
+paragraph is a summary that will go stale again.
 
 Deliberately **not** set up, so nobody adds it by accident thinking it was forgotten:
 
@@ -33,9 +47,11 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   plugin that only needs the config system does not need the JDBI/Flyway/PostgreSQL side of
   `jcore` on its runtime classpath; shade what you use.
 - **The config system is chosen: `eu.nordtal.jcore.config`** (jcore 3.0.0). Commented YAML
-  described by a `@ConfigSpec` interface. It is the default for every new config in this repo;
-  none of the four plugins has one yet, so there is nothing to migrate — see "Configuration"
-  below before writing the first one.
+  described by a `@ConfigSpec` interface. It is the default for every new config in this repo.
+  `network-control` (`database.yml`, `gate.yml`, `pack.yml`), `hunger-games` (`config.yml`,
+  `database.yml`), `limbo` (`config.yml`, `database.yml`) and `discord-bot` (`access.yml`,
+  `bot.yml`, `database.yml`) all use it — read one of them, and "Configuration" below, before
+  writing `smp`'s.
 - **No command framework, decided 2026-08-31.** Season 1 used Incendo Cloud; season 2 uses
   **Brigadier directly, through each platform's own API** — `io.papermc.paper.command.brigadier.
   Commands` on the Lifecycle API for the three Paper plugins, `BrigadierCommand` through
@@ -52,10 +68,12 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
 **`smp-farm-world` → `smp`, `resource-pack-coercion` → `limbo` and `access-bot` → `discord-bot`
 were all carried out by 2026-08-31** (`eu.nordtal.s2.smp`/`eu.nordtal.s2.limbo`/
 `eu.nordtal.s2.discordbot`) — `smp` owns the build world, the spawn, milestones, aura, prestige,
-duels, POIs and graves, and the farm world is one part of it. **One rename is still planned and is
-cheap only until something runs in production:** the `SeasonPhase` values. A Paper plugin's
-`name:` is its runtime identity: the `plugins/<name>/` data folder and the permission prefix, so a
-rename after deployment means moving data folders on the production host.
+duels, POIs and graves, and the farm world is one part of it. **The fourth rename, the `SeasonPhase`
+values, was carried out the same day**: the enum is `PRE_EVENT`, `START_EVENT`, `SMP`,
+`MAINTENANCE`, with a database `CHECK` on `season_phase.phase` pinning the same four strings. No
+rename is outstanding. A Paper plugin's `name:` is its runtime identity: the `plugins/<name>/` data
+folder and the permission prefix, so a rename after deployment means moving data folders on the
+production host.
 
 `name-displays` was removed from the module list: nametags are owned by the
 [papermc-display-tags](https://github.com/nordtal/papermc-display-tags) fork, which ships from its
@@ -80,13 +98,14 @@ Minecraft **26.2** / Java **25** / Gradle **9.7.1**. Notes:
 **SimpleCloud runs 26.2 — confirmed by the owner on 2026-08-31** against SimpleCloud v3's
 dashboard. That was the biggest open platform risk and it is closed.
 
-**What is still open is the API artefact, which is a different question.** `app.simplecloud.api:api`
-is published *only* as `0.1.0-platform.NN-dev.*` snapshots — `repo.simplecloud.app` has no releases
-channel at all (HTTP 404, checked 2026-08-31), and the catalog pins `platform.54-dev.1.1-770dcc6`
-from 2026-08-20. No source file in this repository imports it yet, so it costs nothing today; it
-becomes real when routing is written. If the coordinate breaks, routing does not need it — Velocity
-knows its own registered servers, and `ProxyServer.getServer(name)` is the whole of what the routing
-rules use. See [docs/operations.md](docs/operations.md#open-verification).
+**The API artefact question is closed too, by deletion.** `app.simplecloud.api:api` is published
+*only* as `0.1.0-platform.NN-dev.*` snapshots — `repo.simplecloud.app` has no releases channel at
+all (HTTP 404, checked 2026-08-31). It sat in `network-control` as a `compileOnly` placeholder for
+routing; routing was written on 2026-08-31 and imported none of it, resolving backends by the names
+in `gate.yml` through Velocity's own `ProxyServer.getServer(name)`. **The dependency, its two
+repositories and its version-catalog entry were removed on 2026-09-01.** Do not add it back without
+a concrete need: four fixed servers lose nothing by being named instead of discovered. See
+[docs/operations.md](docs/operations.md#closed-2026-09-01).
 
 ## Layout and conventions
 
@@ -104,6 +123,15 @@ rules use. See [docs/operations.md](docs/operations.md#open-verification).
   file back.
 - Shared code goes in `:common`, which is shaded into the plugins that use it. Keep it free of
   platform types — it is compiled against neither Paper nor Velocity.
+- **A Paper plugin never queries the database from the main thread, decided 2026-09-01.** The
+  language lookup at join was doing exactly that in `hunger-games` and would have in `limbo`: one
+  round trip, a millisecond on a healthy database and the pool's whole connection timeout on one
+  that has stopped answering — with the server stopped behind it, per join. Both now call
+  `PlayerLocales#joinAsync(uuid, executor)` with Bukkit's async scheduler and render against
+  `of(uuid)`, which answers English until the value lands. Every plugin `database.yml` also carries
+  `query-timeout-seconds` (default 3), which sets both HikariCP's `connectionTimeout` and the
+  PostgreSQL driver's `socketTimeout` — off the main thread bounds *where* a wait happens, not how
+  long it lasts. `smp` inherits this rule rather than rediscovering it.
 - **`:common` carries the access system** (`eu.nordtal.s2.common.access`) and the message system
   (`eu.nordtal.s2.common.message`) since stage A, 2026-08-30. That means it now depends on JDBI 3,
   HikariCP, slf4j-api and the PostgreSQL driver — and on **nothing else**; jcore is deliberately
@@ -115,17 +143,18 @@ rules use. See [docs/operations.md](docs/operations.md#open-verification).
   version of this file and of `docs/state-of-play.md` claimed "every Paper plugin jar grew from
   ~20 KB to ~3.0 MB". **That was wrong, and backwards.**
 
-  | jar | bytes |
-  |---|---|
-  | `smp-0.1.0.jar` | 51,273 |
-  | `limbo-0.1.0.jar` | 51,279 |
-  | `hunger-games-0.1.0.jar` | 4,640,946 |
-  | `network-control-0.1.0.jar` | 5,259,904 |
-  | `discord-bot-0.1.0.jar` | 30,952,094 |
+  | jar | bytes | measured |
+  |---|---|---|
+  | `smp-0.1.0.jar` | 51,273 | 2026-08-31 |
+  | `limbo-0.1.0.jar` | 4,576,946 | 2026-09-01, after the module was built |
+  | `hunger-games-0.1.0.jar` | 4,640,946 | 2026-08-31 |
+  | `network-control-0.1.0.jar` | 5,291,760 | 2026-09-01, after the pack station |
+  | `discord-bot-0.1.0.jar` | 30,952,094 | 2026-08-31 |
 
-  `smp` and `limbo` carry `:common`'s own classes plus ~14 KB of SQL and **nothing else**,
-  precisely because the JDBI/Hikari/slf4j declarations are `compileOnly` and neither has opted
-  into `jcore`. `hunger-games` and `network-control` weigh what they weigh because they *did* opt
+  `smp` still carries `:common`'s own classes plus ~14 KB of SQL and **nothing else**, precisely
+  because the JDBI/Hikari/slf4j declarations are `compileOnly` and it has not opted into `jcore`.
+  `limbo` weighed the same 51 KB until 2026-09-01 and now weighs 4.6 MB, because it took the
+  persistence stack for one query — the language lookup docs/i18n.md requires of every module. `hunger-games` and `network-control` weigh what they weigh because they *did* opt
   in — the persistence stack, not `:common`, is the weight. The 3.12 MB figure in
   `common/build.gradle.kts` is the **counterfactual** — what a plugin jar would weigh if those
   declarations were `implementation` — and it was read as a measurement of the jars as they are.
@@ -151,8 +180,10 @@ rules use. See [docs/operations.md](docs/operations.md#open-verification).
 ## Configuration
 
 Every config file in this repo is a commented YAML file described by an interface, loaded through
-`eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). `discord-bot` is the only module with configs
-today; the four plugins have none yet and get this as the standing instruction for their first one.
+`eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). Six modules have one:
+`network-control` (`database.yml`, `gate.yml`, **`pack.yml`**), `hunger-games` (`config.yml`,
+`database.yml`), `limbo` (`config.yml`, `database.yml`) and `discord-bot` (`access.yml`, `bot.yml`,
+`database.yml`). `smp` has none yet and gets this as the standing instruction for its first one.
 
 ```java
 @ConfigSpec(header = "hunger-games")
@@ -212,8 +243,15 @@ block plus its own dependencies.
 Every external version lives in `gradle/libs.versions.toml`. Nothing pins a version in a module
 build file.
 
-**`app.simplecloud.api:api` must stay `compileOnly` and must never be shaded.** The `simplecloud-api`
-platform plugin provides it at runtime; a bundled copy causes class-loading conflicts.
+**`app.simplecloud.api:api` is not a dependency of this build any more** (removed 2026-09-01, see
+"Target platform" above). If a future need ever brings it back, the rule it used to carry still
+applies: `compileOnly`, never shaded — the `simplecloud-api` platform plugin provides it at runtime
+and a bundled copy causes class-loading conflicts.
+
+**`smp` will take `com.github.nordtal:papermc-display-tags` from JitPack**, `compileOnly` and never
+shaded, for the nametag API (decided 2026-09-01, `docs/smp.md#what-a-player-looks-like`). It is an
+interface over a plugin that has to be installed on the server, which makes DisplayTags — and
+PacketEvents underneath it — **required** on the SMP server.
 
 ## Releasing
 
@@ -347,6 +385,14 @@ implemented yet** - they belong to the next session that touches these files:
     A separate migration rather than an edit to `V2`, because `V2` has been applied to local
     databases and Flyway validates checksums — rewriting in place (as stage A did to `V1`) is only
     safe while nothing anywhere has run it.
+  - `V4__phase_admin_playtime.sql` (2026-08-31): `season_phase` (one row, a boolean primary key
+    pinned by a CHECK so a second row is impossible), `discord_user.admin`, and `player_playtime`
+    — the last of which carries **no `smp_` prefix** because the proxy writes it, not the SMP.
+  - `V5__hunger_games.sql` (2026-08-31): `hg_game`, `hg_team`, `hg_member`, `hg_event`, with a
+    partial unique index enforcing at most one non-`DECIDED` game.
+  - `V6__smp.sql` (2026-09-01): `smp_player`, `smp_aura_event`, `smp_milestone`, `smp_objective`,
+    `smp_contribution`, `smp_poi`, `smp_grave`, `smp_duel`, `smp_spin`. Progress only — a milestone
+    is *defined* in the plugin's reloadable YAML, never here.
 - **Money is integer cents** in Java and in the database. `Money` is the only place that converts
   to and from bunq's decimal strings, and it goes through `BigDecimal`. Season 1 used
   `Float.parseFloat` and `<`.
@@ -410,44 +456,64 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-Three modules have tests now. `:common` has 47 (2026-08-30, up from 35 in stage B):
-`AccessDirectoryIntegrationTest` (22) drives the access API against a real PostgreSQL container
-running the real migration — the append rule, the expiry boundary, revocation, the four
-`accessState` cases and the unique constraints that stop a double booking. `LinkCodeIntegrationTest`
-(12, stage C) drives the same container through the link-code lifecycle: issuing, "a repeat attempt
-returns the same code", an expired code being replaced rather than returned, redemption, redeeming
-the same code twice, redeeming a code nobody typed for the account it was meant for, and the 1:1
-that redemption enforces. `MessagesTest` and `LocalesTest` (13, in memory) round it out. The
-`make_interval(hours => days * 24)` bug from stage A (see below) is still the reason a day is never
-expressed in SQL as `interval 'N days'`.
+**Five modules have tests: 369 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-01). The counts below are what the JUnit XML reports, not `@Test` counts.
 
-`discord-bot` has 92 (2026-08-31): `ConfigsTest` (28, in memory), `LanguagesTest` (16, in memory),
-`PhaseCommandTest` (14, in memory), `TiersTest` (12, in memory), `AdminFlagIntegrationTest` (5) and
-`PaymentRequestIntegrationTest` (17) against a real PostgreSQL container. `LanguagesTest` owns every
-rule the `languages` list decides - which of several held roles wins, which channel a locale posts
-in, what a `managed_message.kind` is called - because none of the three classes that use them
-(`GuildState`, `ManagedMessages`, `PaymentProcessor`) can be exercised without a real guild.
-`LinkFlow`, the redemption side, is still untested by anything but `common`'s DAO-level tests and a
-manual guild check; see "what none of it proves".
+`:common` has **95**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
+the access API and the link-code lifecycle against a real PostgreSQL container running the real
+migrations off `classpath:db/migration` — which also proves the location the bot depends on
+resolves, and now applies V1 through V6. `PhaseDirectoryIntegrationTest` (11) does the same for the
+phase row and its audit entry. `MessagesTest` (10), `PlayerLocalesTest` (7), `LocalesTest` (3),
+`SeasonPhaseTest` (3) and `LimboProtocolTest` (11) are in memory - the last of those round-trips
+every `nordtal:limbo` message and pins the two header bytes, because a proxy and a backend of
+different versions that stop understanding each other produce a player stuck in the waiting room
+with nothing in any log. The `make_interval(hours => days * 24)` bug from stage A (see
+below) is still the reason a day is never expressed in SQL as `interval 'N days'`.
 
-`network-control` has 16 (2026-08-30, stage C, new module): `FallbackCacheTest` (10, in memory,
-driven by a settable `Clock` rather than `Thread.sleep`) covers the four fallback rules - a
-recently-seen player with active access is let in, an unknown player is refused, everyone is
-refused once the window has passed, and a state that could never let anyone in is never stored at
-all rather than lingering as a stale positive. `ConfigsTest` (6, in memory) covers `database.yml`
-and `gate.yml` the same way `discord-bot`'s does its own three files. Nothing here touches
-PostgreSQL - the login gate's database calls are exercised by `common`'s tests, and
-`network-control` itself has no schema of its own to test against a container.
+`discord-bot` has **109**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest` and `TiersTest` in
+memory, `AdminFlagIntegrationTest` and `PaymentRequestIntegrationTest` against a container, plus the
+`hungergames` package's own. `LanguagesTest` owns every rule the `languages` list decides — which of
+several held roles wins, which channel a locale posts in, what a `managed_message.kind` is called —
+because none of the three classes that use them (`GuildState`, `ManagedMessages`,
+`PaymentProcessor`) can be exercised without a real guild. `LinkFlow`, the redemption side, is still
+untested by anything but `common`'s DAO-level tests and a manual guild check.
+
+`network-control` has **120**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
+than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
+`gate.yml`; the `phase` and `routing` packages are tested as pure decisions, exhaustively over the
+four phases; and `PlaytimeDao`'s `seconds = seconds + EXCLUDED.seconds` gets a container, because no
+in-memory test can say anything about it. The pack station adds `LimboHoldTest` (the release rule,
+exhaustively over its three inputs) and eight more `ConfigsTest` cases for `pack.yml` - of which the
+one worth keeping is that a `sha1` which is not 40 hex characters stops the proxy, because every
+other way of finding a bad hash costs a player a `FAILED_DOWNLOAD` that reads as a network problem.
+
+`limbo` has **4**, and they are the only ones it can have: everything else in that module is a
+world, a title, a potion effect or a plugin message. What they cover is that every `WaitReason` has
+a title and a subtitle in both languages and that no title runs past forty characters - a missing
+key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
+an otherwise black screen.
+
+`hunger-games` has **41**, all in memory and all of them arithmetic the game would otherwise get
+wrong in front of players: `BorderMathTest` (the step, the extension of a running shrink, the
+divide-by-zero floor at one participant), `TeamColoursTest` (evenly spaced hues and the
+nearest-named mapping), `DemotionTest` (a duo whose partner never showed becoming a full-hearted
+solo), `SpawnTowersTest`, `TiebreakTest`, `BearingTest` and `BossBarWidthTest`.
 
 **What none of it proves.** Nothing here touches bunq, Discord, or a running Velocity proxy. Tab
 creation, cancellation and result inquiries need the **bunq sandbox**
 (`bunq.environment: SANDBOX`); buttons, ephemeral messages, DMs, role assignment and the managed
 messages need the **real guild** in an admin-only channel; a 3 € real purchase is the last step,
-never the development loop. **Stage C added a third gap of the same shape**: the login gate
-(`LoginGate`), the kick messages it produces, and code redemption through the actual Discord modal
-all need a **running Velocity proxy with a real client** plus a **real Discord guild** to be
-verified at all - nothing in this repository's test suite exercises any of them, and none of it was
-exercised as part of building stage C either. The integration tests also skip themselves when no
+never the development loop. **The login path is a third gap of the same shape**: the login gate
+(`LoginGate`), the kick messages it produces, the routing that moves players on a phase change, and
+code redemption through the actual Discord modal all need a **running Velocity proxy with a real
+client** plus a **real Discord guild** to be verified at all - nothing in this repository's test
+suite exercises any of them. **`hunger-games` is a fourth**: 41 green tests cover its arithmetic and
+not one packet, player, boss bar or teleport; `docs/hunger-games.md#verification` is what actually
+has to happen before it is called done. **The login path is a fifth, and the newest**: the forced
+pack offer, the `nordtal:limbo` channel, the black screen, the titles and every disconnect screen
+the pack station can produce need a running proxy, a running Paper backend and a real Minecraft
+client. `docs/operations.md#rehearsal--the-login-path` is that probe, written out in thirteen steps,
+and it has not been run. The integration tests also skip themselves when no
 Docker daemon is reachable, so a green build on a machine without Docker proves less than it looks.
 `./gradlew build` compiling is not verification. Anything touching players, packets or world state
 has to be exercised on `runServer` (or, for the proxy, a real client against a running proxy) with

@@ -1,7 +1,7 @@
 name: limbo
 version: '${version}'
 main: eu.nordtal.s2.limbo.LimboPlugin
-description: Applies and enforces the nordtal resource pack on the pack-install server.
+description: The season 2 waiting room - black, silent, and one title in the player's language.
 author: nordtal
 website: https://nordtal.eu
 api-version: '26.2'

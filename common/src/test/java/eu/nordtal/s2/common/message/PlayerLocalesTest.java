@@ -6,9 +6,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -108,5 +110,82 @@ class PlayerLocalesTest {
         assertNotNull(sloppy.join(PLAYER));
         assertEquals(Locale.ENGLISH, sloppy.of(PLAYER));
         assertEquals(Locale.ENGLISH, sloppy.join(null));
+    }
+
+    // ---------------------------------------------------------------- off the main thread
+
+    @Test
+    void joinAsyncLoadsOnTheExecutorItIsGivenAndNotOnTheCaller() throws Exception {
+        // The whole point of the method: the JDBC round trip must not happen on the thread that
+        // called it, because on Paper that thread is the server. Asserted by capturing the thread
+        // the source actually ran on rather than by timing anything.
+        stored.put(PLAYER, Locale.GERMAN);
+        final java.util.concurrent.atomic.AtomicReference<Thread> ranOn =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+
+        final PlayerLocales locales = new PlayerLocales(uuid -> {
+            ranOn.set(Thread.currentThread());
+            return Locale.GERMAN;
+        });
+
+        try {
+            assertEquals(Locale.GERMAN, locales.joinAsync(PLAYER, executor).get(5, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+        assertNotNull(ranOn.get());
+        assertNotEquals(Thread.currentThread(), ranOn.get());
+    }
+
+    @Test
+    void ofAnswersEnglishUntilTheAsyncLoadLands() throws Exception {
+        // The visible consequence, and the reason this is safe to do at all: a render path that
+        // fires before the query returns gets the fallback rather than blocking or throwing. A
+        // German player may therefore see one English line at the start of a session.
+        stored.put(PLAYER, Locale.GERMAN);
+        final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+
+        final PlayerLocales locales = new PlayerLocales(uuid -> {
+            try {
+                release.await(5, TimeUnit.SECONDS);
+            } catch (final InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            return Locale.GERMAN;
+        });
+
+        try {
+            final var pending = locales.joinAsync(PLAYER, executor);
+            assertEquals(Locale.ENGLISH, locales.of(PLAYER));
+
+            release.countDown();
+            pending.get(5, TimeUnit.SECONDS);
+            assertEquals(Locale.GERMAN, locales.of(PLAYER));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void joinAsyncNeverCompletesExceptionally() throws Exception {
+        // join() swallows its own failures and answers English; joinAsync adds nothing on top. A
+        // future that completed exceptionally would put an unhandled failure on a scheduler thread
+        // on a login path, which is the one place it must not be.
+        final java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+        final PlayerLocales locales = new PlayerLocales(uuid -> {
+            throw new IllegalStateException("the database is gone");
+        });
+
+        try {
+            assertEquals(Locales.DEFAULT, locales.joinAsync(PLAYER, executor).get(5, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+        assertEquals(Locales.DEFAULT, locales.of(PLAYER));
     }
 }

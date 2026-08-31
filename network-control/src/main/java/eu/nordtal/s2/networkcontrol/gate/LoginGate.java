@@ -8,7 +8,6 @@ import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.LinkCode;
-import eu.nordtal.s2.common.access.MemberState;
 import eu.nordtal.s2.networkcontrol.config.GateSpec;
 
 import org.slf4j.Logger;
@@ -18,10 +17,38 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * The season 2 login decision, per docs/access-system.md: one call to
- * {@code AccessDirectory#accessState}, then linked? member and not banned? access active?, each
- * with its own disconnect screen - or, if the database itself could not be reached, the fallback
- * cache instead of any of that.
+ * The season 2 login decision, per docs/access-system.md and docs/season-phases.md: one call to
+ * {@code AccessDirectory#accessState}, then linked? member and not banned? and finally whatever the
+ * <b>current phase</b> asks on top - each branch with its own disconnect screen. If the database
+ * itself could not be reached, the fallback cache stands in for all of it.
+ *
+ * <h2>The phase is part of the decision, since 2026-08-31</h2>
+ * This class used to refuse every linked member without active access, unconditionally - finding 1
+ * in docs/state-of-play.md, i.e. it behaved as though the network were permanently in
+ * {@code SMP} and a {@code PRE_EVENT} network would have refused everyone who had not paid.
+ * docs/season-phases.md's phase table is what it now walks:
+ *
+ * <table>
+ *   <caption>What this class decides, per phase</caption>
+ *   <tr><th>phase</th><th>who gets in</th><th>everyone else sees</th></tr>
+ *   <tr><td>{@code PRE_EVENT}</td><td>linked member, not banned</td><td>-</td></tr>
+ *   <tr><td>{@code START_EVENT}</td><td>linked member, not banned</td><td>-</td></tr>
+ *   <tr><td>{@code SMP}</td><td>the above plus active access</td><td>{@code gate.no-access}</td></tr>
+ *   <tr><td>{@code MAINTENANCE}</td><td>admins only</td><td>{@code gate.maintenance}</td></tr>
+ * </table>
+ *
+ * <p>
+ * The phase arrives on the <b>same row</b> as the access state ({@link AccessState#phase()}):
+ * docs/season-phases.md pins the login path to a single round trip, so there is deliberately no
+ * call to {@code PhaseDirectory#currentPhase()} anywhere in this class. {@code PhaseWatch}'s poll
+ * and {@code LISTEN} exist for everything that is <em>not</em> a login.
+ * </p>
+ * <p>
+ * The table itself lives in {@link GateOutcome}, which is a total function of the one record the
+ * login query returns and can therefore be tested exhaustively without a proxy. It is not
+ * {@link AccessState#mayJoin()} because each branch needs a different screen; {@code mayJoin()} is
+ * the same table collapsed to one boolean, and is what the fallback cache and the expiry sweep use.
+ * </p>
  * <p>
  * {@code @Subscribe} handlers are asynchronous by default in Velocity 4 (see
  * {@code com.velocitypowered.api.event.Subscribe#async}), so the blocking JDBC call this makes
@@ -36,14 +63,16 @@ public final class LoginGate {
     private final Logger logger;
     private final AccessDirectory access;
     private final FallbackCache fallback;
+    private final LoginRoster roster;
     private final GateMessages messages;
     private final GateSpec config;
 
     public LoginGate(final Logger logger, final AccessDirectory access, final FallbackCache fallback,
-                     final GateMessages messages, final GateSpec config) {
+                     final LoginRoster roster, final GateMessages messages, final GateSpec config) {
         this.logger = logger;
         this.access = access;
         this.fallback = fallback;
+        this.roster = roster;
         this.messages = messages;
         this.config = config;
     }
@@ -66,20 +95,18 @@ public final class LoginGate {
         // Written on every successful query, healthy path or not - see FallbackCache for why an
         // access-inactive state still has to go through here: it evicts a now-stale positive entry.
         fallback.remember(uuid, state);
+        // And the facts the /phase command and the play-time writer need, from the same row.
+        roster.remember(uuid, state);
 
-        if (!state.linked()) {
-            issueCodeAndDeny(event, player, uuid);
-            return;
+        switch (GateOutcome.of(state)) {
+            // ALLOW leaves the event's own default result (ComponentResult.allowed()) standing.
+            case ALLOW -> { }
+            case NOT_LINKED -> issueCodeAndDeny(event, player, uuid);
+            case NOT_MEMBER -> event.setResult(ComponentResult.denied(messages.notMember(state.locale())));
+            case NO_ACCESS -> event.setResult(ComponentResult.denied(messages.noAccess(state.locale())));
+            case MAINTENANCE_CLOSED ->
+                    event.setResult(ComponentResult.denied(messages.maintenance(state.locale())));
         }
-        if (state.memberState() != MemberState.MEMBER) {
-            event.setResult(ComponentResult.denied(messages.notMember(state.locale())));
-            return;
-        }
-        if (!state.accessActive()) {
-            event.setResult(ComponentResult.denied(messages.noAccess(state.locale())));
-            return;
-        }
-        // Otherwise the event's own default result (ComponentResult.allowed()) stands: route on.
     }
 
     /**
@@ -87,6 +114,11 @@ public final class LoginGate {
      * branch. Issuing the code is a second, separate database call, so it can still fail on its
      * own; that failure is treated the same as the database being unreachable in the first place,
      * because there is no code to show either way.
+     * <p>
+     * Note that this happens in every phase, {@code MAINTENANCE} included: an unlinked player is
+     * refused everywhere, and handing them the code they will need anyway costs one statement and
+     * saves them a second wasted attempt later.
+     * </p>
      */
     private void issueCodeAndDeny(final LoginEvent event, final Player player, final UUID uuid) {
         try {
@@ -101,8 +133,15 @@ public final class LoginGate {
     }
 
     /**
-     * Only a player the cache remembers with access that was active when it was cached gets in;
+     * Only a player the cache remembers as having been allowed in when it was cached gets in;
      * everyone else - including every player the cache has simply never heard of - is refused.
+     * <p>
+     * The cache stores the outcome of {@link AccessState#mayJoin()}, which is phase-aware, so what
+     * it remembers is "this player was let in, in the phase that was current at the time". The
+     * phase cannot be re-read here either - it lives in the same unreachable database - and
+     * docs/season-phases.md's rule for that case is the last known phase, which is exactly the one
+     * the cached decision was made under.
+     * </p>
      */
     private void fallBackToCache(final LoginEvent event, final UUID uuid) {
         if (fallback.mayJoin(uuid)) {

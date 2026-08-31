@@ -64,6 +64,22 @@ public final class GateMessages {
         return result;
     }
 
+    /**
+     * The network is in {@code MAINTENANCE} and this player is not an admin.
+     * <p>
+     * Rendered in the player's own language, like every other screen shown to somebody we have
+     * identified. docs/season-phases.md's flowchart calls this screen "a bilingual explanation",
+     * which is how the <em>unlinked</em> screen has to work - there the account is unknown and
+     * there is no language to pick. By this branch the account is linked and
+     * {@code discord_user.locale} is on the row we just read, so showing both languages would be a
+     * downgrade rather than a courtesy. Flagged as a documentation contradiction rather than
+     * silently resolved.
+     * </p>
+     */
+    Component maintenance(final Locale locale) {
+        return Component.text(messages.get(locale, "gate.maintenance"));
+    }
+
     /** The database is unreachable and the fallback cache has nothing usable for this player. */
     Component trouble(final Locale locale) {
         return Component.text(messages.get(locale, "gate.trouble"));

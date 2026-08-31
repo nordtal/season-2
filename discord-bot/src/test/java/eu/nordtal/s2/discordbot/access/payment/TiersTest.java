@@ -1,6 +1,6 @@
-package eu.nordtal.s2.discordbot.payment;
+package eu.nordtal.s2.discordbot.access.payment;
 
-import eu.nordtal.s2.discordbot.bunq.Money;
+import eu.nordtal.s2.discordbot.access.bunq.Money;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

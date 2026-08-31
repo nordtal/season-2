@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.payment;
+package eu.nordtal.s2.discordbot.access.payment;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jdbi.v3.core.Jdbi;

@@ -1,4 +1,6 @@
-package eu.nordtal.s2.discordbot.discord;
+package eu.nordtal.s2.discordbot.access.discord;
+
+import eu.nordtal.s2.discordbot.discord.AdminLog;
 
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.common.access.AccessDirectory;

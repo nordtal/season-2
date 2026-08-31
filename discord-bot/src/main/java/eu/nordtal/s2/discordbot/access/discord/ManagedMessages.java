@@ -1,9 +1,13 @@
-package eu.nordtal.s2.discordbot.discord;
+package eu.nordtal.s2.discordbot.access.discord;
 
-import eu.nordtal.s2.discordbot.bunq.Money;
+import eu.nordtal.s2.discordbot.discord.Ids;
+
+import eu.nordtal.s2.discordbot.discord.ManagedMessageDao;
+
+import eu.nordtal.s2.discordbot.access.bunq.Money;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.discordbot.payment.Tier;
-import eu.nordtal.s2.discordbot.payment.Tiers;
+import eu.nordtal.s2.discordbot.access.payment.Tier;
+import eu.nordtal.s2.discordbot.access.payment.Tiers;
 import eu.nordtal.s2.common.message.Messages;
 
 import lombok.extern.slf4j.Slf4j;

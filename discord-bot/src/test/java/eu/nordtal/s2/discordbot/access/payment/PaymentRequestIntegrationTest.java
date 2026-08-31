@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.payment;
+package eu.nordtal.s2.discordbot.access.payment;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;

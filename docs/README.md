@@ -65,7 +65,7 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 | Glyph code point allocation, both fonts | **decided 2026-08-31** — the table exists, the artwork does not |
 | Command surfaces in every module | **unblocked 2026-08-31** — Brigadier directly, no framework |
 | Phase model, phase-aware gate, phase propagation | **designed, not built** |
-| `limbo` waiting room and pack enforcement | **designed, not built** — scaffold is still named `resource-pack-coercion` |
+| `limbo` waiting room and pack enforcement | **designed, not built** |
 | Language config list, plugin-side locale lookup | **designed, not built** |
 | Hunger games, both halves | **designed, not built** |
 | SMP: worlds, travel, milestones, aura, prestige, duels, graves, POIs | **designed, not built** — 2026-08-31 |
@@ -80,9 +80,9 @@ milestone track — which objectives sit on which milestone, in what order, with
 [state-of-play.md §3](state-of-play.md#3-what-still-needs-a-decision) is a config default, a
 drawing, a text, or a build.
 
-`smp-farm-world` → `smp` was carried out on 2026-08-31. Three renames are still part of the plan
-and are cheap only until something runs in production: `resource-pack-coercion` → `limbo`,
-`access-bot` → `discord-bot`, and the `SeasonPhase` values. See
+`smp-farm-world` → `smp`, `resource-pack-coercion` → `limbo` and `access-bot` → `discord-bot` were
+all carried out by 2026-08-31. One rename is still part of the plan and is cheap only until
+something runs in production: the `SeasonPhase` values. See
 [architecture.md](architecture.md#modules).
 
 ## Decisions, and when they were taken

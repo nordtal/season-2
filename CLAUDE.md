@@ -1,9 +1,8 @@
 # season-2 — agent guide
 
 Everything nordtal.eu season 2 deploys. A Velocity proxy (`network-control`) in front of three
-Paper backends (`resource-pack-coercion` → `hunger-games` → `smp`; `resource-pack-coercion` is
-still to be renamed to `limbo`), plus the `access-bot` Discord bot and the `resource-pack`
-assets. Production runs on [SimpleCloud](https://simplecloud.app) on a remote host.
+Paper backends (`limbo` → `hunger-games` → `smp`), plus the `discord-bot` Discord bot and the
+`resource-pack` assets. Production runs on [SimpleCloud](https://simplecloud.app) on a remote host.
 
 The workspace-level [../CLAUDE.md](../CLAUDE.md) carries the standing instructions and the map of
 the sibling repos. Read it too.
@@ -16,11 +15,11 @@ conventions, platform versions and repository rules.
 ## Repository state (READ THIS FIRST)
 
 Set up 2026-08-29 from a bare IntelliJ scaffold. **`hunger-games`, `smp` and
-`resource-pack-coercion` are still scaffolds with no behaviour** — a main class that logs on
+`limbo` are still scaffolds with no behaviour** — a main class that logs on
 enable, a descriptor, and nothing else. Each is meant to be implemented in its own session.
-`access-bot` and `network-control` are the exceptions: `access-bot` was rebuilt for season 2 in
+`discord-bot` and `network-control` are the exceptions: `discord-bot` was rebuilt for season 2 in
 stage B (2026-08-30) and `network-control` got the stage C access login gate on top of its own
-scaffold the same day — see the "access-bot" section below for both; `network-control` has no
+scaffold the same day — see the "discord-bot" section below for both; `network-control` has no
 section of its own yet.
 
 Deliberately **not** set up, so nobody adds it by accident thinking it was forgotten:
@@ -29,7 +28,7 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   database, no `jcore` dependency in `common` or in any of the four server-side modules") was
   lifted by the owner on 2026-08-30. Plugins may take a `jcore` dependency and may persist.
   Two things still hold: **decide per module whether that module actually needs persistence**
-  rather than adding it by reflex, and **do not copy `access-bot`'s dependency block** — its
+  rather than adding it by reflex, and **do not copy `discord-bot`'s dependency block** — its
   shaded jar is ~33 MB, which is fine for a container and not fine inside a Paper plugin. A
   plugin that only needs the config system does not need the JDBI/Flyway/PostgreSQL side of
   `jcore` on its runtime classpath; shade what you use.
@@ -50,13 +49,13 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   rules that follow are in [docs/architecture.md](docs/architecture.md#commands) — read that
   before writing the first command.
 
-**`smp-farm-world` → `smp` was carried out on 2026-08-31** (`eu.nordtal.s2.smp`, `SmpPlugin`,
-`name: smp`) — the module owns the build world, the spawn, milestones, aura, prestige, duels, POIs
-and graves, and the farm world is one part of it. **Three renames are still planned and are cheap
-only until something runs in production:** `resource-pack-coercion` → `limbo`, `access-bot` →
-`discord-bot`, and the `SeasonPhase` values. A Paper plugin's `name:` is its runtime identity: the
-`plugins/<name>/` data folder and the permission prefix, so a rename after deployment means moving
-data folders on the production host.
+**`smp-farm-world` → `smp`, `resource-pack-coercion` → `limbo` and `access-bot` → `discord-bot`
+were all carried out by 2026-08-31** (`eu.nordtal.s2.smp`/`eu.nordtal.s2.limbo`/
+`eu.nordtal.s2.discordbot`) — `smp` owns the build world, the spawn, milestones, aura, prestige,
+duels, POIs and graves, and the farm world is one part of it. **One rename is still planned and is
+cheap only until something runs in production:** the `SeasonPhase` values. A Paper plugin's
+`name:` is its runtime identity: the `plugins/<name>/` data folder and the permission prefix, so a
+rename after deployment means moving data folders on the production host.
 
 `name-displays` was removed from the module list: nametags are owned by the
 [papermc-display-tags](https://github.com/nordtal/papermc-display-tags) fork, which ships from its
@@ -93,7 +92,7 @@ rules use. See [docs/operations.md](docs/operations.md#open-verification).
 
 - Packages are `eu.nordtal.s2.<module>` — the `s2` segment keeps season 3 from colliding.
 - Paper plugin `name:` values **match the module directory names** (`hunger-games`, `smp`,
-  `resource-pack-coercion`, `network-control`), lowercase and hyphenated. That is
+  `limbo`, `network-control`), lowercase and hyphenated. That is
   the runtime identity: the `plugins/<name>/` data folder and the permission prefix. Renaming one
   later is expensive; do not "tidy" them into PascalCase.
 - `paper-plugin.yml` carries `${version}`, expanded by `processResources` from
@@ -120,9 +119,9 @@ rules use. See [docs/operations.md](docs/operations.md#open-verification).
   |---|---|
   | `smp-2.0.0.jar` | 34,745 |
   | `hunger-games-2.0.0.jar` | 34,784 |
-  | `resource-pack-coercion-2.0.0.jar` | 34,886 |
+  | `limbo-2.0.0.jar` | 34,886 |
   | `network-control-2.0.0.jar` | 5,196,184 |
-  | `access-bot-2.0.0.jar` | 30,893,431 |
+  | `discord-bot-2.0.0.jar` | 30,893,431 |
 
   The three Paper plugins carry `:common`'s own classes plus ~14 KB of SQL and **nothing else**,
   precisely because the JDBI/Hikari/slf4j declarations are `compileOnly` and none of the three
@@ -131,7 +130,7 @@ rules use. See [docs/operations.md](docs/operations.md#open-verification).
   **counterfactual** — what a plugin jar would weigh if those declarations were `implementation` —
   and it was read as a measurement of the jars as they are. A plugin that starts using the access
   API will land near 3 MB; none does today.
-- **Exactly one process migrates: `access-bot`.** That is unchanged. **Where the SQL lives changed
+- **Exactly one process migrates: `discord-bot`.** That is unchanged. **Where the SQL lives changed
   on 2026-08-31, and the move has been carried out**: the migration files sit in
   `common/src/main/resources/db/migration/`, so DDL is next to the API that reads it instead of
   inside the Discord bot module. The bot still applies them, and its call did not change — jcore's
@@ -152,7 +151,7 @@ rules use. See [docs/operations.md](docs/operations.md#open-verification).
 ## Configuration
 
 Every config file in this repo is a commented YAML file described by an interface, loaded through
-`eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). `access-bot` is the only module with configs
+`eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). `discord-bot` is the only module with configs
 today; the four plugins have none yet and get this as the standing instruction for their first one.
 
 ```java
@@ -193,7 +192,7 @@ What this buys, and the rules that come with it:
 - **Gson and SnakeYAML must not be shaded into a Paper plugin.** Paper 26.2 ships gson 2.14.0 and
   snakeyaml 2.6 in `libraries/`, and the plugin classloader resolves both — verified on a running
   26.2 server on 2026-08-30 with `Class.forName` in `onEnable`. `nordtal.paper-plugin` excludes
-  them from `shadowJar` for that reason. They are *not* excluded for `access-bot`, which has no
+  them from `shadowJar` for that reason. They are *not* excluded for `discord-bot`, which has no
   platform to provide them.
 
 ## Build wiring
@@ -208,7 +207,7 @@ block plus its own dependencies.
 | `nordtal.shaded` | every deployable | shadow; thin jar moved to the `thin` classifier so `shadowJar` takes the plain name |
 | `nordtal.paper-plugin` | the three Paper modules | paper-api, `:common`, `runServer` on 26.2, `${version}` expansion |
 | `nordtal.velocity-plugin` | `network-control` | velocity-api as compileOnly + annotationProcessor, `:common` |
-| `nordtal.jvm-app` | `access-bot` | `application`, Main-Class in the shaded manifest |
+| `nordtal.jvm-app` | `discord-bot` | `application`, Main-Class in the shaded manifest |
 
 Every external version lives in `gradle/libs.versions.toml`. Nothing pins a version in a module
 build file.
@@ -221,11 +220,11 @@ platform plugin provides it at runtime; a bundled copy causes class-loading conf
 One repo-wide version in `gradle.properties` drives everything. `.github/workflows/release.yml`
 fires on a `v*` tag, refuses a tag that disagrees with `gradle.properties`, runs `releaseArtifacts`,
 and attaches four plugin jars + the bot jar + the pack zip and its `.sha1` to one GitHub release,
-then pushes `ghcr.io/nordtal/access-bot:<version>`.
+then pushes `ghcr.io/nordtal/discord-bot:<version>`.
 
 `season-2` itself produces no combined build, and does not republish jars built in other repos.
 
-## access-bot
+## discord-bot
 
 Season 2's Discord bot. **Stage C is implemented (2026-08-30)**; the concept is
 [docs/access-system.md](docs/access-system.md). Read it before changing anything here or in the
@@ -397,7 +396,7 @@ that redemption enforces. `MessagesTest` and `LocalesTest` (13, in memory) round
 `make_interval(hours => days * 24)` bug from stage A (see below) is still the reason a day is never
 expressed in SQL as `interval 'N days'`.
 
-`access-bot` has 45 (2026-08-30, unchanged by stage C - `LinkFlow`, the redemption side, is
+`discord-bot` has 45 (2026-08-30, unchanged by stage C - `LinkFlow`, the redemption side, is
 untested by anything but `common`'s DAO-level tests and a manual guild check; see "what none of it
 proves"): `ConfigsTest` (16, in memory), `TiersTest` (12, in memory), and
 `PaymentRequestIntegrationTest` (17) against a real PostgreSQL container.
@@ -407,7 +406,7 @@ driven by a settable `Clock` rather than `Thread.sleep`) covers the four fallbac
 recently-seen player with active access is let in, an unknown player is refused, everyone is
 refused once the window has passed, and a state that could never let anyone in is never stored at
 all rather than lingering as a stale positive. `ConfigsTest` (6, in memory) covers `database.yml`
-and `gate.yml` the same way `access-bot`'s does its own three files. Nothing here touches
+and `gate.yml` the same way `discord-bot`'s does its own three files. Nothing here touches
 PostgreSQL - the login gate's database calls are exercised by `common`'s tests, and
 `network-control` itself has no schema of its own to test against a container.
 

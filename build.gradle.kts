@@ -6,11 +6,11 @@ tasks.register("releaseArtifacts") {
     group = "distribution"
     description = "Builds every artifact that goes onto a GitHub release."
     dependsOn(
-        ":resource-pack-coercion:shadowJar",
+        ":limbo:shadowJar",
         ":hunger-games:shadowJar",
         ":smp:shadowJar",
         ":network-control:shadowJar",
-        ":access-bot:shadowJar",
+        ":discord-bot:shadowJar",
         ":resource-pack:packZip",
     )
 }

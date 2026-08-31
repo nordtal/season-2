@@ -220,22 +220,23 @@ issued by `network-control` (`AccessDirectory#issueLinkCode`, package-private SQ
 `ReconcileDao#deleteExpiredLinkCodes` now actually cleans up rows something else writes, rather
 than a table nothing has ever put a row into.
 
-**Two things this stage left open, not silently resolved:**
+**Two things this stage left open were decided on 2026-08-31. Both are decided and neither is
+implemented yet** - they belong to the next session that touches these files:
 
-- `access.yml#link-code-ttl-minutes` (added in stage B, still unused by any bot code path) and
-  `network-control/config/gate.yml#link-code-ttl-minutes` (added in stage C, the one that is
-  actually read) are two independently configured values for the same 10-minute default. The bot
-  never reads its own copy - the sweep only ever compares `expires` to `now()` - so nothing breaks
-  if they diverge, but an operator changing one and expecting the other to follow will be
-  surprised. Either drop the bot's copy or wire it through; see `network-control/config/GateSpec`'s
-  class doc for the detail.
-- A bad `network-control` config (`database.yml` or `gate.yml`) is logged loudly and the login gate
-  is simply never registered - the proxy itself keeps running and keeps accepting logins
-  **un-gated**, rather than refusing to start the way a Paper plugin disables itself on a bad
-  config. Velocity has no per-plugin disable to fall back to instead, and "the proxy is up but
-  nobody can join" seemed worse than "the proxy is up but the gate is not enforced until somebody
-  notices the error log and fixes the file" - this was not put to the owner before landing and is
-  worth a second look.
+- **`access.yml#link-code-ttl-minutes` is retired; `gate.yml#link-code-ttl-minutes` is the only
+  one.** The bot never read its own copy - `ReconcileDao#deleteExpiredLinkCodes` only compares
+  `expires` to `now()` - and the proxy is the process that calls `AccessDirectory#issueLinkCode`,
+  so it is the only one that can act on a TTL at all. Delete the field from `AccessSpec` rather
+  than wire it through. **Free only while nothing is deployed:** a key the interface does not
+  declare stops the load, so an `access.yml` in the wild carrying the retired key would refuse to
+  start.
+- **A bad `network-control` config must fail closed.** Today the gate is never registered and the
+  proxy keeps accepting logins **un-gated**; that is to become a `LoginEvent` handler that refuses
+  *everybody* with a "network misconfigured" screen. Velocity has no per-plugin disable, which is
+  what the old behaviour was justified with - but a deny-all login handler *is* that disable, built
+  by hand. "The proxy is up but nobody can join" announces itself; "the proxy is up and the gate is
+  off" never does. Exempting admins is impossible: the admin flag lives in the database a bad
+  `database.yml` cannot reach.
 
 ### Shape
 

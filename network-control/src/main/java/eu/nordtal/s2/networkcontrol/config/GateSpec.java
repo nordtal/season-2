@@ -9,17 +9,18 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * {@code config/gate.yml} - everything the login gate and the mid-session expiry check need that
  * is not a database credential. See docs/access-system.md.
  * <p>
- * <b>{@link #linkCodeTtlMinutes()} duplicates {@code access-bot}'s
- * {@code access.yml#link-code-ttl-minutes}.</b> That field's own comment says the value "lives
- * [in access.yml] because the bot owns the sweep that deletes expired ones" - but the bot's sweep
- * ({@code ReconcileDao#deleteExpiredLinkCodes}) only ever compares {@code link_code.expires} to
- * {@code now()}; it does not read that config value at all, and nothing before stage C did either,
- * since issuing a code with a TTL is exactly the stage C responsibility that did not exist yet.
- * The proxy is the process that actually calls {@code AccessDirectory#issueLinkCode} and therefore
- * the only process that can act on a TTL, so it needs its own copy here - the two are independently
- * configured and an operator who changes one without the other will not be told. This is flagged in
- * the stage C completion report rather than silently resolved one way; see there for the two ways
- * to remove the duplication.
+ * <b>{@link #linkCodeTtlMinutes()} is the only link-code TTL, decided 2026-08-31.</b> It used to be
+ * duplicated by {@code access-bot}'s {@code access.yml#link-code-ttl-minutes}, whose own comment
+ * claimed the value "lives [in access.yml] because the bot owns the sweep that deletes expired
+ * ones" - but the bot's sweep ({@code ReconcileDao#deleteExpiredLinkCodes}) only ever compares
+ * {@code link_code.expires} to {@code now()} and never read that setting. The proxy is the process
+ * that calls {@code AccessDirectory#issueLinkCode}, so it is the only process that can act on a
+ * TTL at all, and the bot's copy is to be deleted rather than wired through: removing a value
+ * nobody reads is smaller than building a protocol for a number that never changes.
+ * </p><p>
+ * Deleting it from {@code AccessSpec} is free only while nothing is deployed - a key the interface
+ * does not declare stops the load, so an {@code access.yml} in the wild carrying the retired key
+ * would refuse to start. Nothing is deployed today.
  * </p>
  */
 @ConfigSpec(header = {
@@ -54,8 +55,8 @@ public interface GateSpec {
             "How long a freshly issued link code stays valid. A repeated join attempt inside",
             "this window returns the same code rather than minting a new one.",
             "",
-            "See this file's class-level documentation for why this duplicates",
-            "access-bot's access.yml#link-code-ttl-minutes rather than sharing it."
+            "This is the only place this value lives; access-bot's copy of it is retired.",
+            "See this file's class-level documentation."
     })
     default int linkCodeTtlMinutes() {
         return 10;

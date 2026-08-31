@@ -38,11 +38,19 @@ import java.util.Locale;
  * (server groups, player transfers, availability events) rather than raw Velocity server
  * registration, so that it cannot send a player to a server the cloud has not started.
  *
- * <p><b>Configuration failure does not take the proxy down.</b> Unlike a Paper plugin, Velocity
- * has no per-plugin disable; a bad {@code database.yml} or {@code gate.yml} is logged loudly here
- * and the gate is simply never registered, so the proxy keeps running (and keeps accepting
- * logins un-gated) rather than the whole process refusing to start. That trade is deliberate for
- * a proxy - see the stage C completion report for why it is flagged rather than assumed.
+ * <p><b>Configuration failure must fail closed - decided 2026-08-31, and not yet implemented.</b>
+ * Today a bad {@code database.yml} or {@code gate.yml} is logged loudly here and the gate is simply
+ * never registered, so the proxy keeps running and keeps accepting logins <em>un-gated</em>. That
+ * is the wrong way round: "the proxy is up but nobody can join" announces itself within seconds,
+ * "the proxy is up and the gate is off" announces itself never, and a mistyped value silently
+ * opens the network.
+ *
+ * <p>Velocity has no per-plugin disable, which is what the old behaviour was justified with - but
+ * it does not need one. A {@code LoginEvent} handler that refuses <em>everybody</em> with a
+ * "network misconfigured" screen is that disable, built by hand, and it is what this class must do
+ * when {@code Configs} throws. Letting admins through was considered and is impossible: the admin
+ * flag lives in the database that a bad {@code database.yml} cannot reach. See
+ * docs/operations.md#configuration-and-secrets.
  */
 @Plugin(
         id = "network-control",

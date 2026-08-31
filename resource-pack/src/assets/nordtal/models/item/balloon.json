@@ -1,0 +1,37 @@
+{
+    "_comment": "Placeholder geometry only - two flat-shaded cuboids standing in for the envelope and the basket. The real hot-air-balloon model (docs/smp.md#the-nordtal-spawn) is a Blockbench modelling task; this scaffold exists so the item-model plumbing (assets/nordtal/items/balloon.json, an ItemDisplay entity spawning it) can be built and tested before that art exists.",
+    "parent": "minecraft:item/generated",
+    "textures": {
+        "envelope": "nordtal:item/balloon_envelope",
+        "basket": "nordtal:item/balloon_basket",
+        "particle": "nordtal:item/balloon_envelope"
+    },
+    "elements": [
+        {
+            "_comment": "envelope - placeholder cube, replace with real balloon geometry",
+            "from": [4, 8, 4],
+            "to": [12, 16, 12],
+            "faces": {
+                "north": {"uv": [0, 0, 16, 16], "texture": "#envelope"},
+                "south": {"uv": [0, 0, 16, 16], "texture": "#envelope"},
+                "east": {"uv": [0, 0, 16, 16], "texture": "#envelope"},
+                "west": {"uv": [0, 0, 16, 16], "texture": "#envelope"},
+                "up": {"uv": [0, 0, 16, 16], "texture": "#envelope"},
+                "down": {"uv": [0, 0, 16, 16], "texture": "#envelope"}
+            }
+        },
+        {
+            "_comment": "basket - placeholder cube, replace with real balloon geometry",
+            "from": [6, 2, 6],
+            "to": [10, 6, 10],
+            "faces": {
+                "north": {"uv": [0, 0, 16, 16], "texture": "#basket"},
+                "south": {"uv": [0, 0, 16, 16], "texture": "#basket"},
+                "east": {"uv": [0, 0, 16, 16], "texture": "#basket"},
+                "west": {"uv": [0, 0, 16, 16], "texture": "#basket"},
+                "up": {"uv": [0, 0, 16, 16], "texture": "#basket"},
+                "down": {"uv": [0, 0, 16, 16], "texture": "#basket"}
+            }
+        }
+    ]
+}

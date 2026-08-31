@@ -1,11 +1,11 @@
-package eu.nordtal.s2.discordbot.payment;
+package eu.nordtal.s2.discordbot.access.payment;
 
 import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
-import eu.nordtal.s2.discordbot.bunq.BunqGateway;
-import eu.nordtal.s2.discordbot.bunq.Money;
+import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
+import eu.nordtal.s2.discordbot.access.bunq.Money;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Languages;
-import eu.nordtal.s2.discordbot.discord.AccessRoles;
+import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessGrant;

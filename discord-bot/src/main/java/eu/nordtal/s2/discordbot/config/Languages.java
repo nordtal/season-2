@@ -64,7 +64,8 @@ public final class Languages {
                         language.tag(),
                         language.role(),
                         language.contributionChannel(),
-                        language.linkChannel()))
+                        language.linkChannel(),
+                        language.hungerGamesChannel()))
                 .toList());
     }
 
@@ -198,8 +199,12 @@ public final class Languages {
      * @param roleId                the onboarding role that chooses it - read-only for the bot
      * @param contributionChannelId where the buy-access message and the donation thank-yous go
      * @param linkChannelId         where the account-link message goes
+     * @param hungerGamesChannelId  where the hunger games Register message goes - a separate channel
+     *                              from {@code contributionChannelId} on purpose, since registering
+     *                              for the start event and buying paid access are unrelated actions
      */
-    public record Language(String tag, String roleId, String contributionChannelId, String linkChannelId) {
+    public record Language(String tag, String roleId, String contributionChannelId, String linkChannelId,
+                            String hungerGamesChannelId) {
 
         /** @return the tag as a {@link Locale}, for the message bundles and {@code discord_user.locale} */
         public Locale locale() {
@@ -218,6 +223,16 @@ public final class Languages {
         /** @return the {@code managed_message.kind} of the account-link message, e.g. {@code LINK_EN} */
         public String linkKind() {
             return "LINK_" + tag.toUpperCase(Locale.ROOT);
+        }
+
+        /**
+         * @return the {@code managed_message.kind} of the hunger games Register message, e.g.
+         *         {@code HG_REGISTER_EN}. {@code managed_message.kind} is {@code varchar(32)}, which
+         *         is why a language tag longer than 19 characters is refused ({@code docs/i18n.md}) -
+         *         this prefix is the longest of the three and still leaves that much room.
+         */
+        public String hungerGamesRegisterKind() {
+            return "HG_REGISTER_" + tag.toUpperCase(Locale.ROOT);
         }
     }
 }

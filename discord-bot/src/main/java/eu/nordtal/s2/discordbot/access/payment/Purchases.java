@@ -1,6 +1,6 @@
-package eu.nordtal.s2.discordbot.payment;
+package eu.nordtal.s2.discordbot.access.payment;
 
-import eu.nordtal.s2.discordbot.bunq.BunqGateway;
+import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 
 import lombok.extern.slf4j.Slf4j;

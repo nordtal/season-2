@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.payment;
+package eu.nordtal.s2.discordbot.access.payment;
 
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;

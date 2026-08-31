@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.payment;
+package eu.nordtal.s2.discordbot.access.payment;
 
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;

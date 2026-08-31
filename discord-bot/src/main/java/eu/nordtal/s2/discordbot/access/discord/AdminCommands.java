@@ -1,8 +1,10 @@
-package eu.nordtal.s2.discordbot.discord;
+package eu.nordtal.s2.discordbot.access.discord;
 
-import eu.nordtal.s2.discordbot.bunq.Money;
-import eu.nordtal.s2.discordbot.payment.PaymentRequest;
-import eu.nordtal.s2.discordbot.payment.PaymentRequests;
+import eu.nordtal.s2.discordbot.discord.AdminLog;
+
+import eu.nordtal.s2.discordbot.access.bunq.Money;
+import eu.nordtal.s2.discordbot.access.payment.PaymentRequest;
+import eu.nordtal.s2.discordbot.access.payment.PaymentRequests;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.access.AccessSource;

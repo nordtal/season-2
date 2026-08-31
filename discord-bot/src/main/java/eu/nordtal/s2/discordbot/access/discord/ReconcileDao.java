@@ -1,4 +1,4 @@
-package eu.nordtal.s2.discordbot.discord;
+package eu.nordtal.s2.discordbot.access.discord;
 
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
@@ -23,8 +23,14 @@ import java.util.List;
  * owns the meaning of, so a change to {@code access_grant} is still a change in two modules -
  * which is the documented cost of the bot owning the schema.
  * </p>
+ * <p>
+ * Public rather than package-private: {@link #allUsers()} is also what {@code GuildState}'s
+ * startup reconcile uses to find accounts that left while the bot was down, and {@code GuildState}
+ * lives at the top level, not under {@code access} - membership, locale and the admin flag are
+ * bot-wide projections, not an access-only concern.
+ * </p>
  */
-interface ReconcileDao {
+public interface ReconcileDao {
 
     /** Everyone a non-revoked grant covers right now - exactly the set that should hold the role. */
     @SqlQuery("""

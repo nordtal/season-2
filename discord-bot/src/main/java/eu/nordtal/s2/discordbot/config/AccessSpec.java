@@ -124,7 +124,8 @@ public interface AccessSpec {
             "  - tag: en",
             "    role: '000000000000000000'",
             "    contribution-channel: '000000000000000000'",
-            "    link-channel: '000000000000000000'"
+            "    link-channel: '000000000000000000'",
+            "    hunger-games-channel: '000000000000000000'"
     })
     default List<LanguageSpec> languages() {
         return DefaultLanguages.LIST;
@@ -236,6 +237,18 @@ public interface AccessSpec {
         @Key("link-channel")
         @Comment("Carries the account-link message in this language.")
         default String linkChannel() {
+            return "";
+        }
+
+        @Order(5)
+        @Key("hunger-games-channel")
+        @Comment({
+                "Carries the hunger games Register message in this language - a separate channel",
+                "from contribution-channel on purpose: registering for the start event and buying",
+                "paid access are different things, and access is not required to play",
+                "(docs/hunger-games.md)."
+        })
+        default String hungerGamesChannel() {
             return "";
         }
     }

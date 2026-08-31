@@ -144,6 +144,11 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
+    public void setAdmin(final String discordId, final boolean admin) {
+        dao.setAdmin(Objects.requireNonNull(discordId, "discordId"), admin);
+    }
+
+    @Override
     public boolean link(final String discordId, final UUID mcUuid) {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(mcUuid, "mcUuid");

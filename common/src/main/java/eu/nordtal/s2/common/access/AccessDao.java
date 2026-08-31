@@ -59,6 +59,18 @@ interface AccessDao {
     @SqlQuery("SELECT donor FROM discord_user WHERE discord_id = :discordId")
     Optional<Boolean> donor(@Bind("discordId") String discordId);
 
+    /**
+     * Mirrors the Discord admin role. Unlike {@code donor} this one is written in both directions:
+     * losing the role loses the flag, because it is a permission and not an acknowledgement.
+     */
+    @SqlUpdate("""
+            INSERT INTO discord_user (discord_id, admin, updated)
+            VALUES (:discordId, :admin, now())
+            ON CONFLICT (discord_id)
+                DO UPDATE SET admin = EXCLUDED.admin, updated = now()
+            """)
+    void setAdmin(@Bind("discordId") String discordId, @Bind("admin") boolean admin);
+
     // ---------------------------------------------------------------- account_link
 
     @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")
@@ -165,7 +177,9 @@ interface AccessDao {
 
     /**
      * The proxy's three questions in one query: is this UUID linked, is that Discord account a
-     * non-banned member, and is access active right now.
+     * non-banned member, and is access active right now. It carries {@code admin} along for free
+     * because the same row already has it - that is the whole reason the admin flag lives on
+     * {@code discord_user}: every process reads it with the query it makes anyway.
      * <p>
      * {@code access_active} and {@code valid_until} are two different things and both are needed:
      * the first is "does a grant cover this instant", the second is "when does the current run
@@ -180,6 +194,7 @@ interface AccessDao {
                    usr.member_state,
                    usr.locale,
                    usr.donor,
+                   usr.admin,
                    EXISTS (SELECT 1
                            FROM access_grant grant_row
                            WHERE grant_row.discord_id = link.discord_id

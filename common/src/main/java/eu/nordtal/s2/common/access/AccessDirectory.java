@@ -137,6 +137,22 @@ public interface AccessDirectory extends AutoCloseable {
     void setDonor(String discordId, boolean donor);
 
     /**
+     * Mirrors the Discord admin role into the database, the same way language, membership and donor
+     * status already are. An admin is appointed in Discord and is an admin everywhere; there is no
+     * second list, and LuckPerms is not involved - see
+     * {@code docs/season-phases.md#how-an-admin-is-recognised}.
+     * <p>
+     * Unlike {@link #setDonor(String, boolean)} this is set <b>and cleared</b>: it is a permission,
+     * so losing the Discord role has to lose it. The flag is read back through
+     * {@link AccessState#admin()}, on the query the login path makes anyway.
+     * </p>
+     *
+     * @param discordId the Discord snowflake
+     * @param admin     whether that account currently holds the Discord admin role
+     */
+    void setAdmin(String discordId, boolean admin);
+
+    /**
      * Writes the 1:1 link. Both halves of the 1:1 are enforced by unique constraints in the
      * database, so a losing concurrent attempt returns {@code false} rather than corrupting
      * anything.

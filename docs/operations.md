@@ -31,6 +31,11 @@ flowchart TB
   being the source of truth, and it is accepted.
 - **The bot is the only process that migrates.** Every other process expects the schema to be
   current; bring the bot up first after a schema change.
+- **The bot deploys on its own, and does so today.** It has no Minecraft dependency at all - its
+  runtime dependencies are PostgreSQL, the Discord gateway and bunq - so it does not wait for the
+  proxy or any backend. `discord-bot/docker-compose.yml` runs it, optionally with a PostgreSQL
+  beside it, configured entirely through environment variables; the runbook and what cannot be
+  tested without the network are in [../discord-bot/README.md](../discord-bot/README.md).
 
 ## Configuration and secrets
 

@@ -3,40 +3,32 @@ package eu.nordtal.s2.common.access;
 import org.flywaydb.core.Flyway;
 
 import javax.sql.DataSource;
-import java.io.File;
 
 /**
  * Applies the real access schema to a test database.
  * <p>
- * The migration lives in {@code access-bot/src/main/resources/db/migration} - the bot is the
- * only module that migrates - while the API that reads it lives here. Rather than keeping a second
- * copy of the DDL in this module's test resources, which would drift the first time a column
- * changes, these tests run the migration directory itself. Its absolute path is handed in by
- * {@code common/build.gradle.kts} as the {@code nordtal.test.migrations} system property.
+ * The migration files live in this module ({@code common/src/main/resources/db/migration}),
+ * alongside the API that reads those tables; the bot is still the only process that migrates at
+ * runtime. Flyway is a test dependency here and nothing more.
+ * </p>
+ * <p>
+ * The location is the classpath rather than a source directory on purpose: it is byte for byte
+ * the location {@code Database#migrate()} uses in the bot, so these tests also prove that the
+ * migrations are reachable the way the bot reaches them.
  * </p>
  */
 final class AccessSchema {
 
-    private static final String MIGRATIONS_PROPERTY = "nordtal.test.migrations";
+    /** The same location jcore's {@code Database#migrate()} scans without arguments. */
+    private static final String MIGRATIONS = "classpath:db/migration";
 
     private AccessSchema() {
     }
 
     static void migrate(final DataSource dataSource) {
-        final String location = System.getProperty(MIGRATIONS_PROPERTY);
-        if (location == null) {
-            throw new IllegalStateException(
-                    "System property " + MIGRATIONS_PROPERTY + " is not set - run these tests through Gradle");
-        }
-
-        final File directory = new File(location);
-        if (!directory.isDirectory()) {
-            throw new IllegalStateException("Migration directory does not exist: " + directory);
-        }
-
-        Flyway.configure()
+        Flyway.configure(AccessSchema.class.getClassLoader())
                 .dataSource(dataSource)
-                .locations("filesystem:" + directory.getAbsolutePath())
+                .locations(MIGRATIONS)
                 .load()
                 .migrate();
     }

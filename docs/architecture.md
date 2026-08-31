@@ -130,10 +130,12 @@ flowchart LR
 ## Schema ownership
 
 **Exactly one process migrates: the bot.** That has not changed. What changed on **2026-08-31** is
-*where the SQL lives*: the migration files move to `:common/src/main/resources/db/migration/`, and
-the bot applies them at startup from there. **The move itself has not been carried out** — today
-the files still sit under `access-bot/src/main/resources/db/migration/` and `:common`'s tests still
-reach into that directory.
+*where the SQL lives*: the migration files now sit in `common/src/main/resources/db/migration/`,
+and the bot applies them at startup from there. The move has been carried out.
+
+The bot's call did not have to change: jcore's `database.migrate()` scans `classpath:db/migration`,
+and `:common` is shaded into the bot, so the files land at the same classpath location they
+occupied when they were the bot's own resources.
 
 The two questions are separate and were being answered as one:
 
@@ -144,8 +146,9 @@ The two questions are separate and were being answered as one:
 
 The cost is that every plugin jar carries a few KB of SQL text it never reads. That is the whole
 price, and it buys a schema that sits next to its reading API instead of inside an unrelated
-module. `:common`'s tests apply that directory directly — which is now simply a local path rather
-than a documented reach into the bot module.
+module. `:common`'s tests apply `classpath:db/migration` off their own runtime classpath — the same
+string the bot uses, so they also prove the location the bot depends on actually resolves. The
+build wiring that used to hand the bot's directory to the test JVM as a system property is gone.
 
 One table is written by the proxy rather than by a plugin: **`player_playtime`**. Play time is a
 network-wide fact and only the proxy sees a whole session, so `network-control` accumulates it and

@@ -34,9 +34,9 @@ postgresql = "42.7.13"
 # classpath, resolves one copy rather than two.
 jdbi = "3.54.0"
 hikaricp = "7.1.0"
-# Flyway is a test-only dependency of :common: the access schema is owned by payments-bot's
-# db/migration and applied there by jcore's Database, but :common's integration tests apply the
-# same migration themselves so they test the real DDL rather than a copy.
+# Flyway is a test-only dependency of :common: the .sql files live here (src/main/resources/db/
+# migration) but only access-bot ever applies them at runtime, through jcore's Database. :common's
+# integration tests apply the same files off the classpath, so they test the real DDL, not a copy.
 flyway = "13.4.0"
 # slf4j-api only - :common never binds a backend. jdbi3-core pulls the same artifact transitively;
 # it is declared so the version is visible here.

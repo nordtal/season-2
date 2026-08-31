@@ -52,10 +52,11 @@ exactly. Access ends at a timestamp; a role is on or off and moves on a sync cyc
 not used at all — the account link is built in-house (stage C), which also means no chat bridge; if
 one is wanted later, that is a separate decision.
 
-The schema stays owned by the bot module (`db/migration` there, applied by the bot at startup) even
-though the API that reads it lives in `:common` — decided 2026-08-30. Exactly one process may change
-the schema, and Flyway must not come anywhere near `:common`, or it lands in every plugin jar. The
-cost is a documented path from `:common`'s tests to the bot's migration directory.
+Exactly one process applies the schema — the bot, at startup — and Flyway must not come anywhere
+near `:common`, or it lands in every plugin jar. Decided 2026-08-30 and unchanged. The `.sql` files
+themselves moved into `:common` on 2026-08-31 so that the DDL sits beside the API that reads it;
+both the bot and `:common`'s tests find them at `classpath:db/migration`. See
+[architecture.md](architecture.md#schema-ownership).
 
 Plugins and the proxy read the database directly through a `common` API and shade only what they
 need (JDBI + HikariCP + driver), never the full `jcore` dependency block — a Paper plugin must not

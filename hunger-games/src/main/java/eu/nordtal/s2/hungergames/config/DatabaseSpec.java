@@ -1,0 +1,63 @@
+package eu.nordtal.s2.hungergames.config;
+
+import eu.nordtal.jcore.config.spec.annotation.Comment;
+import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Key;
+import eu.nordtal.jcore.config.spec.annotation.Order;
+
+/**
+ * {@code config/database.yml} - this plugin's own connection to the shared PostgreSQL database.
+ * <p>
+ * A separate pool from every other process's - the bot's, the proxy's - even though all of them
+ * eventually point at the same instance; see {@code network-control}'s {@code DatabaseSpec} for
+ * the same reasoning. This plugin never migrates anything: the schema (including {@code hg_game},
+ * {@code hg_team}, {@code hg_member} and {@code hg_event}) is owned and applied by
+ * {@code discord-bot} (docs/architecture.md#schema-ownership); this pool only ever reads and
+ * writes rows in tables that already exist.
+ * </p>
+ */
+@ConfigSpec(header = {
+        "-------------------------------------------------------------------",
+        "  hunger-games - PostgreSQL connection",
+        "-------------------------------------------------------------------",
+        "In production the password belongs in the environment, not in this",
+        "file. Every setting can be overridden with",
+        "NORDTAL_HUNGER_GAMES_DATABASE_<SETTING>:",
+        "",
+        "  NORDTAL_HUNGER_GAMES_DATABASE_JDBC_URL",
+        "  NORDTAL_HUNGER_GAMES_DATABASE_USERNAME",
+        "  NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD",
+        "",
+        "An overridden value is never written back into this file. This is a",
+        "SEPARATE connection pool from every other process's own database.yml."
+})
+public interface DatabaseSpec {
+
+    @Order(1)
+    @Key("jdbc-url")
+    @Comment("JDBC URL of the PostgreSQL database that holds the hunger games schema.")
+    default String jdbcUrl() {
+        return "jdbc:postgresql://localhost:5432/nordtal";
+    }
+
+    @Order(2)
+    @Key("username")
+    @Comment("Database user.")
+    default String username() {
+        return "hunger_games";
+    }
+
+    @Order(3)
+    @Key("password")
+    @Comment("Database password. Prefer NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD in production.")
+    default String password() {
+        return "";
+    }
+
+    @Order(4)
+    @Key("maximum-pool-size")
+    @Comment("Upper bound of the HikariCP pool.")
+    default int maximumPoolSize() {
+        return 5;
+    }
+}

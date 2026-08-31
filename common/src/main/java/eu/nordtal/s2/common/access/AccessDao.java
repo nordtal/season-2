@@ -176,20 +176,41 @@ interface AccessDao {
     // ---------------------------------------------------------------- the login path
 
     /**
-     * The proxy's three questions in one query: is this UUID linked, is that Discord account a
-     * non-banned member, and is access active right now. It carries {@code admin} along for free
-     * because the same row already has it - that is the whole reason the admin flag lives on
-     * {@code discord_user}: every process reads it with the query it makes anyway.
+     * The proxy's whole login round trip, as one statement: is this UUID linked, is that Discord
+     * account a non-banned member, is access active right now, <b>and what phase is the network
+     * in</b>. It carries {@code admin} along for free because the same row already has it - that is
+     * the whole reason the admin flag lives on {@code discord_user}: every process reads it with the
+     * query it makes anyway.
      * <p>
      * {@code access_active} and {@code valid_until} are two different things and both are needed:
      * the first is "does a grant cover this instant", the second is "when does the current run
      * end", which is what the disconnect screen and {@code /access-status} print.
      * </p>
      *
-     * @return empty when the UUID is not linked to any Discord account
+     * <h2>Why the phase is in here</h2>
+     * {@code docs/season-phases.md} requires that "one database round trip on the login path carries
+     * both the access state and the phase". Until 2026-08-31 the proxy made this call and then a
+     * second one to {@code PhaseDao#currentPhase}, which is two round trips on the one path the
+     * whole design says must be one. Merging them costs nothing: {@code season_phase} is a single
+     * row addressed by its primary key, so the scalar subquery below is an index lookup that the
+     * planner evaluates once.
+     *
+     * <h2>Why it is anchored on a one-row VALUES and not on a table</h2>
+     * This statement must return <b>exactly one row, always</b> - for a linked account, for a UUID
+     * nobody has ever linked, and even for a database whose {@code season_phase} row has been
+     * deleted by hand. Joining {@code account_link} to {@code discord_user} the way this query used
+     * to means an unlinked UUID produces no row at all, and selecting {@code FROM season_phase}
+     * would mean a missing phase row makes <em>every</em> player look unlinked and be handed a link
+     * code they do not need. Anchoring on {@code (VALUES (1))} and hanging both outer joins and the
+     * phase subquery off it removes both cliffs: an unlinked account is one row of nulls (which
+     * {@link AccessStateMapper} reads as exactly the unlinked state), and an unreadable phase is a
+     * null that {@code SeasonPhase.fromDatabase} maps to {@code MAINTENANCE}.
+     *
+     * @return the state; empty is not reachable while PostgreSQL can answer at all, and
+     *         {@link AccessDirectory#accessState(UUID)} still handles it defensively
      */
     @SqlQuery("""
-            SELECT link.mc_uuid,
+            SELECT cast(:mcUuid AS uuid)                                    AS mc_uuid,
                    link.discord_id,
                    usr.member_state,
                    usr.locale,
@@ -200,15 +221,17 @@ interface AccessDao {
                            WHERE grant_row.discord_id = link.discord_id
                              AND grant_row.revoked IS NULL
                              AND grant_row.valid_from <= now()
-                             AND grant_row.valid_until > now()) AS access_active,
+                             AND grant_row.valid_until > now())             AS access_active,
                    (SELECT max(grant_row.valid_until)
                     FROM access_grant grant_row
                     WHERE grant_row.discord_id = link.discord_id
                       AND grant_row.revoked IS NULL
-                      AND grant_row.valid_until > now())        AS valid_until
-            FROM account_link link
-                     JOIN discord_user usr ON usr.discord_id = link.discord_id
-            WHERE link.mc_uuid = :mcUuid
+                      AND grant_row.valid_until > now())                    AS valid_until,
+                   (SELECT season.phase FROM season_phase season
+                    WHERE season.id)                                        AS phase
+            FROM (VALUES (1)) AS anchor (one)
+                     LEFT JOIN account_link link ON link.mc_uuid = cast(:mcUuid AS uuid)
+                     LEFT JOIN discord_user usr ON usr.discord_id = link.discord_id
             """)
     @RegisterRowMapper(AccessStateMapper.class)
     Optional<AccessState> accessState(@Bind("mcUuid") UUID mcUuid);

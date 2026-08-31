@@ -5,8 +5,9 @@ and rebuilt every day, and a community that unlocks its own world step by step b
 objectives. Peaceful in tone, competitive at the edges: two duel platforms, one number in the tab
 list, and a crest that only time can earn.
 
-Status: **concept agreed 2026-08-31, nothing built.** The module is a scaffold. This document is
-what an implementation session works from.
+Status: **concept agreed 2026-08-31; the module is still a scaffold, but its schema exists.**
+`V6__smp.sql` landed in `:common` on 2026-09-01 and every table in [Data model](#data-model) is
+migrated and applied. This document is what an implementation session works from.
 
 **Access is required from this phase onward** ([season-phases.md](season-phases.md)) — that is the
 whole reason the phase model exists.
@@ -414,9 +415,35 @@ cost of explaining two figures for one word. Aura is simply not a currency.
 | death by a listed "embarrassing" cause | **−20** | a short curated list of damage types in config |
 | objective contribution | a per-objective pot | see below |
 | selected vanilla advancements | **2–10** each, once | a curated list in config, not all advancements |
+| the hunger games winner's head start | config | once, on that player's first join — see below |
 
 **Play time is deliberately not an aura source.** It would turn the leaderboard into an attendance
 list. Time is what earns *prestige* instead — a different signal in a different place.
+
+### The hunger games winner's head start
+
+The winner of the start event carries something into the SMP: **extra aura, plus one or two special
+items** ([hunger-games.md](hunger-games.md#after-the-game)). Aura buys nothing, so the advantage is
+recognition in the tab list and on the leaderboard — a visible head start on a number everybody else
+has to earn.
+
+**Who grants it, decided 2026-09-01: the SMP does, on the winner's first join, and `hunger-games`
+writes nothing.**
+
+The winner is already recorded exactly once, in `hg_game.winner_member_id` of the `DECIDED` game.
+The SMP reads it, resolves it to a `discord_id` through `hg_member`, and pays out the first time
+that player joins. Both the aura amount and the item list are the SMP's own config.
+
+The alternative — `hunger-games` booking the aura into `smp_aura_event` at the moment of the
+decision — was considered and dropped for two reasons. It would have had the event plugin write into
+the SMP's tables before the SMP existed, which is a dependency in the wrong direction between two
+modules that otherwise share only `:common`. And it pays a winner who never turns up for the season
+at all: the head start is meant to be seen by the people it is a head start over.
+
+`smp_player.hg_winner_reward_granted` is the only state this needs, and it exists for the only thing
+the SMP cannot derive — whether it has already paid.
+
+**Still a config default:** how much aura, and which one or two items.
 
 ### Deaths cost aura
 
@@ -520,7 +547,22 @@ One composition, shown in full where there is room and trimmed where there is no
 | **chat** | flag, name, prestige crest |
 
 Nametags are owned by [`papermc-display-tags`](https://github.com/nordtal/papermc-display-tags),
-which ships from its own repository.
+which ships from its own repository — and **how the SMP talks to it was settled 2026-09-01**,
+because "owned by another repo" is not an interface.
+
+That repository publishes an `:api` module through JitPack. The SMP takes
+`com.github.nordtal:papermc-display-tags:<tag>` as **`compileOnly`** — never shaded, because the API
+is an interface over the running plugin rather than a library — and declares DisplayTags in its
+`paper-plugin.yml` under `dependencies.server` with `load: BEFORE`. `NameTagManager`, `PlayerNameTag`
+and `NameTagData` are what the composition above is handed to.
+
+**The operational consequence is the part worth stating.** DisplayTags needs
+[PacketEvents](https://modrinth.com/plugin/packetevents) on the server, so installing it makes
+PacketEvents a **required** plugin on the SMP server — the network's first mandatory third-party
+runtime dependency. CoreProtect, the only other third-party plugin in this design, may be absent
+without anything failing ([block logging](#block-logging--checked-2026-08-31)); this one may not.
+Writing our own Text Display nametags instead was considered and rejected: it would reimplement
+what our own fork already does, and leave two nametag implementations to keep in step.
 
 **Season 1's role tags — settler, citizen, knight, lord — are gone** and must be removed from the
 resource pack.
@@ -727,6 +769,14 @@ Migrated by the bot as always, and **the migration SQL now lives in `:common`**
 ([architecture.md](architecture.md#schema-ownership)) so that SMP DDL does not live inside a Discord
 bot module. Flyway still runs in exactly one process.
 
+**Built as `V6__smp.sql` on 2026-09-01**, applied against a real PostgreSQL container by `:common`'s
+own integration tests. Three things the file does that the sketch below does not show, each written
+out in its own comment there: every key is `varchar(32) discord_id` rather than the sketch's
+`bigint discord_user_id`, matching the schema's real key since V1; `smp_objective.type` is
+CHECK-constrained while `smp_aura_event.reason` deliberately is not, because the three objective
+types are a closed set by design and a new aura source must not need a migration; and
+`smp_grave` carries a `looted_by` alongside `looted`.
+
 Everything hangs off `discord_user`, not off the Minecraft UUID — the UUID reaches these tables
 through the existing `account_link`, and duplicating it would create a second answer to "whose
 account is this".
@@ -842,6 +892,7 @@ Everything in this section is a config default chosen to be reasonable, and ever
 expected to be retuned. They are gathered here so nobody mistakes them for agreed values.
 
 - The 13 prestige thresholds
+- The hunger games winner's head start: the aura amount and the item list
 - The duel stake of 10 aura and the advancement values of 2–10
 - The death penalties of −5 and −20, and **which damage types count as the "embarrassing" −20**
 - The pot factor of 5, the 30 / 70 split, the 2 % qualifying threshold and the 1-aura minimum share
@@ -860,6 +911,8 @@ expected to be retuned. They are gathered here so nobody mistakes them for agree
 - **The advancement list** that grants aura, and the amount per advancement.
 - **The damage types that count as an "embarrassing" death** and cost −20 instead of −5.
 - **The duel loadouts**, item by item, for both types.
+- **The hunger games winner's head start** — how much aura, and which one or two items
+  ([above](#the-hunger-games-winners-head-start)). The mechanism is decided; the numbers are not.
 - **The exact items and advancements behind each objective.** The track's shape — how many
   objectives per milestone, of which type, serving which role, with which budget and pot — was
   decided on 2026-08-31 and is [above](#the-objectives); the one example given per objective is a

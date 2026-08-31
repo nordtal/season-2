@@ -21,7 +21,9 @@ here is changed:
   to; there is no roleplay framework and no faction system. Block logging exists as insurance, not
   as a mechanic.
 - **Nothing is free.** Distance is real — there are no teleport commands, no `/home`, no `/back`,
-  no `/spawn`. The only fast travel is the hot-air balloon, and it only ever goes to a world spawn.
+  no `/spawn`. The only fast travel that is *given* is the hot-air balloon, and it only ever goes to
+  a world spawn. Anything faster has to be built: once the Nether is unlocked, a Nether highway is
+  the one shortcut the game itself offers, and it costs the tunnel to dig it.
 - **The community unlocks its own world.** The border, the Nether and the End are not given; they
   are earned through shared objectives. That is the spine of the season.
 - **There is no fixed end date.** The season runs until it stops. Nothing in the design may depend
@@ -31,9 +33,9 @@ here is changed:
 
 | world | permanent | how you get in | how you get out | border |
 |---|---|---|---|---|
-| **Nordtal** | yes — the build world, holds the spawn | you spawn here; every return lands here | the balloon at the spawn | grows with milestones |
+| **Nordtal** | yes — the build world, holds the spawn | you spawn here; every return lands here | the balloon at the spawn, or a Nether portal once unlocked | grows with milestones |
 | **Farm world** | **no — regenerated daily** | balloon at the Nordtal spawn | balloon at the farm-world spawn, or any Nether portal | fixed, 2000 × 2000 |
-| **Nether** | yes | balloon, once unlocked | balloon at the Nether spawn, or any Nether portal | fixed, generous |
+| **Nether** | yes | balloon or a Nether portal, both once unlocked | balloon at the Nether spawn, or a Nether portal back to Nordtal | fixed, generous |
 | **End** | yes | balloon, once unlocked | the vanilla exit portal — **only after the dragon** | fixed, generous |
 
 Every world is pre-generated to its border before players may enter it; until then they wait in
@@ -45,7 +47,8 @@ Every world is pre-generated to its border before players may enter it; until th
 flowchart LR
     subgraph N["Nordtal — permanent"]
         SP["Spawn hill<br/>tavern · balloon · arenas"]
-        NB["Player-built Nether portal<br/>never ignites — no way out but the balloon"]
+        NB["Player-built Nether portal<br/>dead until the Nether is unlocked"]
+        EB["Stronghold End portal<br/>never activates"]
     end
 
     FW["Farm world<br/>regenerated daily"]
@@ -55,27 +58,33 @@ flowchart LR
     SP -->|"balloon"| FW
     SP -->|"balloon, once unlocked"| NE
     SP -->|"balloon, once unlocked"| EN
+    NB <-->|"vanilla portal pair, 1:8 —<br/>once the Nether is unlocked"| NE
 
     FW -->|"balloon at the farm-world spawn"| SP
     FW -->|"any Nether portal"| SP
     NE -->|"balloon at the Nether spawn"| SP
-    NE -->|"any Nether portal"| SP
     EN -->|"vanilla exit portal,<br/>after the dragon"| SP
 
     classDef dead fill:#3b3b3b,stroke:#222,color:#fff
-    class NB dead
+    class EB dead
 ```
 
 The rules behind that picture, each of them deliberate:
 
-- **The balloon is the only way out of Nordtal.** A Nether portal built in Nordtal does not ignite,
-  and a stronghold's End portal stays inactive. Without that, a player with obsidian and a flint
-  and steel walks straight past the milestone that is supposed to unlock the Nether.
-- **Every portal in the Nether or the farm world leads to the Nordtal spawn**, regardless of where
-  it stands. There is no 1:8 coordinate mapping and there are no Nether highways. The Nether is a
-  place to go to, not a way to travel — and that is what keeps distance in Nordtal meaningful.
-- **Arrival is always a world spawn.** The balloon never drops anyone anywhere else, so a world
-  spawn is a landmark everybody knows.
+- **Nether portals are gated by the milestone, not disabled.** Until the Nether milestone is
+  unlocked, a Nether portal built in Nordtal does not ignite — without that, a player with obsidian
+  and a flint and steel walks straight past the milestone that is supposed to unlock the Nether.
+  Once it *is* unlocked, portals between Nordtal and the Nether behave exactly like vanilla: they
+  link in pairs, in both directions, with the usual 1:8 coordinate mapping. Nether highways are
+  therefore possible, and that is accepted — a highway is infrastructure the community digs, not a
+  command it is handed.
+- **A stronghold's End portal stays inactive for good.** The End is unlocked by a milestone and
+  entered by balloon, never by portal.
+- **Every portal in the farm world leads to the Nordtal spawn**, regardless of where it stands. The
+  farm world is thrown away every day and must not become a permanent address, so it gets no portal
+  network of its own — the balloon and that one-way portal are the whole of it.
+- **Balloon arrival is always a world spawn.** The balloon never drops anyone anywhere else, so a
+  world spawn is a landmark everybody knows. Portals are the exception, and the only one.
 - **The End is the one asymmetry, and it is intended.** There is no balloon there; the way back is
   the vanilla exit portal, which does not work until the dragon is dead. The End is unlocked by a
   milestone, so the community enters it together to fight the dragon — the trip is a one-way
@@ -605,9 +614,9 @@ clients:
   including a run where the pre-generation is deliberately not finished in time.
 - The **pre-generation's effect on tick time**, measured, not assumed. This is the single biggest
   technical risk in the concept.
-- **Every travel path**: each balloon, a player-built portal in the Nether and in the farm world,
-  a player-built portal in Nordtal that must not ignite, and a stronghold portal that must stay
-  inactive.
+- **Every travel path**: each balloon, a player-built portal in the farm world, a Nordtal portal
+  before the Nether milestone (must not ignite) and after it (must link vanilla in both directions,
+  1:8 mapping included), and a stronghold portal that must stay inactive.
 - A **duel** end to end, including a disconnect mid-fight and two concurrent duels in stacked
   arenas.
 - **Per-player Text Display boards** seen simultaneously by two clients with different languages.

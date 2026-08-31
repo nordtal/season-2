@@ -179,15 +179,14 @@ finding 7.
 
    | jar | bytes |
    |---|---|
-   | `smp-2.0.0.jar` | 34,745 |
-   | `hunger-games-2.0.0.jar` | 34,784 |
-   | `limbo-2.0.0.jar` | 34,886 |
-   | `network-control-2.0.0.jar` | 5,196,184 |
+   | `smp-0.1.0.jar` | 51,273 |
+   | `limbo-0.1.0.jar` | 51,279 |
+   | `hunger-games-0.1.0.jar` | 4,640,946 |
+   | `network-control-0.1.0.jar` | 5,259,904 |
 
-   The three Paper plugins carry `:common`'s classes plus the SQL and nothing else, because
-   `:common` declares JDBI, HikariCP and slf4j `compileOnly` and none of the scaffolds has opted
-   into `libs.bundles.access-persistence`. `network-control` weighs 5 MB because it *did* opt in,
-   through `jcore`. **The 3.12 MB in `common/build.gradle.kts` is a counterfactual** — what the
+   `smp` and `limbo` carry `:common`'s classes plus the SQL and nothing else, because `:common`
+   declares JDBI, HikariCP and slf4j `compileOnly` and neither has taken `jcore`. `hunger-games`
+   and `network-control` weigh what they weigh because they *did* take it. **The 3.12 MB in `common/build.gradle.kts` is a counterfactual** — what the
    jars would weigh with those declarations changed — and it was copied into two documents as if it
    described the jars that exist. Corrected in both documents, and the build file now says so
    itself. The design worked; the documentation reported the opposite.

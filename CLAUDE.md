@@ -1,8 +1,8 @@
 # season-2 — agent guide
 
 Everything nordtal.eu season 2 deploys. A Velocity proxy (`network-control`) in front of three
-Paper backends (`resource-pack-coercion` → `hunger-games` → `smp-farm-world`; to be renamed to
-`limbo` → `hunger-games` → `smp`), plus the `access-bot` Discord bot and the `resource-pack`
+Paper backends (`resource-pack-coercion` → `hunger-games` → `smp`; `resource-pack-coercion` is
+still to be renamed to `limbo`), plus the `access-bot` Discord bot and the `resource-pack`
 assets. Production runs on [SimpleCloud](https://simplecloud.app) on a remote host.
 
 The workspace-level [../CLAUDE.md](../CLAUDE.md) carries the standing instructions and the map of
@@ -15,7 +15,7 @@ conventions, platform versions and repository rules.
 
 ## Repository state (READ THIS FIRST)
 
-Set up 2026-08-29 from a bare IntelliJ scaffold. **`hunger-games`, `smp-farm-world` and
+Set up 2026-08-29 from a bare IntelliJ scaffold. **`hunger-games`, `smp` and
 `resource-pack-coercion` are still scaffolds with no behaviour** — a main class that logs on
 enable, a descriptor, and nothing else. Each is meant to be implemented in its own session.
 `access-bot` and `network-control` are the exceptions: `access-bot` was rebuilt for season 2 in
@@ -39,13 +39,13 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   below before writing the first one.
 - **No command framework.** Season 1 used Incendo Cloud; nothing has been chosen for season 2.
 
-**Four renames are planned and are cheap only until something runs in production:**
-`resource-pack-coercion` → `limbo`, `access-bot` → `discord-bot`, `smp-farm-world` → **`smp`**
-(`eu.nordtal.s2.smp`, decided 2026-08-31 — the module owns the build world, the spawn, milestones,
-aura, prestige, duels, POIs and graves, and the farm world is one part of it), and the
-`SeasonPhase` values. A Paper plugin's `name:` is its runtime identity: the `plugins/<name>/` data
-folder and the permission prefix, so a rename after deployment means moving data folders on the
-production host.
+**`smp-farm-world` → `smp` was carried out on 2026-08-31** (`eu.nordtal.s2.smp`, `SmpPlugin`,
+`name: smp`) — the module owns the build world, the spawn, milestones, aura, prestige, duels, POIs
+and graves, and the farm world is one part of it. **Three renames are still planned and are cheap
+only until something runs in production:** `resource-pack-coercion` → `limbo`, `access-bot` →
+`discord-bot`, and the `SeasonPhase` values. A Paper plugin's `name:` is its runtime identity: the
+`plugins/<name>/` data folder and the permission prefix, so a rename after deployment means moving
+data folders on the production host.
 
 `name-displays` was removed from the module list: nametags are owned by the
 [papermc-display-tags](https://github.com/nordtal/papermc-display-tags) fork, which ships from its
@@ -75,8 +75,8 @@ before working around it.
 ## Layout and conventions
 
 - Packages are `eu.nordtal.s2.<module>` — the `s2` segment keeps season 3 from colliding.
-- Paper plugin `name:` values **match the module directory names** (`hunger-games`,
-  `smp-farm-world`, `resource-pack-coercion`, `network-control`), lowercase and hyphenated. That is
+- Paper plugin `name:` values **match the module directory names** (`hunger-games`, `smp`,
+  `resource-pack-coercion`, `network-control`), lowercase and hyphenated. That is
   the runtime identity: the `plugins/<name>/` data folder and the permission prefix. Renaming one
   later is expensive; do not "tidy" them into PascalCase.
 - `paper-plugin.yml` carries `${version}`, expanded by `processResources` from

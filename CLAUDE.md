@@ -97,13 +97,14 @@ before working around it.
   the factories take a `javax.sql.DataSource` or a JDBC URL — so a consumer never compiles against
   them.
 - **Exactly one process migrates: `access-bot`.** That is unchanged. **Where the SQL lives changed
-  on 2026-08-31**: the migration files move to `:common/src/main/resources/db/migration/` and the
-  bot applies them from there, so DDL sits next to the API that reads it instead of inside the
-  Discord bot module. Flyway itself must still never reach `:common` — a plugin jar carrying a few
-  KB of SQL text is fine, a plugin jar carrying Flyway is not. `:common`'s tests then apply a local
-  directory rather than reaching into the bot module. **This move has not been carried out yet**;
-  today the files are still under `access-bot/src/main/resources/db/migration`. See
-  [docs/architecture.md](docs/architecture.md#schema-ownership).
+  on 2026-08-31, and the move has been carried out**: the migration files sit in
+  `common/src/main/resources/db/migration/`, so DDL is next to the API that reads it instead of
+  inside the Discord bot module. The bot still applies them, and its call did not change — jcore's
+  `database.migrate()` scans `classpath:db/migration`, and `:common` is shaded into the bot, so the
+  files arrive at the same classpath location they were at before. Flyway itself must still never
+  reach `:common` — a plugin jar carrying a few KB of SQL text is fine, a plugin jar carrying
+  Flyway is not. `:common`'s tests read the same `classpath:db/migration` off their own runtime
+  classpath. See [docs/architecture.md](docs/architecture.md#schema-ownership).
 - `Glyphs` in `:common` mirrors `resource-pack/src/assets/minecraft/font/default.json`. A change
   to either is a change to both, plus the pack's README table.
 
@@ -267,9 +268,12 @@ than a table nothing has ever put a row into.
 - **jcore does not export a logging backend** (logback is `testRuntimeOnly` there). The bot
   declares `ch.qos.logback:logback-classic` itself. Remove it and every log line disappears behind
   one "no providers found" warning.
-- **The schema is owned here** (`src/main/resources/db/migration/`), applied by `database.migrate()`
-  at startup, while the API that reads it lives in `:common` — so a column change is an edit in two
-  modules. `:common`'s tests apply this directory directly rather than keeping a copy of the DDL.
+- **The schema is applied here**, by `database.migrate()` at startup, but **the `.sql` files live in
+  `:common`** (`common/src/main/resources/db/migration/`, moved 2026-08-31) next to the API that
+  reads those tables. `database.migrate()` takes no argument and scans `classpath:db/migration`;
+  `:common` is shaded into this module, so the files are exactly there. A column change is now one
+  edit in one module. `:common`'s tests apply the same classpath location rather than keeping a
+  copy of the DDL.
   - `V1__access.sql` (stage A): `discord_user`, `account_link`, `link_code`, `payment_request`,
     `access_grant`, `audit_log`.
   - `V2__bot_state.sql` (stage B): `managed_message`, `payment_notice`, `expiry_notice` — three

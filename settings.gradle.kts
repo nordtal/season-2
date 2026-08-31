@@ -35,7 +35,7 @@ include("smp")
 include("network-control")
 
 // Standalone JVM application.
-include("access-bot")
+include("discord-bot")
 
 // Shared code, shaded into the plugins that use it.
 include("common")

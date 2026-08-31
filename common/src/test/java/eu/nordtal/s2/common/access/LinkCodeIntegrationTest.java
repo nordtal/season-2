@@ -78,7 +78,8 @@ class LinkCodeIntegrationTest {
 
     @BeforeEach
     void freshDirectory() {
-        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, discord_user CASCADE");
+        execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, audit_log, "
+                + "player_playtime, discord_user CASCADE");
         directory = AccessDirectory.using(dataSource);
     }
 

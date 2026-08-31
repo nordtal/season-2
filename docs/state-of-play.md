@@ -25,7 +25,7 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `common` | 1489 lines | `AccessDirectory`, `Messages`, `Locales`, `Glyphs`, the migration SQL | plus the phase model, the join-time locale component, season 2's glyph inventory |
 | `network-control` | 875 lines | The login gate, the fallback cache, the mid-session expiry watch | plus phase, pack enforcement, routing, network-wide play time |
 | `resource-pack` | — | Season 1's glyphs, boss bar sprites, the reproducible zip | season 2's glyph inventory |
-| `resource-pack-coercion` | 22 lines | Two log lines | the whole `limbo` waiting room |
+| `limbo` | 22 lines | Two log lines | the whole `limbo` waiting room |
 | `hunger-games` | 22 lines | Two log lines | the whole start event |
 | `smp` | 23 lines | Two log lines | the whole SMP |
 
@@ -97,7 +97,7 @@ power-of-two background segments season 2's HUD design depends on are already th
 lord tags in `default.json`, in `Glyphs` and in the pack's README table, and an `en_us.json` that
 still says "Return to nordtal smp". Nothing season 2 needs has been added.
 
-### `resource-pack-coercion`, `hunger-games`, `smp`
+### `limbo`, `hunger-games`, `smp`
 
 Scaffolds. Each is one class with `onEnable`/`onDisable` logging its own name, a `paper-plugin.yml`,
 and a `build.gradle.kts` holding a single `plugins {}` block. Each shades `:common`, so each jar
@@ -154,7 +154,7 @@ finding 7.
    |---|---|
    | `smp-2.0.0.jar` | 34,745 |
    | `hunger-games-2.0.0.jar` | 34,784 |
-   | `resource-pack-coercion-2.0.0.jar` | 34,886 |
+   | `limbo-2.0.0.jar` | 34,886 |
    | `network-control-2.0.0.jar` | 5,196,184 |
 
    The three Paper plugins carry `:common`'s classes plus the SQL and nothing else, because
@@ -242,7 +242,7 @@ rather than remembering it later.
 ### e. `limbo`
 
 **Specified by** [architecture.md](architecture.md#modules) (what it shows: nothing, and a title)
-and the login path sequence. **Touches** `resource-pack-coercion` → renamed `limbo`, and
+and the login path sequence. **Touches** `limbo`, and
 `network-control` (the `nordtal:` plugin channel and the routing that answers it). **Depends on**
 (a) for the phase, (c) for the title's language.
 

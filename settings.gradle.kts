@@ -27,7 +27,7 @@ if (providers.gradleProperty("useLocalJcore").isPresent) {
 }
 
 // Paper plugins, one per backend server of the season 2 network.
-include("resource-pack-coercion")
+include("limbo")
 include("hunger-games")
 include("smp")
 

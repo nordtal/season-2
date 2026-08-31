@@ -121,7 +121,6 @@ public final class Configs {
         validateTiers(config.tiers());
 
         requirePositive("donation-cents", config.donationCents());
-        requirePositive("link-code-ttl-minutes", config.linkCodeTtlMinutes());
         requirePositive("expiry-reminder-lead-days", config.expiryReminderLeadDays());
         requirePositive("role-reconcile-interval-minutes", config.roleReconcileIntervalMinutes());
         requirePositive("payment.poll-interval-seconds", config.payment().pollIntervalSeconds());

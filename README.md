@@ -58,16 +58,21 @@ Each Paper module has a local test server, and the proxy module can be run the s
 
 ## Releasing
 
-The version in `gradle.properties` is the single source of truth. To release, set it, commit, and
-push a matching tag:
+The version in `gradle.properties` is the single source of truth. **A release is a published
+GitHub release, not a pushed tag** — pushing the tag on its own builds nothing:
 
 ```bash
-git tag v2.0.0 && git push origin v2.0.0
+git tag v0.1.0 && git push origin v0.1.0
+gh release create v0.1.0 --title v0.1.0 --generate-notes
 ```
 
-The `release` workflow refuses a tag that disagrees with `gradle.properties`, then builds every
-module and attaches to one GitHub release: four plugin jars, the bot jar, and the resource pack
-zip with its SHA-1. It also pushes `ghcr.io/nordtal/discord-bot:<version>`.
+The `release` workflow refuses a tag that disagrees with `gradle.properties`, runs
+`./gradlew check releaseArtifacts`, verifies the pack zip against its own SHA-1, and attaches to
+that release: four plugin jars, the bot jar, and the resource pack zip with its SHA-1. It also
+pushes `ghcr.io/nordtal/discord-bot:<version>`. The release notes are left alone.
+
+A build that failed is re-run against the same release with
+`gh workflow run release.yml -f tag=v0.1.0`.
 
 ## Configuration
 

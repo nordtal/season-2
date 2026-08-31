@@ -264,11 +264,13 @@ public interface HungerGamesSpec {
         @Comment({
                 "How many Minecraft maps wide the sliced lobby image grid is. The image is sliced",
                 "from hunger-games/src/main/resources/lobby/map-<lang>.png (one per language, see",
-                "docs/i18n.md) - a missing file is logged and skipped, not a startup failure, since",
-                "the actual artwork is design work out of this diff's scope."
+                "docs/i18n.md). 3x3 (384x384px) was decided 2026-08-31 alongside the dummy",
+                "map-en.png/map-de.png placeholders this default now matches - a missing file is",
+                "logged and skipped, not a startup failure, since the real artwork is still a",
+                "design task."
         })
         default int mapGridColumns() {
-            return 4;
+            return 3;
         }
 
         @Order(6)

@@ -51,7 +51,17 @@ public final class Configs {
     static final String DIRECTORY_PROPERTY = "access.config.dir";
 
     /** The one language {@code access.yml} may not leave out; see {@code docs/i18n.md}. */
-    private static final String FALLBACK_LANGUAGE = "en";
+    private static final String FALLBACK_LANGUAGE = Languages.FALLBACK_TAG;
+
+    /**
+     * How long a language tag may be.
+     * <p>
+     * Not a rule about languages - a rule about the schema. {@code managed_message.kind} is
+     * {@code varchar(32)} and the bot writes {@code "CONTRIBUTION_" + TAG} into it, so anything
+     * longer than this would be rejected by PostgreSQL at startup instead of here.
+     * </p>
+     */
+    private static final int MAX_TAG_LENGTH = 32 - "CONTRIBUTION_".length();
 
     /**
      * What to write when the language list is unusable, with a slot for why it is.
@@ -128,16 +138,14 @@ public final class Configs {
 
         requireSnowflake("roles.access", config.roles().access());
         requireSnowflake("roles.donor", config.roles().donor());
-        requireSnowflake("roles.german", config.roles().german());
-        requireSnowflake("roles.english", config.roles().english());
         requireSnowflake("roles.admin", config.roles().admin());
         requireSnowflake("roles.admin-ping", config.roles().adminPing());
 
-        requireSnowflake("channels.contribution-en", config.channels().contributionEn());
-        requireSnowflake("channels.contribution-de", config.channels().contributionDe());
-        requireSnowflake("channels.link-en", config.channels().linkEn());
-        requireSnowflake("channels.link-de", config.channels().linkDe());
         requireSnowflake("channels.admin", config.channels().admin());
+
+        // The language roles and the four per-language channels are not checked here because they
+        // are not settings of their own any more: they live on the entries of `languages` and are
+        // checked by validateLanguages, which names the entry that is wrong.
 
         validateTiers(config.tiers());
         validateLanguages(config.languages());
@@ -243,6 +251,13 @@ public final class Configs {
             }
             if (!tag.equals(tag.toLowerCase(Locale.ROOT))) {
                 throw new IllegalArgumentException(path + ".tag must be lower case, was: " + tag);
+            }
+            if (tag.length() > MAX_TAG_LENGTH) {
+                // managed_message.kind is varchar(32) and holds "CONTRIBUTION_<TAG>". A longer tag
+                // would load fine here and then fail on an INSERT once, per managed message, at
+                // startup - the kind of failure this whole class exists to move forward.
+                throw new IllegalArgumentException(path + ".tag is longer than " + MAX_TAG_LENGTH
+                        + " characters, which is as long as a managed message's key can be: " + tag);
             }
             if (!tags.add(tag)) {
                 throw new IllegalArgumentException(path + " uses the tag '" + tag + "', which "

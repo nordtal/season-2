@@ -78,4 +78,47 @@ public final class Glyphs {
     public static final String BOSSBAR_ICON_FGREEN = "\uEF02";
     public static final String BOSSBAR_ICON_FRED = "\uEF03";
     public static final String BOSSBAR_ICON_FWHITE = "\uEF04";
+    // \uEF05..\uEF08 are reserved for the dimension icons (Nordtal, farm world, Nether, End) -
+    // allocated in resource-pack/README.md, not named here because nothing in season 2 reads them
+    // yet. The four below are the hunger games HUD's own icons - allocated for this feature, still
+    // undrawn: resource-pack/README.md#code-point-allocation lists them as "new, undrawn", and
+    // drawing the actual sprites is design work, not code (docs/state-of-play.md \u00A73). The bossbar
+    // font has no entry for these code points yet either; that is the same known gap, not a second
+    // one - see resource-pack/README.md before adding the PNGs and the font.json entries.
+    public static final String BOSSBAR_ICON_ALIVE = "\uEF09";
+    public static final String BOSSBAR_ICON_DEATHS = "\uEF0A";
+    public static final String BOSSBAR_ICON_LOOT_POINT = "\uEF0B";
+    public static final String BOSSBAR_ICON_BORDER = "\uEF0C";
+
+    // Bearing arrows - U+EF10..U+EF1F, height 10 / ascent 4, sixteen 22.5-degree steps clockwise
+    // from straight ahead. Shared by /navigate (SMP), the hunger games "nearest living player"
+    // arrow and its "nearest loot point" arrow. Undrawn - see the note above.
+    public static final String BOSSBAR_ARROW_000_0 = "\uEF10";
+    public static final String BOSSBAR_ARROW_022_5 = "\uEF11";
+    public static final String BOSSBAR_ARROW_045_0 = "\uEF12";
+    public static final String BOSSBAR_ARROW_067_5 = "\uEF13";
+    public static final String BOSSBAR_ARROW_090_0 = "\uEF14";
+    public static final String BOSSBAR_ARROW_112_5 = "\uEF15";
+    public static final String BOSSBAR_ARROW_135_0 = "\uEF16";
+    public static final String BOSSBAR_ARROW_157_5 = "\uEF17";
+    public static final String BOSSBAR_ARROW_180_0 = "\uEF18";
+    public static final String BOSSBAR_ARROW_202_5 = "\uEF19";
+    public static final String BOSSBAR_ARROW_225_0 = "\uEF1A";
+    public static final String BOSSBAR_ARROW_247_5 = "\uEF1B";
+    public static final String BOSSBAR_ARROW_270_0 = "\uEF1C";
+    public static final String BOSSBAR_ARROW_292_5 = "\uEF1D";
+    public static final String BOSSBAR_ARROW_315_0 = "\uEF1E";
+    public static final String BOSSBAR_ARROW_337_5 = "\uEF1F";
+
+    /**
+     * All sixteen bearing arrows, {@link #BOSSBAR_ARROW_000_0} first, in clockwise order - the
+     * array a bearing-in-degrees calculation indexes with {@code Math.floorMod(Math.round(bearing
+     * / 22.5), 16)}.
+     */
+    public static final String[] BOSSBAR_ARROWS = {
+            BOSSBAR_ARROW_000_0, BOSSBAR_ARROW_022_5, BOSSBAR_ARROW_045_0, BOSSBAR_ARROW_067_5,
+            BOSSBAR_ARROW_090_0, BOSSBAR_ARROW_112_5, BOSSBAR_ARROW_135_0, BOSSBAR_ARROW_157_5,
+            BOSSBAR_ARROW_180_0, BOSSBAR_ARROW_202_5, BOSSBAR_ARROW_225_0, BOSSBAR_ARROW_247_5,
+            BOSSBAR_ARROW_270_0, BOSSBAR_ARROW_292_5, BOSSBAR_ARROW_315_0, BOSSBAR_ARROW_337_5,
+    };
 }

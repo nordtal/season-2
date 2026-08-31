@@ -1,4 +1,4 @@
-package eu.nordtal.s2.resourcepackcoercion;
+package eu.nordtal.s2.limbo;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -8,15 +8,15 @@ import org.bukkit.plugin.java.JavaPlugin;
  * <p>Scaffold only — no behaviour yet. See the module section in CLAUDE.md for what this
  * plugin is meant to own.
  */
-public final class ResourcePackCoercionPlugin extends JavaPlugin {
+public final class LimboPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        getLogger().info("resource-pack-coercion enabled");
+        getLogger().info("limbo enabled");
     }
 
     @Override
     public void onDisable() {
-        getLogger().info("resource-pack-coercion disabled");
+        getLogger().info("limbo disabled");
     }
 }

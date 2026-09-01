@@ -4,6 +4,12 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.updater.UpdaterMain")
 
+// TopologyTest reads the real compose.yml, for the same reason and with the same consequence:
+// a compose file edited on its own would otherwise leave :updater:test UP-TO-DATE.
+repositoryRootTestInputs {
+    reads("compose.yml")
+}
+
 repositories {
     maven("https://jitpack.io")
 }

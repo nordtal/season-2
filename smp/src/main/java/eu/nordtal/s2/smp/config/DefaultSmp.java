@@ -54,6 +54,17 @@ final class DefaultSmp {
             board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
 
     /**
+     * Placeholder duel platforms, both 3 x 3 and both inside radius 10 of the border centre.
+     */
+    static final List<SmpSpec.DuelPlatformSpec> DUEL_PLATFORMS = List.of(
+            platform("SWORD", "nordtal", 106 - 7, 68, 88 - 1, 106 - 5, 69, 88 + 1),
+            platform("BOW", "nordtal", 106 + 5, 68, 88 - 1, 106 + 7, 69, 88 + 1));
+
+    /** A placeholder wheel, inside radius 10 with everything else social. */
+    static final List<SmpSpec.SpawnRegionSpec> WHEEL_REGIONS = List.of(
+            region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
+
+    /**
      * The curated advancement list. Twenty-two entries across the four bands described in
      * {@link SmpSpec#advancementAwards()}, chosen to follow the shape of a playthrough.
      */
@@ -192,6 +203,21 @@ final class DefaultSmp {
         values.put("z", z);
         values.put("yaw", yaw);
         return Specs.createUnsafe(SmpSpec.BoardSpec.class, values);
+    }
+
+    private static SmpSpec.DuelPlatformSpec platform(final String type, final String world,
+                                                     final int minX, final int minY, final int minZ,
+                                                     final int maxX, final int maxY, final int maxZ) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("type", type);
+        values.put("world", world);
+        values.put("min-x", minX);
+        values.put("min-y", minY);
+        values.put("min-z", minZ);
+        values.put("max-x", maxX);
+        values.put("max-y", maxY);
+        values.put("max-z", maxZ);
+        return Specs.createUnsafe(SmpSpec.DuelPlatformSpec.class, values);
     }
 
     private static SmpSpec.AdvancementAwardSpec award(final String advancement, final int aura) {

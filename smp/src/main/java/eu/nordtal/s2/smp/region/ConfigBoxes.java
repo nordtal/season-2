@@ -25,6 +25,16 @@ public final class ConfigBoxes {
         return new Boxes(boxes);
     }
 
+    /** The wheel of fortune's own box, the same shape for the same reason. */
+    public static Boxes wheelRegions(final SmpSpec config) {
+        final List<Box> boxes = new ArrayList<>();
+        for (final SmpSpec.SpawnRegionSpec region : config.wheelRegions()) {
+            boxes.add(new Box(region.world(), region.minX(), region.minY(), region.minZ(),
+                    region.maxX(), region.maxY(), region.maxZ()));
+        }
+        return new Boxes(boxes);
+    }
+
     public static Boxes balloons(final SmpSpec config) {
         final List<Box> boxes = new ArrayList<>();
         for (final SmpSpec.BalloonSpec balloon : config.balloons()) {

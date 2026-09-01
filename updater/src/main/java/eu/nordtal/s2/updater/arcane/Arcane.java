@@ -33,11 +33,23 @@ import java.time.Duration;
  * as "the redeploy happened".
  *
  * <h2>The path is a setting, not a constant</h2>
- * Arcane's public documentation describes {@code X-Api-Key} authentication and says that project
- * deploy, redeploy, pull and build exist as streaming operations; it does <b>not</b> publish the
- * paths (read 2026-09-01). Those are on {@code /api/docs} on our own instance, which no agent can
- * reach. So {@code arcane.redeploy-path} carries a documented guess, a 404 from it is reported
- * with that sentence attached, and correcting it is one line in {@code updater.yml}.
+ * The default was read from Arcane's own source on 2026-09-01 - {@code project/handler.go} at
+ * release v2.10.0 registers {@code POST /environments/{id}/projects/{projectId}/redeploy} under
+ * the {@code /api} group - so it is no longer a guess. It stays a setting because Arcane's public
+ * documentation still does not publish it: a version that moves the path is then one line in
+ * {@code updater.yml} rather than a release of ours.
+ * <p>
+ * Both segments are <b>ids</b>. That is the trap worth naming: the compose project is called
+ * {@code nordtal-s2} everywhere else in this deployment, and putting that name here answers 404.
+ * </p>
+ *
+ * <h2>Arcane may answer success and do nothing</h2>
+ * <a href="https://github.com/getarcaneapp/arcane/issues/1943">arcane#1943</a> reports a redeploy
+ * of an <em>already running</em> project doing nothing while still answering success - which is
+ * exactly the case here, since the stack is up when the button is pressed. It was reported on one
+ * agent at v1.15.3 and closed as not planned. Nothing in this class can detect it: the stream that
+ * would say so is one this container is killed part way through reading. The check is the one in
+ * todo.md - watch the containers cycle the first time.
  */
 @Slf4j
 public final class Arcane {
@@ -45,7 +57,10 @@ public final class Arcane {
     /** The header Arcane's documentation names for token authentication. */
     private static final String API_KEY_HEADER = "X-Api-Key";
 
-    /** Replaced in {@code redeploy-path} by the configured project name. */
+    /** Replaced in {@code redeploy-path} by the configured environment id. */
+    private static final String ENVIRONMENT_PLACEHOLDER = "{environment}";
+
+    /** Replaced in {@code redeploy-path} by the configured project id. */
     private static final String PROJECT_PLACEHOLDER = "{project}";
 
     private final UpdaterSpec.ArcaneSpec config;
@@ -74,9 +89,18 @@ public final class Arcane {
         return !config.baseUrl().isBlank();
     }
 
-    /** The URL that would be called, for a log line and for the message on a failure. */
+    /**
+     * The URL that would be called, for a log line and for the message on a failure.
+     * <p>
+     * Both path segments are substituted, and both are <em>ids</em>: the environment is {@code 0}
+     * for Arcane's own host and a UUID for a remote agent, and the project is a UUID Arcane
+     * generated. Neither is a name, which is the mistake this class reports by name on a 404.
+     * </p>
+     */
     public @NotNull String endpoint() {
-        return config.baseUrl() + config.redeployPath().replace(PROJECT_PLACEHOLDER, config.project());
+        return config.baseUrl() + config.redeployPath()
+                .replace(ENVIRONMENT_PLACEHOLDER, config.environment())
+                .replace(PROJECT_PLACEHOLDER, config.project());
     }
 
     /**
@@ -137,9 +161,11 @@ public final class Arcane {
             case 401, 403 -> RedeployResult.refused("Arcane refused the token (HTTP " + status
                     + "). Check arcane.api-key - it is generated under Settings -> API Keys.");
             case 404 -> RedeployResult.refused("Arcane answered 404 for " + endpoint() + "."
-                    + " THIS PATH IS A GUESS: Arcane's public documentation does not publish it."
-                    + " Read /api/docs on the instance and set arcane.redeploy-path to what it says."
-                    + " Check arcane.project as well - it must be the project's name in Arcane.");
+                    + " Both path segments are ids, not names: arcane.environment is 0 for Arcane's"
+                    + " own host and a UUID for an agent, and arcane.project is a UUID Arcane"
+                    + " generated - the compose project name is not accepted there. Read them from"
+                    + " GET " + config.baseUrl() + "/api/environments/" + config.environment()
+                    + "/projects, or from /api/docs if this version has moved the path.");
             default -> RedeployResult.refused("Arcane answered HTTP " + status + " for "
                     + endpoint() + ". Nothing was restarted.");
         };

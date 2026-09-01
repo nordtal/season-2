@@ -1,10 +1,18 @@
 # nordtal.eu season 2 - the whole deployment.
 #
 # One stack, four profiles and one service that is in every one of them. SimpleCloud was dropped
-# on 2026-09-01; the reasoning is in README.md#why-it-looks-like-this, next to this file.
+# on 2026-09-01; the reasoning is in deploy/README.md#why-it-looks-like-this.
 #
 #   cp .env.example .env        # fill it in; .env is gitignored and must never be committed
 #   docker compose up -d
+#
+# THIS FILE LIVES AT THE REPOSITORY ROOT, AND MOVING IT INTO deploy/ WOULD BREAK THE DEPLOYMENT.
+# Arcane's GitOps sync pulls "the entire directory the compose file lives in, not just the file
+# itself" (its own documentation, read 2026-09-01) - so a compose file under deploy/ would put
+# deploy/ on the host and nothing else, and the `./updater` and `./discord-bot` build contexts
+# below would not exist there. At the root, the synced directory is the whole repository and every
+# context resolves. Everything else that belongs to the deployment is still in deploy/; it is this
+# one file and .env.example that have to be up here.
 #
 # COMPOSE_PROFILES in .env decides what "everything" means. The default is `db,bot,mc`.
 #
@@ -18,7 +26,7 @@
 # THE UPDATER HAS NO PROFILE, so it is in every selection including `COMPOSE_PROFILES=bot`. That is
 # not an oversight. It is the only process that applies the schema, so nothing else in this stack
 # can correctly start before it; and it is what answers /update in Discord and /smp update in game,
-# which needs it running rather than run. See ../docs/updater.md and its block below.
+# which needs it running rather than run. See docs/updater.md and its block below.
 #
 # The bot has no Minecraft dependency and never waits for a proxy or a backend; the `bot` profile
 # is what preserves that. It replaces discord-bot/docker-compose.yml.
@@ -37,8 +45,8 @@
 # cannot drag in a service you did not want.
 #
 # It used to be an operator rule written in prose - "bring the bot up first, it is the only process
-# that migrates" - and that stopped being true on 2026-09-01. See ../docs/updater.md and
-# README.md#first-deployment-in-order.
+# that migrates" - and that stopped being true on 2026-09-01. See docs/updater.md and
+# deploy/README.md#first-deployment-in-order.
 
 name: nordtal-s2
 
@@ -49,7 +57,7 @@ name: nordtal-s2
 x-minecraft: &minecraft
   profiles: ["mc"]
   build:
-    context: ./minecraft
+    context: ./deploy/minecraft
   image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:${MC_IMAGE_TAG:-local}}
   restart: unless-stopped
   depends_on:
@@ -128,11 +136,11 @@ services:
   # volume only when the policy's `Stop Containers` flag is set, and for a live PGDATA both
   # settings are wrong - off gives a torn copy that fails at restore rather than at backup, on
   # gives a nightly outage of everything in this stack. `postgres-dumps` has neither problem,
-  # because nothing holds it open between runs. See ../deploy/README.md#backups.
+  # because nothing holds it open between runs. See deploy/README.md#backups.
   postgres-backup:
     profiles: ["backup"]
     build:
-      context: ./postgres-backup
+      context: ./deploy/postgres-backup
       args:
         POSTGRES_IMAGE: ${POSTGRES_IMAGE:-postgres:17-alpine}
     image: ${BACKUP_IMAGE:-nordtal/postgres-backup:${POSTGRES_IMAGE_TAG:-17-alpine}}
@@ -160,7 +168,7 @@ services:
   # -------------------------------------------------------------------------------------------
   # The Discord bot. No Minecraft dependency: PostgreSQL, the Discord gateway and bunq. It applied
   # the schema until 2026-09-01; the updater does now, and the bot validates it and refuses to start
-  # on a database nobody migrated. Its runbook is in ../discord-bot/README.md.
+  # on a database nobody migrated. Its runbook is in discord-bot/README.md.
   bot:
     profiles: ["bot"]
     # SINCE 2026-09-01 THE IMAGE TAG IS A FLOOR, NOT THE VERSION. The bot runs whatever
@@ -174,9 +182,9 @@ services:
     # never will again.
     image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${BOT_VERSION:?set BOT_VERSION in .env; it must match gradle.properties}}
     build:
-      # Compose cannot run Gradle: `../gradlew :discord-bot:shadowJar` has to happen first.
+      # Compose cannot run Gradle: `./gradlew :discord-bot:shadowJar` has to happen first.
       # A production host runs the released image and never builds.
-      context: ../discord-bot
+      context: ./discord-bot
       args:
         JAR: build/libs/discord-bot-${BOT_VERSION}.jar
     restart: unless-stopped
@@ -260,7 +268,7 @@ services:
       #
       # The proxy still refuses to start with an empty url or sha1 while pack.enabled is true. On a
       # brand new volume that means: bring network-control up once so it writes its config, then
-      # run the updater, then start it for real. See ../docs/updater.md and ../deploy/README.md.
+      # run the updater, then start it for real. See docs/updater.md and deploy/README.md.
       NORDTAL_NETWORK_CONTROL_DATABASE_JDBC_URL: *db-url
       NORDTAL_NETWORK_CONTROL_DATABASE_USERNAME: *db-username
       NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD: *db-password
@@ -362,17 +370,17 @@ services:
   # Today it resolves the newest version of everything the network runs, compares that against the
   # jars actually in the volumes, and prints the difference. The only thing it writes is its own
   # config/updater.yml on a first run - nothing in a Minecraft volume - which is why the four mounts
-  # below are read-only and why it is safe to run against a live deployment at any moment. Steps 2 to 6 of ../docs/updater.md add the schema, the jar swap and the restart button;
+  # below are read-only and why it is safe to run against a live deployment at any moment. Steps 2 to 6 of docs/updater.md add the schema, the jar swap and the restart button;
   # the swap is what turns four of these mounts read-write, in a diff where that is visible.
   #
-  # NOTHING PUBLISHES THIS IMAGE - same as the Minecraft one. The host builds it from ../updater,
+  # NOTHING PUBLISHES THIS IMAGE - same as the Minecraft one. The host builds it from ./updater,
   # which needs `./gradlew :updater:shadowJar` to have run first.
   # -------------------------------------------------------------------------------------------
   # The updater. No profile, because everything else in this stack depends on it.
   #
   # WHAT IT OWNS: the database schema, and the version of every jar that runs anywhere here - the
   # four servers' plugins, their Paper and Velocity jars, the proxy's resource-pack url and sha1,
-  # the bot's jar, and its own. See ../docs/updater.md.
+  # the bot's jar, and its own. See docs/updater.md.
   #
   # WHAT IT IS NOT: a scheduler. `serve` applies the schema once at startup and then does nothing
   # at all until somebody writes a row into update_request - no timer, no watching, no "check for
@@ -390,7 +398,7 @@ services:
   # second one to ask is refused rather than queued.
   updater:
     build:
-      context: ../updater
+      context: ./updater
       args:
         JAR: build/libs/updater-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
     image: ${UPDATER_IMAGE:-nordtal/updater:${SEASON_VERSION:-local}}
@@ -434,17 +442,21 @@ services:
       # host, and this is the container whose job is downloading files from the internet.
       #
       # LEAVING ARCANE_URL EMPTY IS A SUPPORTED STATE. Everything else works; the restart button
-      # says it is not configured and a redeploy is a click in Arcane. The endpoint path is a
-      # SETTING because Arcane's public documentation does not publish it - read /api/docs on the
-      # instance and put the real one in ARCANE_REDEPLOY_PATH.
+      # says it is not configured and a redeploy is a click in Arcane.
+      #
+      # THE TWO IDS ARE IDS AND NOT NAMES. ARCANE_ENVIRONMENT is 0 for Arcane's own host and a
+      # UUID for a remote agent; ARCANE_PROJECT is a UUID Arcane generated for the project and is
+      # NOT the compose project name - putting `nordtal-s2` there answers 404. Read them from
+      # GET $ARCANE_URL/api/environments/0/projects with the same token.
       NORDTAL_UPDATER_ARCANE_BASE_URL: ${ARCANE_URL:-}
       NORDTAL_UPDATER_ARCANE_API_KEY: ${ARCANE_API_KEY:-}
+      NORDTAL_UPDATER_ARCANE_PROJECT: ${ARCANE_PROJECT:-}
       # These two defaults are repeated from UpdaterSpec.ArcaneSpec, and they have to be: an
       # environment variable set to the empty string still WINS over the file in jcore's config
       # system, so `${VAR:-}` here would blank out the spec's own default rather than fall back to
       # it. TopologyTest asserts the two copies still say the same thing.
-      NORDTAL_UPDATER_ARCANE_PROJECT: ${ARCANE_PROJECT:-nordtal-s2}
-      NORDTAL_UPDATER_ARCANE_REDEPLOY_PATH: ${ARCANE_REDEPLOY_PATH:-/api/projects/{project}/redeploy}
+      NORDTAL_UPDATER_ARCANE_ENVIRONMENT: ${ARCANE_ENVIRONMENT:-0}
+      NORDTAL_UPDATER_ARCANE_REDEPLOY_PATH: ${ARCANE_REDEPLOY_PATH:-/api/environments/{environment}/projects/{project}/redeploy}
     volumes:
       - updater-config:/app/config
       # Everything this module owns, under the names Topology in :updater expects to find beneath

@@ -57,7 +57,7 @@ import java.util.Optional;
  * <p>The startup migration is not a version move and does not break that rule - the schema applied
  * is whatever <em>this</em> jar carries, and this jar is what it was. It is done there because the
  * updater is the only process that migrates and the whole stack starts at once after a redeploy;
- * {@code deploy/compose.yml} makes every other service wait for the readiness marker this writes
+ * {@code compose.yml} makes every other service wait for the readiness marker this writes
  * once the schema is current.</p>
  *
  * <h2>Exit codes</h2>
@@ -89,7 +89,7 @@ public final class UpdaterMain {
     /**
      * Touched once the schema is current and the loop is about to start.
      * <p>
-     * {@code deploy/compose.yml}'s healthcheck is {@code test -f} on this path, and every other
+     * {@code compose.yml}'s healthcheck is {@code test -f} on this path, and every other
      * service waits for it. A file rather than a port because this process does not serve one, and
      * in {@code /tmp} rather than a volume because it must be false again after a restart - a
      * readiness marker that survives the process it describes is worse than none.

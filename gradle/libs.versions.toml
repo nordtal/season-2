@@ -18,6 +18,13 @@ jcore = "3.0.0"
 # is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to be
 # installed on the SMP server. Checked against the repository's own api/README.md on 2026-09-01.
 displaytags = "2.0.0"
+# Chunky, the chunk pre-generator. Published by pop4959 to repo.codemc.io, NOT to Maven Central -
+# the two "chunky" artefacts on Central are unrelated projects. The version is pinned to 1.5.3
+# rather than the 1.5.4 that codemc also carries, because 1.5.3 is what Modrinth tags for `paper`
+# on Minecraft 26.2 (checked against the Modrinth v2 API, 2026-09-01) and therefore what actually
+# runs on the server. A compileOnly version ahead of the installed jar is how you get a
+# NoSuchMethodError in production and nowhere else.
+chunky = "1.5.3"
 jda = "6.0.0-rc.4"
 bunq = "1.28.0.6"
 guava = "33.6.0-jre"
@@ -55,6 +62,7 @@ paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
 velocity-api = { module = "com.velocitypowered:velocity-api", version.ref = "velocity" }
 jcore = { module = "com.github.nordtal:jcore", version.ref = "jcore" }
 display-tags = { module = "com.github.nordtal:papermc-display-tags", version.ref = "displaytags" }
+chunky = { module = "org.popcraft:chunky-common", version.ref = "chunky" }
 jda = { module = "net.dv8tion:JDA", version.ref = "jda" }
 bunq-sdk = { module = "com.github.bunq:sdk_java", version.ref = "bunq" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }

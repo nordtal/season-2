@@ -3,14 +3,18 @@
 The container that owns the versions of everything the network runs — and, from step 2 of
 [../docs/updater.md](../docs/updater.md) on, the database schema.
 
-**Step 1 of six is built.** It resolves, compares and reports. It does not download, swap, migrate
-or restart anything.
+**Steps 1 and 3 of six are built.** It resolves, compares, reports, and — when asked by name —
+installs. It does not migrate or restart anything.
 
 ```bash
-docker compose --profile updater run --rm updater
+docker compose --profile updater run --rm updater          # resolve and report, changes nothing
+docker compose --profile updater run --rm updater apply    # fetch the files and put them in place
 ```
 
-## What a run does today
+The default is the read-only one on purpose: a container started by accident, or with a misspelled
+argument, does the harmless thing.
+
+## Where a version comes from
 
 | what | where it is read from |
 |---|---|
@@ -30,9 +34,20 @@ or — the two that matter — *unknown* and *UNRESOLVED*. Those two exist so th
 - **It is a command, not a service.** No restart policy, no schedule, and `updater` must not appear
   in `COMPOSE_PROFILES`. A crash restart at three in the morning must not move a version: the
   network comes back on exactly what it was running.
-- **It writes nothing outside its own config volume.** The four Minecraft mounts are `:ro`; the one
-  file it writes is `config/updater.yml`, on a first run. Step 3 is what makes the mounts writable,
-  and that is a change you should be able to see in a diff.
+- **A report run puts nothing into a Minecraft volume.** Only `apply` does, and `apply` still
+  restarts nothing: it prints what it did and stops, because a person reading a half-done run
+  before the network goes down on it is the entire point of the restart being step 6.
+- **A swap is two phases.** Everything a server needs is downloaded into `.nordtal-staging` inside
+  that server's own volume and verified there; only when all of it is present does anything move
+  into `plugins/` or `.server/`. A download that fails half way leaves the server exactly as it
+  was. `entrypoint.sh` never worked this way and did not need to — this moves eight artefacts
+  across four servers at once, and a network running four servers on two versions of the season is
+  worse than one that did not update.
+- **A server moves together or not at all.** If one of a server's artefacts cannot be resolved, the
+  whole server is skipped. DisplayTags is a *required* plugin of `smp` and PacketEvents is required
+  under it, so a partial swap there is a server that does not start.
+- **Nothing it does not account for is ever deleted.** Only a jar whose filename prefix matches the
+  one just installed, and only after the new jar is in place.
 - **A source that cannot be reached costs its own rows and nobody else's.** A Modrinth outage must
   not hide that our own jars moved.
 - **A version that is not tagged for the platform is refused, never worked around.** "Chunky has no
@@ -66,10 +81,29 @@ operator retypes `nordtal/season-2` is one that gets started with a typo in it. 
 here, and the resolved tag is printed on every run precisely so that case is recognisable. An exact
 tag is how a rollback is expressed, and it is a person's decision.
 
+## What it owns, and what it does not
+
+It owns every plugin jar in every `plugins/` folder, the server jars in `.server/`, and the two
+lines of the proxy's `pack.yml`. `deploy/minecraft/entrypoint.sh` fetched the plugins until
+2026-09-01 and does not any more: two owners of the same file is one owner too many, because that
+script deletes by filename prefix and would have deleted the jar the updater had just fetched. What
+the entrypoint still owns is resolving the pinned server build and the world-generation datapacks,
+and refusing to start on an empty `plugins/` folder — the coarse remnant of its old "never run an
+older jar" guard.
+
+It does not own worlds, anything a player built, any other file inside a volume, the database
+schema (that is step 2), or the restart (steps 5 and 6).
+
 ## Tests
 
-`./gradlew :updater:test` — 57 tests, no network and no container. Every API fixture in
+`./gradlew :updater:test` — 75 tests, no network and no container. Every API fixture in
 `src/test/resources/fixtures/` was recorded from the live GitHub, Modrinth and PaperMC APIs on
 2026-09-01, including the release that carried the scaffold `smp` and `limbo` jars.
 `TopologyTest` reads the real `deploy/compose.yml`: a fifth backend server added there and not to
-`Topology` fails the build, because the updater would otherwise quietly never touch it.
+`Topology` fails the build, and so does re-adding `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two
+`PACK_*` variables.
+
+Verified beyond the tests on 2026-09-01, in the container, against the live APIs: Chunky 1.5.3
+fetched and its sha512 matching Modrinth's published hash, the superseded 1.5.2 deleted, a jar
+nothing accounts for left alone, `pack.yml` rewritten with its comments intact, and no staging
+directory left behind.

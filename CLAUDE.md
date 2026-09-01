@@ -486,23 +486,29 @@ deliberately not used: generic keys such as `password` would collide across file
 
 ## updater
 
-**New 2026-09-01. Step 1 of six is built** ([docs/updater.md](docs/updater.md)); everything else in
-that document is design. A standalone JVM application like `discord-bot`, run as a **command and
+**New 2026-09-01. Steps 1 and 3 of six are built** ([docs/updater.md](docs/updater.md)); steps 2, 4,
+5 and 6 are still design. A standalone JVM application like `discord-bot`, run as a **command and
 never as a service**:
 
 ```
-docker compose --profile updater run --rm updater
+docker compose --profile updater run --rm updater          # resolve and report, changes nothing
+docker compose --profile updater run --rm updater apply    # fetch the files and put them in place
 ```
 
-What exists resolves the newest version of every jar the network runs — the six season-2 jars and
-the pack from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents and Chunky
-from Modrinth filtered to `26.2`/`paper`, Paper and Velocity from the PaperMC Fill API — compares
-that against the jars actually in the mounted volumes, and prints the difference. **The only
-thing it writes is its own `config/updater.yml` on a first run** — nothing in a Minecraft volume,
-no jar, no database row — which is why its four compose mounts are `:ro` and why it is safe to run
-against a live deployment at any moment. Step 3 is what makes them writable.
+It resolves the newest version of every jar the network runs — the six season-2 jars and the pack
+from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents and Chunky from
+Modrinth filtered to `26.2`/`paper`, Paper and Velocity from the PaperMC Fill API — compares that
+against the jars in the mounted volumes, and prints the difference. `apply` then installs what
+differs and writes the proxy's `pack.yml`.
 
-Three rules that are easy to break and expensive to break:
+**It owns the plugin jars now, and `deploy/minecraft/entrypoint.sh` does not.** That script fetched
+them until 2026-09-01; `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS`, `SEASON_RELEASE`, `PACK_URL` and
+`PACK_SHA1` are gone from the deployment. Two owners of the same file is one owner too many — the
+entrypoint deletes by filename prefix, so it would have deleted the very jar the updater had just
+fetched. What is left in its place is a coarser guard: an empty `plugins/` folder stops the
+container.
+
+Four rules that are easy to break and expensive to break:
 
 - **It must never get a restart policy or a schedule.** A crash restart at three in the morning
   must not move a version. An update happens because somebody asked for one.
@@ -512,6 +518,10 @@ Three rules that are easy to break and expensive to break:
   two versions of one plugin without complaining.
 - **`Topology` and `deploy/compose.yml` are two copies of one fact.** A fifth backend server is a
   change to both in the same commit; `TopologyTest` reads the real compose file and fails otherwise.
+  It also fails if `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two `PACK_*` variables come back.
+- **A swap is two phases, and a server moves together or not at all.** Everything is staged inside
+  the target volume and only moved in once all of it is there. Four servers on two versions of the
+  season is worse than four servers that did not update.
 
 `updater.yml` is the one config in this repository whose defaults are the real values and where a
 freshly written file is what you want: the repositories, the two Modrinth project ids and the

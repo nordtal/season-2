@@ -21,7 +21,8 @@ deploy/
 
 ## First deployment, in order
 
-The order matters in two places only, and both are marked.
+The order matters in two places, and both are marked. **It changed on 2026-09-01**: there is now a
+step between the database and the Minecraft services, and without it the servers do not come up.
 
 1. **`cp .env.example .env` and replace every `REPLACE_ME`.** That file is the whole of the
    configuration; nothing else has to be edited anywhere. Nothing has a plausible default for a
@@ -29,19 +30,17 @@ The order matters in two places only, and both are marked.
    (*"roles.access must be a Discord snowflake (digits only)"*) rather than starting something
    surprising. One of them is the forwarding secret: `openssl rand -hex 24`.
 
-   Two of them are not guesses but lookups. `PACK_SHA1` is the content of the release's
-   `nordtal-resource-pack-<version>.zip.sha1` asset — the proxy refuses to start without it, and
-   a hash left over from an older release fails every pack download on the network at once:
-
+   **There is no hash to look up any more.** `PACK_SHA1` was in this file for a few hours on
+   2026-09-01 and is gone again: the updater reads the release's `.zip.sha1` asset and writes it
+   into the proxy's `pack.yml` itself. Every remaining `REPLACE_ME` is something only you know — a
+   Discord id, a bunq key, a password.
+2. **Build the updater jar.** Compose builds its image from `../updater`, and that image copies in
+   a jar Gradle has to have produced first. The Minecraft image needs no such step; it builds from
+   `./minecraft` alone.
    ```bash
-   curl -sL https://github.com/nordtal/season-2/releases/download/v0.2.0/nordtal-resource-pack-0.2.0.zip.sha1
+   ./gradlew :updater:shadowJar
    ```
-
-   **Corrected 2026-09-01.** Until that day the pack's `url` and `sha1` were in neither this file
-   nor `compose.yml`; `network-control` fails closed without them, so step 3 below could not have
-   worked, and the sentence above about `.env` being the whole configuration was not true. They
-   are settings now.
-2. **Bring up PostgreSQL and the bot first.** ← *ordering matters.* The bot is the only process
+3. **Bring up PostgreSQL and the bot first.** ← *ordering matters.* The bot is the only process
    that applies the schema, and every other service expects it to be current.
    ```
    docker compose --profile db --profile bot up -d
@@ -49,16 +48,28 @@ The order matters in two places only, and both are marked.
    Leave `NORDTAL_ACCESS_PAYMENT_WATERMARK` empty on a fresh database: the first start stamps its
    own instant, and without it the first poll books up to 50 historical bunq payments — roles, DMs
    and public thank-yous included.
-3. **Start the Minecraft services.**
+4. **Install the jars and the pack.** ← *ordering matters, and this step is new.*
+   ```
+   docker compose --profile updater run --rm updater apply
+   ```
+   This is what fills every `plugins/` folder and writes the proxy's `pack.yml`. The Minecraft
+   containers no longer fetch their own plugin jars — the updater owns them, because two owners of
+   the same file is one owner too many ([../docs/updater.md](../docs/updater.md)). Read what it
+   prints: it says, per server, what it installed and what it removed.
+
+   Run it without `apply` first if you want to see the plan and change nothing.
+5. **Start the Minecraft services.**
    ```
    docker compose --profile mc up -d
    ```
-   On a fresh volume each container seeds the configuration it cannot work without and then never
-   touches it again — see [First-start seeding](#first-start-seeding) for exactly what is written
-   and what that leaves to you. Database credentials, the forwarding secret and the server list all
-   arrive from `.env`; there is nothing to paste into a volume.
-4. **Upload the hand-built worlds** — see below.
-5. **Run the login-path rehearsal** — [`../../todo.md`](../../todo.md), section 1. Nothing above
+   A container whose `plugins/` folder is empty **refuses to start** and says to run step 4 — a
+   Minecraft server with no season on it looks fine until somebody joins. On a fresh volume each
+   container seeds the configuration it cannot work without and then never touches it again — see
+   [First-start seeding](#first-start-seeding) for exactly what is written and what that leaves to
+   you. Database credentials, the forwarding secret and the server list all arrive from `.env`;
+   there is nothing to paste into a volume.
+6. **Upload the hand-built worlds** — see below.
+7. **Run the login-path rehearsal** — [`../../todo.md`](../../todo.md), section 1. Nothing above
    proves a client can join.
 
 ## First-start seeding
@@ -154,48 +165,44 @@ escape sequences.
 
 ## Updating
 
-> **This is how it works today, and it is being replaced.** A module that resolves versions by
-> itself, applies the migrations, swaps the jars and redeploys on a button was designed on
-> 2026-09-01 — [../docs/updater.md](../docs/updater.md) — after the audit below found the
-> published `v0.1.0` carrying the *scaffold* `smp` and `limbo` jars while `.env.example` pinned it.
-> Nothing about the mechanism described here is wrong; what it lacks is that a pin has to be moved
-> by a hand that is usually busy building.
->
-> **Step 1 of that module is built.** It answers the question and changes nothing:
->
-> ```bash
-> docker compose --profile updater run --rm updater
-> ```
->
-> It reads the newest version of every jar from GitHub, Modrinth and the PaperMC Fill API, compares
-> it against what is actually in the four volumes, and prints the difference — including jars in a
-> `plugins/` folder that nothing accounts for, and the pack's SHA-1 against the release's. Every
-> Minecraft mount is read-only — the one file it writes is its own `config/updater.yml`, on a first
-> run — so it is safe against a live network at any moment. Run it before the version bump below and
-> you know what the bump would do.
->
-> **It is a command, not a service:** never give it a restart policy and never put `updater` in
-> `COMPOSE_PROFILES`. The whole design rests on a crash restart at three in the morning not moving
-> a version.
-
-A plugin update is a version bump. Nothing is copied by hand — that was the daily cost of the
-SimpleCloud dashboard and it is what this replaces.
+A plugin update is one command, and a second one to make it take effect.
 
 ```bash
-# .env: SEASON_VERSION=0.1.1, SEASON_RELEASE=v0.1.1
-docker compose up -d
+docker compose --profile updater run --rm updater          # what would change, changes nothing
+docker compose --profile updater run --rm updater apply    # fetch and put in place
+docker compose --profile mc restart                        # the servers pick up what is on disk
 ```
 
-Each container pulls the jars named by that version from the GitHub release into its own volume and
-deletes the superseded ones. A rollback is the same edit backwards.
+The updater asks GitHub, Modrinth and the PaperMC Fill API what the newest version of everything is,
+compares that against the jars lying in the volumes, and moves the ones that differ. Nothing is
+copied by hand and no version is written into a file — **what a server runs is the jar in its
+volume**, which is why `SEASON_RELEASE` no longer exists here. What the updater *follows* is
+`UPDATER_SEASON_RELEASE`, and setting it to an exact tag instead of `latest` is how a rollback is
+expressed.
 
-**Cache-first, and it fails closed.** A version already in the volume is never re-fetched, so a
-GitHub outage does not stop a restart. A jar that the pin requires and that cannot be fetched stops
-the container — it never quietly runs last week's plugin.
+Three properties worth knowing, because each is a decision:
 
-A **server** update is the same shape: bump `PAPER_BUILD` or `VELOCITY_BUILD` after checking
-`https://fill.papermc.io/v3/projects/paper/versions/26.2/builds` for the newest `STABLE`. Never
-"latest"; the pin is the point.
+- **Two phases.** Everything a server needs is downloaded into `.nordtal-staging` inside that
+  server's own volume and verified there; only when all of it is present does anything move into
+  `plugins/`. A download that fails half way leaves the server exactly as it was. Four servers on
+  two versions of the season is a worse state than four servers that did not update.
+- **A server moves together or not at all.** If one of a server's artefacts cannot be resolved, that
+  whole server is skipped. "The new SMP jar with last week's PacketEvents" is a combination nobody
+  chose, and DisplayTags is a *required* plugin of `smp` whose own required plugin PacketEvents is.
+- **It restarts nothing.** `apply` prints what it did and stops. Read that before restarting — a
+  server that was part-updated is exactly the thing worth catching before the network goes down on
+  it. Steps 4 to 6 of [../docs/updater.md](../docs/updater.md) put that report in Discord with a
+  restart button under it.
+
+Checksums are verified where a checksum exists: Modrinth publishes a sha512 per file and the Fill
+API a sha256 per build, and a mismatch deletes the download instead of installing it. **A GitHub
+release asset carries no digest of any kind**, so our own jars and the DisplayTags jar arrive
+unverified over TLS — the same way `entrypoint.sh` has always fetched them, and a real gap rather
+than an implied one.
+
+The **server jar** is still the entrypoint's, not the updater's: Paper and Velocity builds are
+resolved by the container at start from the version pinned in `.env`. The updater reports when a
+newer `STABLE` build exists and installs it into the same cache the entrypoint reads.
 
 ## Stopping
 
@@ -313,6 +320,13 @@ Two kinds, and the distinction matters because one of them may be missing and th
   swaps anything in. Without it the reset would not fail, it would postpone itself every night,
   silently, which is why `required: true` turns that into a start-up failure instead.
   `Chunky-Bukkit-1.5.3.jar`, which is the version Modrinth tags for `paper` on 26.2.
+
+**Where all three come from changed on 2026-09-01.** They used to be three full URLs in
+`SMP_EXTRA_PLUGIN_URLS`, with three versions written into `.env` by hand. The updater resolves them
+now — DisplayTags from its own repository's releases, PacketEvents and Chunky from Modrinth filtered
+to this Minecraft version and `paper` — so a version bump is a run of `updater apply` and not an
+edit. `required: true` is unchanged, and the container refuses to start on an empty `plugins/`
+folder, which is what catches "the updater never ran here".
 
 **And two datapacks, which are not plugins but belong in the same conversation: Terralith and
 Dungeons and Taverns.** They are what the terrain of every world in this season is, they are pinned

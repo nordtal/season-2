@@ -3,7 +3,7 @@
 # PID 1 for every Minecraft service. Four jobs, in order:
 #
 #   1. resolve and cache the pinned server jar (PaperMC Fill API)
-#   2. pull the pinned plugin jars from the GitHub release, cache-first
+#   2. refuse to start on an empty plugins folder - the `updater` container fills it
 #   3. start the server inside a tmux session, so that `docker exec` has a writable console
 #   4. translate SIGTERM into a graceful shutdown and wait for the JVM to finish saving
 #
@@ -36,7 +36,6 @@ SESSION="${MC_TMUX_SESSION:-mc}"
 FILL_API="https://fill.papermc.io/v3/projects"
 FILL_UA="nordtal-season-2/deploy (+https://github.com/nordtal/season-2)"
 
-SEASON_REPO="${SEASON_REPO:-nordtal/season-2}"
 
 mkdir -p "$CACHE" "$PLUGINS" "$(dirname "$SOCK")"
 
@@ -82,48 +81,32 @@ else
 fi
 
 # --- plugins ---------------------------------------------------------------------------------
-# Cache-first with a hard failure only on a jar that is required and absent. A jar's filename
-# carries its version, so "is the pinned version already here" is a file-existence test, and a
-# version bump is automatically a cache miss. The container NEVER falls back to an older jar:
-# "the server is up, running last week's plugin" is the fault that gets discovered late.
-fetch_plugin() {
-    local file="$1" url="$2" dest="$PLUGINS/$1" base tmp
-
-    if [[ -f "$dest" ]]; then
-        log "plugin cached: ${file}"
-        return 0
-    fi
-
-    log "fetching plugin ${file}"
-    tmp="${dest}.partial"
-    curl -fsSL --max-time 300 -o "$tmp" "$url" \
-        || { rm -f "$tmp"; die "could not fetch ${file} from ${url}, and it is not present in ${PLUGINS}. Refusing to start rather than running an older jar. If GitHub is up, check that the release tag and the asset name in .env are right."; }
-    mv "$tmp" "$dest"
-
-    # Drop earlier versions of the same plugin only once the new one is safely in place.
-    # plugins/<name>/ data folders are untouched - only the jar is versioned.
-    base="${file%-*.jar}"
+# THIS SCRIPT NO LONGER FETCHES PLUGINS. It did until 2026-09-01, pulling `<module>-$SEASON_VERSION
+# .jar` from a GitHub release and deleting every other version of the same plugin by filename
+# prefix. The `updater` container owns the plugin jars now (../../docs/updater.md), and the two
+# cannot both own them: an updater that puts 0.3.0 into this volume while .env still said 0.2.0
+# would have the next restart delete exactly the jar it had just fetched.
+#
+# What this container still owns is the server jar above and the datapacks below - neither of
+# which the updater touches, and both of which have to be right before the JVM starts.
+#
+# WHAT WAS LOST WITH IT, and what replaces it: the old code refused to start rather than run an
+# older jar, which is a property worth keeping. It is kept in a coarser form - an empty plugins
+# folder stops the container. Every service in this deployment has at least one plugin, so "no
+# jars at all" means the updater has never run against this volume, and a Minecraft server that
+# comes up with no season on it is the failure that gets discovered by a player.
+if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -s nullglob
-    for old in "$PLUGINS/${base}-"*.jar; do
-        [[ "$old" != "$dest" ]] && { rm -f "$old"; log "removed superseded ${old##*/}"; }
-    done
+    installed=("$PLUGINS"/*.jar)
     shopt -u nullglob
-}
+    if (( ${#installed[@]} == 0 )); then
+        die "no plugin jars in ${PLUGINS}. This container does not fetch them any more - the updater does. Run it once against this stack:
 
-if [[ -n "${SEASON_PLUGINS:-}" ]]; then
-    : "${SEASON_RELEASE:?SEASON_PLUGINS is set, so SEASON_RELEASE must name the release tag}"
-    for file in $SEASON_PLUGINS; do
-        fetch_plugin "$file" \
-            "https://github.com/${SEASON_REPO}/releases/download/${SEASON_RELEASE}/${file}"
-    done
-fi
+    docker compose --profile updater run --rm updater apply
 
-# Third-party jars that are not ours: DisplayTags and PacketEvents on the SMP server, and
-# CoreProtect if it ever ships for 26.2. Full URLs, because they come from other releases.
-if [[ -n "${EXTRA_PLUGIN_URLS:-}" ]]; then
-    for url in $EXTRA_PLUGIN_URLS; do
-        fetch_plugin "${url##*/}" "$url"
-    done
+Refusing to start: a Minecraft server with no plugins is a server with no season on it, and nothing about it looks wrong until somebody joins. Set ALLOW_NO_PLUGINS=true if a server with no plugins really is what you want."
+    fi
+    log "plugins present: ${#installed[@]} jar(s)"
 fi
 
 # --- world-generation datapacks ----------------------------------------------------------------

@@ -9,11 +9,17 @@ FROM eclipse-temurin:25-jre
 
 WORKDIR /app
 
+# The jar baked in here is the FLOOR, not the version. Since 2026-09-01 the bot runs whatever
+# discord-bot-*.jar is in /app/lib, which is a volume the updater fills; this copy is only what
+# makes a first deployment possible, before any updater run has happened. docker-entrypoint.sh
+# says the same thing at length and prints which one it picked on every start.
 ARG JAR
 COPY ${JAR} /app/app.jar
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
-RUN mkdir -p config bunq \
-    && chmod 700 bunq
+RUN mkdir -p config bunq lib \
+    && chmod 700 bunq \
+    && chmod +x /app/docker-entrypoint.sh
 
 # The bunq API context holds credentials and is kept in a Docker-managed volume, never on
 # the host filesystem.
@@ -44,6 +50,11 @@ RUN mkdir -p config bunq \
 # empty credential. It never falls back to defaults.
 ENV NORDTAL_BOT_BUNQ_CONTEXT_PATH=/app/bunq/bunq-config.conf
 
-VOLUME ["/app/config", "/app/bunq"]
+# Where the updater puts this container's jar, and what it is called. The same volume is mounted
+# into the updater at /volumes/discord-bot, which is where it writes.
+ENV JAR_DIR=/app/lib
+ENV JAR_PREFIX=discord-bot
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+VOLUME ["/app/config", "/app/bunq", "/app/lib"]
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

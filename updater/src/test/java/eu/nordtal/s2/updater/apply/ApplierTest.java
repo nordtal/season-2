@@ -174,14 +174,49 @@ class ApplierTest {
     }
 
     @Test
-    @DisplayName("the bot and the updater are reported and never moved")
-    void doesNotTouchWhatHasNoVolume() throws IOException {
-        final ApplyResult result = apply(new Fake(), plan(
-                new Change(null, "discord-bot", Change.Status.MOUNT_MISSING, null,
-                        remote("discord-bot", "discord-bot-0.2.0.jar"), "still a GHCR image")));
+    @DisplayName("the bot's jar goes into the root of its own volume, not into a plugins folder")
+    void installsAStandaloneJarInTheVolumeRoot() throws IOException {
+        Files.createDirectories(volumes.resolve("discord-bot"));
+        Files.writeString(volumes.resolve("discord-bot/discord-bot-0.1.0.jar"), "old");
 
-        assertEquals(ApplyResult.Status.SKIPPED, outcome(result, null, "discord-bot").status());
+        final ApplyResult result = apply(new Fake(), plan(
+                new Change("discord-bot", "discord-bot", Change.Status.OUTDATED,
+                        "discord-bot-0.1.0.jar", remote("discord-bot", "discord-bot-0.2.0.jar"), null)));
+
+        assertEquals(ApplyResult.Status.DONE, outcome(result, "discord-bot", "discord-bot").status());
+        assertTrue(Files.exists(volumes.resolve("discord-bot/discord-bot-0.2.0.jar")));
+        assertFalse(Files.exists(volumes.resolve("discord-bot/discord-bot-0.1.0.jar")),
+                "the superseded jar goes, by the same prefix rule as every plugin");
+        assertFalse(Files.exists(volumes.resolve("discord-bot/plugins")),
+                "there is no plugins folder here and none is created");
+    }
+
+    @Test
+    @DisplayName("the updater installs its own jar, for the next start to pick up")
+    void installsItsOwnJar() throws IOException {
+        Files.createDirectories(volumes.resolve("updater"));
+
+        final ApplyResult result = apply(new Fake(), plan(
+                new Change("updater", "updater", Change.Status.MISSING, null,
+                        remote("updater", "updater-0.2.0.jar"), null)));
+
+        assertEquals(ApplyResult.Status.DONE, outcome(result, "updater", "updater").status());
+        assertTrue(Files.exists(volumes.resolve("updater/updater-0.2.0.jar")),
+                "it lands in the volume; the process running right now carries on with the old one"
+                        + " until the restart, which is the only way this module's version moves");
+    }
+
+    @Test
+    @DisplayName("a volume that is not mounted is skipped whole, never created")
+    void doesNotCreateAVolumeThatIsNotThere() {
+        final ApplyResult result = apply(new Fake(), plan(
+                new Change("discord-bot", "discord-bot", Change.Status.MOUNT_MISSING, null,
+                        remote("discord-bot", "discord-bot-0.2.0.jar"),
+                        "/volumes/discord-bot is not mounted in this container")));
+
+        assertEquals(ApplyResult.Status.SKIPPED, outcome(result, "discord-bot", "discord-bot").status());
         assertFalse(result.changedAnything());
+        assertFalse(Files.exists(volumes.resolve("discord-bot")));
     }
 
     // ---------------------------------------------------------------- plumbing
@@ -214,6 +249,16 @@ class ApplierTest {
             public String volumesRoot() {
                 return volumes.toString();
             }
+
+            @Override
+            public ArcaneSpec arcane() {
+                // Every setting on it has a default and none of them matters here: an empty
+                // base-url means "no restart is possible", which is exactly right for a test
+                // about resolving and installing files.
+                return new ArcaneSpec() {
+                };
+            }
+
         };
         return new Applier(config, fetcher).apply(plan);
     }

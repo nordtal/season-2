@@ -86,15 +86,8 @@ public final class Applier {
             outcomes.addAll(applyService(root, entry.getKey(), entry.getValue()));
         }
 
-        // The bot and the updater's own jar: reported by the plan, never moved by it. Neither has
-        // a volume this module writes to, and no process swaps its own jar and keeps going.
-        for (final Change change : plan.changes()) {
-            if (change.service() == null) {
-                outcomes.add(new ApplyResult.Outcome(null, change.artifact(), ApplyResult.Status.SKIPPED,
-                        change.note() != null ? change.note() : "nothing here moves this artefact"));
-            }
-        }
-
+        // Nothing is left over: since 2026-09-01 the bot and the updater are services in this map
+        // too, each with one artefact and a volume whose root is where its jar goes.
         return new ApplyResult(List.copyOf(outcomes));
     }
 
@@ -234,8 +227,20 @@ public final class Applier {
 
     // ---------------------------------------------------------------- helpers
 
-    /** Server jars live in the entrypoint's cache; everything else is a plugin. */
+    /**
+     * Server jars live in the entrypoint's cache, the bot and the updater are the volume's whole
+     * contents, and everything else is a plugin.
+     *
+     * <p><b>The updater deleting its own superseded jar while running from it is safe, and only on
+     * Linux.</b> Unlinking an open file leaves the inode alive for whoever holds it, so the JVM
+     * keeps reading classes out of a jar that no longer has a name. On Windows the delete would
+     * fail outright. This only ever runs in a container, so the trade is one comment rather than a
+     * special case - but it is a real dependency and it is written down.</p>
+     */
     private static Path directoryFor(final Path volume, final String artifact) {
+        if (Topology.isStandalone(artifact)) {
+            return volume;
+        }
         return Topology.PAPER.equals(artifact) || Topology.VELOCITY.equals(artifact)
                 ? volume.resolve(Installation.SERVER_CACHE)
                 : volume.resolve(Installation.PLUGINS);

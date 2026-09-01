@@ -23,12 +23,12 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * <p><b>The consequence is deliberate: without this container there is no schema.</b> A first
  * deployment runs the updater before the bot and before any server.</p>
  *
- * <h2>A pool of one, held for seconds</h2>
- * Every other module in this repository keeps a pool open for as long as it runs. This one opens a
- * connection, applies whatever Flyway has to apply, and exits. There is nothing here to size for
- * concurrency, which is why the defaults are smaller than anywhere else and the timeout is larger:
- * a migration on a table with a season's worth of playtime rows in it is allowed to take a while,
- * and a login is not.
+ * <h2>A small pool with a long patience</h2>
+ * The one-shot commands open a connection, do one thing and exit; {@code updater serve} holds the
+ * pool for as long as it runs, and takes one connection out of it for the whole of an apply to hold
+ * the advisory lock. Either way there is very little concurrency to size for, which is why the pool
+ * is small - and why the timeout is much larger than anywhere else: a migration on a table with a
+ * season's worth of playtime rows in it is allowed to take minutes, and a login is not.
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",
@@ -80,12 +80,16 @@ public interface DatabaseSpec {
     @Comment({
             "Upper bound of the HikariCP pool.",
             "",
-            "Two, and that is not a typo. This process opens a connection, migrates and exits;",
-            "there is no concurrency here to size for. A larger pool would only be more",
-            "connections held while a migration runs."
+            "Four, and the number is not arbitrary. `updater migrate` and `updater apply` need one",
+            "connection and exit. `updater serve` needs three at once in the worst case: one held",
+            "for the whole of an apply by the advisory lock that stops two updaters moving jars at",
+            "the same time, one for the queries that claim and finish the request, and one spare so",
+            "that a slow query cannot deadlock the other two. The LISTEN connection is NOT one of",
+            "these - pgjdbc opens it directly, outside the pool, because LISTEN is session state a",
+            "pool would hand back out."
     })
     default int maximumPoolSize() {
-        return 2;
+        return 4;
     }
 
     @Order(5)

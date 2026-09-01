@@ -77,6 +77,24 @@ public record Installation(@NotNull String service,
                 jarsIn(directory.resolve(SERVER_CACHE)));
     }
 
+    /**
+     * Reads a directory that <b>is</b> the jar's home, rather than a server volume with a
+     * {@code plugins/} folder in it.
+     * <p>
+     * The bot and the updater are each one jar in a volume, not a server: there is no
+     * {@code plugins/}, no {@code .server/}, and the container runs whatever jar it finds. The jars
+     * land in {@link #plugins()} because that is the list {@link #matching(String)} searches first,
+     * and one honest sentence here beats a second field that would be empty for every real server.
+     * </p>
+     */
+    public static @NotNull Installation scanFlat(final @NotNull String service,
+                                                 final @NotNull Path directory) throws IOException {
+        if (!Files.isDirectory(directory)) {
+            return absent(service, directory);
+        }
+        return new Installation(service, directory, true, jarsIn(directory), List.of());
+    }
+
     /** The installed jar whose prefix matches {@code fileName}'s, or {@code null}. */
     public @Nullable Jar matching(final @NotNull String fileName) {
         final String prefix = JarName.prefixOf(fileName);

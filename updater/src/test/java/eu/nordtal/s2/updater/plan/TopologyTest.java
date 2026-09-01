@@ -1,5 +1,7 @@
 package eu.nordtal.s2.updater.plan;
 
+import eu.nordtal.s2.updater.config.UpdaterSpec;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -94,6 +96,77 @@ class TopologyTest {
                     "the updater service does not mount /volumes/" + service.name()
                             + "; it would report that server as unmounted on every run");
         }
+    }
+
+    @Test
+    @DisplayName("the bot's and the updater's own volumes are mounted too, or neither could be updated")
+    void theUpdaterCanSeeTheTwoStandaloneJars() {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
+        final String mounts = String.valueOf(updater.get("volumes"));
+
+        for (final String artifact : Topology.STANDALONE_JARS) {
+            assertTrue(mounts.contains("/volumes/" + artifact),
+                    "the updater does not mount /volumes/" + artifact + ", so it could never move"
+                            + " that jar - which is the whole reason both stopped being images");
+        }
+    }
+
+    @Test
+    @DisplayName("the updater is in every profile selection, because everything else depends on it")
+    void theUpdaterHasNoProfile() {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
+        assertFalse(updater.containsKey("profiles"),
+                "the updater has a profile again. It applies the schema and answers /update, so a"
+                        + " selection without it is a stack that cannot correctly start.");
+        assertEquals(List.of("serve"), updater.get("command"),
+                "the compose service must run `serve`; every writing mode is asked for by name");
+        assertNotNull(updater.get("healthcheck"),
+                "without the healthcheck, depends_on: service_healthy on every other service is a"
+                        + " dependency on nothing");
+    }
+
+    @Test
+    @DisplayName("every service that reads the database waits for the schema")
+    void everythingWaitsForTheUpdater() {
+        services.forEach((name, definition) -> {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> service = (Map<String, Object>) definition;
+            if (name.equals("updater") || name.equals("postgres") || name.equals("postgres-backup")) {
+                return;
+            }
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> dependsOn = (Map<String, Object>) service.get("depends_on");
+            assertNotNull(dependsOn, name + " does not wait for the updater, so it can come up"
+                    + " against a schema older than itself after a redeploy");
+            assertTrue(String.valueOf(dependsOn).contains("service_healthy"),
+                    name + " depends on the updater but not on it being healthy, which waits for"
+                            + " the container to exist rather than for the schema to be current");
+        });
+    }
+
+    @Test
+    @DisplayName("the two Arcane defaults repeated in compose.yml still match the spec's own")
+    void theArcaneDefaultsAgreeWithTheSpec() {
+        // They have to be repeated: an environment variable set to the empty string still wins
+        // over the file in jcore's config system, so `${VAR:-}` in compose would blank out the
+        // spec's default rather than fall back to it. Two copies, and this is the test that stops
+        // them drifting.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment = (Map<String, Object>) updater.get("environment");
+
+        final UpdaterSpec.ArcaneSpec spec = new UpdaterSpec.ArcaneSpec() {
+        };
+        assertTrue(String.valueOf(environment.get("NORDTAL_UPDATER_ARCANE_PROJECT"))
+                        .endsWith(":-" + spec.project() + "}"),
+                "compose.yml's ARCANE_PROJECT fallback is not '" + spec.project() + "' any more");
+        assertTrue(String.valueOf(environment.get("NORDTAL_UPDATER_ARCANE_REDEPLOY_PATH"))
+                        .endsWith(":-" + spec.redeployPath() + "}"),
+                "compose.yml's ARCANE_REDEPLOY_PATH fallback is not '" + spec.redeployPath()
+                        + "' any more");
     }
 
     @Test

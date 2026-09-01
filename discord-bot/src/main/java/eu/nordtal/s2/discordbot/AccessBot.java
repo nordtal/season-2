@@ -16,6 +16,7 @@ import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
 import eu.nordtal.s2.discordbot.access.discord.ManagedMessages;
 import eu.nordtal.s2.discordbot.discord.PhaseCommand;
+import eu.nordtal.s2.discordbot.discord.UpdateCommand;
 import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
 import eu.nordtal.s2.discordbot.access.payment.PaymentProcessor;
 import eu.nordtal.s2.discordbot.access.payment.PaymentRequests;
@@ -28,6 +29,7 @@ import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
+import eu.nordtal.s2.common.update.UpdateDirectory;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -105,6 +107,10 @@ public class AccessBot implements AutoCloseable {
             // Over the pool the bot already owns, like the access directory. Nothing here holds a
             // resource, so there is nothing to close.
             final PhaseDirectory phases = PhaseDirectory.using(database.dataSource());
+            // The updater's inbox. The bot writes requests into it and reads the answers back; it
+            // never updates anything itself and could not - the jars and the volumes are in
+            // another container (docs/updater.md#how-it-is-operated).
+            final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
             // Which bundles are loaded is a config question, not a code one: the list drives it,
             // so adding a language is an edit to access.yml plus a <tag>.properties file. A
@@ -148,12 +154,14 @@ public class AccessBot implements AutoCloseable {
                     new LinkFlow(access, roles, messages, admin, worker),
                     new AdminCommands(access, roles, requests, admin, messages, worker),
                     new PhaseCommand(phases, admin, database.jdbi(), worker),
+                    new UpdateCommand(updates, admin, database.jdbi(), worker, timers),
                     new RegisterFlow(jda, teams, messages, worker));
 
             final List<CommandData> commands = new ArrayList<>();
             commands.addAll(AdminCommands.commands());
             commands.addAll(LinkFlow.commands());
             commands.addAll(PhaseCommand.commands());
+            commands.addAll(UpdateCommand.commands());
             jda.updateCommands().addCommands(commands).queue();
 
             new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();

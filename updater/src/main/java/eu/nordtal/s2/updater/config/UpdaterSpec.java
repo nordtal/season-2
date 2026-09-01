@@ -179,25 +179,6 @@ public interface UpdaterSpec {
     }
 
     @Order(10)
-    @Key("bot-volume")
-    @Comment({
-            "Where the Discord bot's jar is mounted inside this container, or empty.",
-            "",
-            "EMPTY IS THE CORRECT VALUE TODAY. The bot still runs as a GHCR image built by",
-            ".github/workflows/release.yml, so there is no jar in a volume for this module to",
-            "compare against and no honest answer to 'is it up to date'. The updater says so",
-            "rather than reporting the bot as fine.",
-            "",
-            "Step 3 of docs/updater.md turns the bot into a jar like the other four modules,",
-            "for one reason: so that every module moves by the same mechanism and rolls back",
-            "the same way. When that lands this points at the mount and the line stops being",
-            "a warning."
-    })
-    default String botVolume() {
-        return "";
-    }
-
-    @Order(11)
     @Key("github-token")
     @Comment({
             "Optional. A token raises GitHub's unauthenticated rate limit of 60 requests per",
@@ -211,7 +192,7 @@ public interface UpdaterSpec {
         return "";
     }
 
-    @Order(12)
+    @Order(11)
     @Key("http-timeout-seconds")
     @Comment({
             "How long any single API call may take before the run gives up.",
@@ -223,7 +204,7 @@ public interface UpdaterSpec {
         return 30;
     }
 
-    @Order(13)
+    @Order(12)
     @Key("download-timeout-seconds")
     @Comment({
             "How long a single jar may take to download during `updater apply`.",
@@ -234,5 +215,116 @@ public interface UpdaterSpec {
     })
     default int downloadTimeoutSeconds() {
         return 600;
+    }
+
+    @Order(13)
+    @Key("poll-interval-seconds")
+    @Comment({
+            "How often `updater serve` looks in update_request for work it was not told about.",
+            "",
+            "THIS POLL - not the LISTEN/NOTIFY path - is the guarantee, exactly as it is for the",
+            "season phase (network-control's gate.yml says the same thing about the same trade).",
+            "Notifications are lost while a process is disconnected, so a listener that missed one",
+            "must still find the work; the listener only makes a request feel instant.",
+            "",
+            "Fifteen seconds rather than the phase model's thirty, because a person is watching:",
+            "an admin who pressed a button in Discord is looking at a spinner until this fires.",
+            "The wait is also shortened automatically when a restart's countdown ends sooner - a",
+            "countdown that reaches zero and then waits another fifteen seconds is a bug, not a",
+            "tuning question."
+    })
+    default int pollIntervalSeconds() {
+        return 15;
+    }
+
+    @Order(14)
+    @Key("arcane")
+    @Comment({
+            "How the restart is actually performed: one redeploy of the whole compose project",
+            "through Arcane's REST API.",
+            "",
+            "NOT the Docker socket, deliberately. A container holding /var/run/docker.sock can do",
+            "anything on the host, and this is a container whose entire job is to download files",
+            "from the internet and put them where servers will execute them. One API token is the",
+            "cheaper half of that trade, and the redeploy then shows up in Arcane's own history",
+            "instead of happening behind its back.",
+            "",
+            "LEAVE base-url EMPTY AND NOTHING BREAKS. Every other part of this module still works;",
+            "the restart button says so and the redeploy is a click in Arcane."
+    })
+    ArcaneSpec arcane();
+
+    /** Where Arcane is and how to ask it for a redeploy. */
+    @ConfigSpec
+    interface ArcaneSpec {
+
+        @Order(1)
+        @Key("base-url")
+        @Comment({
+                "Arcane's origin, with no trailing slash - https://arcane.example.com.",
+                "",
+                "Empty means 'no restart button anywhere'. That is a supported state, not a broken",
+                "one: the updater reports what it would have done and an admin clicks Redeploy in",
+                "Arcane themselves."
+        })
+        default String baseUrl() {
+            return "";
+        }
+
+        @Order(2)
+        @Key("api-key")
+        @Comment({
+                "A token from Arcane's Settings -> API Keys, sent as the X-Api-Key header.",
+                "",
+                "Belongs in the environment and not in this file:",
+                "NORDTAL_UPDATER_ARCANE_API_KEY. An overridden value is never written back here."
+        })
+        default String apiKey() {
+            return "";
+        }
+
+        @Order(3)
+        @Key("project")
+        @Comment({
+                "The project as Arcane names it - for this deployment, the compose project name",
+                "'nordtal-s2'. Substituted into redeploy-path below."
+        })
+        default String project() {
+            return "nordtal-s2";
+        }
+
+        @Order(4)
+        @Key("redeploy-path")
+        @Comment({
+                "THIS DEFAULT IS A GUESS AND HAS NEVER BEEN CALLED.",
+                "",
+                "Arcane's public documentation describes token authentication and says that",
+                "project deploy, redeploy, pull and build exist as streaming operations - it does",
+                "NOT give the paths (read 2026-09-01). Those are on /api/docs on your own instance.",
+                "So this is a setting rather than a constant: when the real path turns out to be",
+                "something else, it is one line in this file and not a release.",
+                "",
+                "{project} is replaced by the project setting above. A 404 from here is reported",
+                "with that sentence attached, so nobody spends an evening on it."
+        })
+        default String redeployPath() {
+            return "/api/projects/{project}/redeploy";
+        }
+
+        @Order(5)
+        @Key("timeout-seconds")
+        @Comment({
+                "How long to wait for the redeploy call.",
+                "",
+                "Short on purpose. Arcane answers a long-running operation as a stream of",
+                "newline-delimited JSON, and this container is one of the things the redeploy",
+                "takes down - it will be killed part way through reading that stream. So the call",
+                "only ever waits for the response to BEGIN. Being killed here is the expected",
+                "outcome and the next start reads it as success: the request row it left behind",
+                "says so."
+        })
+        default int timeoutSeconds() {
+            return 20;
+        }
     }
 }

@@ -20,9 +20,10 @@ import java.util.List;
  * makes against the resource pack's {@code default.json}, for the same reason - the alternative is
  * parsing a compose file at runtime to find out what we already know.</p>
  *
- * <h2>The bot and the updater are not in here</h2>
- * Neither has a {@code plugins/} folder or a server jar; each <em>is</em> a jar. They are handled
- * beside this list rather than bent into it.
+ * <h2>The bot and the updater are not in {@link #SERVICES}</h2>
+ * Neither has a {@code plugins/} folder or a server jar; each <em>is</em> a jar in a volume of its
+ * own. {@link #STANDALONE_JARS} is where they are named, and everything downstream treats them as
+ * services with exactly one artefact and no subdirectory.
  */
 public final class Topology {
 
@@ -84,6 +85,33 @@ public final class Topology {
      */
     public static final List<String> SEASON_JARS =
             List.of(NETWORK_CONTROL, LIMBO, HUNGER_GAMES, SMP, DISCORD_BOT, UPDATER);
+
+    /**
+     * The two artefacts that are a whole container each.
+     * <p>
+     * Since 2026-09-01 both run from a volume rather than from a jar baked into an image, so both
+     * move by the same mechanism as everything else and roll back the same way. Their volume is
+     * {@code <volumes-root>/<name>} and the jar sits in its root - no {@code plugins/}, nothing
+     * else in there.
+     * </p>
+     *
+     * <p><b>The updater installing its own new jar is deliberate and cannot take effect during the
+     * run.</b> No process replaces the jar it is executing and keeps going; what happens is that
+     * the new jar is placed, the old one is deleted, and the <em>next start</em> of this container
+     * comes up on the new one. That start is the restart in step 6 - which is why the updater's own
+     * version only ever moves across a restart, never during a run.</p>
+     */
+    public static final List<String> STANDALONE_JARS = List.of(DISCORD_BOT, UPDATER);
+
+    /**
+     * Whether this artefact is a container's whole jar rather than a plugin or a server jar.
+     *
+     * @param artifact an artifact id
+     * @return {@code true} for the bot and the updater
+     */
+    public static boolean isStandalone(final @NotNull String artifact) {
+        return STANDALONE_JARS.contains(artifact);
+    }
 
     /** The four Minecraft services, in the order the report reads best: proxy first, then backends. */
     public static final List<Service> SERVICES = List.of(

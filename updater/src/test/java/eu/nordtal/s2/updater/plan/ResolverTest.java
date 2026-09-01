@@ -223,26 +223,50 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("the bot is reported as unknown while it is still a container image")
-    void theBotHasNoJarToCompareAgainstYet() throws IOException {
+    @DisplayName("the bot is a jar in a volume like everything else, and reads as up to date")
+    void theBotIsResolvedFromItsOwnVolume() throws IOException {
         installCurrentEverything();
 
-        final Change change = changeFor(resolve(), null, "discord-bot");
+        final Change change = changeFor(resolve(), "discord-bot", "discord-bot");
 
-        assertEquals(Change.Status.MOUNT_MISSING, change.status());
-        assertNotNull(change.wanted());
-        assertEquals("discord-bot-0.1.0.jar", change.wanted().fileName());
-        assertNotNull(change.note());
-        assertTrue(change.note().contains("GHCR image"), change.note());
+        assertEquals(Change.Status.UP_TO_DATE, change.status());
+        assertEquals("discord-bot-0.1.0.jar", change.installed());
     }
 
     @Test
-    @DisplayName("the updater reports its own jar and never claims it could swap it")
-    void theUpdaterCannotUpdateItself() throws IOException {
+    @DisplayName("an older bot jar is work, exactly like an older plugin")
+    void anOlderBotJarIsOutdated() throws IOException {
+        installCurrentEverything();
+        replace("discord-bot", "discord-bot-0.1.0.jar", "discord-bot-0.0.9.jar");
+
+        final Change change = changeFor(resolve(), "discord-bot", "discord-bot");
+
+        assertEquals(Change.Status.OUTDATED, change.status());
+        assertEquals("discord-bot-0.0.9.jar", change.installed());
+        assertTrue(change.status().isWork());
+    }
+
+    @Test
+    @DisplayName("a volume that is not mounted is reported as that, never as an empty one")
+    void anUnmountedStandaloneVolumeSaysSo() throws IOException {
+        installCurrentEverything();
+        Files.delete(volumes.resolve("discord-bot").resolve("discord-bot-0.1.0.jar"));
+        Files.delete(volumes.resolve("discord-bot"));
+
+        final Change change = changeFor(resolve(), "discord-bot", "discord-bot");
+
+        assertEquals(Change.Status.MOUNT_MISSING, change.status());
+        assertNotNull(change.note());
+        assertTrue(change.note().contains("not mounted"), change.note());
+    }
+
+    @Test
+    @DisplayName("a release with no updater jar in it leaves that row unresolved, not wrong")
+    void aReleaseWithoutAnUpdaterJarSaysSo() throws IOException {
         installCurrentEverything();
         // v0.1.0 predates this module, so the release carries no updater jar - which is exactly
         // what an unresolvable row should look like, and it clears itself with the next release.
-        final Change change = changeFor(resolve(), null, "updater");
+        final Change change = changeFor(resolve(), "updater", "updater");
 
         assertEquals(Change.Status.UNRESOLVED, change.status());
         assertNotNull(change.note());
@@ -250,20 +274,21 @@ class ResolverTest {
     }
 
     @Test
-    @DisplayName("a release that does carry an updater jar reports it as a restart, not as work")
-    void theUpdaterArrivesWithTheRestart() throws IOException {
+    @DisplayName("the updater installs its own jar, which takes effect on the next start and not before")
+    void theUpdaterResolvesItsOwnJar() throws IOException {
         installCurrentEverything();
         http.answering("/repos/nordtal/season-2/releases",
                 FakeHttp.read("github-season-v0.1.0.json").replace("smp-0.1.0.jar", "updater-0.1.0.jar"));
 
-        final Change change = changeFor(resolve(), null, "updater");
+        final Change change = changeFor(resolve(), "updater", "updater");
 
-        assertEquals(Change.Status.MOUNT_MISSING, change.status());
-        assertNotNull(change.note());
-        assertTrue(change.note().contains("arrives with the restart"), change.note());
-        // Never work: a run that reported "1 artefact would be updated" for its own jar would be
-        // promising something no process can do to itself.
-        assertFalse(change.status().isWork());
+        // MISSING rather than UP_TO_DATE: the volume is mounted and empty, which is what a
+        // deployment looks like before the first run that installs an updater jar into it.
+        assertEquals(Change.Status.MISSING, change.status());
+        assertTrue(change.status().isWork(),
+                "it is work like anything else - what it is not is work that changes THIS process");
+        assertNotNull(change.wanted());
+        assertEquals("updater-0.1.0.jar", change.wanted().fileName());
     }
 
     @Test
@@ -305,6 +330,10 @@ class ResolverTest {
         write("smp", "plugins/packetevents-spigot-2.13.0.jar");
         write("smp", "plugins/Chunky-Bukkit-1.5.3.jar");
         write("smp", ".server/paper-26.2-121.jar");
+        // The bot and the updater are one jar in the root of their own volume - no plugins folder,
+        // nothing else in there. v0.1.0 carries no updater jar, so only the bot's is written here.
+        write("discord-bot", "discord-bot-0.1.0.jar");
+        Files.createDirectories(volumes.resolve("updater"));
         writePackYml(PACK_SHA1);
     }
 
@@ -345,6 +374,16 @@ class ResolverTest {
             public String volumesRoot() {
                 return volumes.toString();
             }
+
+            @Override
+            public ArcaneSpec arcane() {
+                // Every setting on it has a default and none of them matters here: an empty
+                // base-url means "no restart is possible", which is exactly right for a test
+                // about resolving and installing files.
+                return new ArcaneSpec() {
+                };
+            }
+
         };
         return new Resolver(config, new GitHubReleases(http), new Modrinth(http), new PaperFill(http),
                 Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC)).resolve();

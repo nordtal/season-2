@@ -1,4 +1,4 @@
-package eu.nordtal.s2.hungergames.hud;
+package eu.nordtal.s2.common.hud;
 
 import eu.nordtal.s2.common.Glyphs;
 
@@ -11,6 +11,12 @@ import eu.nordtal.s2.common.Glyphs;
  * correct sequence of code points regardless - exactly like the HUD's icon and arrow glyphs, the
  * code is correct today and will render once the art exists.
  * </p>
+ *
+ * <p><b>Moved into {@code :common} on 2026-09-01</b> because the SMP's HUD draws the same bar. The
+ * arithmetic is one line of powers of two and would have been trivial to copy - which is exactly
+ * why it was not: two copies of a glyph composition are two things that drift apart the first time
+ * a segment is redrawn, and the resource pack is the one place this repository already keeps a
+ * single source of truth for code points.</p>
  */
 public final class BossBarWidth {
 

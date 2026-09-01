@@ -50,6 +50,23 @@ public final class Ids {
     /** Backs out of a phase switch without touching the row. */
     public static final String PHASE_CANCEL = "access:phase-cancel";
 
+    /**
+     * Asks the updater to install what {@code /update} just reported.
+     * <p>
+     * Carries no value. Unlike the phase buttons there is nothing to remember between the command
+     * and the click: the request row the updater answers is written when the button is pressed, and
+     * "install whatever is newest right now" is what it means. A plan that has moved on since the
+     * report was rendered is a plan the report will show again - the updater resolves afresh.
+     * </p>
+     */
+    public static final String UPDATE_INSTALL = "access:update-install";
+
+    /** Asks for the restart, which starts the countdown rather than restarting anything. */
+    public static final String UPDATE_RESTART = "access:update-restart";
+
+    /** Stops a countdown that is still running. */
+    public static final String UPDATE_CANCEL = "access:update-cancel";
+
     private Ids() {
     }
 }

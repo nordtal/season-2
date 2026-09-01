@@ -93,8 +93,9 @@ public final class Resolver {
             }
         }
 
-        changes.add(resolveBot(newest, failures));
-        changes.add(resolveSelf(newest, failures));
+        for (final String artifact : Topology.STANDALONE_JARS) {
+            changes.add(resolveStandalone(root, artifact, newest, failures));
+        }
         changes.add(resolvePack(root, newest, failures));
 
         return new UpdatePlan(
@@ -255,36 +256,35 @@ public final class Resolver {
         return new Change(service, artifact, Change.Status.OUTDATED, present.fileName(), wanted, null);
     }
 
-    private Change resolveBot(final Map<String, RemoteFile> newest, final Map<String, String> failures) {
-        final RemoteFile wanted = newest.get(Topology.DISCORD_BOT);
-        if (wanted == null) {
-            return Change.unresolved(null, Topology.DISCORD_BOT,
-                    failures.getOrDefault(Topology.DISCORD_BOT, "no source answered for this artefact"));
-        }
-        if (config.botVolume().isBlank()) {
-            return new Change(null, Topology.DISCORD_BOT, Change.Status.MOUNT_MISSING, null, wanted,
-                    "the bot still runs as a GHCR image, so there is no jar to compare against."
-                            + " Step 3 of docs/updater.md turns it into a jar; set bot-volume then.");
-        }
-
-        final Installation installed = scan(Topology.DISCORD_BOT, Path.of(config.botVolume()));
-        return compare(null, Topology.DISCORD_BOT, installed, newest, failures, new HashSet<>());
-    }
-
     /**
-     * The updater's own jar. Reported and never acted on: no process swaps its own jar and keeps
-     * going, so this row exists to tell a person that a restart will bring a different updater
-     * back - which is the only way this module's version ever moves.
+     * The bot and the updater: one jar each, in a volume of their own, with no {@code plugins/}
+     * folder and nothing else in it.
+     *
+     * <p>Both used to be reported as unreachable - the bot because it ran as a GHCR image and the
+     * updater because it ran the jar baked into its own. Since 2026-09-01 neither is true: both
+     * containers run whatever jar is in their volume and fall back to the baked one only when the
+     * volume is empty, which is what makes a first deployment possible at all.</p>
+     *
+     * <p>The updater's own row is resolved and installed exactly like the bot's. It cannot take
+     * effect during the run that installs it - no process replaces the jar it is executing - so
+     * the new jar simply waits there for the next start. That start is the restart, which is the
+     * only way this module's version has ever been able to move.</p>
      */
-    private Change resolveSelf(final Map<String, RemoteFile> newest, final Map<String, String> failures) {
-        final RemoteFile wanted = newest.get(Topology.UPDATER);
+    private Change resolveStandalone(final Path root, final String artifact,
+                                     final Map<String, RemoteFile> newest,
+                                     final Map<String, String> failures) {
+        final RemoteFile wanted = newest.get(artifact);
         if (wanted == null) {
-            return Change.unresolved(null, Topology.UPDATER,
-                    failures.getOrDefault(Topology.UPDATER, "no source answered for this artefact"));
+            return Change.unresolved(artifact, artifact,
+                    failures.getOrDefault(artifact, "no source answered for this artefact"));
         }
-        return new Change(null, Topology.UPDATER, Change.Status.MOUNT_MISSING, null, wanted,
-                "this container runs the jar baked into its image, so there is nothing to compare"
-                        + " against. A new updater arrives with the restart, never during a run.");
+
+        final Installation installed = scanFlat(artifact, root.resolve(artifact));
+        if (!installed.mounted()) {
+            return new Change(artifact, artifact, Change.Status.MOUNT_MISSING, null, wanted,
+                    installed.directory() + " is not mounted in this container");
+        }
+        return compare(artifact, artifact, installed, newest, failures, new HashSet<>());
     }
 
     private Change resolvePack(final Path root, final Map<String, RemoteFile> newest,
@@ -325,6 +325,16 @@ public final class Resolver {
     }
 
     // ---------------------------------------------------------------- helpers
+
+    /** The bot's and the updater's volumes: the jar is in the root, there is no plugins folder. */
+    private Installation scanFlat(final String service, final Path directory) {
+        try {
+            return Installation.scanFlat(service, directory);
+        } catch (final IOException failed) {
+            log.warn("Could not read {} for {}: {}", directory, service, failed.getMessage());
+            return Installation.absent(service, directory);
+        }
+    }
 
     private Installation scan(final String service, final Path directory) {
         try {

@@ -40,7 +40,7 @@ class ConfigsTest {
     void aFreshDirectoryGetsWorkingDefaults() throws Exception {
         final DatabaseSpec config = Configs.database(directory, LOGGER).get();
 
-        assertEquals("access", config.username());
+        assertEquals("nordtal", config.username());
         assertEquals(5, config.maximumPoolSize());
         assertEquals(3, config.queryTimeoutSeconds());
         assertTrue(Files.isRegularFile(directory.resolve("database.yml")),

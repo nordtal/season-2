@@ -284,9 +284,53 @@ public interface SmpSpec {
         @Order(7) @Key("max-z") default int maxZ() { return 0; }
     }
 
-    // ---------------------------------------------------------------- spawn protection
+    // ---------------------------------------------------------------- the boards
 
     @Order(19)
+    @Key("boards")
+    @Comment({
+            "The two boards at the spawn: the current milestone at a glance, and the aura",
+            "leaderboard.",
+            "",
+            "RENDERED PER PLAYER, IN THEIR OWN LANGUAGE. Each entry below is an anchor, not a",
+            "display: the plugin spawns one Text Display per board PER VIEWER at that position and",
+            "hides it from everyone else, which is the only way two people standing side by side can",
+            "read the same board in two languages. With a handful of players that is a handful of",
+            "entities; it is not a technique that would scale to a hundred, and it does not have to.",
+            "",
+            "kind is OBJECTIVE or AURA. Anything else stops the load.",
+            "",
+            "The coordinates are placeholders until the spawn is built."
+    })
+    default List<BoardSpec> boards() {
+        return DefaultSmp.BOARDS;
+    }
+
+    /** One board's anchor: which board, where it hangs, and which way it faces. */
+    interface BoardSpec {
+
+        @Order(1) @Key("kind")
+        @Comment("OBJECTIVE or AURA.")
+        default String kind() {
+            return "OBJECTIVE";
+        }
+
+        @Order(2) @Key("world") default String world() { return "nordtal"; }
+
+        @Order(3) @Key("x") default double x() { return 0.0; }
+
+        @Order(4) @Key("y") default double y() { return 70.0; }
+
+        @Order(5) @Key("z") default double z() { return 0.0; }
+
+        @Order(6) @Key("yaw")
+        @Comment("Which way the board faces, in degrees. 0 is south, 90 west, 180 north, 270 east.")
+        default float yaw() { return 0.0f; }
+    }
+
+    // ---------------------------------------------------------------- spawn protection
+
+    @Order(20)
     @Key("spawn-regions")
     @Comment({
             "The protected zones: no building, no breaking, no interaction with blocks you do not",
@@ -330,7 +374,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- aura
 
-    @Order(20)
+    @Order(21)
     @Key("death-penalty")
     @Comment({
             "What an ordinary death costs, as a POSITIVE number that is subtracted at the point of",
@@ -345,14 +389,14 @@ public interface SmpSpec {
         return 5;
     }
 
-    @Order(21)
+    @Order(22)
     @Key("death-penalty-listed")
     @Comment("What one of the causes below costs instead. Also a positive number.")
     default int deathPenaltyListed() {
         return 20;
     }
 
-    @Order(22)
+    @Order(23)
     @Key("death-causes-listed")
     @Comment({
             "The 'embarrassing' deaths, one of docs/smp.md#still-open's open points, PROPOSED HERE",
@@ -375,7 +419,7 @@ public interface SmpSpec {
                 "sweet_berry_bush", "hot_floor", "campfire", "stalagmite");
     }
 
-    @Order(23)
+    @Order(24)
     @Key("duel-stake")
     @Comment({
             "What a duel moves. The winner takes exactly what the loser pays, so a duel never",
@@ -386,14 +430,14 @@ public interface SmpSpec {
         return 10;
     }
 
-    @Order(24)
+    @Order(25)
     @Key("concurrent-duel-limit")
     @Comment("How many arenas may be stacked above the spawn at once. Beyond it, players queue.")
     default int concurrentDuelLimit() {
         return 3;
     }
 
-    @Order(25)
+    @Order(26)
     @Key("advancement-awards")
     @Comment({
             "The advancements that pay aura, once each per player. docs/smp.md#still-open lists",
@@ -430,7 +474,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- prestige
 
-    @Order(26)
+    @Order(27)
     @Key("prestige-threshold-hours")
     @Comment({
             "The thirteen crest tiers, in hours of NETWORK-WIDE online time - AFK included, on",
@@ -451,7 +495,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the hunger games winner
 
-    @Order(27)
+    @Order(28)
     @Key("hg-winner-aura")
     @Comment({
             "The head start the start event's winner carries into the season, paid on their FIRST",
@@ -467,7 +511,7 @@ public interface SmpSpec {
         return 150;
     }
 
-    @Order(28)
+    @Order(29)
     @Key("hg-winner-items")
     @Comment({
             "One or two special items for the winner, also PROPOSED rather than decided. Bukkit",
@@ -483,7 +527,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the wheel
 
-    @Order(29)
+    @Order(30)
     @Key("wheel-extra-spin-percents")
     @Comment({
             "The contribution shares that earn extra spins when an objective completes: one spin at",
@@ -494,7 +538,7 @@ public interface SmpSpec {
         return List.of(2, 10, 25);
     }
 
-    @Order(30)
+    @Order(31)
     @Key("wheel-prizes")
     @Comment({
             "The wheel's pool and its weights - open in docs/smp.md#still-open, PROPOSED here.",
@@ -539,7 +583,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- duels
 
-    @Order(31)
+    @Order(32)
     @Key("duel-loadout-sword")
     @Comment({
             "What both players are given inside a sword duel - open in docs/smp.md#still-open,",
@@ -554,7 +598,7 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
-    @Order(32)
+    @Order(33)
     @Key("duel-loadout-bow")
     @Comment({
             "The bow duel's loadout. Also PROPOSED.",
@@ -569,7 +613,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- admin
 
-    @Order(33)
+    @Order(34)
     @Key("admin-permissions")
     @Comment({
             "The Bukkit permission nodes attached to an admin at join and removed at quit, through",

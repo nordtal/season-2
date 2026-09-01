@@ -3,6 +3,8 @@ package eu.nordtal.s2.smp.farm;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.SmpSpec;
+import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.pregen.PreGenerator;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
@@ -48,6 +50,8 @@ public final class FarmWorldReset {
     private final PreGenerator pregen;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpDao dao;
+    private final Navigation navigation;
     private final DailySchedule schedule;
 
     private final List<BukkitTask> pending = new ArrayList<>();
@@ -55,7 +59,8 @@ public final class FarmWorldReset {
 
     public FarmWorldReset(final Plugin plugin, final SmpSpec config, final Worlds worlds,
                           final FarmWorldSwap swap, final PreGenerator pregen,
-                          final Messages messages, final PlayerLocales locales) {
+                          final Messages messages, final PlayerLocales locales,
+                          final SmpDao dao, final Navigation navigation) {
         this.plugin = plugin;
         this.config = config;
         this.worlds = worlds;
@@ -63,6 +68,8 @@ public final class FarmWorldReset {
         this.pregen = pregen;
         this.messages = messages;
         this.locales = locales;
+        this.dao = dao;
+        this.navigation = navigation;
         this.schedule = DailySchedule.parse(config.farmResetTime());
     }
 
@@ -181,6 +188,19 @@ public final class FarmWorldReset {
 
         final Location landing = LandingSite.find(farm);
         farm.setSpawnLocation(landing);
+
+        // Everything in the farm world is gone, and the things that merely POINT at it have to go
+        // too. A point of interest naming terrain that no longer exists, or an arrow still confident
+        // about a grave, is worse than nothing: it is wrong and it looks right.
+        navigation.clearWorld(farm.getName());
+        final String world = farm.getName();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            final int removed = dao.deletePoisIn(world);
+            if (removed > 0) {
+                plugin.getLogger().info("the farm world reset removed " + removed
+                        + " point(s) of interest that pointed into it");
+            }
+        });
         plugin.getLogger().info("the farm world was replaced; the new arrival point is "
                 + landing.getBlockX() + "/" + landing.getBlockY() + "/" + landing.getBlockZ());
     }

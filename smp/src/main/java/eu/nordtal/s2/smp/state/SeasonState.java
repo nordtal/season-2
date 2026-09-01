@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.state;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Unlock;
+import eu.nordtal.s2.smp.db.ObjectiveRow;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -27,6 +28,8 @@ public final class SeasonState {
     private volatile Set<Unlock> unlocked = Collections.unmodifiableSet(EnumSet.noneOf(Unlock.class));
     private volatile int borderDiameter;
     private volatile List<String> completedKeys = List.of();
+    private volatile String activeKey;
+    private volatile List<ObjectiveRow> activeObjectives = List.of();
 
     /**
      * Recomputes from the completed milestone keys and the track that defines them.
@@ -72,5 +75,41 @@ public final class SeasonState {
 
     public List<String> completedKeys() {
         return completedKeys;
+    }
+
+    /**
+     * Records which milestone is being worked on and how far each of its objectives has got.
+     *
+     * <p>Refreshed on a timer from an async task, read by HUD line 1 and by the objective board -
+     * both of which redraw far more often than the numbers change.
+     */
+    public void refreshActive(final String key, final List<ObjectiveRow> objectives) {
+        this.activeKey = key;
+        this.activeObjectives = List.copyOf(objectives);
+    }
+
+    /** The milestone being worked on, or empty once the track has run out. */
+    public java.util.Optional<String> activeKey() {
+        return java.util.Optional.ofNullable(activeKey);
+    }
+
+    public List<ObjectiveRow> activeObjectives() {
+        return activeObjectives;
+    }
+
+    /**
+     * How far the active milestone is, as the mean of its objectives.
+     *
+     * <p>The mean and not the total: objectives have wildly different targets - "3000 stone" beside
+     * "8 players earn an advancement" - and summing the raw amounts would make the large one the
+     * only one the bar ever moves for. Each objective is worth the same fraction of the milestone,
+     * which is also how the pot is split.
+     */
+    public double activeProgress() {
+        final List<ObjectiveRow> objectives = activeObjectives;
+        if (objectives.isEmpty()) {
+            return 0.0;
+        }
+        return objectives.stream().mapToDouble(ObjectiveRow::ratio).average().orElse(0.0);
     }
 }

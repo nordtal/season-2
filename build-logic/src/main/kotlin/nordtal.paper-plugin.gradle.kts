@@ -17,6 +17,13 @@ repositories {
 dependencies {
     "compileOnly"(libs.paper.api)
     "implementation"(project(":common"))
+
+    // The same API on the test classpath, and NOT so that tests can start a server - they cannot,
+    // and "it compiles" is not verification in this repository. It is here for the parts of the API
+    // that are plain values: Adventure components, which every player-facing string in these
+    // modules is built out of, and which are otherwise impossible to assert without a server they
+    // do not need. A test that reaches past those into Bukkit is a test that should not exist.
+    "testImplementation"(libs.paper.api)
 }
 
 tasks.named<xyz.jpenilla.runpaper.task.RunServer>("runServer") {

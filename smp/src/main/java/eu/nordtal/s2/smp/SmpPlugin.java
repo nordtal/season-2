@@ -20,7 +20,16 @@ import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneState;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.pregen.PreGenerator;
-import eu.nordtal.s2.smp.protect.AdminFlags;
+import eu.nordtal.s2.smp.board.Boards;
+import eu.nordtal.s2.smp.command.NavigateCommand;
+import eu.nordtal.s2.smp.hud.SmpHud;
+import eu.nordtal.s2.smp.navigate.NavigateListener;
+import eu.nordtal.s2.smp.navigate.Navigation;
+import eu.nordtal.s2.smp.player.Identities;
+import eu.nordtal.s2.smp.player.PlayerComposition;
+import eu.nordtal.s2.smp.player.PlayerSurfaces;
+import eu.nordtal.s2.smp.player.PresenceListener;
+import eu.nordtal.s2.smp.prestige.Prestige;
 import eu.nordtal.s2.smp.protect.ProtectionListener;
 import eu.nordtal.s2.smp.region.Box;
 import eu.nordtal.s2.smp.region.Boxes;
@@ -33,6 +42,7 @@ import eu.nordtal.s2.smp.world.Worlds;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
@@ -66,8 +76,11 @@ public final class SmpPlugin extends JavaPlugin {
     private MilestoneTrack track;
     private Worlds worlds;
     private final SeasonState season = new SeasonState();
-    private final AdminFlags admins = new AdminFlags();
+    private Identities identities;
     private FarmWorldReset farmReset;
+    private SmpHud hud;
+    private Boards boards;
+    private final Navigation navigation = new Navigation();
 
     @Override
     public void onEnable() {
@@ -120,6 +133,7 @@ public final class SmpPlugin extends JavaPlugin {
                 .installPlugin(new SqlObjectPlugin())
                 .installPlugin(new PostgresPlugin());
         dao = jdbi.onDemand(SmpDao.class);
+        identities = new Identities(dao);
 
         messages = Messages.load(getClass().getClassLoader(), "messages/smp",
                 Locale.ENGLISH, Locale.GERMAN);
@@ -141,18 +155,40 @@ public final class SmpPlugin extends JavaPlugin {
 
         final FarmWorldSwap swap = new FarmWorldSwap(this, config.worldFarm(),
                 config.farmWorldStagingSuffix(), config.farmWorldRetiredSuffix());
-        farmReset = new FarmWorldReset(this, config, worlds, swap, pregen, messages, locales);
+        farmReset = new FarmWorldReset(this, config, worlds, swap, pregen, messages, locales,
+                dao, navigation);
         farmReset.start();
+
+        final PlayerComposition composition =
+                new PlayerComposition(new Prestige(config.prestigeThresholdHours()));
+        final PlayerSurfaces surfaces = new PlayerSurfaces(this, identities, composition);
+
+        hud = new SmpHud(this, worlds, season, navigation, messages, locales);
+        hud.start();
+        boards = new Boards(this, config, season, messages, locales);
+        boards.start();
+
+        // One async sweep on a timer for everything a surface reads out of the database: the active
+        // milestone's progress and the aura leaderboard. Both change a few times an hour and are
+        // drawn several times a second, which is the whole argument for reading them here and not
+        // there.
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::refreshSurfaceData, 100L, 100L);
 
         final Boxes regions = ConfigBoxes.spawnRegions(config);
         getServer().getPluginManager().registerEvents(
-                new JoinGate(dao, admins, messages, logger()), this);
+                new JoinGate(identities, messages, logger()), this);
         getServer().getPluginManager().registerEvents(
-                new ProtectionListener(regions, admins, messages, locales), this);
+                new PresenceListener(this, identities, surfaces, composition, config), this);
+        getServer().getPluginManager().registerEvents(
+                new NavigateListener(this, dao, navigation, identities, locales), this);
+        getServer().getPluginManager().registerEvents(
+                new ProtectionListener(regions, identities, messages, locales), this);
         getServer().getPluginManager().registerEvents(
                 new BalloonListener(balloons, worlds, season, track, messages, locales), this);
         getServer().getPluginManager().registerEvents(
                 new PortalGate(worlds, season, messages, locales), this);
+
+        registerCommands();
 
         getLogger().info("smp enabled - " + track.size() + " milestones, "
                 + regions.all().size() + " protected boxes, " + balloons.all().size() + " balloons");
@@ -160,6 +196,12 @@ public final class SmpPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (hud != null) {
+            hud.stop();
+        }
+        if (boards != null) {
+            boards.stop();
+        }
         if (farmReset != null) {
             farmReset.stop();
         }
@@ -167,6 +209,36 @@ public final class SmpPlugin extends JavaPlugin {
             pool.close();
         }
         getLogger().info("smp disabled");
+    }
+
+    private void registerCommands() {
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            final NavigateCommand commands =
+                    new NavigateCommand(this, dao, navigation, identities, messages, locales);
+            event.registrar().register(commands.navigate());
+            event.registrar().register(commands.poi());
+        });
+    }
+
+    /**
+     * The one place a surface's data is read. <b>Async</b>, on a timer.
+     *
+     * <p>Both halves are cheap and both are drawn far more often than they change: the active
+     * milestone's objectives move a few times an hour, the aura leaderboard a few times a day. The
+     * HUD redraws four times a second and the boards every five, so reading either at the point of
+     * use would be a database round trip inside a render loop.
+     */
+    private void refreshSurfaceData() {
+        try {
+            dao.activeMilestoneKey().ifPresentOrElse(
+                    key -> season.refreshActive(key, dao.objectivesOf(key)),
+                    () -> season.refreshActive(null, java.util.List.of()));
+            boards.setLeaderboard(dao.topAura(10));
+        } catch (final RuntimeException exception) {
+            // The database being briefly unreachable must not kill the repeating task - the surfaces
+            // keep showing what they last knew, which is the right thing for a scoreboard to do.
+            getLogger().warning("could not refresh the boards and HUD: " + exception);
+        }
     }
 
     /**

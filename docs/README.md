@@ -76,14 +76,15 @@ before; it was committed after the implementation it failed to describe. Numbers
 | SMP schema — `smp_*` tables, V6 | **built** 2026-09-01 |
 | `limbo` waiting room and pack enforcement | **built** 2026-09-01 — and unrehearsed: three open verifications now have a written probe |
 | SMP: the milestone track, aura, prestige, the milestone engine | **built** 2026-09-01 |
-| SMP: worlds, travel, duels, graves, POIs, boards, the wheel | **designed, not built** — the one implementation session left |
+| SMP: worlds, travel, duels, graves, POIs, boards, the wheel | **built** 2026-09-01, in three blocks — and unrehearsed: nothing in it has been seen on a running server |
 | PostgreSQL backup and restore | **not designed** — the one open piece of concept work |
 
-**What is left is the SMP's world half.** `limbo` and the pack station were built on 2026-09-01,
-and so was the SMP's server-free half — the milestone track, the aura payout, the prestige function
-and the milestone engine. Both owe a rehearsal rather than code — the login path against a real client, and the
-pre-generation measured on the real host. Both are
-[unverified assumptions with written fallbacks](state-of-play.md#the-unverified-assumptions).
+**What is left is a rehearsal, not a feature.** Every module in this repository has behaviour as of
+2026-09-01, the SMP's world half included. What none of them has is a witness: no world, no packet
+and no player has been through any of it. The login path needs a real client, the pre-generation
+needs the real host, and the SMP needs an evening with two clients in two languages. Each of those
+is an [unverified assumption with a written fallback](state-of-play.md#the-unverified-assumptions),
+and the steps that produce the answers live in a `todo.md` outside this repository.
 
 That table is a summary. [state-of-play.md](state-of-play.md) is the same question answered from the
 code, module by module, with the places where these documents and the code disagree. Of the nine

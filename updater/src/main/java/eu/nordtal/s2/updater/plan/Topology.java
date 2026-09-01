@@ -80,7 +80,7 @@ public final class Topology {
      * {@link #UPDATER} is in this list for the same reason the module exists: its own version has
      * to move by the mechanism it implements, or it becomes the one thing left being updated by
      * hand. It cannot run its own swap - no process replaces its own jar and keeps going - which
-     * is why the restart in step 6 of docs/updater.md is what brings it back on the new one.
+     * is why the restart is what brings it back on the new one.
      * </p>
      */
     public static final List<String> SEASON_JARS =

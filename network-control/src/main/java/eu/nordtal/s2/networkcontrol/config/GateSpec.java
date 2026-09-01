@@ -124,7 +124,7 @@ public interface GateSpec {
             "outside the connection pool, so that a phase switch feels instant instead of taking",
             "up to one poll interval.",
             "",
-            "Turning this off is the documented fallback in docs/operations.md#open-verification",
+            "Turning this off is the documented fallback in docs/state-of-play.md#the-unverified-assumptions",
             "if the listener turns out to be more trouble than it is worth: the poll above was",
             "always the guarantee, and nothing else changes. Notifications carry no payload and",
             "are lost while a process is disconnected, so every reconnect re-reads the row",

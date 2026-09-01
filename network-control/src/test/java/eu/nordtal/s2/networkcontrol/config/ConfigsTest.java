@@ -166,7 +166,7 @@ class ConfigsTest {
         writeGate("phase-listen-enabled: false");
 
         assertFalse(Configs.gate(directory, LOGGER).get().phaseListenEnabled(),
-                "docs/operations.md#open-verification's fallback is to drop NOTIFY and keep the poll");
+                "the row in docs/state-of-play.md#the-unverified-assumptions fallback is to drop NOTIFY and keep the poll");
     }
 
     /**

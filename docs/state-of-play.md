@@ -83,7 +83,7 @@ is that rule, and a proxy with no waiting room refuses the login rather than fal
 values change on a release cadence.
 
 **What this module still owes is a rehearsal, not code.** It owns three open verifications and none
-of them can be answered here — see [operations.md](operations.md#rehearsal--the-login-path).
+of them can be answered here — see [the unverified assumptions](#the-unverified-assumptions) below.
 
 ### `discord-bot`
 
@@ -196,14 +196,14 @@ The nine findings of the previous version are resolved as follows. **Only two st
 | 2 | The proxy accepts logins un-gated on a broken config | **closed** — `MisconfiguredGate` |
 | 3 | Two files point at a deleted document | **closed** 2026-08-31 |
 | 4 | `docs/README.md` overstates `network-control` | **closed** — four of the five things are built; only the pack station is not |
-| 5 | `app.simplecloud.api:api` is a dependency nothing imports | **closed 2026-09-01** — the dependency, its two repositories and its catalog entry were removed. Routing resolves backends by `gate.yml` name through `ProxyServer.getServer(name)`, which is exactly the fallback [operations.md](operations.md#open-verification) had written down |
+| 5 | `app.simplecloud.api:api` is a dependency nothing imports | **closed 2026-09-01** — the dependency, its two repositories and its catalog entry were removed. Routing resolves backends by `gate.yml` name through `ProxyServer.getServer(name)`, which is exactly the fallback that had been written down for it |
 | 6 | `link-code-ttl-minutes` duplicated | **closed** — retired from `AccessSpec`, with a test asserting the key is refused |
 | 7 | The jar-size claim was wrong | **closed** — corrected in both documents |
 | 8 | A whole font was undocumented | **closed** — the pack's README owns all three fonts |
 | 9 | The bossbar font's positive space advances sit outside the private-use area | **stands.** `！` and friends are `FULLWIDTH EXCLAMATION MARK`, not private use, while the pack states its range as ``–``. Confined to `nordtal:bossbar` and `nordtal:board`, so nothing is broken; moving them would change the HUD code that composes the bar, which now exists |
 | 13 | **New 2026-09-01:** jcore's config system had never been asked for two levels of nesting, and nothing said whether it could do it | **closed by building it.** It can - a `List<NestedSpec>` inside a `NestedSpec` round-trips - but **every nested interface needs its own `@ConfigSpec`**, and one without it fails as a Gson error about making `java.lang.reflect.Proxy#h` accessible, which names nothing useful. `MilestonesTest` is the standing proof; this is worth knowing before the next nested config is written |
 | 12 | **New 2026-09-01:** `hunger-games` read a player's language with a blocking JDBC call from its `PlayerJoinEvent` handler, on the main thread, and its pool had no timeout of any kind | **closed the same day, in both modules.** `PlayerLocales#joinAsync` runs the lookup on Bukkit's async scheduler; `limbo` redraws its title when the value lands, `hunger-games` needs no redraw. Both `database.yml` files gained `query-timeout-seconds` (default 3), setting HikariCP's `connectionTimeout` and the driver's `socketTimeout`. Found while building `limbo`, where the same line would have frozen the server every login passes through |
-| 11 | **New 2026-09-01:** the knowledge base named `objects.githubusercontent.com` as what a GitHub release asset redirects to | **closed by measurement.** It is `release-assets.githubusercontent.com`, one hop, with a signed URL that expires within the hour. Corrected in `operations.md` and in `PackSpec`'s own comment, which now says in capitals not to paste the resolved address into the config |
+| 11 | **New 2026-09-01:** the knowledge base named `objects.githubusercontent.com` as what a GitHub release asset redirects to | **closed by measurement.** It is `release-assets.githubusercontent.com`, one hop, with a signed URL that expires within the hour. Corrected in [resource-pack/README.md](../resource-pack/README.md#hosting) and in `PackSpec`'s own comment, which now says in capitals not to paste the resolved address into the config |
 | 10 | **New 2026-09-01:** the knowledge base described three modules as unbuilt that were built hours earlier, and `season-2/CLAUDE.md` still opens with "`hunger-games`, `smp` and `limbo` are still scaffolds" | **closed by this pass** in both places. The cause is worth keeping: a documentation commit that lands *after* an implementation commit is not evidence that it describes it |
 
 ## 2. What can be built today
@@ -227,8 +227,8 @@ The three artefacts no document named have been decided and written:
   who may join.
 
 **What is left is the rehearsal, and it cannot be done from a build machine.** The three open
-verifications this session owned are still open, each is now a numbered step in
-[operations.md](operations.md#rehearsal--the-login-path), and each still has its written fallback —
+verifications this session owned are still open, each is now a numbered step in the owner's
+checklist, each is a row in [the table below](#the-unverified-assumptions) with its written fallback —
 so the phase is *built and unproven*, which is a different thing from *unbuilt*.
 
 One measurement did come out of it. `curl` against a real GitHub release asset on 2026-09-01: one
@@ -267,7 +267,7 @@ milestone is deliverable at all.
 **Nametags come from `papermc-display-tags`** — decided 2026-09-01. `smp` takes
 `com.github.nordtal:papermc-display-tags:2.0.0` from JitPack as `compileOnly` and declares
 DisplayTags in its `paper-plugin.yml`. The consequence is operational and is stated in
-[operations.md](operations.md#third-party-plugins): **PacketEvents becomes a required plugin on the
+[../deploy/README.md](../deploy/README.md#third-party-plugins): **PacketEvents becomes a required plugin on the
 SMP server**, which makes it the network's first mandatory third-party runtime dependency —
 CoreProtect, the only other one, may be absent without anything failing.
 
@@ -290,8 +290,8 @@ its own, or a config default that is cheaper to propose in a diff than to argue 
 ### Concept work, and it has no home yet
 
 **PostgreSQL backup and restore.** The entire season lives in one database — access periods,
-payments, aura, milestone progress, graves. [operations.md](operations.md) still says nothing about
-backups, restore, or how a restore would be tested. This is the only genuinely irreversible risk in
+payments, aura, milestone progress, graves. Nothing in this repository says how it is backed up,
+how a restore is performed, or whether a restore has ever been tried. This is the only genuinely irreversible risk in
 the project and it is the one thing here that is not a config default, a drawing or a build. It
 belongs before the SMP phase opens. Since 2026-09-01 the fix is at least local — PostgreSQL is a
 service in the same compose stack, so a `pg_dump` sidecar against the same volume is the whole of
@@ -304,7 +304,7 @@ entrypoint and the runbook. It is **measured, not just written** — a Velocity 
 were run from that image, the pinned build resolved and checksum-verified through the Fill API, the
 console proved writable from a `docker exec`, and `docker stop` shut Paper down in 3 s with
 `All dimensions are saved` in the log. See
-[operations.md](operations.md#closed-2026-09-01), which also records the one design that had to be
+[../deploy/README.md](../deploy/README.md#what-was-measured-and-what-it-cost), which also records the one design that had to be
 thrown away.
 
 What is left there is one open verification and one manual step, not a build: whether the
@@ -352,24 +352,45 @@ than stop.
 
 ### The unverified assumptions
 
-They live in [operations.md](operations.md#open-verification), ordered by the session that owns each
-one, and every row says what happens if the answer is no.
+Nothing below has been confirmed, and **every one of them has a written fallback** — which is the
+point: an unverified assumption with no fallback is a decision nobody has made yet, and one with a
+fallback can be answered *no* without blocking anything. The fallbacks are design and live here.
+**The steps that produce the answers do not**: they need a running server, a real client or the
+production host, so they are a checklist for the owner rather than a document, and they live in a
+`todo.md` outside this repository. Ask for it; it is deliberately not published.
+
+| what is unverified | who owns the answer | **if the answer is no** |
+|---|---|---|
+| **A Minecraft client follows GitHub's redirect** when downloading the pack. The redirect itself is measured ([resource-pack/README.md](../resource-pack/README.md#hosting)); whether a *client* follows it is not | the login-path rehearsal | Host the zip on a small static HTTP host. The URL and hash are already configuration, so it is a config edit plus one more thing to keep alive and certificated on event day — cheap, but nobody should discover it that morning |
+| **A forced pack offer sent by the proxy while the player is being moved to `limbo`** behaves, and both refusal paths work — including whether `PackStation`'s own `disconnect()` wins the race against Velocity's generic forced-pack kick, which is the only way our `DECLINED` text reaches a 1.17+ client | the login-path rehearsal | Offer the pack from `limbo` itself on join — which is the job that module was originally named for, so the prompt simply appears one hop later. If only the *decline text* loses the race, accept Velocity's own wording for that one path and keep everything else: the player is still refused, just less kindly |
+| **Disconnecting a player from `PlayerChooseInitialServerEvent`.** Since 2026-09-01 a proxy with no waiting room refuses *every* login rather than letting anybody past the pack station. `player.disconnect()` is documented and the event is `@AwaitingEvent`, but a login-allowed player being kicked *during* initial server selection has not been seen happen | the login-path rehearsal | Set the initial server to one that exists and disconnect from `ServerPostConnectEvent`, or move the check back into the `LoginEvent` gate as a maintenance refusal — the pre-2026-08-31 behaviour, a one-line reversal |
+| **Background pre-generation of a 2000 × 2000 world without perceptible lag.** The concept's own biggest technical risk | the SMP session, measured on the real host with players online | The farm world gets smaller — 2000 × 2000 is [a proposal](smp.md#numbers-that-are-proposals-not-decisions) and halving the radius quarters the work. If even a small world lags, pre-generate off-peak only or in a separate process and move the folder in. Operational, never a redesign |
+| **Nordtal's one-off pre-generation to border 4000** is affordable in wall clock and disk | the SMP session, on the real host | The final border is the number to reconsider. It is a config default in `milestones.yml`, and [the track](smp.md#the-track) is explicit that every number in it is a default while the *rules* are the decision — so a smaller frontier is a retune |
+| **Paper unloading and deleting a loaded world at runtime**, then loading a replacement under the same name | the SMP session, before the reset is built on top of it | **Alternate two names instead of reusing one** — pre-generate into `farm-world-b` while `-a` is live, load `-b`, move players, then delete `-a`. That removes the same-name re-load, the part Paper is least likely to tolerate. Only if unloading fails *at all* does the reset need a restart, and then it becomes an announced daily restart at the quiet hour |
+| **`LISTEN`/`NOTIFY` through the pool** — a dedicated connection outside Hikari, a `getNotifications(timeout)` thread, an unconditional re-read on every reconnect | whoever next touches the phase model; [it is built in the first pass](season-phases.md#source-of-truth-and-propagation) | Drop `NOTIFY`, keep the 30-second poll that was always the actual guarantee. A switch takes up to thirty seconds instead of feeling instant. No redesign, one paragraph deleted |
+| **`console` — the *interactive* attach — behaves inside Arcane's browser terminal.** `mc <command>` through a plain `docker exec` is [already verified](../deploy/README.md#what-was-measured-and-what-it-cost) | the first deployment | Use `mc` plus the log view — send-and-read without a TTY, which covers every command a runbook issues. Only live scrollback is lost, and `docker exec -it <container> console` over SSH still gives it |
+| **Simple Voice Chat on 26.2** | before the event rehearsal | Dropped without replacement, as [hunger-games.md](hunger-games.md#still-open) already says. It needs a client mod, so vanilla players could never have used it. Zero cost |
+| **Proxy-only pack enforcement**, which would make `limbo` unnecessary for packs | after the event, never on the critical path | Nothing changes — `limbo` stays, which is the current design. The one row that can only *save* work, which is why it is last |
+
+**When one of these is answered, move the row out of this table** and write what was actually
+observed, with the date. A *no* is a result, not a failure.
 
 ## 4. Recommendation
 
 One implementation session and one concept session are left, plus one rehearsal.
 
 - ~~**`limbo` and the pack station** (§2a)~~ — **built 2026-09-01.** What it left behind is a
-  rehearsal against a running proxy and a real client, which is an afternoon with a Minecraft
-  account and not a session.
+  thirteen-step rehearsal against a running proxy and a real client, which is an afternoon with a
+  Minecraft account and not a session. Three rows of the table above fall out of it.
 - **The backup concept** (§3). Not code, and it should not wait for the SMP: the database it
   protects already holds real payment records the moment the bot is deployed.
 - **The SMP's world half** (§2c) plus the winner's head start (§2d). §2b is built: the milestone
   YAML, the aura payout, the prestige function and the milestone engine, 56 tests. What is left is
   every feature that ends at a rehearsal rather than at a green build.
 - **The pre-generation measurement**, which does not need this repository at all and should happen
-  before the world half is designed around a number nobody has:
-  [operations.md](operations.md#measuring-the-pre-generation--do-this-first) is the recipe.
+  before the world half is designed around a number nobody has. It is two numbers — Nordtal's
+  one-off generation to border 4000, and what the farm world's daily generation does to the 95th
+  percentile of tick time with players online — and the recipe is in the owner's checklist.
 
 One thing to keep in view throughout: **nothing here has been exercised against a running server, a
 real client, Discord or bunq.** The test suite covers the access API, the config specs, the fallback

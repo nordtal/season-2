@@ -12,7 +12,7 @@ import java.time.Duration;
  * live in exactly one class ({@link PostgresPhaseNotifications}). <b>It does not make the loop
  * testable in any meaningful sense</b>: a fake that throws on demand proves the loop reconnects
  * when told to, and proves nothing about what a real dropped TCP socket does. See
- * docs/operations.md#open-verification - that row is closed by a restart drill against a real
+ * docs/state-of-play.md#the-unverified-assumptions - that row is closed by a restart drill against a real
  * database, not by a unit test.
  * </p>
  */

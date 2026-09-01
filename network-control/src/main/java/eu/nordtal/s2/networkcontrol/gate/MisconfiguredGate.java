@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * <b>everybody</b> because {@code network-control}'s own configuration could not be read.
  *
  * <h2>Why this exists</h2>
- * docs/operations.md#configuration-and-secrets, settled 2026-08-31. Until then a bad
+ * docs/architecture.md#failing-closed-on-a-bad-config, settled 2026-08-31. Until then a bad
  * {@code database.yml} or {@code gate.yml} was logged loudly and the login gate was simply never
  * registered - so the proxy kept running and kept accepting logins <b>un-gated</b>. That is the
  * wrong way round for a value whose whole job is deciding who may join: <i>"the proxy is up but

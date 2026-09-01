@@ -7,7 +7,7 @@ schema (`database.migrate()` at startup, migrations in `:common`), so an empty d
 needs.
 
 The concept is [../docs/access-system.md](../docs/access-system.md); how the season deploys as a
-whole is [../docs/operations.md](../docs/operations.md). This file is only about starting the
+whole is [../deploy/README.md](../deploy/README.md). This file is only about starting the
 container.
 
 ## What you need first
@@ -123,7 +123,7 @@ Built from this tree with `docker compose up -d --build` and started with only e
 variables set and no config file anywhere: all three configs loaded (15 settings taken from the environment), Flyway
 applied all five migrations to an empty PostgreSQL 17, and the process stopped exactly where it
 should — on the deliberately invalid Discord token. bunq and Discord themselves are untested; see
-[../docs/operations.md](../docs/operations.md#open-verification).
+[../docs/state-of-play.md](../docs/state-of-play.md#the-unverified-assumptions).
 
 That run is also what found the `mergeServiceFiles()`/`duplicatesStrategy` bug in
 `build-logic/src/main/kotlin/nordtal.shaded.gradle.kts`: until it was fixed, **the shaded bot jar

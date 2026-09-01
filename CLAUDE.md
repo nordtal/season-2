@@ -160,7 +160,7 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
 
   | jar | bytes | measured |
   |---|---|---|
-  | `smp-0.1.0.jar` | 4,619,974 | 2026-09-01, after the server-free half |
+  | `smp-0.1.0.jar` | 4,797,861 | 2026-09-01, after the whole world half — it was 4,619,974 with only the server-free core, so ~9 700 lines of plugin code weigh under 180 KB |
   | `limbo-0.1.0.jar` | 4,576,946 | 2026-09-01, after the module was built |
   | `hunger-games-0.1.0.jar` | 4,640,946 | 2026-08-31 |
   | `network-control-0.1.0.jar` | 5,291,760 | 2026-09-01, after the pack station |

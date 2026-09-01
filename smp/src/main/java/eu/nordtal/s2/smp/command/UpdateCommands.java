@@ -164,7 +164,9 @@ public final class UpdateCommands {
         final String[] lines = result.split("\n", -1);
 
         Bukkit.getScheduler().runTask(plugin, () -> {
-            if (request.status() != UpdateStatus.DONE) {
+            // CANCELLED is deliberately not in here: a stopped countdown is somebody using the way
+            // out, and cancelRestart has already said so in its own words.
+            if (request.status() == UpdateStatus.FAILED) {
                 sender.sendMessage(Component.text(messages.get(localeOf(sender), "smp.update.failed")));
             }
             for (int line = 0; line < Math.min(lines.length, MAX_LINES); line++) {

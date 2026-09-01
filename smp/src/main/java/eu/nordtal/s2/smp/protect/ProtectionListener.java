@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.protect;
 
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.region.Boxes;
 
 import net.kyori.adventure.text.Component;
@@ -46,19 +47,21 @@ import org.bukkit.event.player.PlayerInteractEvent;
  * <p>The balloon, the NPC, the boards and the wheel are unaffected by any of this: they are entities
  * and plugin surfaces, not blocks.
  *
- * <p>Admins are exempt, from a cache rather than a query - see {@link AdminFlags}.
+ * <p>Admins are exempt, from {@link Identities}' cache rather than from a query: this listener
+ * asks the question on every block interaction, and a round trip per click is the main-thread
+ * mistake this repository has already made twice.
  */
 public final class ProtectionListener implements Listener {
 
     private final Boxes regions;
-    private final AdminFlags admins;
+    private final Identities identities;
     private final Messages messages;
     private final PlayerLocales locales;
 
-    public ProtectionListener(final Boxes regions, final AdminFlags admins, final Messages messages,
-                              final PlayerLocales locales) {
+    public ProtectionListener(final Boxes regions, final Identities identities,
+                              final Messages messages, final PlayerLocales locales) {
         this.regions = regions;
-        this.admins = admins;
+        this.identities = identities;
         this.messages = messages;
         this.locales = locales;
     }
@@ -117,7 +120,7 @@ public final class ProtectionListener implements Listener {
         if (!inside(at)) {
             return;
         }
-        if (event.getRemover() instanceof Player player && admins.isAdmin(player.getUniqueId())) {
+        if (event.getRemover() instanceof Player player && identities.of(player.getUniqueId()).admin()) {
             return;
         }
         event.setCancelled(true);
@@ -138,7 +141,7 @@ public final class ProtectionListener implements Listener {
             return;
         }
         final Player player = event.getPlayer();
-        if (player != null && admins.isAdmin(player.getUniqueId())) {
+        if (player != null && identities.of(player.getUniqueId()).admin()) {
             return;
         }
         event.setCancelled(true);
@@ -174,7 +177,7 @@ public final class ProtectionListener implements Listener {
 
     /** Whether this player must be stopped here - and tells them why, once, when they are. */
     private boolean deny(final Player player, final Block block) {
-        if (!inside(block.getLocation()) || admins.isAdmin(player.getUniqueId())) {
+        if (!inside(block.getLocation()) || identities.of(player.getUniqueId()).admin()) {
             return false;
         }
         player.sendActionBar(Component.text(

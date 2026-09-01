@@ -35,6 +35,43 @@ public final class Glyphs {
     public static final String FLAG_UNITED_STATES = "\uE014";
 
     // Logo assets - U+E020..U+E02F
+    /**
+     * The flag glyph for a language, which is the one every surface draws beside a player's name.
+     *
+     * <p><b>It is the language, not the country</b>, and the mapping is therefore a choice rather
+     * than a lookup - there is no flag for "German" any more than there is a language called
+     * "Belgian". The pack draws five, and this is how the season's languages land on them:
+     *
+     * <ul>
+     *   <li>{@code de} - Germany</li>
+     *   <li>{@code nl} - the Netherlands</li>
+     *   <li>{@code en} with country {@code US} - the United States</li>
+     *   <li>{@code en} otherwise - the United Kingdom, which is the default English flag because
+     *       the server is a European one and {@code Locale.ENGLISH} carries no country at all</li>
+     *   <li>anything else - the neutral flag, which exists so an unexpected locale renders as
+     *       something rather than as a missing glyph</li>
+     * </ul>
+     *
+     * <p>A null locale is the neutral flag too: it means the account link has not been read yet,
+     * which is a state a player can be in for the first second of a session.
+     */
+    public static String flagFor(final java.util.Locale locale) {
+        if (locale == null) {
+            return FLAG_OTHER;
+        }
+        final String language = locale.getLanguage();
+        if ("de".equals(language)) {
+            return FLAG_GERMANY;
+        }
+        if ("nl".equals(language)) {
+            return FLAG_NETHERLANDS;
+        }
+        if ("en".equals(language)) {
+            return "US".equals(locale.getCountry()) ? FLAG_UNITED_STATES : FLAG_UNITED_KINGDOM;
+        }
+        return FLAG_OTHER;
+    }
+
     public static final String LOGO_HEIGHT_24 = "\uE020";
     public static final String LOGO_HEIGHT_32 = "\uE021";
 

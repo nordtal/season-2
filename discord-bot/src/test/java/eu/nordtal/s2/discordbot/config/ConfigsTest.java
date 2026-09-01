@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.config;
 
+import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.exception.UnknownConfigKeyException;
 import org.junit.jupiter.api.AfterEach;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -568,5 +570,104 @@ class ConfigsTest {
         final ConfigValidationException error =
                 assertThrows(ConfigValidationException.class, Configs::database);
         assertTrue(error.getMessage().contains("PostgreSQL"), error.getMessage());
+    }
+
+    // ------------------------------------------------------------- deploy/.env.example
+
+    /**
+     * The exact {@code NORDTAL_ACCESS_LANGUAGES} block that {@code deploy/.env.example} ships,
+     * whitespace and all.
+     * <p>
+     * It is written the way an operator reads it - one key per line - rather than as the single
+     * line a shell would have needed, because docker compose parses a single-quoted multi-line
+     * value in an env file as one string. That is a claim about two systems this repository does
+     * not own, so the half that is ours is pinned here: whatever compose hands over, jcore has to
+     * turn back into a language list.
+     * </p>
+     */
+    private static final String ENV_EXAMPLE_LANGUAGES = """
+            [
+              {
+                "tag": "en",
+                "role": "REPLACE_ME",
+                "contribution-channel": "REPLACE_ME",
+                "link-channel": "REPLACE_ME",
+                "hunger-games-channel": "REPLACE_ME"
+              },
+              {
+                "tag": "de",
+                "role": "REPLACE_ME",
+                "contribution-channel": "REPLACE_ME",
+                "link-channel": "REPLACE_ME",
+                "hunger-games-channel": "REPLACE_ME"
+              }
+            ]""";
+
+    /** The commented-out {@code NORDTAL_ACCESS_TIERS} block from the same file. */
+    private static final String ENV_EXAMPLE_TIERS = """
+            [
+              {"days": 30, "price-cents": 300},
+              {"days": 60, "price-cents": 500},
+              {"days": 90, "price-cents": 700}
+            ]""";
+
+    @Test
+    @DisplayName("the language list in deploy/.env.example is read back as two languages")
+    void theEnvExampleLanguageListParses() throws Exception {
+        final AccessSpec config = fromEnvironment(Map.of(
+                "NORDTAL_ACCESS_LANGUAGES", ENV_EXAMPLE_LANGUAGES));
+
+        assertEquals(2, config.languages().size(), "both entries have to survive the round trip");
+        assertEquals("en", config.languages().get(0).tag());
+        assertEquals("de", config.languages().get(1).tag());
+        // The four ids are the reason the block exists: a JSON key that does not match the @Key
+        // name comes back as null rather than as an error, which would surface as a null channel
+        // id hours later. REPLACE_ME arriving intact is what proves the names line up.
+        assertEquals("REPLACE_ME", config.languages().get(0).role());
+        assertEquals("REPLACE_ME", config.languages().get(0).contributionChannel());
+        assertEquals("REPLACE_ME", config.languages().get(0).linkChannel());
+        assertEquals("REPLACE_ME", config.languages().get(1).hungerGamesChannel());
+    }
+
+    @Test
+    @DisplayName("the price list in deploy/.env.example is read back as three tiers")
+    void theEnvExampleTierListParses() throws Exception {
+        final AccessSpec config = fromEnvironment(Map.of("NORDTAL_ACCESS_TIERS", ENV_EXAMPLE_TIERS));
+
+        assertEquals(3, config.tiers().size());
+        assertEquals(30, config.tiers().get(0).days());
+        assertEquals(700, config.tiers().get(2).priceCents());
+    }
+
+    @Test
+    @DisplayName("a REPLACE_ME id is refused by name rather than started with")
+    void aPlaceholderIdIsRefusedByName() throws Exception {
+        // The whole point of REPLACE_ME over a row of zeros: zeros are a valid snowflake and would
+        // start a bot against a guild that does not exist.
+        Files.writeString(directory.resolve("access.yml"),
+                access().replace("access: '10'", "access: 'REPLACE_ME'"));
+
+        final ConfigValidationException thrown =
+                assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(thrown.getMessage().contains("roles.access"),
+                "the message has to name the setting, was: " + thrown.getMessage());
+    }
+
+    /**
+     * Loads {@code access.yml} with a fake environment on top, the way the container's is.
+     * <p>
+     * {@link Configs#access()} reads {@link System#getenv} and a test cannot set that, so this goes
+     * through {@link ConfigLoader} directly with the same prefix. It therefore covers the overlay
+     * and not the validator - which is the half at risk here: a JSON shape that does not map onto
+     * the spec fails inside Gson, long before any rule of ours runs.
+     * </p>
+     */
+    private AccessSpec fromEnvironment(final Map<String, String> environment) throws Exception {
+        Files.writeString(directory.resolve("access.yml"), access());
+        return ConfigLoader.builder(directory.resolve("access.yml"), AccessSpec.class)
+                .envPrefix("NORDTAL_ACCESS")
+                .environment(environment::get)
+                .load()
+                .get();
     }
 }

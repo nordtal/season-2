@@ -481,7 +481,7 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**Six modules have tests: 435 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Six modules have tests: 438 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-01). The counts below are what the JUnit XML reports, not `@Test` counts.
 
 `:common` has **98**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
@@ -495,13 +495,17 @@ different versions that stop understanding each other produce a player stuck in 
 with nothing in any log. The `make_interval(hours => days * 24)` bug from stage A (see
 below) is still the reason a day is never expressed in SQL as `interval 'N days'`.
 
-`discord-bot` has **109**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest` and `TiersTest` in
+`discord-bot` has **112**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest` and `TiersTest` in
 memory, `AdminFlagIntegrationTest` and `PaymentRequestIntegrationTest` against a container, plus the
 `hungergames` package's own. `LanguagesTest` owns every rule the `languages` list decides — which of
 several held roles wins, which channel a locale posts in, what a `managed_message.kind` is called —
 because none of the three classes that use them (`GuildState`, `ManagedMessages`,
 `PaymentProcessor`) can be exercised without a real guild. `LinkFlow`, the redemption side, is still
-untested by anything but `common`'s DAO-level tests and a manual guild check.
+untested by anything but `common`'s DAO-level tests and a manual guild check. Three of
+`ConfigsTest`'s cases (added 2026-09-01) pin `deploy/.env.example` rather than the bot: the JSON
+language list and price list it ships have to come back out of jcore's environment overlay as a
+list of specs, and its `REPLACE_ME` placeholders have to be *refused by name*. A `.env.example`
+whose structures do not parse is worse than none, and nothing else in the build reads that file.
 
 `network-control` has **120**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
@@ -512,8 +516,10 @@ exhaustively over its three inputs) and eight more `ConfigsTest` cases for `pack
 one worth keeping is that a `sha1` which is not 40 hex characters stops the proxy, because every
 other way of finding a bad hash costs a player a `FAILED_DOWNLOAD` that reads as a network problem.
 
-`limbo` has **4**, and they are the only ones it can have: everything else in that module is a
-world, a title, a potion effect or a plugin message. What they cover is that every `WaitReason` has
+`limbo` has **11**, seven of them `ConfigsTest`. The other four are the only ones the rest of the
+module can have: everything else in it is a world, a title, a potion effect or a plugin message.
+(This paragraph said "4" until 2026-09-01, counting `WaitingTextTest` alone - the totals above were
+right, the sentence was not.) What the four cover is that every `WaitReason` has
 a title and a subtitle in both languages and that no title runs past forty characters - a missing
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.

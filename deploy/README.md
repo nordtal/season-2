@@ -270,6 +270,32 @@ Two kinds, and the distinction matters because one of them may be missing and th
   declares it with `load: BEFORE` and `required: true`, so a server missing either fails loudly at
   start instead of quietly rendering plain nametags. Two more jars to keep current with 26.2, one of
   them ours.
+- **Required, on the `smp` service only: Chunky.** Added 2026-09-01, and it is required for a
+  mechanic rather than a rendering: the farm world is pre-generated every night — roughly 15 000
+  chunks beside a live server — and the daily reset waits for Chunky's completion event before it
+  swaps anything in. Without it the reset would not fail, it would postpone itself every night,
+  silently, which is why `required: true` turns that into a start-up failure instead.
+  `Chunky-Bukkit-1.5.3.jar`, which is the version Modrinth tags for `paper` on 26.2.
+
+**And two datapacks, which are not plugins but belong in the same conversation: Terralith and
+Dungeons and Taverns.** They are what the terrain of every world in this season is, they are pinned
+by sha512 in `.env` (`SMP_DATAPACK_URLS`), and the entrypoint fetches them into the `level-name`
+world's `datapacks/` folder *before* the server starts.
+
+Three facts about them, all measured on Paper 26.2 build 121 on 2026-09-01 rather than assumed:
+
+- **Datapacks are server-global.** They are read only from `<level-name>/datapacks/`. A probe pack
+  placed in a secondary world's own `datapacks/` folder was never listed — not at start, not after
+  that world was created, not after `refreshPacks()`. There is no per-world datapack API.
+- **They are read once, at start.** A pack dropped in afterwards changes no terrain, and terrain is
+  never re-rolled once it is on disk. That is why the entrypoint fetches them before Java runs.
+- **A world created through the Bukkit API lands at `<level-name>/dimensions/minecraft/<name>`**,
+  inside the primary world rather than beside it. Worth knowing before you go looking for the farm
+  world's folder, or size a volume for the two that exist during a swap.
+
+`smp` verifies both are enabled and refuses to start otherwise. That refusal is deliberate: a farm
+world generated without Terralith is one flat day, but Nordtal generated without it is the whole
+season, on a world with a spawn built on it that therefore cannot be thrown away.
 - **Optional: CoreProtect**, purely as insurance. Nothing in the design depends on it, and it gets
   its own SQLite file rather than a schema in our PostgreSQL so that
   "[exactly one process migrates](../docs/architecture.md#schema-ownership)" stays literally true.

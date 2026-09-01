@@ -481,7 +481,7 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**Six modules have tests: 454 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Six modules have tests: 485 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-01). The counts below are what the JUnit XML reports, not `@Test` counts.
 
 `:common` has **98**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
@@ -524,14 +524,21 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **56**, and they are the module's server-free half in full: `MilestonesTest` (9) writes a
+`smp` has **87**. `MilestonesTest` (9) writes a
 fresh `milestones.yml`, reads it back and asserts the whole track survives — which is also the proof
-that two levels of jcore nesting work; `AuraPayoutTest` (13) covers the 30/70 split, the 2 %
+that two levels of jcore nesting work; `AuraPayoutTest` (12) covers the 30/70 split, the 2 %
 threshold, the concept's own worked example, the case it never named (more qualifiers than there is
-aura in the pot) and the invariant that the pot is never overspent; `TrackValidationTest` (13)
+aura in the pot) and the invariant that the pot is never overspent; `TrackValidationTest` (12)
 asserts both halves of the reload rule, including the one that must *permit* a lowered target;
-`PrestigeTest` (8), `ObjectiveProgressTest` (7) and `DeathPenaltyTest` (7) are the rest. Not one of
-them touches a world, a packet or a player, because not one of those exists in this module yet.
+`PrestigeTest` (8), `ObjectiveProgressTest` (7) and `DeathPenaltyTest` (8) complete the server-free
+half. Four are new with the world half on 2026-09-01 and every one of them is still pure — the
+Bukkit-facing classes were written so the decisions could be taken out and asserted: `BoxesTest` (7)
+holds the inclusive-corner arithmetic and the balloon's radius 10–21.5 band, `DailyScheduleTest` (6)
+computes the reset delay against fixed clocks rather than the wall, `BalloonMenuTest` (8) pins the
+2 × 2 layout as a table, `SeasonStateTest` (6) covers where the database's progress meets the file's
+definition, and `MessageBundlesTest` (4) keeps the two language files symmetrical in keys and
+placeholders. What no test here covers is the world itself; that is what the drills and the
+rehearsals are for.
 
 `hunger-games` has **57**, all in memory and all of them arithmetic the game would otherwise get
 wrong in front of players: `BorderMathTest` (the step, the extension of a running shrink, the

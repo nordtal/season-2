@@ -30,14 +30,17 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `common` | 26 files, 2671 lines | 98 | Access API, messages, locales, phase, glyphs, **the limbo protocol**, V1–V6 |
 | `resource-pack` | — | — | Three fonts, every code point allocated and drawn |
 | `limbo` | 10 files, 1139 lines | 11 | The waiting room, in full |
-| `smp` | 22 files, 2912 lines | 56 | The track, aura, prestige and the milestone engine — no world |
+| `smp` | 43 files, 5380 lines | 87 | The track, aura, prestige, the milestone engine — plus the worlds, travel, spawn protection and the daily farm reset |
 
-454 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
-(This line read 435 while the module rows below it added up to 438; both are re-counted from the
-JUnit XML above.)
+485 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
+Every number in this table is read out of the JUnit XML, never counted by eye: this line once read
+435 while the rows above it added to 438, and `season-2/CLAUDE.md` claimed 13 tests each for
+`AuraPayoutTest` and `TrackValidationTest` and 7 for `DeathPenaltyTest` where the reports say 12, 12
+and 8. Both were corrected on 2026-09-01 by re-reading the reports.
 
-**No module is a scaffold any more.** What is left is not a module but a half of one: everything in
-`smp` that touches a world.
+**No module is a scaffold any more.** What is left is not a module but two thirds of one half:
+`smp`'s player surfaces and its activities. Its worlds, travel, spawn protection and daily farm
+reset were built on 2026-09-01.
 
 ### `common`
 
@@ -179,9 +182,9 @@ this module uses `GameRules` throughout, which is worth knowing before the SMP w
 
 ### `smp`
 
-**Half built, 2026-09-01: the half that needs no world.** The split is deliberate and follows
-docs/state-of-play.md's own §2b/§2c division - what is here can be asserted in a test, and what is
-not needs a running server and real clients before it means anything.
+**Two thirds built, 2026-09-01.** The server-free core came first; the worlds followed the same
+day, after two throwaway drills on a real Paper 26.2 server settled the two questions the design
+was resting on (see [the unverified assumptions](#the-unverified-assumptions)).
 
 - `config/` - `SmpSpec` (`config.yml`), `DatabaseSpec`, and **`MilestonesSpec` + `DefaultTrack`**,
   which is the track of docs/smp.md#the-track written out entry for entry. `DefaultSmp` carries the
@@ -194,22 +197,40 @@ not needs a running server and real clients before it means anything.
   scaling), `AuraReason`, `DeathPenalty`.
 - `prestige/` - `Prestige`, thirteen tiers derived from `player_playtime.seconds` and never stored.
 
-`build.gradle.kts` takes jcore, HikariCP, jdbi3-postgres and - `compileOnly`, never shaded -
-`com.github.nordtal:papermc-display-tags:2.0.0`; `paper-plugin.yml` declares DisplayTags with
-`load: BEFORE` and `required: true`. The jar is 4,619,974 bytes.
+Then, the same day, the world half's first block:
 
-**What is not here is the whole world half**, and it is the larger half: the farm-world swap, the
-balloon and the travel rules, portal gating, spawn protection, graves, POIs, `/navigate`, the duel
-arenas, the per-player Text Display boards, the wheel, the HUD, the commands, the DAO, and the
-plugin main class that would wire any of it together. `SmpPlugin` is still the scaffold's two log
-lines.
+- `world/` - `Worlds` (find or create the four, hold their borders, animate Nordtal's expansion),
+  `WorldRole`, and `Datapacks`, which verifies rather than installs - see below.
+- `farm/` - `FarmWorldSwap` (unload, rename aside, rename in, reload, delete off-thread),
+  `FarmWorldReset` (the clock, the warnings, the postponement), `DailySchedule` and `LandingSite`.
+- `pregen/` - `PreGenerator`, a thin wrapper over `ChunkyAPI` from Bukkit's `ServicesManager`.
+- `travel/` - `BalloonMenu` (the 2 x 2 layout, pure and tested as a table), `BalloonGui`,
+  `BalloonListener` and `PortalGate`.
+- `protect/` - `ProtectionListener` and `AdminFlags`; `region/` - `Box`, `Boxes`, `ConfigBoxes`.
+- `state/SeasonState` - where the database's progress and the file's definition meet.
+- `db/` - `SmpPool`, `SmpDao` and `JoinGate`, which refuses logins while PostgreSQL is unreachable
+  and keeps the people already playing.
+
+`build.gradle.kts` takes jcore, HikariCP, jdbi3-postgres and - both `compileOnly`, never shaded -
+`com.github.nordtal:papermc-display-tags:2.0.0` and `org.popcraft:chunky-common:1.5.3` (from
+CodeMC; the `chunky` coordinates on Maven Central are unrelated projects). `paper-plugin.yml`
+declares both DisplayTags and Chunky with `load: BEFORE` and `required: true`.
+
+**`SmpPlugin` refuses to start on three conditions**, each because the damage cannot be undone
+afterwards: a required datapack that is not enabled, a missing Nordtal, and a balloon outside the
+radius 10-21.5 band that makes the first milestone mean anything.
+
+**What is not here** is the player surfaces - HUD, the per-player Text Display boards, nametags,
+`/navigate`, POIs, prestige rendering - and the activities: duels, graves, the wheel, milestone
+completion with its payout, and `/smp`.
 
 ### Where the documents and the code disagree
 
 The nine findings of the previous version are resolved as follows, with everything found since
-appended. **Only finding 9 still stands** — the sentence here read "only two still stand" while
-the table underneath it had one row marked as standing, which is the same class of drift the table
-exists to record.
+appended. **Findings 9 and 19 still stand**; every other row is closed. Keeping that sentence
+accurate is itself a habit worth having — an earlier version read "only two still stand" while the
+table underneath had one row marked as standing, which is the same class of drift the table exists
+to record.
 
 | # | what it was | now |
 |---|---|---|
@@ -229,6 +250,9 @@ exists to record.
 | 14 | **New 2026-09-01, second pass:** §3 of this document still listed six config defaults as open — duel loadouts, the advancement awards, the "embarrassing" death causes, the objectives' items, the wheel's pool, the winner's head start — while its own §2b, `docs/smp.md#still-open`, `DefaultSmp` and `DefaultTrack` all said they had been written the same day | **closed by reading the code.** All six are in `DefaultSmp`/`DefaultTrack`; §3 now says so. The cause is the one this document keeps rediscovering: a list that lives in a different file from the thing it describes goes stale silently, and a *closing* edit is as easy to miss as an opening one |
 | 15 | **New 2026-09-01, second pass:** `/hg start` did every one of its database calls on the main thread. `HungerGamesCommand#runAsAdmin` checked the admin flag asynchronously and then handed the *action* back to `runTask`, so `dao.game`, `dao.roster`, `HungerGamesManager#start`'s second roster read and its one colour write per team all landed on the server thread — and `winTracker.reset(dao.activeMembersOf(…))` ran inside the `onReleased` callback, in the tick every participant is released | **closed the same day.** `runAsAdmin` runs the action on the async task it is already on, the messages hop to the main thread through a `tell` helper, and the roster read moved up into `HungerGamesPlugin#startGame`, which also closes a race the callback had. `HungerGamesManager#start`'s own closing `runTask` had been the standing evidence that it was written to be called from off-thread; nothing read it. This is **finding 12 again, in the same module**, three weeks of nothing between them |
 | 16 | **New 2026-09-01, second pass:** `WinTracker.Outcome` carried a `tie` flag no caller ever read, and `Outcome::win` set it to `false` even for a win the tiebreaker produced. A game decided on the kill count was announced as an ordinary win, and `hg.win.tie-broken` and `hg.win.no-winner` — written, translated and carrying `{winnerKills}`/`{loserKills}`/`{kills}` — were unreachable | **closed the same day.** `Outcome` now has four constructors for the four endings and carries the two kill counts; `Ceremony` prints all four. "Everybody dead, no simultaneous pair" is `noWinner()` rather than a tie, because nothing was compared |
+| 17 | **New 2026-09-01, third pass:** **Terralith and Dungeons and Taverns appeared in no document, no config and no container** — yet they are what the terrain of every world in this season *is*. Nordtal is pre-generated once to border 4000, freezing whichever pack version produced it, while the farm world is regenerated nightly | **closed the same day.** Both are pinned by sha512 (Terralith 2.6.4, D&T 5.3.2, `datapack` loader, verified against a real download), fetched by `deploy/minecraft/entrypoint.sh` before the server starts, and verified at enable by `smp`, which refuses to start when one is missing. The cause is the one worth keeping: a dependency that lives in the operator's head and not in a file is invisible to everyone who was not there |
+| 18 | **New 2026-09-01, third pass:** this design assumed **datapacks were per world**, and was about to copy both ZIPs into every regenerated farm world | **wrong, corrected by measurement** on Paper 26.2 build 121. A probe pack in `<level-name>/datapacks/` was listed and enabled; an identical probe in a secondary world's own `datapacks/` folder was never seen — not at start, not after that world was created, not after `refreshPacks()`. There is no per-world datapack API: `DatapackManager` hangs off `Server`, and `WorldCreator` has no datapack option. The nightly farm world inherits both packs with nothing copied, and the plugin's job shrank from installing to verifying. The same drill produced the second surprise: a Bukkit-created world lands at `<level-name>/dimensions/minecraft/<name>`, inside the primary world rather than beside it |
+| 19 | **New 2026-09-01, third pass:** Gradle does not track `deploy/.env.example` as an input of `:discord-bot:test`, although `ConfigsTest` reads it | **stands, worked around.** After editing that file `:discord-bot:build` reports `UP-TO-DATE` and runs nothing, so a break in the example's structure passes review. `--rerun-tasks` is the manual answer used since. The real fix is to declare the file as a test input in the convention plugin; until that is written, this row is the reminder |
 
 ## 2. What can be built today
 
@@ -278,11 +302,16 @@ Three pieces of the SMP are pure logic, testable the way `BorderMath` and `Demot
   does not exist — progress accounting per objective type, and the three escape hatches with their
   `pot × (reached ÷ target)` payout.
 
-### c. The SMP's world half — **the one implementation session left**
+### c. The SMP's world half — **block 1 built 2026-09-01, two blocks left**
 
-Same document, same module, but every feature ends at a rehearsal rather than a green build: the
-farm-world swap, the balloon and the travel rules, portal gating, spawn protection, graves, POIs,
-`/navigate`, the duel arenas, the per-player Text Display boards and the wheel.
+Every feature here ends at a rehearsal rather than a green build. The work was cut into three
+blocks on 2026-09-01 so that each ends somewhere a person can look at it:
+
+| block | contents | state |
+|---|---|---|
+| 1 — the world | bootstrap, datapacks, borders, balloon and its GUI, portal gating, the farm-world swap, spawn protection | **built** |
+| 2 — the surfaces | HUD, the per-player Text Display boards, nametags, `/navigate`, POIs, prestige rendering | open |
+| 3 — the activities | duels, graves, the wheel, milestone completion and its payout, `/smp` | open |
 
 **Measure Nordtal's one-off pre-generation to border 4000 in this session's first hour**, not its
 last. It is the cheapest measurement in the plan and it is the one that decides whether the final
@@ -292,8 +321,21 @@ milestone is deliverable at all.
 `com.github.nordtal:papermc-display-tags:2.0.0` from JitPack as `compileOnly` and declares
 DisplayTags in its `paper-plugin.yml`. The consequence is operational and is stated in
 [../deploy/README.md](../deploy/README.md#third-party-plugins): **PacketEvents becomes a required plugin on the
-SMP server**, which makes it the network's first mandatory third-party runtime dependency —
-CoreProtect, the only other one, may be absent without anything failing.
+SMP server**, which made it the network's first mandatory third-party runtime dependency.
+
+**Chunky became the second on 2026-09-01**, and unlike DisplayTags it is required for a mechanic
+rather than for a rendering: the farm world is pre-generated every night, roughly 15 000 chunks
+beside a live server, and the reset waits for Chunky's completion event before swapping anything in.
+`org.popcraft:chunky-common:1.5.3` from CodeMC, `compileOnly`, driven through Bukkit's
+`ServicesManager`. CoreProtect remains the only third-party plugin that may be absent without
+anything failing.
+
+**Terralith and Dungeons and Taverns are world-generation datapacks the whole design depends on and
+that no document mentioned before 2026-09-01.** They are pinned by sha512 and fetched by the
+container entrypoint into the `level-name` world's `datapacks/` folder before the server starts;
+`smp` verifies they are enabled and refuses to start otherwise. Measured the same day: datapacks are
+server-global, read only from that one folder, with no per-world API — so the nightly farm world
+inherits them with nothing copied.
 
 ### d. The hunger games winner's head start
 
@@ -367,14 +409,16 @@ None of these is a design decision the concept withheld; they are implementation
 never had reason to name, and an implementation session should make them and write them down rather
 than stop.
 
-- **What the spawn NPC is.** A villager with AI off, a custom entity, or a player-skin NPC. Citizens
-  would be a second mandatory third-party dependency and should be argued for explicitly if chosen.
-- **The milestone YAML's file format** — the table in [the track](smp.md#the-track) is the content,
-  not a schema.
-- **How `smp_grave.contents` is serialised.** The column is `bytea` precisely so this stays the
-  plugin's choice.
-- **The config shape of the spawn protection regions** — a list of boxes, per world.
-- The contents of the balloon, hand-in and wheel GUIs beyond what the concept states.
+**Made and written down on 2026-09-01:** the spawn NPC is a `Mannequin`, a vanilla Paper 26.2
+entity with a real player skin and no AI — none of the three options this list weighed was needed;
+the milestone file format is `milestones.yml` behind `MilestonesSpec`; `smp_grave.contents` is
+`ItemStack.serializeItemsAsBytes`; the spawn regions are `config.yml#spawn-regions`, and the same
+box shape carries the balloons; the balloon GUI is a 2 × 2 grid whose wide upper entry is always
+the overworld you are not in.
+
+- The contents of the **hand-in and wheel GUIs** beyond what the concept states.
+- **How a duel arena's schematic is loaded**, when one exists. The first version is a glass box the
+  plugin places and removes itself, so this is not blocking anything.
 
 ### Not decisions at all — writing, drawing and building
 
@@ -401,7 +445,7 @@ production host, so they are a checklist for the owner rather than a document, a
 | **Disconnecting a player from `PlayerChooseInitialServerEvent`.** Since 2026-09-01 a proxy with no waiting room refuses *every* login rather than letting anybody past the pack station. `player.disconnect()` is documented and the event is `@AwaitingEvent`, but a login-allowed player being kicked *during* initial server selection has not been seen happen | the login-path rehearsal | Set the initial server to one that exists and disconnect from `ServerPostConnectEvent`, or move the check back into the `LoginEvent` gate as a maintenance refusal — the pre-2026-08-31 behaviour, a one-line reversal |
 | **Background pre-generation of a 2000 × 2000 world without perceptible lag.** The concept's own biggest technical risk | the SMP session, measured on the real host with players online | The farm world gets smaller — 2000 × 2000 is [a proposal](smp.md#numbers-that-are-proposals-not-decisions) and halving the radius quarters the work. If even a small world lags, pre-generate off-peak only or in a separate process and move the folder in. Operational, never a redesign |
 | **Nordtal's one-off pre-generation to border 4000** is affordable in wall clock and disk | the SMP session, on the real host | The final border is the number to reconsider. It is a config default in `milestones.yml`, and [the track](smp.md#the-track) is explicit that every number in it is a default while the *rules* are the decision — so a smaller frontier is a retune |
-| **Paper unloading and deleting a loaded world at runtime**, then loading a replacement under the same name | the SMP session, before the reset is built on top of it | **Alternate two names instead of reusing one** — pre-generate into `farm-world-b` while `-a` is live, load `-b`, move players, then delete `-a`. That removes the same-name re-load, the part Paper is least likely to tolerate. Only if unloading fails *at all* does the reset need a restart, and then it becomes an announced daily restart at the quiet hour |
+| ~~**Paper unloading and deleting a loaded world at runtime**, then loading a replacement under the same name~~ | **answered 2026-09-01** | **Confirmed green**, headless, on Paper 26.2 build 121: three consecutive rounds, 27 checks, `unloadWorld` releasing the folder, the folder deleted, another renamed into its place and the same name re-loaded carrying the replacement's seed, no stale `session.lock`. The two-name fallback is not needed and was not built. Two things the drill also produced: the swap window of 15–18 ms was on tiny flat worlds, so the real reset renames the old folder aside and deletes it off-thread; and a Bukkit-created world lands at `<level-name>/dimensions/minecraft/<name>`, not beside the primary world |
 | **`LISTEN`/`NOTIFY` through the pool** — a dedicated connection outside Hikari, a `getNotifications(timeout)` thread, an unconditional re-read on every reconnect | whoever next touches the phase model; [it is built in the first pass](season-phases.md#source-of-truth-and-propagation) | Drop `NOTIFY`, keep the 30-second poll that was always the actual guarantee. A switch takes up to thirty seconds instead of feeling instant. No redesign, one paragraph deleted |
 | **`console` — the *interactive* attach — behaves inside Arcane's browser terminal.** `mc <command>` through a plain `docker exec` is [already verified](../deploy/README.md#what-was-measured-and-what-it-cost) | the first deployment | Use `mc` plus the log view — send-and-read without a TTY, which covers every command a runbook issues. Only live scrollback is lost, and `docker exec -it <container> console` over SSH still gives it |
 | **Simple Voice Chat on 26.2** | before the event rehearsal | Dropped without replacement, as [hunger-games.md](hunger-games.md#still-open) already says. It needs a client mod, so vanilla players could never have used it. Zero cost |

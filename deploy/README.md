@@ -41,18 +41,21 @@ is no schema and there are no plugin jars.
    ```bash
    ./gradlew :updater:shadowJar
    ```
+   **This is the only time you ever need it.** From the first `apply` onwards the updater runs the
+   jar in its own volume and updates that one itself; the jar baked into the image is a floor for
+   exactly this step. The same is true of the bot.
 3. **Bring up PostgreSQL alone.**
    ```
    docker compose --profile db up -d
    ```
 4. **Run the updater.** ← *ordering matters, and this step is the bootstrap.*
    ```
-   docker compose --profile updater run --rm updater apply
+   docker compose run --rm updater apply
    ```
-   It does three things in this order: applies the database schema, fills every `plugins/` folder,
-   and writes the proxy's `pack.yml`. **Nothing else in this stack can start before it has run** —
-   the bot refuses a database it did not migrate, and a Minecraft container refuses an empty
-   `plugins/` folder. Both say so by name.
+   It does three things in this order: applies the database schema, fills every `plugins/` folder
+   and both jar volumes, and writes the proxy's `pack.yml`. **Nothing else in this stack can start
+   before it has run** — the bot refuses a database it did not migrate, and a Minecraft container
+   refuses an empty `plugins/` folder. Both say so by name.
 
    This changed on 2026-09-01. The bot used to be the only process that migrated, and the plugin
    jars used to be fetched by each Minecraft container; both are the updater's now, because a
@@ -66,6 +69,10 @@ is no schema and there are no plugin jars.
    docker compose --profile bot up -d
    docker compose --profile mc up -d
    ```
+   Both pull the `updater` service up with them — it has no profile, so it is in every selection —
+   and both **wait for it to be healthy**, which it becomes once the schema is current. That is the
+   one ordering rule this stack expresses in the compose file rather than in prose, and it is why
+   getting the order wrong here costs a wait rather than a broken database.
    Leave `NORDTAL_ACCESS_PAYMENT_WATERMARK` empty on a fresh database: the first start stamps its
    own instant, and without it the first poll books up to 50 historical bunq payments — roles, DMs
    and public thank-yous included.
@@ -171,13 +178,27 @@ escape sequences.
 
 ## Updating
 
-A plugin update is one command, and a second one to make it take effect.
+**The normal way is `/update` in the admin channel on Discord.** It reports what is newer than what
+is running, an **Install** button installs it, and a **Restart the network** button under that
+starts a one-minute countdown that every player online is warned through. `/smp update` in game does
+the same four things for an admin who is not at a keyboard with Discord on it.
+
+Both reach the updater the only way anything here can — a row in `update_request` and a
+notification, answered by the container that has the volumes. Neither renders the report itself:
+what you read is the updater's own text, written once by the process that did the work.
+
+On the host it is one command, and a second one to make it take effect:
 
 ```bash
-docker compose --profile updater run --rm updater          # what would change, changes nothing
-docker compose --profile updater run --rm updater apply    # migrate, then fetch and put in place
-docker compose --profile mc restart                        # the servers pick up what is on disk
+docker compose run --rm updater          # what would change, changes nothing
+docker compose run --rm updater apply    # migrate, then fetch and put in place
+docker compose --profile mc restart      # the servers pick up what is on disk
 ```
+
+An `apply` run by hand and one asked for from Discord cannot collide: an apply takes a PostgreSQL
+advisory lock and **the second one to ask is refused rather than queued** — a plan resolved now
+would be stale by the time it got its turn. The refusal names both possibilities so you know which
+one you are waiting for.
 
 `apply` applies the schema before it moves a jar, so a plugin never comes up against a schema older
 than itself. A migration that fails stops the run there: nothing is fetched, nothing is written, and
@@ -201,8 +222,12 @@ Three properties worth knowing, because each is a decision:
   chose, and DisplayTags is a *required* plugin of `smp` whose own required plugin PacketEvents is.
 - **It restarts nothing.** `apply` prints what it did and stops. Read that before restarting — a
   server that was part-updated is exactly the thing worth catching before the network goes down on
-  it. Steps 4 to 6 of [../docs/updater.md](../docs/updater.md) put that report in Discord with a
-  restart button under it.
+  it. The restart is a separate button for that reason, and it is a *button* and not a step of the
+  run.
+- **"Skipped" is not "up to date".** A run where nothing could be checked — an unmounted volume, a
+  source that did not answer — did no work and had no failure, and the report says so in as many
+  words rather than closing with "Nothing needed doing". That sentence on a run like this one is how
+  somebody comes away believing the network is current.
 
 Checksums are verified where a checksum exists: Modrinth publishes a sha512 per file and the Fill
 API a sha256 per build, and a mismatch deletes the download instead of installing it. **A GitHub
@@ -213,6 +238,42 @@ than an implied one.
 The **server jar** is still the entrypoint's, not the updater's: Paper and Velocity builds are
 resolved by the container at start from the version pinned in `.env`. The updater reports when a
 newer `STABLE` build exists and installs it into the same cache the entrypoint reads.
+
+### Restarting the network
+
+The restart is **one Arcane redeploy of the whole project**, asked for by the button in Discord, by
+`/smp update restart` in game, or not at all.
+
+Whichever asks, the request is written with an instant sixty seconds out and **every player on the
+network is counted down towards it** — in limbo, in Hunger Games and on the SMP, at 60, 30, 10 and 5
+seconds and then "restarting now". The proxy does the announcing, because it is the only process
+that sees everybody. Inside that minute the countdown can be stopped: the **Stop the countdown**
+button, or `/smp update restart cancel`. After it, "too late" is the honest answer and that is what
+you get.
+
+**It is not the Docker socket, deliberately.** A container holding `/var/run/docker.sock` can do
+anything on the host, and the updater is the container whose whole job is downloading files from the
+internet and putting them where servers will execute them. The socket is not mounted anywhere in
+`compose.yml` and must not be.
+
+Four variables turn it on, all optional together:
+
+```
+ARCANE_URL=https://arcane.example.com     # origin, no trailing slash
+ARCANE_API_KEY=...                        # Settings -> API Keys, sent as X-Api-Key
+ARCANE_PROJECT=nordtal-s2                 # the project's name in Arcane
+ARCANE_REDEPLOY_PATH=/api/...             # see below
+```
+
+**Leave `ARCANE_URL` empty and nothing breaks.** Everything else works; both surfaces answer "Arcane
+is not configured" and tell you to click Redeploy yourself.
+
+`ARCANE_REDEPLOY_PATH` is the one that still needs a person. Arcane's public documentation describes
+`X-Api-Key` authentication and says project deploy, redeploy, pull and build exist as streaming
+operations — it does **not** publish the paths (read 2026-09-01). Those are on `/api/docs` on the
+instance. The default here is a documented guess; a 404 from it says so in as many words and names
+`/api/docs`, so it costs a minute rather than an evening. That path is why this is a setting: the
+real one is a line in `.env` and not a release.
 
 ## Stopping
 

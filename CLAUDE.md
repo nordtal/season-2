@@ -489,15 +489,21 @@ deliberately not used: generic keys such as `password` would collide across file
 
 ## updater
 
-**New 2026-09-01. Steps 1, 2 and 3 of six are built** ([docs/updater.md](docs/updater.md)); steps 4,
-5 and 6 are still design. A standalone JVM application like `discord-bot`, run as a **command and
-never as a service**:
+**New 2026-09-01, all six steps built** ([docs/updater.md](docs/updater.md)). A standalone JVM
+application like `discord-bot`, and it is **both a long-running service and a set of one-shot
+commands** — the same program either way:
 
 ```
-docker compose --profile updater run --rm updater          # resolve and report, changes nothing
-docker compose --profile updater run --rm updater migrate  # apply the database schema, nothing else
-docker compose --profile updater run --rm updater apply    # migrate, then fetch and place the files
+docker compose up -d updater             # `serve`: migrate, then wait for requests. What compose runs.
+docker compose run --rm updater          # resolve and report, changes nothing
+docker compose run --rm updater migrate  # apply the database schema, nothing else
+docker compose run --rm updater apply    # migrate, then fetch and place the files
 ```
+
+**It has no compose profile**, so it is in every selection: it is the only process that applies the
+schema, and it is what answers `/update` in Discord and `/smp update` in game. Everything else in
+the stack has `depends_on: updater: service_healthy`, and it becomes healthy the moment the schema
+is current (it touches `/tmp/updater-ready`).
 
 It resolves the newest version of every jar the network runs — the six season-2 jars and the pack
 from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents and Chunky from
@@ -513,13 +519,27 @@ entrypoint deletes by filename prefix, so it would have deleted the very jar the
 fetched. What is left in its place is a coarser guard: an empty `plugins/` folder stops the
 container.
 
-Five rules that are easy to break and expensive to break:
+**It owns the bot's jar and its own too.** Both containers run `<name>-*.jar` out of a volume the
+updater fills, and fall back to the jar baked into their image only while that volume is empty —
+which is a first deployment and nothing else. So `SEASON_VERSION` and `BOT_VERSION` are a floor
+rather than a version, and the updater's own version moves the same way everything else's does: the
+new jar is placed, the running process carries on with the old one, and the restart picks it up.
+
+Seven rules that are easy to break and expensive to break:
 
 - **Its report is stdout and its logs are stderr.** That is what `logback.xml` in this module is
   for, and why it uses `<encoder>` rather than `<layout>` — a deprecated `<layout>` makes logback
   print its whole startup status report *on stdout*, on top of the thing a person is meant to read.
-- **It must never get a restart policy or a schedule.** A crash restart at three in the morning
-  must not move a version. An update happens because somebody asked for one.
+- **`serve` is not a scheduler and must never become one.** It migrates once at startup and then
+  does nothing at all until a row appears in `update_request` — no timer, no watch, no "check for
+  updates on boot". A crash restart at three in the morning must not move a version. The container
+  having a restart policy does not change that; adding a timer would.
+- **Nothing is rendered twice.** The Discord embed, the chat lines and the table all carry the
+  updater's own report verbatim. A second rendering somewhere is the thing that eventually
+  disagrees with the first.
+- **An apply takes the advisory lock, and the second asker is refused, not queued.** The daemon and
+  a hand-run `apply` overlap on exactly the day somebody is bootstrapping. A plan resolved now is
+  stale by the time a queued run would start.
 - **Filenames are the identity of what is installed**, split by `JarName` on the last `-`, which is
   `${file%-*.jar}` out of `deploy/minecraft/entrypoint.sh`. Inventing a better rule here means two
   programs disagreeing about which jar supersedes which, and the way that surfaces is Paper loading
@@ -530,6 +550,9 @@ Five rules that are easy to break and expensive to break:
 - **A swap is two phases, and a server moves together or not at all.** Everything is staged inside
   the target volume and only moved in once all of it is there. Four servers on two versions of the
   season is worse than four servers that did not update.
+- **"Skipped" is a third answer, not a quiet kind of "fine".** A run where every volume was
+  unmounted did no work and had no failure, and closing it with "Nothing needed doing" is how
+  somebody reads it as "the network is current". Found on a real container run, 2026-09-01.
 
 `updater.yml` is the one config in this repository whose defaults are the real values and where a
 freshly written file is what you want: the repositories, the two Modrinth project ids and the

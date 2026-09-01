@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+    <!-- Stderr, not stdout, and that is the whole point of this file existing separately from
+         discord-bot's. This process PRINTS ITS RESULT on stdout - the plan and what was done - and
+         that text is meant to be read, pasted and, from step 4 of docs/updater.md, put into a
+         Discord embed. Log lines interleaved with it would break every one of those. -->
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <!-- An <encoder>, not a <layout>. A layout still works but logback warns about it - and a
+             logback WARN makes logback print its ENTIRE startup status report ON STDOUT, which is
+             exactly the stream this program's output lives on. Twenty-five lines of configurator
+             chatter above the report, from one deprecated element. -->
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Hikari narrates every pool state change at DEBUG, which for a pool that lives for the
+         length of one migration is six lines of nothing. Flyway's own INFO lines are kept: they
+         name each migration as it is applied, and that is the record of what happened to the
+         schema. -->
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+    <logger name="org.jdbi" level="INFO"/>
+
+    <root level="info">
+        <appender-ref ref="STDERR"/>
+    </root>
+
+</configuration>

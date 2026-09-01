@@ -37,6 +37,14 @@ dependencies {
     implementation(libs.jda)
     implementation(libs.bunq.sdk)
 
+    // Flyway, to COMPILE against - not to ship. jcore declares it `implementation`, so it reaches
+    // this jar at runtime through the POM's runtime scope but is invisible at compile time. The
+    // bot needs the type for one call: SchemaCheck#validate, which is what is left after the
+    // migration moved to :updater on 2026-09-01. The version is pinned to exactly jcore's, because
+    // two Flyways on one classpath is a ServiceLoader registry with holes in it - which this
+    // repository has already been bitten by once (see nordtal.shaded's mergeServiceFiles comment).
+    compileOnly(libs.flyway.core)
+
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
     testCompileOnly(libs.lombok)

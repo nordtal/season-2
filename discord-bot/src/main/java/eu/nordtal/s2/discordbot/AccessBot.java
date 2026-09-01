@@ -51,8 +51,9 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * The startup order is deliberate. Configuration is read and validated first, so a bad value stops
  * the process here - with a message naming the file and the setting - rather than surfacing hours
- * later against the wrong channel. Then the database, so bad credentials and a broken schema are
- * found before a Discord session exists. Then Discord, and only once it is ready are the managed
+ * later against the wrong channel. Then the database, so bad credentials and a schema that is not
+ * the one this jar was built against are found before a Discord session exists - the bot no longer
+ * applies migrations itself, see {@link SchemaCheck}. Then Discord, and only once it is ready are the managed
  * messages published, the guild state reconciled and the timers started.
  * </p>
  */
@@ -92,7 +93,11 @@ public class AccessBot implements AutoCloseable {
 
         boolean started = false;
         try {
-            log.info("Applied {} database migration(s)", database.migrate());
+            // The bot does NOT migrate any more (2026-09-01) - the updater does. What is left
+            // here is the check, so that a bot started against a database nobody migrated refuses
+            // at startup with a sentence naming the command, instead of failing on its first query
+            // inside a Discord interaction minutes later. See SchemaCheck.
+            SchemaCheck.validate(database.dataSource());
 
             // The bot borrows the pool it already owns rather than opening a second one. Closing a
             // borrowed pool is a no-op, so ownership stays here.

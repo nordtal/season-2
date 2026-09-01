@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <configuration>
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <layout class="ch.qos.logback.classic.PatternLayout">
-            <Pattern>
-                %d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n
-            </Pattern>
-        </layout>
+        <!-- An <encoder>, not a <layout>: a layout works but logback warns about it, and a
+             logback WARN makes it print its entire startup status report - twenty-five lines of
+             configurator chatter above the first real log line of every container start. -->
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
     </appender>
 
     <!-- Hikari announces every pool state change at DEBUG; Flyway narrates each migration at

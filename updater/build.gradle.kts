@@ -26,6 +26,14 @@ dependencies {
     // :discord-bot does it.
     runtimeOnly(libs.postgresql.driver)
 
+    // Where the migration SQL lives: common/src/main/resources/db/migration. The files arrive on
+    // this module's classpath because :common is shaded into its jar, which is exactly how they
+    // used to arrive on the bot's - the SQL did not move when the Flyway call did.
+    //
+    // :common declares JDBI, HikariCP and slf4j compileOnly, so this brings no stack of its own:
+    // all three are already here through jcore, at the versions the catalog pins.
+    implementation(project(":common"))
+
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
     testCompileOnly(libs.lombok)

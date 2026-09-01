@@ -3,13 +3,20 @@
 The container that owns the versions of everything the network runs — and, from step 2 of
 [../docs/updater.md](../docs/updater.md) on, the database schema.
 
-**Steps 1 and 3 of six are built.** It resolves, compares, reports, and — when asked by name —
-installs. It does not migrate or restart anything.
+**Steps 1, 2 and 3 of six are built.** It resolves, compares, reports, applies the database schema,
+and — when asked by name — installs. It does not restart anything.
 
 ```bash
 docker compose --profile updater run --rm updater          # resolve and report, changes nothing
-docker compose --profile updater run --rm updater apply    # fetch the files and put them in place
+docker compose --profile updater run --rm updater migrate  # apply the database schema, nothing else
+docker compose --profile updater run --rm updater apply    # migrate, then fetch and place the files
 ```
+
+**This container is the bootstrap of a deployment, not a tool used on one.** Since 2026-09-01 it is
+the only process that runs Flyway: without a run of it there is no schema, so there is no bot and no
+server. The bot checks the schema and refuses a database it was not built against, naming
+`updater migrate`; a Minecraft container refuses an empty `plugins/` folder. Both say so by name
+rather than failing later.
 
 The default is the read-only one on purpose: a container started by accident, or with a misspelled
 argument, does the harmless thing.
@@ -83,27 +90,48 @@ tag is how a rollback is expressed, and it is a person's decision.
 
 ## What it owns, and what it does not
 
-It owns every plugin jar in every `plugins/` folder, the server jars in `.server/`, and the two
-lines of the proxy's `pack.yml`. `deploy/minecraft/entrypoint.sh` fetched the plugins until
+It owns **the database schema**, every plugin jar in every `plugins/` folder, the server jars in
+`.server/`, and the two lines of the proxy's `pack.yml`. The schema and the versions are one thing —
+a release that adds a table is a release that adds a migration — which is the whole argument for one
+owner rather than two. The SQL itself did not move: it stays in
+`common/src/main/resources/db/migration/` and reaches this jar because `:common` is shaded into it,
+exactly as it reached the bot's.
+
+`apply` migrates **before** it moves a single jar, so a plugin never comes up against a schema older
+than itself, and a migration that fails stops the run there: nothing is fetched, nothing is written. `deploy/minecraft/entrypoint.sh` fetched the plugins until
 2026-09-01 and does not any more: two owners of the same file is one owner too many, because that
 script deletes by filename prefix and would have deleted the jar the updater had just fetched. What
 the entrypoint still owns is resolving the pinned server build and the world-generation datapacks,
 and refusing to start on an empty `plugins/` folder — the coarse remnant of its old "never run an
 older jar" guard.
 
-It does not own worlds, anything a player built, any other file inside a volume, the database
-schema (that is step 2), or the restart (steps 5 and 6).
+It does not own worlds, anything a player built, any other file inside a volume, or the restart
+(steps 4 to 6).
 
 ## Tests
 
-`./gradlew :updater:test` — 75 tests, no network and no container. Every API fixture in
+`./gradlew :updater:test` — 75 tests, no network and no container. The migration itself is covered
+from the other side, in `:discord-bot`'s `SchemaCheckTest`, against a real PostgreSQL: an unmigrated
+database is refused with a message naming `updater migrate`, and a migrated one passes. Every API fixture in
 `src/test/resources/fixtures/` was recorded from the live GitHub, Modrinth and PaperMC APIs on
 2026-09-01, including the release that carried the scaffold `smp` and `limbo` jars.
 `TopologyTest` reads the real `deploy/compose.yml`: a fifth backend server added there and not to
 `Topology` fails the build, and so does re-adding `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two
 `PACK_*` variables.
 
-Verified beyond the tests on 2026-09-01, in the container, against the live APIs: Chunky 1.5.3
-fetched and its sha512 matching Modrinth's published hash, the superseded 1.5.2 deleted, a jar
-nothing accounts for left alone, `pack.yml` rewritten with its comments intact, and no staging
-directory left behind.
+Verified beyond the tests on 2026-09-01, in the container, against the live APIs and a real
+PostgreSQL 17:
+
+- all six migrations applied to an empty database, `flyway_schema_history` read back;
+- Chunky 1.5.3 fetched, its sha512 matching Modrinth's published hash, the superseded 1.5.2 deleted,
+  a jar nothing accounts for left alone, and no staging directory left behind;
+- `pack.yml` rewritten with its comments intact;
+- a wrong database password stopping the run before a single jar moved;
+- the report alone on stdout, every log line on stderr.
+
+## Output
+
+The report is **stdout**. Every log line goes to **stderr**. That separation is the reason this
+module has its own `logback.xml`, and the reason it uses `<encoder>` rather than `<layout>`: a
+deprecated `<layout>` makes logback print its entire startup status report on stdout, which is
+twenty-five lines of configurator chatter on top of the thing a person is meant to read.

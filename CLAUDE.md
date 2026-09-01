@@ -187,10 +187,13 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   `common/build.gradle.kts` is the **counterfactual** — what a plugin jar would weigh if those
   declarations were `implementation` — and it was read as a measurement of the jars as they are.
   A Paper plugin that takes the stack lands near 5 MB, as two of the four now do.
-- **Exactly one process migrates: `discord-bot`.** Unchanged in the code; **decided 2026-09-01 to
-  move to the new `updater` module** and not yet carried out — that is step 2 of
-  [docs/updater.md](docs/updater.md#implementation-order), and it is what makes the updater the
-  bootstrap of a deployment rather than a tool used on one. **Where the SQL lives changed
+- **Exactly one process migrates: `updater`.** It was `discord-bot` until **2026-09-01**, when the
+  call moved — the rule that exactly one process runs Flyway, and that it is never `:common`, is
+  what the move preserves. The bot now runs Flyway's `validate()` at startup (`SchemaCheck`) and
+  refuses a database it was not built against, naming `updater migrate`. **The plugins do not
+  validate and must not:** that needs Flyway, and Flyway must never be shaded into a Paper plugin.
+  The consequence is deliberate — **the updater is the bootstrap of every deployment**, and without
+  a run of it there is no schema, no bot and no server. **Where the SQL lives changed
   on 2026-08-31, and the move has been carried out**: the migration files sit in
   `common/src/main/resources/db/migration/`, so DDL is next to the API that reads it instead of
   inside the Discord bot module. The bot still applies them, and its call did not change — jcore's
@@ -486,20 +489,22 @@ deliberately not used: generic keys such as `password` would collide across file
 
 ## updater
 
-**New 2026-09-01. Steps 1 and 3 of six are built** ([docs/updater.md](docs/updater.md)); steps 2, 4,
+**New 2026-09-01. Steps 1, 2 and 3 of six are built** ([docs/updater.md](docs/updater.md)); steps 4,
 5 and 6 are still design. A standalone JVM application like `discord-bot`, run as a **command and
 never as a service**:
 
 ```
 docker compose --profile updater run --rm updater          # resolve and report, changes nothing
-docker compose --profile updater run --rm updater apply    # fetch the files and put them in place
+docker compose --profile updater run --rm updater migrate  # apply the database schema, nothing else
+docker compose --profile updater run --rm updater apply    # migrate, then fetch and place the files
 ```
 
 It resolves the newest version of every jar the network runs — the six season-2 jars and the pack
 from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents and Chunky from
 Modrinth filtered to `26.2`/`paper`, Paper and Velocity from the PaperMC Fill API — compares that
 against the jars in the mounted volumes, and prints the difference. `apply` then installs what
-differs and writes the proxy's `pack.yml`.
+differs and writes the proxy's `pack.yml` — after applying the schema, so a plugin never comes up
+against a schema older than itself.
 
 **It owns the plugin jars now, and `deploy/minecraft/entrypoint.sh` does not.** That script fetched
 them until 2026-09-01; `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS`, `SEASON_RELEASE`, `PACK_URL` and
@@ -508,8 +513,11 @@ entrypoint deletes by filename prefix, so it would have deleted the very jar the
 fetched. What is left in its place is a coarser guard: an empty `plugins/` folder stops the
 container.
 
-Four rules that are easy to break and expensive to break:
+Five rules that are easy to break and expensive to break:
 
+- **Its report is stdout and its logs are stderr.** That is what `logback.xml` in this module is
+  for, and why it uses `<encoder>` rather than `<layout>` — a deprecated `<layout>` makes logback
+  print its whole startup status report *on stdout*, on top of the thing a person is meant to read.
 - **It must never get a restart policy or a schedule.** A crash restart at three in the morning
   must not move a version. An update happens because somebody asked for one.
 - **Filenames are the identity of what is installed**, split by `JarName` on the last `-`, which is

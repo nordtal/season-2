@@ -2,9 +2,18 @@
 
 The bot is the one season 2 process that has no Minecraft dependency at all. At runtime it talks to
 **PostgreSQL, the Discord gateway and bunq**, and to nothing else — so it can be deployed and
-operated long before the proxy or any Paper backend exists. It is also the process that applies the
-schema (`database.migrate()` at startup, migrations in `:common`), so an empty database is all it
-needs.
+operated long before the proxy or any Paper backend exists.
+
+**It applied the database schema until 2026-09-01 and does not any more.** The `updater` container
+does ([../docs/updater.md](../docs/updater.md)), because a release that adds a table is a release
+that adds a migration and the two belong to one owner. What the bot does instead is *check*: Flyway's
+own `validate()` at startup, comparing the migrations in its jar against what the database says has
+been applied, and a refusal to start on a mismatch that names the command to run. So an empty
+database is no longer all it needs — the updater has to have run first:
+
+```bash
+docker compose --profile updater run --rm updater migrate
+```
 
 The concept is [../docs/access-system.md](../docs/access-system.md); how the season deploys as a
 whole is [../deploy/README.md](../deploy/README.md). This file is only about starting the
@@ -120,9 +129,11 @@ roles, the reconciles, expiry DMs, the admin log and `/settle` — is exercisabl
 ## Verified 2026-08-31
 
 Built from this tree with `docker compose up -d --build` and started with only environment
-variables set and no config file anywhere: all three configs loaded (15 settings taken from the environment), Flyway
-applied all five migrations to an empty PostgreSQL 17, and the process stopped exactly where it
-should — on the deliberately invalid Discord token. bunq and Discord themselves are untested; see
+variables set and no config file anywhere: all three configs loaded (15 settings taken from the
+environment), Flyway applied all five migrations to an empty PostgreSQL 17, and the process stopped
+exactly where it should — on the deliberately invalid Discord token. *(That run predates the
+migration moving to the updater; today the same run would refuse before the token, on an unmigrated
+schema, and `SchemaCheckTest` covers both halves of that against a real PostgreSQL.)* bunq and Discord themselves are untested; see
 [../docs/state-of-play.md](../docs/state-of-play.md#the-unverified-assumptions).
 
 That run is also what found the `mergeServiceFiles()`/`duplicatesStrategy` bug in

@@ -481,10 +481,10 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**Six modules have tests: 485 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Six modules have tests: 528 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-01). The counts below are what the JUnit XML reports, not `@Test` counts.
 
-`:common` has **98**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
+`:common` has **113**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
 the access API and the link-code lifecycle against a real PostgreSQL container running the real
 migrations off `classpath:db/migration` — which also proves the location the bot depends on
 resolves, and now applies V1 through V6. `PhaseDirectoryIntegrationTest` (11) does the same for the
@@ -524,7 +524,7 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **87**. `MilestonesTest` (9) writes a
+`smp` has **126**. `MilestonesTest` (9) writes a
 fresh `milestones.yml`, reads it back and asserts the whole track survives — which is also the proof
 that two levels of jcore nesting work; `AuraPayoutTest` (12) covers the 30/70 split, the 2 %
 threshold, the concept's own worked example, the case it never named (more qualifiers than there is
@@ -540,11 +540,14 @@ definition, and `MessageBundlesTest` (4) keeps the two language files symmetrica
 placeholders. What no test here covers is the world itself; that is what the drills and the
 rehearsals are for.
 
-`hunger-games` has **57**, all in memory and all of them arithmetic the game would otherwise get
+`hunger-games` has **46**, all in memory and all of them arithmetic the game would otherwise get
 wrong in front of players: `BorderMathTest` (the step, the extension of a running shrink, the
 divide-by-zero floor at one participant), `TeamColoursTest` (evenly spaced hues and the
 nearest-named mapping), `DemotionTest` (a duo whose partner never showed becoming a full-hearted
-solo), `SpawnTowersTest`, `TiebreakTest`, `BearingTest` and `BossBarWidthTest`. Three are new on
+solo), `SpawnTowersTest` and `TiebreakTest`. It dropped from 57 on 2026-09-01 without losing a
+single assertion: `BearingTest` and `BossBarWidthTest` moved into `:common` with the two helpers
+they cover, because the SMP's HUD draws the same bar with the same glyphs and two copies of a glyph
+composition are two things that drift apart the first time a segment is redrawn. Three are new on
 2026-09-01, after a sweep found nine message keys in this module that no line of code could reach:
 `CountdownTest` pins when the (previously silent) lobby countdown speaks, `WinOutcomeTest` pins that
 the four ways a game can end stay four distinguishable shapes, and `MessageBundlesTest` asserts the

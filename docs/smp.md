@@ -5,14 +5,17 @@ and rebuilt every day, and a community that unlocks its own world step by step b
 objectives. Peaceful in tone, competitive at the edges: two duel platforms, one number in the tab
 list, and a crest that only time can earn.
 
-Status: **concept agreed 2026-08-31. The schema, the server-free half and the first third of the
-world half are built.** `V6__smp.sql` landed in `:common` on 2026-09-01, and later the same day so
-did `milestones.yml` and the three pure cores — aura, prestige and the milestone engine. On the
-same day the worlds themselves followed: world bootstrap and datapack verification, the borders,
-the balloon and its GUI, portal gating, spawn protection, and the daily farm-world swap, 87 tests
-in the module. What is still missing is the player surfaces (HUD, boards, nametags, `/navigate`,
-POIs, prestige rendering) and the activities (duels, graves, the wheel, milestone completion and
-its payout, and `/smp`). See [state-of-play.md](state-of-play.md).
+Status: **concept agreed 2026-08-31; built 2026-09-01, and not yet verified on a running server.**
+`V6__smp.sql` landed in `:common` that morning, followed by `milestones.yml` and the three pure
+cores — aura, prestige and the milestone engine — and then the whole world half in three blocks: the
+worlds, datapacks, borders, balloon, portal gating, farm-world swap and spawn protection; the HUD,
+boards, nametags, chat, `/navigate` and POIs; and the duels, graves, wheel, milestone payout and
+`/smp`. 126 tests in the module.
+
+**Not one of those tests touches a world, a packet or a player, because none of them can.** What is
+left is the rehearsal, and it is a checklist rather than a document — see
+[Verification](#verification) for what has to be watched, and [state-of-play.md](state-of-play.md)
+for where everything stands.
 
 **Access is required from this phase onward** ([season-phases.md](season-phases.md)) — that is the
 whole reason the phase model exists.

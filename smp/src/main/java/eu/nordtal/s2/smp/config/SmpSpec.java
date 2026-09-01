@@ -154,9 +154,139 @@ public interface SmpSpec {
         return List.of(30, 10, 5, 1);
     }
 
-    // ---------------------------------------------------------------- spawn protection
+    // ------------------------------------------------- world generation plumbing
 
     @Order(13)
+    @Key("required-datapacks")
+    @Comment({
+            "The world-generation datapacks that MUST be installed and enabled, checked at enable.",
+            "Matched against the names Paper reports, case-insensitively, as a substring - Paper",
+            "prefixes a zip with 'file/', so 'Terralith' matches 'file/Terralith_26.2_v2.6.4.zip'.",
+            "",
+            "THE PLUGIN ONLY CHECKS. It cannot install them, and that is not a gap: datapacks are",
+            "read once at server start, into registries the whole server shares, so a pack dropped",
+            "in afterwards changes nothing until the next restart. Installing them is the",
+            "container entrypoint's job (deploy/minecraft/entrypoint.sh), where the version is",
+            "pinned and checksummed.",
+            "",
+            "MEASURED ON PAPER 26.2 BUILD 121, 2026-09-01, because this design first assumed the",
+            "opposite: datapacks are SERVER-GLOBAL and are read only from <level-name>/datapacks/.",
+            "A probe pack placed in a secondary world's own datapacks/ folder was never listed -",
+            "not at start, not after creating that world, not after refreshPacks(). There is no",
+            "per-world datapack API: DatapackManager hangs off Server, not World, and WorldCreator",
+            "has no datapack option. So every world this server generates - Nordtal, the farm",
+            "world, the Nether and the End - gets the same packs, and the farm world's nightly",
+            "regeneration inherits them without anything being copied.",
+            "",
+            "Why this is worth failing the start over: a world generated without its packs is",
+            "vanilla terrain permanently, because terrain is never re-rolled once it is on disk.",
+            "For the farm world that is one bad day; for Nordtal it is the whole season."
+    })
+    default List<String> requiredDatapacks() {
+        return List.of("Terralith", "Dungeons and Taverns");
+    }
+
+    @Order(15)
+    @Key("pregeneration-pattern")
+    @Comment({
+            "The order Chunky walks the chunks in. 'concentric' works outwards from the centre, so",
+            "an interrupted run still leaves a usable middle; 'loop', 'spiral' and 'csv' are the",
+            "other shapes Chunky accepts.",
+            "",
+            "Chunky is a REQUIRED plugin (paper-plugin.yml). The daily reset waits for its",
+            "completion event and postpones itself rather than swapping in a half-built world, so",
+            "without Chunky the farm world would quietly stop resetting instead of failing."
+    })
+    default String pregenerationPattern() {
+        return "concentric";
+    }
+
+    @Order(16)
+    @Key("farm-world-staging-suffix")
+    @Comment({
+            "Tomorrow's farm world is generated under the live name plus this suffix, and renamed",
+            "onto the live name at the reset. Verified on Paper 26.2 build 121 on 2026-09-01:",
+            "unloading a world really does release its folder, the folder can be deleted, another",
+            "renamed into its place, and the SAME name loaded again - three rounds, no restart.",
+            "",
+            "That is why there is one world name in this file and not a pair alternating daily."
+    })
+    default String farmWorldStagingSuffix() {
+        return "-next";
+    }
+
+    @Order(17)
+    @Key("farm-world-retired-suffix")
+    @Comment({
+            "Yesterday's farm world is RENAMED to this suffix during the swap and deleted",
+            "afterwards, off the main thread.",
+            "",
+            "The rename is what keeps the swap short. Renaming a directory is one filesystem",
+            "operation and takes about as long whether the directory holds one file or a hundred",
+            "thousand; deleting a farm world is gigabytes of unlinking. The measured 15 ms swap",
+            "window of the 2026-09-01 drill was on tiny test worlds where deleting happened to be",
+            "instant - on a real one, deleting in the swap would freeze the server for the length",
+            "of an rm -rf, which is precisely the window this design exists to avoid.",
+            "",
+            "A leftover folder with this suffix means a previous delete was interrupted. It is",
+            "cleaned up at the next start and is never loaded as a world."
+    })
+    default String farmWorldRetiredSuffix() {
+        return "-old";
+    }
+
+    // ---------------------------------------------------------------- the balloons
+
+    @Order(18)
+    @Key("balloons")
+    @Comment({
+            "Where the balloons stand. Stepping into one of these boxes opens the travel GUI; the",
+            "balloon itself is a model on a barrier-block floor, and this is the volume above it.",
+            "",
+            "One box per world that has a balloon: Nordtal, the farm world and the Nether. The End",
+            "deliberately has none - it is entered by balloon and left through the vanilla exit",
+            "portal, which does not work until the dragon is dead, and that one-way trip is the",
+            "point of unlocking it together.",
+            "",
+            "NORDTAL'S BALLOON HAS A HARD CONSTRAINT AND IT IS NOT DECORATIVE: it must stand",
+            "outside radius 10 and inside radius 21.5 of the border centre. That is what makes the",
+            "opening border of 20 withhold travel and the first expansion to 43 hand it over. Every",
+            "other social structure - tavern, NPC, both boards, both duel platforms - belongs inside",
+            "radius 10, so the only thing the opening minutes withhold is the balloon. The plugin",
+            "checks this at enable and refuses to start if it is wrong, because a balloon on the",
+            "wrong side of that line makes the season's first milestone mean nothing.",
+            "",
+            "The coordinates below are placeholders."
+    })
+    default List<BalloonSpec> balloons() {
+        return DefaultSmp.BALLOONS;
+    }
+
+    /** One balloon's volume: the world it stands in and the box a player steps into. */
+    interface BalloonSpec {
+
+        @Order(1) @Key("world")
+        @Comment("Which world this balloon stands in.")
+        default String world() {
+            return "nordtal";
+        }
+
+        @Order(2) @Key("min-x") default int minX() { return 0; }
+
+        @Order(3) @Key("min-y") default int minY() { return 0; }
+
+        @Order(4) @Key("min-z") default int minZ() { return 0; }
+
+        @Order(5) @Key("max-x") default int maxX() { return 0; }
+
+        @Order(6) @Key("max-y") default int maxY() { return 0; }
+
+        @Order(7) @Key("max-z") default int maxZ() { return 0; }
+    }
+
+    // ---------------------------------------------------------------- spawn protection
+
+    @Order(19)
     @Key("spawn-regions")
     @Comment({
             "The protected zones: no building, no breaking, no interaction with blocks you do not",
@@ -200,7 +330,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- aura
 
-    @Order(14)
+    @Order(20)
     @Key("death-penalty")
     @Comment({
             "What an ordinary death costs, as a POSITIVE number that is subtracted at the point of",
@@ -215,14 +345,14 @@ public interface SmpSpec {
         return 5;
     }
 
-    @Order(15)
+    @Order(21)
     @Key("death-penalty-listed")
     @Comment("What one of the causes below costs instead. Also a positive number.")
     default int deathPenaltyListed() {
         return 20;
     }
 
-    @Order(16)
+    @Order(22)
     @Key("death-causes-listed")
     @Comment({
             "The 'embarrassing' deaths, one of docs/smp.md#still-open's open points, PROPOSED HERE",
@@ -245,7 +375,7 @@ public interface SmpSpec {
                 "sweet_berry_bush", "hot_floor", "campfire", "stalagmite");
     }
 
-    @Order(17)
+    @Order(23)
     @Key("duel-stake")
     @Comment({
             "What a duel moves. The winner takes exactly what the loser pays, so a duel never",
@@ -256,14 +386,14 @@ public interface SmpSpec {
         return 10;
     }
 
-    @Order(18)
+    @Order(24)
     @Key("concurrent-duel-limit")
     @Comment("How many arenas may be stacked above the spawn at once. Beyond it, players queue.")
     default int concurrentDuelLimit() {
         return 3;
     }
 
-    @Order(19)
+    @Order(25)
     @Key("advancement-awards")
     @Comment({
             "The advancements that pay aura, once each per player. docs/smp.md#still-open lists",
@@ -300,7 +430,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- prestige
 
-    @Order(20)
+    @Order(26)
     @Key("prestige-threshold-hours")
     @Comment({
             "The thirteen crest tiers, in hours of NETWORK-WIDE online time - AFK included, on",
@@ -321,7 +451,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the hunger games winner
 
-    @Order(21)
+    @Order(27)
     @Key("hg-winner-aura")
     @Comment({
             "The head start the start event's winner carries into the season, paid on their FIRST",
@@ -337,7 +467,7 @@ public interface SmpSpec {
         return 150;
     }
 
-    @Order(22)
+    @Order(28)
     @Key("hg-winner-items")
     @Comment({
             "One or two special items for the winner, also PROPOSED rather than decided. Bukkit",
@@ -353,7 +483,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the wheel
 
-    @Order(23)
+    @Order(29)
     @Key("wheel-extra-spin-percents")
     @Comment({
             "The contribution shares that earn extra spins when an objective completes: one spin at",
@@ -364,7 +494,7 @@ public interface SmpSpec {
         return List.of(2, 10, 25);
     }
 
-    @Order(24)
+    @Order(30)
     @Key("wheel-prizes")
     @Comment({
             "The wheel's pool and its weights - open in docs/smp.md#still-open, PROPOSED here.",
@@ -409,7 +539,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- duels
 
-    @Order(25)
+    @Order(31)
     @Key("duel-loadout-sword")
     @Comment({
             "What both players are given inside a sword duel - open in docs/smp.md#still-open,",
@@ -424,7 +554,7 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
-    @Order(26)
+    @Order(32)
     @Key("duel-loadout-bow")
     @Comment({
             "The bow duel's loadout. Also PROPOSED.",
@@ -439,7 +569,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- admin
 
-    @Order(27)
+    @Order(33)
     @Key("admin-permissions")
     @Comment({
             "The Bukkit permission nodes attached to an admin at join and removed at quit, through",

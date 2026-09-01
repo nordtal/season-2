@@ -16,3 +16,10 @@ dependencies:
     DisplayTags:
       load: BEFORE
       required: true
+    # Chunky pre-generates the farm world for the next day and Nordtal's one-off border. The daily
+    # reset waits for its completion event before it swaps anything in, so a missing Chunky would
+    # not degrade the reset - it would postpone it, every night, silently. required: true turns
+    # that into a start-up failure instead.
+    Chunky:
+      load: BEFORE
+      required: true

@@ -6,6 +6,10 @@ repositories {
     // jcore and papermc-display-tags are both published via JitPack, not Maven Central - see the
     // workspace CLAUDE.md.
     maven("https://jitpack.io")
+
+    // Chunky. Its author publishes to CodeMC, and nowhere else that carries this artefact; the
+    // "chunky" coordinates on Maven Central belong to unrelated projects.
+    maven("https://repo.codemc.io/repository/maven-public/")
 }
 
 dependencies {
@@ -40,4 +44,18 @@ dependencies {
     // required: true so a server missing it fails loudly at start rather than quietly rendering
     // plain nametags.
     compileOnly(libs.display.tags)
+
+    // Chunky, decided 2026-09-01. The farm world is regenerated daily and has to be pre-generated
+    // to its border before anyone is let in - roughly 15 000 chunks, every day, next to a live
+    // server, which docs/smp.md calls the single biggest technical risk in the concept. Writing our
+    // own throttled generator was the alternative and was rejected: Chunky already solves exactly
+    // this, its throttle is the one operators know, and an in-house copy would be a second thing to
+    // test on every Minecraft update.
+    //
+    // compileOnly AND NEVER SHADED, for the same reason as DisplayTags: `ChunkyAPI` is an interface
+    // over the running plugin, handed out through Bukkit's ServicesManager. A bundled copy would be
+    // a second set of classes for the same interface and the service lookup would return an
+    // instance the plugin cannot cast. paper-plugin.yml declares it required: true, so a server
+    // without it fails at start rather than at 04:00 the next morning.
+    compileOnly(libs.chunky)
 }

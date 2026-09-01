@@ -15,10 +15,11 @@ import java.util.Map;
  * An {@link UpdatePlan} as text a person reads before deciding whether to restart a network.
  *
  * <h2>Plain text, and it is going to be read twice</h2>
- * This is what the container prints, and step 4 of docs/updater.md puts the same content in a
- * Discord embed. Written as a plain string here rather than as Discord components so that the
- * thing an operator sees in {@code docker logs} and the thing they see in the admin channel cannot
- * drift apart - and so that this half is testable without a bot token.
+ * This is what the container prints, and it is <b>verbatim</b> what the Discord embed and the
+ * in-game chat lines carry - both read it back out of {@code update_request.result}. Written as a
+ * plain string rather than as Discord components so that the thing an operator sees in
+ * {@code docker logs} and the thing they see in the admin channel cannot drift apart, and so that
+ * this half is testable without a bot token.
  *
  * <h2>What it always says, even when nothing changed</h2>
  * The resolved release tag. "Everything is up to date" and "the release you meant is still a

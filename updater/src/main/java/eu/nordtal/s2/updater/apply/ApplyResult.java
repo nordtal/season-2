@@ -52,7 +52,7 @@ public record ApplyResult(@NotNull List<Outcome> outcomes) {
 
     /**
      * Whether a restart would be safe to offer. It would not be if anything failed: the point of
-     * reporting before restarting (step 5 of docs/updater.md) is that a person sees a half-done
+     * reporting before restarting (docs/updater.md#what-a-run-does-in-order) is that a person sees a half-done
      * run before the network goes down on it.
      */
     public boolean restartWorthOffering() {

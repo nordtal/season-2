@@ -5,12 +5,14 @@ and rebuilt every day, and a community that unlocks its own world step by step b
 objectives. Peaceful in tone, competitive at the edges: two duel platforms, one number in the tab
 list, and a crest that only time can earn.
 
-Status: **concept agreed 2026-08-31. The schema and the module's server-free half are built;
-the world half is not.** `V6__smp.sql` landed in `:common` on 2026-09-01, and later the same day so
-did `milestones.yml` and the three pure cores - aura, prestige and the milestone engine, 56 tests.
-What is still missing is everything that touches a world: the farm-world swap, the balloon, portal
-gating, spawn protection, graves, POIs, `/navigate`, the duels, the boards and the wheel. See
-[state-of-play.md](state-of-play.md).
+Status: **concept agreed 2026-08-31. The schema, the server-free half and the first third of the
+world half are built.** `V6__smp.sql` landed in `:common` on 2026-09-01, and later the same day so
+did `milestones.yml` and the three pure cores — aura, prestige and the milestone engine. On the
+same day the worlds themselves followed: world bootstrap and datapack verification, the borders,
+the balloon and its GUI, portal gating, spawn protection, and the daily farm-world swap, 81 tests
+in the module. What is still missing is the player surfaces (HUD, boards, nametags, `/navigate`,
+POIs, prestige rendering) and the activities (duels, graves, the wheel, milestone completion and
+its payout, and `/smp`). See [state-of-play.md](state-of-play.md).
 
 **Access is required from this phase onward** ([season-phases.md](season-phases.md)) — that is the
 whole reason the phase model exists.
@@ -54,8 +56,45 @@ on a background job finishing in time. Done once, with no players online and no 
 costs hours of wall clock and disk space in the order of a few gigabytes. **Both figures have to be
 measured on the real host, not assumed**, before the phase is scheduled — a laptop says something
 about disk and almost nothing about wall clock. Chunky 1.5.3 is the tool (it tags 26.2 for `paper`
-explicitly, checked against the Modrinth API on 2026-09-01); it is an operator's tool for an
-afternoon and never a dependency of this build.
+explicitly, checked against the Modrinth API on 2026-09-01).
+
+**Chunky is a required plugin, decided 2026-09-01** — an earlier version of this line called it "an
+operator's tool for an afternoon and never a dependency of this build", and that was wrong for the
+farm world. Nordtal's one-off run really is an operator's afternoon, but the farm world is
+pre-generated *every night*, roughly 15 000 chunks beside a live server, and something has to drive
+that. Writing our own throttled generator was the alternative and was rejected: Chunky already
+solves exactly this, its throttle is the one operators know how to turn down, and an in-house copy
+would be a second thing to re-test on every Minecraft update. The SMP plugin drives it through
+`ChunkyAPI` from Bukkit's `ServicesManager` and waits for its completion event before swapping
+anything in.
+
+### The world-generation datapacks
+
+**Terralith and Dungeons and Taverns**, and they are not decoration: they are what the terrain
+*is*. Neither appeared anywhere in this repository until 2026-09-01, which is the gap this section
+closes. Pinned versions, checked against the Modrinth v2 API and verified against a real download
+that day: **Terralith 2.6.4** (`Terralith_26.2_v2.6.4.zip`) and **Dungeons and Taverns 5.3.2**
+(`Dungeons and Taverns v5.3.2.zip`), both with the `datapack` loader. D&T also publishes 26.2
+Fabric, Forge and NeoForge jars of the same version; those are mod loaders and are useless on Paper.
+
+**Datapacks are server-global, and that was measured rather than assumed.** On Paper 26.2 build
+121: a probe pack in `<level-name>/datapacks/` was listed and enabled, while an identical probe in
+a secondary world's own `datapacks/` folder was never seen — not at start, not after that world was
+created, not after `refreshPacks()`. There is no per-world datapack API at all: `DatapackManager`
+hangs off `Server` rather than `World`, and `WorldCreator` has no datapack option. So one folder
+feeds every world this server generates, and **the farm world's nightly regeneration inherits both
+packs with nothing copied**.
+
+Two consequences worth stating plainly:
+
+- **They have to be installed before the server starts.** Worldgen registries are read once, at
+  start; a pack dropped in afterwards changes no terrain. `deploy/minecraft/entrypoint.sh` fetches
+  them, pinned by sha512, into the `level-name` world's `datapacks/` folder before Java is
+  launched.
+- **A missing pack stops the SMP plugin.** Terrain is never re-rolled once it is on disk. A farm
+  world generated without Terralith is one flat day; Nordtal generated without it is the whole
+  season, on a world that has a spawn built on it and therefore cannot be thrown away. "The server
+  did not come up" is the better of the two failures, and it is the one chosen.
 
 **The Nether's 2000 is deliberately larger than the 1:8 mapping requires.** A 4000 overworld needs
 only 500 blocks of Nether to be fully reachable, so 2000 is oversized several times over — which
@@ -122,6 +161,18 @@ needed is a handful of event handlers over a few fixed boxes, not a region syste
 flags and ownership — and it avoids a large third-party dependency whose Minecraft 26.2
 availability is unverified.
 
+**What is blocked was decided 2026-09-01, and the line is drawn at inventories, not at a material
+list.** Blocked: placing, breaking, explosions, fire, fluid flow, and hanging things. Free: doors,
+trapdoors, fence gates, buttons, levers and pressure plates — a tavern whose doors do not open is a
+museum. Anything that *holds* an inventory is blocked, and that test is made against Bukkit's
+`Container` rather than a list of block types: a list has to be extended by hand on every Minecraft
+update that adds a storage block, and the update where somebody forgets is the update where the
+spawn quietly becomes the community warehouse. Admins are exempt, from a cache filled at login
+rather than a query per click.
+
+The balloon, the NPC, the boards and the wheel are untouched by any of this — they are entities and
+plugin surfaces, not blocks.
+
 **The config shape was decided 2026-09-01 and is `config.yml#spawn-regions`:** a list of boxes, each
 naming its world and two corners, inclusive on both, checked in order. The coordinates that ship are
 placeholders, because the spawn build does not exist yet — the one hard constraint on that build
@@ -135,7 +186,7 @@ The Nordtal spawn is a **tavern on a hill** and carries everything social:
 | two 3 × 3 duel platforms | sword and bow, one each |
 | objective board | the current milestone at a glance, rendered per player in their language |
 | aura leaderboard board | likewise |
-| NPC | click to open the full objective GUI and the hand-in interface |
+| NPC | a `Mannequin`; click to open the full objective GUI and the hand-in interface |
 | wheel of fortune | a GUI, one free spin per day |
 
 **The balloon's position is load-bearing, not decorative.** It has to stand *outside* radius 10 and
@@ -173,8 +224,9 @@ sequenceDiagram
     Note over PL,P: at the configured time
     PL->>P: announce — 30 / 10 / 5 / 1 minutes, chat + HUD, per language
     PL->>P: teleport everyone in the farm world to the Nordtal spawn
-    PL->>W: unload farm-world/, delete it
+    PL->>W: unload farm-world/, rename it aside
     PL->>W: rename farm-world-next/ → farm-world/, load
+    PL->>W: delete the renamed-aside folder, off-thread
     PL->>PL: drop every farm-world POI and every farm-world grave
 ```
 
@@ -182,6 +234,22 @@ sequenceDiagram
   to `limbo`, and the rest of the server never notices. *This corrects the earlier note that a
   reset sends every player, including AFK ones, to the waiting room; with the swap approach there
   is nothing for them to wait for.*
+- **The swap itself was measured before it was built.** On Paper 26.2 build 121, 2026-09-01, with
+  a throwaway plugin and three consecutive rounds — 27 checks, all green: `unloadWorld` really does
+  release the folder, the folder can then be deleted, another renamed into its place, and the
+  *same name* loaded again with no restart. The reloaded world carried the replacement's seed every
+  time and no stale `session.lock` was left behind. **That is why this design keeps one farm-world
+  name** instead of alternating `farm-world-a` / `farm-world-b`.
+- **Yesterday's folder is renamed aside and deleted afterwards, off the main thread.** The drill's
+  swap window was 15–18 ms, but on tiny flat test worlds where deleting happened to be instant. A
+  real farm world is gigabytes, and deleting it *inside* the swap would freeze the server for the
+  length of an `rm -rf` — which is exactly the window this design exists to avoid. Renaming a
+  directory is one filesystem operation and costs the same whether it holds one file or a hundred
+  thousand.
+- **Where the folders are is not where the old Bukkit layout put them.** Measured in the same
+  session: a world created through the Bukkit API lands at
+  `<level-name>/dimensions/minecraft/<name>`, *inside* the primary world rather than beside it.
+  Nothing in the implementation builds such a path by hand.
 - **The pre-generation must be imperceptible.** It is throttled hard and runs off the main thread;
   if it cannot be made invisible, the farm world gets smaller rather than the players getting lag.
   A pre-generation that has not finished by the reset time **postpones the reset** — never swaps in
@@ -332,6 +400,14 @@ Three, which cover every example in the original notes and are each unambiguousl
 | `STATISTIC` | a vanilla statistic summed across all players — endermen killed, coal ore mined, items crafted; **active statistics only**, never distance walked or time played | that player's own increase since the objective started |
 | `ADVANCEMENT` | how many distinct players earned a given advancement | 1 or 0 |
 
+**`STATISTIC` is counted by polling the vanilla statistic and taking the difference**, decided
+2026-09-01: a baseline per player when the objective becomes active, read again on an interval, and
+the increase credited. The alternative was an event handler per kind of statistic — precise to the
+second, and a new Java class plus a release for every objective that counts something new. Polling
+means a new objective is a line in `milestones.yml` and nothing else, which is what makes the track
+retunable mid-season. The cost is that progress moves in steps rather than instantly, and that is
+a scoreboard, not a mechanic.
+
 Hand-in goes through **a GUI on the spawn NPC**, which shows what is currently needed and how much
 is already there. Items are only consumed on an explicit confirmation — a misplaced shift-click
 must not swallow an inventory — and nothing can be handed in that no objective wants. There is no
@@ -434,8 +510,28 @@ language, announced in Discord as well, and the moment the balloon's greyed-out 
 
 ## The balloon GUI
 
-A custom inventory GUI listing the destinations. A locked destination is greyed out and its tooltip
-names the milestone that will unlock it. At the start only the farm world is available.
+**Settled 2026-09-01.** A 2 × 2 grid, and one arrangement that works at every balloon:
+
+```
++---------------------------+
+|   the OTHER overworld     |   one entry across both upper tiles
++-------------+-------------+
+|   Nether    |     End     |   always in that order
++-------------+-------------+
+```
+
+"The other overworld" is what makes a single layout do: at Nordtal's balloon the wide entry is the
+farm world, at every other balloon it is Nordtal. Nobody has to learn a second arrangement for the
+trip home.
+
+A destination that is not unlocked yet **keeps its place, greyed**, naming the milestone that opens
+it and pointing at the objective board — rather than disappearing. Standing at the balloon is
+exactly the moment somebody wants to know why the Nether is not available, and an entry that has
+simply vanished answers nothing.
+
+The farm world is never *locked* in this menu. It does not need to be: until the opening expansion
+to 43, Nordtal's balloon stands outside the border and cannot be reached at all. That is the whole
+mechanism, and it is why the balloon's position is load-bearing.
 
 ## Aura — recognition, not currency
 
@@ -598,7 +694,8 @@ and `NameTagData` are what the composition above is handed to.
 **The operational consequence is the part worth stating.** DisplayTags needs
 [PacketEvents](https://modrinth.com/plugin/packetevents) on the server, so installing it makes
 PacketEvents a **required** plugin on the SMP server — the network's first mandatory third-party
-runtime dependency. CoreProtect, the only other third-party plugin in this design, may be absent
+runtime dependency, and since 2026-09-01 not the only one: [Chunky](#worlds) is the second, and it
+is required for the farm world rather than for anything cosmetic. CoreProtect, the only other third-party plugin in this design, may be absent
 without anything failing ([block logging](#block-logging--checked-2026-08-31)); this one may not.
 Writing our own Text Display nametags instead was considered and rejected: it would reimplement
 what our own fork already does, and leave two nametag implementations to keep in step.
@@ -667,7 +764,8 @@ daily reset**, along with everything else there.
 ## Duels
 
 Two 3 × 3 platforms at the spawn: **sword** and **bow**. Two players stepping onto the same
-platform at the same time are teleported into an arena that appears above the spawn area; further
+platform at the same time are teleported into an arena the plugin builds above the spawn area;
+further
 concurrent duels stack their arenas above each other, up to a configured limit, and anyone beyond
 that waits in a queue.
 
@@ -693,12 +791,27 @@ stateDiagram-v2
   losing.
 - **Arenas are visible and spectators are welcome.** Duels are the only competition on this server;
   hiding them would waste the one thing that gives the tab-list number a story.
+- **The arena is placed by the plugin and taken away again**, decided 2026-09-01, including a sweep
+  at start for anything an ill-timed crash left standing. The first version is a small glass box —
+  enough to duel in, no build work, and the concurrent limit stays a number in `config.yml` rather
+  than a number of arenas somebody built. A schematic replaces the glass later; it changes what the
+  arena looks like and nothing about how a duel works.
 
 ## Death and graves
 
-Everywhere except the duel arena, a death leaves a **grave**: a double dark oak chest with the
-player's head on top, holding the full inventory. Opening it and taking the items **credits the
-full experience** back.
+Everywhere except the duel arena, a death leaves a **grave**: it looks like a double dark oak chest
+with the player's head on top and holds the full inventory. Opening it and taking the items
+**credits the full experience** back.
+
+**It is not made of blocks, decided 2026-09-01.** A grave is a `BlockDisplay` in the shape of a
+chest, the head, and an `Interaction` to click; the contents live in `smp_grave` and open in a
+plugin inventory. Real blocks were what this document said first, and working through the cases
+sank it: a death in the void, in lava, under the Nether roof or inside your own wall would each
+have to replace two blocks that belong to somebody, and graves stand forever, so over a season
+Nordtal would accumulate a chest at every place anybody ever died. The display version cannot land
+in a wall, cannot collide with a second grave, changes no built world, and is simply gone when it
+is emptied. Nothing is lost by it: the custom inventory was needed anyway, because taking the items
+is what credits the experience back.
 
 - **The grave stands forever** and **anyone may open it.** No timer, no ownership lock. The tone is
   peaceful, and the point is that a death is a walk back, not a loss.
@@ -730,7 +843,14 @@ written to soften.
 
 ## The wheel of fortune
 
-A GUI in the tavern. **One free spin per day**, plus extra spins earned by contributing to
+A GUI in the tavern. **One free spin per calendar day in the server's own time zone**, decided
+2026-09-01 — midnight Europe/Berlin, which is what `smp_spin.last_free` being a `date` already
+assumes. Predictable beats fair-to-the-second here: somebody who plays late and again the next
+morning gets two spins close together, and that feels like a gift rather than a rule. A rolling
+24 hours would have been strictly fairer and would have moved the time later every day, plus a
+migration to `timestamptz`.
+
+Plus extra spins earned by contributing to
 objectives. It costs no aura — aura is not a currency.
 
 **Extra spins are staggered by contribution share**, granted when the objective completes: one spin
@@ -799,6 +919,22 @@ option today with a *released* 26.2 artefact — with the caveats that it compil
 **SNAPSHOT** version, and that its user base is a fraction of CoreProtect's.
 
 None of the above was tested on a running server. It is metadata, and metadata is not verification.
+
+## When the database is not there
+
+**Decided 2026-09-01: the join is refused, the people already playing stay.** The SMP hangs off
+PostgreSQL more than any other module — language, admin flag, aura, milestone progress,
+contributions, POIs, graves and playtime all come from it — so a session that starts without it is
+a session where none of those is known.
+
+- **Nobody new gets in.** The check runs on the async pre-login thread, which is the one place a
+  Paper server is allowed to wait on a database, and the same query that proves it is reachable
+  also warms the admin flag the protection listener needs.
+- **Nobody is thrown out.** A ten-second blip must not cost somebody a fight they were in the
+  middle of.
+- **Writes are refused rather than swallowed.** Aura, hand-ins, POIs and wheel spins say no. The
+  alternative — buffering in memory and replaying on reconnect — loses the buffer to any crash and
+  has no answer for two processes that buffered a change to the same row.
 
 ## Admins
 
@@ -962,12 +1098,17 @@ winner's head start, the wheel's pool and weights, and the items and advancement
 objective. They are proposals, and the point of putting a proposal in a config file is that
 correcting it is a diff rather than an argument.
 
+**The spawn NPC was settled on 2026-09-01 and it needed no dependency at all.** It is a
+`Mannequin` — a vanilla Paper 26.2 entity with a real player skin (`setProfile`, `setSkinParts`,
+`setImmovable`, `setDescription`, equipment, poses) that is a `LivingEntity` rather than a `Mob`,
+so it has no AI, never despawns and never wanders. The three options this list used to weigh —
+a villager with its AI off, a custom entity, Citizens — were all worse than something the server
+already ships. A later 3D model can replace how it is *drawn* without touching how it is clicked.
+
 What is genuinely still open:
 
-- **What the spawn NPC is** — a villager with its AI off, a custom entity, or a player-skin NPC.
-  Left open deliberately: it belongs with the world half, and Citizens would be a *second* mandatory
-  third-party dependency after DisplayTags, which needs an explicit argument rather than a default.
-- **The contents of the balloon, hand-in and wheel GUIs** beyond what this document states.
+- **The contents of the hand-in and wheel GUIs** beyond what this document states. The balloon's
+  was settled on 2026-09-01 and is [above](#the-balloon-gui).
 - **The server rules as written for players.** Deliberately not settled yet: the working principle
   is that anything goes as long as everyone involved agrees to it. A rules text has to exist before
   the phase opens, in both languages, but it is not a design decision.
@@ -981,7 +1122,10 @@ packets or player visibility. Before any of it is called done, on a running serv
 clients:
 
 - A **full farm-world reset cycle** with players inside it, players elsewhere, and a player AFK —
-  including a run where the pre-generation is deliberately not finished in time.
+  including a run where the pre-generation is deliberately not finished in time. *The mechanism
+  underneath it no longer needs proving: unload, delete, rename, reload under the same name was
+  measured green over three consecutive rounds on Paper 26.2 build 121 on 2026-09-01. What is left
+  is what a headless drill cannot cover — real clients standing in the world as it goes.*
 - The **pre-generation's effect on tick time**, measured, not assumed. This is the single biggest
   technical risk in the concept.
 - **Every travel path**: each balloon, a player-built portal in the farm world, a Nordtal portal

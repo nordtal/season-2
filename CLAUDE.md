@@ -481,7 +481,7 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**Six modules have tests: 438 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Six modules have tests: 454 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-01). The counts below are what the JUnit XML reports, not `@Test` counts.
 
 `:common` has **98**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
@@ -533,11 +533,17 @@ asserts both halves of the reload rule, including the one that must *permit* a l
 `PrestigeTest` (8), `ObjectiveProgressTest` (7) and `DeathPenaltyTest` (7) are the rest. Not one of
 them touches a world, a packet or a player, because not one of those exists in this module yet.
 
-`hunger-games` has **41**, all in memory and all of them arithmetic the game would otherwise get
+`hunger-games` has **57**, all in memory and all of them arithmetic the game would otherwise get
 wrong in front of players: `BorderMathTest` (the step, the extension of a running shrink, the
 divide-by-zero floor at one participant), `TeamColoursTest` (evenly spaced hues and the
 nearest-named mapping), `DemotionTest` (a duo whose partner never showed becoming a full-hearted
-solo), `SpawnTowersTest`, `TiebreakTest`, `BearingTest` and `BossBarWidthTest`.
+solo), `SpawnTowersTest`, `TiebreakTest`, `BearingTest` and `BossBarWidthTest`. Three are new on
+2026-09-01, after a sweep found nine message keys in this module that no line of code could reach:
+`CountdownTest` pins when the (previously silent) lobby countdown speaks, `WinOutcomeTest` pins that
+the four ways a game can end stay four distinguishable shapes, and `MessageBundlesTest` asserts the
+two language files carry the same keys with the same placeholders — a key added to one file and not
+the other reaches a player as the literal string `hg.start.countdown`, because `Messages` degrades
+to the key rather than throwing.
 
 **What none of it proves.** Nothing here touches bunq, Discord, or a running Velocity proxy. Tab
 creation, cancellation and result inquiries need the **bunq sandbox**

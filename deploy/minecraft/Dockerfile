@@ -7,7 +7,7 @@
 # WHY NOT itzg/docker-minecraft-server: it does not cover Velocity (that is a second image with
 # its own conventions), it would not have solved the proxy console either - Velocity has no RCON -
 # and we want a pinned server build rather than runtime version resolution. See
-# docs/operations.md#why-not-itzgdocker-minecraft-server.
+# ../README.md#why-it-looks-like-this.
 FROM eclipse-temurin:25-jre
 
 # tmux is the console (see entrypoint.sh); curl and jq resolve the server jar through PaperMC's
@@ -17,7 +17,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # The server directory is a named volume: worlds, configs, plugins and the cached server jar.
-# Bind mounts are deliberately not used - see docs/operations.md#deployment.
+# Bind mounts are deliberately not used - see ../README.md#why-it-looks-like-this.
 WORKDIR /data
 VOLUME ["/data"]
 

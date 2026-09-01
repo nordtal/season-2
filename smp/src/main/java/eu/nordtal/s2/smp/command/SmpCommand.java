@@ -53,9 +53,17 @@ public final class SmpCommand {
     private final PlayerLocales locales;
     private final Runnable reload;
 
+    /**
+     * {@code /smp update}, in its own class. It is the one part of this command that talks to
+     * another container rather than to this server, and none of the escape hatches above have
+     * anything to do with it.
+     */
+    private final UpdateCommands updates;
+
     public SmpCommand(final Plugin plugin, final SmpDao dao, final ObjectiveEngine engine,
                       final FarmWorldReset farmReset, final Identities identities,
-                      final Messages messages, final PlayerLocales locales, final Runnable reload) {
+                      final Messages messages, final PlayerLocales locales, final Runnable reload,
+                      final UpdateCommands updates) {
         this.plugin = plugin;
         this.dao = dao;
         this.engine = engine;
@@ -64,6 +72,7 @@ public final class SmpCommand {
         this.messages = messages;
         this.locales = locales;
         this.reload = reload;
+        this.updates = updates;
     }
 
     public LiteralCommandNode<CommandSourceStack> build() {
@@ -80,6 +89,7 @@ public final class SmpCommand {
                         .then(Commands.literal("unlock")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .executes(this::handleUnlockMilestone))))
+                .then(updates.build())
                 .then(Commands.literal("aura")
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .then(Commands.argument("delta", IntegerArgumentType.integer(-10000, 10000))

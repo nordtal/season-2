@@ -16,6 +16,7 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
+import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.networkcontrol.config.Configs;
 import eu.nordtal.s2.networkcontrol.config.DatabaseSpec;
 import eu.nordtal.s2.networkcontrol.config.GateSpec;
@@ -38,6 +39,7 @@ import eu.nordtal.s2.networkcontrol.playtime.PlaytimeWriter;
 import eu.nordtal.s2.networkcontrol.routing.PhaseRouting;
 import eu.nordtal.s2.networkcontrol.routing.PhaseServers;
 import eu.nordtal.s2.networkcontrol.routing.PlayerRouter;
+import eu.nordtal.s2.networkcontrol.update.RestartWatch;
 
 import org.slf4j.Logger;
 
@@ -230,6 +232,19 @@ public final class NetworkControlPlugin {
         proxy.getScheduler().buildTask(this, playtime::flushAll)
                 .delay(flushInterval)
                 .repeat(flushInterval)
+                .schedule();
+
+        // ------------------------------------------------------------ the restart countdown
+
+        // The proxy is the only process that sees every player, so it is the one that warns them.
+        // A restart is asked for in Discord or with /smp update restart; both write a row with an
+        // absolute instant on it, and this counts towards that instant rather than towards a
+        // duration of its own - see docs/updater.md#how-it-is-operated.
+        final RestartWatch restartWatch = new RestartWatch(proxy, logger,
+                UpdateDirectory.using(pool), roster, messages, Clock.systemUTC());
+        proxy.getScheduler().buildTask(this, restartWatch::check)
+                .delay(RestartWatch.INTERVAL)
+                .repeat(RestartWatch.INTERVAL)
                 .schedule();
 
         // ------------------------------------------------------------ the emergency command

@@ -1,8 +1,16 @@
 # updater — the module that owns versions and the schema
 
-**Decided 2026-09-01. Nothing of this is built yet.** This document is the design; the
-implementation is meant to follow it piece by piece, and [state-of-play.md](state-of-play.md) is
-where the gap between the two is tracked. Read [../deploy/README.md](../deploy/README.md) first if
+**Decided 2026-09-01. Step 1 is built; steps 2 to 6 are not.** This document is the design; the
+implementation follows it piece by piece, and [state-of-play.md](state-of-play.md) is where the gap
+between the two is tracked. What exists today is the `updater` module: it resolves the newest
+version of everything from all four sources, compares it against the jars actually lying in the
+volumes, and prints the difference. **It writes nothing outside its own config volume** — the
+four Minecraft mounts are read-only, and the one file it does write is `config/updater.yml` on a
+first run — which is why it is safe to run against a live deployment at any moment:
+
+```
+docker compose --profile updater run --rm updater
+``` Read [../deploy/README.md](../deploy/README.md) first if
 you want to know how the stack runs today — everything below changes how it is *updated*, not how
 it is shaped.
 
@@ -53,7 +61,7 @@ deployment starts with the updater, not with the database and the bot.
 
 | what | source | measured 2026-09-01 |
 |---|---|---|
-| The five season-2 jars, the resource pack, its `.sha1` | GitHub releases API on `nordtal/season-2` | `v0.1.0` carries 7 assets; asset names embed the version |
+| The six season-2 jars, the resource pack, its `.sha1` | GitHub releases API on `nordtal/season-2` | `v0.1.0` carries 7 assets; from `0.2.0` on there are 8, because the updater's own jar is one of them |
 | DisplayTags | GitHub releases API on `nordtal/papermc-display-tags` | our own fork, 2.0.0 on `main` |
 | PacketEvents | Modrinth API, `game_versions=["26.2"] loaders=["paper"]` | **exactly one** version: `2.13.0+spigot`, published 2026-06-22 |
 | Chunky | Modrinth API, same filter | **exactly one** version: `1.5.3`, published 2026-05-04 |
@@ -154,6 +162,29 @@ already does as its safety net, and nothing about this design changes.
 | Each container updates itself on restart | Then a nightly crash splits the network across versions and nobody ordered it. |
 | Watchtower-style image watching | The plugins are jars in volumes, not images. It would cover the bot and nothing else. |
 
+## Two things this displaced, decided 2026-09-01
+
+Both came out of writing step 1 and neither was in the original design.
+
+**The updater owns the plugin jars, and `entrypoint.sh` stops fetching them.** They would otherwise
+collide: the script pulls `<module>-${SEASON_VERSION}.jar` on every start and deletes, by prefix,
+every other version of the same plugin. An updater that puts `0.3.0` into a volume while `.env`
+still says `0.2.0` would have the next restart delete exactly the jar it just fetched. So
+`SEASON_PLUGINS` and `EXTRA_PLUGIN_URLS` go away in step 3 and the entrypoint keeps only the server
+jar and the datapacks. The price is stated plainly: **a volume that no updater run has touched has
+no plugins**, and the container's "refuse to start rather than run an older jar" guard goes with
+them. That is consistent rather than new — this module is the bootstrap already, because it owns
+the schema.
+
+**The pack's URL and hash live in `pack.yml`, not in the environment.** They were made compose
+variables earlier the same day, for a good reason: they were reachable only by editing a file
+inside a volume. That is being partly taken back, because of how jcore's config system works —
+**an environment override wins over the file and is never written back to it.** An updater writing
+a new sha1 into `pack.yml` while `NORDTAL_NETWORK_CONTROL_PACK_SHA1` is set would be writing into
+a value nothing reads: a swap that reports success and changes nothing, which is the worst outcome
+on the list. So `PACK_URL` and `PACK_SHA1` leave `compose.yml` and `.env.example` again in step 3,
+and the hand-copying of a hash out of a release disappears instead of moving.
+
 ## Open, with a fallback each
 
 - **Arcane's redeploy endpoint** — unverified, see above.
@@ -171,9 +202,14 @@ already does as its safety net, and nothing about this design changes.
 
 Built piece by piece, and each piece is useful on its own:
 
-1. Resolving versions from all four sources, and reporting the difference. No writes at all.
+1. ~~Resolving versions from all four sources, and reporting the difference. No writes at all.~~
+   **Built 2026-09-01.** 57 tests against payloads recorded from the live GitHub, Modrinth and
+   Fill APIs that day, plus a volume tree on disk. `TopologyTest` reads the real `compose.yml`, so
+   a fifth backend server added there and not here fails the build.
 2. Flyway moves from the bot into the updater; the bot becomes a client.
-3. Swapping jars into the volumes, and setting the pack URL and sha1.
+3. Swapping jars into the volumes, and setting the pack URL and sha1 — which is also where
+   `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS`, `PACK_URL` and `PACK_SHA1` are removed, and where the
+   four compose mounts stop being read-only. See *Two things this displaced* above.
 4. The Discord command, the embed, and the restart button.
 5. The Arcane redeploy.
 6. `/smp update` in game, over `NOTIFY`.

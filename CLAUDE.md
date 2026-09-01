@@ -1,8 +1,8 @@
 # season-2 — agent guide
 
 Everything nordtal.eu season 2 deploys. A Velocity proxy (`network-control`) in front of three
-Paper backends (`limbo` → `hunger-games` → `smp`), plus the `discord-bot` Discord bot and the
-`resource-pack` assets. Production runs as **one `docker compose` stack** on a remote host, driven
+Paper backends (`limbo` → `hunger-games` → `smp`), plus the `discord-bot` Discord bot, the
+`updater` container and the `resource-pack` assets. Production runs as **one `docker compose` stack** on a remote host, driven
 through [Arcane](https://github.com/ofkm/arcane). SimpleCloud was dropped on 2026-09-01 — the
 runbook, the reasoning, the container design and the console mechanism are all in
 [deploy/README.md](deploy/README.md).
@@ -187,7 +187,10 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   `common/build.gradle.kts` is the **counterfactual** — what a plugin jar would weigh if those
   declarations were `implementation` — and it was read as a measurement of the jars as they are.
   A Paper plugin that takes the stack lands near 5 MB, as two of the four now do.
-- **Exactly one process migrates: `discord-bot`.** That is unchanged. **Where the SQL lives changed
+- **Exactly one process migrates: `discord-bot`.** Unchanged in the code; **decided 2026-09-01 to
+  move to the new `updater` module** and not yet carried out — that is step 2 of
+  [docs/updater.md](docs/updater.md#implementation-order), and it is what makes the updater the
+  bootstrap of a deployment rather than a tool used on one. **Where the SQL lives changed
   on 2026-08-31, and the move has been carried out**: the migration files sit in
   `common/src/main/resources/db/migration/`, so DDL is next to the API that reads it instead of
   inside the Discord bot module. The bot still applies them, and its call did not change — jcore's
@@ -272,7 +275,7 @@ block plus its own dependencies.
 | `nordtal.shaded` | every deployable | shadow; thin jar moved to the `thin` classifier so `shadowJar` takes the plain name |
 | `nordtal.paper-plugin` | the three Paper modules | paper-api, `:common`, `runServer` on 26.2, `${version}` expansion |
 | `nordtal.velocity-plugin` | `network-control` | velocity-api as compileOnly + annotationProcessor, `:common` |
-| `nordtal.jvm-app` | `discord-bot` | `application`, Main-Class in the shaded manifest |
+| `nordtal.jvm-app` | `discord-bot`, `updater` | `application`, Main-Class in the shaded manifest |
 
 Every external version lives in `gradle/libs.versions.toml`. Nothing pins a version in a module
 build file.
@@ -480,6 +483,39 @@ deliberately not used: generic keys such as `password` would collide across file
   database, new Discord application, new volume.
 - The bot fails fast: all three files are read and validated before anything with a lifecycle
   starts, and `main` exits 1 on a `ConfigException`.
+
+## updater
+
+**New 2026-09-01. Step 1 of six is built** ([docs/updater.md](docs/updater.md)); everything else in
+that document is design. A standalone JVM application like `discord-bot`, run as a **command and
+never as a service**:
+
+```
+docker compose --profile updater run --rm updater
+```
+
+What exists resolves the newest version of every jar the network runs — the six season-2 jars and
+the pack from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents and Chunky
+from Modrinth filtered to `26.2`/`paper`, Paper and Velocity from the PaperMC Fill API — compares
+that against the jars actually in the mounted volumes, and prints the difference. **The only
+thing it writes is its own `config/updater.yml` on a first run** — nothing in a Minecraft volume,
+no jar, no database row — which is why its four compose mounts are `:ro` and why it is safe to run
+against a live deployment at any moment. Step 3 is what makes them writable.
+
+Three rules that are easy to break and expensive to break:
+
+- **It must never get a restart policy or a schedule.** A crash restart at three in the morning
+  must not move a version. An update happens because somebody asked for one.
+- **Filenames are the identity of what is installed**, split by `JarName` on the last `-`, which is
+  `${file%-*.jar}` out of `deploy/minecraft/entrypoint.sh`. Inventing a better rule here means two
+  programs disagreeing about which jar supersedes which, and the way that surfaces is Paper loading
+  two versions of one plugin without complaining.
+- **`Topology` and `deploy/compose.yml` are two copies of one fact.** A fifth backend server is a
+  change to both in the same commit; `TopologyTest` reads the real compose file and fails otherwise.
+
+`updater.yml` is the one config in this repository whose defaults are the real values and where a
+freshly written file is what you want: the repositories, the two Modrinth project ids and the
+platform versions are facts about this project, not about a deployment.
 
 ## resource-pack
 

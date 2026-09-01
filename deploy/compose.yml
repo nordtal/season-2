@@ -1,6 +1,6 @@
 # nordtal.eu season 2 - the whole deployment.
 #
-# One stack, three profiles. SimpleCloud was dropped on 2026-09-01; the reasoning is in
+# One stack, five profiles. SimpleCloud was dropped on 2026-09-01; the reasoning is in
 # README.md#why-it-looks-like-this, next to this file.
 #
 #   cp .env.example .env        # fill it in; .env is gitignored and must never be committed
@@ -11,6 +11,10 @@
 #   COMPOSE_PROFILES=bot        just the Discord bot, against a database that already exists
 #   COMPOSE_PROFILES=db,bot     bot and database, no Minecraft at all
 #   COMPOSE_PROFILES=db,bot,mc  the production network
+#
+# `backup` and `updater` are deliberately outside that default. The backup is a service you might
+# run against a database this compose does not own; the updater is not a service at all - see its
+# block below.
 #
 # The bot has no Minecraft dependency and never waits for a proxy or a backend; the `bot` profile
 # is what preserves that. It replaces discord-bot/docker-compose.yml.
@@ -305,12 +309,58 @@ services:
     volumes:
       - mc-smp:/data
 
+  # -------------------------------------------------------------------------------------------
+  # The updater. A COMMAND, NOT A SERVICE - no restart policy and no schedule, deliberately:
+  # a crash restart at three in the morning must not move a version. It is run when somebody asks
+  # for an update:
+  #
+  #   docker compose --profile updater run --rm updater
+  #
+  # Today it resolves the newest version of everything the network runs, compares that against the
+  # jars actually in the volumes, and prints the difference. The only thing it writes is its own
+  # config/updater.yml on a first run - nothing in a Minecraft volume - which is why the four mounts
+  # below are read-only and why it is safe to run against a live deployment at any moment. Steps 2 to 6 of ../docs/updater.md add the schema, the jar swap and the restart button;
+  # the swap is what turns four of these mounts read-write, in a diff where that is visible.
+  #
+  # NOTHING PUBLISHES THIS IMAGE - same as the Minecraft one. The host builds it from ../updater,
+  # which needs `./gradlew :updater:shadowJar` to have run first.
+  updater:
+    profiles: ["updater"]
+    build:
+      context: ../updater
+      args:
+        JAR: build/libs/updater-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
+    image: ${UPDATER_IMAGE:-nordtal/updater:${SEASON_VERSION:-local}}
+    restart: "no"
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      # Which release to follow: 'latest', or an exact tag to pin - which is how a rollback is
+      # expressed. Deliberately NOT tied to SEASON_RELEASE: that variable is what the servers are
+      # running now, and this one is what they would be moved to.
+      NORDTAL_UPDATER_SEASON_RELEASE: ${UPDATER_SEASON_RELEASE:-latest}
+      NORDTAL_UPDATER_DISPLAY_TAGS_RELEASE: ${UPDATER_DISPLAY_TAGS_RELEASE:-latest}
+      NORDTAL_UPDATER_MINECRAFT_VERSION: ${PAPER_VERSION:-26.2}
+      NORDTAL_UPDATER_VELOCITY_VERSION: ${VELOCITY_VERSION:-4.1.1}
+      # Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP; a run makes
+      # two GitHub calls, so it only matters on a host that shares its address with something busy.
+      NORDTAL_UPDATER_GITHUB_TOKEN: ${UPDATER_GITHUB_TOKEN:-}
+    volumes:
+      - updater-config:/app/config
+      # The four Minecraft volumes, under the names the compose services have - which is what
+      # Topology in :updater expects to find beneath volumes-root.
+      - mc-network-control:/volumes/network-control:ro
+      - mc-limbo:/volumes/limbo:ro
+      - mc-hunger-games:/volumes/hunger-games:ro
+      - mc-smp:/volumes/smp:ro
+    logging: *logging
+
 volumes:
   postgres-data:
   # The only volume in this stack that is worth shipping offsite, and the only one whose contents
   # cannot be rebuilt from the repository and a world folder.
   postgres-dumps:
   bot-config:
+  updater-config:
   bunq-context:
   mc-network-control:
   mc-limbo:

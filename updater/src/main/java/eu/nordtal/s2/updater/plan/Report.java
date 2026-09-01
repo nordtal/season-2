@@ -1,0 +1,171 @@
+package eu.nordtal.s2.updater.plan;
+
+import eu.nordtal.s2.updater.source.RemoteFile;
+
+import org.jetbrains.annotations.NotNull;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * An {@link UpdatePlan} as text a person reads before deciding whether to restart a network.
+ *
+ * <h2>Plain text, and it is going to be read twice</h2>
+ * This is what the container prints, and step 4 of docs/updater.md puts the same content in a
+ * Discord embed. Written as a plain string here rather than as Discord components so that the
+ * thing an operator sees in {@code docker logs} and the thing they see in the admin channel cannot
+ * drift apart - and so that this half is testable without a bot token.
+ *
+ * <h2>What it always says, even when nothing changed</h2>
+ * The resolved release tag. "Everything is up to date" and "the release you meant is still a
+ * draft, so latest is last week's tag" produce the same list of rows and are not the same
+ * situation; the tag on the second line is what tells them apart.
+ */
+public final class Report {
+
+    private static final String INDENT = "  ";
+
+    /** Wide enough for "not installed", which is the longest status word. */
+    private static final int LABEL_WIDTH = 15;
+
+    private Report() {
+    }
+
+    public static @NotNull String render(final @NotNull UpdatePlan plan) {
+        final StringBuilder out = new StringBuilder();
+
+        out.append("nordtal season 2 - update check at ").append(plan.resolvedAt()).append('\n');
+        if (plan.seasonTag() != null) {
+            out.append("season release resolved to ").append(plan.seasonTag());
+            if (plan.seasonPrerelease()) {
+                out.append("  <- A PRE-RELEASE. Pinned by tag; /releases/latest never returns one.");
+            }
+            out.append('\n');
+        }
+        out.append('\n');
+
+        // Grouped the way the network is shaped, proxy first, with everything that lives outside a
+        // Minecraft volume - the bot - collected at the end rather than filed under a server it
+        // does not run on.
+        final Map<String, List<Change>> grouped = new LinkedHashMap<>();
+        for (final Change change : plan.changes()) {
+            grouped.computeIfAbsent(change.service() == null ? "(no volume)" : change.service(),
+                    key -> new ArrayList<>()).add(change);
+        }
+
+        final int width = grouped.values().stream()
+                .flatMap(List::stream)
+                .mapToInt(change -> change.artifact().length())
+                .max()
+                .orElse(0);
+
+        grouped.forEach((service, changes) -> {
+            out.append(service).append('\n');
+
+            // A whole service that is not mounted would otherwise repeat one sentence on every row
+            // it has, which buries the four rows that say something else. Said once, at the top.
+            final String shared = sharedNote(changes);
+            if (shared != null) {
+                out.append(INDENT).append(shared).append('\n');
+            }
+
+            for (final Change change : changes) {
+                final String detail = detail(change);
+                out.append(INDENT)
+                        .append(pad(change.artifact(), width))
+                        .append("  ")
+                        // Not padded when there is nothing after it: a padded label would leave
+                        // trailing spaces on the line, which survive a copy into a Discord embed.
+                        .append(detail.isEmpty() ? label(change) : pad(label(change), LABEL_WIDTH))
+                        .append(detail)
+                        .append('\n');
+                if (change.note() != null && !change.note().equals(shared)) {
+                    out.append(INDENT).append(INDENT).append(pad("", width)).append(change.note()).append('\n');
+                }
+            }
+            out.append('\n');
+        });
+
+        if (!plan.unclaimed().isEmpty()) {
+            out.append("jars nothing accounts for - left alone, never deleted:\n");
+            for (final UpdatePlan.Unclaimed jar : plan.unclaimed()) {
+                out.append(INDENT).append(jar.service()).append('/')
+                        .append(Installation.PLUGINS).append('/').append(jar.fileName()).append('\n');
+            }
+            out.append('\n');
+        }
+
+        out.append(summary(plan)).append('\n');
+        return out.toString();
+    }
+
+    /** The one word in the status column. Uppercase for the two that need a person. */
+    private static String label(final Change change) {
+        return switch (change.status()) {
+            case UP_TO_DATE -> "up to date";
+            case OUTDATED -> "OUTDATED";
+            case MISSING -> "not installed";
+            case UNRESOLVED -> "UNRESOLVED";
+            case MOUNT_MISSING -> "unknown";
+        };
+    }
+
+    private static String detail(final Change change) {
+        final RemoteFile wanted = change.wanted();
+        return switch (change.status()) {
+            case UP_TO_DATE -> identity(change.installed(), wanted);
+            case OUTDATED -> change.installed() + "  ->  " + identity(null, wanted);
+            case MISSING -> "->  " + identity(null, wanted);
+            case UNRESOLVED -> "";
+            case MOUNT_MISSING -> "(newest is " + identity(null, wanted) + ")";
+        };
+    }
+
+    /** The note every row in a group shares, or {@code null} when they do not all share one. */
+    private static String sharedNote(final List<Change> changes) {
+        final String first = changes.getFirst().note();
+        if (first == null || changes.size() < 2) {
+            return null;
+        }
+        return changes.stream().allMatch(change -> first.equals(change.note())) ? first : null;
+    }
+
+    /** What a row is compared on: the filename for a jar, the hash for the pack. */
+    private static String identity(final String installed, final RemoteFile wanted) {
+        if (wanted == null) {
+            return installed == null ? "?" : installed;
+        }
+        if (wanted.checksum() != null && "sha1".equals(wanted.checksum().algorithm())) {
+            // The pack's hash in full, all forty characters, on both sides of the arrow. Shortened
+            // it would be unreadable in the way that matters: two different pack releases can
+            // easily share twelve leading hex characters on the screen and none in the client,
+            // and this row exists to show that they differ.
+            return wanted.fileName() + " (sha1 " + wanted.checksum().hex() + ")";
+        }
+        return wanted.fileName();
+    }
+
+    private static String summary(final UpdatePlan plan) {
+        final long work = plan.changes().stream().filter(change -> change.status().isWork()).count();
+        final long failed = plan.changes().stream().filter(change -> change.status().isFailure()).count();
+
+        if (failed > 0 && work > 0) {
+            return work + " artefact(s) would be updated, and " + failed
+                    + " could not be checked - so this list is not the whole picture.";
+        }
+        if (failed > 0) {
+            return "Nothing to update among the artefacts that could be checked, but " + failed
+                    + " could not be checked at all. That is not the same as up to date.";
+        }
+        if (work > 0) {
+            return work + " artefact(s) would be updated.";
+        }
+        return "Everything is up to date.";
+    }
+
+    private static String pad(final String value, final int width) {
+        return value.length() >= width ? value : value + " ".repeat(width - value.length());
+    }
+}

@@ -34,8 +34,11 @@ include("smp")
 // Velocity plugin on the proxy.
 include("network-control")
 
-// Standalone JVM application.
+// Standalone JVM applications.
 include("discord-bot")
+
+// The container that owns every version and, from docs/updater.md step 2 on, the schema.
+include("updater")
 
 // Shared code, shaded into the plugins that use it.
 include("common")

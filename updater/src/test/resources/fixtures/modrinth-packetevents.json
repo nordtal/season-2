@@ -1,0 +1,101 @@
+[
+  {
+    "version_number": "2.13.0+spigot",
+    "version_type": "release",
+    "date_published": "2026-06-22T09:39:39.294932Z",
+    "project_id": "HYKaKraK",
+    "game_versions": [
+      "1.8.8",
+      "1.8.9",
+      "1.9",
+      "1.9.1",
+      "1.9.2",
+      "1.9.3",
+      "1.9.4",
+      "1.10",
+      "1.10.1",
+      "1.10.2",
+      "1.11",
+      "1.11.1",
+      "1.11.2",
+      "1.12",
+      "1.12.1",
+      "1.12.2",
+      "1.13",
+      "1.13.1",
+      "1.13.2",
+      "1.14",
+      "1.14.1",
+      "1.14.2",
+      "1.14.3",
+      "1.14.4",
+      "1.15",
+      "1.15.1",
+      "1.15.2",
+      "1.16",
+      "1.16.1",
+      "1.16.2",
+      "1.16.3",
+      "1.16.4",
+      "1.16.5",
+      "1.17",
+      "1.17.1",
+      "1.18",
+      "1.18.1",
+      "1.18.2",
+      "1.19",
+      "1.19.1",
+      "1.19.2",
+      "1.19.3",
+      "1.19.4",
+      "1.20",
+      "1.20.1",
+      "1.20.2",
+      "1.20.3",
+      "1.20.4",
+      "1.20.5",
+      "1.20.6",
+      "1.21",
+      "1.21.1",
+      "1.21.2",
+      "1.21.3",
+      "1.21.4",
+      "1.21.5",
+      "1.21.6",
+      "1.21.7",
+      "1.21.8",
+      "1.21.9",
+      "1.21.10",
+      "1.21.11",
+      "26.1",
+      "26.1.1",
+      "26.1.2",
+      "26.2"
+    ],
+    "loaders": [
+      "bukkit",
+      "folia",
+      "paper",
+      "purpur",
+      "spigot"
+    ],
+    "files": [
+      {
+        "filename": "packetevents-spigot-2.13.0.jar",
+        "primary": true,
+        "url": "https://cdn.modrinth.com/data/HYKaKraK/versions/h0ncTpUP/packetevents-spigot-2.13.0.jar",
+        "hashes": {
+          "sha512": "f0f85e601855a5849418df807e116a369bfb70aa8b4c25b8904bdd04cf6a483ef5d2679a345e9d690dd2221f9daff6a25be17d8b3e63cf665e12a31b0124dd27"
+        }
+      },
+      {
+        "filename": "packetevents-spigot-2.13.0-sources.jar",
+        "primary": false,
+        "url": "https://cdn.modrinth.com/data/HYKaKraK/versions/h0ncTpUP/packetevents-spigot-2.13.0-sources.jar",
+        "hashes": {
+          "sha512": "7e0fc211ec11590ef827c0a942c4198b3542c7cc79d3a54d237ce7df03bb41b8a810ec34a863786224c5a83ce3dc3a7aa8a7d163ad3b5b04e768b81d4848f574"
+        }
+      }
+    ]
+  }
+]

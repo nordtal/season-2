@@ -160,6 +160,23 @@ escape sequences.
 > published `v0.1.0` carrying the *scaffold* `smp` and `limbo` jars while `.env.example` pinned it.
 > Nothing about the mechanism described here is wrong; what it lacks is that a pin has to be moved
 > by a hand that is usually busy building.
+>
+> **Step 1 of that module is built.** It answers the question and changes nothing:
+>
+> ```bash
+> docker compose --profile updater run --rm updater
+> ```
+>
+> It reads the newest version of every jar from GitHub, Modrinth and the PaperMC Fill API, compares
+> it against what is actually in the four volumes, and prints the difference — including jars in a
+> `plugins/` folder that nothing accounts for, and the pack's SHA-1 against the release's. Every
+> Minecraft mount is read-only — the one file it writes is its own `config/updater.yml`, on a first
+> run — so it is safe against a live network at any moment. Run it before the version bump below and
+> you know what the bump would do.
+>
+> **It is a command, not a service:** never give it a restart policy and never put `updater` in
+> `COMPOSE_PROFILES`. The whole design rests on a crash restart at three in the morning not moving
+> a version.
 
 A plugin update is a version bump. Nothing is copied by hand — that was the daily cost of the
 SimpleCloud dashboard and it is what this replaces.

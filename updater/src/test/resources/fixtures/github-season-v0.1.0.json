@@ -1,0 +1,50 @@
+{
+  "tag_name": "v0.1.0",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-08-31T21:19:16Z",
+  "assets": [
+    {
+      "name": "discord-bot-0.1.0.jar",
+      "size": 30952094,
+      "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/discord-bot-0.1.0.jar",
+      "content_type": "application/java-archive"
+    },
+    {
+      "name": "hunger-games-0.1.0.jar",
+      "size": 4640946,
+      "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/hunger-games-0.1.0.jar",
+      "content_type": "application/java-archive"
+    },
+    {
+      "name": "limbo-0.1.0.jar",
+      "size": 51279,
+      "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/limbo-0.1.0.jar",
+      "content_type": "application/java-archive"
+    },
+    {
+      "name": "network-control-0.1.0.jar",
+      "size": 5259904,
+      "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/network-control-0.1.0.jar",
+      "content_type": "application/java-archive"
+    },
+    {
+      "name": "nordtal-resource-pack-0.1.0.zip",
+      "size": 38609,
+      "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip",
+      "content_type": "application/zip"
+    },
+    {
+      "name": "nordtal-resource-pack-0.1.0.zip.sha1",
+      "size": 41,
+      "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip.sha1",
+      "content_type": "application/octet-stream"
+    },
+    {
+      "name": "smp-0.1.0.jar",
+      "size": 51273,
+      "browser_download_url": "https://github.com/nordtal/season-2/releases/download/v0.1.0/smp-0.1.0.jar",
+      "content_type": "application/java-archive"
+    }
+  ]
+}

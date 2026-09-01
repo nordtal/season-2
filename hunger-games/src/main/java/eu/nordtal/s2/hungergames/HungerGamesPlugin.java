@@ -13,6 +13,7 @@ import eu.nordtal.s2.hungergames.command.HungerGamesCommand;
 import eu.nordtal.s2.hungergames.config.Configs;
 import eu.nordtal.s2.hungergames.config.DatabaseSpec;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
+import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.HungerGamesPool;
 import eu.nordtal.s2.hungergames.game.Ceremony;
@@ -38,6 +39,7 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -157,12 +159,21 @@ public final class HungerGamesPlugin extends JavaPlugin {
         });
     }
 
+    /**
+     * Called from the async task {@code /hg start} dispatched, never from the server thread - see
+     * {@code HungerGamesCommand#runAsAdmin}. The roster read therefore belongs <b>here</b>, not
+     * inside the {@code onReleased} callback: that callback runs on the main thread, in the same
+     * tick that every participant is released, which is the worst possible moment for a blocking
+     * query. Reading it up front also removes a race the callback had - the tracker now knows who
+     * is alive strictly before the first death can be recorded.
+     */
     private void startGame(final UUID gameId, final World world) {
+        final List<HgMember> activeMembers = dao.activeMembersOf(gameId);
         manager.start(gameId, world, () -> {
             final Instant releasedAt = Instant.now();
             loot.scheduleAll(releasedAt);
             hud.start();
-            winTracker.reset(dao.activeMembersOf(gameId));
+            winTracker.reset(activeMembers);
         });
     }
 

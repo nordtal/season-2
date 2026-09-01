@@ -1,8 +1,18 @@
-.gradle
-build/
+# Every directory pattern in this file is anchored with a leading slash, and that is deliberate.
+# An unanchored `foo/` matches a directory named `foo` at any depth - including a Java package -
+# and because the result is an *ignored* file rather than an untracked one, it never appears in
+# `git status`. nordtal/season-2 shipped a broken build that way on 2026-09-02: a bare `run/` kept
+# the package eu.nordtal.s2.updater.run out of the repository while every local build stayed green.
+#
+# This file used to defend against that with `!**/src/main/**/build/` and three siblings. Those do
+# work - measured here on 2026-09-02, a package named `build` under `src/main` came out untracked
+# rather than ignored - but they only defend the two names somebody thought of. Anchoring defends
+# every name, so the negations are gone. `checkSourcesTracked` in build.gradle.kts is the net.
+
+### Build output ###
+/.gradle/
+/build/
 !gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### IntelliJ IDEA ###
 .idea
@@ -15,9 +25,7 @@ build/
 .settings
 .springBeans
 .sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
+/bin/
 
 ### NetBeans ###
 /nbproject/private/

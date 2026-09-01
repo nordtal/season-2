@@ -113,3 +113,65 @@ tasks.test {
         events("passed", "skipped", "failed")
     }
 }
+
+// A source file Git ignores compiles here and does not exist on a fresh checkout, which makes the
+// local build and CI two different programs. nordtal/season-2 lost a release to exactly that on
+// 2026-09-02: an unanchored `run/` in .gitignore matched the Java package eu.nordtal.s2.updater.run
+// as readily as a server working directory, and an *ignored* file is not an untracked one - so
+// `git status` stayed clean the whole time. .gitignore is anchored here for the same reason; this
+// asks Git the question anyway, on every `./gradlew build`, before the commit that would hide it.
+val repositoryRootDirectory = layout.projectDirectory.asFile
+val sourceDirectoriesOfEverySourceSet = sourceSets.flatMap { it.allSource.srcDirs }
+
+val checkSourcesTracked = tasks.register("checkSourcesTracked") {
+    group = "verification"
+    description = "Fails when a source file is ignored by Git and therefore missing from the repository."
+
+    // .gitignore, the global ignore file and the index are inputs no task can declare, so there is
+    // no honest up-to-date check here. The work is one `git` call.
+    outputs.upToDateWhen { false }
+
+    val taskPath = path
+    doLast {
+        if (!repositoryRootDirectory.resolve(".git").exists()) return@doLast
+
+        val pathspecs = sourceDirectoriesOfEverySourceSet
+            .filter { it.isDirectory }
+            .map { repositoryRootDirectory.toPath().relativize(it.toPath()).joinToString("/") }
+            .sorted()
+        if (pathspecs.isEmpty()) return@doLast
+
+        // Untracked *and* ignored: a tracked file that happens to match an ignore rule is still in
+        // the repository, which is all this cares about.
+        val command = listOf(
+            "git", "ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--"
+        ) + pathspecs
+        val process = ProcessBuilder(command)
+            .directory(repositoryRootDirectory)
+            .redirectErrorStream(true)
+            .start()
+        process.outputStream.close()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        val exit = process.waitFor()
+        if (exit != 0) {
+            throw GradleException("`${command.joinToString(" ")}` failed with exit code $exit:\n$output")
+        }
+
+        val ignored = output.split('\u0000').filter { it.isNotBlank() }
+        if (ignored.isNotEmpty()) {
+            throw GradleException(buildString {
+                appendLine("Git ignores these files, so they are not in the repository:")
+                ignored.forEach { appendLine("    $it") }
+                appendLine()
+                appendLine("They sit under a source directory covered by $taskPath, so this build sees them and a")
+                appendLine("build from a fresh checkout does not. Find the rule with")
+                appendLine("    git check-ignore -v <path>")
+                appendLine("and anchor it in .gitignore (`/build/`, never a bare `build/`), then `git add` the files.")
+            })
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(checkSourcesTracked)
+}

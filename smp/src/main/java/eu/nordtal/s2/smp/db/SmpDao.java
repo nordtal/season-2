@@ -1,6 +1,7 @@
 package eu.nordtal.s2.smp.db;
 
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
+import org.jdbi.v3.sqlobject.transaction.Transaction;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
@@ -97,7 +98,8 @@ public interface SmpDao {
      * a ratio: the board names each objective, the HUD averages them.
      */
     @SqlQuery("""
-            SELECT obj.key                       AS key,
+            SELECT obj.id                        AS id,
+                   obj.key                       AS key,
                    obj.amount                    AS amount,
                    obj.target                    AS target,
                    (obj.completed IS NOT NULL)   AS completed
@@ -107,6 +109,115 @@ public interface SmpDao {
             """)
     @RegisterConstructorMapper(ObjectiveRow.class)
     List<ObjectiveRow> objectivesOf(@Bind("milestoneKey") String milestoneKey);
+
+    // ---------------------------------------------------------------- objective progress
+
+    @SqlQuery("""
+            SELECT obj.id                      AS id,
+                   obj.key                     AS key,
+                   obj.amount                  AS amount,
+                   obj.target                  AS target,
+                   (obj.completed IS NOT NULL) AS completed
+            FROM smp_objective obj
+            WHERE obj.milestone_key = :milestoneKey AND obj.key = :objectiveKey
+            """)
+    @RegisterConstructorMapper(ObjectiveRow.class)
+    Optional<ObjectiveRow> objective(@Bind("milestoneKey") String milestoneKey,
+                                     @Bind("objectiveKey") String objectiveKey);
+
+    /**
+     * Adds to an objective's collected amount.
+     *
+     * <p>{@code amount = amount + :delta} in SQL rather than read-modify-write in Java, so two
+     * players handing in at the same moment cannot lose one of the two deliveries. There is no
+     * clamp to the target here on purpose: over-collection is real - a target lowered by a reload is
+     * one of the concept's escape hatches - and clamping would silently throw away somebody's items.
+     */
+    @SqlUpdate("UPDATE smp_objective SET amount = amount + :delta WHERE id = :id")
+    int addObjectiveProgress(@Bind("id") UUID id, @Bind("delta") long delta);
+
+    @SqlUpdate("""
+            INSERT INTO smp_contribution (objective_id, discord_id, amount)
+            VALUES (:objectiveId, :discordId, :amount)
+            ON CONFLICT (objective_id, discord_id) DO UPDATE
+                SET amount  = smp_contribution.amount + excluded.amount,
+                    updated = now()
+            """)
+    void addContribution(@Bind("objectiveId") UUID objectiveId, @Bind("discordId") String discordId,
+                         @Bind("amount") long amount);
+
+    @SqlQuery("""
+            SELECT discord_id AS discordId, amount AS amount
+            FROM smp_contribution
+            WHERE objective_id = :objectiveId AND amount > 0
+            """)
+    @RegisterConstructorMapper(ContributionRow.class)
+    List<ContributionRow> contributionsOf(@Bind("objectiveId") UUID objectiveId);
+
+    /**
+     * Marks an objective finished, once.
+     *
+     * <p>The {@code completed IS NULL} guard is what makes the payout happen exactly once: two
+     * deliveries landing in the same instant both see an incomplete objective, and only the update
+     * that changes a row goes on to pay anybody.
+     */
+    @SqlUpdate("UPDATE smp_objective SET completed = now() WHERE id = :id AND completed IS NULL")
+    int completeObjective(@Bind("id") UUID id);
+
+    // ---------------------------------------------------------------- milestone transitions
+
+    /**
+     * Finishes a milestone and tells the rest of the network in the same statement.
+     *
+     * <p>The row and the {@code pg_notify} are one statement, exactly as the phase switch is: not
+     * "remember to notify after updating", which is a rule somebody eventually forgets, but a thing
+     * that cannot happen in one order. An announcement can therefore never go out for an unlock the
+     * database does not hold, and the bot's {@code LISTEN nordtal_smp} is the whole transport.
+     *
+     * <p>Returns empty when the milestone was already complete, which is what makes this safe to
+     * call from two places at once.
+     */
+    @SqlQuery("""
+            UPDATE smp_milestone
+            SET state = 'COMPLETE', unlocked = now()
+            WHERE key = :key AND state <> 'COMPLETE'
+            RETURNING key, pg_notify('nordtal_smp', 'milestone:' || key) AS notified
+            """)
+    Optional<String> completeMilestone(@Bind("key") String key);
+
+    @SqlUpdate("UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = :key AND state = 'LOCKED'")
+    int activateMilestone(@Bind("key") String key);
+
+    // ---------------------------------------------------------------- aura
+
+    /**
+     * Books an aura change and its audit row.
+     *
+     * <p>Two statements that must not come apart, which is why they are one method and why every
+     * caller goes through it: {@code smp_player.aura} is the balance and {@code smp_aura_event} is
+     * the reason it is what it is. A balance nobody can explain is a balance nobody trusts, and the
+     * admin correction command exists precisely because somebody will need to explain one.
+     */
+    @Transaction
+    default void addAura(final String discordId, final int delta, final String reason, final String ref) {
+        bumpAura(discordId, delta);
+        recordAuraEvent(discordId, delta, reason, ref);
+    }
+
+    @SqlUpdate("""
+            INSERT INTO smp_player (discord_id, aura)
+            VALUES (:discordId, :delta)
+            ON CONFLICT (discord_id) DO UPDATE
+                SET aura = smp_player.aura + excluded.aura, updated = now()
+            """)
+    void bumpAura(@Bind("discordId") String discordId, @Bind("delta") int delta);
+
+    @SqlUpdate("""
+            INSERT INTO smp_aura_event (discord_id, delta, reason, ref)
+            VALUES (:discordId, :delta, :reason, :ref)
+            """)
+    void recordAuraEvent(@Bind("discordId") String discordId, @Bind("delta") int delta,
+                         @Bind("reason") String reason, @Bind("ref") String ref);
 
     /**
      * Writes a milestone row if the track declares one this database has never seen.
@@ -215,4 +326,108 @@ public interface SmpDao {
 
     @SqlQuery("SELECT aura FROM smp_player WHERE discord_id = :discordId")
     Optional<Integer> auraOf(@Bind("discordId") String discordId);
+
+    // ---------------------------------------------------------------- graves
+
+    @SqlUpdate("""
+            INSERT INTO smp_grave (owner_id, world, x, y, z, contents, experience)
+            VALUES (:ownerId, :world, :x, :y, :z, :contents, :experience)
+            """)
+    void createGrave(@Bind("ownerId") String ownerId, @Bind("world") String world,
+                     @Bind("x") int x, @Bind("y") int y, @Bind("z") int z,
+                     @Bind("contents") byte[] contents, @Bind("experience") int experience);
+
+    /**
+     * Every grave that still holds something.
+     *
+     * <p>Read at start so the displays can be put back: a grave outlives a restart, which is most of
+     * what "the grave stands forever" means in practice.
+     */
+    @SqlQuery("""
+            SELECT grave.id            AS id,
+                   grave.owner_id      AS ownerId,
+                   link.mc_uuid        AS ownerUuid,
+                   grave.world         AS world,
+                   grave.x             AS x,
+                   grave.y             AS y,
+                   grave.z             AS z,
+                   grave.contents      AS contents,
+                   grave.experience    AS experience
+            FROM smp_grave grave
+                     LEFT JOIN account_link link ON link.discord_id = grave.owner_id
+            WHERE grave.looted IS NULL
+            ORDER BY grave.created
+            """)
+    @RegisterConstructorMapper(GraveRow.class)
+    List<GraveRow> openGraves();
+
+    /**
+     * Marks a grave emptied, once.
+     *
+     * <p>Anyone may open a grave - no timer, no ownership lock - so two people can empty the same one
+     * in the same instant. The {@code looted IS NULL} guard is what makes the experience credit
+     * happen exactly once, and it is the same shape that guards an objective's payout.
+     */
+    @SqlQuery("""
+            UPDATE smp_grave
+            SET looted = now(), looted_by = :lootedBy
+            WHERE id = :id AND looted IS NULL
+            RETURNING id
+            """)
+    Optional<UUID> markGraveLooted(@Bind("id") UUID id, @Bind("lootedBy") String lootedBy);
+
+    /**
+     * Drops every grave in a world.
+     *
+     * <p>The farm world at its daily reset. That everything there is destroyed, graves included, is
+     * intended and announced - it is the one real risk of going there - and it will be reported as a
+     * bug anyway.
+     */
+    @SqlUpdate("DELETE FROM smp_grave WHERE world = :world")
+    int deleteGravesIn(@Bind("world") String world);
+
+    // ---------------------------------------------------------------- the wheel
+
+    @SqlQuery("""
+            SELECT granted AS granted, used AS used, last_free AS lastFree
+            FROM smp_spin
+            WHERE discord_id = :discordId
+            """)
+    @RegisterConstructorMapper(eu.nordtal.s2.smp.wheel.Spins.class)
+    Optional<eu.nordtal.s2.smp.wheel.Spins> spinsOf(@Bind("discordId") String discordId);
+
+    /**
+     * Takes today's free spin, once.
+     *
+     * <p>The {@code last_free IS DISTINCT FROM :today} guard is what makes it once: two clicks in the
+     * same second both see a free spin, and only the update that changes a row gets a prize. Same
+     * shape as the objective payout and the grave loot, for the same reason.
+     */
+    @SqlQuery("""
+            INSERT INTO smp_spin (discord_id, last_free)
+            VALUES (:discordId, :today)
+            ON CONFLICT (discord_id) DO UPDATE
+                SET last_free = :today
+                WHERE smp_spin.last_free IS DISTINCT FROM :today
+            RETURNING discord_id
+            """)
+    Optional<String> takeFreeSpin(@Bind("discordId") String discordId,
+                                  @Bind("today") java.time.LocalDate today);
+
+    /** Spends one earned spin, and only if there is one to spend. */
+    @SqlQuery("""
+            UPDATE smp_spin
+            SET used = used + 1
+            WHERE discord_id = :discordId AND used < granted
+            RETURNING discord_id
+            """)
+    Optional<String> takeEarnedSpin(@Bind("discordId") String discordId);
+
+    @SqlUpdate("""
+            INSERT INTO smp_spin (discord_id, granted)
+            VALUES (:discordId, :count)
+            ON CONFLICT (discord_id) DO UPDATE
+                SET granted = smp_spin.granted + excluded.granted
+            """)
+    void grantSpins(@Bind("discordId") String discordId, @Bind("count") int count);
 }

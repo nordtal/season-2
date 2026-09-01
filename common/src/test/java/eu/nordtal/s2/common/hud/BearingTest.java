@@ -1,4 +1,4 @@
-package eu.nordtal.s2.hungergames.hud;
+package eu.nordtal.s2.common.hud;
 
 import org.junit.jupiter.api.Test;
 

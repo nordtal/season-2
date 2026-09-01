@@ -1,5 +1,8 @@
 package eu.nordtal.s2.hungergames.hud;
 
+import eu.nordtal.s2.common.hud.Bearing;
+import eu.nordtal.s2.common.hud.BossBarWidth;
+
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;

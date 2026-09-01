@@ -30,6 +30,35 @@ public final class Configs {
     private Configs() {
     }
 
+    public static @NotNull ConfigHandle<DatabaseSpec> database(final Path directory, final Logger logger)
+            throws ConfigException {
+        final Path file = directory.resolve("database.yml");
+        final boolean fresh = !Files.isRegularFile(file);
+
+        final ConfigHandle<DatabaseSpec> handle = ConfigLoader.builder(file, DatabaseSpec.class)
+                .envPrefix("NORDTAL_UPDATER_DATABASE")
+                .validator(config -> {
+                    requireText("jdbc-url", config.jdbcUrl());
+                    requireText("username", config.username());
+                    if (!config.jdbcUrl().startsWith("jdbc:postgresql:")) {
+                        throw new IllegalArgumentException(
+                                "jdbc-url must be a PostgreSQL URL (jdbc:postgresql://host:port/database)");
+                    }
+                    requirePositive("maximum-pool-size", config.maximumPoolSize());
+                    requirePositive("query-timeout-seconds", config.queryTimeoutSeconds());
+                })
+                .load();
+
+        // Unlike updater.yml, this one has NO usable default: localhost:5432 is not where the
+        // database is from inside a container, and an empty password is not a password. It is said
+        // out loud because the message a person sees otherwise is a connection refused.
+        if (fresh) {
+            logger.warn("No config existed at {} - defaults were written and are almost certainly"
+                    + " not what you want", file.toAbsolutePath());
+        }
+        return handle;
+    }
+
     public static @NotNull ConfigHandle<UpdaterSpec> updater(final Path directory, final Logger logger)
             throws ConfigException {
         final Path file = directory.resolve("updater.yml");

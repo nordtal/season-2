@@ -228,20 +228,24 @@ byte counts are the sum of the jars that would actually be shaded, annotation-on
 
 ## Schema ownership
 
-> **Decided 2026-09-01, not yet carried out: the migration moves out of the bot into a new
-> `updater` module.** Everything in this section stays true except *which* process runs Flyway —
-> the rule that exactly one does, and that it is never `:common`, is what the move preserves. The
-> reasoning, and what it costs (the updater becomes the bootstrap of every deployment: no updater,
-> no schema, no bot, no server), is in [updater.md](updater.md#what-it-owns). Until it is built,
-> the bot is still the migrator and the paragraphs below describe the running system.
+**Exactly one process migrates: the `updater`.** It was the bot until **2026-09-01**; the call
+moved, and the rule it preserves — that exactly one process runs Flyway, and that it is never
+`:common` — is why the move was worth making. A release that adds a table is a release that adds a
+migration, so the schema and the versions have one owner. The cost is deliberate and worth stating:
+**the updater is the bootstrap of every deployment.** No updater run, no schema, no bot, no server.
+See [updater.md](updater.md#what-it-owns).
 
-**Exactly one process migrates: the bot.** That has not changed. What changed on **2026-08-31** is
-*where the SQL lives*: the migration files now sit in `common/src/main/resources/db/migration/`,
-and the bot applies them at startup from there. The move has been carried out.
+What changed on **2026-08-31** is *where the SQL lives*: the migration files sit in
+`common/src/main/resources/db/migration/`. That did not move again. jcore's `database.migrate()`
+scans `classpath:db/migration` and `:common` is shaded into the updater's jar exactly as it is into
+the bot's, so the files land at the same classpath location they always have.
 
-The bot's call did not have to change: jcore's `database.migrate()` scans `classpath:db/migration`,
-and `:common` is shaded into the bot, so the files land at the same classpath location they
-occupied when they were the bot's own resources.
+**The bot now validates instead.** `SchemaCheck` runs Flyway's `validate()` at startup — the
+migrations in its own jar against what the database says has been applied — and refuses to start on
+a mismatch, with a message naming `updater migrate`. Without it, a bot started before the updater
+would fail on its first query, inside a Discord interaction, minutes later. The plugins do *not* do
+this and will not: validating needs Flyway, and Flyway must never be shaded into a Paper plugin. The
+bot starts first and catches the situation for the whole stack.
 
 The two questions are separate and were being answered as one:
 

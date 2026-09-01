@@ -1,7 +1,7 @@
 # nordtal.eu season 2 - the whole deployment.
 #
 # One stack, three profiles. SimpleCloud was dropped on 2026-09-01; the reasoning is in
-# docs/operations.md#why-simplecloud-was-dropped.
+# README.md#why-it-looks-like-this, next to this file.
 #
 #   cp .env.example .env        # fill it in; .env is gitignored and must never be committed
 #   docker compose up -d
@@ -90,6 +90,45 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    logging: *logging
+
+  # -------------------------------------------------------------------------------------------
+  # The database backup. Its own profile, because it is the one service you might legitimately
+  # run against a database this compose does not own - and the one you must not silently lose by
+  # dropping the `db` profile.
+  #
+  # It writes a pg_dump into `postgres-dumps` and touches nothing else. Point Arcane's volume
+  # backup policy at THAT volume, not at `postgres-data`: Arcane stops the containers using a
+  # volume only when the policy's `Stop Containers` flag is set, and for a live PGDATA both
+  # settings are wrong - off gives a torn copy that fails at restore rather than at backup, on
+  # gives a nightly outage of everything in this stack. `postgres-dumps` has neither problem,
+  # because nothing holds it open between runs. See ../deploy/README.md#backups.
+  postgres-backup:
+    profiles: ["backup"]
+    build:
+      context: ./postgres-backup
+      args:
+        POSTGRES_IMAGE: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    image: ${BACKUP_IMAGE:-nordtal/postgres-backup:${POSTGRES_IMAGE_TAG:-17-alpine}}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      # libpq's own variables - pg_dump reads these directly, so there is nothing to pass on the
+      # command line and no password in a process listing. They default to this compose's own
+      # PostgreSQL and can be pointed at an external one without touching anything else.
+      PGHOST: ${BACKUP_PGHOST:-postgres}
+      PGPORT: ${BACKUP_PGPORT:-5432}
+      PGDATABASE: ${BACKUP_PGDATABASE:-${POSTGRES_DB:?set POSTGRES_DB in .env}}
+      PGUSER: ${BACKUP_PGUSER:-${POSTGRES_USER:?set POSTGRES_USER in .env}}
+      PGPASSWORD: ${BACKUP_PGPASSWORD:-${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}}
+      # Time of day in TZ above, how many dumps to keep, and whether to dump once at start-up.
+      # The start-up dump is what turns a wrong password into an error you see while deploying
+      # instead of a gap you find at 04:00 tomorrow.
+      BACKUP_AT: ${BACKUP_AT:-04:00}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-true}
+    volumes:
+      - postgres-dumps:/dumps
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
@@ -248,6 +287,9 @@ services:
 
 volumes:
   postgres-data:
+  # The only volume in this stack that is worth shipping offsite, and the only one whose contents
+  # cannot be rebuilt from the repository and a world folder.
+  postgres-dumps:
   bot-config:
   bunq-context:
   mc-network-control:

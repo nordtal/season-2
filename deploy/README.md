@@ -28,6 +28,19 @@ The order matters in two places only, and both are marked.
    value nobody can guess, and `REPLACE_ME` is not one either — it fails validation by name
    (*"roles.access must be a Discord snowflake (digits only)"*) rather than starting something
    surprising. One of them is the forwarding secret: `openssl rand -hex 24`.
+
+   Two of them are not guesses but lookups. `PACK_SHA1` is the content of the release's
+   `nordtal-resource-pack-<version>.zip.sha1` asset — the proxy refuses to start without it, and
+   a hash left over from an older release fails every pack download on the network at once:
+
+   ```bash
+   curl -sL https://github.com/nordtal/season-2/releases/download/v0.2.0/nordtal-resource-pack-0.2.0.zip.sha1
+   ```
+
+   **Corrected 2026-09-01.** Until that day the pack's `url` and `sha1` were in neither this file
+   nor `compose.yml`; `network-control` fails closed without them, so step 3 below could not have
+   worked, and the sentence above about `.env` being the whole configuration was not true. They
+   are settings now.
 2. **Bring up PostgreSQL and the bot first.** ← *ordering matters.* The bot is the only process
    that applies the schema, and every other service expects it to be current.
    ```
@@ -140,6 +153,13 @@ the container's stdout, so `docker logs` and Arcane's log view show everything, 
 escape sequences.
 
 ## Updating
+
+> **This is how it works today, and it is being replaced.** A module that resolves versions by
+> itself, applies the migrations, swaps the jars and redeploys on a button was designed on
+> 2026-09-01 — [../docs/updater.md](../docs/updater.md) — after the audit below found the
+> published `v0.1.0` carrying the *scaffold* `smp` and `limbo` jars while `.env.example` pinned it.
+> Nothing about the mechanism described here is wrong; what it lacks is that a pin has to be moved
+> by a hand that is usually busy building.
 
 A plugin update is a version bump. Nothing is copied by hand — that was the daily cost of the
 SimpleCloud dashboard and it is what this replaces.

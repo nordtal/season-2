@@ -11,10 +11,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -51,45 +53,62 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("the season jar each service carries is the one compose asks the entrypoint for")
-    void seasonPluginsMatch() {
-        for (final Topology.Service service : Topology.SERVICES) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
-
-            final String plugins = String.valueOf(environment.get("SEASON_PLUGINS"));
-            for (final String artifact : service.plugins()) {
-                if (!Topology.SEASON_JARS.contains(artifact)) {
-                    // The third-party three arrive through EXTRA_PLUGIN_URLS, whose contents are
-                    // full URLs and are checked below rather than here.
-                    continue;
+    @DisplayName("compose.yml does not fetch plugins any more - two owners is one too many")
+    void pluginOwnershipStaysWithTheUpdater() {
+        // SEASON_PLUGINS and EXTRA_PLUGIN_URLS were removed on 2026-09-01 and must stay removed.
+        // entrypoint.sh fetched `<module>-$SEASON_VERSION.jar` and deleted every other version of
+        // the same plugin by prefix; an updater that puts 0.3.0 in a volume while .env still says
+        // 0.2.0 would have the next restart delete exactly the jar it had just fetched. Re-adding
+        // either line brings that collision back, silently, and this is the only place that says so.
+        //
+        // PACK_URL and PACK_SHA1 went for a different reason: a jcore environment override wins
+        // over the file and is never written back, so with them set the updater would be writing a
+        // new sha1 into a value nothing reads.
+        for (final String forbidden : List.of("SEASON_PLUGINS", "EXTRA_PLUGIN_URLS",
+                "NORDTAL_NETWORK_CONTROL_PACK_URL", "NORDTAL_NETWORK_CONTROL_PACK_SHA1")) {
+            services.forEach((name, definition) -> {
+                @SuppressWarnings("unchecked")
+                final Map<String, Object> environment =
+                        (Map<String, Object>) ((Map<String, Object>) definition).get("environment");
+                if (environment != null) {
+                    assertFalse(environment.containsKey(forbidden),
+                            "compose.yml sets " + forbidden + " on '" + name + "' again. The updater"
+                                    + " owns the jars and the pack now - see docs/updater.md.");
                 }
-                assertTrue(plugins.contains(artifact + "-"),
-                        service.name() + "'s SEASON_PLUGINS does not carry " + artifact + ": " + plugins);
-            }
+            });
         }
     }
 
     @Test
-    @DisplayName("the SMP server's required third-party plugins are the three the topology names")
-    void thirdPartyPluginsMatch() {
+    @DisplayName("every service the topology knows has its volume mounted into the updater")
+    void theUpdaterCanSeeEveryServer() {
         @SuppressWarnings("unchecked")
-        final Map<String, Object> smp = (Map<String, Object>) services.get(Topology.SMP);
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment = (Map<String, Object>) smp.get("environment");
-        final String urls = String.valueOf(environment.get("EXTRA_PLUGIN_URLS"));
+        final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
+        assertNotNull(updater, "compose.yml has no updater service");
 
-        // Matched on the substring each plugin's URL must contain, not on a whole URL: the version
-        // in it is exactly what this module exists to stop being hand-maintained, so pinning it
-        // here would guarantee a failing test on the first successful update.
-        assertTrue(urls.contains("papermc-display-tags"), urls);
-        assertTrue(urls.contains("packetevents"), urls);
-        assertTrue(urls.contains("Chunky"), urls);
+        final String mounts = String.valueOf(updater.get("volumes"));
+        for (final Topology.Service service : Topology.SERVICES) {
+            // A server whose volume is not mounted reports as "unknown" for ever - which the
+            // updater says out loud, but only if somebody reads it. Caught here instead.
+            assertTrue(mounts.contains("/volumes/" + service.name()),
+                    "the updater service does not mount /volumes/" + service.name()
+                            + "; it would report that server as unmounted on every run");
+        }
+    }
 
-        assertEquals(Set.of(Topology.SMP, Topology.DISPLAY_TAGS, Topology.PACKETEVENTS, Topology.CHUNKY),
-                new LinkedHashSet<>(smpPlugins()));
+    @Test
+    @DisplayName("DisplayTags really is required by smp, which is why the topology lists it")
+    void theRequiredPluginsAreRequiredBySmpsOwnManifest() throws IOException {
+        // The topology's smp row is not a preference. Checked against the manifest that enforces
+        // it rather than against a comment about it.
+        final Path manifest = findUpwards("smp/src/main/resources/paper-plugin.yml");
+        final String text = Files.readString(manifest, StandardCharsets.UTF_8);
+
+        assertTrue(text.contains("DisplayTags"), manifest + " no longer names DisplayTags");
+        assertTrue(text.contains("required: true"), manifest + " no longer requires it");
+        assertTrue(smpPlugins().contains(Topology.DISPLAY_TAGS),
+                "smp requires DisplayTags but Topology does not list it, so the updater would"
+                        + " never install it");
     }
 
     @Test

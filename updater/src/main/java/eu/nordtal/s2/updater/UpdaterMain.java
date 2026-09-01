@@ -1,9 +1,12 @@
 package eu.nordtal.s2.updater;
 
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.updater.apply.Applier;
+import eu.nordtal.s2.updater.apply.ApplyResult;
 import eu.nordtal.s2.updater.config.Configs;
 import eu.nordtal.s2.updater.config.UpdaterSpec;
 import eu.nordtal.s2.updater.http.Http;
+import eu.nordtal.s2.updater.http.Downloads;
 import eu.nordtal.s2.updater.http.JdkHttp;
 import eu.nordtal.s2.updater.plan.Report;
 import eu.nordtal.s2.updater.plan.Resolver;
@@ -22,30 +25,41 @@ import java.time.Duration;
 /**
  * Entry point.
  *
- * <h2>What it does today, and what it will do</h2>
- * Step 1 of docs/updater.md and no more: resolve, compare, print, exit. It touches nothing a server
- * reads - not a jar, not a database row, not a file in a Minecraft volume - which makes it safe to
- * run against a live deployment at any moment, and that is the point of building this step on its
- * own. The one file it does write is its own {@code config/updater.yml}, on a first run, in its own
- * volume.
+ <h2>Two commands</h2>
+ * <pre>
+ *   updater            resolve, compare, print, exit. Touches nothing a server reads.
+ *   updater apply      the same, and then fetch the files and move them into place.
+ * </pre>
  *
- * <p>Steps 2 to 6 turn this process into a long-lived one: it will apply the schema, listen on
- * PostgreSQL for a request from the bot or from {@code /smp update}, swap the jars and offer a
- * restart. Until then it is a one-shot command, and a container that runs it should be started on
- * demand rather than left {@code restart: unless-stopped} - an update check is not a service.</p>
+ * <p>The default is the read-only one, deliberately: a container started by accident, or with an
+ * argument that was misspelled, must do the harmless thing. {@code apply} has to be asked for by
+ * name.</p>
+ *
+ * <p>{@code apply} still does not restart anything. It prints what it did and stops, which is the
+ * whole reason the restart is a separate button in step 6 - a person reads the report first. Steps
+ * 2, 4, 5 and 6 of docs/updater.md add the schema, the Discord surface, the Arcane redeploy and the
+ * in-game command; until then this is a one-shot command and the container that runs it must never
+ * be given a restart policy or a schedule.</p>
  *
  * <h2>Exit codes</h2>
  * {@code 0} when a report was produced, whatever the report says - including one full of rows that
- * could not be checked, because that <em>is</em> the answer and it is in the text. {@code 1} only
- * when no report could be produced at all, which in practice means a config this module refuses.
+ * could not be checked, because that <em>is</em> the answer and it is in the text. {@code 1} when
+ * no report could be produced at all, which in practice means a config this module refuses, and
+ * when an {@code apply} run had a failure in it - there the non-zero is earned: something was
+ * attempted and did not work.
+ * <p>
  * Deliberately not "non-zero when an update is available": that would make every scheduler treat a
  * pending update as a failure, and this module's first rule is that nothing updates on a schedule.
+ * </p>
  */
 @Slf4j
 public final class UpdaterMain {
 
     /** Mirrors the bot's layout: WORKDIR /app, config in a volume at /app/config. */
     private static final String DEFAULT_CONFIG_DIR = "config";
+
+    /** The one argument that makes this run write anything into a server's volume. */
+    private static final String APPLY = "apply";
 
     private UpdaterMain() {
     }
@@ -78,5 +92,26 @@ public final class UpdaterMain {
         // stdout, not the logger: this is the program's output, not a record of it running. A
         // report wrapped in timestamps and thread names is a report nobody pastes anywhere.
         System.out.println(Report.render(plan));
+
+        if (!APPLY.equals(command(args))) {
+            return;
+        }
+
+        final ApplyResult result = new Applier(config,
+                new Downloads(Duration.ofSeconds(config.downloadTimeoutSeconds()))).apply(plan);
+        System.out.println(Report.render(result));
+
+        if (result.hasFailures()) {
+            System.exit(1);
+        }
+    }
+
+    /**
+     * The subcommand, or the empty string. Anything unrecognised reads as the default rather than
+     * as an error: the default is the run that cannot break anything, and refusing to start over a
+     * typo would mean a person retries - possibly with the typo fixed into {@code apply}.
+     */
+    private static String command(final String[] args) {
+        return args.length == 0 ? "" : args[0].strip().toLowerCase(java.util.Locale.ROOT);
     }
 }

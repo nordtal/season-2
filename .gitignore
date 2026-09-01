@@ -1,26 +1,42 @@
-.gradle/
-build/
-!gradle/wrapper/gradle-wrapper.jar
-.kotlin/
+# Every directory pattern in this file is anchored with a leading slash, and that is not a style
+# preference. An unanchored `foo/` matches a directory named `foo` at *any* depth, including a
+# Java package - and because the result is an *ignored* file rather than an untracked one, it
+# never shows up in `git status`. It has bitten this repo twice: `config/` kept
+# eu.nordtal.s2.paymentsbot.config out of the first commits, and `run/` kept
+# eu.nordtal.s2.updater.run out of the repository until the CI build failed on it.
+#
+# The cost of anchoring is that a build directory in a place no pattern lists is not ignored. That
+# failure is loud - the files appear as untracked in `git status` - which is exactly the trade we
+# want. `:checkSourcesTracked` is the net under all of this; see build-logic.
 
-# Secrets and runtime state. This repo is public — nothing below may ever be committed.
+### Build output ###
+/.gradle/
+/*/.gradle/
+/build/
+/*/build/
+/.kotlin/
+/*/.kotlin/
+!gradle/wrapper/gradle-wrapper.jar
+
+### Secrets and runtime state. This repo is public - nothing below may ever be committed. ###
 gradle.properties.local
 *.env
 .env
 bunq-config.conf
-# Runtime working directories, anchored. An unanchored `config/` also matches the Java package
-# eu.nordtal.s2.paymentsbot.config and silently kept its sources out of the first commits.
+
+# Runtime working directories of a server started in place.
 /config/
 /*/config/
+/run/
 /*/run/
-run/
 
 ### IDE ###
 .idea/
 *.iws
 *.iml
 *.ipr
-out/
+/out/
+/*/out/
 .vscode/
 .fleet/
 
@@ -32,7 +48,8 @@ out/
 .settings
 .springBeans
 .sts4-cache
-bin/
+/bin/
+/*/bin/
 
 ### Mac OS ###
 .DS_Store

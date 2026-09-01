@@ -21,8 +21,9 @@ deploy/
 
 ## First deployment, in order
 
-The order matters in two places, and both are marked. **It changed on 2026-09-01**: there is now a
-step between the database and the Minecraft services, and without it the servers do not come up.
+The order matters, and **it changed on 2026-09-01**: the updater runs between the database and
+everything else, and nothing else starts before it has. It is the bootstrap now — without it there
+is no schema and there are no plugin jars.
 
 1. **`cp .env.example .env` and replace every `REPLACE_ME`.** That file is the whole of the
    configuration; nothing else has to be edited anywhere. Nothing has a plausible default for a
@@ -40,34 +41,39 @@ step between the database and the Minecraft services, and without it the servers
    ```bash
    ./gradlew :updater:shadowJar
    ```
-3. **Bring up PostgreSQL and the bot first.** ← *ordering matters.* The bot is the only process
-   that applies the schema, and every other service expects it to be current.
+3. **Bring up PostgreSQL alone.**
    ```
-   docker compose --profile db --profile bot up -d
+   docker compose --profile db up -d
+   ```
+4. **Run the updater.** ← *ordering matters, and this step is the bootstrap.*
+   ```
+   docker compose --profile updater run --rm updater apply
+   ```
+   It does three things in this order: applies the database schema, fills every `plugins/` folder,
+   and writes the proxy's `pack.yml`. **Nothing else in this stack can start before it has run** —
+   the bot refuses a database it did not migrate, and a Minecraft container refuses an empty
+   `plugins/` folder. Both say so by name.
+
+   This changed on 2026-09-01. The bot used to be the only process that migrated, and the plugin
+   jars used to be fetched by each Minecraft container; both are the updater's now, because a
+   release that adds a table is a release that adds a migration and the two belong to one owner
+   ([../docs/updater.md](../docs/updater.md)).
+
+   Run it without an argument first if you want to see the plan and change nothing, or
+   `updater migrate` for the schema alone — useful on a host where no release is published yet.
+5. **Bring up the bot, then the Minecraft services.**
+   ```
+   docker compose --profile bot up -d
+   docker compose --profile mc up -d
    ```
    Leave `NORDTAL_ACCESS_PAYMENT_WATERMARK` empty on a fresh database: the first start stamps its
    own instant, and without it the first poll books up to 50 historical bunq payments — roles, DMs
    and public thank-yous included.
-4. **Install the jars and the pack.** ← *ordering matters, and this step is new.*
-   ```
-   docker compose --profile updater run --rm updater apply
-   ```
-   This is what fills every `plugins/` folder and writes the proxy's `pack.yml`. The Minecraft
-   containers no longer fetch their own plugin jars — the updater owns them, because two owners of
-   the same file is one owner too many ([../docs/updater.md](../docs/updater.md)). Read what it
-   prints: it says, per server, what it installed and what it removed.
 
-   Run it without `apply` first if you want to see the plan and change nothing.
-5. **Start the Minecraft services.**
-   ```
-   docker compose --profile mc up -d
-   ```
-   A container whose `plugins/` folder is empty **refuses to start** and says to run step 4 — a
-   Minecraft server with no season on it looks fine until somebody joins. On a fresh volume each
-   container seeds the configuration it cannot work without and then never touches it again — see
-   [First-start seeding](#first-start-seeding) for exactly what is written and what that leaves to
-   you. Database credentials, the forwarding secret and the server list all arrive from `.env`;
-   there is nothing to paste into a volume.
+   On a fresh volume each Minecraft container seeds the configuration it cannot work without and
+   then never touches it again — see [First-start seeding](#first-start-seeding) for exactly what is
+   written and what that leaves to you. Database credentials, the forwarding secret and the server
+   list all arrive from `.env`; there is nothing to paste into a volume.
 6. **Upload the hand-built worlds** — see below.
 7. **Run the login-path rehearsal** — [`../../todo.md`](../../todo.md), section 1. Nothing above
    proves a client can join.
@@ -169,9 +175,13 @@ A plugin update is one command, and a second one to make it take effect.
 
 ```bash
 docker compose --profile updater run --rm updater          # what would change, changes nothing
-docker compose --profile updater run --rm updater apply    # fetch and put in place
+docker compose --profile updater run --rm updater apply    # migrate, then fetch and put in place
 docker compose --profile mc restart                        # the servers pick up what is on disk
 ```
+
+`apply` applies the schema before it moves a jar, so a plugin never comes up against a schema older
+than itself. A migration that fails stops the run there: nothing is fetched, nothing is written, and
+a half-migrated database with new jars on top of it is the state nobody can reason about.
 
 The updater asks GitHub, Modrinth and the PaperMC Fill API what the newest version of everything is,
 compares that against the jars lying in the volumes, and moves the ones that differ. Nothing is

@@ -1,12 +1,13 @@
 # updater — the module that owns versions and the schema
 
-**Decided 2026-09-01. Steps 1 and 3 are built; 2, 4, 5 and 6 are not.** This document is the design; the
+**Decided 2026-09-01. Steps 1, 2 and 3 are built; 4, 5 and 6 are not.** This document is the design; the
 implementation follows it piece by piece, and [state-of-play.md](state-of-play.md) is where the gap
 between the two is tracked. What exists today is the `updater` module and two commands:
 
 ```
 docker compose --profile updater run --rm updater          # resolve, compare, report. Changes nothing.
-docker compose --profile updater run --rm updater apply    # fetch the files and put them in place.
+docker compose --profile updater run --rm updater migrate  # apply the database schema, nothing else.
+docker compose --profile updater run --rm updater apply    # migrate, then fetch and place the files.
 ```
 
 The first writes nothing into a Minecraft volume, so it is safe against a live deployment at any
@@ -53,10 +54,11 @@ schema.** They belong together because a release that adds a table is a release 
 migration — the coupling is real, and today it is held only by an operator rule written in prose
 ("bring the bot up first, it is the only process that migrates").
 
-That rule goes away. `AccessBot.java:95` is currently the sole `migrate()` call in the repository
-and every plugin says in its own class comment that it never migrates; the call moves to the
-updater, the migration SQL stays where it is in `:common`, and the bot becomes a client like every
-other module.
+That rule is gone, carried out the same day. `AccessBot.java:95` was the sole `migrate()` call in
+the repository and every plugin says in its own class comment that it never migrates; the call is
+in the updater now, the migration SQL stayed where it is in `:common`, and the bot became a client
+like every other module — one that checks the schema and refuses a database it was not built
+against, rather than one that fixes it.
 
 **The consequence is deliberate and worth stating plainly: the updater is no longer a tool, it is
 the bootstrap.** Without it there is no schema, so there is no bot and no server. A first
@@ -215,7 +217,11 @@ Built piece by piece, and each piece is useful on its own:
    **Built 2026-09-01.** 57 tests against payloads recorded from the live GitHub, Modrinth and
    Fill APIs that day, plus a volume tree on disk. `TopologyTest` reads the real `compose.yml`, so
    a fifth backend server added there and not here fails the build.
-2. Flyway moves from the bot into the updater; the bot becomes a client.
+2. ~~Flyway moves from the bot into the updater; the bot becomes a client.~~ **Built 2026-09-01.**
+   `AccessBot`'s `migrate()` became `SchemaCheck.validate()`: the bot runs Flyway's own validation
+   at startup and refuses a database it was not built against, naming `updater migrate`. Tested
+   against a real PostgreSQL, unmigrated and migrated. The plugins do not validate and will not —
+   that needs Flyway, and Flyway must never be shaded into a Paper plugin.
 3. ~~Swapping jars into the volumes, and setting the pack URL and sha1.~~ **Built 2026-09-01.**
    Two-phase: everything a server needs is staged inside that server's own volume and only moved in
    once all of it is there, so a failed download leaves the server as it was. A server whose

@@ -23,8 +23,11 @@
 # whether you asked for it or not, which would make "point at an external PostgreSQL" impossible
 # without editing this file. Every service here fails fast on an unreachable database and
 # `restart: unless-stopped` retries it, so start-up ordering resolves itself within seconds. The
-# one ordering rule that matters is an operator rule and cannot be expressed here anyway: after a
-# schema change, bring the bot up first, because it is the only process that migrates.
+# one ordering rule that matters is an operator rule and cannot be expressed here anyway, and it
+# CHANGED ON 2026-09-01: after a schema change, run the updater first, because it is the only
+# process that migrates. It used to be the bot. The bot now checks the schema and refuses to start
+# on one it was not built against, naming the command - so getting the order wrong is a message
+# rather than a mystery. See ../docs/updater.md and README.md#first-deployment-in-order.
 
 name: nordtal-s2
 
@@ -139,8 +142,9 @@ services:
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
-  # The Discord bot. No Minecraft dependency: PostgreSQL, the Discord gateway and bunq. It is also
-  # the only process that applies the schema. Its runbook is in ../discord-bot/README.md.
+  # The Discord bot. No Minecraft dependency: PostgreSQL, the Discord gateway and bunq. It applied
+  # the schema until 2026-09-01; the updater does now, and the bot validates it and refuses to start
+  # on a database nobody migrated. Its runbook is in ../discord-bot/README.md.
   bot:
     profiles: ["bot"]
     image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${BOT_VERSION:?set BOT_VERSION in .env; it must match gradle.properties}}
@@ -343,6 +347,15 @@ services:
       # Which release to follow: 'latest', or an exact tag to pin - which is how a rollback is
       # expressed. SEASON_RELEASE is gone from this file entirely - what a server runs is now the
       # jar lying in its volume, not a variable claiming to describe it.
+      # --- database.yml ------------------------------------------------------------------
+      # THIS IS THE PROCESS THAT MIGRATES. `updater migrate` applies the schema and nothing else;
+      # `updater apply` does it before it moves a single jar, so a plugin never comes up against a
+      # schema older than itself.
+      NORDTAL_UPDATER_DATABASE_JDBC_URL: *db-url
+      NORDTAL_UPDATER_DATABASE_USERNAME: *db-username
+      NORDTAL_UPDATER_DATABASE_PASSWORD: *db-password
+
+      # --- updater.yml -------------------------------------------------------------------
       NORDTAL_UPDATER_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
       NORDTAL_UPDATER_SEASON_RELEASE: ${UPDATER_SEASON_RELEASE:-latest}
       NORDTAL_UPDATER_DISPLAY_TAGS_RELEASE: ${UPDATER_DISPLAY_TAGS_RELEASE:-latest}

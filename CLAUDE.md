@@ -20,10 +20,15 @@ conventions, platform versions and repository rules.
 Set up 2026-08-29 from a bare IntelliJ scaffold. **Re-derived from the code 2026-09-01**, and
 updated the same day when `limbo` and the pack station were built.
 
-**No module is a scaffold any more.** `smp` is half built: everything that needs no world — the
-milestone track, the aura payout, the prestige function and the milestone engine — landed on
-2026-09-01 with 56 tests. What is missing is the world half, which is the larger one, and
-`SmpPlugin` is still the scaffold's two log lines because there is nothing to wire together yet.
+**No module is a scaffold any more, and no half of one is missing either.** `smp` was finished on
+2026-09-01: the server-free core in the morning — the milestone track, the aura payout, the prestige
+function and the milestone engine — and then the world half in three blocks, from the worlds and the
+daily farm swap through the HUD, boards and nametags to the duels, graves, wheel, milestone payout
+and the spawn NPC. 135 tests.
+
+**What is left is not building but watching.** Not one of those 135 tests touches a world, a packet
+or a player, because none of them can; the rehearsal that has to follow is a checklist for the owner
+rather than a document, and it lives outside this repository.
 
 Everything else has behaviour: `common` (access API, messages, `PlayerLocales`, the phase directory,
 `Glyphs`, the `nordtal:limbo` protocol, migrations V1–V6), `network-control` (login gate, phase,

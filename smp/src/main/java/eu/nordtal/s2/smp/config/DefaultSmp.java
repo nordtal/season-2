@@ -64,6 +64,9 @@ final class DefaultSmp {
     static final List<SmpSpec.SpawnRegionSpec> WHEEL_REGIONS = List.of(
             region("nordtal", 106 - 2, 68, 88 + 2, 106 - 1, 70, 88 + 3));
 
+    /** A placeholder NPC, inside radius 10 with everything else social. */
+    static final SmpSpec.NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "", "Nordtal");
+
     /**
      * The curated advancement list. Twenty-two entries across the four bands described in
      * {@link SmpSpec#advancementAwards()}, chosen to follow the shape of a playthrough.
@@ -218,6 +221,20 @@ final class DefaultSmp {
         values.put("max-y", maxY);
         values.put("max-z", maxZ);
         return Specs.createUnsafe(SmpSpec.DuelPlatformSpec.class, values);
+    }
+
+    private static SmpSpec.NpcSpec npc(final String world, final double x, final double y,
+                                       final double z, final float yaw, final String skinName,
+                                       final String name) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("world", world);
+        values.put("x", x);
+        values.put("y", y);
+        values.put("z", z);
+        values.put("yaw", yaw);
+        values.put("skin-name", skinName);
+        values.put("name", name);
+        return Specs.createUnsafe(SmpSpec.NpcSpec.class, values);
     }
 
     private static SmpSpec.AdvancementAwardSpec award(final String advancement, final int aura) {

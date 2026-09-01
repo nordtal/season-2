@@ -31,6 +31,8 @@ import eu.nordtal.s2.smp.grave.Graves;
 import eu.nordtal.s2.smp.hud.SmpHud;
 import eu.nordtal.s2.smp.navigate.NavigateListener;
 import eu.nordtal.s2.smp.navigate.Navigation;
+import eu.nordtal.s2.smp.npc.NpcListener;
+import eu.nordtal.s2.smp.npc.SpawnNpc;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.player.PlayerComposition;
 import eu.nordtal.s2.smp.player.PlayerSurfaces;
@@ -96,6 +98,7 @@ public final class SmpPlugin extends JavaPlugin {
     private StatisticPoller poller;
     private Graves graves;
     private Duels duels;
+    private SpawnNpc npc;
 
     @Override
     public void onEnable() {
@@ -216,6 +219,12 @@ public final class SmpPlugin extends JavaPlugin {
                 new GraveListener(this, dao, graves, identities, penalty, duels::isInArena,
                         messages, locales), this);
         getServer().getPluginManager().registerEvents(new DuelListener(config, duels), this);
+
+        // The figure in the tavern, and the only way a HAND_IN objective can be fulfilled.
+        npc = new SpawnNpc(this, config);
+        npc.spawn();
+        getServer().getPluginManager().registerEvents(
+                new NpcListener(this, dao, npc, track, engine, identities, messages, locales), this);
         getServer().getPluginManager().registerEvents(
                 new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
 
@@ -247,6 +256,9 @@ public final class SmpPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (npc != null) {
+            npc.remove();
+        }
         if (duels != null) {
             duels.stop();
         }

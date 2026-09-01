@@ -481,7 +481,7 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**Six modules have tests: 528 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Six modules have tests: 537 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-01). The counts below are what the JUnit XML reports, not `@Test` counts.
 
 `:common` has **113**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
@@ -524,7 +524,7 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **126**. `MilestonesTest` (9) writes a
+`smp` has **135**. `MilestonesTest` (9) writes a
 fresh `milestones.yml`, reads it back and asserts the whole track survives — which is also the proof
 that two levels of jcore nesting work; `AuraPayoutTest` (12) covers the 30/70 split, the 2 %
 threshold, the concept's own worked example, the case it never named (more qualifiers than there is

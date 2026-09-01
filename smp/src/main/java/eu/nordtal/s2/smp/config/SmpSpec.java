@@ -423,9 +423,56 @@ public interface SmpSpec {
         return DefaultSmp.WHEEL_REGIONS;
     }
 
-    // ---------------------------------------------------------------- spawn protection
+    // ---------------------------------------------------------------- the spawn NPC
 
     @Order(25)
+    @Key("npc")
+    @Comment({
+            "The figure in the tavern. Click it to open the objective list and hand items in.",
+            "",
+            "It is a MANNEQUIN - a vanilla Paper 26.2 entity with a real player skin. Decided",
+            "2026-09-01, and it needed no dependency at all: a Mannequin is a LivingEntity and not a",
+            "Mob, so it has no AI, never despawns, never wanders and cannot be killed. The three",
+            "options docs/smp.md used to weigh - a villager with its AI off, a custom entity,",
+            "Citizens - were all worse than something the server already ships.",
+            "",
+            "skin-name is a Minecraft account whose skin the figure wears, resolved at start. Leave",
+            "it empty for the default skin. A later 3D model would replace how the NPC is DRAWN and",
+            "nothing about how it is clicked.",
+            "",
+            "The coordinates are placeholders until the tavern is built."
+    })
+    default NpcSpec npc() {
+        return DefaultSmp.NPC;
+    }
+
+    /** Where the spawn NPC stands, what it is called, and whose skin it wears. */
+    interface NpcSpec {
+
+        @Order(1) @Key("world") default String world() { return "nordtal"; }
+
+        @Order(2) @Key("x") default double x() { return 106.5; }
+
+        @Order(3) @Key("y") default double y() { return 68.0; }
+
+        @Order(4) @Key("z") default double z() { return 92.5; }
+
+        @Order(5) @Key("yaw")
+        @Comment("Which way it faces, in degrees. 0 is south, 90 west, 180 north, 270 east.")
+        default float yaw() { return 180.0f; }
+
+        @Order(6) @Key("skin-name")
+        @Comment("A Minecraft account name whose skin to wear, or empty for the default.")
+        default String skinName() { return ""; }
+
+        @Order(7) @Key("name")
+        @Comment("The label above it. Empty for none.")
+        default String name() { return "Nordtal"; }
+    }
+
+    // ---------------------------------------------------------------- spawn protection
+
+    @Order(26)
     @Key("spawn-regions")
     @Comment({
             "The protected zones: no building, no breaking, no interaction with blocks you do not",
@@ -469,7 +516,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- aura
 
-    @Order(26)
+    @Order(27)
     @Key("death-penalty")
     @Comment({
             "What an ordinary death costs, as a POSITIVE number that is subtracted at the point of",
@@ -484,14 +531,14 @@ public interface SmpSpec {
         return 5;
     }
 
-    @Order(27)
+    @Order(28)
     @Key("death-penalty-listed")
     @Comment("What one of the causes below costs instead. Also a positive number.")
     default int deathPenaltyListed() {
         return 20;
     }
 
-    @Order(28)
+    @Order(29)
     @Key("death-causes-listed")
     @Comment({
             "The 'embarrassing' deaths, one of docs/smp.md#still-open's open points, PROPOSED HERE",
@@ -514,7 +561,7 @@ public interface SmpSpec {
                 "sweet_berry_bush", "hot_floor", "campfire", "stalagmite");
     }
 
-    @Order(29)
+    @Order(30)
     @Key("duel-stake")
     @Comment({
             "What a duel moves. The winner takes exactly what the loser pays, so a duel never",
@@ -525,14 +572,14 @@ public interface SmpSpec {
         return 10;
     }
 
-    @Order(30)
+    @Order(31)
     @Key("concurrent-duel-limit")
     @Comment("How many arenas may be stacked above the spawn at once. Beyond it, players queue.")
     default int concurrentDuelLimit() {
         return 3;
     }
 
-    @Order(31)
+    @Order(32)
     @Key("advancement-awards")
     @Comment({
             "The advancements that pay aura, once each per player. docs/smp.md#still-open lists",
@@ -569,7 +616,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- prestige
 
-    @Order(32)
+    @Order(33)
     @Key("prestige-threshold-hours")
     @Comment({
             "The thirteen crest tiers, in hours of NETWORK-WIDE online time - AFK included, on",
@@ -590,7 +637,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the hunger games winner
 
-    @Order(33)
+    @Order(34)
     @Key("hg-winner-aura")
     @Comment({
             "The head start the start event's winner carries into the season, paid on their FIRST",
@@ -606,7 +653,7 @@ public interface SmpSpec {
         return 150;
     }
 
-    @Order(34)
+    @Order(35)
     @Key("hg-winner-items")
     @Comment({
             "One or two special items for the winner, also PROPOSED rather than decided. Bukkit",
@@ -622,7 +669,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the wheel
 
-    @Order(35)
+    @Order(36)
     @Key("wheel-extra-spin-percents")
     @Comment({
             "The contribution shares that earn extra spins when an objective completes: one spin at",
@@ -633,7 +680,7 @@ public interface SmpSpec {
         return List.of(2, 10, 25);
     }
 
-    @Order(36)
+    @Order(37)
     @Key("wheel-prizes")
     @Comment({
             "The wheel's pool and its weights - open in docs/smp.md#still-open, PROPOSED here.",
@@ -678,7 +725,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- duels
 
-    @Order(37)
+    @Order(38)
     @Key("duel-loadout-sword")
     @Comment({
             "What both players are given inside a sword duel - open in docs/smp.md#still-open,",
@@ -693,7 +740,7 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
-    @Order(38)
+    @Order(39)
     @Key("duel-loadout-bow")
     @Comment({
             "The bow duel's loadout. Also PROPOSED.",
@@ -708,7 +755,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- admin
 
-    @Order(39)
+    @Order(40)
     @Key("admin-permissions")
     @Comment({
             "The Bukkit permission nodes attached to an admin at join and removed at quit, through",

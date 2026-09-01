@@ -204,6 +204,19 @@ services:
       # what network-control's gate.yml#server-* keys expect; the hosts are these service names.
       VELOCITY_SERVERS: ${VELOCITY_SERVERS:-limbo=limbo:25565 hunger-games=hunger-games:25565 smp=smp:25565}
       VELOCITY_TRY: ${VELOCITY_TRY:-limbo}
+      # The resource pack the proxy offers. WITHOUT THESE THE PROXY REFUSES TO START while
+      # pack.enabled is true - PackSpec#url and #sha1 have empty defaults on purpose, because a
+      # default pointing at somebody else's release would be worse than none. Until 2026-09-01
+      # they were reachable only by editing pack.yml inside the volume, which contradicted this
+      # file being the whole configuration; they are variables now.
+      #
+      # The URL must be the github.com/.../releases/download/... address, never the signed
+      # release-assets.githubusercontent.com one it redirects to - that expires within the hour.
+      # The sha1 is the content of the .zip.sha1 asset sitting next to the zip; never typed by
+      # hand, never copied from an older release. A mismatch reaches the player as
+      # FAILED_DOWNLOAD, which looks exactly like a network problem and is not one.
+      NORDTAL_NETWORK_CONTROL_PACK_URL: ${PACK_URL:-https://github.com/${SEASON_REPO:-nordtal/season-2}/releases/download/${SEASON_RELEASE}/nordtal-resource-pack-${SEASON_VERSION}.zip}
+      NORDTAL_NETWORK_CONTROL_PACK_SHA1: ${PACK_SHA1:?set PACK_SHA1 in .env - the content of the nordtal-resource-pack-<version>.zip.sha1 asset of the release named by SEASON_RELEASE}
       NORDTAL_NETWORK_CONTROL_DATABASE_JDBC_URL: *db-url
       NORDTAL_NETWORK_CONTROL_DATABASE_USERNAME: *db-username
       NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD: *db-password

@@ -54,6 +54,13 @@ public final class FarmWorldReset {
     private final Navigation navigation;
     private final DailySchedule schedule;
 
+    /**
+     * Told the world's name once it has been replaced, so whatever else points into the farm world
+     * can drop it. Set rather than injected because the things that care - the graves - are built
+     * later than this is.
+     */
+    private java.util.function.Consumer<String> onReplaced = world -> { };
+
     private final List<BukkitTask> pending = new ArrayList<>();
     private volatile boolean swapping;
 
@@ -93,6 +100,10 @@ public final class FarmWorldReset {
     /** Runs the reset immediately, for {@code /smp farmreset now}. */
     public void resetNow() {
         performReset();
+    }
+
+    public void onWorldReplaced(final java.util.function.Consumer<String> action) {
+        this.onReplaced = action;
     }
 
     // ------------------------------------------------------------------ the clock
@@ -194,6 +205,7 @@ public final class FarmWorldReset {
         // about a grave, is worse than nothing: it is wrong and it looks right.
         navigation.clearWorld(farm.getName());
         final String world = farm.getName();
+        onReplaced.accept(world);
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final int removed = dao.deletePoisIn(world);
             if (removed > 0) {

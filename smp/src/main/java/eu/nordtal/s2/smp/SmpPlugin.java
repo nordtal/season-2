@@ -20,8 +20,14 @@ import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneState;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.pregen.PreGenerator;
+import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
+import eu.nordtal.s2.smp.command.SmpCommand;
+import eu.nordtal.s2.smp.duel.DuelListener;
+import eu.nordtal.s2.smp.duel.Duels;
+import eu.nordtal.s2.smp.grave.GraveListener;
+import eu.nordtal.s2.smp.grave.Graves;
 import eu.nordtal.s2.smp.hud.SmpHud;
 import eu.nordtal.s2.smp.navigate.NavigateListener;
 import eu.nordtal.s2.smp.navigate.Navigation;
@@ -30,6 +36,11 @@ import eu.nordtal.s2.smp.player.PlayerComposition;
 import eu.nordtal.s2.smp.player.PlayerSurfaces;
 import eu.nordtal.s2.smp.player.PresenceListener;
 import eu.nordtal.s2.smp.prestige.Prestige;
+import eu.nordtal.s2.smp.progress.AdvancementListener;
+import eu.nordtal.s2.smp.progress.ObjectiveEngine;
+import eu.nordtal.s2.smp.progress.StatisticPoller;
+import eu.nordtal.s2.smp.wheel.Wheel;
+import eu.nordtal.s2.smp.wheel.WheelListener;
 import eu.nordtal.s2.smp.protect.ProtectionListener;
 import eu.nordtal.s2.smp.region.Box;
 import eu.nordtal.s2.smp.region.Boxes;
@@ -81,6 +92,10 @@ public final class SmpPlugin extends JavaPlugin {
     private SmpHud hud;
     private Boards boards;
     private final Navigation navigation = new Navigation();
+    private ObjectiveEngine engine;
+    private StatisticPoller poller;
+    private Graves graves;
+    private Duels duels;
 
     @Override
     public void onEnable() {
@@ -181,6 +196,42 @@ public final class SmpPlugin extends JavaPlugin {
                 new PresenceListener(this, identities, surfaces, composition, config), this);
         getServer().getPluginManager().registerEvents(
                 new NavigateListener(this, dao, navigation, identities, locales), this);
+
+        // ---- block 3: the activities -----------------------------------------------------
+        engine = new ObjectiveEngine(this, dao, track, season, worlds, identities, messages,
+                locales, config);
+        poller = new StatisticPoller(this, track, engine, identities);
+        poller.start();
+
+        graves = new Graves(this, dao, messages, locales);
+        duels = new Duels(this, dao, config, worlds, identities, messages, locales);
+
+        final DeathPenalty penalty = new DeathPenalty(config.deathPenalty(),
+                config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
+        final Wheel wheel = new Wheel(this, dao, config, identities, messages, locales);
+
+        getServer().getPluginManager().registerEvents(
+                new AdvancementListener(this, dao, engine, identities, config, messages, locales), this);
+        getServer().getPluginManager().registerEvents(
+                new GraveListener(this, dao, graves, identities, penalty, duels::isInArena,
+                        messages, locales), this);
+        getServer().getPluginManager().registerEvents(new DuelListener(config, duels), this);
+        getServer().getPluginManager().registerEvents(
+                new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
+
+        // A grave in the farm world dies with the daily reset, like everything else there. That is
+        // intended and announced, and it is the one real risk of going there.
+        farmReset.onWorldReplaced(world -> {
+            graves.forgetWorld(world);
+            Bukkit.getScheduler().runTaskAsynchronously(this, () -> dao.deleteGravesIn(world));
+        });
+
+        // Graves outlive a restart, which is most of what "the grave stands forever" means in
+        // practice. Read them back once the world is up.
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            final var rows = dao.openGraves();
+            Bukkit.getScheduler().runTask(this, () -> graves.restore(rows));
+        });
         getServer().getPluginManager().registerEvents(
                 new ProtectionListener(regions, identities, messages, locales), this);
         getServer().getPluginManager().registerEvents(
@@ -196,6 +247,15 @@ public final class SmpPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (duels != null) {
+            duels.stop();
+        }
+        if (graves != null) {
+            graves.clearDisplays();
+        }
+        if (poller != null) {
+            poller.stop();
+        }
         if (hud != null) {
             hud.stop();
         }
@@ -217,6 +277,8 @@ public final class SmpPlugin extends JavaPlugin {
                     new NavigateCommand(this, dao, navigation, identities, messages, locales);
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
+            event.registrar().register(new SmpCommand(this, dao, engine, farmReset, identities,
+                    messages, locales, this::reloadTrack).build());
         });
     }
 
@@ -230,14 +292,36 @@ public final class SmpPlugin extends JavaPlugin {
      */
     private void refreshSurfaceData() {
         try {
-            dao.activeMilestoneKey().ifPresentOrElse(
+            final java.util.Optional<String> active = dao.activeMilestoneKey();
+            active.ifPresentOrElse(
                     key -> season.refreshActive(key, dao.objectivesOf(key)),
                     () -> season.refreshActive(null, java.util.List.of()));
+            poller.setActiveMilestone(active);
             boards.setLeaderboard(dao.topAura(10));
         } catch (final RuntimeException exception) {
             // The database being briefly unreachable must not kill the repeating task - the surfaces
             // keep showing what they last knew, which is the right thing for a scoreboard to do.
             getLogger().warning("could not refresh the boards and HUD: " + exception);
+        }
+    }
+
+    /**
+     * Re-reads {@code milestones.yml} while players are online.
+     *
+     * <p>One of the concept's three escape hatches: a target lowered below its collected progress
+     * completes the objective at once and pays it out, scaled to what was actually reached. Only the
+     * track is re-read - never the duel loadouts or the database password - which is why it is a
+     * separate file in the first place.
+     */
+    private void reloadTrack() {
+        try {
+            milestonesHandle.reload();
+            track = Milestones.read(milestonesHandle.get()).track();
+            Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
+            getLogger().info("the milestone track was reloaded: " + track.size() + " milestones");
+        } catch (final ConfigException | RuntimeException exception) {
+            getLogger().severe("the milestone track could not be reloaded, the running one is "
+                    + "unchanged: " + exception.getMessage());
         }
     }
 

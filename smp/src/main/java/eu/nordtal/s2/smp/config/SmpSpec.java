@@ -328,9 +328,104 @@ public interface SmpSpec {
         default float yaw() { return 0.0f; }
     }
 
-    // ---------------------------------------------------------------- spawn protection
+    // ---------------------------------------------------------------- the duel platforms
 
     @Order(20)
+    @Key("duel-platforms")
+    @Comment({
+            "The two 3x3 platforms at the spawn. Two players standing on the same one at the same",
+            "time are taken into an arena.",
+            "",
+            "type is SWORD or BOW and picks which loadout both fighters get. Anything else stops",
+            "the load.",
+            "",
+            "The coordinates are placeholders until the spawn is built. Both platforms belong",
+            "INSIDE radius 10 of the border centre with everything else social - the balloon is the",
+            "only thing the opening border withholds."
+    })
+    default List<DuelPlatformSpec> duelPlatforms() {
+        return DefaultSmp.DUEL_PLATFORMS;
+    }
+
+    /** One duel platform: which loadout it hands out, and the box a player has to stand in. */
+    interface DuelPlatformSpec {
+
+        @Order(1) @Key("type")
+        @Comment("SWORD or BOW.")
+        default String type() {
+            return "SWORD";
+        }
+
+        @Order(2) @Key("world") default String world() { return "nordtal"; }
+
+        @Order(3) @Key("min-x") default int minX() { return 0; }
+
+        @Order(4) @Key("min-y") default int minY() { return 0; }
+
+        @Order(5) @Key("min-z") default int minZ() { return 0; }
+
+        @Order(6) @Key("max-x") default int maxX() { return 0; }
+
+        @Order(7) @Key("max-y") default int maxY() { return 0; }
+
+        @Order(8) @Key("max-z") default int maxZ() { return 0; }
+    }
+
+    @Order(21)
+    @Key("duel-arena-base-y")
+    @Comment({
+            "The height of the lowest arena. Further concurrent duels stack above it.",
+            "",
+            "Well above anything anybody builds: the arenas are placed by the plugin and taken away",
+            "again, and a stack that reached into the skyline would eventually land on somebody's",
+            "tower."
+    })
+    default int duelArenaBaseY() {
+        return 200;
+    }
+
+    @Order(22)
+    @Key("duel-arena-spacing")
+    @Comment("Vertical distance between stacked arenas. Has to exceed the arena's own height.")
+    default int duelArenaSpacing() {
+        return 16;
+    }
+
+    @Order(23)
+    @Key("duel-arena-radius")
+    @Comment({
+            "Half the arena's floor, in blocks - a radius of 7 is a 15x15 floor. Big enough that a",
+            "bow duel is not a knife fight, small enough that neither fighter can simply run."
+    })
+    default int duelArenaRadius() {
+        return 7;
+    }
+
+    // ---------------------------------------------------------------- the wheel of fortune
+
+    @Order(24)
+    @Key("wheel-regions")
+    @Comment({
+            "Where the wheel of fortune stands in the tavern. Right-clicking inside one of these",
+            "boxes spins it - one free spin per calendar day, plus whatever contributing to",
+            "objectives has earned.",
+            "",
+            "Same box shape as spawn-regions and balloons, and for the same reason: a spawn is a box",
+            "you may not build in, a balloon is a box that opens the travel GUI, and this is a box",
+            "that spins a wheel. Three nearly identical settings would have drifted apart.",
+            "",
+            "IT COSTS NO AURA. Aura is recognition, not currency, and the moment it buys something",
+            "it stops being recognition.",
+            "",
+            "The coordinates are placeholders until the tavern is built."
+    })
+    default List<SpawnRegionSpec> wheelRegions() {
+        return DefaultSmp.WHEEL_REGIONS;
+    }
+
+    // ---------------------------------------------------------------- spawn protection
+
+    @Order(25)
     @Key("spawn-regions")
     @Comment({
             "The protected zones: no building, no breaking, no interaction with blocks you do not",
@@ -374,7 +469,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- aura
 
-    @Order(21)
+    @Order(26)
     @Key("death-penalty")
     @Comment({
             "What an ordinary death costs, as a POSITIVE number that is subtracted at the point of",
@@ -389,14 +484,14 @@ public interface SmpSpec {
         return 5;
     }
 
-    @Order(22)
+    @Order(27)
     @Key("death-penalty-listed")
     @Comment("What one of the causes below costs instead. Also a positive number.")
     default int deathPenaltyListed() {
         return 20;
     }
 
-    @Order(23)
+    @Order(28)
     @Key("death-causes-listed")
     @Comment({
             "The 'embarrassing' deaths, one of docs/smp.md#still-open's open points, PROPOSED HERE",
@@ -419,7 +514,7 @@ public interface SmpSpec {
                 "sweet_berry_bush", "hot_floor", "campfire", "stalagmite");
     }
 
-    @Order(24)
+    @Order(29)
     @Key("duel-stake")
     @Comment({
             "What a duel moves. The winner takes exactly what the loser pays, so a duel never",
@@ -430,14 +525,14 @@ public interface SmpSpec {
         return 10;
     }
 
-    @Order(25)
+    @Order(30)
     @Key("concurrent-duel-limit")
     @Comment("How many arenas may be stacked above the spawn at once. Beyond it, players queue.")
     default int concurrentDuelLimit() {
         return 3;
     }
 
-    @Order(26)
+    @Order(31)
     @Key("advancement-awards")
     @Comment({
             "The advancements that pay aura, once each per player. docs/smp.md#still-open lists",
@@ -474,7 +569,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- prestige
 
-    @Order(27)
+    @Order(32)
     @Key("prestige-threshold-hours")
     @Comment({
             "The thirteen crest tiers, in hours of NETWORK-WIDE online time - AFK included, on",
@@ -495,7 +590,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the hunger games winner
 
-    @Order(28)
+    @Order(33)
     @Key("hg-winner-aura")
     @Comment({
             "The head start the start event's winner carries into the season, paid on their FIRST",
@@ -511,7 +606,7 @@ public interface SmpSpec {
         return 150;
     }
 
-    @Order(29)
+    @Order(34)
     @Key("hg-winner-items")
     @Comment({
             "One or two special items for the winner, also PROPOSED rather than decided. Bukkit",
@@ -527,7 +622,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the wheel
 
-    @Order(30)
+    @Order(35)
     @Key("wheel-extra-spin-percents")
     @Comment({
             "The contribution shares that earn extra spins when an objective completes: one spin at",
@@ -538,7 +633,7 @@ public interface SmpSpec {
         return List.of(2, 10, 25);
     }
 
-    @Order(31)
+    @Order(36)
     @Key("wheel-prizes")
     @Comment({
             "The wheel's pool and its weights - open in docs/smp.md#still-open, PROPOSED here.",
@@ -583,7 +678,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- duels
 
-    @Order(32)
+    @Order(37)
     @Key("duel-loadout-sword")
     @Comment({
             "What both players are given inside a sword duel - open in docs/smp.md#still-open,",
@@ -598,7 +693,7 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
-    @Order(33)
+    @Order(38)
     @Key("duel-loadout-bow")
     @Comment({
             "The bow duel's loadout. Also PROPOSED.",
@@ -613,7 +708,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- admin
 
-    @Order(34)
+    @Order(39)
     @Key("admin-permissions")
     @Comment({
             "The Bukkit permission nodes attached to an admin at join and removed at quit, through",

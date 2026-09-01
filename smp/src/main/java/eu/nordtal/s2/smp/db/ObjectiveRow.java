@@ -10,7 +10,8 @@ package eu.nordtal.s2.smp.db;
  * @param completed whether it is finished; a target that was later lowered below the collected
  *                  amount completes on the next reload, which is the escape hatch the concept keeps
  */
-public record ObjectiveRow(String key, long amount, long target, boolean completed) {
+public record ObjectiveRow(java.util.UUID id, String key, long amount, long target,
+                           boolean completed) {
 
     /** Clamped to 1.0, because a lowered target can leave more collected than is wanted. */
     public double ratio() {

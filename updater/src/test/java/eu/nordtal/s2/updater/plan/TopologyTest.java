@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@link Topology} and {@code deploy/compose.yml} are two copies of one fact. This is the test that
+ * {@link Topology} and {@code compose.yml} are two copies of one fact. This is the test that
  * makes the second copy fail loudly instead of quietly.
  * <p>
  * It reads the real compose file rather than a fixture, on purpose: a fixture would be a third
@@ -160,9 +160,10 @@ class TopologyTest {
 
         final UpdaterSpec.ArcaneSpec spec = new UpdaterSpec.ArcaneSpec() {
         };
-        assertTrue(String.valueOf(environment.get("NORDTAL_UPDATER_ARCANE_PROJECT"))
-                        .endsWith(":-" + spec.project() + "}"),
-                "compose.yml's ARCANE_PROJECT fallback is not '" + spec.project() + "' any more");
+        assertTrue(String.valueOf(environment.get("NORDTAL_UPDATER_ARCANE_ENVIRONMENT"))
+                        .endsWith(":-" + spec.environment() + "}"),
+                "compose.yml's ARCANE_ENVIRONMENT fallback is not '" + spec.environment()
+                        + "' any more");
         assertTrue(String.valueOf(environment.get("NORDTAL_UPDATER_ARCANE_REDEPLOY_PATH"))
                         .endsWith(":-" + spec.redeployPath() + "}"),
                 "compose.yml's ARCANE_REDEPLOY_PATH fallback is not '" + spec.redeployPath()
@@ -213,7 +214,7 @@ class TopologyTest {
     }
 
     private static Map<String, Object> readComposeServices() {
-        final Path compose = findUpwards("deploy/compose.yml");
+        final Path compose = findUpwards("compose.yml");
         try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
             final Object loaded = new Yaml().load(reader);
             @SuppressWarnings("unchecked")

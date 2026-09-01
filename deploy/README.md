@@ -7,10 +7,18 @@ This file is both the runbook and the record of why the stack has this shape; th
 reasoning is at the bottom, under [Why it looks like this](#why-it-looks-like-this). SimpleCloud was
 dropped on 2026-09-01 — see [../docs/README.md](../docs/README.md#decisions-and-when-they-were-taken).
 
+**`compose.yml` and `.env.example` are at the repository root, not in here.** They moved out of
+`deploy/` on 2026-09-01, and putting them back would break the deployment: Arcane's GitOps sync
+pulls *"the entire directory the compose file lives in, not just the file itself"* (its own
+documentation, read 2026-09-01), so a compose file under `deploy/` would put `deploy/` on the host
+and nothing else — and the `./updater` and `./discord-bot` build contexts would not be there. At
+the root the synced directory is the whole repository. **Every command in this file therefore runs
+from the repository root**, not from `deploy/`.
+
 ```
+compose.yml            six services, four profiles: db · bot · mc · backup (the updater has none)
+.env.example           every setting; copy to .env and fill in
 deploy/
-  compose.yml          six services, three profiles: db · bot · mc
-  .env.example         every setting; copy to .env and fill in
   minecraft/
     Dockerfile         one image for all four Minecraft services
     entrypoint.sh      PID 1: resolve the jar, pull the plugins, run tmux, trap SIGTERM
@@ -35,9 +43,9 @@ is no schema and there are no plugin jars.
    2026-09-01 and is gone again: the updater reads the release's `.zip.sha1` asset and writes it
    into the proxy's `pack.yml` itself. Every remaining `REPLACE_ME` is something only you know — a
    Discord id, a bunq key, a password.
-2. **Build the updater jar.** Compose builds its image from `../updater`, and that image copies in
+2. **Build the updater jar.** Compose builds its image from `./updater`, and that image copies in
    a jar Gradle has to have produced first. The Minecraft image needs no such step; it builds from
-   `./minecraft` alone.
+   `./deploy/minecraft` alone.
    ```bash
    ./gradlew :updater:shadowJar
    ```
@@ -259,21 +267,39 @@ internet and putting them where servers will execute them. The socket is not mou
 Four variables turn it on, all optional together:
 
 ```
-ARCANE_URL=https://arcane.example.com     # origin, no trailing slash
-ARCANE_API_KEY=...                        # Settings -> API Keys, sent as X-Api-Key
-ARCANE_PROJECT=nordtal-s2                 # the project's name in Arcane
-ARCANE_REDEPLOY_PATH=/api/...             # see below
+ARCANE_URL=https://arcane.example.com       # origin, no trailing slash
+ARCANE_API_KEY=...                          # Settings -> API Keys, permission projects:deploy
+ARCANE_ENVIRONMENT=0                        # the environment's ID; 0 is Arcane's own host
+ARCANE_PROJECT=51b523fe-21aa-…              # the project's ID. A UUID, NOT 'nordtal-s2'
 ```
 
 **Leave `ARCANE_URL` empty and nothing breaks.** Everything else works; both surfaces answer "Arcane
 is not configured" and tell you to click Redeploy yourself.
 
-`ARCANE_REDEPLOY_PATH` is the one that still needs a person. Arcane's public documentation describes
-`X-Api-Key` authentication and says project deploy, redeploy, pull and build exist as streaming
-operations — it does **not** publish the paths (read 2026-09-01). Those are on `/api/docs` on the
-instance. The default here is a documented guess; a 404 from it says so in as many words and names
-`/api/docs`, so it costs a minute rather than an evening. That path is why this is a setting: the
-real one is a line in `.env` and not a release.
+**Both of those are IDs, and that is the trap.** The compose project is called `nordtal-s2` in every
+other file here, and putting that name in `ARCANE_PROJECT` answers 404. The project ID is a UUID
+Arcane generated: read it out of the browser URL with the project open, or ask for it —
+
+```bash
+curl -H "X-Api-Key: $ARCANE_API_KEY" "$ARCANE_URL/api/environments/0/projects"
+```
+
+It has no default and the updater refuses to start without it once `ARCANE_URL` is set, because an
+ID is not something anybody can guess. `ARCANE_ENVIRONMENT` defaults to `0` and only changes if
+Arcane reaches this host through an agent, in which case it is a UUID too.
+
+`ARCANE_REDEPLOY_PATH` is a fifth variable that no longer needs a person. It was read from Arcane's
+own source on 2026-09-01 — `backend/internal/project/handler.go` at release v2.10.0 registers
+`POST /environments/{id}/projects/{projectId}/redeploy` under the `/api` group — and that is the
+default. It stays a setting because Arcane's public documentation still does not publish it, so a
+version that moves the path is a line in `.env` and not a release.
+
+**Watch the first press.** [getarcaneapp/arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943)
+reports a redeploy of an *already running* project doing nothing while still answering success —
+which is exactly this case, since the stack is up when the button is pressed. It was reported on one
+agent at v1.15.3 and closed as *not planned*. Nothing in the updater can detect it, because the
+stream that would say so is one the redeploy kills this container part way through reading. Watch
+the containers actually cycle.
 
 ## Stopping
 

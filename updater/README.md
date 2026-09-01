@@ -147,9 +147,18 @@ countdown is real and cancellable for its whole length. The wait is shortened wh
 sooner than the next poll: an 8-second countdown fired after 8.97 s, not after 15.
 
 The restart itself is one Arcane redeploy, over its REST API — **not the Docker socket**, which is
-not mounted anywhere in this deployment. The endpoint path is a setting and not a constant, because
-Arcane's public documentation does not publish it; a 404 from the default says so and names
-`/api/docs`. An empty `arcane.base-url` is a supported state: everything else works and both
+not mounted anywhere in this deployment:
+
+```
+POST /api/environments/{environment}/projects/{project}/redeploy
+```
+
+read from Arcane's own source on 2026-09-01 (`backend/internal/project/handler.go`, v2.10.0), since
+the public documentation names the operation and not its path. **Both segments are IDs** — the
+environment is `0` for Arcane's own host, the project is a UUID and emphatically not the compose
+project name — so `arcane.project` has no default and the updater refuses to start without it once
+`arcane.base-url` is set. The path stays a setting because Arcane does not publish it and a version
+could move it. An empty `arcane.base-url` is a supported state: everything else works and both
 surfaces say the restart has to be clicked in Arcane.
 
 ## Tests
@@ -159,7 +168,7 @@ from the other side, in `:discord-bot`'s `SchemaCheckTest`, against a real Postg
 database is refused with a message naming `updater migrate`, and a migrated one passes. Every API fixture in
 `src/test/resources/fixtures/` was recorded from the live GitHub, Modrinth and PaperMC APIs on
 2026-09-01, including the release that carried the scaffold `smp` and `limbo` jars.
-`TopologyTest` reads the real `deploy/compose.yml`: a fifth backend server added there and not to
+`TopologyTest` reads the real `compose.yml`: a fifth backend server added there and not to
 `Topology` fails the build, and so does re-adding `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two
 `PACK_*` variables.
 
@@ -185,12 +194,17 @@ And again on 2026-09-01 for `serve`, two containers on a Docker network:
   end that way;
 - a second `apply` refused while the advisory lock was held, from both directions, and going
   through the moment it was released;
-- the Arcane call reaching an nginx as `POST /api/projects/nordtal-s2/redeploy` with the right
-  User-Agent, and its 404 producing the sentence that names `/api/docs`.
+- the Arcane call reaching an nginx with the right User-Agent, and its 404 producing the sentence
+  that pointed at where the real path comes from. *That run went to `POST
+  /api/projects/nordtal-s2/redeploy`, which was the default at the time and is not the default any
+  more* — the endpoint and the two IDs replaced it later the same day, and `ArcaneTest` covers the
+  new one against a real HTTP server. The measurement is left as it was taken.
 
-**A 2xx from a real Arcane has never been seen.** That branch is covered by `ArcaneTest` against a
-local HTTP server and by nothing else; it is the one thing in this module that needs Till's
-instance.
+**A 2xx from a real Arcane has never been seen**, and
+[arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943) says a 2xx would not by itself
+prove the restart happened: it reports a redeploy of an already running project answering success
+and doing nothing. Nothing here can detect that — the stream that would say so is one the redeploy
+kills this container part way through reading. Both are Till's instance to answer.
 
 ## Output
 

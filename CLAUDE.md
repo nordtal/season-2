@@ -544,9 +544,19 @@ Seven rules that are easy to break and expensive to break:
   `${file%-*.jar}` out of `deploy/minecraft/entrypoint.sh`. Inventing a better rule here means two
   programs disagreeing about which jar supersedes which, and the way that surfaces is Paper loading
   two versions of one plugin without complaining.
-- **`Topology` and `deploy/compose.yml` are two copies of one fact.** A fifth backend server is a
+- **`Topology` and `compose.yml` are two copies of one fact.** A fifth backend server is a
   change to both in the same commit; `TopologyTest` reads the real compose file and fails otherwise.
   It also fails if `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two `PACK_*` variables come back.
+- **`compose.yml` and `.env.example` live at the repository root and must stay there** (moved
+  2026-09-01). Arcane's GitOps sync pulls only the directory the compose file is in, and two build
+  contexts (`./updater`, `./discord-bot`) are above `deploy/` — so a compose file inside `deploy/`
+  syncs a tree that cannot build. Everything else about the deployment is still in `deploy/`.
+- **Arcane's redeploy takes two IDs, not a name.** `POST /api/environments/{id}/projects/{projectId}/redeploy`,
+  read from Arcane's own source at v2.10.0. `arcane.project` is a UUID and *not* the compose project
+  name `nordtal-s2`; it has no default and the updater refuses to start without it once
+  `arcane.base-url` is set. A 2xx still proves nothing on its own — see
+  [arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943), finding 30 in
+  `docs/state-of-play.md`.
 - **A swap is two phases, and a server moves together or not at all.** Everything is staged inside
   the target volume and only moved in once all of it is there. Four servers on two versions of the
   season is worse than four servers that did not update.
@@ -590,10 +600,13 @@ several held roles wins, which channel a locale posts in, what a `managed_messag
 because none of the three classes that use them (`GuildState`, `ManagedMessages`,
 `PaymentProcessor`) can be exercised without a real guild. `LinkFlow`, the redemption side, is still
 untested by anything but `common`'s DAO-level tests and a manual guild check. Three of
-`ConfigsTest`'s cases (added 2026-09-01) pin `deploy/.env.example` rather than the bot: the JSON
+`ConfigsTest`'s cases (added 2026-09-01) pin `.env.example` rather than the bot: the JSON
 language list and price list it ships have to come back out of jcore's environment overlay as a
 list of specs, and its `REPLACE_ME` placeholders have to be *refused by name*. A `.env.example`
-whose structures do not parse is worse than none, and nothing else in the build reads that file.
+whose structures do not parse is worse than none. **Those cases hold a hand-copy of the block, not
+the file** — re-checked 2026-09-01, nothing in the build reads `.env.example` at all — so the two
+can drift and nothing would say so. That is finding 19 in `docs/state-of-play.md`, and its
+originally written premise was wrong.
 
 `network-control` has **120**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and

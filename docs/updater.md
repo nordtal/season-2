@@ -140,16 +140,36 @@ inference rather than proof, and the row says so rather than claiming certainty.
 ## The restart, and why not the Docker socket
 
 Arcane exposes a REST API with token authentication — `X-Api-Key`, tokens generated in
-Settings → API Keys — and knows project deploy, redeploy, pull and build as streaming operations
-(read from the public documentation 2026-09-01; the endpoint paths are not in it and have to be
-read from `/api/docs` on our own instance).
+Settings → API Keys — and knows project deploy, redeploy, pull and build as streaming operations.
+The endpoint is
 
-**That is why the path is a setting and not a constant.** `arcane.redeploy-path` carries a
-documented guess, `{project}` is substituted into it, and a 404 from it says in as many words that
-the path is a guess and names `/api/docs` — so the first person to hit it spends a minute on it and
-not an evening. `arcane.base-url` empty means no restart is possible anywhere, and that is a
-supported state: the button and the command both answer "Arcane is not configured" and tell you to
-click Redeploy yourself.
+```
+POST /api/environments/{id}/projects/{projectId}/redeploy
+```
+
+read from Arcane's own source on 2026-09-01 (`backend/internal/project/handler.go`, release
+v2.10.0), because the public documentation names the operations and not their paths.
+
+**Both segments are IDs, and that is the whole of what a person still has to look up.** The
+environment is `0` for Arcane's own host and a UUID for a remote agent; the project is a UUID Arcane
+generated — *not* the compose project name, which is `nordtal-s2` in every other file in this
+repository and answers 404 here. `arcane.project` therefore has no default and the updater refuses
+to start without it once `arcane.base-url` is set: an ID is not a thing anybody guesses, and finding
+out at the moment somebody has pressed the button is the wrong time.
+
+**The path stays a setting and not a constant**, even though it is no longer a guess: Arcane does not
+publish it, so nothing stops a version from moving it, and a moved path should be a line in
+`updater.yml` rather than a release of ours. `arcane.base-url` empty means no restart is possible
+anywhere, and that is a supported state: the button and the command both answer "Arcane is not
+configured" and tell you to click Redeploy yourself.
+
+**One thing this cannot detect.**
+[getarcaneapp/arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943) reports a redeploy of
+an *already running* project doing nothing while still answering success — which is exactly this
+case, since the stack is up when the button is pressed. Reported on one agent at v1.15.3, closed as
+*not planned*. The stream that would say what really happened is one this container is killed part
+way through reading, so no code here can tell the difference; the check is a human watching the
+containers cycle the first time, and it is in `todo.md`.
 
 The alternative was mounting `/var/run/docker.sock`. It is the usual way and it was rejected: a
 container with the socket can do anything on the host, and this is a container whose entire job is
@@ -278,14 +298,15 @@ depending on it cannot drag in a service nobody asked for.
 
 ## Open, with a fallback each
 
-- **Arcane's redeploy endpoint.** Still the one thing that cannot be verified from here: the path
-  is not in the public documentation and the token is on Till's instance. Everything around it is
-  built and tested — the URL, the header, and what each answer is reported as, against a real HTTP
-  server. A 404 was driven end to end through the container on 2026-09-01 and produced the sentence
-  naming `/api/docs`. **A 2xx from a real Arcane has never been seen.** *If the API turns out not
-  to expose a usable redeploy:* leave `arcane.base-url` empty and everything else still works; the
-  restart is a click in Arcane, and both surfaces say so rather than pretending.
-  [`../../todo.md`](../../todo.md) carries the check.
+- **Arcane's redeploy endpoint.** Narrowed on 2026-09-01 and not closed. The path is no longer
+  unknown — it was read from Arcane's own source — but the two IDs are on Till's instance and so is
+  the token. Everything around it is built and tested: the URL both IDs are substituted into, the
+  header, and what each answer is reported as, against a real HTTP server; a 404 was driven end to
+  end through the container. **A 2xx from a real Arcane has never been seen**, and arcane#1943 says
+  a 2xx would not by itself prove the restart happened. *If the API turns out not to expose a usable
+  redeploy, or answers success without doing anything:* leave `arcane.base-url` empty and everything
+  else still works; the restart is a click in Arcane, and both surfaces say so rather than
+  pretending. [`../../todo.md`](../../todo.md) carries both checks.
 - ~~**`LISTEN` across containers.**~~ **Closed 2026-09-01**: 160 ms with the notification against
   17 s without it, two containers on a Docker network. The reconnect path under a real dropped
   socket is still untested, which is the phase listener's open item and not a new one.

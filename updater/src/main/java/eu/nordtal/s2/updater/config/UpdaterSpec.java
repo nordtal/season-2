@@ -284,34 +284,55 @@ public interface UpdaterSpec {
         }
 
         @Order(3)
-        @Key("project")
+        @Key("environment")
         @Comment({
-                "The project as Arcane names it - for this deployment, the compose project name",
-                "'nordtal-s2'. Substituted into redeploy-path below."
+                "Which Docker environment in Arcane, as its ID. The local one - Arcane's own host,",
+                "which is what this deployment is - is '0'; a remote agent is a UUID.",
+                "",
+                "Substituted into redeploy-path below. It is an ID and never a name."
         })
-        default String project() {
-            return "nordtal-s2";
+        default String environment() {
+            return "0";
         }
 
         @Order(4)
-        @Key("redeploy-path")
+        @Key("project")
         @Comment({
-                "THIS DEFAULT IS A GUESS AND HAS NEVER BEEN CALLED.",
+                "Which project, as its ID - and this is a UUID Arcane generated, NOT the compose",
+                "project name. 'nordtal-s2' is not a value this setting accepts; a name here",
+                "answers 404.",
                 "",
-                "Arcane's public documentation describes token authentication and says that",
-                "project deploy, redeploy, pull and build exist as streaming operations - it does",
-                "NOT give the paths (read 2026-09-01). Those are on /api/docs on your own instance.",
-                "So this is a setting rather than a constant: when the real path turns out to be",
-                "something else, it is one line in this file and not a release.",
+                "Read it out of the browser URL with the project open, or from",
+                "GET /api/environments/0/projects with the same token.",
                 "",
-                "{project} is replaced by the project setting above. A 404 from here is reported",
-                "with that sentence attached, so nobody spends an evening on it."
+                "No default on purpose: there is nothing to guess, and an empty one with a",
+                "base-url set is refused at startup rather than at the moment somebody presses",
+                "the button. Substituted into redeploy-path below."
         })
-        default String redeployPath() {
-            return "/api/projects/{project}/redeploy";
+        default String project() {
+            return "";
         }
 
         @Order(5)
+        @Key("redeploy-path")
+        @Comment({
+                "The endpoint, with {environment} and {project} replaced by the two settings above.",
+                "",
+                "THIS DEFAULT IS NO LONGER A GUESS. It was read from Arcane's own source on",
+                "2026-09-01 - backend/internal/project/handler.go, release v2.10.0 - where the",
+                "operation is registered as POST /environments/{id}/projects/{projectId}/redeploy",
+                "under the /api group. Arcane's public documentation still does not publish it,",
+                "which is why it stays a setting: a version that moves the path is then one line",
+                "in this file and not a release of ours.",
+                "",
+                "A 404 from here names both IDs, because a name in either of them is the likely",
+                "cause and it is not visible in the URL."
+        })
+        default String redeployPath() {
+            return "/api/environments/{environment}/projects/{project}/redeploy";
+        }
+
+        @Order(6)
         @Key("timeout-seconds")
         @Comment({
                 "How long to wait for the redeploy call.",

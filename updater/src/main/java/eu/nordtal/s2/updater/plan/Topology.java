@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.List;
 
 /**
- * Which server runs which jars. A mirror of {@code deploy/compose.yml}, and it says so out loud.
+ * Which server runs which jars. A mirror of {@code compose.yml}, and it says so out loud.
  *
  * <h2>Why this is code and not configuration</h2>
  * Because it is not a deployment's decision. That the SMP server needs DisplayTags is not a

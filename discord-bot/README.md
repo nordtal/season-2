@@ -30,7 +30,7 @@ container.
 
 ## Configuration is environment variables only
 
-[`../deploy/compose.yml`](../deploy/compose.yml) carries no values. Every setting in `bot.yml`, `database.yml` and `access.yml`
+[`../compose.yml`](../compose.yml) carries no values. Every setting in `bot.yml`, `database.yml` and `access.yml`
 arrives as an environment variable; jcore applies the environment *after* it writes the file and
 *before* it validates, so a container that has never seen a config file starts correctly from the
 environment alone, and **an overridden value is never written back into the config volume**.
@@ -56,11 +56,13 @@ Check the startup log: every load prints which settings the environment overrode
 The bot no longer has a compose file of its own: since 2026-09-01 the whole deployment is one
 stack in [`../deploy`](../deploy), and the bot is the `bot` profile inside it. It keeps every
 property this document claims for it — no Minecraft dependency, no waiting for a proxy or a
-backend — because that profile can be brought up alone. Run these from `deploy/`:
+backend — because that profile can be brought up alone. Run these from the **repository root**,
+which is where `compose.yml` lives — it moved out of `deploy/` on 2026-09-01 so that Arcane's git
+sync, which pulls only the directory the compose file is in, brings the build contexts with it:
 
 ```bash
 cp .env.example .env      # fill it in — .env is gitignored and must never be committed
-../gradlew :discord-bot:shadowJar
+./gradlew :discord-bot:shadowJar
 COMPOSE_PROFILES=db,bot docker compose up -d --build
 ```
 

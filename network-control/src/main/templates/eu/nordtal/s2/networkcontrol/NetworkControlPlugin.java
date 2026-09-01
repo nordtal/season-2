@@ -70,7 +70,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *       the release out of the waiting room (docs/architecture.md#the-login-path-end-to-end).</li>
  * </ul>
  *
- * <p><b>Configuration failure fails closed</b> (docs/operations.md#configuration-and-secrets,
+ * <p><b>Configuration failure fails closed</b> (docs/architecture.md#failing-closed-on-a-bad-config,
  * settled 2026-08-31, implemented here). A bad {@code database.yml} or {@code gate.yml} used to be
  * logged loudly while the proxy kept running and kept accepting logins <em>un-gated</em>; now it
  * registers a {@code LoginEvent} handler that refuses <em>everybody</em>. Velocity has no
@@ -250,7 +250,7 @@ public final class NetworkControlPlugin {
     }
 
     /**
-     * The whole of docs/operations.md#configuration-and-secrets' fail-closed rule: nothing else has
+     * The whole of docs/architecture.md#failing-closed-on-a-bad-config' fail-closed rule: nothing else has
      * been registered by the time this runs, so this handler is the only thing that sees a login,
      * and it refuses every one of them.
      */

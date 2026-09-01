@@ -45,7 +45,7 @@ public interface SmpSpec {
             "PRE-GENERATED ONCE, TO ITS FINAL BORDER OF 4000, BEFORE THE PHASE OPENS. A milestone",
             "unlock then only moves a number and never starts a generator. How long that costs in",
             "wall clock and disk has to be measured on the real host before the phase is scheduled -",
-            "see docs/operations.md#measuring-the-pre-generation--do-this-first."
+            "see docs/smp.md#worlds."
     })
     default String worldNordtal() {
         return "nordtal";

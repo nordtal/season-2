@@ -4,8 +4,8 @@ Everything nordtal.eu season 2 deploys. A Velocity proxy (`network-control`) in 
 Paper backends (`limbo` → `hunger-games` → `smp`), plus the `discord-bot` Discord bot and the
 `resource-pack` assets. Production runs as **one `docker compose` stack** on a remote host, driven
 through [Arcane](https://github.com/ofkm/arcane). SimpleCloud was dropped on 2026-09-01 — the
-reasoning, the container design and the console mechanism are in
-[docs/operations.md](docs/operations.md#deployment).
+runbook, the reasoning, the container design and the console mechanism are all in
+[deploy/README.md](deploy/README.md).
 
 The workspace-level [../CLAUDE.md](../CLAUDE.md) carries the standing instructions and the map of
 the sibling repos. Read it too.
@@ -34,9 +34,11 @@ every code point allocated and drawn).
 
 **The login path is complete and unrehearsed.** Every login now lands on `limbo`, is offered the
 forced resource pack from `pack.yml`, and is released onto the phase's backend when the client
-reports it applied. Nothing in the test suite touches a proxy, a client or a packet; the probe that
-would settle it is written out step by step in
-[docs/operations.md](docs/operations.md#rehearsal--the-login-path) and has not been run.
+reports it applied. Nothing in the test suite touches a proxy, a client or a packet. The three
+assumptions this leaves unverified — and what each falls back to if the answer is no — are in
+[docs/state-of-play.md](docs/state-of-play.md#the-unverified-assumptions); the thirteen-step probe
+that answers them needs a running proxy and a real client, so it lives in the owner's checklist
+outside this repository and has not been run.
 
 `docs/state-of-play.md` is the module-by-module version of this and is the one to trust; this
 paragraph is a summary that will go stale again.
@@ -106,7 +108,8 @@ instances, templates or failover, its plugin management only handles Modrinth-ho
 exists only inside a hosted closed-beta programme. Production is a single `docker compose` stack;
 the four Minecraft services share one image with a tmux console and a SIGTERM trap, because
 Arcane's per-container shell is a `docker exec` and cannot reach PID 1's stdin. Full reasoning in
-[docs/operations.md](docs/operations.md#why-simplecloud-was-dropped). **Do not reintroduce a
+[deploy/README.md](deploy/README.md#why-it-looks-like-this), which also carries what was actually
+measured on that image. **Do not reintroduce a
 cloud/orchestrator dependency without a concrete need** — the same rule the API artefact below
 already carries.
 
@@ -117,7 +120,7 @@ routing; routing was written on 2026-08-31 and imported none of it, resolving ba
 in `gate.yml` through Velocity's own `ProxyServer.getServer(name)`. **The dependency, its two
 repositories and its version-catalog entry were removed on 2026-09-01.** Do not add it back without
 a concrete need: four fixed servers lose nothing by being named instead of discovered. See
-[docs/operations.md](docs/operations.md#closed-2026-09-01).
+[docs/README.md](docs/README.md#decisions-and-when-they-were-taken).
 
 ## Layout and conventions
 
@@ -543,8 +546,9 @@ not one packet, player, boss bar or teleport; `docs/hunger-games.md#verification
 has to happen before it is called done. **The login path is a fifth, and the newest**: the forced
 pack offer, the `nordtal:limbo` channel, the black screen, the titles and every disconnect screen
 the pack station can produce need a running proxy, a running Paper backend and a real Minecraft
-client. `docs/operations.md#rehearsal--the-login-path` is that probe, written out in thirteen steps,
-and it has not been run. The integration tests also skip themselves when no
+client. `docs/state-of-play.md#the-unverified-assumptions` carries those three rows and their
+fallbacks; the thirteen-step probe that answers them is in the owner's checklist outside this
+repository, and it has not been run. The integration tests also skip themselves when no
 Docker daemon is reachable, so a green build on a machine without Docker proves less than it looks.
 `./gradlew build` compiling is not verification. Anything touching players, packets or world state
 has to be exercised on `runServer` (or, for the proxy, a real client against a running proxy) with

@@ -146,7 +146,7 @@ flowchart LR
 - **`smp` additionally takes `papermc-display-tags`' `:api` module**, `compileOnly` and never
   shaded — see [smp.md](smp.md#what-a-player-looks-like). It is the one dependency in this build
   that implies a *server-side* third-party plugin: DisplayTags itself, and PacketEvents underneath
-  it, must be installed on the SMP server. [operations.md](operations.md#third-party-plugins) is
+  it, must be installed on the SMP server. [../deploy/README.md](../deploy/README.md#third-party-plugins) is
   where that consequence is written down.
 
 ## Commands
@@ -313,8 +313,28 @@ source is not a `ServerConnection`, and consumes every message on the channel ei
 **Still unverified, and load-bearing:** that a forced pack offer sent by the proxy behaves correctly
 while the player is being moved to `limbo`, that our own decline screen wins the race against
 Velocity's generic forced-pack kick, and that a Minecraft client follows GitHub's redirect when
-downloading the pack. All three need a running proxy and a real client, and all three are steps in
-[operations.md](operations.md#rehearsal--the-login-path).
+downloading the pack. All three need a running proxy and a real client, and all three are rows in
+[state-of-play.md](state-of-play.md#the-unverified-assumptions), each with a written fallback.
+
+### Failing closed on a bad config
+
+**On a config it cannot read, `network-control` refuses every login.** Settled 2026-08-31, built the
+same day as `MisconfiguredGate`.
+
+It used to log loudly and simply never register the gate — the proxy stayed up and kept accepting
+logins **un-gated**. That is the wrong way round for a value whose whole job is deciding who may
+join: *"the proxy is up but nobody can join"* announces itself within seconds of the first player
+trying, while *"the proxy is up and the gate is off"* announces itself never, and one mistyped key
+silently opens a network that sells access.
+
+The objection it was originally justified with — Velocity has no per-plugin disable — is true and
+beside the point: **a `LoginEvent` handler that refuses everybody with a bilingual "network
+misconfigured" screen *is* that disable, built by hand**, and it costs one class. Letting admins
+through was considered and is impossible, because the admin flag lives in the database that a bad
+`database.yml` cannot reach — there is nobody to exempt.
+
+The Paper plugins get this for free from the platform: a `ConfigException` in `onEnable` disables
+that plugin and leaves the server running.
 
 ## Build and release
 
@@ -328,4 +348,4 @@ Unchanged by this plan, and documented in [../CLAUDE.md](../CLAUDE.md):
   the workflow pushes the bot's container image.
 
 The pack zip attached to that release is also **what players download** — see
-[operations.md](operations.md#resource-pack-hosting).
+[../resource-pack/README.md](../resource-pack/README.md#hosting).

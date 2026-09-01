@@ -29,8 +29,8 @@ public enum WaitReason {
 
     /**
      * The resource pack has been offered and has not been applied yet - the ordinary state of
-     * every login, and the reason {@code limbo} exists at all. docs/operations.md: "limbo exists
-     * largely to apply the pack".
+     * every login, and the reason {@code limbo} exists at all - see
+     * docs/architecture.md#the-login-path-end-to-end.
      */
     PACK,
 

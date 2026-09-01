@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The fail-closed handler (docs/operations.md#configuration-and-secrets, finding 2 in
+ * The fail-closed handler (docs/architecture.md#failing-closed-on-a-bad-config, finding 2 in
  * docs/state-of-play.md).
  * <p>
  * There is deliberately very little to test here, and that is the property being asserted: this

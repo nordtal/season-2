@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * is not a network partition, a failed-over database, or a proxy suspended for a minute; and
  * {@code getNotifications} answering {@code null} forever on a silently dead TCP connection - the
  * failure mode the 30-second poll actually exists for - cannot be reproduced in a JVM at all.
- * docs/operations.md#open-verification's {@code LISTEN}/{@code NOTIFY} row is closed by a
+ * the row in docs/state-of-play.md#the-unverified-assumptions {@code LISTEN}/{@code NOTIFY} row is closed by a
  * <b>restart drill against a real PostgreSQL with the connection killed underneath the proxy</b>,
  * not by this file.
  * <p>

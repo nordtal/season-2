@@ -7,7 +7,7 @@ repositories {
     // for routing, together with repo.simplecloud.app/snapshots and buf.build/gen/maven for its
     // protobuf stubs. Routing was written on 2026-08-31 and imported none of it: the `routing`
     // package resolves backends by the names in gate.yml through Velocity's own
-    // ProxyServer.getServer(name), which is exactly the fallback docs/operations.md had written
+    // ProxyServer.getServer(name), which is exactly the fallback that had been written
     // down for the case where the SimpleCloud coordinate turned out not to resolve. Four fixed
     // servers lose nothing by being named instead of discovered, so the dependency, its two
     // repositories and its version-catalog entry were all removed on 2026-09-01 rather than left

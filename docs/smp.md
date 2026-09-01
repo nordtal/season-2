@@ -52,7 +52,10 @@ generator alongside the farm world's daily one — which this document already c
 biggest technical risk in the concept — and it would have made the season's crowning moment depend
 on a background job finishing in time. Done once, with no players online and no throttling, it
 costs hours of wall clock and disk space in the order of a few gigabytes. **Both figures have to be
-measured, not assumed**, before the phase is scheduled.
+measured on the real host, not assumed**, before the phase is scheduled — a laptop says something
+about disk and almost nothing about wall clock. Chunky 1.5.3 is the tool (it tags 26.2 for `paper`
+explicitly, checked against the Modrinth API on 2026-09-01); it is an operator's tool for an
+afternoon and never a dependency of this build.
 
 **The Nether's 2000 is deliberately larger than the 1:8 mapping requires.** A 4000 overworld needs
 only 500 blocks of Nether to be fully reachable, so 2000 is oversized several times over — which
@@ -186,6 +189,16 @@ sequenceDiagram
 - **Nothing in the farm world survives.** Chests, graves and POIs are gone. That is the price of
   the daily reset and it is stated plainly to players rather than softened.
 - No server restart is involved. Paper loads and unloads worlds at runtime.
+
+What that means for whoever operates it:
+
+- **The window is seconds, not the length of a pre-generation** — but only while the background job
+  keeps finishing in time. A reset that postpones itself repeatedly is not a fault report, it is the
+  configured farm world being too big for this host.
+- **Two farm worlds exist at once during the swap**, so the disk headroom needed is twice one
+  world's size.
+- Everything in the farm world being destroyed, graves and POIs included, is **intended and
+  announced**. It will be reported as a bug anyway.
 
 ## Milestones — the community objective system
 

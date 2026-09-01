@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * same pass as the poll rather than deferred because the dedicated connection, the
  * {@code getNotifications(timeout)} thread and the reconnect re-read are easier to get right while
  * the phase model is being written than to retrofit into it. If it turns out to be more trouble
- * than it is worth, docs/operations.md#open-verification's fallback is to delete it and keep the
+ * than it is worth, the row in docs/state-of-play.md#the-unverified-assumptions fallback is to delete it and keep the
  * poll; nothing else has to change, which is exactly why nothing else depends on it.
  *
  * <h2>What a test can and cannot say about this class</h2>
@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * against a fake {@link PhaseNotifications}. That proves the control flow and <b>nothing about a
  * real dropped socket</b>: a fake that throws when asked to is not a network partition, a
  * failed-over database or a proxy that has been suspended for a minute. Closing
- * docs/operations.md#open-verification's row needs a restart drill against a real PostgreSQL with
+ * the row in docs/state-of-play.md#the-unverified-assumptions row needs a restart drill against a real PostgreSQL with
  * the connection killed underneath the proxy.
  */
 public final class PhaseListener implements AutoCloseable {

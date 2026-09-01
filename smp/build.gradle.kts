@@ -34,7 +34,7 @@ dependencies {
     // compileOnly AND NEVER SHADED. The api module is an interface over the running DisplayTags
     // plugin, not a library: a bundled copy would be a second set of classes for the same
     // interfaces and the lookup would hand back an instance of the wrong one. The consequence is
-    // operational and is stated in docs/operations.md#third-party-plugins - DisplayTags, and
+    // operational and is stated in deploy/README.md#third-party-plugins - DisplayTags, and
     // PacketEvents underneath it, become REQUIRED on the SMP server, which is the network's first
     // mandatory third-party runtime dependency. paper-plugin.yml declares it with load: BEFORE and
     // required: true so a server missing it fails loudly at start rather than quietly rendering

@@ -69,7 +69,7 @@ import java.util.function.Consumer;
  * Because docs/architecture.md puts it on the proxy: one offer, one place, and a player who is
  * moved between backends is not asked twice. The written fallback, if a forced offer from the
  * proxy turns out to misbehave, is for {@code limbo} to offer it on join instead - see
- * docs/operations.md#open-verification. That is a change to this class and to
+ * docs/state-of-play.md#the-unverified-assumptions. That is a change to this class and to
  * {@code limbo}, not to the design.
  *
  * <h2>Threading</h2>

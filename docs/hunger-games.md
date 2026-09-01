@@ -332,6 +332,20 @@ The Minecraft UUID is not duplicated here: it hangs off `discord_user` through t
   mod, so vanilla players cannot use it at all, and whether a build for Minecraft 26.2 exists is
   unconfirmed. Check before the event; if there is none, it is dropped without replacement.
 
+## Event-day runbook
+
+A sketch, to be filled in when the module has been rehearsed:
+
+1. Pack released, URL and hash in `pack.yml`, verified with a real client.
+2. World folder in place; lobby, towers, POIs and loot points built; the aerial image prepared for
+   every configured language.
+3. Phase set to `PRE_EVENT`. Registration message posted in every language channel.
+4. Rehearsal with real clients — the list below.
+5. Event: an admin starts the countdown, which closes registration for good.
+6. Winner, ceremony in the lobby box, evaluation.
+7. An admin switches the phase to `SMP`. The winner's aura and items are applied on their first
+   join — by the SMP plugin, which is the only thing that writes to the SMP tables.
+
 ## Verification
 
 "It compiles" proves nothing here. Before this is called done: a full rehearsal on a real server

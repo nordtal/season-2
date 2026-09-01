@@ -136,7 +136,14 @@ public final class Configs {
                     + " Generate one in Arcane under Settings -> API Keys, and prefer"
                     + " NORDTAL_UPDATER_ARCANE_API_KEY over writing it into this file");
         }
-        requireText("arcane.project", arcane.project());
+        requireText("arcane.environment", arcane.environment());
+        if (arcane.project().isBlank()) {
+            throw new IllegalArgumentException("arcane.project must be set when arcane.base-url is."
+                    + " It is the project's ID - a UUID Arcane generated - and NOT the compose"
+                    + " project name 'nordtal-s2'. Read it from the browser URL with the project"
+                    + " open, or from GET " + arcane.baseUrl() + "/api/environments/"
+                    + arcane.environment() + "/projects");
+        }
         if (!arcane.redeployPath().startsWith("/")) {
             throw new IllegalArgumentException(
                     "arcane.redeploy-path must start with a slash, was '" + arcane.redeployPath() + "'");

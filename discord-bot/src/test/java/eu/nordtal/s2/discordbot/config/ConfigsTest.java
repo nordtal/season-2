@@ -572,10 +572,10 @@ class ConfigsTest {
         assertTrue(error.getMessage().contains("PostgreSQL"), error.getMessage());
     }
 
-    // ------------------------------------------------------------- deploy/.env.example
+    // ------------------------------------------------------------- .env.example
 
     /**
-     * The exact {@code NORDTAL_ACCESS_LANGUAGES} block that {@code deploy/.env.example} ships,
+     * The exact {@code NORDTAL_ACCESS_LANGUAGES} block that {@code .env.example} ships,
      * whitespace and all.
      * <p>
      * It is written the way an operator reads it - one key per line - rather than as the single
@@ -612,7 +612,7 @@ class ConfigsTest {
             ]""";
 
     @Test
-    @DisplayName("the language list in deploy/.env.example is read back as two languages")
+    @DisplayName("the language list in .env.example is read back as two languages")
     void theEnvExampleLanguageListParses() throws Exception {
         final AccessSpec config = fromEnvironment(Map.of(
                 "NORDTAL_ACCESS_LANGUAGES", ENV_EXAMPLE_LANGUAGES));
@@ -630,7 +630,7 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("the price list in deploy/.env.example is read back as three tiers")
+    @DisplayName("the price list in .env.example is read back as three tiers")
     void theEnvExampleTierListParses() throws Exception {
         final AccessSpec config = fromEnvironment(Map.of("NORDTAL_ACCESS_TIERS", ENV_EXAMPLE_TIERS));
 

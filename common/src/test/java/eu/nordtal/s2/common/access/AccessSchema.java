@@ -9,13 +9,14 @@ import javax.sql.DataSource;
  * the access ones it was named after.
  * <p>
  * The migration files live in this module ({@code common/src/main/resources/db/migration}),
- * alongside the API that reads those tables; the bot is still the only process that migrates at
- * runtime. Flyway is a test dependency here and nothing more.
+ * alongside the API that reads those tables. Exactly one process migrates at runtime and since
+ * 2026-09-01 it is the {@code updater} container, not the bot. Flyway is a test dependency here and
+ * nothing more - it must never reach a Paper plugin.
  * </p>
  * <p>
  * The location is the classpath rather than a source directory on purpose: it is byte for byte
- * the location {@code Database#migrate()} uses in the bot, so these tests also prove that the
- * migrations are reachable the way the bot reaches them.
+ * the location {@code Database#migrate()} uses in the updater, so these tests also prove that the
+ * migrations are reachable the way the updater reaches them.
  * </p>
  */
 public final class AccessSchema {

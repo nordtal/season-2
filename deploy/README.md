@@ -384,12 +384,15 @@ accident. Everything here was decided on 2026-09-01.
   world, and a save cut off halfway stays invisible for days.
 - **Named volumes, no bind mounts.** Arcane reaches volumes directly, and a bind-mounted world
   folder is a uid/permission problem whose symptom is a corrupted save.
-- **Plugin jars are pulled at container start** from the GitHub release named by one version in
-  `.env`. This is the job the SimpleCloud dashboard could not do at all: its plugin management only
-  understands Modrinth-hosted jars, and every jar we deploy is either ours or a fork of ours.
-- **The bot is the only process that migrates**, so bring it up first after a schema change.
-  Compose `depends_on` can express "PostgreSQL is healthy" and cannot express "the schema is
-  current", so this stays an operator rule.
+- **Plugin jars are pulled from a GitHub release**, not from a dashboard. This is the job the
+  SimpleCloud dashboard could not do at all: its plugin management only understands Modrinth-hosted
+  jars, and every jar we deploy is either ours or a fork of ours. *(They were pulled by each
+  container at start until 2026-09-01; the `updater` pulls them now, and the argument against the
+  dashboard is unchanged.)*
+- **The updater is the only process that migrates**, so it runs before everything else. It was the
+  bot until 2026-09-01. Compose `depends_on` can express "PostgreSQL is healthy" and cannot express
+  "the schema is current", so this stays an operator rule — but it is no longer only a rule: the bot
+  validates the schema and refuses a database it was not built against, naming the command.
 - **The proxy needs database access**, which is a compose network rather than a firewall rule now.
   The credentials exist in more than one config file because the database is the source of truth;
   accepted. They are written **once** in `compose.yml`, as three YAML anchors, and handed to each

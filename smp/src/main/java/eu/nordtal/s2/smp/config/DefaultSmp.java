@@ -30,6 +30,21 @@ final class DefaultSmp {
             region("nordtal_nether", -32, 20, -32, 32, 120, 32));
 
     /**
+     * Placeholder balloon volumes, one per world that has one - Nordtal, the farm world and the
+     * Nether. The End has none on purpose.
+     *
+     * <p>Nordtal's box sits at radius ~15 of the border centre X 106 / Z 88, which is the only one
+     * of these numbers that is not arbitrary: it has to land between radius 10 and 21.5 so that
+     * border 20 withholds travel and the opening expansion to 43 hands it over. The real box comes
+     * from the built spawn; this one is shaped so the constraint is satisfied by the defaults and
+     * a mistake in the real coordinates is what the enable-time check catches.
+     */
+    static final List<SmpSpec.BalloonSpec> BALLOONS = List.of(
+            balloon("nordtal", 106 + 13, 64, 88 - 2, 106 + 17, 68, 88 + 2),
+            balloon("farm", -2, 64, -2, 2, 68, 2),
+            balloon("nordtal_nether", -2, 32, -2, 2, 36, 2));
+
+    /**
      * The curated advancement list. Twenty-two entries across the four bands described in
      * {@link SmpSpec#advancementAwards()}, chosen to follow the shape of a playthrough.
      */
@@ -142,6 +157,20 @@ final class DefaultSmp {
         values.put("max-y", maxY);
         values.put("max-z", maxZ);
         return Specs.createUnsafe(SmpSpec.SpawnRegionSpec.class, values);
+    }
+
+    private static SmpSpec.BalloonSpec balloon(final String world, final int minX, final int minY,
+                                               final int minZ, final int maxX, final int maxY,
+                                               final int maxZ) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("world", world);
+        values.put("min-x", minX);
+        values.put("min-y", minY);
+        values.put("min-z", minZ);
+        values.put("max-x", maxX);
+        values.put("max-y", maxY);
+        values.put("max-z", maxZ);
+        return Specs.createUnsafe(SmpSpec.BalloonSpec.class, values);
     }
 
     private static SmpSpec.AdvancementAwardSpec award(final String advancement, final int aura) {

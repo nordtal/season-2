@@ -228,6 +228,13 @@ byte counts are the sum of the jars that would actually be shaded, annotation-on
 
 ## Schema ownership
 
+> **Decided 2026-09-01, not yet carried out: the migration moves out of the bot into a new
+> `updater` module.** Everything in this section stays true except *which* process runs Flyway —
+> the rule that exactly one does, and that it is never `:common`, is what the move preserves. The
+> reasoning, and what it costs (the updater becomes the bootstrap of every deployment: no updater,
+> no schema, no bot, no server), is in [updater.md](updater.md#what-it-owns). Until it is built,
+> the bot is still the migrator and the paragraphs below describe the running system.
+
 **Exactly one process migrates: the bot.** That has not changed. What changed on **2026-08-31** is
 *where the SQL lives*: the migration files now sit in `common/src/main/resources/db/migration/`,
 and the bot applies them at startup from there. The move has been carried out.

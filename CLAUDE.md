@@ -159,7 +159,9 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   the bot's jar ~31 MB. Nothing from JDBI or HikariCP appears on `AccessDirectory`'s signature —
   the factories take a `javax.sql.DataSource` or a JDBC URL — so a consumer never compiles against
   them.
-- **What a jar actually weighs, rebuilt and measured 2026-08-31 at version 0.1.0.** An earlier
+- **What a jar actually weighs, rebuilt and measured 2026-08-31 at version 0.1.0** (the repository
+  moved to `0.2.0` on 2026-09-01; the file names below are the ones the measurements were taken on
+  and are left as measured). An earlier
   version of this file and of `docs/state-of-play.md` claimed "every Paper plugin jar grew from
   ~20 KB to ~3.0 MB". **That was wrong, and backwards.**
 
@@ -170,6 +172,10 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   | `hunger-games-0.1.0.jar` | 4,640,946 | 2026-08-31 |
   | `network-control-0.1.0.jar` | 5,291,760 | 2026-09-01, after the pack station |
   | `discord-bot-0.1.0.jar` | 30,952,094 | 2026-08-31 |
+
+  **That 51 KB figure is also how the deployment audit of 2026-09-01 caught a stale release:** the
+  published `v0.1.0` carries `smp-0.1.0.jar` and `limbo-0.1.0.jar` at 51 279 bytes each, so the
+  release predates both modules being built — see `docs/state-of-play.md` finding 20.
 
   The 51 KB figure was what a plugin weighs that carries `:common`'s own classes plus ~14 KB of SQL
   and **nothing else** — which is what `smp` and `limbo` both were until 2026-09-01, precisely

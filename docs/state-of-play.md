@@ -24,15 +24,17 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 
 | module | main Java | tests | what actually runs |
 |---|---|---|---|
-| `discord-bot` | 43 files, 6054 lines | 109 | Access end to end, the phase command, the admin mirror, the language list, hunger games registration |
-| `hunger-games` | 40 files, 3777 lines | 41 | The start event, essentially in full |
+| `discord-bot` | 43 files, 6054 lines | 112 | Access end to end, the phase command, the admin mirror, the language list, hunger games registration |
+| `hunger-games` | 41 files, 3971 lines | 57 | The start event, essentially in full |
 | `network-control` | 29 files, 4110 lines | 120 | Login gate, phase, play time, routing, **the pack station** |
 | `common` | 26 files, 2671 lines | 98 | Access API, messages, locales, phase, glyphs, **the limbo protocol**, V1–V6 |
 | `resource-pack` | — | — | Three fonts, every code point allocated and drawn |
 | `limbo` | 10 files, 1139 lines | 11 | The waiting room, in full |
-| `smp` | 22 files, 2914 lines | 56 | The track, aura, prestige and the milestone engine — no world |
+| `smp` | 22 files, 2912 lines | 56 | The track, aura, prestige and the milestone engine — no world |
 
-435 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
+454 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
+(This line read 435 while the module rows below it added up to 438; both are re-counted from the
+JUnit XML above.)
 
 **No module is a scaffold any more.** What is left is not a module but a half of one: everything in
 `smp` that touches a world.
@@ -116,6 +118,22 @@ points in that document — now exist as defaults in `HungerGamesSpec` and `Defa
 main thread and `database.yml` gained a `query-timeout-seconds`. Nothing about the game changed —
 see finding 12 below for why a `limbo` session touched this module at all.
 
+**Changed again on 2026-09-01, second pass** — findings 15 and 16, plus a message-key sweep:
+
+- `/hg start` no longer runs its database work on the main thread, and the roster read moved out of
+  the release tick.
+- The **lobby countdown speaks**. It said nothing at all: players were teleported onto a tower,
+  frozen and released a minute later with no text on screen. `Countdown` is the (tested) rule for
+  when it speaks; `hg.start.countdown` had been written and translated the whole time.
+- A **demoted duo is told it was demoted.** `Participant#demotedToSolo` had been computed and
+  tested since the module was built and read by nothing.
+- The **ceremony can tell the four endings apart**, so a win decided on the kill count is announced
+  as one.
+- Nine unreachable message keys: three wired up as above, three deleted (a duplicate of the winner
+  line, a console guard Brigadier makes unreachable, a database-error text with no catch block near
+  it), and two — `hg.lobby.map-missing` and `hg.loot.point-lost` — annotated in both language files
+  as deliberately unsent, with the reason. `MessageBundlesTest` now holds the two files symmetric.
+
 What is missing is not code:
 
 - The **world folder** — the hand-built map, lobby box, spawn towers and loot points. The plugin
@@ -188,7 +206,10 @@ lines.
 
 ### Where the documents and the code disagree
 
-The nine findings of the previous version are resolved as follows. **Only two still stand.**
+The nine findings of the previous version are resolved as follows, with everything found since
+appended. **Only finding 9 still stands** — the sentence here read "only two still stand" while
+the table underneath it had one row marked as standing, which is the same class of drift the table
+exists to record.
 
 | # | what it was | now |
 |---|---|---|
@@ -205,6 +226,9 @@ The nine findings of the previous version are resolved as follows. **Only two st
 | 12 | **New 2026-09-01:** `hunger-games` read a player's language with a blocking JDBC call from its `PlayerJoinEvent` handler, on the main thread, and its pool had no timeout of any kind | **closed the same day, in both modules.** `PlayerLocales#joinAsync` runs the lookup on Bukkit's async scheduler; `limbo` redraws its title when the value lands, `hunger-games` needs no redraw. Both `database.yml` files gained `query-timeout-seconds` (default 3), setting HikariCP's `connectionTimeout` and the driver's `socketTimeout`. Found while building `limbo`, where the same line would have frozen the server every login passes through |
 | 11 | **New 2026-09-01:** the knowledge base named `objects.githubusercontent.com` as what a GitHub release asset redirects to | **closed by measurement.** It is `release-assets.githubusercontent.com`, one hop, with a signed URL that expires within the hour. Corrected in [resource-pack/README.md](../resource-pack/README.md#hosting) and in `PackSpec`'s own comment, which now says in capitals not to paste the resolved address into the config |
 | 10 | **New 2026-09-01:** the knowledge base described three modules as unbuilt that were built hours earlier, and `season-2/CLAUDE.md` still opens with "`hunger-games`, `smp` and `limbo` are still scaffolds" | **closed by this pass** in both places. The cause is worth keeping: a documentation commit that lands *after* an implementation commit is not evidence that it describes it |
+| 14 | **New 2026-09-01, second pass:** §3 of this document still listed six config defaults as open — duel loadouts, the advancement awards, the "embarrassing" death causes, the objectives' items, the wheel's pool, the winner's head start — while its own §2b, `docs/smp.md#still-open`, `DefaultSmp` and `DefaultTrack` all said they had been written the same day | **closed by reading the code.** All six are in `DefaultSmp`/`DefaultTrack`; §3 now says so. The cause is the one this document keeps rediscovering: a list that lives in a different file from the thing it describes goes stale silently, and a *closing* edit is as easy to miss as an opening one |
+| 15 | **New 2026-09-01, second pass:** `/hg start` did every one of its database calls on the main thread. `HungerGamesCommand#runAsAdmin` checked the admin flag asynchronously and then handed the *action* back to `runTask`, so `dao.game`, `dao.roster`, `HungerGamesManager#start`'s second roster read and its one colour write per team all landed on the server thread — and `winTracker.reset(dao.activeMembersOf(…))` ran inside the `onReleased` callback, in the tick every participant is released | **closed the same day.** `runAsAdmin` runs the action on the async task it is already on, the messages hop to the main thread through a `tell` helper, and the roster read moved up into `HungerGamesPlugin#startGame`, which also closes a race the callback had. `HungerGamesManager#start`'s own closing `runTask` had been the standing evidence that it was written to be called from off-thread; nothing read it. This is **finding 12 again, in the same module**, three weeks of nothing between them |
+| 16 | **New 2026-09-01, second pass:** `WinTracker.Outcome` carried a `tie` flag no caller ever read, and `Outcome::win` set it to `false` even for a win the tiebreaker produced. A game decided on the kill count was announced as an ordinary win, and `hg.win.tie-broken` and `hg.win.no-winner` — written, translated and carrying `{winnerKills}`/`{loserKills}`/`{kills}` — were unreachable | **closed the same day.** `Outcome` now has four constructors for the four endings and carries the two kill counts; `Ceremony` prints all four. "Everybody dead, no simultaneous pair" is `noWinner()` rather than a tie, because nothing was compared |
 
 ## 2. What can be built today
 
@@ -287,15 +311,22 @@ SMP cannot derive.
 No design decision blocks an implementation session. What is listed here is either concept work of
 its own, or a config default that is cheaper to propose in a diff than to argue in prose.
 
-### Concept work, and it has no home yet
+### Concept work — the one item here is now built
 
-**PostgreSQL backup and restore.** The entire season lives in one database — access periods,
-payments, aura, milestone progress, graves. Nothing in this repository says how it is backed up,
-how a restore is performed, or whether a restore has ever been tried. This is the only genuinely irreversible risk in
-the project and it is the one thing here that is not a config default, a drawing or a build. It
-belongs before the SMP phase opens. Since 2026-09-01 the fix is at least local — PostgreSQL is a
-service in the same compose stack, so a `pg_dump` sidecar against the same volume is the whole of
-it — which makes it cheaper, not done.
+**PostgreSQL backup and restore — built 2026-09-01, and the cycle was run.** `deploy/`'s new
+`backup` profile dumps the database into a `postgres-dumps` volume of its own, daily and at
+start-up, and Arcane's volume backup ships *that* volume to S3. The shape was decided by reading
+Arcane's source rather than its release notes: it stops the containers using a volume only when the
+policy's `StopContainers` flag is set, and for a live PGDATA both settings are wrong — off gives a
+torn copy that fails at restore rather than at backup, on gives a nightly outage of every process in
+the stack. Dump → `pg_restore` into an empty database → both seeded tables back, plus a retention
+sweep and a SIGTERM, all run on 2026-09-01; see
+[../deploy/README.md](../deploy/README.md#what-was-measured). The first run on a fresh named volume
+*failed*, on ownership, which is the argument for running it.
+
+**What is still owed is the drill on the real thing**: a dump pulled back out of S3 and restored.
+That needs the host and is in the owner's checklist. Backups that have never been restored are a
+belief, not a backup — which is what this row said when it was a gap, and it still applies.
 
 **The deployment runbook is no longer part of that gap at all.** SimpleCloud was dropped on
 2026-09-01 in favour of a single `docker compose` stack, and the stack was built the same day:
@@ -312,19 +343,23 @@ What is left there is one open verification and one manual step, not a build: wh
 plain exec is already proven, and is the fallback), and pasting the Velocity forwarding secret into
 each backend's `config/paper-global.yml`. Neither blocks anything before the first deployment.
 
-### Config defaults, cheapest to propose in a diff
+### Config defaults — **there are none left open**
 
-| open point | source |
-|---|---|
-| Duel loadouts for sword and bow | [smp.md](smp.md#still-open) |
-| The advancement list that grants aura, and the value of each (2–10) | [smp.md](smp.md#still-open) |
-| The damage types that count as an "embarrassing" death and cost −20 rather than −5 | [smp.md](smp.md#deaths-cost-aura) |
-| The items and advancements behind each of the track's objectives | [smp.md](smp.md#the-objectives) |
-| The wheel of fortune's prize pool and weights | [smp.md](smp.md#numbers-that-are-proposals-not-decisions) |
-| The winner's head start: how much aura, and which one or two items | [smp.md](smp.md#the-hunger-games-winners-head-start) |
+This section used to carry a table of six. **All six were proposed as defaults on 2026-09-01**, in
+the same session that built the SMP's server-free half, and they are in the code: `DefaultSmp`
+holds the advancement awards, the "embarrassing" death causes, both duel loadouts, the winner's
+items, the wheel's prizes and weights and the spawn regions, and `DefaultTrack` holds the items and
+advancements behind every objective of the track. [smp.md](smp.md#still-open) says the same thing.
+The table survived that session because it lives in a different document from the code it described
+— see finding 14.
+
+They are *proposals*, and the whole point of putting a proposal in a config file is that correcting
+it is a diff rather than an argument. [The numbers that are proposals rather than
+decisions](smp.md#numbers-that-are-proposals-not-decisions) is the list to read before retuning any
+of them.
 
 The hunger games' own three — loot pools, quiet period, passive shrink rate — were proposed as
-config defaults on 2026-08-31 and are no longer open.
+config defaults on 2026-08-31 and are likewise no longer open.
 
 ### Technical choices an SMP session has to make for itself
 
@@ -377,13 +412,14 @@ observed, with the date. A *no* is a result, not a failure.
 
 ## 4. Recommendation
 
-One implementation session and one concept session are left, plus one rehearsal.
+One implementation session is left, plus two rehearsals. The concept session that used to be
+here was the backup concept, and it was built on 2026-09-01.
 
 - ~~**`limbo` and the pack station** (§2a)~~ — **built 2026-09-01.** What it left behind is a
   thirteen-step rehearsal against a running proxy and a real client, which is an afternoon with a
   Minecraft account and not a session. Three rows of the table above fall out of it.
-- **The backup concept** (§3). Not code, and it should not wait for the SMP: the database it
-  protects already holds real payment records the moment the bot is deployed.
+- ~~**The backup concept** (§3)~~ — **built 2026-09-01.** What it left behind is one restore drill
+  against S3 and the host, which is an afternoon and not a session.
 - **The SMP's world half** (§2c) plus the winner's head start (§2d). §2b is built: the milestone
   YAML, the aura payout, the prestige function and the milestone engine, 56 tests. What is left is
   every feature that ends at a rehearsal rather than at a green build.

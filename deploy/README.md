@@ -173,11 +173,79 @@ border-4000 Nordtal, not for the normal case. Do not lower it, and never use `do
 
 ## Backups
 
-**There is no backup concept yet, and it is the only irreversible risk in this project.** Access
-periods, payment records, aura, milestone progress and graves are all in one PostgreSQL. The stack
-makes the fix local — a `pg_dump` sidecar against the `postgres-data` volume — but nobody has
-written it, and no restore has ever been tried. It belongs before the SMP phase opens, and it is
-the first item in [`../../todo.md`](../../todo.md).
+Access periods, payment records, aura, milestone progress and graves are all in one PostgreSQL, and
+it is the only thing in this stack that cannot be rebuilt from the repository and a world folder.
+
+**The `backup` profile dumps it.** `postgres-backup` runs `pg_dump --format=custom` into the
+`postgres-dumps` volume once a day at `BACKUP_AT` (04:00 by default) and again at start-up, keeps
+`BACKUP_KEEP` of them (14), and writes the outcome of the last run to `postgres-dumps/LAST_RESULT`
+as well as to the container log. A dump is written under a `.partial` name, checked by reading its
+own table of contents back with `pg_restore --list`, and only then renamed — a half-written file
+that looks like every other dump in the directory is the one the retention sweep keeps and the
+restore picks. It runs as `postgres`, not root, and stops on SIGTERM instead of waiting out the
+grace period.
+
+### Point Arcane at `postgres-dumps`, never at `postgres-data`
+
+Arcane can snapshot a named volume to S3 with `rustic` (S3 backups shipped in v2.9.0, scheduled
+volume backups in v2.10.0). It stops the containers using that volume **only when the backup
+policy's `Stop Containers` flag is set** — read from `backend/internal/volume/backup.go` on
+2026-09-01, where the whole stop/restart block sits behind `if plan.policy != nil &&
+plan.policy.StopContainers`. For a live PostgreSQL data directory both settings are wrong:
+
+- **Off**, it tars a running PGDATA. That is a torn copy. It raises no error at backup time and is
+  a broken cluster at restore time, which is the worst possible order to find out in.
+- **On**, PostgreSQL goes down for the length of the tar, every night. Every process in this stack
+  fails fast on an unreachable database, so that is a nightly outage of logins and of payment
+  booking.
+
+`postgres-dumps` has neither problem. Nothing holds it open between runs, so a policy with `Stop
+Containers` **off** is correct there, and what travels to S3 is a few megabytes rather than a whole
+data directory — which matters, because Arcane runs at home and the host is at the far end of a
+tunnel.
+
+### Restoring
+
+```bash
+docker compose exec postgres psql -U "$POSTGRES_USER" -d postgres -c 'CREATE DATABASE restored;'
+docker compose exec postgres-backup sh -c 'pg_restore --dbname=restored --no-owner /dumps/<file>'
+```
+
+Restore into a *new* database and look at it before you point anything at it. `--no-owner` is what
+lets a dump taken as one role restore under another.
+
+### What was measured
+
+The whole cycle was run on 2026-09-01, on this compose file, from empty volumes — not inferred:
+
+| | |
+|---|---|
+| First run on a fresh named volume | **failed**, `Permission denied` on its own output file. Docker creates a named volume owned by root when the mount path is not in the image; the Dockerfile now creates `/dumps` owned by `postgres`, which is what Docker seeds an empty volume from |
+| A dump of a seeded database | 2,657 bytes, written, TOC-verified and renamed |
+| `pg_restore` into an empty database | both tables and both rows came back, timestamps intact |
+| Retention at `BACKUP_KEEP=2` | four dumps in, two kept, the two oldest pruned by name |
+| SIGTERM during the wait | trapped and exited, rather than sitting out an 18-hour `sleep` |
+
+**What it does not prove** is a restore of the real season database from a dump pulled back out of
+S3. That needs the host, and it is in [`../../todo.md`](../../todo.md).
+
+### The world volumes are a different problem
+
+Nothing here backs up `mc-smp`, `mc-hunger-games`, `mc-limbo` or `mc-network-control`, and that is
+deliberate: a world is recreatable from a seed and a build, a payment record is not. Pointing an
+Arcane policy at a world volume also means streaming it over the tunnel from the rented host to a
+home connection, and after border 4000 that is potentially tens of gigabytes.
+
+The chosen path is season 1's — an installed plugin that zips the world and a list of extra folders
+and uploads them by SFTP — and it is an **operator task, not a build**: it is in
+[`../../todo.md`](../../todo.md) with what was checked on 2026-09-01. Two things from that check are
+worth having here, because they are the kind that get rediscovered expensively:
+
+- **DriveBackupV2 has no 26.2 build.** It stops at 26.1.2 (Modrinth API, 2026-09-01).
+- **[Backuper](https://modrinth.com/plugin/backuper) does, and its `setWorldsReadOnly` defaults to
+  `false`** while its own config comment says "True recommended". Left at the default it zips a
+  world folder the server is writing into — the same torn copy this whole section exists to avoid,
+  in the place nobody looks for it.
 
 ## Troubleshooting
 

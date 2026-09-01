@@ -44,7 +44,7 @@ a projection of it; LuckPerms is not involved anywhere.
 | [i18n.md](i18n.md) | How German and English work everywhere, and how a third language is added without a release |
 | [hunger-games.md](hunger-games.md) | The start event in full: registration, teams, border, loot, HUD, winning |
 | [smp.md](smp.md) | The SMP in full: worlds, travel, milestones, aura, prestige, duels, graves, POIs |
-| [updater.md](updater.md) | **Designed 2026-09-01, not built.** How versions and the schema stop being hand edits: what the updater owns, where it reads versions from, and the order a run happens in |
+| [updater.md](updater.md) | **Designed 2026-09-01; step 1 of 6 built the same day.** How versions and the schema stop being hand edits: what the updater owns, where it reads versions from, and the order a run happens in. The module resolves and reports today and writes nothing |
 | [../deploy/README.md](../deploy/README.md) | Everything about production: the runbook, why the stack has this shape, what was measured on it, and the third-party plugins the SMP server needs |
 | [access-system.md](access-system.md) | The paid access concept: product, rules, payment matching, linking |
 | [state-of-play.md](state-of-play.md) | Where the **code** stands against all of the above, what can be built today, and what still needs a decision |
@@ -79,7 +79,7 @@ before; it was committed after the implementation it failed to describe. Numbers
 | SMP: the milestone track, aura, prestige, the milestone engine | **built** 2026-09-01 |
 | SMP: worlds, travel, duels, graves, POIs, boards, the wheel | **built** 2026-09-01, in three blocks — and unrehearsed: nothing in it has been seen on a running server |
 | PostgreSQL backup and restore | **not designed** — the one open piece of concept work |
-| Version and schema management (`updater`) | **designed 2026-09-01, not built** — [updater.md](updater.md) |
+| Version and schema management (`updater`) | **step 1 of 6 built 2026-09-01** — resolves every version from GitHub, Modrinth and the Fill API, compares against the volumes, reports. No writes, no schema, no restart yet — [updater.md](updater.md) |
 
 **What is left is a rehearsal, not a feature.** Every module in this repository has behaviour as of
 2026-09-01, the SMP's world half included. What none of them has is a witness: no world, no packet

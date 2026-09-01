@@ -1,0 +1,14 @@
+{
+  "tag_name": "2.0.0",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-08-29T16:15:19Z",
+  "assets": [
+    {
+      "name": "papermc-display-tags-2.0.0.jar",
+      "size": 109928,
+      "browser_download_url": "https://github.com/nordtal/papermc-display-tags/releases/download/2.0.0/papermc-display-tags-2.0.0.jar",
+      "content_type": "application/java-archive"
+    }
+  ]
+}

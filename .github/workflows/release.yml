@@ -71,6 +71,7 @@ jobs:
           cp smp/build/libs/smp-${VERSION}.jar dist/
           cp network-control/build/libs/network-control-${VERSION}.jar dist/
           cp discord-bot/build/libs/discord-bot-${VERSION}.jar dist/
+          cp updater/build/libs/updater-${VERSION}.jar dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
           ls -la dist

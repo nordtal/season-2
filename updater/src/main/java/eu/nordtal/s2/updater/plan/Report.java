@@ -149,6 +149,12 @@ public final class Report {
         } else if (result.changedAnything()) {
             out.append("Everything asked for was done. A restart is what puts it into effect -")
                     .append(" nothing here changed a running server.\n");
+        } else if (result.skippedAnything()) {
+            // Neither a failure nor a no-op, and it must not read as either: nothing was installed
+            // because nothing COULD be, and the skipped lines above say why on each one.
+            out.append("Nothing was installed, and not because everything was current -")
+                    .append(" every line above says why it was skipped. Read them before assuming")
+                    .append(" the network is up to date.\n");
         } else {
             out.append("Nothing needed doing.\n");
         }

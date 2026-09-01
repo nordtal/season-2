@@ -9,7 +9,7 @@
 #
 # Step 4 is why this script exists at all: with tmux in the picture and no trap, `docker stop`
 # would kill a wrapper and leave the JVM to be SIGKILLed at the end of stop_grace_period, which
-# is how worlds get half-written. See docs/operations.md#the-server-containers.
+# is how worlds get half-written. See ../README.md#why-it-looks-like-this.
 set -Eeuo pipefail
 
 log()  { printf '[nordtal] %s\n' "$*"; }

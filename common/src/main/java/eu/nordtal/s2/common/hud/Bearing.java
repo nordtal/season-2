@@ -1,4 +1,4 @@
-package eu.nordtal.s2.hungergames.hud;
+package eu.nordtal.s2.common.hud;
 
 /**
  * Turns a player's position and facing plus a target position into one of the sixteen
@@ -9,6 +9,10 @@ package eu.nordtal.s2.hungergames.hud;
  * whole calculation is a plain unit test. The plugin's HUD code passes
  * {@code player.getLocation().getYaw()} and the relevant X/Z pairs in.
  * </p>
+ *
+ * <p><b>Moved into {@code :common} on 2026-09-01</b>: {@code /navigate}'s second HUD line points at
+ * a POI with the same sixteen arrows the hunger games point at the border with. One allocation of
+ * {@code U+EF10}-{@code U+EF1F}, one mapping from an angle to it.</p>
  */
 public final class Bearing {
 

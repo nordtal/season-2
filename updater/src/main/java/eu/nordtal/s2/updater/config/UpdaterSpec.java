@@ -222,4 +222,17 @@ public interface UpdaterSpec {
     default int httpTimeoutSeconds() {
         return 30;
     }
+
+    @Order(13)
+    @Key("download-timeout-seconds")
+    @Comment({
+            "How long a single jar may take to download during `updater apply`.",
+            "",
+            "Much larger than http-timeout-seconds and for a different reason: that one bounds six",
+            "small JSON documents, this one bounds a Paper server jar of about 65 MB. Ten minutes",
+            "is what deploy/minecraft/entrypoint.sh already allows itself for the same file."
+    })
+    default int downloadTimeoutSeconds() {
+        return 600;
+    }
 }

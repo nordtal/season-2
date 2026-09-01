@@ -48,6 +48,7 @@ public final class Configs {
                     requireText("velocity-version", config.velocityVersion());
                     requireText("volumes-root", config.volumesRoot());
                     requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
+                    requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
                 })
                 .load();
 

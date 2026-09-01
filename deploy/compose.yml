@@ -46,8 +46,11 @@ x-minecraft: &minecraft
   stop_grace_period: 180s
   environment: &minecraft-env
     TZ: ${TZ:-Europe/Berlin}
-    SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
-    SEASON_RELEASE: ${SEASON_RELEASE:?set SEASON_RELEASE in .env - the release tag the jars come from}
+    # SEASON_REPO and SEASON_RELEASE used to live here, because entrypoint.sh fetched the plugin
+    # jars. It does not any more (2026-09-01): the `updater` service owns the plugin jars, and two
+    # owners is one owner too many. What the updater follows is UPDATER_SEASON_RELEASE, on its own
+    # service below. What is left here is what this container still owns - the server jar, the
+    # datapacks and the seeded configuration.
   logging: &logging
     driver: json-file
     options:
@@ -199,7 +202,6 @@ services:
       SERVER_KIND: velocity
       SERVER_VERSION: ${VELOCITY_VERSION:-4.1.1}
       SERVER_BUILD: ${VELOCITY_BUILD:-24}
-      SEASON_PLUGINS: network-control-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
       HEAP: ${PROXY_HEAP:-1G}
       # Modern forwarding. The same value reaches the three backends below as
       # PAPER_VELOCITY_SECRET, so there is nothing to paste into a config file any more.
@@ -208,19 +210,20 @@ services:
       # what network-control's gate.yml#server-* keys expect; the hosts are these service names.
       VELOCITY_SERVERS: ${VELOCITY_SERVERS:-limbo=limbo:25565 hunger-games=hunger-games:25565 smp=smp:25565}
       VELOCITY_TRY: ${VELOCITY_TRY:-limbo}
-      # The resource pack the proxy offers. WITHOUT THESE THE PROXY REFUSES TO START while
-      # pack.enabled is true - PackSpec#url and #sha1 have empty defaults on purpose, because a
-      # default pointing at somebody else's release would be worse than none. Until 2026-09-01
-      # they were reachable only by editing pack.yml inside the volume, which contradicted this
-      # file being the whole configuration; they are variables now.
+      # The resource pack the proxy offers used to be two variables here, PACK_URL and PACK_SHA1.
+      # They were removed on 2026-09-01, the same day they were added, and the reason is a property
+      # of jcore's config system: AN ENVIRONMENT OVERRIDE WINS OVER THE FILE AND IS NEVER WRITTEN
+      # BACK TO IT. So an updater writing a new sha1 into pack.yml while these were set would be
+      # writing into a value nothing reads - a swap that reports success and changes nothing.
       #
-      # The URL must be the github.com/.../releases/download/... address, never the signed
-      # release-assets.githubusercontent.com one it redirects to - that expires within the hour.
-      # The sha1 is the content of the .zip.sha1 asset sitting next to the zip; never typed by
-      # hand, never copied from an older release. A mismatch reaches the player as
-      # FAILED_DOWNLOAD, which looks exactly like a network problem and is not one.
-      NORDTAL_NETWORK_CONTROL_PACK_URL: ${PACK_URL:-https://github.com/${SEASON_REPO:-nordtal/season-2}/releases/download/${SEASON_RELEASE}/nordtal-resource-pack-${SEASON_VERSION}.zip}
-      NORDTAL_NETWORK_CONTROL_PACK_SHA1: ${PACK_SHA1:?set PACK_SHA1 in .env - the content of the nordtal-resource-pack-<version>.zip.sha1 asset of the release named by SEASON_RELEASE}
+      # pack.yml in this volume is the place now, and `updater apply` is what writes it, taking the
+      # URL from the release asset and the hash from the .sha1 asset beside it. Nobody copies a
+      # forty-character string out of a release page any more, which is what those two variables
+      # were for.
+      #
+      # The proxy still refuses to start with an empty url or sha1 while pack.enabled is true. On a
+      # brand new volume that means: bring network-control up once so it writes its config, then
+      # run the updater, then start it for real. See ../docs/updater.md and ../deploy/README.md.
       NORDTAL_NETWORK_CONTROL_DATABASE_JDBC_URL: *db-url
       NORDTAL_NETWORK_CONTROL_DATABASE_USERNAME: *db-username
       NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD: *db-password
@@ -238,7 +241,6 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
-      SEASON_PLUGINS: limbo-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
       HEAP: ${LIMBO_HEAP:-1G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
       # A Paper server given a forwarding secret is a backend: the entrypoint sets
@@ -261,7 +263,6 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
-      SEASON_PLUGINS: hunger-games-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
       # A Paper server given a forwarding secret is a backend: the entrypoint sets
@@ -284,11 +285,16 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
-      SEASON_PLUGINS: smp-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
-      # DisplayTags is REQUIRED (paper-plugin.yml declares it load: BEFORE, required: true) and
-      # PacketEvents is required under it. Verified 2026-09-01 against the display-tags repo:
-      # 2.13.0 is the first PacketEvents with 26.2 support and is its stated minimum.
-      EXTRA_PLUGIN_URLS: ${SMP_EXTRA_PLUGIN_URLS:-https://github.com/nordtal/papermc-display-tags/releases/download/2.0.0/papermc-display-tags-2.0.0.jar https://github.com/retrooper/packetevents/releases/download/v2.13.0/packetevents-spigot-2.13.0.jar https://cdn.modrinth.com/data/fALzjamp/versions/MdY6JATr/Chunky-Bukkit-1.5.3.jar}
+      # DisplayTags, PacketEvents and Chunky used to be pinned here as three full URLs with three
+      # versions in them. The updater resolves all three now - DisplayTags from its own repository's
+      # releases, the other two from Modrinth filtered to this Minecraft version and `paper` - which
+      # is the whole reason this line was worth deleting: it was three versions maintained by hand
+      # in a file nobody opens between deployments.
+      #
+      # They are still REQUIRED, and nothing about that changed: smp/src/main/resources/
+      # paper-plugin.yml declares DisplayTags load: BEFORE, required: true, and PacketEvents is
+      # required under it. The guard is now in entrypoint.sh - an empty plugins folder stops the
+      # container.
       # Terralith and Dungeons and Taverns, pinned by sha512, fetched into the level-name
       # world's datapacks/ folder BEFORE the server starts. Datapacks are server-global and
       # read once at start (measured on Paper 26.2 build 121, 2026-09-01), so this one folder
@@ -335,8 +341,9 @@ services:
     environment:
       TZ: ${TZ:-Europe/Berlin}
       # Which release to follow: 'latest', or an exact tag to pin - which is how a rollback is
-      # expressed. Deliberately NOT tied to SEASON_RELEASE: that variable is what the servers are
-      # running now, and this one is what they would be moved to.
+      # expressed. SEASON_RELEASE is gone from this file entirely - what a server runs is now the
+      # jar lying in its volume, not a variable claiming to describe it.
+      NORDTAL_UPDATER_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
       NORDTAL_UPDATER_SEASON_RELEASE: ${UPDATER_SEASON_RELEASE:-latest}
       NORDTAL_UPDATER_DISPLAY_TAGS_RELEASE: ${UPDATER_DISPLAY_TAGS_RELEASE:-latest}
       NORDTAL_UPDATER_MINECRAFT_VERSION: ${PAPER_VERSION:-26.2}
@@ -348,10 +355,14 @@ services:
       - updater-config:/app/config
       # The four Minecraft volumes, under the names the compose services have - which is what
       # Topology in :updater expects to find beneath volumes-root.
-      - mc-network-control:/volumes/network-control:ro
-      - mc-limbo:/volumes/limbo:ro
-      - mc-hunger-games:/volumes/hunger-games:ro
-      - mc-smp:/volumes/smp:ro
+      # Writable, because `updater apply` puts the jars here and writes network-control's
+      # pack.yml. A plain `updater` run still writes nothing into them - the two commands are
+      # separated so that the read-only one is the default and the writing one has to be asked for
+      # by name.
+      - mc-network-control:/volumes/network-control
+      - mc-limbo:/volumes/limbo
+      - mc-hunger-games:/volumes/hunger-games
+      - mc-smp:/volumes/smp
     logging: *logging
 
 volumes:

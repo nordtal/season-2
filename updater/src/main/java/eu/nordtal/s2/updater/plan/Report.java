@@ -1,5 +1,6 @@
 package eu.nordtal.s2.updater.plan;
 
+import eu.nordtal.s2.updater.apply.ApplyResult;
 import eu.nordtal.s2.updater.source.RemoteFile;
 
 import org.jetbrains.annotations.NotNull;
@@ -7,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -98,6 +100,58 @@ public final class Report {
         }
 
         out.append(summary(plan)).append('\n');
+        return out.toString();
+    }
+
+    /**
+     * What a run did, in the same shape as the plan above so the two read as one page.
+     * <p>
+     * Printed <b>before</b> anything restarts, which is the reason the order in
+     * docs/updater.md#what-a-run-does-in-order is what it is: the whole value of the restart being
+     * a separate button is that somebody sees this first.
+     * </p>
+     */
+    public static @NotNull String render(final @NotNull ApplyResult result) {
+        final StringBuilder out = new StringBuilder("what was done\n\n");
+
+        final Map<String, List<ApplyResult.Outcome>> grouped = new LinkedHashMap<>();
+        for (final ApplyResult.Outcome outcome : result.outcomes()) {
+            grouped.computeIfAbsent(outcome.service() == null ? "(no volume)" : outcome.service(),
+                    key -> new ArrayList<>()).add(outcome);
+        }
+
+        final int width = grouped.values().stream()
+                .flatMap(List::stream)
+                .mapToInt(outcome -> outcome.artifact().length())
+                .max()
+                .orElse(0);
+
+        grouped.forEach((service, outcomes) -> {
+            out.append(service).append('\n');
+            for (final ApplyResult.Outcome outcome : outcomes) {
+                final String detail = outcome.detail() == null ? "" : outcome.detail();
+                out.append(INDENT)
+                        .append(pad(outcome.artifact(), width))
+                        .append("  ")
+                        .append(detail.isEmpty()
+                                ? outcome.status().name().toLowerCase(Locale.ROOT)
+                                : pad(outcome.status().name().toLowerCase(Locale.ROOT), LABEL_WIDTH))
+                        .append(detail)
+                        .append('\n');
+            }
+            out.append('\n');
+        });
+
+        if (result.hasFailures()) {
+            out.append("Something failed. DO NOT RESTART on this run: read the FAILED lines first -")
+                    .append(" a server that was part-updated is the one state worth catching before")
+                    .append(" the network goes down on it.\n");
+        } else if (result.changedAnything()) {
+            out.append("Everything asked for was done. A restart is what puts it into effect -")
+                    .append(" nothing here changed a running server.\n");
+        } else {
+            out.append("Nothing needed doing.\n");
+        }
         return out.toString();
     }
 

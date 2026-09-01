@@ -1,16 +1,21 @@
 # updater — the module that owns versions and the schema
 
-**Decided 2026-09-01. Step 1 is built; steps 2 to 6 are not.** This document is the design; the
+**Decided 2026-09-01. Steps 1 and 3 are built; 2, 4, 5 and 6 are not.** This document is the design; the
 implementation follows it piece by piece, and [state-of-play.md](state-of-play.md) is where the gap
-between the two is tracked. What exists today is the `updater` module: it resolves the newest
-version of everything from all four sources, compares it against the jars actually lying in the
-volumes, and prints the difference. **It writes nothing outside its own config volume** — the
-four Minecraft mounts are read-only, and the one file it does write is `config/updater.yml` on a
-first run — which is why it is safe to run against a live deployment at any moment:
+between the two is tracked. What exists today is the `updater` module and two commands:
 
 ```
-docker compose --profile updater run --rm updater
-``` Read [../deploy/README.md](../deploy/README.md) first if
+docker compose --profile updater run --rm updater          # resolve, compare, report. Changes nothing.
+docker compose --profile updater run --rm updater apply    # fetch the files and put them in place.
+```
+
+The first writes nothing into a Minecraft volume, so it is safe against a live deployment at any
+moment. The second installs the jars and writes the proxy's `pack.yml` — and **still restarts
+nothing**: it prints what it did and stops, which is the point of the restart being a separate
+button in step 6.
+
+The default is the read-only command on purpose. A container started by accident, or with a
+misspelled argument, does the harmless thing; `apply` has to be asked for by name. Read [../deploy/README.md](../deploy/README.md) first if
 you want to know how the stack runs today — everything below changes how it is *updated*, not how
 it is shaped.
 
@@ -86,9 +91,13 @@ tests against it — so it is also the first thing to look at when something bre
    Nothing is downloaded yet.
 2. **Migrate.** Apply Flyway. This happens before any jar moves, so a plugin never comes up against
    a schema that is older than it is.
-3. **Swap.** Fetch into the volumes and delete the superseded jars — the same cache-first,
-   supersede-by-prefix logic `entrypoint.sh` already uses, so a version that is already there is
-   not fetched again and the container never silently keeps an older jar.
+3. **Swap.** Fetch into a staging directory inside each server's own volume, verify, and only then
+   move everything in and delete the superseded jars — supersede-by-prefix, the same rule
+   `entrypoint.sh` used. **Two phases, which the entrypoint did not do**, and for a reason it did
+   not have: this moves eight artefacts across four servers at once, and a network running four
+   servers on two versions of the season is worse than one that did not update. A server whose
+   artefacts cannot all be resolved is skipped whole — DisplayTags is a *required* plugin of `smp`
+   and PacketEvents is required under it, so a partial swap there is a server that does not start.
 4. **Set the pack.** Write the release's pack URL and the `.sha1` asset's content where
    network-control reads them.
 5. **Report.** Post the result: per artefact, old → new, or "unchanged". **This happens before
@@ -166,7 +175,7 @@ already does as its safety net, and nothing about this design changes.
 
 Both came out of writing step 1 and neither was in the original design.
 
-**The updater owns the plugin jars, and `entrypoint.sh` stops fetching them.** They would otherwise
+**The updater owns the plugin jars, and `entrypoint.sh` stops fetching them.** *(Carried out in step 3.)* They would otherwise
 collide: the script pulls `<module>-${SEASON_VERSION}.jar` on every start and deletes, by prefix,
 every other version of the same plugin. An updater that puts `0.3.0` into a volume while `.env`
 still says `0.2.0` would have the next restart delete exactly the jar it just fetched. So
@@ -176,7 +185,7 @@ no plugins**, and the container's "refuse to start rather than run an older jar"
 them. That is consistent rather than new — this module is the bootstrap already, because it owns
 the schema.
 
-**The pack's URL and hash live in `pack.yml`, not in the environment.** They were made compose
+**The pack's URL and hash live in `pack.yml`, not in the environment.** *(Carried out in step 3.)* They were made compose
 variables earlier the same day, for a good reason: they were reachable only by editing a file
 inside a volume. That is being partly taken back, because of how jcore's config system works —
 **an environment override wins over the file and is never written back to it.** An updater writing
@@ -207,9 +216,13 @@ Built piece by piece, and each piece is useful on its own:
    Fill APIs that day, plus a volume tree on disk. `TopologyTest` reads the real `compose.yml`, so
    a fifth backend server added there and not here fails the build.
 2. Flyway moves from the bot into the updater; the bot becomes a client.
-3. Swapping jars into the volumes, and setting the pack URL and sha1 — which is also where
-   `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS`, `PACK_URL` and `PACK_SHA1` are removed, and where the
-   four compose mounts stop being read-only. See *Two things this displaced* above.
+3. ~~Swapping jars into the volumes, and setting the pack URL and sha1.~~ **Built 2026-09-01.**
+   Two-phase: everything a server needs is staged inside that server's own volume and only moved in
+   once all of it is there, so a failed download leaves the server as it was. A server whose
+   artefacts cannot all be resolved is skipped whole. `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS`,
+   `PACK_URL`, `PACK_SHA1` and `SEASON_RELEASE` are gone from the deployment, `entrypoint.sh` no
+   longer fetches plugins and refuses to start on an empty `plugins/` folder instead, and the four
+   compose mounts are writable. 75 tests.
 4. The Discord command, the embed, and the restart button.
 5. The Arcane redeploy.
 6. `/smp update` in game, over `NOTIFY`.

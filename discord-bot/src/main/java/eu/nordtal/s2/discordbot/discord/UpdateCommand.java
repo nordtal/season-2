@@ -263,12 +263,15 @@ public final class UpdateCommand extends ListenerAdapter {
      * button on a run that went wrong, because the next thing to do is read what it says.</p>
      */
     private static MessageEditData finished(final UpdateRequest request) {
-        final boolean failed = request.status() != UpdateStatus.DONE;
+        // A cancelled restart is not a failure - it is somebody using the way out on purpose, and
+        // the watch below overwrites the "Stopped." line with this embed either way. Colouring it
+        // red would turn a deliberate act into something that looks like it went wrong.
+        final boolean failed = request.status() == UpdateStatus.FAILED;
         final MessageEditBuilder message = new MessageEditBuilder()
                 .setContent("")
                 .setEmbeds(embed(request, failed));
 
-        if (failed || request.kind() == UpdateKind.RESTART) {
+        if (request.status() != UpdateStatus.DONE || request.kind() == UpdateKind.RESTART) {
             return message.setComponents(List.of()).build();
         }
         return message.setComponents(ActionRow.of(button(request.kind()))).build();
@@ -298,6 +301,9 @@ public final class UpdateCommand extends ListenerAdapter {
     }
 
     private static String title(final UpdateRequest request) {
+        if (request.status() == UpdateStatus.CANCELLED) {
+            return "Restart stopped";
+        }
         return switch (request.kind()) {
             case REPORT -> "What is new";
             case APPLY -> "Installed";

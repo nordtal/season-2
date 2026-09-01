@@ -121,11 +121,63 @@ public final class HungerGamesManager {
             }
 
             frozen = true;
+            announceDemotions(participants);
+            scheduleCountdown(participants);
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 release(gameId, participants);
                 onReleased.run();
             }, config.countdownSeconds() * 20L);
         });
+    }
+
+    /**
+     * Tells every solo-by-demotion participant why they are standing on their tower alone. The
+     * flag has been computed by {@link Demotion} and carried on {@link Participant} since the
+     * module was built, and nothing ever read it - so a player whose partner never linked found
+     * out by looking around.
+     *
+     * <p>Sent once, at the start of the countdown, rather than at release: it is the answer to a
+     * question the player asks the moment they arrive, and by release they have stopped asking.
+     * Only online participants are told; a body waiting for its owner has nobody to tell.</p>
+     */
+    private void announceDemotions(final List<Participant> participants) {
+        for (final Participant participant : participants) {
+            if (!participant.demotedToSolo()) {
+                continue;
+            }
+            final Player online = plugin.getServer().getPlayer(participant.mcUuid());
+            if (online != null) {
+                online.sendMessage(Component.text(messages.format(locales.of(participant.mcUuid()),
+                        "hg.team.demoted", "team", participant.teamName())));
+            }
+        }
+    }
+
+    /**
+     * Schedules the countdown announcements at {@link Countdown#marks(int)}. One task per mark
+     * rather than one repeating task: the marks are not evenly spaced, and a task that survives a
+     * cancelled game is worse than eight that expire on their own. Bukkit cancels all of them when
+     * the plugin disables.
+     */
+    private void scheduleCountdown(final List<Participant> participants) {
+        final int total = config.countdownSeconds();
+        for (final int remaining : Countdown.marks(total)) {
+            final long delayTicks = (total - remaining) * 20L;
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                // The game can be over, or never have started, by the time a mark fires.
+                if (!frozen) {
+                    return;
+                }
+                for (final Participant participant : participants) {
+                    final Player online = plugin.getServer().getPlayer(participant.mcUuid());
+                    if (online != null) {
+                        online.sendMessage(Component.text(messages.format(
+                                locales.of(participant.mcUuid()), "hg.start.countdown",
+                                "seconds", remaining)));
+                    }
+                }
+            }, delayTicks);
+        }
     }
 
     /**

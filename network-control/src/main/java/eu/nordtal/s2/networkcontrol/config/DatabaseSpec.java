@@ -46,14 +46,14 @@ public interface DatabaseSpec {
     @Key("jdbc-url")
     @Comment("JDBC URL of the PostgreSQL database that holds the access schema.")
     default String jdbcUrl() {
-        return "jdbc:postgresql://localhost:5432/access";
+        return "jdbc:postgresql://localhost:5432/nordtal";
     }
 
     @Order(2)
     @Key("username")
     @Comment("Database user. Read-mostly: the login path only ever reads, links and issues codes.")
     default String username() {
-        return "access";
+        return "nordtal";
     }
 
     @Order(3)

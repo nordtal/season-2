@@ -126,6 +126,117 @@ if [[ -n "${EXTRA_PLUGIN_URLS:-}" ]]; then
     done
 fi
 
+# --- first-start configuration -----------------------------------------------------------------
+# Everything below is SEEDING, not editing: a file that already exists is left alone and belongs
+# to the operator from then on. The one exception is server.properties#online-mode, which is
+# enforced on every start because a proxied backend that authenticates players itself does not
+# start at all - see prepare_backend.
+
+# Sets key=value in a Java properties file, creating the file if it is not there yet. Idempotent,
+# and it says so in the log when it actually changes something.
+set_property() {
+    local file="$1" key="$2" value="$3" tmp
+    if [[ -f "$file" ]] && grep -qE "^${key}=" "$file"; then
+        grep -qxF "${key}=${value}" "$file" && return 0
+        tmp="${file}.tmp"
+        sed "s|^${key}=.*|${key}=${value}|" "$file" > "$tmp" && mv "$tmp" "$file"
+        log "${file##*/}: ${key} set to ${value}"
+    else
+        printf '%s=%s\n' "$key" "$value" >> "$file"
+        log "${file##*/}: ${key}=${value} added"
+    fi
+}
+
+# A Paper server that sits behind the proxy. Two things have to be true and neither of them is
+# Paper's default, which is why this used to be two manual steps per backend in the runbook.
+prepare_backend() {
+    local global="$DATA/config/paper-global.yml"
+
+    # The proxy is what authenticates; a backend doing it as well refuses every forwarded login.
+    # Enforced on every start rather than seeded: online-mode=true here is not a preference, it
+    # is a server that cannot work, and Paper writes the file itself on first start.
+    set_property "$DATA/server.properties" online-mode false
+
+    # The secret itself is not seeded: Paper reads PAPER_VELOCITY_SECRET from the environment
+    # (PaperMC/Paper#10127), which is what removes the manual paste into three separate files.
+    # It does NOT keep the secret out of the volume - verified 2026-09-01 on Paper 26.2 build
+    # 121, Paper writes the value it took from the environment straight into paper-global.yml on
+    # first load. Rotating it means changing .env AND that line in each backend.
+    #
+    # What Paper has no environment variable for is the switch that turns modern forwarding on,
+    # so that much is seeded here. Paper fills in every other key with its defaults on first
+    # load - measured: a four-line file comes back as the full ~150-line config, with a warning
+    # that it had no version set.
+    if [[ -f "$global" ]]; then
+        log "config/paper-global.yml exists - not touched. Modern forwarding has to be enabled in it (proxies.velocity.enabled: true)."
+    else
+        mkdir -p "$(dirname "$global")"
+        cat > "$global" <<'YAML'
+# Seeded by the nordtal entrypoint on first start, and not touched again. Paper adds every other
+# setting with its default the first time it loads this file.
+#
+# proxies.velocity.secret is absent here because it arrives as PAPER_VELOCITY_SECRET from the
+# environment. Paper writes it into this file on first load, so it does end up in this volume -
+# the environment variable saves the manual paste, not the copy on disk.
+proxies:
+  velocity:
+    enabled: true
+    online-mode: true
+YAML
+        log "seeded config/paper-global.yml with Velocity modern forwarding enabled"
+    fi
+}
+
+# The proxy's own config. Only the settings this deployment cannot work without; Velocity applies
+# its defaults to everything a config file leaves out, so this stays short instead of freezing a
+# copy of Velocity's 200-line default that would go stale on the next upgrade.
+#
+# [forced-hosts] IS WRITTEN EMPTY ON PURPOSE, and it is not decoration. Measured 2026-09-01 with
+# Velocity 4.1.1 build 24: leave the table out and Velocity falls back to its default one, which
+# routes lobby.example.com/factions.example.com/minigames.example.com at servers this file does
+# not define - and it then refuses to start at all ("Your configuration is invalid"). "Velocity
+# defaults the rest" is true per key, not per table.
+seed_velocity_config() {
+    local file="$DATA/velocity.toml" name address tmp
+
+    if [[ -f "$file" ]]; then
+        log "velocity.toml exists - not touched"
+        return 0
+    fi
+    if [[ -z "${VELOCITY_SERVERS:-}" ]]; then
+        warn "no velocity.toml and VELOCITY_SERVERS is unset, so Velocity will write its own default: forwarding off and three example servers on 127.0.0.1. Nobody can join through that."
+        return 0
+    fi
+
+    # Checked before a byte is written. A malformed entry used to abort halfway through the
+    # redirection below, and a half-written velocity.toml is indistinguishable from an operator's
+    # own on the next start - seeded once means there is no second chance to get it right.
+    for entry in $VELOCITY_SERVERS; do
+        [[ "$entry" == *=* ]] || die "VELOCITY_SERVERS entries are name=host:port, not '${entry}'"
+    done
+
+    tmp="${file}.partial"
+    {
+        printf '# Seeded by the nordtal entrypoint on first start, and not touched again.\n'
+        printf '# Everything Velocity is not told here keeps its own default.\n'
+        printf 'config-version = "2.8"\n'
+        printf 'bind = "0.0.0.0:25565"\n'
+        printf 'online-mode = true\n'
+        printf 'player-info-forwarding-mode = "modern"\n'
+        printf 'forwarding-secret-file = "forwarding.secret"\n\n'
+        printf '[servers]\n'
+        for entry in $VELOCITY_SERVERS; do
+            name="${entry%%=*}"
+            address="${entry#*=}"
+            printf '%s = "%s"\n' "$name" "$address"
+        done
+        printf 'try = ["%s"]\n\n' "${VELOCITY_TRY:-${VELOCITY_SERVERS%%=*}}"
+        printf '[forced-hosts]\n'
+    } > "$tmp" || { rm -f "$tmp"; exit 1; }
+    mv "$tmp" "$file"
+    log "seeded velocity.toml: modern forwarding, servers ${VELOCITY_SERVERS}"
+}
+
 # --- per-kind preparation --------------------------------------------------------------------
 JAVA_ARGS=()
 if [[ "$SERVER_KIND" == "paper" ]]; then
@@ -134,15 +245,26 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
         || die "set EULA=true to accept https://aka.ms/MinecraftEULA - this is deliberately not defaulted"
     printf 'eula=true\n' > "$DATA/eula.txt"
     JAVA_ARGS+=(nogui)
+
+    # A Paper server that is given a forwarding secret is by definition a backend behind the
+    # proxy. That is the whole switch: one variable, and the two settings that follow from it are
+    # applied rather than written into a runbook.
+    #
+    # Spelled as an `if` and not as `[[ ... ]] && prepare_backend`: the AND-list form is exempt
+    # from `set -e` and would be fine, but this script is PID 1 and "the container exits before
+    # the server starts" is not a failure worth being clever about.
+    if [[ -n "${PAPER_VELOCITY_SECRET:-}" ]]; then
+        prepare_backend
+    fi
 else
     # Velocity reads the modern-forwarding secret from the file named in velocity.toml
     # (forwarding-secret-file). Writing it here keeps it out of the volume's committed config and
-    # in the environment, where every other secret in this project lives. The SAME secret has to
-    # be in each Paper backend's config/paper-global.yml - see deploy/README.md.
+    # in the environment, where every other secret in this project lives.
     if [[ -n "${VELOCITY_FORWARDING_SECRET:-}" ]]; then
         printf '%s' "$VELOCITY_FORWARDING_SECRET" > "$DATA/forwarding.secret"
         chmod 600 "$DATA/forwarding.secret"
     fi
+    seed_velocity_config
 fi
 
 JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch}"

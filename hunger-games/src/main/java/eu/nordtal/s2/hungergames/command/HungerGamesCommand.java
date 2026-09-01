@@ -118,14 +118,14 @@ public final class HungerGamesCommand {
         final Locale locale = locales.of(player.getUniqueId());
         final UUID gameId = currentGameId.get();
         if (gameId == null) {
-            player.sendMessage(Component.text(messages.get(locale, "hg.start.no-game")));
+            tell(player, messages.get(locale, "hg.start.no-game"));
             return;
         }
 
         final var game = dao.game(gameId);
         if (game.isEmpty() || !"REGISTRATION".equals(game.get().state().name())) {
-            player.sendMessage(Component.text(messages.format(locale, "hg.start.wrong-state",
-                    "state", game.map(g -> g.state().name()).orElse("NONE"))));
+            tell(player, messages.format(locale, "hg.start.wrong-state",
+                    "state", game.map(g -> g.state().name()).orElse("NONE")));
             return;
         }
 
@@ -133,30 +133,37 @@ public final class HungerGamesCommand {
         final int participantCount = Demotion.resolve(roster).size();
 
         if (participantCount < HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS) {
-            player.sendMessage(Component.text(messages.format(locale, "hg.start.below-hard-minimum",
-                    "minimum", HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS, "count", participantCount)));
+            tell(player, messages.format(locale, "hg.start.below-hard-minimum",
+                    "minimum", HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS, "count", participantCount));
             return;
         }
 
         if (participantCount < config.softMinimumParticipants() && !isConfirmation) {
             pendingConfirmations.put(player.getUniqueId(), Instant.now().plus(CONFIRM_WINDOW));
-            player.sendMessage(Component.text(messages.format(locale, "hg.start.below-soft-minimum",
+            tell(player, messages.format(locale, "hg.start.below-soft-minimum",
                     "count", participantCount, "minimum", config.softMinimumParticipants(),
-                    "seconds", CONFIRM_WINDOW.toSeconds())));
+                    "seconds", CONFIRM_WINDOW.toSeconds()));
             return;
         }
 
         if (isConfirmation) {
             final Instant deadline = pendingConfirmations.remove(player.getUniqueId());
             if (deadline == null || Instant.now().isAfter(deadline)) {
-                player.sendMessage(Component.text(messages.get(locale, "hg.start.confirm-expired")));
+                tell(player, messages.get(locale, "hg.start.confirm-expired"));
                 return;
             }
         }
 
-        player.sendMessage(Component.text(messages.format(locale, "hg.start.started",
-                "count", participantCount)));
-        Bukkit.getScheduler().runTask(plugin, () -> onConfirmedStart.accept(gameId, player));
+        tell(player, messages.format(locale, "hg.start.started", "count", participantCount));
+        // The one command that decides the whole event, and until now nothing in the container log
+        // said it had been run. Who, which game, and how many participants the arithmetic saw.
+        LOGGER.info("hunger-games game {} started by {} with {} resolvable participants{}",
+                gameId, player.getUniqueId(), participantCount,
+                isConfirmation ? " (confirmed below the soft minimum)" : "");
+        // Straight through on this thread. onConfirmedStart leads to HungerGamesManager#start,
+        // which reads the roster and writes the team colours before it hops to the main thread
+        // itself; a runTask here would have undone exactly that.
+        onConfirmedStart.accept(gameId, player);
     }
 
     // ---------------------------------------------------------------- /hg ready
@@ -211,16 +218,36 @@ public final class HungerGamesCommand {
 
     // ---------------------------------------------------------------- admin gate
 
+    /**
+     * Runs {@code action} on the very async task that just checked the admin flag - deliberately
+     * <b>not</b> back on the main thread.
+     *
+     * <p>Everything {@code /hg start} does before the world is touched is database work:
+     * {@link HungerGamesDao#game}, {@link HungerGamesDao#roster}, and then
+     * {@link HungerGamesManager#start} with its own roster read and one colour write per team.
+     * Handing {@code action} to {@code runTask} put all of that on the main thread at the exact
+     * moment every participant is about to be teleported onto a tower - the same mistake, in the
+     * same shape, as the join-time language lookup that froze this module's login path.
+     * {@code HungerGamesManager#start}'s own closing {@code runTask} is the proof that it was
+     * always written to be called from here rather than from the server thread.
+     *
+     * <p>What genuinely needs the main thread hops there itself: {@link #tell} for every message,
+     * and {@code HungerGamesManager#start} for the world work.
+     */
     private void runAsAdmin(final Player player, final Runnable action) {
         final Locale locale = locales.of(player.getUniqueId());
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final boolean admin = dao.isAdmin(player.getUniqueId()).orElse(Boolean.FALSE);
             if (!admin) {
-                Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(
-                        Component.text(messages.get(locale, "hg.start.not-admin"))));
+                tell(player, messages.get(locale, "hg.start.not-admin"));
                 return;
             }
-            Bukkit.getScheduler().runTask(plugin, action);
+            action.run();
         });
+    }
+
+    /** Sends one message on the main thread, from wherever it is called. */
+    private void tell(final Player player, final String message) {
+        Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(Component.text(message)));
     }
 }

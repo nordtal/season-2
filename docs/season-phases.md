@@ -128,7 +128,8 @@ switch to `SMP`.
 guarantee: the dedicated connection, the `getNotifications(timeout)` thread and the reconnect
 re-read are easier to get right while the phase model is being written than to retrofit into it,
 and leaving them out would keep
-[operations.md](operations.md#open-verification)'s `LISTEN`/`NOTIFY` row open indefinitely.
+the `LISTEN`/`NOTIFY` row in
+[state-of-play.md](state-of-play.md#the-unverified-assumptions) open indefinitely.
 
 ## Who may switch it
 
@@ -238,9 +239,10 @@ here so nobody looks for them in prose:
   `gate.yml#server-*` keys default to the module directory names and are the single place to
   correct it. It will be answered by the first real deployment — which is now a `compose.yml` whose
   service names *are* those backend names, so the two stop being independent facts the moment the
-  stack in [operations.md](operations.md#deployment) is written.
+  stack in [../deploy/README.md](../deploy/README.md) is written.
 - **Whether a Velocity `LoginEvent`-allowed player can be disconnected from
   `PlayerChooseInitialServerEvent`**, which is what the missing-`limbo` fallback does — and since
   2026-09-01 that fallback covers every phase, not only `MAINTENANCE`. It is the documented way to
   remove a player and the event is `@AwaitingEvent`, but it has not been run against a real client.
-  It is step 8 of [operations.md](operations.md#rehearsal--the-login-path).
+  It is one of the three rows the login-path rehearsal closes —
+  [state-of-play.md](state-of-play.md#the-unverified-assumptions).

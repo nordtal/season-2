@@ -25,12 +25,37 @@ produces `resource-pack/build/distributions/nordtal-resource-pack-<version>.zip`
 
 The client is sent the zip's URL **and** its SHA-1, and refuses the pack if they disagree, which
 is why the hash is generated on every build rather than written down. The zip and its hash are
-attached to each GitHub release; `limbo` serves them to players.
+attached to each GitHub release, and the **proxy** offers the pack while the player waits in
+`limbo` — see [Hosting](#hosting).
 
 To test locally, copy the contents of [`src/`](src/) into a folder in your game's
 `resourcepacks/` directory.
 
 `pack_format` is **88** (Minecraft 26.2).
+
+## Hosting
+
+**The GitHub release asset URL is what players download.** `packZip` builds reproducibly — fixed
+file order, no timestamps — so the same version always hashes the same.
+
+The URL and the hash are **configuration, never code**: they live in `network-control`'s own
+`pack.yml`, in a file separate from `gate.yml` because these two values change on *every* pack
+release and `gate.yml` decides who may join a network that sells access. Both default to empty and
+the proxy fails closed until they are filled in. A pack change therefore means a new release, a new
+URL and a new hash in the proxy's configuration — and never a hardcoded hash anywhere.
+
+Two things worth knowing before the first release:
+
+- **Put the `github.com/<owner>/<repo>/releases/download/<tag>/<file>` URL in the config, never the
+  address it redirects to.** Measured with `curl` on 2026-09-01: that URL answers exactly one `302`
+  and the `location:` is on **`release-assets.githubusercontent.com`**, carrying a signature that
+  expires in well under an hour. A resolved address pasted into `pack.yml` gives a pack that works
+  this afternoon and fails tonight. Whether a Minecraft *client* follows that redirect is still
+  unverified — [`../../todo.md`](../../todo.md), section 1, step 4, with a static host as the
+  written fallback.
+- **`sha1` is validated as 40 hex characters and nothing more.** Whether it is the hash of the zip
+  at `url` is a question only a client can answer, and it answers it with `FAILED_DOWNLOAD` — which
+  reads as a network problem and is not one.
 
 ## Dummy textures
 

@@ -10,7 +10,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * the waiting room.
  *
  * <h2>Why this is its own file, decided 2026-09-01</h2>
- * docs/operations.md#resource-pack-hosting left the question open with the words "deciding which
+ * resource-pack/README.md#hosting left the question open with the words "deciding which
  * file the URL and hash live in belongs to that session". The alternative was two more keys on
  * {@link GateSpec}, and the reason it lost is <b>change cadence</b>: these two values change on
  * <em>every</em> pack release, and {@code gate.yml} - which decides who may join a network that
@@ -26,7 +26,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  *
  * <h2>What happens when this file is wrong</h2>
  * The same thing that happens when any {@code network-control} config is wrong: the proxy fails
- * closed (docs/operations.md#configuration-and-secrets). A pack the network cannot describe means
+ * closed (../../../../../../../../../docs/architecture.md#failing-closed-on-a-bad-config). A pack the network cannot describe means
  * a login path with no pack station, and letting players in without the pack is exactly the
  * outcome {@code limbo} exists to prevent - so it is refused loudly rather than skipped quietly.
  * The escape hatch for a deployment that genuinely has no pack yet is {@link #enabled()}.
@@ -81,7 +81,7 @@ public interface PackSpec {
     @Key("url")
     @Comment({
             "Where the client downloads the pack from - the GitHub release asset built by",
-            ".github/workflows/release.yml (docs/operations.md#resource-pack-hosting).",
+            ".github/workflows/release.yml (../../../../../../../../../resource-pack/README.md#hosting).",
             "",
             "EMPTY BY DEFAULT AND THE PROXY REFUSES TO START WITHOUT IT while 'enabled' is",
             "true, which is this repository's standing rule for every value nobody can guess",
@@ -94,7 +94,7 @@ public interface PackSpec {
             "pack that works this afternoon and fails tonight.",
             "",
             "Whether a Minecraft client follows that redirect at all is one of the open",
-            "verifications in docs/operations.md#open-verification; if it turns out not to,",
+            "verifications in docs/state-of-play.md#the-unverified-assumptions; if it turns out not to,",
             "the written fallback is a small static host, which is a change to this one line."
     })
     default String url() {
@@ -133,7 +133,7 @@ public interface PackSpec {
             "on those versions rather than preventing it. Our own decline and failure screens",
             "therefore work by disconnecting the player first, from inside that awaited event.",
             "If a rehearsal shows that losing that race is common, the answer is the fallback",
-            "docs/operations.md already records - offer the pack from limbo itself - not",
+            "docs/state-of-play.md already records - offer the pack from limbo itself - not",
             "flipping this to false."
     })
     default boolean force() {

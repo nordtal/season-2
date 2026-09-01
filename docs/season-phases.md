@@ -77,7 +77,7 @@ that lets nobody in is the safe one to guess.
 
 ## Source of truth and propagation
 
-The phase is **one row in PostgreSQL**, migrated by the bot like every other table
+The phase is **one row in PostgreSQL**, migrated by the updater like every other table (it was the bot until 2026-09-01)
 ([architecture.md](architecture.md#schema-ownership)). Every process reads it; nobody caches it as
 truth.
 

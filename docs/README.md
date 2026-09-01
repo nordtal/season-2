@@ -44,7 +44,7 @@ a projection of it; LuckPerms is not involved anywhere.
 | [i18n.md](i18n.md) | How German and English work everywhere, and how a third language is added without a release |
 | [hunger-games.md](hunger-games.md) | The start event in full: registration, teams, border, loot, HUD, winning |
 | [smp.md](smp.md) | The SMP in full: worlds, travel, milestones, aura, prestige, duels, graves, POIs |
-| [updater.md](updater.md) | **Designed 2026-09-01; steps 1, 2 and 3 of 6 built the same day.** How versions and the schema stop being hand edits: what the updater owns, where it reads versions from, and the order a run happens in. The module resolves, reports and — on `apply` — installs |
+| [updater.md](updater.md) | **Designed 2026-09-01; all six steps built the same day.** How versions and the schema stop being hand edits: what the updater owns, where it reads versions from, the order a run happens in, and the two surfaces it is driven from — `/update` in Discord and `/smp update` in game, both reaching it through a row in the database |
 | [../deploy/README.md](../deploy/README.md) | Everything about production: the runbook, why the stack has this shape, what was measured on it, and the third-party plugins the SMP server needs |
 | [access-system.md](access-system.md) | The paid access concept: product, rules, payment matching, linking |
 | [state-of-play.md](state-of-play.md) | Where the **code** stands against all of the above, what can be built today, and what still needs a decision |
@@ -79,7 +79,7 @@ before; it was committed after the implementation it failed to describe. Numbers
 | SMP: the milestone track, aura, prestige, the milestone engine | **built** 2026-09-01 |
 | SMP: worlds, travel, duels, graves, POIs, boards, the wheel | **built** 2026-09-01, in three blocks — and unrehearsed: nothing in it has been seen on a running server |
 | PostgreSQL backup and restore | **not designed** — the one open piece of concept work |
-| Version and schema management (`updater`) | **steps 1, 2 and 3 of 6 built 2026-09-01** — resolves every version from GitHub, Modrinth and the Fill API, compares against the volumes, reports, and on `apply` migrates the schema, installs the jars and writes the proxy's `pack.yml`. No Discord surface and no restart yet — [updater.md](updater.md) |
+| Version and schema management (`updater`) | **all six steps built 2026-09-01** — resolves every version from GitHub, Modrinth and the Fill API, compares against the volumes, reports, and on `apply` migrates the schema, installs every jar (the bot's and its own included) and writes the proxy's `pack.yml`. Driven from `/update` in Discord and `/smp update` in game; restarts the stack through Arcane's API after a one-minute countdown every player sees. The one unfinished thing is Arcane's endpoint path, which is a setting — [updater.md](updater.md) |
 
 **What is left is a rehearsal, not a feature.** Every module in this repository has behaviour as of
 2026-09-01, the SMP's world half included. What none of them has is a witness: no world, no packet

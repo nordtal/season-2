@@ -198,11 +198,19 @@ One admin channel; entries that need a human mention an admin role, routine audi
 - `/revoke-access <user>`
 - `/access-status <user>` — valid-until, history, open requests
 - `/settle <ref>` — book a request by hand, with autocompletion over open references
+- `/phase set <phase>` — the season phase, with a confirmation naming what happens to whoever is
+  online ([season-phases.md](season-phases.md#who-may-switch-it))
+- `/update` — what is newer than what the network runs, an **Install** button under the report and a
+  **Restart the network** button under that ([updater.md](updater.md#how-it-is-operated)). The bot
+  updates nothing itself: it writes a row the `updater` container answers, and shows that
+  container's own report
 - Reported there: unmatchable payments, payments on expired references, failed DMs, role errors,
-  and every link/unlink
+  every link/unlink, and every restart of the network
 
-Every one of these commands is `DefaultMemberPermissions.DISABLED` and writes to the append-only
-audit log; being admin-only in Discord's UI is not the same as being recorded.
+Every one of these commands is `DefaultMemberPermissions.DISABLED`, and that only *hides* it: the
+authorisation is `discord_user.admin`, checked on the command and again on every button click,
+because a role can be taken away while a confirmation sits on screen. The access commands write to
+the append-only audit log; being admin-only in Discord's UI is not the same as being recorded.
 
 ## Deployment
 

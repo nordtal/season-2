@@ -61,7 +61,7 @@ final class SchemaCheck {
                     "The database schema is not the one this bot was built against, so it is not"
                             + " starting. The bot does not apply migrations any more - the updater"
                             + " does. Run it against this stack:\n\n"
-                            + "    docker compose --profile updater run --rm updater migrate\n\n"
+                            + "    docker compose run --rm updater migrate\n\n"
                             + "Flyway said: " + invalid.getMessage(), invalid);
         }
         log.info("Database schema validated - it matches the migrations in this jar");

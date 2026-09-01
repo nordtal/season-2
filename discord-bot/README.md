@@ -12,7 +12,7 @@ been applied, and a refusal to start on a mismatch that names the command to run
 database is no longer all it needs — the updater has to have run first:
 
 ```bash
-docker compose --profile updater run --rm updater migrate
+docker compose run --rm updater migrate
 ```
 
 The concept is [../docs/access-system.md](../docs/access-system.md); how the season deploys as a
@@ -69,6 +69,23 @@ Gradle, so `--build` builds the *image* from a jar that has to exist already. `B
 `.env` names that jar and is also the image tag, so it has to match `gradle.properties`; a
 mismatch fails the build on the missing file rather than quietly shipping the wrong version.
 
+### Since 2026-09-01 the image tag is a floor, not the version
+
+The bot runs whatever `discord-bot-*.jar` is in the `bot-jar` volume, which the `updater` container
+fills the same way it fills every `plugins/` folder — so the bot moves and rolls back by the same
+mechanism as the five other modules, which is the whole reason it stopped being an image-only
+deployment. The jar baked into the image is used **only while that volume is empty**, which is a
+first deployment and nothing else.
+
+Two consequences worth stating:
+
+- **`BOT_VERSION` going stale is harmless**, and reading it as "what is running" is wrong. The
+  entrypoint prints the jar it picked on every start, and `docker compose run --rm updater` reports
+  what is actually installed.
+- **Updating the bot no longer needs a build or a pull.** `docker compose run --rm updater apply`,
+  or the Install button on `/update` in Discord, puts the new jar in the volume; the restart picks
+  it up.
+
 A production host runs the released image instead and never builds:
 
 ```bash
@@ -81,17 +98,24 @@ checkout that fails on the missing jar, which is the loud outcome rather than a 
 `ghcr.io/nordtal/discord-bot:$BOT_VERSION`.
 
 `COMPOSE_PROFILES` in `.env` decides what comes up. `bot` is the bot alone, against a database that
-already exists; `db,bot` adds a PostgreSQL beside it; `db,bot,mc` is the production network. There
-is deliberately **no `depends_on`** anywhere in that file: recent Compose implicitly enables the
-profile of a dependency, which would start the database even when the deployment does not want one.
+already exists; `db,bot` adds a PostgreSQL beside it; `db,bot,mc` is the production network. The
+`updater` service has no profile and therefore comes up with all of them — it is the only process
+that applies the schema, and the bot would otherwise crash-loop on `SchemaCheck` until somebody ran
+it.
+
+There is deliberately **no `depends_on` on the database**: recent Compose implicitly enables the
+profile of a dependency, which would start a PostgreSQL even when the deployment does not want one.
 The bot exits when the database is unreachable and the restart policy brings it back, so the first
-boot may log one connection failure.
+boot may log one connection failure. There **is** a `depends_on` on the updater, and it is safe for
+exactly the reason the database one is not: the updater has no profile, so depending on it cannot
+drag in a service nobody asked for.
 
 ## The same file in production
 
 The compose is meant to be the production one. What changes is `.env`:
 
-- Nothing is built: `docker compose pull` first, and `BOT_VERSION` is the released tag.
+- Nothing is built: `docker compose pull` first, and `BOT_VERSION` is the released tag — which,
+  since the jar comes out of the volume, only matters until the first `updater apply`.
 - `POSTGRES_BIND` stays on `127.0.0.1`. The proxy and the Paper plugins read the same database, but
   they are services in the same stack now and reach it over the compose network; the published port
   exists only for backups and for a `psql` from the host.

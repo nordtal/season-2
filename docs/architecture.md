@@ -245,12 +245,14 @@ migrations in its own jar against what the database says has been applied — an
 a mismatch, with a message naming `updater migrate`. Without it, a bot started before the updater
 would fail on its first query, inside a Discord interaction, minutes later. The plugins do *not* do
 this and will not: validating needs Flyway, and Flyway must never be shaded into a Paper plugin. The
-bot starts first and catches the situation for the whole stack.
+bot starts first and catches the situation for the whole stack — and since 2026-09-01 it cannot
+start before the updater is healthy at all, because `compose.yml` says so.
 
 The two questions are separate and were being answered as one:
 
-- **Who runs Flyway?** Only the bot — unchanged, and the reason is unchanged: Flyway must never
-  reach `:common`, or it lands in every plugin jar.
+- **Who runs Flyway?** Exactly one process, and since 2026-09-01 that is the `updater`. The reason
+  the answer has to be "one" is unchanged: Flyway must never reach `:common`, or it lands in every
+  plugin jar.
 - **Where do the `.sql` files live?** In `:common`, alongside the APIs that read those tables. SMP
   DDL living inside a Discord bot module was an oddity nobody could justify on reading it.
 
@@ -268,7 +270,13 @@ even though the SMP is what reads it — see [smp.md](smp.md#prestige--a-crest-e
 That arrangement covers every table in this plan: the phase row
 ([season-phases.md](season-phases.md)), the hunger games tables
 ([hunger-games.md](hunger-games.md)) and the SMP tables ([smp.md](smp.md#data-model)) are all
-migrated by the bot and read — and their game-state rows written — by the plugins.
+migrated by the updater and read — and their game-state rows written — by the plugins.
+
+One more table is written by everybody and owned by the updater: **`update_request`** (`V7`,
+2026-09-01). It is not game state; it is how the bot, the SMP plugin and a person at a console ask
+the updater for something, and how the answer comes back. The updater is a separate container with
+no socket anybody can call, so a row plus a `pg_notify` is the whole of the wiring — the same
+machinery the phase row already uses. See [updater.md](updater.md#how-it-is-operated).
 
 ## The login path, end to end
 

@@ -1,24 +1,35 @@
 # updater — the module that owns versions and the schema
 
-**Decided 2026-09-01. Steps 1, 2 and 3 are built; 4, 5 and 6 are not.** This document is the design; the
-implementation follows it piece by piece, and [state-of-play.md](state-of-play.md) is where the gap
-between the two is tracked. What exists today is the `updater` module and two commands:
+**Decided 2026-09-01, and all six steps are built.** This document is the design; the implementation
+follows it, and [state-of-play.md](state-of-play.md) is where any gap between the two is tracked.
+
+The updater is **a container that runs all the time and a command you can run by hand**, and they
+are the same program:
 
 ```
-docker compose --profile updater run --rm updater          # resolve, compare, report. Changes nothing.
-docker compose --profile updater run --rm updater migrate  # apply the database schema, nothing else.
-docker compose --profile updater run --rm updater apply    # migrate, then fetch and place the files.
+docker compose up -d updater             # `serve`: migrate, then wait for requests. What compose runs.
+docker compose run --rm updater          # resolve, compare, report. Changes nothing.
+docker compose run --rm updater migrate  # apply the database schema, nothing else.
+docker compose run --rm updater apply    # migrate, then fetch and place the files.
 ```
 
-The first writes nothing into a Minecraft volume, so it is safe against a live deployment at any
-moment. The second installs the jars and writes the proxy's `pack.yml` — and **still restarts
-nothing**: it prints what it did and stops, which is the point of the restart being a separate
-button in step 6.
+The read-only report writes nothing into a Minecraft volume, so it is safe against a live
+deployment at any moment. `apply` installs the jars and writes the proxy's `pack.yml` — and **still
+restarts nothing**: it prints what it did and stops, which is the point of the restart being a
+separate button.
 
-The default is the read-only command on purpose. A container started by accident, or with a
-misspelled argument, does the harmless thing; `apply` has to be asked for by name. Read [../deploy/README.md](../deploy/README.md) first if
-you want to know how the stack runs today — everything below changes how it is *updated*, not how
-it is shaped.
+The default with no argument at all is the read-only one, on purpose. A container started by
+accident, or with a misspelled argument, does the harmless thing; everything that writes has to be
+asked for by name.
+
+**`serve` is not a scheduler.** It applies the schema once at startup and then does nothing at all
+until somebody writes a row into `update_request` — no timer, no watching, no "check for updates on
+boot". A crash restart at three in the morning must not move a version, and that is the rule this
+whole module is built around; a long-running container does not change it, because the loop has
+nothing to do on its own.
+
+Read [../deploy/README.md](../deploy/README.md) first if you want to know how the stack runs today —
+everything below changes how it is *updated*, not how it is shaped.
 
 ## The problem it exists for
 
@@ -102,17 +113,29 @@ tests against it — so it is also the first thing to look at when something bre
    and PacketEvents is required under it, so a partial swap there is a server that does not start.
 4. **Set the pack.** Write the release's pack URL and the `.sha1` asset's content where
    network-control reads them.
-5. **Report.** Post the result: per artefact, old → new, or "unchanged". **This happens before
-   anything restarts**, which is the whole reason the order is this way round.
-6. **Restart, on a button.** One Arcane redeploy of the whole project.
+5. **Report.** Post the result: per artefact, old → new, "unchanged", or **"skipped, and here is
+   why"** — which is a third answer and not a quiet fourth kind of "fine". A run where every server
+   was skipped because its volume was not mounted did no work and had no failure, and it must not
+   close with "Nothing needed doing"; that sentence is how somebody shuts the report believing the
+   network is current. **This all happens before anything restarts**, which is the whole reason the
+   order is this way round.
+6. **Restart, on a button.** One Arcane redeploy of the whole project, sixty seconds after it is
+   asked for, with every player on the network counted down towards it.
 
-**The updater stages its own new jar last and does not run it.** It cannot: no process swaps its
-own jar and keeps going. It does not need to — the redeploy in step 6 takes the whole stack down
-and back up, the updater included, so it comes back on the new jar by itself. The one implementation
-consequence is that the redeploy call is fire-and-forget: Arcane answers long-running operations as
-a stream of newline-delimited JSON, and the updater will be killed part-way through its own request.
-So it says "restart triggered" *before* it calls, and the confirmation that anything worked comes
-from the next instance announcing itself on boot.
+**The updater installs its own new jar and does not run it.** It cannot: no process swaps the jar it
+is executing and keeps going. It does not need to — the redeploy takes the whole stack down and
+back up, the updater included, so the next start picks up the new jar by itself. Which is only true
+because the updater, like the bot, **runs from a volume rather than from a jar baked into its
+image** (decided 2026-09-01; the baked jar is a floor for the first deployment and nothing else).
+Until that changed, the paragraph above was wrong: a redeploy brought the same image back with the
+same jar in it.
+
+The implementation consequence is that the redeploy call is fire-and-forget. Arcane answers
+long-running operations as a stream of newline-delimited JSON, and the updater is killed part-way
+through its own request — so the call waits only for the response to *begin*, and being killed
+there is the successful outcome. It is recognised as one: the request row is left `RUNNING`, and the
+next start of the container reads a `RESTART` in that state as "the redeploy happened". That is
+inference rather than proof, and the row says so rather than claiming certainty.
 
 ## The restart, and why not the Docker socket
 
@@ -120,6 +143,13 @@ Arcane exposes a REST API with token authentication — `X-Api-Key`, tokens gene
 Settings → API Keys — and knows project deploy, redeploy, pull and build as streaming operations
 (read from the public documentation 2026-09-01; the endpoint paths are not in it and have to be
 read from `/api/docs` on our own instance).
+
+**That is why the path is a setting and not a constant.** `arcane.redeploy-path` carries a
+documented guess, `{project}` is substituted into it, and a 404 from it says in as many words that
+the path is a guess and names `/api/docs` — so the first person to hit it spends a minute on it and
+not an evening. `arcane.base-url` empty means no restart is possible anywhere, and that is a
+supported state: the button and the command both answer "Arcane is not configured" and tell you to
+click Redeploy yourself.
 
 The alternative was mounting `/var/run/docker.sock`. It is the usual way and it was rejected: a
 container with the socket can do anything on the host, and this is a container whose entire job is
@@ -135,24 +165,57 @@ restart is a click in Arcane. Every other part of this module still works.
 
 ## How it is operated
 
-Two surfaces, and one of them is not the updater's own.
+Two surfaces, and neither of them is the updater's own.
 
-- **Discord**, in the admin channel that already exists as
-  `NORDTAL_ACCESS_CHANNELS_ADMIN`: a slash command, the result as an embed, and a restart button
-  underneath it. The bot already has buttons, ephemeral replies and that channel.
-- **In game**, under `/smp` for admins.
+- **Discord**, in the admin channel that already exists as `NORDTAL_ACCESS_CHANNELS_ADMIN`:
+  `/update` reports as an embed, an **Install** button under it installs, and a **Restart the
+  network** button under that starts the countdown. Admin-only, by `discord_user.admin`, checked
+  again on every click — a role can be taken away while a message sits on screen.
+- **In game**, under `/smp` for admins: `/smp update`, `/smp update apply`,
+  `/smp update restart` and `/smp update restart cancel`.
 
 Neither the bot nor the SMP plugin can call the updater directly — it is a separate container. They
-reach it **through the database**: a request row plus a `pg_notify`, the updater listening and
-answering the same way. That is the machinery this project already uses for phase switches and
-milestone unlocks, so it is not a new kind of wiring, and it means the request survives an updater
-that happens to be restarting.
+reach it **through the database**: a row in `update_request` plus a `pg_notify`, the updater
+listening, and the answer written back into the same row. That is the machinery this project
+already uses for phase switches, so it is not a new kind of wiring, and it means the request
+survives an updater that happens to be restarting.
 
-**Said honestly: that `LISTEN` reaches a process in another container has never been verified on a
-real deployment.** It is already an open item in `todo.md` for the phase system, and this module
-would be the second thing resting on it. *If it turns out not to work across containers:* both
-surfaces fall back to polling the same table on a short interval, which is what the phase system
-already does as its safety net, and nothing about this design changes.
+**Every surface shows the updater's own report, verbatim.** The Discord embed and the chat lines
+are the same text `updater apply` prints on the host, rendered once by the process that did the
+work. A second rendering is the thing that would eventually disagree with the first.
+
+### The one-minute countdown
+
+A restart takes the whole stack down, so the request is written with `not_before` sixty seconds in
+the future and **network-control counts every player down towards it** — wherever they are, limbo
+and Hunger Games included. That is why the proxy owns the announcement and not the SMP plugin: the
+proxy is the only process that sees everybody, and a restart asked for *in Discord* has to warn
+people too.
+
+The countdown is also the confirmation. A chat line has no button to press, so `/smp update restart`
+does not ask "are you sure" — it starts a minute that everybody sees and that
+`/smp update restart cancel` (or the button in Discord) stops. The length is a constant in `:common`
+rather than a setting, because three processes submit restarts and a fourth renders the countdown:
+a value configured in four files is a counter that reaches zero while nothing happens.
+
+### Poll first, notify second
+
+The updater holds a dedicated `LISTEN nordtal_update` connection outside its pool **and** polls
+every fifteen seconds, exactly as network-control does for the phase. The poll is the guarantee;
+the notification is what makes a button feel instant. Measured on a container against a real
+PostgreSQL on 2026-09-01: **160 ms with the notification, 17 s without it.** The wait is also
+shortened automatically when a countdown ends sooner than the next poll — an 8-second countdown
+fired after 8.97 s, not after 15.
+
+`LISTEN` crossing a container boundary was an open assumption in
+[state-of-play.md](state-of-play.md) when this was designed. It is closed: the two numbers above are
+from two containers on a Docker network. What is still open is the *reconnect* behaviour under a
+real dropped socket, which is the same open item the phase listener has.
+
+The bot and the SMP plugin **poll and do not listen** — the bot re-reads one indexed row every two
+seconds while an admin waits, and the proxy every five seconds for the countdown. A second dedicated
+connection per backend would be real cost for a countdown that is already honest about the number of
+seconds it is showing.
 
 ## What it deliberately does not do
 
@@ -173,9 +236,10 @@ already does as its safety net, and nothing about this design changes.
 | Each container updates itself on restart | Then a nightly crash splits the network across versions and nobody ordered it. |
 | Watchtower-style image watching | The plugins are jars in volumes, not images. It would cover the bot and nothing else. |
 
-## Two things this displaced, decided 2026-09-01
+## Four things this displaced, decided 2026-09-01
 
-Both came out of writing step 1 and neither was in the original design.
+None of them was in the original design; each came out of building a step and finding that the step
+did not fit the deployment as it stood.
 
 **The updater owns the plugin jars, and `entrypoint.sh` stops fetching them.** *(Carried out in step 3.)* They would otherwise
 collide: the script pulls `<module>-${SEASON_VERSION}.jar` on every start and deletes, by prefix,
@@ -196,18 +260,51 @@ a value nothing reads: a swap that reports success and changes nothing, which is
 on the list. So `PACK_URL` and `PACK_SHA1` leave `compose.yml` and `.env.example` again in step 3,
 and the hand-copying of a hash out of a release disappears instead of moving.
 
+**The updater stopped being a command and became a service.** *(Carried out in step 4.)* Steps 1 to
+3 were one-shot runs and the container was documented as one — "it must never be given a restart
+policy". A button in Discord needs something to answer it, so `serve` exists, the container has no
+profile, and it comes back with `restart: unless-stopped` like everything else. **The rule it was
+protecting is untouched**: `serve` has no timer and no watch, and does nothing whatever until a row
+appears. What changed is that a process is there to be asked; what did not change is that nothing
+asks on its own.
+
+**Everything now waits for the schema, and compose says so.** *(Carried out in step 4.)* A redeploy
+starts the whole stack at once, and the updater is the only process that migrates — so a plugin
+could come up against a schema older than itself, which is the failure this module exists to
+prevent. The updater touches `/tmp/updater-ready` once the schema is current, that is its
+healthcheck, and every other service has `depends_on: updater: service_healthy`. This is safe where
+the deliberate *absence* of a `depends_on` on the database is not: the updater has no profile, so
+depending on it cannot drag in a service nobody asked for.
+
 ## Open, with a fallback each
 
-- **Arcane's redeploy endpoint** — unverified, see above.
-- **`LISTEN` across containers** — unverified, see above.
-- **The bot becomes a jar.** Decided 2026-09-01: it stops being a GHCR image so that all five
-  modules move by exactly the same mechanism and roll back the same way. That means a small Java
-  image in `compose.yml`, and `.github/workflows/release.yml` loses its image build. *If running
-  the bot from a volume turns out to be worse than the image:* it goes back to an image and its
-  version is the one thing the updater cannot move, which is where this started.
+- **Arcane's redeploy endpoint.** Still the one thing that cannot be verified from here: the path
+  is not in the public documentation and the token is on Till's instance. Everything around it is
+  built and tested — the URL, the header, and what each answer is reported as, against a real HTTP
+  server. A 404 was driven end to end through the container on 2026-09-01 and produced the sentence
+  naming `/api/docs`. **A 2xx from a real Arcane has never been seen.** *If the API turns out not
+  to expose a usable redeploy:* leave `arcane.base-url` empty and everything else still works; the
+  restart is a click in Arcane, and both surfaces say so rather than pretending.
+  [`../../todo.md`](../../todo.md) carries the check.
+- ~~**`LISTEN` across containers.**~~ **Closed 2026-09-01**: 160 ms with the notification against
+  17 s without it, two containers on a Docker network. The reconnect path under a real dropped
+  socket is still untested, which is the phase listener's open item and not a new one.
+- ~~**The bot becomes a jar.**~~ **Built 2026-09-01.** It runs `discord-bot-*.jar` out of the
+  `bot-jar` volume, which the updater fills like any plugins folder. The image is still built and
+  still pushed, and the jar inside it is now a **floor**: it is used only while the volume is empty,
+  which is a first deployment and nothing else. The updater's own container works the same way, and
+  had to — without it, a redeploy brought the same image back with the same jar in it and the
+  self-update paragraph above was false.
 - **What happens to a migration that fails.** Flyway stops, the jars have not moved yet — that is
-  why migrate is step 2 and not step 4 — and the report says so. A failed migration is the one
-  outcome where the updater must refuse to continue rather than do half a run.
+  why migrate comes before the swap — and the report says so. A failed migration is the one outcome
+  where the updater must refuse to continue rather than do half a run. In `serve` it is stronger
+  still: the container never becomes healthy, and `compose.yml` makes every other service wait for
+  that, so nothing starts against a schema this build does not know.
+- **Two updaters at once.** The daemon and a hand-run `apply` can overlap, and on a bootstrap day
+  they will. An apply takes a PostgreSQL advisory lock (`nordtal1`, held on a dedicated connection
+  so the pool cannot leak it) and the second one to ask is **refused rather than queued** — a plan
+  resolved now would be stale by the time it got its turn. Verified in containers on 2026-09-01,
+  from both directions.
 
 ## Implementation order
 
@@ -229,9 +326,22 @@ Built piece by piece, and each piece is useful on its own:
    `PACK_URL`, `PACK_SHA1` and `SEASON_RELEASE` are gone from the deployment, `entrypoint.sh` no
    longer fetches plugins and refuses to start on an empty `plugins/` folder instead, and the four
    compose mounts are writable. 75 tests.
-4. The Discord command, the embed, and the restart button.
-5. The Arcane redeploy.
-6. `/smp update` in game, over `NOTIFY`.
+4. ~~The Discord command, the embed, and the restart button.~~ **Built 2026-09-01.** `/update`,
+   admin-only by `discord_user.admin` and re-checked on every click. One command; the rest are
+   buttons, in the order that makes them safe — report, then install, then restart. The bot never
+   blocks a thread waiting: the answer row is re-read on the timer it already has, so an install
+   that takes four minutes costs nothing while it runs.
+5. ~~The Arcane redeploy.~~ **Built 2026-09-01**, and configurable rather than guessed at: the base
+   URL, the token, the project and **the path** are all settings, because the path is not published
+   and a wrong constant would have to be a release. A 404 explains itself. An empty base URL is a
+   supported state.
+6. ~~`/smp update` in game, over `NOTIFY`.~~ **Built 2026-09-01**, with the restart included and a
+   one-minute countdown that every player on the network sees — announced by the proxy, not by the
+   SMP plugin, because a restart takes down limbo and Hunger Games too.
 
-Step 1 is the one worth building carefully: an updater that resolves the wrong version is worse
-than no updater, and it is the only step that can be tested completely without a running stack.
+Two things this order got right and one it did not. Step 1 was the one worth building carefully, as
+predicted: an updater that resolves the wrong version is worse than no updater. Step 3 before step 2
+avoided a deployment that was temporarily worse than the one before it. What the order missed is
+that **steps 4 and 6 need a process that is running**, which the first three did not — the container
+stopped being a command and became a service, and that was not written down anywhere until it had
+to be.

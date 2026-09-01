@@ -78,6 +78,8 @@ public final class Configs {
                     requireText("volumes-root", config.volumesRoot());
                     requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
                     requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
+                    requirePositive("poll-interval-seconds", config.pollIntervalSeconds());
+                    requireArcane(config.arcane());
                 })
                 .load();
 
@@ -103,6 +105,43 @@ public final class Configs {
         if (value <= 0) {
             throw new IllegalArgumentException(key + " must be greater than zero, was " + value);
         }
+    }
+
+    /**
+     * The restart settings, which are all optional together.
+     * <p>
+     * An empty {@code base-url} is a supported state and not a broken one: the updater does
+     * everything except the restart and says so, which is the fallback docs/updater.md names for
+     * the case where Arcane turns out not to expose a usable redeploy. What is <b>not</b> supported
+     * is half-configured - a base URL with no token would fail with a 401 at the one moment
+     * somebody is waiting on it, so it is refused at startup instead.
+     * </p>
+     */
+    private static void requireArcane(final UpdaterSpec.ArcaneSpec arcane) {
+        if (arcane.baseUrl().isBlank()) {
+            return;
+        }
+        if (!arcane.baseUrl().startsWith("http://") && !arcane.baseUrl().startsWith("https://")) {
+            throw new IllegalArgumentException(
+                    "arcane.base-url must be an http(s) origin, was '" + arcane.baseUrl() + "'");
+        }
+        if (arcane.baseUrl().endsWith("/")) {
+            // Silently trimming it would work; refusing it means the file and the request agree,
+            // and nobody debugs a double slash in a log line six months from now.
+            throw new IllegalArgumentException(
+                    "arcane.base-url must not end in a slash - redeploy-path already starts with one");
+        }
+        if (arcane.apiKey().isBlank()) {
+            throw new IllegalArgumentException("arcane.api-key must be set when arcane.base-url is."
+                    + " Generate one in Arcane under Settings -> API Keys, and prefer"
+                    + " NORDTAL_UPDATER_ARCANE_API_KEY over writing it into this file");
+        }
+        requireText("arcane.project", arcane.project());
+        if (!arcane.redeployPath().startsWith("/")) {
+            throw new IllegalArgumentException(
+                    "arcane.redeploy-path must start with a slash, was '" + arcane.redeployPath() + "'");
+        }
+        requirePositive("arcane.timeout-seconds", arcane.timeoutSeconds());
     }
 
     private static void requireRepo(final String key, final String value) {

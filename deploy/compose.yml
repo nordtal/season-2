@@ -1,7 +1,7 @@
 # nordtal.eu season 2 - the whole deployment.
 #
-# One stack, five profiles. SimpleCloud was dropped on 2026-09-01; the reasoning is in
-# README.md#why-it-looks-like-this, next to this file.
+# One stack, four profiles and one service that is in every one of them. SimpleCloud was dropped
+# on 2026-09-01; the reasoning is in README.md#why-it-looks-like-this, next to this file.
 #
 #   cp .env.example .env        # fill it in; .env is gitignored and must never be committed
 #   docker compose up -d
@@ -12,9 +12,13 @@
 #   COMPOSE_PROFILES=db,bot     bot and database, no Minecraft at all
 #   COMPOSE_PROFILES=db,bot,mc  the production network
 #
-# `backup` and `updater` are deliberately outside that default. The backup is a service you might
-# run against a database this compose does not own; the updater is not a service at all - see its
-# block below.
+# `backup` is deliberately outside that default: it is the one service you might legitimately run
+# against a database this compose does not own.
+#
+# THE UPDATER HAS NO PROFILE, so it is in every selection including `COMPOSE_PROFILES=bot`. That is
+# not an oversight. It is the only process that applies the schema, so nothing else in this stack
+# can correctly start before it; and it is what answers /update in Discord and /smp update in game,
+# which needs it running rather than run. See ../docs/updater.md and its block below.
 #
 # The bot has no Minecraft dependency and never waits for a proxy or a backend; the `bot` profile
 # is what preserves that. It replaces discord-bot/docker-compose.yml.
@@ -22,12 +26,19 @@
 # THERE IS NO depends_on ON THE DATABASE, deliberately. Compose pulls a profiled dependency in
 # whether you asked for it or not, which would make "point at an external PostgreSQL" impossible
 # without editing this file. Every service here fails fast on an unreachable database and
-# `restart: unless-stopped` retries it, so start-up ordering resolves itself within seconds. The
-# one ordering rule that matters is an operator rule and cannot be expressed here anyway, and it
-# CHANGED ON 2026-09-01: after a schema change, run the updater first, because it is the only
-# process that migrates. It used to be the bot. The bot now checks the schema and refuses to start
-# on one it was not built against, naming the command - so getting the order wrong is a message
-# rather than a mystery. See ../docs/updater.md and README.md#first-deployment-in-order.
+# `restart: unless-stopped` retries it, so start-up ordering resolves itself within seconds.
+#
+# THERE IS A depends_on ON THE UPDATER, and it is the one ordering rule this file can express.
+# The updater is the only process that applies the schema, and after a redeploy the whole stack
+# starts at once - so without it a plugin can come up against a schema older than itself, which is
+# the failure the arrangement exists to prevent. The updater becomes healthy the moment the schema
+# is current (it touches /tmp/updater-ready), and everything else waits for that. This is safe
+# where a database dependency would not be, because the updater has no profile: asking for it
+# cannot drag in a service you did not want.
+#
+# It used to be an operator rule written in prose - "bring the bot up first, it is the only process
+# that migrates" - and that stopped being true on 2026-09-01. See ../docs/updater.md and
+# README.md#first-deployment-in-order.
 
 name: nordtal-s2
 
@@ -41,6 +52,11 @@ x-minecraft: &minecraft
     context: ./minecraft
   image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:${MC_IMAGE_TAG:-local}}
   restart: unless-stopped
+  depends_on:
+    # The schema, and nothing else. Not the database - see the note at the top of this file about
+    # why that one is left to `restart: unless-stopped`.
+    updater:
+      condition: service_healthy
   # The entrypoint MUST be PID 1: it traps SIGTERM and mirrors the console to /proc/1/fd/1.
   # `init: true` would put tini there instead and break both.
   init: false
@@ -147,6 +163,15 @@ services:
   # on a database nobody migrated. Its runbook is in ../discord-bot/README.md.
   bot:
     profiles: ["bot"]
+    # SINCE 2026-09-01 THE IMAGE TAG IS A FLOOR, NOT THE VERSION. The bot runs whatever
+    # discord-bot-*.jar is in the `bot-jar` volume, which the updater fills the same way it fills
+    # every plugins folder; the jar baked into the image is only what makes a first deployment
+    # possible, before any updater run has happened. What is actually running is printed by the
+    # entrypoint on every start and reported by `docker compose run --rm updater`.
+    #
+    # BOT_VERSION therefore still pins the image, and still has to match gradle.properties for a
+    # build - but it does not decide what the bot runs, and after the first `updater apply` it
+    # never will again.
     image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${BOT_VERSION:?set BOT_VERSION in .env; it must match gradle.properties}}
     build:
       # Compose cannot run Gradle: `../gradlew :discord-bot:shadowJar` has to happen first.
@@ -155,6 +180,11 @@ services:
       args:
         JAR: build/libs/discord-bot-${BOT_VERSION}.jar
     restart: unless-stopped
+    depends_on:
+      # The bot validates the schema and refuses a database it was not built against, so without
+      # this it would crash-loop until the updater got there. One dependency, one clear message.
+      updater:
+        condition: service_healthy
     environment:
       TZ: ${TZ:-Europe/Berlin}
 
@@ -192,6 +222,9 @@ services:
       NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES: ${NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES:-}
     volumes:
       - bot-config:/app/config
+      # The jar itself. The updater writes into this same volume, mounted there as
+      # /volumes/discord-bot; here it is /app/lib, which is where the entrypoint looks.
+      - bot-jar:/app/lib
       # bunq binds an API context to the device it was registered from: this must be created on
       # the host that will use it, never copied over from a laptop.
       - bunq-context:/app/bunq
@@ -334,28 +367,59 @@ services:
   #
   # NOTHING PUBLISHES THIS IMAGE - same as the Minecraft one. The host builds it from ../updater,
   # which needs `./gradlew :updater:shadowJar` to have run first.
+  # -------------------------------------------------------------------------------------------
+  # The updater. No profile, because everything else in this stack depends on it.
+  #
+  # WHAT IT OWNS: the database schema, and the version of every jar that runs anywhere here - the
+  # four servers' plugins, their Paper and Velocity jars, the proxy's resource-pack url and sha1,
+  # the bot's jar, and its own. See ../docs/updater.md.
+  #
+  # WHAT IT IS NOT: a scheduler. `serve` applies the schema once at startup and then does nothing
+  # at all until somebody writes a row into update_request - no timer, no watching, no "check for
+  # updates on boot". A crash restart at three in the morning must not move a version, and this is
+  # the container that makes sure it cannot.
+  #
+  # THE THREE ONE-SHOT COMMANDS still work beside the running one, and they are how a first
+  # deployment happens, because the servers refuse to start on an empty plugins folder:
+  #
+  #   docker compose run --rm updater            # resolve and report. Writes no file a server reads.
+  #   docker compose run --rm updater migrate    # the schema, and nothing else.
+  #   docker compose run --rm updater apply      # migrate, then install. Restarts nothing.
+  #
+  # Two of them cannot collide with the service: an apply takes a PostgreSQL advisory lock, and the
+  # second one to ask is refused rather than queued.
   updater:
-    profiles: ["updater"]
     build:
       context: ../updater
       args:
         JAR: build/libs/updater-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
     image: ${UPDATER_IMAGE:-nordtal/updater:${SEASON_VERSION:-local}}
-    restart: "no"
+    restart: unless-stopped
+    # `serve`. Every other mode is asked for by name on a `run`, and the default with no argument
+    # at all is the read-only report - so a container started wrong does the harmless thing.
+    command: ["serve"]
+    healthcheck:
+      # Written once the schema is current and the request loop is about to start. Everything else
+      # in this file waits for it.
+      test: ["CMD-SHELL", "test -f /tmp/updater-ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 120s
     environment:
       TZ: ${TZ:-Europe/Berlin}
-      # Which release to follow: 'latest', or an exact tag to pin - which is how a rollback is
-      # expressed. SEASON_RELEASE is gone from this file entirely - what a server runs is now the
-      # jar lying in its volume, not a variable claiming to describe it.
       # --- database.yml ------------------------------------------------------------------
-      # THIS IS THE PROCESS THAT MIGRATES. `updater migrate` applies the schema and nothing else;
-      # `updater apply` does it before it moves a single jar, so a plugin never comes up against a
-      # schema older than itself.
+      # THIS IS THE PROCESS THAT MIGRATES. `serve` applies the schema at startup and then becomes
+      # healthy; `updater migrate` applies it and nothing else; `updater apply` does it before it
+      # moves a single jar, so a plugin never comes up against a schema older than itself.
       NORDTAL_UPDATER_DATABASE_JDBC_URL: *db-url
       NORDTAL_UPDATER_DATABASE_USERNAME: *db-username
       NORDTAL_UPDATER_DATABASE_PASSWORD: *db-password
 
       # --- updater.yml -------------------------------------------------------------------
+      # Which release to follow: 'latest', or an exact tag to pin - which is how a rollback is
+      # expressed. SEASON_RELEASE is gone from this file entirely; what a server runs is now the
+      # jar lying in its volume, not a variable claiming to describe it.
       NORDTAL_UPDATER_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
       NORDTAL_UPDATER_SEASON_RELEASE: ${UPDATER_SEASON_RELEASE:-latest}
       NORDTAL_UPDATER_DISPLAY_TAGS_RELEASE: ${UPDATER_DISPLAY_TAGS_RELEASE:-latest}
@@ -364,18 +428,40 @@ services:
       # Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP; a run makes
       # two GitHub calls, so it only matters on a host that shares its address with something busy.
       NORDTAL_UPDATER_GITHUB_TOKEN: ${UPDATER_GITHUB_TOKEN:-}
+
+      # The restart, through Arcane's REST API - NOT through the Docker socket, which is not
+      # mounted anywhere in this file and must not be: a container with it can do anything on the
+      # host, and this is the container whose job is downloading files from the internet.
+      #
+      # LEAVING ARCANE_URL EMPTY IS A SUPPORTED STATE. Everything else works; the restart button
+      # says it is not configured and a redeploy is a click in Arcane. The endpoint path is a
+      # SETTING because Arcane's public documentation does not publish it - read /api/docs on the
+      # instance and put the real one in ARCANE_REDEPLOY_PATH.
+      NORDTAL_UPDATER_ARCANE_BASE_URL: ${ARCANE_URL:-}
+      NORDTAL_UPDATER_ARCANE_API_KEY: ${ARCANE_API_KEY:-}
+      # These two defaults are repeated from UpdaterSpec.ArcaneSpec, and they have to be: an
+      # environment variable set to the empty string still WINS over the file in jcore's config
+      # system, so `${VAR:-}` here would blank out the spec's own default rather than fall back to
+      # it. TopologyTest asserts the two copies still say the same thing.
+      NORDTAL_UPDATER_ARCANE_PROJECT: ${ARCANE_PROJECT:-nordtal-s2}
+      NORDTAL_UPDATER_ARCANE_REDEPLOY_PATH: ${ARCANE_REDEPLOY_PATH:-/api/projects/{project}/redeploy}
     volumes:
       - updater-config:/app/config
-      # The four Minecraft volumes, under the names the compose services have - which is what
-      # Topology in :updater expects to find beneath volumes-root.
-      # Writable, because `updater apply` puts the jars here and writes network-control's
-      # pack.yml. A plain `updater` run still writes nothing into them - the two commands are
-      # separated so that the read-only one is the default and the writing one has to be asked for
-      # by name.
+      # Everything this module owns, under the names Topology in :updater expects to find beneath
+      # volumes-root. Writable, because `apply` puts the jars here and writes network-control's
+      # pack.yml. A plain `updater` run still writes nothing into any of them - the commands are
+      # separated so that the read-only one is the default.
       - mc-network-control:/volumes/network-control
       - mc-limbo:/volumes/limbo
       - mc-hunger-games:/volumes/hunger-games
       - mc-smp:/volumes/smp
+      # The bot's jar and this container's own. Both are the same shape as a plugins folder to the
+      # code above them: a directory with one jar in it that gets replaced.
+      - bot-jar:/volumes/discord-bot
+      # Mounted at the path the entrypoint reads on the next start. This container installs its own
+      # new jar here and carries on running the old one - no process replaces the jar it is
+      # executing, so the new one takes effect at the restart and never during a run.
+      - updater-jar:/volumes/updater
     logging: *logging
 
 volumes:
@@ -385,6 +471,11 @@ volumes:
   postgres-dumps:
   bot-config:
   updater-config:
+  # The two jars that are a whole container each. Written by the updater, read by the container
+  # they belong to; neither holds anything else and neither is worth backing up - a lost one is
+  # refilled by `docker compose run --rm updater apply`.
+  bot-jar:
+  updater-jar:
   bunq-context:
   mc-network-control:
   mc-limbo:

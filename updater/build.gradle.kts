@@ -21,10 +21,12 @@ dependencies {
     // report would be the whole program.
     runtimeOnly(libs.logback.classic)
 
-    // Not used yet - step 2 (Flyway) is what needs a live connection. Declared here so the version
-    // is pinned in this repo's catalog rather than inherited from jcore's POM, exactly as
-    // :discord-bot does it.
-    runtimeOnly(libs.postgresql.driver)
+    // Compiled against, not just shipped: PostgresNotifications unwraps org.postgresql.PGConnection
+    // to call getNotifications(int), which is the only way pgjdbc exposes LISTEN/NOTIFY - it has no
+    // callback API, so a thread sits on that call. network-control depends on it for exactly the
+    // same reason and says so at length. Declared here so the version is pinned in this repo's
+    // catalog rather than inherited from jcore's POM, as :discord-bot does it.
+    implementation(libs.postgresql.driver)
 
     // Where the migration SQL lives: common/src/main/resources/db/migration. The files arrive on
     // this module's classpath because :common is shaded into its jar, which is exactly how they

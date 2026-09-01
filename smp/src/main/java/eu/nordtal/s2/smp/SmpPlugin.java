@@ -13,6 +13,7 @@ import eu.nordtal.s2.smp.config.MilestonesSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.JoinGate;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.smp.db.SmpPool;
 import eu.nordtal.s2.smp.farm.FarmWorldReset;
 import eu.nordtal.s2.smp.farm.FarmWorldSwap;
@@ -24,6 +25,7 @@ import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
 import eu.nordtal.s2.smp.command.SmpCommand;
+import eu.nordtal.s2.smp.command.UpdateCommands;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.grave.GraveListener;
@@ -290,7 +292,10 @@ public final class SmpPlugin extends JavaPlugin {
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
             event.registrar().register(new SmpCommand(this, dao, engine, farmReset, identities,
-                    messages, locales, this::reloadTrack).build());
+                    messages, locales, this::reloadTrack,
+                    // Over the pool this plugin already owns. The updater is a different container
+                    // and this is how it is reached: a row and a notification, never a call.
+                    new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales)).build());
         });
     }
 

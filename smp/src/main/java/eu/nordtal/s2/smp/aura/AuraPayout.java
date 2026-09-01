@@ -129,7 +129,7 @@ public final class AuraPayout {
 
         final Set<String> qualifiers = qualifiersOf(contributors, target);
 
-        int equalBudget = pot * EQUAL_PERCENT / 100;
+        final int equalBudget = pot * EQUAL_PERCENT / 100;
         // The proportional part is the REST of the pot rather than 70 % of it, so that the aura the
         // 30 % lost to its own floor is not lost twice.
         int proportionalBudget = pot - equalBudget;
@@ -152,7 +152,6 @@ public final class AuraPayout {
                     equal.put(id, MINIMUM_QUALIFIER_SHARE);
                 }
                 proportionalBudget = pot - qualifiers.size();
-                equalBudget = qualifiers.size();
             } else {
                 // More qualifiers than there is aura in the pot. Pay the guarantee to as many as it
                 // reaches, largest contribution first - see this class's documentation for why not
@@ -163,8 +162,7 @@ public final class AuraPayout {
                     }
                     equal.put(id, MINIMUM_QUALIFIER_SHARE);
                 }
-                equalBudget = equal.size();
-                proportionalBudget = pot - equalBudget;
+                proportionalBudget = pot - equal.size();
             }
         }
 

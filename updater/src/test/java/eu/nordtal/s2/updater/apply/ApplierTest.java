@@ -219,6 +219,26 @@ class ApplierTest {
         assertFalse(Files.exists(volumes.resolve("discord-bot")));
     }
 
+    @Test
+    @DisplayName("a run where everything was skipped does not read as a run where nothing was needed")
+    void skippedIsNotTheSameAsCurrent() {
+        // Found on a real container run, 2026-09-01: every volume unmounted, every row skipped,
+        // and the report closed with "Nothing needed doing." - which is the sentence that lets
+        // somebody shut the report believing the network is up to date.
+        final ApplyResult result = apply(new Fake(), plan(
+                Change.unresolved("smp", "packetevents", "Modrinth: connect timed out"),
+                new Change("smp", "smp", Change.Status.OUTDATED, "smp-0.1.0.jar",
+                        remote("smp", "smp-0.2.0.jar"), null)));
+
+        assertTrue(result.skippedAnything());
+        assertFalse(result.changedAnything());
+        assertFalse(result.hasFailures());
+
+        final String rendered = eu.nordtal.s2.updater.plan.Report.render(result);
+        assertFalse(rendered.contains("Nothing needed doing"), rendered);
+        assertTrue(rendered.contains("not because everything was current"), rendered);
+    }
+
     // ---------------------------------------------------------------- plumbing
 
     /** A {@link Fetcher} that writes a marker instead of downloading, and can be told to fail. */

@@ -39,6 +39,18 @@ public record ApplyResult(@NotNull List<Outcome> outcomes) {
     }
 
     /**
+     * Whether anything was deliberately not attempted.
+     *
+     * <p>Reported separately from a failure and from "nothing to do", because it is neither and
+     * reads as the wrong one of them. A run where every server was skipped because its volume was
+     * not mounted did no work and had no failure - and "Nothing needed doing" is exactly the
+     * sentence that would let somebody close the report believing the network is current.</p>
+     */
+    public boolean skippedAnything() {
+        return outcomes.stream().anyMatch(outcome -> outcome.status() == Status.SKIPPED);
+    }
+
+    /**
      * Whether a restart would be safe to offer. It would not be if anything failed: the point of
      * reporting before restarting (step 5 of docs/updater.md) is that a person sees a half-done
      * run before the network goes down on it.

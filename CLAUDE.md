@@ -274,7 +274,7 @@ block plus its own dependencies.
 
 | convention | applies to | gives |
 |---|---|---|
-| `nordtal.java-base` | everything | Java 25 toolchain, UTF-8, JUnit 6, group, `repositoryRootTestInputs` |
+| `nordtal.java-base` | everything | Java 25 toolchain, UTF-8, JUnit 6, group, `repositoryRootTestInputs`, `checkSourcesTracked` |
 | `nordtal.shaded` | every deployable | shadow; thin jar moved to the `thin` classifier so `shadowJar` takes the plain name |
 | `nordtal.paper-plugin` | the three Paper modules | paper-api, `:common`, `runServer` on 26.2, `${version}` expansion |
 | `nordtal.velocity-plugin` | `network-control` | velocity-api as compileOnly + annotationProcessor, `:common` |
@@ -314,8 +314,14 @@ attaches four plugin jars + the bot jar + the pack zip and its `.sha1` to that r
 request. Until 2026-08-31 the release workflow was the only CI in the repository, so a compile
 error on `main` stayed invisible until somebody tagged.
 
-**No workflow has ever run.** There are no tags and no releases on the remote as of 2026-08-31;
-everything above is unexercised.
+**`build.yml` has run and failed; `release.yml` is still unexercised.** The first run on `main`,
+2026-09-02, failed on `:updater:compileJava` with `package eu.nordtal.s2.updater.run does not
+exist` - the package was in the working tree and not in the repository, because `.gitignore`
+carried a bare `run/` that matched the Java package as readily as `hunger-games/run`. An *ignored*
+file is not an untracked one, so `git status` stayed clean and the local build was green
+throughout. Fixed 2026-09-02 by anchoring every directory pattern in `.gitignore` and by
+`checkSourcesTracked`, which asks Git the same question on every local `./gradlew build`; see
+`build-logic/src/main/kotlin/CheckSourcesTracked.kt`. There are still no releases on the remote.
 
 `season-2` itself produces no combined build, and does not republish jars built in other repos.
 

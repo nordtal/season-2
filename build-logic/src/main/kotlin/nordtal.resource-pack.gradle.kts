@@ -4,6 +4,7 @@
 // The client is sent a URL *and* a SHA-1; Minecraft refuses the pack if they disagree, so the
 // hash is generated on every build rather than written down anywhere.
 
+import eu.nordtal.s2.build.CheckSourcesTracked
 import eu.nordtal.s2.build.Sha1File
 
 plugins {
@@ -40,4 +41,18 @@ packZip.configure { finalizedBy(packSha1) }
 
 tasks.named("assemble") {
     dependsOn(packZip)
+}
+
+// The same guard the Java modules get. This module has no source sets, but it has a src/ whose
+// contents go into the zip, and an ignored file there is a glyph the client never receives.
+val packSource = layout.projectDirectory.dir("src")
+val repositoryRootDirectory = rootProject.layout.projectDirectory
+
+val checkSourcesTracked = tasks.register<CheckSourcesTracked>("checkSourcesTracked") {
+    sourceDirectories.from(packSource)
+    repositoryRoot.set(repositoryRootDirectory)
+}
+
+tasks.named("check") {
+    dependsOn(checkSourcesTracked)
 }

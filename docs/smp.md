@@ -949,9 +949,31 @@ For anything that goes through Bukkit permissions — vanilla commands, third-pa
 plugin attaches a `PermissionAttachment` with a configured node list at join and removes it at
 quit. That settles the open question in [season-phases.md](season-phases.md#open-questions).
 
+### `/smp update` — the network's updater, from in game
+
+Added 2026-09-01, and it is the one part of `/smp` that has nothing to do with this server:
+
+```
+/smp update                    what is newer than what the network is running
+/smp update apply              install it. Restarts nothing
+/smp update restart            restart the whole network, after a minute of countdown
+/smp update restart cancel     stop that countdown
+```
+
+The plugin updates nothing — it cannot, the jars and the schema belong to a different container. It
+writes a row into `update_request` and reads the answer back, and what lands in chat is the
+`updater`'s own report, the same text `/update` in Discord shows
+([updater.md](updater.md#how-it-is-operated)).
+
+**The countdown is the confirmation.** A chat line has no button to press, so `restart` does not ask
+"are you sure": it starts a minute that everybody on the network is counted down through — by the
+proxy, because only the proxy sees players in limbo and in Hunger Games too — and `restart cancel`
+stops it for as long as it runs.
+
 ## Data model
 
-Migrated by the bot as always, and **the migration SQL now lives in `:common`**
+Migrated by the `updater` (it was the bot until 2026-09-01), and **the migration SQL lives in
+`:common`**
 ([architecture.md](architecture.md#schema-ownership)) so that SMP DDL does not live inside a Discord
 bot module. Flyway still runs in exactly one process.
 

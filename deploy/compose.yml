@@ -357,7 +357,7 @@ services:
   # a crash restart at three in the morning must not move a version. It is run when somebody asks
   # for an update:
   #
-  #   docker compose --profile updater run --rm updater
+  #   docker compose run --rm updater
   #
   # Today it resolves the newest version of everything the network runs, compares that against the
   # jars actually in the volumes, and prints the difference. The only thing it writes is its own

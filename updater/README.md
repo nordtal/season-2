@@ -1,16 +1,21 @@
 # updater
 
-The container that owns the versions of everything the network runs — and, from step 2 of
-[../docs/updater.md](../docs/updater.md) on, the database schema.
+The container that owns the versions of everything the network runs, and the database schema
+([../docs/updater.md](../docs/updater.md)).
 
-**Steps 1, 2 and 3 of six are built.** It resolves, compares, reports, applies the database schema,
-and — when asked by name — installs. It does not restart anything.
+**All six steps are built.** It resolves, compares, reports, migrates, installs, and restarts the
+whole stack through Arcane when somebody presses the button. It is **a service and a set of
+commands**, and they are the same program:
 
 ```bash
-docker compose --profile updater run --rm updater          # resolve and report, changes nothing
-docker compose --profile updater run --rm updater migrate  # apply the database schema, nothing else
-docker compose --profile updater run --rm updater apply    # migrate, then fetch and place the files
+docker compose up -d updater             # `serve`: migrate, then wait for requests. What compose runs.
+docker compose run --rm updater          # resolve and report, changes nothing
+docker compose run --rm updater migrate  # apply the database schema, nothing else
+docker compose run --rm updater apply    # migrate, then fetch and place the files
 ```
+
+It has **no compose profile**: it is in every selection, and every other service waits for it to be
+healthy, which it becomes once the schema is current.
 
 **This container is the bootstrap of a deployment, not a tool used on one.** Since 2026-09-01 it is
 the only process that runs Flyway: without a run of it there is no schema, so there is no bot and no
@@ -29,8 +34,12 @@ argument, does the harmless thing.
 | DisplayTags | GitHub releases, `nordtal/papermc-display-tags` |
 | PacketEvents, Chunky | Modrinth v2, filtered to the pinned Minecraft version and `paper` |
 | Paper, Velocity | PaperMC Fill v3, newest `STABLE` build of the pinned version |
-| what is installed | the four Minecraft volumes, mounted read-only under `volumes-root` |
+| what is installed | six volumes under `volumes-root`: the four Minecraft ones, the bot's and its own |
 | what pack the proxy offers | `pack.yml` in the `network-control` volume |
+
+All six are mounted **writable** — `apply` is what puts the jars there. A report run still writes
+nothing into any of them; the two are separated by command, not by mount, so that the read-only one
+is what a container does when nobody asked for anything.
 
 Then it prints one row per artefact per server: up to date, `OUTDATED old -> new`, not installed,
 or — the two that matter — *unknown* and *UNRESOLVED*. Those two exist so that **"nothing to do" and
@@ -38,12 +47,21 @@ or — the two that matter — *unknown* and *UNRESOLVED*. Those two exist so th
 
 ## Rules, and why each one is a rule
 
-- **It is a command, not a service.** No restart policy, no schedule, and `updater` must not appear
-  in `COMPOSE_PROFILES`. A crash restart at three in the morning must not move a version: the
-  network comes back on exactly what it was running.
+- **`serve` runs all the time and is not a scheduler.** It migrates once at startup and then does
+  nothing at all until a row appears in `update_request` — no timer, no watch, no "check for
+  updates on boot". A crash restart at three in the morning must not move a version: the network
+  comes back on exactly what it was running. The container having a restart policy does not change
+  that; adding a timer would, and nothing here may.
 - **A report run puts nothing into a Minecraft volume.** Only `apply` does, and `apply` still
   restarts nothing: it prints what it did and stops, because a person reading a half-done run
-  before the network goes down on it is the entire point of the restart being step 6.
+  before the network goes down on it is the entire point of the restart being a separate button.
+- **Two updaters cannot move jars at once.** An apply takes the PostgreSQL advisory lock
+  `nordtal1`, on a dedicated connection so a pool cannot leak it, and the second asker is **refused
+  rather than queued** — a plan resolved now is stale by the time a queued run would start. The
+  daemon and a hand-run `apply` overlap on exactly the day somebody is bootstrapping.
+- **"Skipped" is a third answer.** A run where every volume was unmounted did no work and had no
+  failure; closing it with "Nothing needed doing" is how somebody reads it as "the network is
+  current".
 - **A swap is two phases.** Everything a server needs is downloaded into `.nordtal-staging` inside
   that server's own volume and verified there; only when all of it is present does anything move
   into `plugins/` or `.server/`. A download that fails half way leaves the server exactly as it
@@ -105,12 +123,38 @@ the entrypoint still owns is resolving the pinned server build and the world-gen
 and refusing to start on an empty `plugins/` folder — the coarse remnant of its old "never run an
 older jar" guard.
 
-It does not own worlds, anything a player built, any other file inside a volume, or the restart
-(steps 4 to 6).
+It also owns **the bot's jar and its own**. Both containers run `<name>-*.jar` out of a volume this
+module fills, and fall back to the jar baked into their image only while that volume is empty —
+which is a first deployment and nothing else. Its own jar is installed exactly like any other and
+takes effect on the next start: no process replaces the jar it is executing, so the restart is what
+brings the new updater up. Deleting the superseded jar while running from it is safe **only because
+this is Linux** — unlinking an open file leaves the inode alive for whoever holds it — and that is
+written down in `Applier` rather than assumed.
+
+It does not own worlds, anything a player built, or any other file inside a volume.
+
+## The two surfaces
+
+Nothing calls this container: it is reached through the database. `/update` in Discord and
+`/smp update` in game write a row into `update_request` and read the answer back out of the same
+row; `serve` holds a `LISTEN nordtal_update` connection outside its pool **and** polls every fifteen
+seconds. The poll is the guarantee, the notification is the speed — measured on 2026-09-01 across
+two containers: **160 ms with it, 17 s without**.
+
+A restart is written with an instant sixty seconds out, and network-control counts every player on
+the network down towards that instant. The updater refuses to claim the row before it, so the
+countdown is real and cancellable for its whole length. The wait is shortened when a countdown ends
+sooner than the next poll: an 8-second countdown fired after 8.97 s, not after 15.
+
+The restart itself is one Arcane redeploy, over its REST API — **not the Docker socket**, which is
+not mounted anywhere in this deployment. The endpoint path is a setting and not a constant, because
+Arcane's public documentation does not publish it; a 404 from the default says so and names
+`/api/docs`. An empty `arcane.base-url` is a supported state: everything else works and both
+surfaces say the restart has to be clicked in Arcane.
 
 ## Tests
 
-`./gradlew :updater:test` — 75 tests, no network and no container. The migration itself is covered
+`./gradlew :updater:test` — no network and no container. The migration itself is covered
 from the other side, in `:discord-bot`'s `SchemaCheckTest`, against a real PostgreSQL: an unmigrated
 database is refused with a message naming `updater migrate`, and a migrated one passes. Every API fixture in
 `src/test/resources/fixtures/` was recorded from the live GitHub, Modrinth and PaperMC APIs on
@@ -128,6 +172,25 @@ PostgreSQL 17:
 - `pack.yml` rewritten with its comments intact;
 - a wrong database password stopping the run before a single jar moved;
 - the report alone on stdout, every log line on stderr.
+
+And again on 2026-09-01 for `serve`, two containers on a Docker network:
+
+- seven migrations applied at startup, the container turning `healthy` only after that;
+- a request written with no notification picked up by the poll in 17 s, and one with `pg_notify` in
+  **160 ms** — which closes the "does `LISTEN` cross a container boundary" question;
+- an 8-second countdown firing after **8.97 s**, not after the 15-second poll;
+- a restart cancelled inside its countdown never claimed, twenty seconds later;
+- a `RESTART` left `RUNNING` by a killed container read as **DONE** on the next start, and an
+  `APPLY` in the same state read as **FAILED** — the restart is the one request that is supposed to
+  end that way;
+- a second `apply` refused while the advisory lock was held, from both directions, and going
+  through the moment it was released;
+- the Arcane call reaching an nginx as `POST /api/projects/nordtal-s2/redeploy` with the right
+  User-Agent, and its 404 producing the sentence that names `/api/docs`.
+
+**A 2xx from a real Arcane has never been seen.** That branch is covered by `ArcaneTest` against a
+local HTTP server and by nothing else; it is the one thing in this module that needs Till's
+instance.
 
 ## Output
 

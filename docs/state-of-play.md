@@ -30,9 +30,9 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `common` | 26 files, 2671 lines | 98 | Access API, messages, locales, phase, glyphs, **the limbo protocol**, V1–V6 |
 | `resource-pack` | — | — | Three fonts, every code point allocated and drawn |
 | `limbo` | 10 files, 1139 lines | 11 | The waiting room, in full |
-| `smp` | 78 files, 9730 lines | 126 | Everything docs/smp.md describes, none of it yet seen on a running server |
+| `smp` | 83 files, 10452 lines | 135 | Everything docs/smp.md describes, none of it yet seen on a running server |
 
-528 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
+537 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
 Every number in this table is read out of the JUnit XML, never counted by eye: this line once read
 435 while the rows above it added to 438, and `season-2/CLAUDE.md` claimed 13 tests each for
 `AuraPayoutTest` and `TrackValidationTest` and 7 for `DeathPenaltyTest` where the reports say 12, 12
@@ -40,7 +40,7 @@ and 8. Both were corrected on 2026-09-01 by re-reading the reports.
 
 **No module is a scaffold any more, and no half of one is missing either.** Every feature
 docs/smp.md describes exists in code as of 2026-09-01. What is left is not building but *watching*:
-none of `smp`'s 126 tests touches a world, a packet or a player, because none of them can, and this
+none of `smp`'s 135 tests touches a world, a packet or a player, because none of them can, and this
 document has said since it was written that "it compiles" proves nothing here.
 
 ### `common`

@@ -10,7 +10,7 @@ Status: **concept agreed 2026-08-31; built 2026-09-01, and not yet verified on a
 cores — aura, prestige and the milestone engine — and then the whole world half in three blocks: the
 worlds, datapacks, borders, balloon, portal gating, farm-world swap and spawn protection; the HUD,
 boards, nametags, chat, `/navigate` and POIs; and the duels, graves, wheel, milestone payout and
-`/smp`. 126 tests in the module.
+`/smp`, and the spawn NPC with its objective list and hand-in screen. 135 tests in the module.
 
 **Not one of those tests touches a world, a packet or a player, because none of them can.** What is
 left is the rehearsal, and it is a checklist rather than a document — see

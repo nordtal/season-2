@@ -45,6 +45,15 @@ final class DefaultSmp {
             balloon("nordtal_nether", -2, 32, -2, 2, 36, 2));
 
     /**
+     * Placeholder board anchors, both in Nordtal near the border centre. Replaced from the built
+     * spawn; what matters about them is only that there are two and that they are inside radius 10,
+     * with everything else social, so the opening minutes withhold travel and nothing else.
+     */
+    static final List<SmpSpec.BoardSpec> BOARDS = List.of(
+            board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f),
+            board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
+
+    /**
      * The curated advancement list. Twenty-two entries across the four bands described in
      * {@link SmpSpec#advancementAwards()}, chosen to follow the shape of a playthrough.
      */
@@ -171,6 +180,18 @@ final class DefaultSmp {
         values.put("max-y", maxY);
         values.put("max-z", maxZ);
         return Specs.createUnsafe(SmpSpec.BalloonSpec.class, values);
+    }
+
+    private static SmpSpec.BoardSpec board(final String kind, final String world, final double x,
+                                           final double y, final double z, final float yaw) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("kind", kind);
+        values.put("world", world);
+        values.put("x", x);
+        values.put("y", y);
+        values.put("z", z);
+        values.put("yaw", yaw);
+        return Specs.createUnsafe(SmpSpec.BoardSpec.class, values);
     }
 
     private static SmpSpec.AdvancementAwardSpec award(final String advancement, final int aura) {

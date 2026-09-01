@@ -1,7 +1,7 @@
 package eu.nordtal.s2.smp.db;
 
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.smp.protect.AdminFlags;
+import eu.nordtal.s2.smp.player.Identities;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.event.EventHandler;
@@ -28,15 +28,12 @@ import java.util.Locale;
  */
 public final class JoinGate implements Listener {
 
-    private final SmpDao dao;
-    private final AdminFlags admins;
+    private final Identities identities;
     private final Messages messages;
     private final Logger logger;
 
-    public JoinGate(final SmpDao dao, final AdminFlags admins, final Messages messages,
-                    final Logger logger) {
-        this.dao = dao;
-        this.admins = admins;
+    public JoinGate(final Identities identities, final Messages messages, final Logger logger) {
+        this.identities = identities;
         this.messages = messages;
         this.logger = logger;
     }
@@ -44,7 +41,7 @@ public final class JoinGate implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onPreLogin(final AsyncPlayerPreLoginEvent event) {
         try {
-            admins.set(event.getUniqueId(), dao.isAdmin(event.getUniqueId()).orElse(Boolean.FALSE));
+            identities.load(event.getUniqueId());
         } catch (final RuntimeException exception) {
             logger.error("refusing {}'s login because the database is unreachable",
                     event.getUniqueId(), exception);
@@ -57,6 +54,6 @@ public final class JoinGate implements Listener {
 
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
-        admins.forget(event.getPlayer().getUniqueId());
+        identities.forget(event.getPlayer().getUniqueId());
     }
 }

@@ -4,6 +4,13 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.discordbot.AccessBot")
 
+// ConfigsTest reads the NORDTAL_ACCESS_LANGUAGES and NORDTAL_ACCESS_TIERS blocks out of the real
+// .env.example instead of holding a copy of them. Without this the file is invisible to Gradle
+// and editing it leaves :discord-bot:test UP-TO-DATE, which is the drift the test exists to catch.
+repositoryRootTestInputs {
+    reads(".env.example")
+}
+
 repositories {
     maven("https://jitpack.io")
 }

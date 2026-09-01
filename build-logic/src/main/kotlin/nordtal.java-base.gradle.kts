@@ -1,6 +1,8 @@
 // Everything every module shares: Java 25, UTF-8, JUnit, the nordtal group and the
 // repo-wide version from the root gradle.properties.
 
+import eu.nordtal.s2.build.RepositoryRootTestInputs
+
 plugins {
     id("java")
 }
@@ -26,6 +28,14 @@ dependencies {
     "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
 }
 
+// A test that reads a file at the repository root has to say so, or Gradle reports the task
+// UP-TO-DATE after that file is edited. See RepositoryRootTestInputs for why two tests do it.
+val repositoryRootTestInputs = extensions.create<RepositoryRootTestInputs>(
+    "repositoryRootTestInputs", rootProject.layout.projectDirectory)
+
 tasks.named<Test>("test") {
     useJUnitPlatform()
+    inputs.files(repositoryRootTestInputs.files)
+        .withPropertyName("repositoryRootTestInputs")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

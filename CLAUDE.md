@@ -274,7 +274,7 @@ block plus its own dependencies.
 
 | convention | applies to | gives |
 |---|---|---|
-| `nordtal.java-base` | everything | Java 25 toolchain, UTF-8, JUnit 6, group |
+| `nordtal.java-base` | everything | Java 25 toolchain, UTF-8, JUnit 6, group, `repositoryRootTestInputs` |
 | `nordtal.shaded` | every deployable | shadow; thin jar moved to the `thin` classifier so `shadowJar` takes the plain name |
 | `nordtal.paper-plugin` | the three Paper modules | paper-api, `:common`, `runServer` on 26.2, `${version}` expansion |
 | `nordtal.velocity-plugin` | `network-control` | velocity-api as compileOnly + annotationProcessor, `:common` |
@@ -603,10 +603,21 @@ untested by anything but `common`'s DAO-level tests and a manual guild check. Th
 `ConfigsTest`'s cases (added 2026-09-01) pin `.env.example` rather than the bot: the JSON
 language list and price list it ships have to come back out of jcore's environment overlay as a
 list of specs, and its `REPLACE_ME` placeholders have to be *refused by name*. A `.env.example`
-whose structures do not parse is worse than none. **Those cases hold a hand-copy of the block, not
-the file** — re-checked 2026-09-01, nothing in the build reads `.env.example` at all — so the two
-can drift and nothing would say so. That is finding 19 in `docs/state-of-play.md`, and its
-originally written premise was wrong.
+whose structures do not parse is worse than none. **Those cases read the real file since
+2026-09-02** — they held a hand-copy of both blocks until then, which is two sources of truth with
+nothing comparing them (finding 19 in `docs/state-of-play.md`, now closed). Two rules come with
+that, and both are easy to undo by accident:
+
+- **A test that reads a file at the repository root declares it**, through
+  `repositoryRootTestInputs { reads("…") }` in the module's build file, wired into the test task by
+  `nordtal.java-base`. Without it Gradle cannot see the file — it is in no source set — so editing
+  it leaves the task UP-TO-DATE and the one check that would have caught the drift is the one that
+  does not run. `:updater:test` declares `compose.yml` the same way, for `TopologyTest`.
+- **The lookup anchors on the directory holding `settings.gradle.kts`, not on the nearest file by
+  name.** `discord-bot/` shipped an `.env.example` of its own until 2026-09-02 — a leftover of the
+  bot's standalone compose deployment, pinning `BOT_VERSION=0.1.0` — and a walk-up by name found
+  that one, from the module directory, in preference to the real one. It was deleted with this
+  change; the anchor is what stops the next one shadowing the root file silently.
 
 `network-control` has **120**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and

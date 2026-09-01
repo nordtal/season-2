@@ -9,8 +9,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -575,47 +578,79 @@ class ConfigsTest {
     // ------------------------------------------------------------- .env.example
 
     /**
-     * The exact {@code NORDTAL_ACCESS_LANGUAGES} block that {@code .env.example} ships,
-     * whitespace and all.
+     * The value of {@code key} as {@code .env.example} at the repository root ships it, with a
+     * leading {@code #} stripped from every line of a commented-out block.
      * <p>
-     * It is written the way an operator reads it - one key per line - rather than as the single
-     * line a shell would have needed, because docker compose parses a single-quoted multi-line
-     * value in an env file as one string. That is a claim about two systems this repository does
-     * not own, so the half that is ours is pinned here: whatever compose hands over, jcore has to
-     * turn back into a language list.
+     * Read out of the real file rather than copied into a literal here, on purpose: a copy is a
+     * second source of truth that nothing compares, and the two blocks this reads are exactly the
+     * ones whose shape has to survive jcore's environment overlay. {@code build-logic}'s
+     * {@code repositoryRootTestInputs} declares the file as an input of this test task - without
+     * that, editing {@code .env.example} would leave {@code :discord-bot:test} UP-TO-DATE and the
+     * check would not run at all.
+     * </p>
+     * <p>
+     * Both blocks are written the way an operator reads them - one key per line - rather than as
+     * the single line a shell would have needed, because docker compose parses a single-quoted
+     * multi-line value in an env file as one string. That is a claim about two systems this
+     * repository does not own, so the half that is ours is what is checked: whatever compose
+     * hands over, jcore has to turn back into a list of specs.
      * </p>
      */
-    private static final String ENV_EXAMPLE_LANGUAGES = """
-            [
-              {
-                "tag": "en",
-                "role": "REPLACE_ME",
-                "contribution-channel": "REPLACE_ME",
-                "link-channel": "REPLACE_ME",
-                "hunger-games-channel": "REPLACE_ME"
-              },
-              {
-                "tag": "de",
-                "role": "REPLACE_ME",
-                "contribution-channel": "REPLACE_ME",
-                "link-channel": "REPLACE_ME",
-                "hunger-games-channel": "REPLACE_ME"
-              }
-            ]""";
+    private static String envExampleValue(final String key) throws IOException {
+        final Path file = repositoryRoot().resolve(".env.example");
+        assertTrue(Files.isRegularFile(file), file + " does not exist");
+        final List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        final String opening = key + "='";
 
-    /** The commented-out {@code NORDTAL_ACCESS_TIERS} block from the same file. */
-    private static final String ENV_EXAMPLE_TIERS = """
-            [
-              {"days": 30, "price-cents": 300},
-              {"days": 60, "price-cents": 500},
-              {"days": 90, "price-cents": 700}
-            ]""";
+        for (int i = 0; i < lines.size(); i++) {
+            final StringBuilder value = new StringBuilder(uncomment(lines.get(i)));
+            if (!value.toString().startsWith(opening)) {
+                continue;
+            }
+            value.delete(0, opening.length());
+            while (!value.toString().endsWith("'")) {
+                if (++i == lines.size()) {
+                    throw new IllegalStateException(file + " never closes the quote on " + key);
+                }
+                value.append('\n').append(uncomment(lines.get(i)));
+            }
+            return value.substring(0, value.length() - 1);
+        }
+        throw new IllegalStateException(file + " does not set " + key + " any more. If it was"
+                + " renamed, rename it here too - this test is the only thing that reads it.");
+    }
+
+    /** A commented-out block is still the value an operator uncomments; the {@code #} is not. */
+    private static String uncomment(final String line) {
+        return line.startsWith("#") ? line.substring(1) : line;
+    }
+
+    /**
+     * The repository root, found by walking up from the working directory - which Gradle sets to
+     * the module folder and IntelliJ may not - until {@code settings.gradle.kts} is there.
+     * <p>
+     * It anchors on the build rather than on the first {@code .env.example} above it, because
+     * this module used to ship one of its own next to its old compose file: a search for the
+     * nearest file by name found that one, which is the wrong file and looks like the right one.
+     * </p>
+     */
+    private static Path repositoryRoot() {
+        Path directory = Path.of("").toAbsolutePath();
+        while (directory != null) {
+            if (Files.isRegularFile(directory.resolve("settings.gradle.kts"))) {
+                return directory;
+            }
+            directory = directory.getParent();
+        }
+        throw new IllegalStateException("no settings.gradle.kts above "
+                + Path.of("").toAbsolutePath());
+    }
 
     @Test
     @DisplayName("the language list in .env.example is read back as two languages")
     void theEnvExampleLanguageListParses() throws Exception {
         final AccessSpec config = fromEnvironment(Map.of(
-                "NORDTAL_ACCESS_LANGUAGES", ENV_EXAMPLE_LANGUAGES));
+                "NORDTAL_ACCESS_LANGUAGES", envExampleValue("NORDTAL_ACCESS_LANGUAGES")));
 
         assertEquals(2, config.languages().size(), "both entries have to survive the round trip");
         assertEquals("en", config.languages().get(0).tag());
@@ -632,7 +667,8 @@ class ConfigsTest {
     @Test
     @DisplayName("the price list in .env.example is read back as three tiers")
     void theEnvExampleTierListParses() throws Exception {
-        final AccessSpec config = fromEnvironment(Map.of("NORDTAL_ACCESS_TIERS", ENV_EXAMPLE_TIERS));
+        final AccessSpec config = fromEnvironment(
+                Map.of("NORDTAL_ACCESS_TIERS", envExampleValue("NORDTAL_ACCESS_TIERS")));
 
         assertEquals(3, config.tiers().size());
         assertEquals(30, config.tiers().get(0).days());

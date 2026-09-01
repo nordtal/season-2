@@ -126,6 +126,74 @@ if [[ -n "${EXTRA_PLUGIN_URLS:-}" ]]; then
     done
 fi
 
+# --- world-generation datapacks ----------------------------------------------------------------
+# Terralith and Dungeons and Taverns, pinned, into the level-name world's datapacks/ folder.
+#
+# WHY THAT FOLDER AND NO OTHER, measured on Paper 26.2 build 121 on 2026-09-01: datapacks are
+# server-global. A probe pack in <level-name>/datapacks/ was listed and enabled; an identical probe
+# in a secondary world's own datapacks/ folder was never seen - not at start, not after that world
+# was created, not after refreshPacks(). There is no per-world datapack API. So one folder feeds
+# every world the server generates, the nightly farm world included.
+#
+# WHY BEFORE THE SERVER STARTS: worldgen registries are read once, at start. A pack dropped in
+# afterwards changes no terrain, and terrain is never re-rolled once it is on disk - a farm world
+# generated without Terralith is one flat day, but Nordtal generated without it is the whole season
+# on a world that has a spawn built on it and therefore cannot be thrown away. The smp plugin
+# refuses to enable when a required pack is missing, which turns "wrong terrain forever" into "the
+# server did not come up", and that is the trade on purpose.
+#
+# Format of DATAPACK_URLS: whitespace-separated entries, each either a bare URL or <sha512>@<url>.
+# sha512 and not sha256 because that is what Modrinth actually publishes for a file - the pin can
+# then be copied straight out of the API response instead of being computed by hand, and a pin
+# nobody can re-derive is a pin that rots.
+# The checksum is optional but wanted: a datapack that silently changes version between Nordtal's
+# one-off pre-generation and a nightly farm world is two worlds that stop looking like each other,
+# and nothing reports it.
+fetch_datapacks() {
+    local dir="$1" spec url sha file dest tmp actual
+
+    mkdir -p "$dir"
+    for spec in $DATAPACK_URLS; do
+        if [[ "$spec" == *"@"* ]]; then
+            sha="${spec%%@*}"
+            url="${spec#*@}"
+        else
+            sha=""
+            url="$spec"
+        fi
+
+        # The name Paper reports is the name on disk, so percent-escapes have to come back out -
+        # "Dungeons%20and%20Taverns%20v5.3.2.zip" would otherwise never match a required-datapacks
+        # entry of "Dungeons and Taverns".
+        file="${url##*/}"
+        file="${file%%\?*}"
+        file="$(printf '%b' "${file//%/\\x}")"
+        dest="${dir}/${file}"
+
+        if [[ -f "$dest" ]]; then
+            log "datapack cached: ${file}"
+            continue
+        fi
+
+        log "fetching datapack ${file}"
+        tmp="${dest}.partial"
+        curl -fsSL --max-time 300 -o "$tmp" "$url" \
+            || { rm -f "$tmp"; die "could not fetch datapack ${file} from ${url}. Refusing to start: a world generated without its datapacks is vanilla terrain permanently."; }
+
+        if [[ -n "$sha" ]]; then
+            actual="$(sha512sum "$tmp" | cut -d' ' -f1)"
+            if [[ "$actual" != "$sha" ]]; then
+                rm -f "$tmp"
+                die "datapack ${file} does not match its pinned sha512 (wanted ${sha}, got ${actual}). Refusing to start rather than generating tomorrow's farm world from a different pack version than Nordtal."
+            fi
+        else
+            log "WARNING: ${file} has no pinned checksum - a silent version change would not be noticed"
+        fi
+
+        mv "$tmp" "$dest"
+    done
+}
+
 # --- first-start configuration -----------------------------------------------------------------
 # Everything below is SEEDING, not editing: a file that already exists is left alone and belongs
 # to the operator from then on. The one exception is server.properties#online-mode, which is
@@ -245,6 +313,12 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
         || die "set EULA=true to accept https://aka.ms/MinecraftEULA - this is deliberately not defaulted"
     printf 'eula=true\n' > "$DATA/eula.txt"
     JAVA_ARGS+=(nogui)
+
+    # Before anything generates. LEVEL_NAME has to agree with server.properties#level-name; it is
+    # the world Paper reads datapacks from and the world every other one is created inside.
+    if [[ -n "${DATAPACK_URLS:-}" ]]; then
+        fetch_datapacks "$DATA/${LEVEL_NAME:-world}/datapacks"
+    fi
 
     # A Paper server that is given a forwarding secret is by definition a backend behind the
     # proxy. That is the whole switch: one variable, and the two settings that follow from it are

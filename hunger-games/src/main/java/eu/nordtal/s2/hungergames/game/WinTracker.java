@@ -119,7 +119,15 @@ public final class WinTracker {
                 final Optional<UUID> winner = Tiebreak.resolve(first, firstKills, second, secondKills);
                 dao.recordEvent(gameId, "TIE", null, null,
                         winner.map(UUID::toString).orElse("no-winner"));
-                return Optional.of(winner.map(Outcome::win).orElseGet(Outcome::tieNoWinner));
+                // The kill counts travel with the outcome because the ceremony has to print them:
+                // "won on the tiebreaker, 3 kills to 2" is a different sentence from "won", and a
+                // game that ends this way is exactly the one where players will ask why.
+                return Optional.of(winner
+                        .map(id -> Outcome.tieBroken(id, Math.max(firstKills, secondKills),
+                                Math.min(firstKills, secondKills)))
+                        // Equal by definition in this branch - Tiebreak returns empty only then -
+                        // so either count is "the" count.
+                        .orElseGet(() -> Outcome.tieNoWinner(firstKills)));
             }
         } else {
             recentDeaths.add(victimMemberId);
@@ -131,7 +139,9 @@ public final class WinTracker {
         if (aliveSince.isEmpty()) {
             LOGGER.warn("hunger-games: all participants dead in game {} with no resolvable tiebreak "
                     + "(deaths not simultaneous) - treating as no winner", gameId);
-            return Optional.of(Outcome.tieNoWinner());
+            // Not a tie: nothing was compared. The ceremony must say "no winner", not invent a
+            // simultaneous death that did not happen.
+            return Optional.of(Outcome.noWinner());
         }
 
         return Optional.empty();
@@ -163,15 +173,42 @@ public final class WinTracker {
         }
     }
 
-    /** The result of a game ending. */
-    public record Outcome(UUID winnerMemberId, boolean tie) {
+    /**
+     * The result of a game ending, in the four shapes the ceremony has to be able to tell apart.
+     *
+     * <p>{@code tie} means "the last two died within {@link #SIMULTANEOUS_WINDOW} of each other and
+     * the kill counts decided it" - it is <b>not</b> a synonym for "nobody won". A tiebreaker can
+     * produce a winner, and a game can end without a winner for a reason that is not a tiebreak at
+     * all (every participant dead with no simultaneous pair, which is a data anomaly and is logged
+     * as one). Collapsing those two into one flag is what left {@code hg.win.tie-broken} and
+     * {@code hg.win.no-winner} written, translated and never sent.
+     *
+     * @param winnerMemberId the winner, or {@code null} when the game ended without one
+     * @param tie            whether the tiebreaker decided this outcome
+     * @param winnerKills    on a tiebreak, the higher kill count - or the shared one when the
+     *                       tiebreak found no winner. Zero on an ordinary win
+     * @param loserKills     on a tiebreak, the lower kill count. Zero otherwise
+     */
+    public record Outcome(UUID winnerMemberId, boolean tie, int winnerKills, int loserKills) {
 
+        /** The ordinary ending: one player left standing. */
         static Outcome win(final UUID winnerMemberId) {
-            return new Outcome(winnerMemberId, false);
+            return new Outcome(winnerMemberId, false, 0, 0);
         }
 
-        static Outcome tieNoWinner() {
-            return new Outcome(null, true);
+        /** The last two died together and one had more kills. */
+        static Outcome tieBroken(final UUID winnerMemberId, final int winnerKills, final int loserKills) {
+            return new Outcome(winnerMemberId, true, winnerKills, loserKills);
+        }
+
+        /** The last two died together with the same number of kills - nobody wins. */
+        static Outcome tieNoWinner(final int kills) {
+            return new Outcome(null, true, kills, kills);
+        }
+
+        /** Everybody is dead and no tiebreak applies. Should not happen; see the warning above. */
+        static Outcome noWinner() {
+            return new Outcome(null, false, 0, 0);
         }
     }
 }

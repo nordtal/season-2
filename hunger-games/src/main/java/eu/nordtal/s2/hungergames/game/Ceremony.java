@@ -65,9 +65,19 @@ public final class Ceremony {
         final Locale locale = locales.of(player.getUniqueId());
         player.sendMessage(Component.text(messages.get(locale, "hg.ceremony.header")));
 
-        if (outcome.winnerMemberId() != null) {
+        // Four endings, four sentences - docs/hunger-games.md#winning. A tiebreak win printed as a
+        // plain win is the one case where the players who watched it happen would be told something
+        // they can see is not what occurred.
+        if (outcome.winnerMemberId() != null && outcome.tie()) {
+            player.sendMessage(Component.text(messages.format(locale, "hg.win.tie-broken",
+                    "winner", winnerLabel(outcome.winnerMemberId(), allMembers),
+                    "winnerKills", outcome.winnerKills(), "loserKills", outcome.loserKills())));
+        } else if (outcome.winnerMemberId() != null) {
             player.sendMessage(Component.text(messages.format(locale, "hg.win.player",
                     "winner", winnerLabel(outcome.winnerMemberId(), allMembers))));
+        } else if (outcome.tie()) {
+            player.sendMessage(Component.text(messages.format(locale, "hg.win.no-winner",
+                    "kills", outcome.winnerKills())));
         } else {
             player.sendMessage(Component.text(messages.get(locale, "hg.ceremony.no-winner")));
         }

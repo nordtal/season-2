@@ -1,3 +1,10 @@
+# Every directory pattern in this file is anchored with a leading slash, and that is deliberate.
+# An unanchored `foo/` matches a directory named `foo` at any depth - including a Java package -
+# and because the result is an *ignored* file rather than an untracked one, it never appears in
+# `git status`. nordtal/season-2 shipped a broken build that way on 2026-09-02: a bare `run/` kept
+# the package eu.nordtal.s2.updater.run out of the repository while every local build stayed green.
+# `:checkSourcesTracked` in build.gradle is the net under this.
+
 # User-specific stuff
 .idea/
 
@@ -6,7 +13,8 @@
 *.iws
 
 # IntelliJ
-out/
+/out/
+/*/out/
 # mpeltonen/sbt-idea plugin
 .idea_modules/
 
@@ -100,8 +108,10 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-.gradle
-build/
+/.gradle/
+/*/.gradle/
+/build/
+/*/build/
 
 # Ignore Gradle GUI config
 gradle-app.setting
@@ -109,11 +119,12 @@ gradle-app.setting
 # Cache of project
 .gradletasknamecache
 
-**/build/
 
-# Common working directory
-run/
-runs/
+# Common working directory of a server started in place.
+/run/
+/*/run/
+/runs/
+/*/runs/
 
 # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
 !gradle-wrapper.jar

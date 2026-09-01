@@ -23,11 +23,12 @@ deploy/
 
 The order matters in two places only, and both are marked.
 
-1. **`cp .env.example .env` and fill it in.** Nothing has a plausible default for a value nobody
-   can guess; a missing one stops `docker compose` rather than starting something surprising.
-2. **Generate the forwarding secret** — see below. This is the step most likely to be skipped and
-   the one whose failure looks like something else.
-3. **Bring up PostgreSQL and the bot first.** ← *ordering matters.* The bot is the only process
+1. **`cp .env.example .env` and replace every `REPLACE_ME`.** That file is the whole of the
+   configuration; nothing else has to be edited anywhere. Nothing has a plausible default for a
+   value nobody can guess, and `REPLACE_ME` is not one either — it fails validation by name
+   (*"roles.access must be a Discord snowflake (digits only)"*) rather than starting something
+   surprising. One of them is the forwarding secret: `openssl rand -hex 24`.
+2. **Bring up PostgreSQL and the bot first.** ← *ordering matters.* The bot is the only process
    that applies the schema, and every other service expects it to be current.
    ```
    docker compose --profile db --profile bot up -d
@@ -35,56 +36,74 @@ The order matters in two places only, and both are marked.
    Leave `NORDTAL_ACCESS_PAYMENT_WATERMARK` empty on a fresh database: the first start stamps its
    own instant, and without it the first poll books up to 50 historical bunq payments — roles, DMs
    and public thank-yous included.
-4. **Start the Minecraft services.** They will come up with default configs and a generated world.
+3. **Start the Minecraft services.**
    ```
    docker compose --profile mc up -d
    ```
-5. **Configure the proxy.** `velocity.toml` lives in the `mc-network-control` volume. Its `[servers]`
-   entries use the compose service names as hostnames, and those names are also what
-   `network-control`'s `gate.yml#server-*` keys expect:
-   ```toml
-   [servers]
-   limbo = "limbo:25565"
-   hunger-games = "hunger-games:25565"
-   smp = "smp:25565"
-   ```
-   Set `player-info-forwarding-mode = "modern"` and
-   `forwarding-secret-file = "forwarding.secret"` — the entrypoint writes that file from
-   `VELOCITY_FORWARDING_SECRET` on every start.
-6. **Turn the backends into backends.** In each Paper volume, `server.properties` needs
-   `online-mode=false` (the proxy authenticates) and the port left at 25565; each container has its
-   own address on the compose network, so there is no port to deconflict. Only the proxy publishes
-   one to the host.
-7. **Upload the hand-built worlds** — see below.
-8. **Run the login-path rehearsal** — [`../../todo.md`](../../todo.md), section 1. Nothing above
+   On a fresh volume each container seeds the configuration it cannot work without and then never
+   touches it again — see [First-start seeding](#first-start-seeding) for exactly what is written
+   and what that leaves to you. Database credentials, the forwarding secret and the server list all
+   arrive from `.env`; there is nothing to paste into a volume.
+4. **Upload the hand-built worlds** — see below.
+5. **Run the login-path rehearsal** — [`../../todo.md`](../../todo.md), section 1. Nothing above
    proves a client can join.
+
+## First-start seeding
+
+The container writes four things, **only when they are not there already**, and a file that exists
+is never edited again. It is deliberately the minimum that makes a login work, not a set of
+opinions about how to run a server: everything else stays Paper's and Velocity's own default.
+
+| what | where | when |
+|---|---|---|
+| `player-info-forwarding-mode`, `bind`, `online-mode`, `[servers]`, `try`, an empty `[forced-hosts]` | proxy, `velocity.toml` | no `velocity.toml` yet and `VELOCITY_SERVERS` is set |
+| `proxies.velocity.enabled: true` | each backend, `config/paper-global.yml` | no `paper-global.yml` yet and `PAPER_VELOCITY_SECRET` is set |
+| `online-mode=false` | each backend, `server.properties` | **every start**, see below |
+| `forwarding.secret` | proxy | every start, from `VELOCITY_FORWARDING_SECRET` |
+
+`online-mode` is the one thing enforced rather than seeded. It is not a preference: a backend that
+authenticates players itself refuses every forwarded login, so `online-mode=true` there is a server
+that cannot work, not a choice somebody might have made. The rest is seeded once and yours
+afterwards.
+
+**`[forced-hosts]` is written empty on purpose, and it is not tidiness.** Measured 2026-09-01 on
+Velocity 4.1.1 build 24: leave the table out of `velocity.toml` and Velocity falls back to its
+*default* one, which routes `lobby.example.com` and two others at servers the file does not define
+— and it then refuses to start at all with *"Your configuration is invalid"*. "Velocity defaults
+everything you leave out" is true per key, not per table.
+
+**What this does not do** is fix a volume that already exists. The seeding only ever fires on a
+first start, so a server that has run before keeps whatever is in its volume; the manual equivalent
+is `online-mode=false` in `server.properties` and `proxies.velocity.enabled: true` in
+`config/paper-global.yml`.
 
 ## The forwarding secret
 
-Modern forwarding needs the **same secret in four places**, and a mismatch does not say so: it
-shows up as every login failing with *"Unable to connect you to the backend server"*.
+Modern forwarding needs the **same secret in all four containers**, and a mismatch does not say so:
+it shows up as every login failing with *"Unable to connect you to the backend server"*.
 
 ```bash
 openssl rand -hex 24
 ```
 
-Put it in `.env` as `VELOCITY_FORWARDING_SECRET`. The proxy container writes it to
-`/data/forwarding.secret` on every start, so the proxy side is handled by the environment like
-every other secret in this project.
+Put it in `.env` as `VELOCITY_FORWARDING_SECRET` and that is the whole of it. `compose.yml` hands
+the same value to the proxy under that name and to each backend as `PAPER_VELOCITY_SECRET`; the
+proxy writes it to `/data/forwarding.secret`, and Paper reads its own copy straight from the
+environment ([PaperMC/Paper#10127](https://github.com/PaperMC/Paper/discussions/10524)). Since a
+mismatch can now only mean "one container did not get the variable", it is not really a class of
+failure any more.
 
-**The three Paper backends are not.** Each one needs it pasted into its own
-`config/paper-global.yml`:
+**It does still land on disk.** Verified 2026-09-01 on Paper 26.2 build 121: Paper writes the value
+it took from the environment into `config/paper-global.yml` on first load. The environment variable
+removes the manual paste, not the copy in the volume — so **rotating** the secret is `.env` *plus*
+that one line in each of the three backend volumes.
 
-```yaml
-proxies:
-  velocity:
-    enabled: true
-    online-mode: true
-    secret: '<the same value>'
-```
-
-That is a manual step per backend, once. It is not automated because it is YAML surgery on a file
-Paper owns and rewrites, and a half-successful edit there is worse than a step in a runbook.
+**Auto-generating it was considered and rejected.** All four containers would have to arrive at the
+same value, which means either a shared volume holding it or deriving it from something that is not
+random — new shared state, or a weaker secret, to save one `openssl` call that happens once per
+season. Its value here is admittedly limited: no backend publishes a port, so the secret protects
+against something already inside the compose network. But Paper will not run modern forwarding
+without one, and modern forwarding is what gives the backends real UUIDs.
 
 ## Getting a world into a volume
 
@@ -167,7 +186,9 @@ the first item in [`../../todo.md`](../../todo.md).
 | Container will not start, log names a config key | jcore refused the config. The message names the file and the setting; it is not a container fault. |
 | `FATAL: set EULA=true` | Deliberate. The image does not accept Minecraft's EULA on your behalf. |
 | `FATAL: could not fetch <jar> … Refusing to start` | The release tag or the asset name in `.env` is wrong, or GitHub is down and this jar was never cached. It will not fall back to an older jar. |
-| Every login fails with *"Unable to connect you to the backend server"* | The forwarding secret does not match. Four places, see above. |
+| Every login fails with *"Unable to connect you to the backend server"* | The forwarding secret does not match — which now means one container did not get `VELOCITY_FORWARDING_SECRET`, or the volume predates the automation and still carries an old one. |
+| Velocity exits at once with *"Your configuration is invalid"* | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define. |
+| A backend logs *"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"* | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login. |
 | Proxy starts but refuses every login with a "network misconfigured" screen | `network-control` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`. Intended; read the log. |
 | `docker rm -f` fails with *"did not receive an exit event"* | You are running a container that mirrors its console with `tmux pipe-pane > /proc/1/fd/1`. Do not do that — see [below](#never-mirror-the-console-with-tmux-pipe-pane). Only a Docker daemon restart clears it. |
 
@@ -216,7 +237,18 @@ accident. Everything here was decided on 2026-09-01.
   current", so this stays an operator rule.
 - **The proxy needs database access**, which is a compose network rather than a firewall rule now.
   The credentials exist in more than one config file because the database is the source of truth;
-  accepted.
+  accepted. They are written **once** in `compose.yml`, as three YAML anchors, and handed to each
+  process under the prefix it reads — `NORDTAL_DATABASE_*` for the bot, `NORDTAL_SMP_DATABASE_*`
+  for the SMP plugin, and so on. `.env` therefore has one set of database settings and no
+  per-plugin anything; pointing the whole stack at an external PostgreSQL is `NORDTAL_DATABASE_*`
+  plus dropping the `db` profile.
+- **The container seeds its own first-start configuration**, rather than the runbook asking for
+  five hand edits across four volumes. Those edits were the largest remaining source of a stack
+  that comes up and cannot be joined, and three of them (the forwarding secret in three files) were
+  the same value typed three times. The rule that keeps this from becoming a config manager: a file
+  that exists is never touched, so the seeding is only ever the empty-volume case. The one
+  exception is `server.properties#online-mode`, which is not a preference — see
+  [First-start seeding](#first-start-seeding).
 - **No secrets are in this repository.** The Discord token, the bunq API key and the database
   credentials arrive as environment variables; committed config files are examples.
 
@@ -232,6 +264,16 @@ A Velocity 4.1.1 build 24 and a Paper 26.2 build 121 container were run from thi
 | Console writable from a plain `docker exec` | `mc "list"` and `mc "glist"` both executed, output in the container log. That is the mechanism Arcane's shell uses |
 | `docker stop` | Paper 3 s, exit 143, `All dimensions are saved` and `All RegionFile I/O tasks to complete`. Velocity 2 s, exit 143 |
 | The EULA gate | fails closed, with the message that names it, before anything starts |
+
+Extended on 2026-09-01, when the first-start seeding was written — again run, not inferred:
+
+| | |
+|---|---|
+| A four-line `config/paper-global.yml` | comes back as Paper's full config with every other key defaulted, one warning that it had no version set, and `proxies.velocity.enabled: true` intact |
+| `PAPER_VELOCITY_SECRET` | is honoured — **and written into `paper-global.yml`**, so the variable saves the paste and not the on-disk copy |
+| `online-mode=false` seeded before first start | survives Paper writing its own `server.properties`; the server logs OFFLINE/INSECURE MODE, which is the wanted state behind a proxy |
+| A `velocity.toml` without `[forced-hosts]` | **fails**: Velocity applies its default table, whose three servers do not exist, and refuses to start. The table is now written empty |
+| The same file with it | boots in 0.8 s with modern forwarding on and no "forwarding is disabled" warning |
 
 Still untested: whether the *interactive* `console` attach behaves inside Arcane's browser terminal
 — see [`../../todo.md`](../../todo.md), section 3.

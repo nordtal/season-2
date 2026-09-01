@@ -50,6 +50,20 @@ x-minecraft: &minecraft
       max-size: "10m"
       max-file: "5"
 
+# ---------------------------------------------------------------------------------------------
+# One database, five clients: the bot and the four Minecraft services. Each process reads its own
+# environment prefix - NORDTAL_DATABASE_* for the bot, NORDTAL_SMP_DATABASE_* for the SMP plugin,
+# and so on - but the three values are always the same ones, so they are written once here.
+#
+# NORDTAL_DATABASE_* in .env points the WHOLE stack at a PostgreSQL outside it; POSTGRES_* is the
+# one this compose runs. Nothing has to be filled in per plugin, and nothing is edited inside a
+# volume: a plugin whose database.yml is left at its defaults still gets these.
+# ---------------------------------------------------------------------------------------------
+x-database:
+  url: &db-url ${NORDTAL_DATABASE_JDBC_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nordtal}}
+  username: &db-username ${NORDTAL_DATABASE_USERNAME:-${POSTGRES_USER:-nordtal}}
+  password: &db-password ${NORDTAL_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD or NORDTAL_DATABASE_PASSWORD in .env}}
+
 services:
 
   # -------------------------------------------------------------------------------------------
@@ -95,9 +109,9 @@ services:
       TZ: ${TZ:-Europe/Berlin}
 
       # --- database.yml ------------------------------------------------------------------
-      NORDTAL_DATABASE_JDBC_URL: ${NORDTAL_DATABASE_JDBC_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-nordtal}}
-      NORDTAL_DATABASE_USERNAME: ${NORDTAL_DATABASE_USERNAME:-${POSTGRES_USER:-nordtal}}
-      NORDTAL_DATABASE_PASSWORD: ${NORDTAL_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD or NORDTAL_DATABASE_PASSWORD in .env}}
+      NORDTAL_DATABASE_JDBC_URL: *db-url
+      NORDTAL_DATABASE_USERNAME: *db-username
+      NORDTAL_DATABASE_PASSWORD: *db-password
       NORDTAL_DATABASE_MAXIMUM_POOL_SIZE: ${NORDTAL_DATABASE_MAXIMUM_POOL_SIZE:-}
       NORDTAL_DATABASE_LOG_SQL: ${NORDTAL_DATABASE_LOG_SQL:-}
 
@@ -109,12 +123,12 @@ services:
 
       # --- access.yml --------------------------------------------------------------------
       NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in .env}
-      NORDTAL_ACCESS_ROLES_ACCESS: ${NORDTAL_ACCESS_ROLES_ACCESS:?}
-      NORDTAL_ACCESS_ROLES_DONOR: ${NORDTAL_ACCESS_ROLES_DONOR:?}
-      NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?}
-      NORDTAL_ACCESS_ROLES_ADMIN_PING: ${NORDTAL_ACCESS_ROLES_ADMIN_PING:?}
-      NORDTAL_ACCESS_CHANNELS_ADMIN: ${NORDTAL_ACCESS_CHANNELS_ADMIN:?}
-      NORDTAL_ACCESS_LANGUAGES: ${NORDTAL_ACCESS_LANGUAGES:?}
+      NORDTAL_ACCESS_ROLES_ACCESS: ${NORDTAL_ACCESS_ROLES_ACCESS:?set NORDTAL_ACCESS_ROLES_ACCESS in .env - the bot-owned access role}
+      NORDTAL_ACCESS_ROLES_DONOR: ${NORDTAL_ACCESS_ROLES_DONOR:?set NORDTAL_ACCESS_ROLES_DONOR in .env - the permanent donor role}
+      NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in .env - the role mirrored into discord_user.admin}
+      NORDTAL_ACCESS_ROLES_ADMIN_PING: ${NORDTAL_ACCESS_ROLES_ADMIN_PING:?set NORDTAL_ACCESS_ROLES_ADMIN_PING in .env - the role pinged in the admin channel}
+      NORDTAL_ACCESS_CHANNELS_ADMIN: ${NORDTAL_ACCESS_CHANNELS_ADMIN:?set NORDTAL_ACCESS_CHANNELS_ADMIN in .env - the admin channel}
+      NORDTAL_ACCESS_LANGUAGES: ${NORDTAL_ACCESS_LANGUAGES:?set NORDTAL_ACCESS_LANGUAGES in .env - the JSON language list, whose shape .env.example ships in full}
       NORDTAL_ACCESS_TIERS: ${NORDTAL_ACCESS_TIERS:-}
       NORDTAL_ACCESS_DONATION_CENTS: ${NORDTAL_ACCESS_DONATION_CENTS:-}
       NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS: ${NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS:-}
@@ -144,9 +158,16 @@ services:
       SERVER_BUILD: ${VELOCITY_BUILD:-24}
       SEASON_PLUGINS: network-control-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
       HEAP: ${PROXY_HEAP:-1G}
-      # Modern forwarding. THE SAME SECRET has to be in each backend's config/paper-global.yml -
-      # see README.md, "The forwarding secret". A mismatch shows up as every login being refused.
-      VELOCITY_FORWARDING_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env}
+      # Modern forwarding. The same value reaches the three backends below as
+      # PAPER_VELOCITY_SECRET, so there is nothing to paste into a config file any more.
+      VELOCITY_FORWARDING_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
+      # The network topology, used only to seed velocity.toml on a fresh volume. The names are
+      # what network-control's gate.yml#server-* keys expect; the hosts are these service names.
+      VELOCITY_SERVERS: ${VELOCITY_SERVERS:-limbo=limbo:25565 hunger-games=hunger-games:25565 smp=smp:25565}
+      VELOCITY_TRY: ${VELOCITY_TRY:-limbo}
+      NORDTAL_NETWORK_CONTROL_DATABASE_JDBC_URL: *db-url
+      NORDTAL_NETWORK_CONTROL_DATABASE_USERNAME: *db-username
+      NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD: *db-password
     ports:
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
     volumes:
@@ -164,6 +185,14 @@ services:
       SEASON_PLUGINS: limbo-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
       HEAP: ${LIMBO_HEAP:-1G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
+      # A Paper server given a forwarding secret is a backend: the entrypoint sets
+      # online-mode=false and seeds modern forwarding for it. Paper reads the secret from
+      # this variable itself, which replaces pasting it into three config files - it does
+      # NOT keep it out of the volume, Paper writes it into paper-global.yml on first load.
+      PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
+      NORDTAL_LIMBO_DATABASE_JDBC_URL: *db-url
+      NORDTAL_LIMBO_DATABASE_USERNAME: *db-username
+      NORDTAL_LIMBO_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-limbo:/data
 
@@ -179,6 +208,14 @@ services:
       SEASON_PLUGINS: hunger-games-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
+      # A Paper server given a forwarding secret is a backend: the entrypoint sets
+      # online-mode=false and seeds modern forwarding for it. Paper reads the secret from
+      # this variable itself, which replaces pasting it into three config files - it does
+      # NOT keep it out of the volume, Paper writes it into paper-global.yml on first load.
+      PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
+      NORDTAL_HUNGER_GAMES_DATABASE_JDBC_URL: *db-url
+      NORDTAL_HUNGER_GAMES_DATABASE_USERNAME: *db-username
+      NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-hunger-games:/data
 
@@ -198,6 +235,14 @@ services:
       EXTRA_PLUGIN_URLS: ${SMP_EXTRA_PLUGIN_URLS:-https://github.com/nordtal/papermc-display-tags/releases/download/2.0.0/papermc-display-tags-2.0.0.jar https://github.com/retrooper/packetevents/releases/download/v2.13.0/packetevents-spigot-2.13.0.jar}
       HEAP: ${SMP_HEAP:-6G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
+      # A Paper server given a forwarding secret is a backend: the entrypoint sets
+      # online-mode=false and seeds modern forwarding for it. Paper reads the secret from
+      # this variable itself, which replaces pasting it into three config files - it does
+      # NOT keep it out of the volume, Paper writes it into paper-global.yml on first load.
+      PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
+      NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
+      NORDTAL_SMP_DATABASE_USERNAME: *db-username
+      NORDTAL_SMP_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-smp:/data
 

@@ -9,7 +9,7 @@ Status: **concept agreed 2026-08-31. The schema, the server-free half and the fi
 world half are built.** `V6__smp.sql` landed in `:common` on 2026-09-01, and later the same day so
 did `milestones.yml` and the three pure cores — aura, prestige and the milestone engine. On the
 same day the worlds themselves followed: world bootstrap and datapack verification, the borders,
-the balloon and its GUI, portal gating, spawn protection, and the daily farm-world swap, 81 tests
+the balloon and its GUI, portal gating, spawn protection, and the daily farm-world swap, 87 tests
 in the module. What is still missing is the player surfaces (HUD, boards, nametags, `/navigate`,
 POIs, prestige rendering) and the activities (duels, graves, the wheel, milestone completion and
 its payout, and `/smp`). See [state-of-play.md](state-of-play.md).

@@ -30,17 +30,18 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `common` | 26 files, 2671 lines | 98 | Access API, messages, locales, phase, glyphs, **the limbo protocol**, V1–V6 |
 | `resource-pack` | — | — | Three fonts, every code point allocated and drawn |
 | `limbo` | 10 files, 1139 lines | 11 | The waiting room, in full |
-| `smp` | 43 files, 5380 lines | 87 | The track, aura, prestige, the milestone engine — plus the worlds, travel, spawn protection and the daily farm reset |
+| `smp` | 78 files, 9730 lines | 126 | Everything docs/smp.md describes, none of it yet seen on a running server |
 
-485 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
+528 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
 Every number in this table is read out of the JUnit XML, never counted by eye: this line once read
 435 while the rows above it added to 438, and `season-2/CLAUDE.md` claimed 13 tests each for
 `AuraPayoutTest` and `TrackValidationTest` and 7 for `DeathPenaltyTest` where the reports say 12, 12
 and 8. Both were corrected on 2026-09-01 by re-reading the reports.
 
-**No module is a scaffold any more.** What is left is not a module but two thirds of one half:
-`smp`'s player surfaces and its activities. Its worlds, travel, spawn protection and daily farm
-reset were built on 2026-09-01.
+**No module is a scaffold any more, and no half of one is missing either.** Every feature
+docs/smp.md describes exists in code as of 2026-09-01. What is left is not building but *watching*:
+none of `smp`'s 126 tests touches a world, a packet or a player, because none of them can, and this
+document has said since it was written that "it compiles" proves nothing here.
 
 ### `common`
 
@@ -302,7 +303,7 @@ Three pieces of the SMP are pure logic, testable the way `BorderMath` and `Demot
   does not exist — progress accounting per objective type, and the three escape hatches with their
   `pot × (reached ÷ target)` payout.
 
-### c. The SMP's world half — **block 1 built 2026-09-01, two blocks left**
+### c. The SMP's world half — **built 2026-09-01, unverified**
 
 Every feature here ends at a rehearsal rather than a green build. The work was cut into three
 blocks on 2026-09-01 so that each ends somewhere a person can look at it:
@@ -310,8 +311,11 @@ blocks on 2026-09-01 so that each ends somewhere a person can look at it:
 | block | contents | state |
 |---|---|---|
 | 1 — the world | bootstrap, datapacks, borders, balloon and its GUI, portal gating, the farm-world swap, spawn protection | **built** |
-| 2 — the surfaces | HUD, the per-player Text Display boards, nametags, `/navigate`, POIs, prestige rendering | open |
-| 3 — the activities | duels, graves, the wheel, milestone completion and its payout, `/smp` | open |
+| 2 — the surfaces | HUD, the per-player Text Display boards, nametags, chat, `/navigate`, POIs, prestige rendering | **built** |
+| 3 — the activities | duels, graves, the wheel, milestone completion and its payout, `/smp` | **built** |
+
+All three landed on 2026-09-01. The rehearsal that has to follow them is a checklist for the owner,
+not a document, and lives in the `todo.md` outside this repository.
 
 **Measure Nordtal's one-off pre-generation to border 4000 in this session's first hour**, not its
 last. It is the cheapest measurement in the plan and it is the one that decides whether the final

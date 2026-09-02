@@ -50,6 +50,21 @@ here is changed:
 Every world is pre-generated to its border before players may enter it; until then they wait in
 [`limbo`](architecture.md#modules).
 
+**Nordtal's seed is `1837371427`**, carried by `SMP_LEVEL_SEED` and written into
+`server.properties` by the entrypoint while the world does not exist yet — recorded here because it
+was recorded nowhere at all until 2026-09-02, which is exactly the shape of
+[finding 17](state-of-play.md#where-the-documents-and-the-code-disagree): a fact that lived in the
+operator's head. It is the one number in this deployment that cannot be corrected afterwards by
+editing a file, since the world is generated once and then frozen for the season. Two things about
+it are worth writing down rather than rediscovering:
+
+- **Terralith and Dungeons and Taverns decide what the seed produces.** The same number with a
+  different pack version is a different world, which is why those are pinned by sha512 beside it.
+- **It is the same value `docs/hunger-games.md` records as the event's seed, and the two worlds do
+  not look alike.** The hunger games map is hand-built and shipped as a world folder, so its
+  `level-seed` is never consulted by anything — that entry is provenance for the folder, not an
+  input to a generator.
+
 **Nordtal is pre-generated once, to its *final* border of 4000, before the SMP phase opens** —
 decided 2026-08-31. A milestone unlock then only moves a number and never starts a generator. The
 alternative, generating each step in the background during the season, would have run a second

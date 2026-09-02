@@ -167,6 +167,19 @@ public final class UpdateServer implements AutoCloseable {
      * has just started. A {@code RESTART} found in that state is the successful outcome of the last
      * thing the previous instance did - see {@code UpdateDirectory#settleOrphans}.
      * </p>
+     *
+     * <h2>That first sentence is a premise, and since 2026-09-02 it is enforced</h2>
+     * It is only true while exactly one {@code serve} exists. With two, this method takes the
+     * <em>other</em> one's in-flight {@code APPLY} - a run that is at that moment installing jars -
+     * and marks it {@code FAILED}; the real updater's {@code finish(...)} then matches no
+     * {@code RUNNING} row, so its report is dropped and the row keeps the sentence "the updater
+     * stopped while this request was running", which is the opposite of what happened.
+     *
+     * <p>Two of them was easy to produce: {@code docker compose run} inherits the service's
+     * {@code command}, so every operator who typed what five documents called the read-only report
+     * started a second daemon. That is fixed at the source - the report has a name now - and
+     * {@code ServeLock} makes the premise a fact rather than a hope: {@code UpdaterMain.serve}
+     * holds a session advisory lock for its whole life, and a second serve refuses to start.</p>
      */
     private void settleOrphans() {
         try {

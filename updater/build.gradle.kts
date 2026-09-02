@@ -8,6 +8,15 @@ application.mainClass.set("eu.nordtal.s2.updater.UpdaterMain")
 // a compose file edited on its own would otherwise leave :updater:test UP-TO-DATE.
 repositoryRootTestInputs {
     reads("compose.yml")
+
+    // DocumentedCommandsTest reads every file that writes `docker compose run --rm updater` down
+    // for a person to copy. The bug it guards was in the documents, not in the dispatch, so the
+    // documents are what has to be an input - otherwise editing one leaves :updater:test UP-TO-DATE.
+    reads(".env.example")
+    reads("updater/Dockerfile")
+    reads("updater/README.md")
+    reads("docs/updater.md")
+    reads("deploy/README.md")
 }
 
 repositories {
@@ -41,6 +50,11 @@ dependencies {
     // :common declares JDBI, HikariCP and slf4j compileOnly, so this brings no stack of its own:
     // all three are already here through jcore, at the versions the catalog pins.
     implementation(project(":common"))
+
+    // ServeLockIntegrationTest needs a real PostgreSQL: an advisory lock is a property of a
+    // database session, and there is no in-JVM stand-in for "a second connection is refused". It
+    // skips itself when no Docker daemon is reachable, like every other integration test here.
+    testImplementation(libs.testcontainers.postgresql)
 
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)

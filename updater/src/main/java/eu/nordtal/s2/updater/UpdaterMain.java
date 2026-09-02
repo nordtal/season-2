@@ -183,7 +183,11 @@ public final class UpdaterMain {
             return 1;
         }
 
-        try (Database database = Schema.open(databaseConfig)) {
+        final Database opened = openDatabase(databaseConfig);
+        if (opened == null) {
+            return 1;
+        }
+        try (Database database = opened) {
             final Optional<RunLock> lock;
             try {
                 lock = RunLock.tryAcquire(database.dataSource());
@@ -231,7 +235,11 @@ public final class UpdaterMain {
             return 1;
         }
 
-        try (Database database = Schema.open(databaseConfig)) {
+        final Database opened = openDatabase(databaseConfig);
+        if (opened == null) {
+            return 1;
+        }
+        try (Database database = opened) {
             // BEFORE ANYTHING ELSE, because everything below assumes it. UpdateServer.settleOrphans
             // closes every row left RUNNING on the reasoning that nothing can be running them - the
             // only process that claims one is an updater, and this one has just started. That is
@@ -439,6 +447,45 @@ public final class UpdaterMain {
         }
     }
 
+    /**
+     * Opens the pool, or says why it could not in one sentence. {@code null} means stop.
+     *
+     * <h2>Why this is caught at all</h2>
+     * There is deliberately no {@code depends_on} on the database (see {@code compose.yml}), so on a
+     * first deployment this container starts while PostgreSQL is still initialising and the pool
+     * cannot connect. {@code restart: unless-stopped} sorts it out within seconds and the design is
+     * fine - but what the operator saw at that moment was an uncaught
+     * {@code HikariPool$PoolInitializationException} with its whole stack trace, on the very first
+     * screen of the very first deployment, from the container everything else is waiting for. That
+     * reads as a broken deployment and it is a normal one.
+     *
+     * <p>So it gets the same treatment as a config this module refuses: a named sentence, no trace,
+     * and a non-zero exit that the restart policy turns into another try.</p>
+     */
+    static Database openDatabase(final DatabaseSpec config) {
+        try {
+            return Schema.open(config);
+        } catch (final RuntimeException unreachable) {
+            log.error("The database at {} did not answer: {}. This is expected on a first"
+                            + " deployment - PostgreSQL is still starting and this container has no"
+                            + " depends_on for it, deliberately - and the restart policy will try"
+                            + " again in a moment. If it repeats, check POSTGRES_PASSWORD and that"
+                            + " the `db` profile is in COMPOSE_PROFILES.",
+                    config.jdbcUrl(), rootCauseOf(unreachable));
+            return null;
+        }
+    }
+
+    /** The innermost message, which is the one that says what actually happened. */
+    private static String rootCauseOf(final Throwable failure) {
+        Throwable cause = failure;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        final String message = cause.getMessage();
+        return message == null ? cause.getClass().getSimpleName() : message;
+    }
+
     private static DatabaseSpec databaseConfig(final Path configDirectory) {
         try {
             return Configs.database(configDirectory, LoggerFactory.getLogger(Configs.class)).get();
@@ -462,8 +509,14 @@ public final class UpdaterMain {
         if (database == null) {
             return false;
         }
-        try {
-            Schema.migrate(database);
+        // The pool first and on its own, so "PostgreSQL is not up yet" cannot arrive looking like
+        // "a migration failed". They need different people and different actions.
+        final Database opened = openDatabase(database);
+        if (opened == null) {
+            return false;
+        }
+        try (Database pool = opened) {
+            Schema.migrate(pool);
             return true;
         } catch (final RuntimeException failed) {
             // Flyway's own message names the file and the statement. Printed as it is, with the

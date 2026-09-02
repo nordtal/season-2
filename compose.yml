@@ -89,8 +89,12 @@ x-minecraft: &minecraft
     # why that one is left to `restart: unless-stopped`.
     updater:
       condition: service_healthy
-  # The entrypoint MUST be PID 1: it traps SIGTERM and mirrors the console to /proc/1/fd/1.
-  # `init: true` would put tini there instead and break both.
+  # The entrypoint MUST be PID 1: it traps SIGTERM and turns it into a graceful save, and it holds
+  # the stdout that `docker logs` reads. `init: true` would put tini there instead and break both.
+  #
+  # It does NOT mirror the console to /proc/1/fd/1, which this comment said until 2026-09-02 -
+  # deploy/README.md#never-mirror-the-console-with-tmux-pipe-pane forbids exactly that, because a
+  # second handle on the container's stdout pipe wedges the container beyond even `docker rm -f`.
   init: false
   # 10s (the default) does not save a border-4000 world. The entrypoint forwards SIGTERM to the
   # JVM, whose shutdown hook saves and stops; this is the time it is given to finish.

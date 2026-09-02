@@ -48,6 +48,14 @@ import java.util.Optional;
  * {@code limbo} sends {@link #ready()} once per join, the proxy sends {@link #wait(WaitReason)}
  * whenever the reason changes, and the release happens when both halves agree.
  *
+ * <p><b>Once per join is a property to design against, not to rely on</b> (2026-09-03, finding 38).
+ * Nothing here retries and nothing acknowledges, so a {@link #ready()} that the proxy does not act
+ * on is gone - and Velocity 4.1.1 has two ways for that to happen, one a dispatch race and one an
+ * outright loss inside {@code TransitionSessionHandler}. The proxy's {@code WaitingBook} therefore
+ * records a {@code READY} whenever it arrives, in any order, and releases the player anyway after a
+ * grace period if it never does. <b>Do not make this protocol the only thing standing between a
+ * player and a black screen</b>; it was, and the result was permanent and silent.
+ *
  * <h2>What a decoder must not trust</h2>
  * On the proxy, a plugin message on this channel can arrive from a <b>client</b> as easily as from
  * a backend - registering a channel makes the proxy advertise it to the client, and a modded client

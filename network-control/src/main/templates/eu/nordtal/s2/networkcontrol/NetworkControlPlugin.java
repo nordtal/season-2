@@ -31,6 +31,7 @@ import eu.nordtal.s2.networkcontrol.gate.MisconfiguredGate;
 import eu.nordtal.s2.networkcontrol.pack.PackMessages;
 import eu.nordtal.s2.networkcontrol.pack.PackOffer;
 import eu.nordtal.s2.networkcontrol.pack.PackStation;
+import eu.nordtal.s2.networkcontrol.pack.WaitingBook;
 import eu.nordtal.s2.networkcontrol.phase.PhaseCommand;
 import eu.nordtal.s2.networkcontrol.phase.PhaseListener;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
@@ -172,8 +173,11 @@ public final class NetworkControlPlugin {
                     packConfig.sha1(), packConfig.force());
         }
 
+        final WaitingBook book = new WaitingBook(offer != null,
+                Duration.ofSeconds(packConfig.applyTimeoutSeconds()),
+                Duration.ofSeconds(gateConfig.limboReadyGraceSeconds()), Clock.systemUTC());
         final PackStation packs = new PackStation(proxy, logger, routing, phaseWatch, roster,
-                packMessages, packConfig, offer, Clock.systemUTC());
+                packMessages, packConfig, offer, book);
         packs.registerChannel();
 
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,

@@ -225,9 +225,12 @@ Three properties worth knowing, because each is a decision:
   server's own volume and verified there; only when all of it is present does anything move into
   `plugins/`. A download that fails half way leaves the server exactly as it was. Four servers on
   two versions of the season is a worse state than four servers that did not update.
-- **A server moves together or not at all.** If one of a server's artefacts cannot be resolved, that
+- **A server moves together or not at all.** If one of a server's plugins cannot be resolved, that
   whole server is skipped. "The new SMP jar with last week's PacketEvents" is a combination nobody
   chose, and DisplayTags is a *required* plugin of `smp` whose own required plugin PacketEvents is.
+  The server jar is the one exception (2026-09-02): a Paper or Velocity build the Fill API could not
+  answer for is its own "skipped" row and the plugins move anyway — they are compiled against the
+  *version*, never a build, and the build already in `.server/` runs.
 - **It restarts nothing.** `apply` prints what it did and stops. Read that before restarting — a
   server that was part-updated is exactly the thing worth catching before the network goes down on
   it. The restart is a separate button for that reason, and it is a *button* and not a step of the
@@ -243,9 +246,18 @@ release asset carries no digest of any kind**, so our own jars and the DisplayTa
 unverified over TLS — the same way `entrypoint.sh` has always fetched them, and a real gap rather
 than an implied one.
 
-The **server jar** is still the entrypoint's, not the updater's: Paper and Velocity builds are
-resolved by the container at start from the version pinned in `.env`. The updater reports when a
-newer `STABLE` build exists and installs it into the same cache the entrypoint reads.
+The **server jar** is the updater's too, since 2026-09-02. It installs the newest `STABLE` build of
+the version pinned in `.env` into each server's `.server/` cache, and `entrypoint.sh` runs whatever
+build of that version it finds there. `PAPER_BUILD` and `VELOCITY_BUILD` are only read into an
+**empty** cache — a fresh volume, or a version bump before the updater has run against it — and are
+fetched exactly once. Until that day the entrypoint fetched the pinned build unconditionally and
+deleted every other jar, which undid each updater run on the next restart and turned every restart
+after an update into a Fill API call, i.e. the outage the cache exists to survive.
+
+Rolling back to an older build is `UPDATER_PAPER_BUILD=121` (or `UPDATER_VELOCITY_BUILD`) in
+`.env`, then `apply`, then the restart — the same shape as `UPDATER_SEASON_RELEASE=v0.1.0`. The
+report shows `paper-26.2-125.jar -> paper-26.2-121.jar` like any other move. It is *not*
+`PAPER_BUILD`: that one seeds an empty cache and never moves a running server.
 
 ### Restarting the network
 
@@ -456,11 +468,13 @@ season, on a world with a spawn built on it that therefore cannot be thrown away
 The runbook above is what to do; this is why, so that nobody re-opens a settled question by
 accident. Everything here was decided on 2026-09-01.
 
-- **One image for all four Minecraft services**, built from `minecraft/Dockerfile`: a JRE 25 base,
-  the pinned server jar, and a wrapper as PID 1. `itzg/docker-minecraft-server` is the obvious
-  candidate and was rejected — it does not cover Velocity (that is a *second* image with its own
-  vocabulary), neither image solves the console problem for the proxy, and we want a pinned server
-  build rather than runtime version resolution. One Dockerfile covers all four identically.
+- **One image for all four Minecraft services**, built from `minecraft/Dockerfile`: a JRE 25 base
+  and a wrapper as PID 1 — no jar of any kind; the server jar and the plugins are in the volume and
+  the updater owns them. `itzg/docker-minecraft-server` is the obvious candidate and was rejected —
+  it does not cover Velocity (that is a *second* image with its own vocabulary), neither image
+  solves the console problem for the proxy, and we want the build to move through one mechanism
+  rather than through an image's own version resolution at start. One Dockerfile covers all four
+  identically.
 - **The console is tmux, not RCON**, because RCON would not be uniform: Paper has it, **Velocity has
   no RCON at all** (checked 2026-09-01 — the only option is the third-party Velocircon plugin).
   That would mean one mechanism for three servers, another for the proxy, and a third-party plugin

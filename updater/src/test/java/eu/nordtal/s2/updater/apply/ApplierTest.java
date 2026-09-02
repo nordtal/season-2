@@ -133,6 +133,28 @@ class ApplierTest {
     }
 
     @Test
+    @DisplayName("a server jar that could not be resolved does not hold the plugins back")
+    void anUnresolvedServerJarDoesNotBlockThePlugins() throws IOException {
+        install("smp", "plugins/smp-0.1.0.jar");
+        install("smp", ".server/paper-26.2-121.jar");
+
+        // Fill is down. The plugins are compiled against 26.2, not against build 121, and 121 is
+        // a build that runs - so there is nothing for a Fill outage to protect the plugins from.
+        final ApplyResult result = apply(new Fake(), plan(
+                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
+                Change.unresolved("smp", "paper", "PaperMC Fill: connect timed out")));
+
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
+        assertFalse(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")));
+        assertTrue(Files.exists(volumes.resolve("smp/.server/paper-26.2-121.jar")), "the build stays");
+        assertEquals(ApplyResult.Status.DONE, outcome(result, "smp", "smp").status());
+        assertEquals(ApplyResult.Status.SKIPPED, outcome(result, "smp", "paper").status());
+        assertTrue(outcome(result, "smp", "paper").detail().contains("Fill"));
+        assertTrue(result.changedAnything());
+        assertTrue(result.skippedAnything());
+    }
+
+    @Test
     @DisplayName("one server failing does not stop another")
     void failuresDoNotSpreadBetweenServers() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");

@@ -26,13 +26,18 @@ import java.net.URI;
  * puts the build number in front of a person before anything restarts.</p>
  *
  * <h2>The filename comes from the API</h2>
- * {@code downloads."server:default".name} is {@code paper-26.2-121.jar} - the exact name
- * {@code deploy/minecraft/entrypoint.sh} builds by hand from three variables. Reading it instead
- * of building it again keeps the two in step without either knowing about the other.
+ * {@code downloads."server:default".name} is {@code paper-26.2-121.jar} - the exact shape
+ * {@code deploy/minecraft/entrypoint.sh} builds by hand when it seeds an empty cache from
+ * {@code SERVER_BUILD}, and the shape it globs for ({@code paper-26.2-*.jar}) on every start after
+ * that. Reading it instead of building it again keeps the two in step without either knowing about
+ * the other; since 2026-09-02 the entrypoint runs whatever build of the version this class put there.
  */
 public final class PaperFill {
 
     private static final String API = "https://fill.papermc.io/v3/projects/";
+
+    /** The value of {@code paper-build} / {@code velocity-build} that means "follow STABLE". */
+    public static final String LATEST = "latest";
 
     /** The only channel a production network follows. Fill also publishes {@code ALPHA}. */
     private static final String STABLE = "STABLE";
@@ -91,5 +96,46 @@ public final class PaperFill {
                 + "' download. Check the version against https://fill.papermc.io/v3/projects/"
                 + project + " - a version that has been dropped answers with builds for a while"
                 + " and then stops.");
+    }
+
+    /**
+     * {@link #newestStable} or one exact build, depending on the pin - the one entry point the
+     * resolver calls.
+     *
+     * @param build {@link #LATEST}, or a build number as text.
+     */
+    public @NotNull RemoteFile resolve(final @NotNull String project, final @NotNull String version,
+                                       final @NotNull String build) throws IOException {
+        return LATEST.equals(build) ? newestStable(project, version) : exactBuild(project, version, build);
+    }
+
+    /**
+     * One pinned build, whatever its channel: {@code /builds/<n>} - the same call
+     * {@code entrypoint.sh} makes to seed an empty cache. A pin is a person's decision, so a
+     * build that is not STABLE is taken and said, not refused: the entrypoint warns the same way.
+     */
+    public @NotNull RemoteFile exactBuild(final @NotNull String project, final @NotNull String version,
+                                          final @NotNull String build) throws IOException {
+
+        final URI uri = URI.create(API + project + "/versions/" + version + "/builds/" + build);
+        final String what = "PaperMC Fill " + project + " " + version + " build " + build;
+        final JsonObject json = Json.object(http.get(uri), what);
+
+        final JsonObject downloads = Json.child(json, "downloads");
+        final JsonObject download = downloads == null ? null : Json.child(downloads, SERVER_DEFAULT);
+        if (download == null) {
+            throw new IOException(what + ": no '" + SERVER_DEFAULT + "' download. Check the pin"
+                    + " against https://fill.papermc.io/v3/projects/" + project + "/versions/" + version
+                    + "/builds");
+        }
+        final JsonObject checksums = Json.child(download, "checksums");
+        final String sha256 = checksums == null ? null : Json.optionalString(checksums, "sha256");
+
+        return new RemoteFile(
+                project,
+                String.valueOf(Json.number(json, "id", -1)),
+                Json.string(download, "name", what),
+                URI.create(Json.string(download, "url", what)),
+                sha256 == null ? null : Checksum.sha256(sha256));
     }
 }

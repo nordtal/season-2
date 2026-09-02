@@ -61,6 +61,29 @@ class PaperFillTest {
     }
 
     @Test
+    @DisplayName("a pinned build is fetched as that build, STABLE or not, from the single-build endpoint")
+    void pinnedBuild() throws IOException {
+        // The same endpoint entrypoint.sh seeds an empty cache from: one object, not a list.
+        final String body = """
+                {"id":119,"channel":"STABLE","time":"2026-08-20T00:00:00Z","downloads":{
+                   "server:default":{"name":"paper-26.2-119.jar","url":"https://x/119",
+                                     "checksums":{"sha256":"cc"}}}}
+                """;
+        final FakeHttp http = new FakeHttp()
+                .answering("/builds/119", body)
+                .serving("/builds", "fill-paper-26.2.json");
+        final PaperFill fill = new PaperFill(http);
+
+        final RemoteFile pinned = fill.resolve("paper", "26.2", "119");
+        assertEquals("paper-26.2-119.jar", pinned.fileName());
+        assertEquals("119", pinned.version());
+        assertTrue(http.requested().getLast().toString().endsWith("/builds/119"));
+
+        // 'latest' goes to the list, as before.
+        assertEquals("paper-26.2-121.jar", fill.resolve("paper", "26.2", PaperFill.LATEST).fileName());
+    }
+
+    @Test
     @DisplayName("a version with no stable build at all is an error naming the version")
     void refusesWhenNothingIsStable() {
         final PaperFill fill = new PaperFill(new FakeHttp().answering("/builds", "[]"));

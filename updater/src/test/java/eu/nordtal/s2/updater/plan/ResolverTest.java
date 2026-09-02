@@ -61,6 +61,28 @@ class ResolverTest {
     // ---------------------------------------------------------------- scenarios
 
     @Test
+    @DisplayName("a pinned older Paper build is a move like any other - which is what makes it a rollback")
+    void aPinnedBuildIsARollback() throws IOException {
+        installCurrentEverything();
+        http.answering("/projects/paper/versions/26.2/builds/119", """
+                {"id":119,"channel":"STABLE","time":"2026-08-20T00:00:00Z","downloads":{
+                   "server:default":{"name":"paper-26.2-119.jar","url":"https://x/119",
+                                     "checksums":{"sha256":"cc"}}}}
+                """);
+
+        final UpdatePlan plan = resolve("119");
+
+        // Three Paper servers, all on 121, all asked to go to 119; the proxy is untouched.
+        for (final String service : List.of("limbo", "hunger-games", "smp")) {
+            final Change change = changeFor(plan, service, "paper");
+            assertEquals(Change.Status.OUTDATED, change.status(), service);
+            assertEquals("paper-26.2-121.jar", change.installed());
+            assertEquals("paper-26.2-119.jar", change.wanted().fileName());
+        }
+        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "network-control", "velocity"));
+    }
+
+    @Test
     @DisplayName("a deployment that is exactly what the sources say is up to date, with no work")
     void everythingCurrent() throws IOException {
         installCurrentEverything();
@@ -369,10 +391,19 @@ class ResolverTest {
     // ---------------------------------------------------------------- plumbing
 
     private UpdatePlan resolve() {
+        return resolve(PaperFill.LATEST);
+    }
+
+    private UpdatePlan resolve(final String paperBuild) {
         final UpdaterSpec config = new UpdaterSpec() {
             @Override
             public String volumesRoot() {
                 return volumes.toString();
+            }
+
+            @Override
+            public String paperBuild() {
+                return paperBuild;
             }
 
             @Override

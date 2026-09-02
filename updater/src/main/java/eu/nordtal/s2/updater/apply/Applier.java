@@ -48,9 +48,18 @@ import java.util.Map;
  * DisplayTags is a <em>required</em> plugin of {@code smp} whose own required plugin PacketEvents
  * is - so a partial swap there is a server that does not start.
  *
- * <p>The server jar is the one exception, since 2026-09-02: a Paper or Velocity build that could
- * not be resolved is reported as skipped on its own row and the plugins move anyway. Plugins are
- * compiled against the version, not the build, and the build already in {@code .server/} runs.</p>
+ * <p><b>Two things are outside that rule, both since 2026-09-02, and for different reasons.</b> A
+ * Paper or Velocity build that could not be resolved is reported as skipped on its own row and the
+ * plugins move anyway: plugins are compiled against the version, not the build, and the build
+ * already in {@code .server/} runs.</p>
+ *
+ * <p>The <b>resource pack</b> is the other. It is not a file in a volume at all - what fails is
+ * rewriting {@code pack.yml}, and not rewriting it leaves the previous URL and hash in force, which
+ * is a pack that works. Until this change a release that published no {@code .sha1} beside the pack
+ * zip skipped the whole proxy service, the {@code network-control} plugin and the Velocity jar with
+ * it, while the three backends updated regardless - the split network the rule exists to prevent,
+ * produced by the rule. The pack now falls back to the last one and says so on its own row, and
+ * {@code applyPack} runs on every path rather than being skipped by the early return.</p>
  *
  * <h2>What is deleted</h2>
  * Only a jar in the target directory whose filename prefix matches the one just installed, and
@@ -104,14 +113,21 @@ public final class Applier {
         final Change blocked = changes.stream()
                 .filter(change -> change.status().isFailure())
                 .filter(change -> !isServerJar(change.artifact()))
+                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
                 .findFirst()
                 .orElse(null);
         if (blocked != null) {
             final String why = blocked.artifact() + " could not be checked"
                     + (blocked.note() == null ? "" : " (" + blocked.note() + ")")
                     + ", so nothing on this server was touched";
-            changes.forEach(change -> outcomes.add(new ApplyResult.Outcome(
-                    service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
+            changes.stream()
+                    .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
+                    .forEach(change -> outcomes.add(new ApplyResult.Outcome(
+                            service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
+            // The pack still gets its own row. On the early return it used to get none at all, so a
+            // run that skipped this service said nothing whatever about what the client is being
+            // sent - and that is the one thing here a player actually sees.
+            outcomes.addAll(applyPack(root, service, changes));
             return outcomes;
         }
 
@@ -135,6 +151,14 @@ public final class Applier {
         // sha1 - and the Minecraft client fetches the zip itself. Putting a 40 KB pack zip into a
         // plugins folder would be harmless and completely pointless, and it is excluded here
         // rather than special-cased three lines further down. applyPack handles it.
+        //
+        // IT IS ALSO THE SECOND EXCEPTION TO ALL-OR-NOTHING (2026-09-02), and for a different
+        // reason than the server jar. A release that publishes no .sha1 beside the pack zip used to
+        // skip the WHOLE proxy service - the network-control plugin and the Velocity jar with it -
+        // while smp, limbo and hunger-games updated regardless. That is the split network the rule
+        // exists to prevent, produced by the rule. The pack is not a jar in a volume: what fails is
+        // rewriting pack.yml, and not rewriting it leaves the PREVIOUS pack in force, which is a
+        // pack that works. So the jars move and the pack falls back, loudly.
         final List<Change> work = changes.stream()
                 .filter(change -> change.status().isWork())
                 .filter(change -> change.wanted() != null)
@@ -219,6 +243,19 @@ public final class Applier {
                 .orElse(null);
         if (pack == null) {
             return List.of();
+        }
+
+        // "Could not be checked" is not "unchanged", and the difference is the whole of finding 26
+        // applied to this row: pack.yml keeps whatever it already said, so the client keeps being
+        // sent the previous pack - which is the wanted fallback, because a resource pack is not
+        // optional for this network. It has to READ as a fallback rather than as a no-op.
+        if (pack.status().isFailure()) {
+            return List.of(new ApplyResult.Outcome(service, Topology.RESOURCE_PACK,
+                    ApplyResult.Status.SKIPPED,
+                    "could not be checked" + (pack.note() == null ? "" : " (" + pack.note() + ")")
+                            + "; pack.yml was left alone, so the client is still sent "
+                            + (pack.installed() == null ? "whatever it already said" : pack.installed())
+                            + ". The jars beside it were not held back for it."));
         }
 
         if (!pack.status().isWork() || pack.wanted() == null) {

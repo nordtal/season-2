@@ -275,6 +275,11 @@ services:
     environment:
       <<: *minecraft-env
       SERVER_KIND: velocity
+      # What this volume has to hold before the proxy is allowed to start. Filename prefixes, split
+      # the way the updater splits them (JarName, ${file%-*.jar}); a MINIMUM, never an exact set, so
+      # a hand-installed extra is fine. Counting jars was not enough - see finding B4 and the long
+      # note in deploy/minecraft/entrypoint.sh.
+      EXPECTED_PLUGINS: ${NETWORK_CONTROL_EXPECTED_PLUGINS:-network-control}
       SERVER_VERSION: ${VELOCITY_VERSION:-4.1.1}
       SERVER_BUILD: ${VELOCITY_BUILD:-24}
       HEAP: ${PROXY_HEAP:-1G}
@@ -316,6 +321,7 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
+      EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
       HEAP: ${LIMBO_HEAP:-1G}
       # No LEVEL_NAME and no LEVEL_SEED, deliberately. limbo builds its own empty world at enable
       # (LimboSpec#world-name, default `limbo`) and moves every player into it before they are ever
@@ -341,6 +347,7 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
+      EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       # The hand-built event world. HungerGamesSpec#world-name defaults to `hunger_games` and the
       # plugin does NOT load a world of its own - it disables itself when that world is not there -
@@ -396,6 +403,14 @@ services:
       # Dungeons and Taverns decide the terrain on top of it, so this number does not produce the
       # same landscape anywhere those packs are absent. See docs/smp.md#worlds.
       LEVEL_SEED: ${SMP_LEVEL_SEED:-1837371427}
+      # All four, and this is the service the coarse guard let through: on the first deployment
+      # PacketEvents and Chunky resolved while the season release did not, so `plugins/` was not
+      # empty and the SMP started with no season on it. The two third-party prefixes are not the
+      # updater's artefact ids (`packetevents` resolves to packetevents-spigot-*.jar, `chunky` to
+      # Chunky-Bukkit-*.jar) - Topology reads those back off the resolved filename rather than
+      # assuming them, and this list does assume them. A publisher renaming a jar therefore stops
+      # this container with the prefix in the message, which is the right side to fail on.
+      EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit}
       HEAP: ${SMP_HEAP:-6G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
       # A Paper server given a forwarding secret is a backend: the entrypoint sets

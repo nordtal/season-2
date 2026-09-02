@@ -476,8 +476,22 @@ Two kinds, and the distinction matters because one of them may be missing and th
 `SMP_EXTRA_PLUGIN_URLS`, with three versions written into `.env` by hand. The updater resolves them
 now — DisplayTags from its own repository's releases, PacketEvents and Chunky from Modrinth filtered
 to this Minecraft version and `paper` — so a version bump is a run of `updater apply` and not an
-edit. `required: true` is unchanged, and the container refuses to start on an empty `plugins/`
-folder, which is what catches "the updater never ran here".
+edit. `required: true` is unchanged, and the container refuses to start unless **every plugin the
+service is supposed to have** is in `plugins/`.
+
+**That guard used to count jars, and counting was not enough — it is the finding that would have
+lost the launch.** On the first deployment the GitHub releases API answered 403 while Modrinth
+answered fine, so PacketEvents and Chunky landed in the SMP's `plugins/` and the season jar did not.
+The folder was not empty, the count passed, and the SMP came up with no season on it and reported
+healthy. `limbo`, `hunger-games` and `network-control` were caught only because their folders
+happened to be *entirely* empty. Each service now names what it needs in `EXPECTED_PLUGINS`
+(filename prefixes, split the way the updater splits them), and a folder missing any of them stops
+the container with the missing prefixes in the message.
+
+**It is a minimum, never an exact set.** An extra jar is expected and fine — a hand-installed block
+logger is planned in [smp.md](../docs/smp.md#block-logging--checked-2026-08-31), and the updater's
+own rule for a jar it does not account for is that it is reported and left alone. `TopologyTest`
+asserts that every plugin the topology gives a service is one that service's guard asks for.
 
 **And two datapacks, which are not plugins but belong in the same conversation: Terralith and
 Dungeons and Taverns.** They are what the terrain of every world in this season is, they are pinned

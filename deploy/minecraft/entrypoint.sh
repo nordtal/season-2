@@ -124,10 +124,37 @@ SERVER_BUILD_RUNNING="${SERVER_BUILD_RUNNING##*-}"
 # folder stops the container. Every service in this deployment has at least one plugin, so "no
 # jars at all" means the updater has never run against this volume, and a Minecraft server that
 # comes up with no season on it is the failure that gets discovered by a player.
+#
+# COUNTING JARS WAS NOT ENOUGH, learned on the first deployment (2026-09-02). The updater's
+# bootstrap dropped every artefact it could not resolve before it rendered its report, so a run in
+# which the GitHub API answered 403 installed PacketEvents and Chunky - which had resolved - and no
+# season jar at all, then closed with "Everything asked for was done." limbo, hunger-games and
+# network-control were caught here, because their folders really were empty. smp was not: it had two
+# jars in it, the count was non-zero, and it came up with no season on it. Exactly the failure this
+# guard exists to prevent, walking straight past it.
+#
+# So the guard asks for the jars it is SUPPOSED to have. EXPECTED_PLUGINS is a whitespace-separated
+# list of filename prefixes, split the way JarName splits them - ${file%-*.jar}, the same rule the
+# updater uses to decide which jar supersedes which, so no second and disagreeing rule gets invented
+# here.
+#
+# IT IS A MINIMUM, NEVER AN EXACT SET. An extra jar is legitimate and expected: docs/smp.md plans
+# CoreProtect (or Prism 4.4) as a hand-installed block logger on its own SQLite file, and the
+# updater's own rule for anything it does not account for is that it is reported and left alone. A
+# guard demanding an exact set would stop the SMP the first evening one is added.
+#
+# The two third-party prefixes are the soft spot and it is worth naming: Topology deliberately reads
+# a prefix back off the resolved filename rather than assuming one, because `packetevents` resolves
+# to packetevents-spigot-*.jar and `chunky` to Chunky-Bukkit-*.jar. Listing them here does assume
+# it. If either publisher renames a jar on a first install, this refuses to start while the plugin
+# is really there - a false positive, but a loud one with the prefix in the message, and the same
+# blind spot the updater already has (it would call the artefact MISSING and report the old jar as
+# unclaimed). Refusing is the right side to fail on.
 if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -s nullglob
     installed=("$PLUGINS"/*.jar)
     shopt -u nullglob
+
     if (( ${#installed[@]} == 0 )); then
         die "no plugin jars in ${PLUGINS}. This container does not fetch them any more - the updater does. Run it once against this stack:
 
@@ -135,7 +162,45 @@ if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
 
 Refusing to start: a Minecraft server with no plugins is a server with no season on it, and nothing about it looks wrong until somebody joins. Set ALLOW_NO_PLUGINS=true if a server with no plugins really is what you want."
     fi
-    log "plugins present: ${#installed[@]} jar(s)"
+
+    if [[ -n "${EXPECTED_PLUGINS:-}" ]]; then
+        # The identity of every jar actually in the folder, by the JarName rule.
+        present=()
+        for jar in "${installed[@]}"; do
+            jar="${jar##*/}"
+            present+=("${jar%-*.jar}")
+        done
+
+        missing=()
+        expected=0
+        for wanted in $EXPECTED_PLUGINS; do
+            expected=$(( expected + 1 ))
+            found=0
+            for have in "${present[@]}"; do
+                [[ "$have" == "$wanted" ]] && { found=1; break; }
+            done
+            (( found == 0 )) && missing+=("$wanted")
+        done
+
+        if (( ${#missing[@]} > 0 )); then
+            die "${PLUGINS} is missing ${#missing[@]} of the ${expected} plugin(s) this server needs.
+
+  missing:  ${missing[*]}
+  present:  ${present[*]:-nothing}
+  expected: ${EXPECTED_PLUGINS}
+
+Refusing to start. A folder with SOME of the plugins in it is the state that looks fine and is not: a Minecraft server missing its season jar starts, reports healthy, and is discovered by the first player who joins.
+
+The likeliest cause is an updater run that could not reach a source and skipped this whole server - read its log for a line saying so, and run it again once the source answers:
+
+    docker compose run --rm updater apply
+
+If the plugin IS in the folder under a different filename, its publisher renamed the jar: correct EXPECTED_PLUGINS for this service rather than deleting anything."
+        fi
+        log "plugins present: ${#installed[@]} jar(s); all ${expected} expected one(s) accounted for"
+    else
+        log "plugins present: ${#installed[@]} jar(s) - EXPECTED_PLUGINS is unset, so only 'not empty' was checked"
+    fi
 fi
 
 # --- world-generation datapacks ----------------------------------------------------------------

@@ -55,6 +55,48 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("every plugin the topology gives a service is one that service's guard asks for")
+    void theEntrypointGuardAsksForEveryPlugin() {
+        // The entrypoint refuses to start on a plugins folder that is missing any of these, which
+        // is what finding B4 needed: a folder holding SOME of a server's jars looked exactly like a
+        // healthy one, because the old guard only counted them.
+        //
+        // Counts rather than names, deliberately. For our own four jars the artefact id IS the
+        // filename prefix, and those are asserted by name below; for the third-party three it is
+        // not - `packetevents` resolves to packetevents-spigot-*.jar and `chunky` to
+        // Chunky-Bukkit-*.jar - and Topology exists partly to avoid assuming that mapping. What has
+        // to hold is that adding a plugin to a service here cannot be forgotten there.
+        for (final Topology.Service service : Topology.SERVICES) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
+            assertNotNull(defined, "compose.yml has no service '" + service.name() + "'");
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
+
+            final Object raw = environment.get("EXPECTED_PLUGINS");
+            assertNotNull(raw, service.name() + " has no EXPECTED_PLUGINS, so its entrypoint falls"
+                    + " back to 'the folder is not empty' - the check that let an SMP with no season"
+                    + " on it start and report healthy");
+
+            final List<String> expected = List.of(defaultOf(String.valueOf(raw)).split("\\s+"));
+            assertEquals(service.plugins().size(), expected.size(),
+                    service.name() + " runs " + service.plugins() + " but its guard asks for "
+                            + expected + ". A plugin added to the topology and not to compose.yml is"
+                            + " one the container will happily start without.");
+            assertTrue(expected.contains(service.name()),
+                    service.name() + "'s own season jar is not in its EXPECTED_PLUGINS: " + expected);
+        }
+    }
+
+    /** {@code ${SMP_EXPECTED_PLUGINS:-smp …}} - what compose uses when .env says nothing. */
+    private static String defaultOf(final String value) {
+        final java.util.regex.Matcher matcher =
+                java.util.regex.Pattern.compile("^\\$\\{[A-Z0-9_]+:-(.*)}$").matcher(value);
+        assertTrue(matcher.matches(), value + " has no default an unfilled .env would fall back to");
+        return matcher.group(1);
+    }
+
+    @Test
     @DisplayName("compose.yml does not fetch plugins any more - two owners is one too many")
     void pluginOwnershipStaysWithTheUpdater() {
         // SEASON_PLUGINS and EXTRA_PLUGIN_URLS were removed on 2026-09-01 and must stay removed.

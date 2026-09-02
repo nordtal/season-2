@@ -285,7 +285,9 @@ still says `0.2.0` would have the next restart delete exactly the jar it just fe
 `SEASON_PLUGINS` and `EXTRA_PLUGIN_URLS` go away in step 3 and the entrypoint keeps only the server
 jar and the datapacks. The price is stated plainly: **a volume that no updater run has touched has
 no plugins**, and the container's "refuse to start rather than run an older jar" guard goes with
-them. That is consistent rather than new — this module is the bootstrap already, because it owns
+them. What replaces it is `EXPECTED_PLUGINS`: each service names the filename prefixes it has to
+have, and a folder missing any of them stops the container. It counted jars until 2026-09-02, which
+is one bootstrap outage away from a server that starts with a third-party plugin and no season. That is consistent rather than new — this module is the bootstrap already, because it owns
 the schema.
 
 *The server jar followed on 2026-09-02, for the identical reason found a day late:* this module
@@ -384,8 +386,8 @@ Built piece by piece, and each piece is useful on its own:
    once all of it is there, so a failed download leaves the server as it was. A server whose
    artefacts cannot all be resolved is skipped whole. `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS`,
    `PACK_URL`, `PACK_SHA1` and `SEASON_RELEASE` are gone from the deployment, `entrypoint.sh` no
-   longer fetches plugins and refuses to start on an empty `plugins/` folder instead, and the four
-   compose mounts are writable. 75 tests.
+   longer fetches plugins and refuses to start unless every plugin its `EXPECTED_PLUGINS` names is
+   present instead, and the four compose mounts are writable. 75 tests.
 4. ~~The Discord command, the embed, and the restart button.~~ **Built 2026-09-01.** `/update`,
    admin-only by `discord_user.admin` and re-checked on every click. One command; the rest are
    buttons, in the order that makes them safe — report, then install, then restart. The bot never

@@ -33,12 +33,12 @@ jobs:
       - name: Build and test
         run: ./gradlew build
 
-      # The two images are built here as well, and not pushed. Until 2026-09-02 only release.yml
-      # ever built one, so a Dockerfile that COPYs a file the .dockerignore excludes could not fail
+      # ALL FOUR IMAGES ARE BUILT HERE AND NONE IS PUSHED. Until 2026-09-02 only release.yml ever
+      # built one, so a Dockerfile that COPYs a file the .dockerignore excludes could not fail
       # before a release - which is exactly how the bot image missed its own entrypoint that day.
-      # The updater's image is worse off still: nothing but `docker compose` on the host ever builds
-      # it, so the same mistake there would surface during a deployment. Both take seconds and need
-      # the jars `build` above has already produced.
+      # Since release.yml now publishes all four, a Dockerfile that does not build is a release that
+      # does not finish, and this is where that is caught instead. They take seconds and the two
+      # that need jars have them from `build` above.
       - name: Build the images without pushing
         run: |
           version="$(grep '^version=' gradle.properties | cut -d= -f2)"
@@ -46,3 +46,5 @@ jobs:
             -t nordtal/discord-bot:ci discord-bot
           docker build --build-arg "JAR=build/libs/updater-$version.jar" \
             -t nordtal/updater:ci updater
+          docker build -t nordtal/minecraft:ci deploy/minecraft
+          docker build -t nordtal/postgres-backup:ci deploy/postgres-backup

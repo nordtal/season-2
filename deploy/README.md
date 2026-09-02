@@ -8,12 +8,18 @@ reasoning is at the bottom, under [Why it looks like this](#why-it-looks-like-th
 dropped on 2026-09-01 — see [../docs/README.md](../docs/README.md#decisions-and-when-they-were-taken).
 
 **`compose.yml` and `.env.example` are at the repository root, not in here.** They moved out of
-`deploy/` on 2026-09-01, and putting them back would break the deployment: Arcane's GitOps sync
-pulls *"the entire directory the compose file lives in, not just the file itself"* (its own
-documentation, read 2026-09-01), so a compose file under `deploy/` would put `deploy/` on the host
-and nothing else — and the `./updater` and `./discord-bot` build contexts would not be there. At
-the root the synced directory is the whole repository. **Every command in this file therefore runs
-from the repository root**, not from `deploy/`.
+`deploy/` on 2026-09-01: Arcane's GitOps sync pulls *"the entire directory the compose file lives
+in, not just the file itself"* (its own documentation, read 2026-09-01), so a compose file under
+`deploy/` would put `deploy/` on the host and nothing else. **Every command in this file therefore
+runs from the repository root**, not from `deploy/`.
+
+The original reason was that the `./updater` and `./discord-bot` build contexts would not exist in
+such a tree, and *that half is now weaker than it was*: since 2026-09-02 nothing on the host builds,
+so a deploy that only pulls never looks at a build context. What still argues for the root is the
+sync pulling one directory, and `docker compose build` working from a checkout — which is what the
+`build:` blocks are for. Worth knowing, because it means the file's location is a convention now
+rather than a hard requirement, and a future change should not be argued down with a reason that has
+expired.
 
 ```
 compose.yml            six services, four profiles: db · bot · mc · backup (the updater has none)
@@ -29,69 +35,79 @@ deploy/
 
 ## First deployment, in order
 
-The order matters, and **it changed on 2026-09-01**: the updater runs between the database and
-everything else, and nothing else starts before it has. It is the bootstrap now — without it there
-is no schema and there are no plugin jars.
+**Since 2026-09-02 the host needs no shell, no JDK and no Gradle.** All four of our images —
+`minecraft`, `updater`, `discord-bot`, `postgres-backup` — are pushed to `ghcr.io/nordtal` by
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) when a release is published, and
+compose pulls every one of them. The `build:` blocks that remain in `compose.yml` are for developing
+on your own machine.
 
-1. **`cp .env.example .env` and replace every `REPLACE_ME`.** That file is the whole of the
-   configuration; nothing else has to be edited anywhere. Nothing has a plausible default for a
-   value nobody can guess, and `REPLACE_ME` is not one either — it fails validation by name
-   (*"roles.access must be a Discord snowflake (digits only)"*) rather than starting something
-   surprising. One of them is the forwarding secret: `openssl rand -hex 24`.
+That was not a preference. **Arcane deploys by pulling and never builds** — building is a separate
+action in its interface ([its documentation](https://getarcane.app/docs/features/projects), read
+2026-09-02) — so an image that only ever existed in one host's Docker failed the deploy with
+`error from registry: denied`, which is also what a *private* package answers and therefore explains
+nothing. Two of the four could not have been built from a checkout in any case: they `COPY` a jar
+Gradle produces into a directory `.gitignore` excludes.
 
-   **There is no hash to look up any more.** `PACK_SHA1` was in this file for a few hours on
-   2026-09-01 and is gone again: the updater reads the release's `.zip.sha1` asset and writes it
-   into the proxy's `pack.yml` itself. Every remaining `REPLACE_ME` is something only you know — a
-   Discord id, a bunq key, a password.
-2. **Build the updater jar.** Compose builds its image from `./updater`, and that image copies in
-   a jar Gradle has to have produced first. The Minecraft image needs no such step; it builds from
-   `./deploy/minecraft` alone.
-   ```bash
-   ./gradlew :updater:shadowJar
-   ```
-   **This is the only time you ever need it.** From the first `apply` onwards the updater runs the
-   jar in its own volume and updates that one itself; the jar baked into the image is a floor for
-   exactly this step. The same is true of the bot.
-3. **Bring up PostgreSQL alone.**
-   ```
-   docker compose --profile db up -d
-   ```
-4. **Run the updater.** ← *ordering matters, and this step is the bootstrap.*
-   ```
-   docker compose run --rm updater apply
-   ```
-   It does three things in this order: applies the database schema, fills every `plugins/` folder
-   and both jar volumes, and writes the proxy's `pack.yml`. **Nothing else in this stack can start
-   before it has run** — the bot refuses a database it did not migrate, and a Minecraft container
-   refuses an empty `plugins/` folder. Both say so by name.
+### Once, before the first deployment
 
-   This changed on 2026-09-01. The bot used to be the only process that migrated, and the plugin
-   jars used to be fetched by each Minecraft container; both are the updater's now, because a
-   release that adds a table is a release that adds a migration and the two belong to one owner
-   ([../docs/updater.md](../docs/updater.md)).
+1. **Publish the release.** Tag it, publish it on GitHub, and let `release.yml` finish. It attaches
+   eight assets and pushes four images, each tagged with the version and with `latest`.
+2. **Set all four packages to Public**, in their GitHub package settings. A package under an
+   organisation is **private on its first push**, and a private package answers a pull with the same
+   `denied` as one that does not exist. The alternative is a registry credential in Arcane; the
+   trade is in [`../../todo.md`](../../todo.md).
 
-   Run it without an argument first if you want to see the plan and change nothing, or
-   `updater migrate` for the schema alone — useful on a host where no release is published yet.
-5. **Bring up the bot, then the Minecraft services.**
-   ```
-   docker compose --profile bot up -d
-   docker compose --profile mc up -d
-   ```
-   Both pull the `updater` service up with them — it has no profile, so it is in every selection —
-   and both **wait for it to be healthy**, which it becomes once the schema is current. That is the
-   one ordering rule this stack expresses in the compose file rather than in prose, and it is why
-   getting the order wrong here costs a wait rather than a broken database.
-   Leave `NORDTAL_ACCESS_PAYMENT_WATERMARK` empty on a fresh database: the first start stamps its
-   own instant, and without it the first poll books up to 50 historical bunq payments — roles, DMs
-   and public thank-yous included.
+### From Arcane, with no shell on the host
 
-   On a fresh volume each Minecraft container seeds the configuration it cannot work without and
-   then never touches it again — see [First-start seeding](#first-start-seeding) for exactly what is
-   written and what that leaves to you. Database credentials, the forwarding secret and the server
-   list all arrive from `.env`; there is nothing to paste into a volume.
-6. **Upload the hand-built worlds** — see below.
-7. **Run the login-path rehearsal** — [`../../todo.md`](../../todo.md), section 1. Nothing above
+3. **Point the project at the repository root**, not at `deploy/`. Arcane's GitOps sync pulls the
+   whole directory the compose file lives in, which is why `compose.yml` is up there.
+4. **Type the environment into Arcane.** For a git-synced project Arcane keeps `.env.git` from the
+   repository, `project.env` for what you type, and writes the effective `.env` from both; a sync
+   never overwrites your values (its documentation, read 2026-09-02). Since `.env` is gitignored
+   here, `.env.git` is empty and **everything comes from what you type**.
+   [`../.env.example`](../.env.example) is the reference for what to type — every `REPLACE_ME` in it
+   is something only you know, and one is the forwarding secret (`openssl rand -hex 24`). Nothing
+   has a plausible default for a value nobody can guess, and `REPLACE_ME` is not one either: it
+   fails validation by name rather than starting something surprising.
+5. **Set Auto Sync on and Redeploy After Sync off**, with the pull policy on *always pull latest*.
+   A redeploy takes the four Minecraft servers down for minutes, and a commit must not do that to
+   people who are playing — the updater's restart button exists for that and gives them a countdown
+   first.
+6. **Deploy.** Nothing else is needed, and the reason is the `updater` service: on its first start
+   it applies the schema and **fills every empty volume** — the four `plugins/` folders, both jar
+   volumes, each server's `.server/` cache and the proxy's `pack.yml` — and only then writes the
+   readiness marker that every other service waits for. That used to be
+   `docker compose run --rm updater apply`, typed by a person, which Arcane has no way to do.
+
+   It **cannot move a version**: only artefacts with *nothing* installed are fetched, so a restart
+   of a running network finds nothing missing and does nothing at all. Upgrades stay a request
+   somebody makes, from Discord or in game. `UPDATER_BOOTSTRAP=false` turns it off, and then the
+   servers refuse to start until an apply has run and say so by name.
+
+   A first deployment downloads four server jars and every plugin before it goes healthy, which is
+   why the updater's healthcheck allows fifteen minutes.
+7. **Upload the hand-built worlds** — see below. **This is the one step that still needs a shell**,
+   because a world folder is not something a repository or a release carries.
+8. **Run the login-path rehearsal** — [`../../todo.md`](../../todo.md), section 1. Nothing above
    proves a client can join.
+
+### From a shell instead
+
+Steps 3 to 6 collapse into one command from the repository root, and it still builds nothing:
+
+```bash
+docker compose up -d
+```
+
+`docker compose run --rm updater` (no argument) prints what is installed and changes nothing;
+`updater apply` is the manual form of step 6 and is what to reach for when the bootstrap is off or
+you want an upgrade now rather than through Discord.
+
+**Pinning a release** is one line of environment, and it is how a rollback is expressed:
+
+```bash
+IMAGE_TAG=0.2.1
+```
 
 ## First-start seeding
 

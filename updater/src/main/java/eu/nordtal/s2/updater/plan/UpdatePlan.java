@@ -48,4 +48,25 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
     public @NotNull List<Change> withStatus(final Change.@NotNull Status status) {
         return changes.stream().filter(change -> change.status() == status).toList();
     }
+
+    /**
+     * The same plan with everything but {@link Change.Status#MISSING} dropped - what a bootstrap
+     * is allowed to install.
+     *
+     * <p><b>Why MISSING and not {@code isWork()}.</b> {@code OUTDATED} is a version move, and this
+     * module's first rule is that a container coming back up comes back on exactly the jars it was
+     * running. Filtering here rather than in the caller is what makes that rule a property of the
+     * plan instead of a promise in a comment: a bootstrap literally cannot express "upgrade", so
+     * a crash restart at three in the morning has nothing to move. A volume that already has a jar
+     * for an artefact keeps it, however old it is; only an artefact with nothing installed at all
+     * is fetched.</p>
+     *
+     * <p>{@code unclaimed} is carried over untouched. It describes files nobody claimed, an apply
+     * never acts on it, and a bootstrap dropping it would make the report it prints disagree with
+     * the one {@code updater apply} prints for the same volumes.</p>
+     */
+    public @NotNull UpdatePlan onlyMissing() {
+        return new UpdatePlan(resolvedAt, seasonTag, seasonPrerelease,
+                withStatus(Change.Status.MISSING), unclaimed);
+    }
 }

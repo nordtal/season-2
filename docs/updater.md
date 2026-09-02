@@ -22,11 +22,20 @@ The default with no argument at all is the read-only one, on purpose. A containe
 accident, or with a misspelled argument, does the harmless thing; everything that writes has to be
 asked for by name.
 
-**`serve` is not a scheduler.** It applies the schema once at startup and then does nothing at all
-until somebody writes a row into `update_request` — no timer, no watching, no "check for updates on
-boot". A crash restart at three in the morning must not move a version, and that is the rule this
-whole module is built around; a long-running container does not change it, because the loop has
-nothing to do on its own.
+**`serve` is not a scheduler.** At startup it applies the schema and installs what is *missing*,
+and then does nothing at all until somebody writes a row into `update_request` — no timer, no
+watching, no "check for updates on boot". A crash restart at three in the morning must not move a
+version, and that is the rule this whole module is built around; a long-running container does not
+change it, because the loop has nothing to do on its own.
+
+**The startup install cannot move a version**, and that is what lets it sit next to that rule rather
+than against it. `UpdatePlan#onlyMissing()` drops everything but `MISSING`, so an artefact that
+already has a jar keeps it however old it is: a restart of a live network finds nothing missing and
+installs nothing. What it is for is the other case — a brand new stack, where every volume is empty
+and a Minecraft server refuses to start without plugins. That used to need
+`docker compose run --rm updater apply` typed on the host, and **Arcane deploys by pulling images
+and has no way to type it**, so the whole stack could never reach a running state on its own. It is
+`bootstrap` in `updater.yml`, on by default.
 
 Read [../deploy/README.md](../deploy/README.md) first if you want to know how the stack runs today —
 everything below changes how it is *updated*, not how it is shaped.
@@ -244,6 +253,11 @@ seconds it is showing.
 - **It does not update on its own.** No schedule, no watching. A crash restart at three in the
   morning must not move a version — the container comes back on exactly what it was running. This
   was the first decision taken and everything else follows from it.
+
+  The startup bootstrap (2026-09-02) is the one thing that runs unasked, and it is bounded so that
+  it cannot break this: it installs only artefacts with *nothing* installed at all. An empty volume
+  is not a version to preserve. Anything already carrying a jar is left exactly as it is, so the
+  sentence above stays literally true for every container that has ever run.
 - **It does not roll back by itself.** A run can be given an explicit tag instead of "newest" —
   `season-release`, `display-tags-release`, and since 2026-09-02 `paper-build` / `velocity-build`
   for the platform — which is the rollback, and it is a person's decision.
@@ -316,6 +330,22 @@ depending on it cannot drag in a service nobody asked for.
   redeploy, or answers success without doing anything:* leave `arcane.base-url` empty and everything
   else still works; the restart is a click in Arcane, and both surfaces say so rather than
   pretending. [`../../todo.md`](../../todo.md) carries both checks.
+- **The startup bootstrap has never filled a real empty volume.** Built and unit-tested on
+  2026-09-02: the filter is pinned by `UpdatePlanTest` (an `OUTDATED` row can never reach it, an
+  unreachable source is not mistaken for an empty volume), and the whole path is the same
+  `Runs.apply` that `updater apply` uses, so it is not new code doing the installing. **What has not
+  happened is one real first deployment**: four server jars and every plugin downloaded before the
+  readiness marker, inside the fifteen minutes the healthcheck allows. *If it turns out too slow or
+  it fails part way:* the container becomes ready anyway and the Minecraft entrypoint stops with the
+  name of the empty folder, so the failure is legible; `docker compose run --rm updater apply` is
+  the same work with a person watching, and `UPDATER_BOOTSTRAP=false` turns it off.
+  [`../../todo.md`](../../todo.md) carries the check.
+- **The four GHCR packages are private until somebody makes them public.** A package under an
+  organisation is private on its first push, and a private package answers a pull with exactly the
+  `denied` that a non-existent one does — the error that started this, and an error that names
+  neither cause. *If making them public is not wanted:* Arcane takes a registry credential instead,
+  at the cost of a token that expires and whose expiry looks like this same error a year later.
+  [`../../todo.md`](../../todo.md) carries it.
 - ~~**`LISTEN` across containers.**~~ **Closed 2026-09-01**: 160 ms with the notification against
   17 s without it, two containers on a Docker network. The reconnect path under a real dropped
   socket is still untested, which is the phase listener's open item and not a new one.

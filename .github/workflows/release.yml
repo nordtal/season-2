@@ -111,15 +111,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # SINCE 2026-09-01 THIS IMAGE IS A FLOOR, NOT THE VERSION. The bot runs whatever
-      # discord-bot-*.jar is in its volume, which the updater fills from the release assets above;
-      # the jar baked in here is used only while that volume is empty, on a first deployment. The
-      # push stays because that first deployment still needs it, and because it is what lets a host
-      # come up without a checkout.
+      # ALL FOUR IMAGES ARE PUSHED, and until 2026-09-02 only this first one was. The reason it
+      # changed is not a preference: ARCANE DEPLOYS BY PULLING. Its Redeploy pulls images and never
+      # builds - building is a separate action in its interface - so an image that exists nowhere
+      # but a host's local daemon makes a deploy fail with `denied` from the registry, which is what
+      # happened with ghcr.io/nordtal/minecraft:local. Two of these cannot be built from a checkout
+      # at all: they COPY a jar Gradle produces into a directory .gitignore excludes.
       #
-      # The updater has no image here on purpose: it is the bootstrap, so a host that has nothing
-      # yet builds it from this repository - which is the one Gradle step deploy/README.md asks for
-      # and the only one it ever asks for.
+      # THE IMAGES ARE A FLOOR, NOT THE VERSION. The bot and the updater run whatever jar is in
+      # their volume, which the updater fills from the release assets above; the jar baked in is
+      # what makes a first deployment possible before any updater run has happened. `latest` is what
+      # compose.yml points at by default, and IMAGE_TAG pins a release for a rollback.
       - name: Build and push the bot image
         uses: docker/build-push-action@v7
         with:
@@ -129,3 +131,41 @@ jobs:
           tags: |
             ghcr.io/nordtal/discord-bot:${{ env.VERSION }}
             ghcr.io/nordtal/discord-bot:latest
+
+      # The bootstrap. It used to be deliberately unpublished, on the reasoning that a host with
+      # nothing yet builds it from this repository - which stopped being true the moment the host
+      # was Arcane rather than a shell.
+      - name: Build and push the updater image
+        uses: docker/build-push-action@v7
+        with:
+          context: updater
+          build-args: JAR=build/libs/updater-${{ env.VERSION }}.jar
+          push: true
+          tags: |
+            ghcr.io/nordtal/updater:${{ env.VERSION }}
+            ghcr.io/nordtal/updater:latest
+
+      # One image for all four Minecraft services; the difference between them is environment. It
+      # contains no Gradle output at all - entrypoint.sh and a JRE - so a change to it still needs a
+      # release to reach production, which is the deliberate cost of publishing only on release.
+      - name: Build and push the minecraft image
+        uses: docker/build-push-action@v7
+        with:
+          context: deploy/minecraft
+          push: true
+          tags: |
+            ghcr.io/nordtal/minecraft:${{ env.VERSION }}
+            ghcr.io/nordtal/minecraft:latest
+
+      # The backup sidecar. POSTGRES_IMAGE is NOT passed here on purpose: the Dockerfile's own
+      # default is the version this repository tests against, and a build arg set from a workflow
+      # would be a second place that has to agree with .env. A deployment that runs a different
+      # PostgreSQL builds this one locally - the compose `build:` block still does that.
+      - name: Build and push the backup image
+        uses: docker/build-push-action@v7
+        with:
+          context: deploy/postgres-backup
+          push: true
+          tags: |
+            ghcr.io/nordtal/postgres-backup:${{ env.VERSION }}
+            ghcr.io/nordtal/postgres-backup:latest

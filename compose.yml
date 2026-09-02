@@ -491,6 +491,14 @@ services:
     # against a service with no `command` takes the image's CMD instead (both measured 2026-09-02).
     # The read-only run is `updater report`, by name, and that is why the name exists.
     command: ["serve"]
+    # ARCANE IS ON THE HOST AND THIS IS A CONTAINER, so `localhost` in arcane.base-url is this
+    # container and nothing is listening on it. That is finding 40: the first restart anybody asked
+    # for failed 40 ms after the POST against http://localhost:3553, with Arcane running fine the
+    # whole time. This mapping is what makes the fix - http://host.docker.internal:<port> - work on
+    # Linux as well as on Docker Desktop, where it already resolves. It costs nothing when Arcane
+    # is reached some other way, and it is the only line that makes the documented answer true.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       # Written once the schema is current and the request loop is about to start. Everything else
       # in this file waits for it.

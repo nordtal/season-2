@@ -648,7 +648,7 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**Seven modules have tests: 745 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 753 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-03). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
@@ -656,8 +656,8 @@ daemon present, 2026-09-03). The counts below are what the JUnit XML reports, no
 |---|---|
 | `smp` | 146 |
 | `common` | 145 |
-| `network-control` | 150 |
-| `updater` | 129 |
+| `network-control` | 154 |
+| `updater` | 133 |
 | `discord-bot` | 117 |
 | `hunger-games` | 47 |
 | `limbo` | 11 |
@@ -704,7 +704,7 @@ that, and both are easy to undo by accident:
   that one, from the module directory, in preference to the real one. It was deleted with this
   change; the anchor is what stops the next one shadowing the root file silently.
 
-`network-control` has **150**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
+`network-control` has **154**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
 `gate.yml`; the `phase` and `routing` packages are tested as pure decisions, exhaustively over the
 four phases; and `PlaytimeDao`'s `seconds = seconds + EXCLUDED.seconds` gets a container, because no
@@ -758,7 +758,7 @@ two language files carry the same keys with the same placeholders — a key adde
 the other reaches a player as the literal string `hg.start.countdown`, because `Messages` degrades
 to the key rather than throwing.
 
-`updater` has **129**, and this section did not mention the module at all until 2026-09-02.
+`updater` has **133**, and this section did not mention the module at all until 2026-09-02.
 `TopologyTest` reads the real `compose.yml` and is what keeps that file and `Topology` from becoming
 two facts - it now also asserts that every plugin a service runs is one that service's entrypoint
 guard asks for, and that the Paper backends cap players at the same number. `ApplierTest` covers the

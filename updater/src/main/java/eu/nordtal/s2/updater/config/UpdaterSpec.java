@@ -315,6 +315,16 @@ public interface UpdaterSpec {
         @Comment({
                 "Arcane's origin, with no trailing slash - https://arcane.example.com.",
                 "",
+                "NOT localhost. THE UPDATER IS A CONTAINER, and localhost inside it is the",
+                "container, not the host Arcane runs on - so every restart fails with a connection",
+                "error within milliseconds while Arcane sits there working perfectly. It is the",
+                "value the browser bar shows, which is exactly why it gets copied here; it cost the",
+                "first restart of the first deployment (finding 40). Use",
+                "http://host.docker.internal:<port>, which compose.yml maps for this service,",
+                "Arcane's container name if it shares a Docker network with this one, or the host's",
+                "address on the network. A loopback value is warned about at startup and named",
+                "again in the failure.",
+                "",
                 "Empty means 'no restart button anywhere'. That is a supported state, not a broken",
                 "one: the updater reports what it would have done and an admin clicks Redeploy in",
                 "Arcane themselves."

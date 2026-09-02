@@ -135,7 +135,7 @@ public class AccessBot implements AutoCloseable {
                     .awaitReady();
 
             jda.getPresence().setPresence(
-                    Activity.of(Activity.ActivityType.CUSTOM_STATUS, "nordtal.eu"), false);
+                    Activity.of(Activity.ActivityType.CUSTOM_STATUS, "It's that time of the year again..."), false);
 
             final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi());
             final AccessRoles roles = new AccessRoles(jda, accessConfig, access, messages, admin, database.jdbi());

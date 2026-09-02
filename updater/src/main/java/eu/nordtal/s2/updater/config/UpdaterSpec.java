@@ -161,7 +161,7 @@ public interface UpdaterSpec {
         return "4.1.1";
     }
 
-    @Order(11)
+    @Order(9)
     @Key("paper-build")
     @Comment({
             "Which build of minecraft-version the three Paper servers run: the word 'latest'",
@@ -177,7 +177,7 @@ public interface UpdaterSpec {
         return "latest";
     }
 
-    @Order(12)
+    @Order(10)
     @Key("velocity-build")
     @Comment({
             "Which build of velocity-version the proxy runs. Same rule as paper-build."
@@ -264,6 +264,32 @@ public interface UpdaterSpec {
     }
 
     @Order(16)
+    @Key("bootstrap")
+    @Comment({
+            "Whether `updater serve` installs what is MISSING before it reports itself ready.",
+            "",
+            "This is what makes a deployment possible with no shell on the host. A Minecraft",
+            "server refuses to start on an empty plugins folder, so without this a brand new",
+            "stack needs `docker compose run --rm updater apply` typed by a person - and Arcane",
+            "has no way to type it. With it, the first start of this container fills every empty",
+            "volume and only then touches the readiness marker everything else waits for.",
+            "",
+            "IT CANNOT MOVE A VERSION, and that is the point rather than a limitation. Only",
+            "artefacts with NOTHING installed are fetched; an artefact that already has a jar",
+            "keeps it, however old. So a crash restart at three in the morning finds nothing",
+            "missing and does nothing at all, which is this module's first rule and stays true",
+            "with this switched on. Upgrades remain a request somebody makes, from Discord or",
+            "in game.",
+            "",
+            "Turn it off for a deployment where the volumes are filled some other way, or to",
+            "make this container come up fast while something upstream is broken. The servers",
+            "will then refuse to start until an apply has run, and say so by name."
+    })
+    default boolean bootstrap() {
+        return true;
+    }
+
+    @Order(17)
     @Key("arcane")
     @Comment({
             "How the restart is actually performed: one redeploy of the whole compose project",

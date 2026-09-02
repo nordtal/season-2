@@ -171,6 +171,61 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("the bootstrap default repeated in compose.yml still matches the spec's own")
+    void theBootstrapDefaultAgreesWithTheSpec() {
+        // Same reason as the two Arcane defaults above: an empty environment variable wins over the
+        // file, so the fallback has to say what the spec says rather than nothing.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment = (Map<String, Object>) updater.get("environment");
+
+        // arcane() is the one member of UpdaterSpec without a default, so it has to be supplied
+        // even though this test only reads bootstrap().
+        final UpdaterSpec spec = new UpdaterSpec() {
+            @Override
+            public ArcaneSpec arcane() {
+                return new ArcaneSpec() {
+                };
+            }
+        };
+        assertTrue(String.valueOf(environment.get("NORDTAL_UPDATER_BOOTSTRAP"))
+                        .endsWith(":-" + spec.bootstrap() + "}"),
+                "compose.yml's UPDATER_BOOTSTRAP fallback is not '" + spec.bootstrap()
+                        + "' any more. With it off, a first deployment cannot come up without"
+                        + " somebody running `updater apply` on the host.");
+    }
+
+    @Test
+    @DisplayName("every image of ours defaults to one the release workflow actually pushes")
+    void ourImagesArePulledAndNotInventedLocally() {
+        // THIS IS THE TEST FOR A REAL OUTAGE. compose.yml defaulted the Minecraft image to
+        // `ghcr.io/nordtal/minecraft:local`, a tag nothing has ever pushed, on the assumption that
+        // the host would build it. Arcane deploys by PULLING - its Redeploy never builds - so the
+        // deploy failed with `denied` from the registry, which is also what a private package
+        // answers and therefore explains nothing. A `build:` block next to it made it look fine.
+        //
+        // The rule this pins down: if an image is ours, its DEFAULT must be a ghcr.io/nordtal
+        // reference tagged from IMAGE_TAG, because that is exactly what release.yml publishes.
+        services.forEach((name, definition) -> {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> service = (Map<String, Object>) definition;
+            final String image = String.valueOf(service.get("image"));
+            if (!image.contains("nordtal/")) {
+                return;
+            }
+            assertTrue(image.contains(":-ghcr.io/nordtal/"),
+                    "compose.yml's '" + name + "' defaults to the image " + image + ", which is not"
+                            + " a ghcr.io/nordtal reference. Arcane pulls and never builds, so an"
+                            + " image only this host can produce fails the deploy with `denied`.");
+            assertTrue(image.contains("${IMAGE_TAG:-latest}"),
+                    "compose.yml's '" + name + "' does not take its tag from IMAGE_TAG. One variable"
+                            + " pins every image for a rollback; a second way to spell it is a way"
+                            + " for two of them to disagree.");
+        });
+    }
+
+    @Test
     @DisplayName("DisplayTags really is required by smp, which is why the topology lists it")
     void theRequiredPluginsAreRequiredBySmpsOwnManifest() throws IOException {
         // The topology's smp row is not a preference. Checked against the manifest that enforces

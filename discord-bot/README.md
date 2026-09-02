@@ -57,19 +57,29 @@ The bot no longer has a compose file of its own: since 2026-09-01 the whole depl
 stack in [`../deploy`](../deploy), and the bot is the `bot` profile inside it. It keeps every
 property this document claims for it — no Minecraft dependency, no waiting for a proxy or a
 backend — because that profile can be brought up alone. Run these from the **repository root**,
-which is where `compose.yml` lives — it moved out of `deploy/` on 2026-09-01 so that Arcane's git
-sync, which pulls only the directory the compose file is in, brings the build contexts with it:
+which is where `compose.yml` lives:
 
 ```bash
 cp .env.example .env      # fill it in — .env is gitignored and must never be committed
+COMPOSE_PROFILES=db,bot docker compose up -d
+```
+
+**No Gradle step, and no `--build`.** Since 2026-09-02 the image is pulled from
+`ghcr.io/nordtal/discord-bot`, pushed by `release.yml` when a release is published; `IMAGE_TAG`
+picks which one and defaults to `latest`. That is not a convenience — Arcane deploys by pulling and
+never builds, so an image that exists only on one host fails a deploy outright.
+
+**To build it here instead**, which is what the `build:` block in `compose.yml` is for:
+
+```bash
 ./gradlew :discord-bot:shadowJar
 COMPOSE_PROFILES=db,bot docker compose up -d --build
 ```
 
-**The Gradle step is not optional.** The image only copies a finished jar, and Compose cannot run
-Gradle, so `--build` builds the *image* from a jar that has to exist already. `BOT_VERSION` in
-`.env` names that jar and is also the image tag, so it has to match `gradle.properties`; a
-mismatch fails the build on the missing file rather than quietly shipping the wrong version.
+The image only copies a finished jar and Compose cannot run Gradle, so that jar has to exist first.
+`BOT_VERSION` in `.env` names it and has to match `gradle.properties`; a mismatch fails on the
+missing file rather than quietly shipping the wrong version. It no longer decides the image *tag* —
+`IMAGE_TAG` does.
 
 ### Since 2026-09-01 the image tag is a floor, not the version
 

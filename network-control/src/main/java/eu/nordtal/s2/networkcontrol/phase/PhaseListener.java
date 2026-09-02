@@ -53,6 +53,15 @@ public final class PhaseListener implements AutoCloseable {
 
     private final PhaseNotifications.Connector connector;
     private final PhaseWatch watch;
+
+    /**
+     * Re-reads the admin flags of everybody connected. Runs on exactly the same signals as
+     * {@link PhaseWatch#refresh()} - every connect and every notification - because both answer the
+     * same question ("what does the database say now?") and neither may trust a notification as
+     * state. See {@code PostgresPhaseNotifications#ADMIN_CHANNEL} for why one connection carries
+     * both channels instead of there being two of everything.
+     */
+    private final Runnable admins;
     private final Logger logger;
     private final Duration waitTimeout;
     private final Duration reconnectBackoff;
@@ -71,15 +80,17 @@ public final class PhaseListener implements AutoCloseable {
      *                    liveness check, so a shorter wait buys nothing but extra round trips
      */
     public PhaseListener(final PhaseNotifications.Connector connector, final PhaseWatch watch,
-                         final Logger logger, final Duration waitTimeout) {
-        this(connector, watch, logger, waitTimeout, RECONNECT_BACKOFF);
+                         final Runnable admins, final Logger logger, final Duration waitTimeout) {
+        this(connector, watch, admins, logger, waitTimeout, RECONNECT_BACKOFF);
     }
 
     /** Package-visible so a test can watch several reconnects without waiting seconds for each. */
     PhaseListener(final PhaseNotifications.Connector connector, final PhaseWatch watch,
-                  final Logger logger, final Duration waitTimeout, final Duration reconnectBackoff) {
+                  final Runnable admins, final Logger logger, final Duration waitTimeout,
+                  final Duration reconnectBackoff) {
         this.connector = Objects.requireNonNull(connector, "connector");
         this.watch = Objects.requireNonNull(watch, "watch");
+        this.admins = Objects.requireNonNull(admins, "admins");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.waitTimeout = Objects.requireNonNull(waitTimeout, "waitTimeout");
         this.reconnectBackoff = Objects.requireNonNull(reconnectBackoff, "reconnectBackoff");
@@ -113,16 +124,24 @@ public final class PhaseListener implements AutoCloseable {
         while (running) {
             try (PhaseNotifications notifications = connector.listen()) {
                 current.set(notifications);
-                logger.info("Listening for season phase changes on {}", PostgresPhaseNotifications.CHANNEL);
+                logger.info("Listening for season phase changes on {} and admin changes on {}",
+                        PostgresPhaseNotifications.CHANNEL, PostgresPhaseNotifications.ADMIN_CHANNEL);
 
                 // THE rule: re-read unconditionally, before waiting for anything. A switch that
                 // happened while this process was disconnected produced a notification nobody
-                // received, and no later notification will repeat it.
+                // received, and no later notification will repeat it. It holds identically for the
+                // admin flags, which is why both are refreshed here and not only the phase.
                 watch.refresh();
+                refreshAdmins();
 
                 while (running) {
                     if (notifications.awaitNotification(waitTimeout)) {
+                        // Which channel it arrived on is not inspected, deliberately. Both refreshes
+                        // are one small idempotent query, and a listener that routed by channel
+                        // would be trusting the notification to tell it what changed - which is the
+                        // one thing this design never does.
                         watch.refresh();
+                        refreshAdmins();
                     }
                 }
             } catch (final SQLException exception) {
@@ -152,6 +171,23 @@ public final class PhaseListener implements AutoCloseable {
     }
 
     /** @return {@code false} when the wait was interrupted, which means "stop" */
+    /**
+     * Never lets a failed admin refresh take the listener down.
+     * <p>
+     * The phase is the reason this thread exists; the admin roster riding along must not be able to
+     * cost the network its phase propagation. A failure here is also self-correcting - the next
+     * notification or reconnect asks again.
+     * </p>
+     */
+    private void refreshAdmins() {
+        try {
+            admins.run();
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not refresh the admin roster; the phase listener carries on and will"
+                    + " try again on the next notification.", failure);
+        }
+    }
+
     private boolean sleepBeforeRetry() {
         try {
             Thread.sleep(reconnectBackoff);

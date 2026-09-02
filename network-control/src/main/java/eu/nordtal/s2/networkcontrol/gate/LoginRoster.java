@@ -97,6 +97,46 @@ public final class LoginRoster {
         return of(mcUuid).map(Session::locale).orElse(Locale.ENGLISH);
     }
 
+    /**
+     * Re-derives every tracked session's admin flag from the set the database currently holds.
+     *
+     * <h2>Why this exists</h2>
+     * The roster was filled at login and never touched again, so an admin who lost the role in
+     * Discord kept it in game until they disconnected - on the proxy's {@code /phase} and, through
+     * the same flag, on the SMP's {@code /smp}. An emergency revocation is the one case where that
+     * is the wrong direction, and it is the case the flag exists for.
+     *
+     * <h2>Whole set, not one id</h2>
+     * The notification carries a Discord id and this deliberately ignores it. Re-deriving every
+     * session from the authoritative set is idempotent, costs one query whether one admin changed
+     * or ten, and - the part that matters - makes a <b>lost</b> notification cost latency rather
+     * than correctness, so the poll that follows it needs no bookkeeping of its own. It is the same
+     * rule the phase model states: the notification is an optimisation, never the state.
+     *
+     * <p>Language is not touched. It changes on a rhythm nobody needs to be told about within
+     * seconds, and it is read from the database again on the next login anyway.</p>
+     *
+     * @param adminDiscordIds every Discord account that currently holds the flag
+     * @return how many sessions changed, which is what the caller logs - it is normally zero
+     */
+    public int refreshAdmins(final java.util.Set<String> adminDiscordIds) {
+        Objects.requireNonNull(adminDiscordIds, "adminDiscordIds");
+        int changed = 0;
+        for (final java.util.Map.Entry<UUID, Session> entry : sessions.entrySet()) {
+            final Session session = entry.getValue();
+            final boolean admin = adminDiscordIds.contains(session.discordId());
+            if (admin != session.admin()) {
+                // replace() and not put(): a player who disconnected while this was running must
+                // not be put back into the map by it.
+                if (sessions.replace(entry.getKey(),
+                        session, new Session(session.discordId(), session.locale(), admin))) {
+                    changed++;
+                }
+            }
+        }
+        return changed;
+    }
+
     /** @return how many sessions are tracked, for tests and logging */
     public int size() {
         return sessions.size();

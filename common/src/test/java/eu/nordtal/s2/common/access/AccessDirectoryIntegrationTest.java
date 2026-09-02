@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -709,4 +710,73 @@ class AccessDirectoryIntegrationTest {
         final long actual = Duration.between(from, to).toDays();
         assertEquals(days, actual, "expected " + days + " days between " + from + " and " + to);
     }
+
+    // ---------------------------------------------------------------- M9: the admin flag notifies
+
+    @Test
+    @DisplayName("M9: setting the admin flag notifies nordtal_admin with the Discord id")
+    void theAdminFlagAnnouncesItself() throws Exception {
+        // The proxy fills LoginRoster from the login query and never again, so a revoked admin kept
+        // every power until they disconnected. This is the signal that lets a revocation reach a
+        // player who is already online, and it rides inside the write - as the phase's does - so it
+        // is only ever emitted for something that committed.
+        try (Connection listening = dataSource.getConnection()) {
+            try (Statement statement = listening.createStatement()) {
+                statement.execute("LISTEN nordtal_admin");
+            }
+
+            directory.setAdmin(DISCORD_ID, true);
+
+            final org.postgresql.PGNotification[] arrived = listening
+                    .unwrap(org.postgresql.PGConnection.class)
+                    .getNotifications(5000);
+
+            assertNotNull(arrived, "no notification arrived on nordtal_admin within 5s");
+            assertEquals(1, arrived.length);
+            assertEquals("nordtal_admin", arrived[0].getName());
+            assertEquals(DISCORD_ID, arrived[0].getParameter(),
+                    "the payload is the Discord id - the proxy does not act on it, but a payload"
+                            + " that names the wrong account is worse than none");
+        }
+    }
+
+    @Test
+    @DisplayName("M9: a revocation notifies as loudly as a grant")
+    void losingTheFlagNotifiesToo() throws Exception {
+        directory.setAdmin(DISCORD_ID, true);
+
+        try (Connection listening = dataSource.getConnection()) {
+            try (Statement statement = listening.createStatement()) {
+                statement.execute("LISTEN nordtal_admin");
+            }
+
+            directory.setAdmin(DISCORD_ID, false);
+
+            final org.postgresql.PGNotification[] arrived = listening
+                    .unwrap(org.postgresql.PGConnection.class)
+                    .getNotifications(5000);
+
+            assertNotNull(arrived, "a revocation produced no notification, which is the direction"
+                    + " that actually matters");
+            assertEquals(DISCORD_ID, arrived[0].getParameter());
+        }
+    }
+
+    @Test
+    @DisplayName("M9: admins() is the whole set the proxy re-derives every session from")
+    void theAdminSetIsReadableInOneQuery() {
+        assertTrue(directory.admins().isEmpty());
+
+        directory.setAdmin(DISCORD_ID, true);
+        directory.setAdmin("100000000000000002", true);
+        directory.setAdmin("100000000000000003", false);
+
+        assertEquals(java.util.Set.of(DISCORD_ID, "100000000000000002"), directory.admins(),
+                "one query for the whole set is what makes the refresh idempotent - a lost"
+                        + " notification then costs latency rather than correctness");
+
+        directory.setAdmin(DISCORD_ID, false);
+        assertEquals(java.util.Set.of("100000000000000002"), directory.admins());
+    }
+
 }

@@ -131,6 +131,27 @@ and leaving them out would keep
 the `LISTEN`/`NOTIFY` row in
 [state-of-play.md](state-of-play.md#the-unverified-assumptions) open indefinitely.
 
+**The admin flag rides the same connection, on `nordtal_admin`, since 2026-09-02.** `LoginRoster`
+was filled by the login query and never touched again, so an admin who lost the role in Discord
+kept the proxy's `/phase` and the SMP's `/smp` until they disconnected — and an emergency
+revocation is exactly the case where waiting for a reconnect is the wrong direction.
+`AccessDao#setAdmin` now emits the notification inside its own write, so it fires only for a
+change that committed, and it carries the Discord id.
+
+Three properties are worth stating, because each of them is a decision:
+
+- **One connection, two channels.** A parallel connector / notifications / listener / watch stack
+  would be ~350 lines whose only difference is a string, and a second reconnect loop to keep alive.
+  Both channels want the identical thing on a wake-up — re-read the authoritative state — so the
+  listener does not inspect which one arrived. The cost is two small idempotent queries at moments
+  that are rare by construction.
+- **The payload is not trusted.** The proxy re-reads `AccessDirectory#admins()` in full and
+  re-derives every connected session's flag from it, so a lost notification costs latency and not
+  correctness — which is the same rule the phase states, and it is what lets the 30-second poll run
+  the identical refresh with no bookkeeping of its own.
+- **Only the admin flag is refreshed, not the language.** Language changes on a rhythm nobody needs
+  to be told about within seconds, and it is read again on the next login.
+
 ## Who may switch it
 
 Two paths write the same row, decided 2026-08-30:

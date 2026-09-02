@@ -366,6 +366,14 @@ docker compose down              # the whole stack; volumes survive
 generated world stops in **3 s** and logs `All dimensions are saved`; the headroom is for a
 border-4000 Nordtal, not for the normal case. Do not lower it, and never use `docker kill`.
 
+**`down` only acts on the profiles the current selection names, and that bites.** With
+`COMPOSE_PROFILES` set to anything that leaves `backup` out, `docker compose down` stops everything
+else and leaves the backup sidecar running — the network then cannot be removed (*"Resource is
+still in use"*), and what is still running is a backup job pointed at a database that no longer
+exists. Production is `db,bot,mc,backup`, which is what `.env.example` ships; `compose.yml`'s own
+comment said `db,bot,mc` until 2026-09-02 and was the wrong half of the disagreement. Whatever
+selection is used, **`up` and `down` have to use the same one.**
+
 ## Backups
 
 Access periods, payment records, aura, milestone progress and graves are all in one PostgreSQL, and

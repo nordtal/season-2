@@ -33,14 +33,23 @@
 # at runtime, so `latest` here plus a pinned UPDATER_SEASON_RELEASE below is a legitimate and
 # deliberate combination - see docs/updater.md.
 #
-# COMPOSE_PROFILES in .env decides what "everything" means. The default is `db,bot,mc`.
+# COMPOSE_PROFILES in .env decides what "everything" means. Production is `db,bot,mc,backup`, and
+# that is what .env.example ships.
 #
-#   COMPOSE_PROFILES=bot        just the Discord bot, against a database that already exists
-#   COMPOSE_PROFILES=db,bot     bot and database, no Minecraft at all
-#   COMPOSE_PROFILES=db,bot,mc  the production network
+#   COMPOSE_PROFILES=bot               just the Discord bot, against a database that already exists
+#   COMPOSE_PROFILES=db,bot            bot and database, no Minecraft at all
+#   COMPOSE_PROFILES=db,bot,mc,backup  the production network
 #
-# `backup` is deliberately outside that default: it is the one service you might legitimately run
-# against a database this compose does not own.
+# `backup` USED TO BE OUTSIDE THAT DEFAULT and this comment still said `db,bot,mc` on 2026-09-02,
+# while .env.example already said otherwise. Two reasons the fuller list is the right one. The
+# database is the only irreversible risk in this project (docs/README.md), so a stack whose backup
+# sidecar is opt-in is a stack that is one forgotten variable away from having none. And a profile
+# selection that omits it breaks `down`: the sidecar is not in the selection, so it is not stopped,
+# the network cannot be removed - "Resource is still in use" - and what is left running is a backup
+# job pointed at a database that no longer exists.
+#
+# WHATEVER IS CHOSEN, `up` AND `down` HAVE TO USE THE SAME SELECTION. Compose only acts on the
+# services the current selection names, in both directions.
 #
 # THE UPDATER HAS NO PROFILE, so it is in every selection including `COMPOSE_PROFILES=bot`. That is
 # not an oversight. It is the only process that applies the schema, so nothing else in this stack
@@ -437,21 +446,6 @@ services:
     volumes:
       - mc-smp:/data
 
-  # -------------------------------------------------------------------------------------------
-  # The updater. A COMMAND, NOT A SERVICE - no restart policy and no schedule, deliberately:
-  # a crash restart at three in the morning must not move a version. It is run when somebody asks
-  # for an update:
-  #
-  #   docker compose run --rm updater report
-  #
-  # Today it resolves the newest version of everything the network runs, compares that against the
-  # jars actually in the volumes, and prints the difference. The only thing it writes is its own
-  # config/updater.yml on a first run - nothing in a Minecraft volume - which is why the four mounts
-  # below are read-only and why it is safe to run against a live deployment at any moment. Steps 2 to 6 of docs/updater.md add the schema, the jar swap and the restart button;
-  # the swap is what turns four of these mounts read-write, in a diff where that is visible.
-  #
-  # NOTHING PUBLISHES THIS IMAGE - same as the Minecraft one. The host builds it from ./updater,
-  # which needs `./gradlew :updater:shadowJar` to have run first.
   # -------------------------------------------------------------------------------------------
   # The updater. No profile, because everything else in this stack depends on it.
   #

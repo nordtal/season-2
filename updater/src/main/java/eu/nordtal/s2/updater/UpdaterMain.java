@@ -8,6 +8,7 @@ import eu.nordtal.s2.updater.arcane.Arcane;
 import eu.nordtal.s2.updater.config.Configs;
 import eu.nordtal.s2.updater.config.DatabaseSpec;
 import eu.nordtal.s2.updater.config.UpdaterSpec;
+import eu.nordtal.s2.updater.plan.Change;
 import eu.nordtal.s2.updater.plan.Report;
 import eu.nordtal.s2.updater.plan.UpdatePlan;
 import eu.nordtal.s2.updater.run.Runs;
@@ -302,14 +303,27 @@ public final class UpdaterMain {
                 return;
             }
 
-            if (missing.changes().isEmpty()) {
-                log.info("Bootstrap: every volume already holds a jar for everything that belongs"
-                        + " in it, so nothing was installed. This is the normal case on a restart.");
+            if (!missing.hasMissing()) {
+                if (missing.hasFailures()) {
+                    // NOT the normal case, and it must not be logged as one. Nothing is missing
+                    // among the artefacts that could be checked, and some could not be checked at
+                    // all - which is exactly the difference this module refuses to blur.
+                    log.warn("Bootstrap: nothing is missing among the artefacts that could be"
+                            + " checked, but {} could not be checked at all. That is not the same as"
+                            + " a full set of volumes. Nothing was installed:\n{}",
+                            missing.withStatus(Change.Status.UNRESOLVED).size(),
+                            Report.render(missing));
+                } else {
+                    log.info("Bootstrap: every volume already holds a jar for everything that"
+                            + " belongs in it, so nothing was installed. This is the normal case on"
+                            + " a restart.");
+                }
                 return;
             }
 
             log.info("Bootstrap: {} artefact(s) have nothing installed at all. Installing those, and"
-                    + " only those, before this container reports ready.", missing.changes().size());
+                            + " only those, before this container reports ready.",
+                    missing.withStatus(Change.Status.MISSING).size());
             final ApplyResult result;
             try {
                 result = Runs.apply(config, missing);
@@ -324,6 +338,14 @@ public final class UpdaterMain {
             // record rather than a command's output, and the two are read in different places.
             if (result.hasFailures()) {
                 log.error("Bootstrap finished with failures:\n{}", Report.render(result));
+            } else if (result.skippedAnything()) {
+                // A service whose season jar could not be resolved is skipped WHOLE - Applier's
+                // all-or-nothing rule - so this is the outage case, and its servers will refuse to
+                // start on the empty folders it leaves. Loud, because the alternative is the line
+                // that started all this: "Everything asked for was done."
+                log.warn("Bootstrap could not install everything, and what it skipped it skipped"
+                        + " entirely. A server whose plugins folder is still empty will refuse to"
+                        + " start and say so:\n{}", Report.render(result));
             } else {
                 log.info("Bootstrap finished:\n{}", Report.render(result));
             }

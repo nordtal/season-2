@@ -263,6 +263,7 @@ public interface SmpSpec {
     }
 
     /** One balloon's volume: the world it stands in and the box a player steps into. */
+    @ConfigSpec
     interface BalloonSpec {
 
         @Order(1) @Key("world")
@@ -307,6 +308,7 @@ public interface SmpSpec {
     }
 
     /** One board's anchor: which board, where it hangs, and which way it faces. */
+    @ConfigSpec
     interface BoardSpec {
 
         @Order(1) @Key("kind")
@@ -348,6 +350,7 @@ public interface SmpSpec {
     }
 
     /** One duel platform: which loadout it hands out, and the box a player has to stand in. */
+    @ConfigSpec
     interface DuelPlatformSpec {
 
         @Order(1) @Key("type")
@@ -447,6 +450,7 @@ public interface SmpSpec {
     }
 
     /** Where the spawn NPC stands, what it is called, and whose skin it wears. */
+    @ConfigSpec
     interface NpcSpec {
 
         @Order(1) @Key("world") default String world() { return "nordtal"; }

@@ -322,6 +322,13 @@ services:
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
       EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
+      # THE NUMBER THAT ACTUALLY DECIDES WHO GETS IN, and it has to be the same on all three.
+      # Velocity advertises 500 in the server browser and enforces nothing; Paper's own default is
+      # 20. Until 2026-09-02 nothing set it, so the network showed 500 slots and `limbo` refused the
+      # 21st player with "Server full" - after they had passed the login gate and waited for the
+      # resource pack. Enforced on every start, because it has to agree with a value in another
+      # container.
+      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${LIMBO_HEAP:-1G}
       # No LEVEL_NAME and no LEVEL_SEED, deliberately. limbo builds its own empty world at enable
       # (LimboSpec#world-name, default `limbo`) and moves every player into it before they are ever
@@ -348,6 +355,7 @@ services:
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
       EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
+      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       # The hand-built event world. HungerGamesSpec#world-name defaults to `hunger_games` and the
       # plugin does NOT load a world of its own - it disables itself when that world is not there -
@@ -411,6 +419,7 @@ services:
       # assuming them, and this list does assume them. A publisher renaming a jar therefore stops
       # this container with the prefix in the message, which is the right side to fail on.
       EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit}
+      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${SMP_HEAP:-6G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
       # A Paper server given a forwarding secret is a backend: the entrypoint sets

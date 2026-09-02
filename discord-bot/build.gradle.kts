@@ -8,6 +8,9 @@ application.mainClass.set("eu.nordtal.s2.discordbot.AccessBot")
 // .env.example instead of holding a copy of them. Without this the file is invisible to Gradle
 // and editing it leaves :discord-bot:test UP-TO-DATE, which is the drift the test exists to catch.
 repositoryRootTestInputs {
+    // StartupFailuresTest reads AccessBot as text - the path it guards needs Discord to reject a
+    // real token, which no build can arrange.
+    reads("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java")
     reads(".env.example")
 }
 

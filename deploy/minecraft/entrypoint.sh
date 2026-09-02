@@ -435,7 +435,17 @@ seed_velocity_config() {
         printf 'bind = "0.0.0.0:25565"\n'
         printf 'online-mode = true\n'
         printf 'player-info-forwarding-mode = "modern"\n'
-        printf 'forwarding-secret-file = "forwarding.secret"\n\n'
+        printf 'forwarding-secret-file = "forwarding.secret"\n'
+        # What the server browser shows. Left at Velocity's own default until 2026-09-02, which is
+        # "A Velocity Server" in Velocity blue - on launch day, in every player's server list.
+        # MOTD is MiniMessage, so <gradient>, <#rrggbb> and <newline> all work; the default here is
+        # deliberately plain text, because a placeholder that looks finished is one nobody replaces.
+        #
+        # show-max-players is only what the browser DISPLAYS. Velocity enforces no limit of its own:
+        # the number that decides is max-players on whichever backend the player lands on, which is
+        # MAX_PLAYERS in compose.yml. The two are set from the same variable for that reason.
+        printf 'motd = "%s"\n' "${VELOCITY_MOTD:-nordtal.eu}"
+        printf 'show-max-players = %s\n\n' "${MAX_PLAYERS:-500}"
         printf '[servers]\n'
         for entry in $VELOCITY_SERVERS; do
             name="${entry%%=*}"

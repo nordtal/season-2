@@ -2,6 +2,15 @@ plugins {
     id("nordtal.paper-plugin")
 }
 
+// ComposeWorldTest compares config.yml's world-nordtal default against the level-name compose
+// actually starts Paper on, and checks that the entrypoint still writes it. Both files are outside
+// every source set, so without this Gradle cannot see them and an edit to either would leave
+// :smp:test UP-TO-DATE - the one check that would have caught it being the one that does not run.
+repositoryRootTestInputs {
+    reads("compose.yml")
+    reads("deploy/minecraft/entrypoint.sh")
+}
+
 repositories {
     // jcore and papermc-display-tags are both published via JitPack, not Maven Central - see the
     // workspace CLAUDE.md.

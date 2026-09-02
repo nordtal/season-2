@@ -111,7 +111,7 @@ IMAGE_TAG=0.2.1
 
 ## First-start seeding
 
-The container writes four things, **only when they are not there already**, and a file that exists
+The container writes six things, **only when they are not there already**, and a file that exists
 is never edited again. It is deliberately the minimum that makes a login work, not a set of
 opinions about how to run a server: everything else stays Paper's and Velocity's own default.
 
@@ -120,7 +120,27 @@ opinions about how to run a server: everything else stays Paper's and Velocity's
 | `player-info-forwarding-mode`, `bind`, `online-mode`, `[servers]`, `try`, an empty `[forced-hosts]` | proxy, `velocity.toml` | no `velocity.toml` yet and `VELOCITY_SERVERS` is set |
 | `proxies.velocity.enabled: true` | each backend, `config/paper-global.yml` | no `paper-global.yml` yet and `PAPER_VELOCITY_SECRET` is set |
 | `online-mode=false` | each backend, `server.properties` | **every start**, see below |
+| `level-name=$LEVEL_NAME` | each Paper server, `server.properties` | seeded once; **a volume that disagrees stops the container**, see below |
+| `level-seed=$LEVEL_SEED` | each Paper server, `server.properties` | only while the `level-name` world does not exist yet; an existing one is compared and warned about |
 | `forwarding.secret` | proxy | every start, from `VELOCITY_FORWARDING_SECRET` |
+
+**`level-name` was missing from this table and from the script until 2026-09-02, and that was the
+whole of the first deployment's worst finding.** `entrypoint.sh` fetched Terralith and Dungeons and
+Taverns into `/data/$LEVEL_NAME/datapacks` — the script's own comment even said *"LEVEL_NAME has to
+agree with `server.properties#level-name`"* — while nothing wrote the key, so Paper kept its default
+and generated `world`. The packs were never loaded, `smp` refused to start on a `nordtal` that did
+not exist, and `hunger-games` had no `LEVEL_NAME` at all while its plugin looked for
+`hunger_games`. Terrain is not re-rolled: had it gone unnoticed, the season would have been played
+on vanilla terrain permanently.
+
+**A disagreeing `level-name` is fatal rather than enforced, and the asymmetry with `online-mode` is
+deliberate.** `online-mode=true` behind the proxy is a server that *cannot* work; a `level-name`
+that disagrees is a server that works perfectly, on the wrong world. Pointing an existing volume at
+a new name does not move anything — Paper generates a second, empty world beside the first and runs
+the season on that, while the world with everything in it sits untouched in the same volume. So the
+container refuses to start and names both values and the two ways out. `:smp`'s and
+`:hunger-games`' `ComposeWorldTest` compare the `LEVEL_NAME` in `compose.yml` against each plugin's
+own configured world name on every build.
 
 `online-mode` is the one thing enforced rather than seeded. It is not a preference: a backend that
 authenticates players itself refuses every forwarded login, so `online-mode=true` there is a server
@@ -173,9 +193,15 @@ bind mounts by design, so this goes through the volume:
 
 ```bash
 docker compose stop hunger-games
-docker cp ./world-hunger-games/. nordtal-s2-hunger-games-1:/data/world/
+docker cp ./world-hunger-games/. nordtal-s2-hunger-games-1:/data/hunger_games/
 docker compose start hunger-games
 ```
+
+**The destination is `/data/hunger_games/`, not `/data/world/`.** It said `world` until 2026-09-02,
+and following it produced a world under the one name the plugin will not look for: `hunger-games`
+does not create its world, it disables itself when `config.yml#world-name` — default `hunger_games`
+— is not loaded. The service's `LEVEL_NAME` is what brings that folder up as the primary world, so
+the two have to be the same string; `:hunger-games`' `ComposeWorldTest` asserts they are.
 
 In Arcane the same thing is a file upload into the volume. Either way: **stop the server first.**
 Copying into a world a running server has open produces corruption that surfaces days later.

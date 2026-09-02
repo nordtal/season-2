@@ -26,6 +26,10 @@ case "$SERVER_KIND" in
     *) die "SERVER_KIND must be 'paper' or 'velocity', not '${SERVER_KIND}'" ;;
 esac
 
+# Paper's own default. The one place it is resolved: seed_level_settings writes it into
+# server.properties and fetch_datapacks reads the same value, so the two cannot disagree.
+LEVEL_NAME="${LEVEL_NAME:-world}"
+
 DATA=/data
 CACHE="$DATA/.server"
 PLUGINS="$DATA/plugins"
@@ -223,6 +227,55 @@ set_property() {
     fi
 }
 
+# The world this server generates, and the seed it generates it with. BOTH have to be settled
+# before anything else touches the volume: level-name decides which folder the datapacks go into,
+# and a seed means nothing once the terrain exists.
+#
+# WHY level-name IS SEEDED RATHER THAN ENFORCED, and why a disagreement is fatal. Paper's default
+# is `world`, and until 2026-09-02 nothing here wrote the key at all - so the datapacks were fetched
+# into /data/${LEVEL_NAME}/datapacks while Paper generated `world/` and never looked at them. The
+# fix is not to force the value on every start the way online-mode is forced: online-mode=true is a
+# backend that CANNOT work, whereas a level-name that disagrees is a server that works perfectly on
+# the wrong world. Pointing an existing volume at a new name does not move a world - it generates a
+# second, empty one beside it and leaves the season where nobody is looking. So it is written once,
+# on a volume that has none, and after that a disagreement stops the container: the same trade this
+# script already makes for a datapack whose checksum moved, and that smp makes for a missing pack.
+# "Wrong world forever, silently" becomes "the server did not come up", on purpose.
+seed_level_settings() {
+    local file="$DATA/server.properties" current
+
+    current=""
+    [[ -f "$file" ]] && current=$(sed -n 's/^level-name=//p' "$file" | head -n1)
+    if [[ -n "$current" && "$current" != "$LEVEL_NAME" ]]; then
+        die "this volume's server.properties says level-name=${current}, but LEVEL_NAME is '${LEVEL_NAME}'.
+
+Refusing to start. Changing it would not move the existing world: Paper would generate an empty '${LEVEL_NAME}' beside '${current}' and run the season on that, while the world with everything in it sat untouched in the same volume.
+
+Two ways out, and only you can pick:
+  - the world in this volume is the right one -> set LEVEL_NAME=${current} for this service
+  - '${LEVEL_NAME}' really is meant to be a new, empty world -> remove /data/${current} from the volume first, with the server stopped"
+    fi
+    set_property "$file" level-name "$LEVEL_NAME"
+
+    # The seed is only ever an input to GENERATION, so it is written while there is still nothing
+    # to generate against and only compared afterwards. Writing it onto a volume whose world
+    # already exists would change no terrain and would leave the file claiming a seed the world on
+    # disk does not have - which is worse than saying nothing, because the next person reads it.
+    #
+    # A disagreement here warns rather than stops: unlike level-name it cannot swap the world under
+    # anybody, it only means this world came from a different seed than .env now claims.
+    [[ -n "${LEVEL_SEED:-}" ]] || return 0
+    if [[ -d "$DATA/$LEVEL_NAME" ]]; then
+        current=""
+        [[ -f "$file" ]] && current=$(sed -n 's/^level-seed=//p' "$file" | head -n1)
+        if [[ "$current" != "$LEVEL_SEED" ]]; then
+            warn "world '${LEVEL_NAME}' already exists and was generated with ${current:-a seed nothing recorded}, not with LEVEL_SEED=${LEVEL_SEED}. Terrain is never re-rolled, so this is a note, not a fault - but .env and this volume do not describe the same world."
+        fi
+        return 0
+    fi
+    set_property "$file" level-seed "$LEVEL_SEED"
+}
+
 # A Paper server that sits behind the proxy. Two things have to be true and neither of them is
 # Paper's default, which is why this used to be two manual steps per backend in the runbook.
 prepare_backend() {
@@ -322,10 +375,12 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
     printf 'eula=true\n' > "$DATA/eula.txt"
     JAVA_ARGS+=(nogui)
 
-    # Before anything generates. LEVEL_NAME has to agree with server.properties#level-name; it is
-    # the world Paper reads datapacks from and the world every other one is created inside.
+    # Before anything generates, and before the datapacks: level-name IS the folder they go into,
+    # and the world every other one is created inside.
+    seed_level_settings
+
     if [[ -n "${DATAPACK_URLS:-}" ]]; then
-        fetch_datapacks "$DATA/${LEVEL_NAME:-world}/datapacks"
+        fetch_datapacks "$DATA/${LEVEL_NAME}/datapacks"
     fi
 
     # A Paper server that is given a forwarding secret is by definition a backend behind the

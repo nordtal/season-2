@@ -2,6 +2,13 @@ plugins {
     id("nordtal.paper-plugin")
 }
 
+// ComposeWorldTest compares config.yml's world-name default against the level-name compose starts
+// Paper on. compose.yml is in no source set, so without this an edit to it leaves :hunger-games:test
+// UP-TO-DATE and the comparison never runs.
+repositoryRootTestInputs {
+    reads("compose.yml")
+}
+
 repositories {
     // jcore is published via JitPack, not Maven Central - see the workspace CLAUDE.md.
     maven("https://jitpack.io")

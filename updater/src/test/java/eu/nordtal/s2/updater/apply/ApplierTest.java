@@ -4,6 +4,7 @@ import eu.nordtal.s2.updater.config.UpdaterSpec;
 import eu.nordtal.s2.updater.http.Fetcher;
 import eu.nordtal.s2.updater.plan.Change;
 import eu.nordtal.s2.updater.plan.PackState;
+import eu.nordtal.s2.updater.plan.Topology;
 import eu.nordtal.s2.updater.plan.UpdatePlan;
 import eu.nordtal.s2.updater.source.Checksum;
 import eu.nordtal.s2.updater.source.RemoteFile;
@@ -292,6 +293,46 @@ class ApplierTest {
         final String rendered = eu.nordtal.s2.updater.plan.Report.render(result);
         assertFalse(rendered.contains("Everything asked for was done"), rendered);
         assertTrue(rendered.contains("not because everything was current"), rendered);
+    }
+
+    @Test
+    @DisplayName("M1: a pack that cannot be resolved falls back and does not hold the jars back")
+    void anUnresolvablePackDoesNotBlockTheProxy() throws IOException {
+        install("network-control", "plugins/network-control-0.1.0.jar");
+
+        // A release that published no .sha1 beside the pack zip. This used to skip the whole
+        // service - the proxy plugin and the Velocity jar with it - while the three backends
+        // updated regardless, which is precisely the split network the all-or-nothing rule exists
+        // to prevent.
+        final ApplyResult result = apply(new Fake(), plan(
+                Change.unresolved("network-control", Topology.RESOURCE_PACK,
+                        "the release published no .sha1 asset"),
+                outdated("network-control", "network-control",
+                        "network-control-0.1.0.jar", "network-control-0.2.0.jar")));
+
+        assertTrue(Files.exists(volumes.resolve("network-control/plugins/network-control-0.2.0.jar")),
+                "the proxy plugin was held back because the pack could not be checked");
+
+        final ApplyResult.Outcome pack = outcome(result, "network-control", Topology.RESOURCE_PACK);
+        assertEquals(ApplyResult.Status.SKIPPED, pack.status(),
+                "a pack that could not be checked must not read as UNCHANGED - the client is still"
+                        + " being sent the previous one, and that is a fallback, not a no-op");
+        assertNotNull(pack.detail());
+        assertTrue(pack.detail().contains("pack.yml was left alone"), pack.detail());
+    }
+
+    @Test
+    @DisplayName("M1: the pack still gets a row when the service really is blocked")
+    void aBlockedServiceStillReportsItsPack() {
+        // The early return used to skip applyPack entirely, so a run that skipped this service said
+        // nothing at all about what the client is being sent - the one row here a player can see.
+        final ApplyResult result = apply(new Fake(), plan(
+                Change.unresolved("network-control", "network-control", "GitHub answered 403"),
+                new Change("network-control", Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE,
+                        "abc123", null, null)));
+
+        final ApplyResult.Outcome pack = outcome(result, "network-control", Topology.RESOURCE_PACK);
+        assertNotNull(pack, "the pack row vanished from a report for a service that was skipped");
     }
 
     // ---------------------------------------------------------------- plumbing

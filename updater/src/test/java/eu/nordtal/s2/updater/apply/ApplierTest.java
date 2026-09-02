@@ -261,6 +261,39 @@ class ApplierTest {
         assertTrue(rendered.contains("not because everything was current"), rendered);
     }
 
+    @Test
+    @DisplayName("B4: a bootstrap whose season jar is unresolved installs nothing for that server")
+    void anIncompleteServerIsNotPartlyFilled() {
+        // The first real deployment. GitHub answered 403 for the season release while Modrinth
+        // answered fine for PacketEvents and Chunky, so smp's folder was filled with its two
+        // third-party plugins and no season - and the entrypoint's guard, which only counted jars,
+        // let it start. Three other servers were caught because their folders stayed empty.
+        //
+        // The plan goes through onlyMissing() here rather than being built by hand, because that
+        // filter is where the row used to disappear: this asserts the whole bootstrap path, not
+        // just the Applier.
+        final UpdatePlan bootstrap = plan(
+                Change.unresolved("smp", "smp", "could not read nordtal/season-2@latest: HTTP 403"),
+                new Change("smp", "packetevents", Change.Status.MISSING, null,
+                        remote("packetevents", "packetevents-spigot-2.13.0.jar"), null),
+                new Change("smp", "chunky", Change.Status.MISSING, null,
+                        remote("chunky", "Chunky-Bukkit-1.5.3.jar"), null))
+                .onlyMissing();
+
+        final ApplyResult result = apply(new Fake(), bootstrap);
+
+        assertFalse(Files.exists(volumes.resolve("smp/plugins/packetevents-spigot-2.13.0.jar")),
+                "PacketEvents was installed beside a season that could not be resolved. That is the"
+                        + " one shape of half-filled volume the empty-plugins guard cannot see.");
+        assertFalse(Files.exists(volumes.resolve("smp/plugins/Chunky-Bukkit-1.5.3.jar")));
+        assertFalse(result.changedAnything());
+        assertTrue(result.skippedAnything());
+
+        final String rendered = eu.nordtal.s2.updater.plan.Report.render(result);
+        assertFalse(rendered.contains("Everything asked for was done"), rendered);
+        assertTrue(rendered.contains("not because everything was current"), rendered);
+    }
+
     // ---------------------------------------------------------------- plumbing
 
     /** A {@link Fetcher} that writes a marker instead of downloading, and can be told to fail. */

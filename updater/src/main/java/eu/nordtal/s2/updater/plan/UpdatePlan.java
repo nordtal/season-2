@@ -50,8 +50,8 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
     }
 
     /**
-     * The same plan with everything but {@link Change.Status#MISSING} dropped - what a bootstrap
-     * is allowed to install.
+     * The same plan reduced to what a bootstrap may install - {@link Change.Status#MISSING} - plus
+     * every row that could not be resolved at all.
      *
      * <p><b>Why MISSING and not {@code isWork()}.</b> {@code OUTDATED} is a version move, and this
      * module's first rule is that a container coming back up comes back on exactly the jars it was
@@ -61,12 +61,42 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
      * for an artefact keeps it, however old it is; only an artefact with nothing installed at all
      * is fetched.</p>
      *
+     * <p><b>Why the UNRESOLVED rows stay, since 2026-09-02.</b> They used to be dropped, and that
+     * turned a half-finished bootstrap into a report of unbroken success. On the first real
+     * deployment the GitHub releases API answered 403: eight artefacts went unresolved, the filter
+     * removed all eight before anything was rendered, and what was left was the six rows that had
+     * answered - closed with <em>"Everything asked for was done."</em> Not one season jar had been
+     * installed. Three servers were caught by the entrypoint's empty-plugins guard; {@code smp} was
+     * not, because PacketEvents and Chunky <em>had</em> resolved, so its folder was not empty and it
+     * came up with no season on it.
+     *
+     * <p>Keeping the rows needs no new machinery, which is the point: {@code Applier.applyService}
+     * already skips a whole service when any row of it is a failure, so the same outage now leaves
+     * {@code smp}'s folder empty and the guard catches it, and {@code Report} already has the
+     * footer that says nothing was installed and not because everything was current. It is the
+     * module's own rule - <b>"skipped" is a third answer, not a quiet kind of "fine"</b> - applied
+     * to the one path that had lost it.</p>
+     *
      * <p>{@code unclaimed} is carried over untouched. It describes files nobody claimed, an apply
      * never acts on it, and a bootstrap dropping it would make the report it prints disagree with
      * the one {@code updater apply} prints for the same volumes.</p>
      */
     public @NotNull UpdatePlan onlyMissing() {
-        return new UpdatePlan(resolvedAt, seasonTag, seasonPrerelease,
-                withStatus(Change.Status.MISSING), unclaimed);
+        final List<Change> keep = changes.stream()
+                .filter(change -> change.status() == Change.Status.MISSING
+                        || change.status().isFailure())
+                .toList();
+        return new UpdatePlan(resolvedAt, seasonTag, seasonPrerelease, keep, unclaimed);
+    }
+
+    /**
+     * Whether anything here is actually absent - as opposed to merely unknown.
+     * <p>
+     * The distinction {@link #onlyMissing()} exists to preserve: a plan carrying nothing but
+     * UNRESOLVED rows has no work in it, and a bootstrap must not announce one.
+     * </p>
+     */
+    public boolean hasMissing() {
+        return changes.stream().anyMatch(change -> change.status() == Change.Status.MISSING);
     }
 }

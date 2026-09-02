@@ -398,9 +398,31 @@ public final class SmpPlugin extends JavaPlugin {
         return null;
     }
 
+    /**
+     * The plugin cannot run, so neither can this server.
+     *
+     * <h2>Why it takes the server with it, since 2026-09-02</h2>
+     * It used to log and call {@code disablePlugin} alone, which is the convention this repository
+     * states for {@code papermc-display-tags} - a plugin on somebody else's server, where "the
+     * plugin goes down, the server keeps running" is plainly right. On our own dedicated backends it
+     * is plainly wrong, and the first deployment showed what it costs: four nested config
+     * interfaces without {@code @ConfigSpec} made the first write of {@code config.yml} throw, this
+     * plugin disabled itself, and Paper carried on. The container stayed up, its healthcheck stayed
+     * green, and what was left was a Minecraft server with no season on it - which nothing about
+     * looks wrong until somebody joins.
+     *
+     * <p>No check outside the JVM can tell that state from a healthy one. The jars are all in the
+     * folder, so the entrypoint's guard passes; the port is open, so the healthcheck passes. The
+     * only place the difference is knowable is here, which is why the answer is here.</p>
+     *
+     * <p>{@code disablePlugin} first and then {@code shutdown}: the disable runs whatever cleanup
+     * {@code onDisable} does, and if the shutdown were ever ignored the plugin is still off rather
+     * than half-enabled.</p>
+     */
     private void severe(final String message) {
         getLogger().severe(message);
         getServer().getPluginManager().disablePlugin(this);
+        getServer().shutdown();
     }
 
     private Logger logger() {

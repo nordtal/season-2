@@ -2,6 +2,16 @@ plugins {
     id("nordtal.java-base")
 }
 
+// FatalPathsStopTheServerTest reads the three Paper plugins' main classes as text - the rule it
+// asserts (a plugin that cannot start stops its server) cannot be reached from a JVM with no server
+// in it. They are in no source set of this module, so without this Gradle cannot see them and an
+// edit to one would leave :common:test UP-TO-DATE.
+repositoryRootTestInputs {
+    reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
+    reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
+    reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
+}
+
 dependencies {
     // Adventure comes from paper-api / velocity-api at runtime on both platforms,
     // so it is compile-only here and never shaded.

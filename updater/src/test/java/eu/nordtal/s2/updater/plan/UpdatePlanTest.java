@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -59,13 +60,48 @@ class UpdatePlanTest {
     void anUnreachableSourceIsNotMissing() {
         // The distinction matters at exactly one moment: GitHub is down while a container restarts.
         // UNRESOLVED means "we do not know", and installing on a guess would be the wrong half of
-        // that. The report says so and the entrypoint one layer down names the empty folder.
+        // that.
+        //
+        // THIS CASE USED TO ASSERT THAT THE ROWS WERE DROPPED, and that assertion was the bug: a
+        // dropped row is one the report cannot mention. What must be true is that a bootstrap has
+        // no WORK in it, which is hasMissing(), not that the plan is empty.
         final UpdatePlan plan = planOf(
                 Change.unresolved("smp", "PacketEvents", "Modrinth answered 503"),
                 change("Chunky", Change.Status.MOUNT_MISSING));
 
-        assertTrue(plan.onlyMissing().changes().isEmpty(),
-                "onlyMissing() must not treat a failure as an empty volume");
+        final UpdatePlan bootstrap = plan.onlyMissing();
+
+        assertFalse(bootstrap.hasMissing(),
+                "onlyMissing() must not treat a failure as an empty volume to fill");
+        assertEquals(2, bootstrap.changes().size(),
+                "the rows a bootstrap cannot act on still have to reach the report - dropping them"
+                        + " is what let a run with eight unresolved artefacts close with"
+                        + " \"Everything asked for was done.\"");
+    }
+
+    @Test
+    @DisplayName("B4: the unresolved rows survive, so the report cannot claim unbroken success")
+    void anOutageIsVisibleInTheBootstrapPlan() {
+        // The first real deployment, exactly: GitHub answered 403 for the season release while
+        // Modrinth answered fine for the two third-party plugins. Dropping the unresolved row left
+        // a plan of two installable jars and a report that said everything asked for was done -
+        // and smp came up with PacketEvents, Chunky and no season on it.
+        final UpdatePlan plan = planOf(
+                Change.unresolved("smp", "season", "could not read nordtal/season-2@latest: HTTP 403"),
+                change("PacketEvents", Change.Status.MISSING),
+                change("Chunky", Change.Status.MISSING));
+
+        final UpdatePlan bootstrap = plan.onlyMissing();
+
+        assertTrue(bootstrap.hasMissing(), "two jars really are missing");
+        assertTrue(bootstrap.hasFailures(),
+                "the outage has to survive into the plan the bootstrap installs and reports on;"
+                        + " without it Applier's all-or-nothing rule cannot see the service is"
+                        + " incomplete and installs the two that resolved");
+        assertEquals(3, bootstrap.changes().size());
+
+        assertTrue(Report.render(bootstrap).contains("could not be checked"),
+                "a rendered bootstrap plan has to say that part of the picture is missing");
     }
 
     @Test

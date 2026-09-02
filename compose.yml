@@ -203,7 +203,7 @@ services:
     # discord-bot-*.jar is in the `bot-jar` volume, which the updater fills the same way it fills
     # every plugins folder; the jar baked into the image is only what makes a first deployment
     # possible, before any updater run has happened. What is actually running is printed by the
-    # entrypoint on every start and reported by `docker compose run --rm updater`.
+    # entrypoint on every start and reported by `docker compose run --rm updater report`.
     #
     # BOT_VERSION therefore still pins the image, and still has to match gradle.properties for a
     # build - but it does not decide what the bot runs, and after the first `updater apply` it
@@ -429,7 +429,7 @@ services:
   # a crash restart at three in the morning must not move a version. It is run when somebody asks
   # for an update:
   #
-  #   docker compose run --rm updater
+  #   docker compose run --rm updater report
   #
   # Today it resolves the newest version of everything the network runs, compares that against the
   # jars actually in the volumes, and prints the difference. The only thing it writes is its own
@@ -454,7 +454,7 @@ services:
   # THE THREE ONE-SHOT COMMANDS still work beside the running one, and they are how a first
   # deployment happens, because the servers refuse to start on an empty plugins folder:
   #
-  #   docker compose run --rm updater            # resolve and report. Writes no file a server reads.
+  #   docker compose run --rm updater report     # resolve and report. Writes no file a server reads.
   #   docker compose run --rm updater migrate    # the schema, and nothing else.
   #   docker compose run --rm updater apply      # migrate, then install. Restarts nothing.
   #
@@ -469,8 +469,11 @@ services:
         JAR: build/libs/updater-${SEASON_VERSION:-local}.jar
     image: ${UPDATER_IMAGE:-ghcr.io/nordtal/updater:${IMAGE_TAG:-latest}}
     restart: unless-stopped
-    # `serve`. Every other mode is asked for by name on a `run`, and the default with no argument
-    # at all is the read-only report - so a container started wrong does the harmless thing.
+    # `serve`. THIS LINE IS ALSO WHAT A `run` INHERITS: a `docker compose run` against this service
+    # that names no subcommand of its own is handed this one, so it starts a SECOND daemon rather
+    # than the read-only report five documents used to promise. Removing it does not help - a `run`
+    # against a service with no `command` takes the image's CMD instead (both measured 2026-09-02).
+    # The read-only run is `updater report`, by name, and that is why the name exists.
     command: ["serve"]
     healthcheck:
       # Written once the schema is current and the request loop is about to start. Everything else

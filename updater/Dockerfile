@@ -32,7 +32,7 @@ RUN mkdir -p config \
 #
 # IT IS A SERVICE AND IT IS ALSO A COMMAND. `serve` is the long-running mode compose starts:
 #
-#   docker compose run --rm updater            # resolve and report. Writes nothing.
+#   docker compose run --rm updater report     # resolve and report. Writes nothing.
 #   docker compose run --rm updater migrate    # the schema, and nothing else.
 #   docker compose run --rm updater apply      # migrate, then install. Restarts nothing.
 #   docker compose up -d updater               # `serve`, which is what the compose file passes.

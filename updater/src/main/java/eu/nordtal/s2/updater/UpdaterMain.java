@@ -14,6 +14,7 @@ import eu.nordtal.s2.updater.plan.UpdatePlan;
 import eu.nordtal.s2.updater.run.Runs;
 import eu.nordtal.s2.updater.schema.RunLock;
 import eu.nordtal.s2.updater.schema.Schema;
+import eu.nordtal.s2.updater.schema.ServeLock;
 import eu.nordtal.s2.updater.serve.PostgresNotifications;
 import eu.nordtal.s2.updater.serve.Runner;
 import eu.nordtal.s2.updater.serve.UpdateServer;
@@ -34,7 +35,7 @@ import java.util.Optional;
  *
  * <h2>Four commands</h2>
  * <pre>
- *   updater            resolve, compare, print, exit. Touches nothing a server reads.
+ *   updater report     resolve, compare, print, exit. Touches nothing a server reads.
  *   updater migrate    apply the database schema, and nothing else.
  *   updater apply      resolve, print, migrate, fetch the files and move them into place.
  *   updater serve      migrate, then wait for requests from Discord and from in game.
@@ -43,6 +44,13 @@ import java.util.Optional;
  * <p>The default is the read-only one, deliberately: a container started by accident, or with an
  * argument that was misspelled, must do the harmless thing. Everything that writes has to be asked
  * for by name.</p>
+ *
+ * <p><b>{@code report} is also named, and that is not tidiness.</b> The default is unreachable from
+ * the one command five documents told an operator to type: {@code docker compose run --rm updater}
+ * inherits the service's {@code command} - {@code serve} - so the "prints what is installed and
+ * changes nothing" run was in fact a second long-running daemon that migrated, bootstrapped and
+ * listened, and a terminal that hung. Measured 2026-09-02, and it is the same when the service
+ * carries no {@code command} at all: {@code run} then takes the image's {@code CMD}.</p>
  *
  * <p>{@code migrate} exists on its own because the schema is the one thing a deployment needs
  * before anything else can start - this container is the bootstrap, not a tool used on a running
@@ -95,6 +103,23 @@ public final class UpdaterMain {
     private static final String SERVE = "serve";
 
     /**
+     * The read-only run, by name.
+     *
+     * <h2>Why it needs a name when it is already the default</h2>
+     * Because {@code docker compose run --rm updater} does not reach the default. Compose passes
+     * the service's own {@code command} to a {@code run} that names none - and when the service
+     * defines none it falls through to the image's {@code CMD} instead, which was measured on
+     * 2026-09-02 and is true of both. Five places documented that bare command as the harmless
+     * report; all five started a second {@code serve} daemon that migrated, bootstrapped and
+     * listened, while the operator watched a terminal that never came back.
+     *
+     * <p>Anchoring {@code serve} in the image rather than in the service does not help, for exactly
+     * the same reason. The only thing that makes a typed command do what it says is a name for what
+     * it does.</p>
+     */
+    private static final String REPORT = "report";
+
+    /**
      * Touched once the schema is current and the loop is about to start.
      * <p>
      * {@code compose.yml}'s healthcheck is {@code test -f} on this path, and every other
@@ -118,6 +143,10 @@ public final class UpdaterMain {
             case MIGRATE -> migrate(configDirectory) ? 0 : 1;
             case SERVE -> serve(configDirectory);
             case APPLY -> apply(configDirectory);
+            // REPORT is named as well as defaulted: `docker compose run --rm updater` cannot reach
+            // the default - it inherits the service's `command`, or the image's CMD when the
+            // service names none. Anything unrecognised still lands here, which is the safe end.
+            case REPORT -> report(configDirectory);
             default -> report(configDirectory);
         };
         System.exit(status);
@@ -203,45 +232,70 @@ public final class UpdaterMain {
         }
 
         try (Database database = Schema.open(databaseConfig)) {
+            // BEFORE ANYTHING ELSE, because everything below assumes it. UpdateServer.settleOrphans
+            // closes every row left RUNNING on the reasoning that nothing can be running them - the
+            // only process that claims one is an updater, and this one has just started. That is
+            // true of one serve and false of two: a second one marks the first one's in-flight
+            // APPLY as FAILED, the real one's finish() then matches no RUNNING row, and the report
+            // of a run that was installing jars is lost. This makes the premise a fact.
+            final Optional<ServeLock> serveLock;
             try {
-                Schema.migrate(database);
-            } catch (final RuntimeException failure) {
-                // Refusing to come up is right here. Everything else in this deployment waits for
-                // the readiness marker below, so a server that would have started against a schema
-                // this build does not know simply does not start - which is the outcome the whole
-                // arrangement exists to produce.
-                log.error("The database schema could not be applied, so this container will not"
-                        + " become ready. Nothing else in the stack starts until it does.", failure);
+                serveLock = ServeLock.acquire(database.dataSource());
+            } catch (final java.sql.SQLException failure) {
+                log.error("Could not reach the database to take the serve lock, so this container"
+                        + " will not become ready.", failure);
+                return 1;
+            }
+            if (serveLock.isEmpty()) {
+                log.error("Another updater is already serving this database, and has been for longer"
+                        + " than a redeploy takes to hand over. Refusing to start a second one:"
+                        + " two serve loops settle each other's in-flight requests as failures and"
+                        + " lose the report of whichever was actually working. If you meant the"
+                        + " read-only report, that is `updater report`.");
                 return 1;
             }
 
-            // Fill empty volumes before anything is told this container is ready. See below for
-            // why a failure here does NOT stop the readiness marker.
-            if (config.bootstrap()) {
-                bootstrap(config, database);
-            }
+            try (ServeLock held = serveLock.get()) {
+                try {
+                    Schema.migrate(database);
+                } catch (final RuntimeException failure) {
+                    // Refusing to come up is right here. Everything else in this deployment waits for
+                    // the readiness marker below, so a server that would have started against a schema
+                    // this build does not know simply does not start - which is the outcome the whole
+                    // arrangement exists to produce.
+                    log.error("The database schema could not be applied, so this container will not"
+                            + " become ready. Nothing else in the stack starts until it does.", failure);
+                    return 1;
+                }
 
-            final Arcane arcane = new Arcane(config.arcane());
-            if (!arcane.configured()) {
-                log.warn("arcane.base-url is empty, so nothing here can restart the network."
-                        + " Everything else works; a restart is a click in Arcane.");
-            } else {
-                log.info("Restarts go to {}", arcane.endpoint());
-            }
+                // Fill empty volumes before anything is told this container is ready. See below for
+                // why a failure here does NOT stop the readiness marker.
+                if (config.bootstrap()) {
+                    bootstrap(config, database);
+                }
 
-            markReady();
+                final Arcane arcane = new Arcane(config.arcane());
+                if (!arcane.configured()) {
+                    log.warn("arcane.base-url is empty, so nothing here can restart the network."
+                            + " Everything else works; a restart is a click in Arcane.");
+                } else {
+                    log.info("Restarts go to {}", arcane.endpoint());
+                }
 
-            try (UpdateServer server = new UpdateServer(
-                    UpdateDirectory.using(database.dataSource()),
-                    new Runner(config, database, arcane),
-                    PostgresNotifications.connector(databaseConfig),
-                    Duration.ofSeconds(config.pollIntervalSeconds()),
-                    Clock.systemUTC())) {
+                markReady();
 
-                // SIGTERM is how a redeploy asks; without this the container is killed after the
-                // grace period instead of putting its pool down.
-                Runtime.getRuntime().addShutdownHook(new Thread(server::close, "updater-shutdown"));
-                server.serve();
+                try (UpdateServer server = new UpdateServer(
+                        UpdateDirectory.using(database.dataSource()),
+                        new Runner(config, database, arcane),
+                        PostgresNotifications.connector(databaseConfig),
+                        Duration.ofSeconds(config.pollIntervalSeconds()),
+                        Clock.systemUTC())) {
+
+                    // SIGTERM is how a redeploy asks; without this the container is killed after the
+                    // grace period instead of putting its pool down.
+                    Runtime.getRuntime().addShutdownHook(new Thread(server::close, "updater-shutdown"));
+                    server.serve();
+                }
             }
         }
         return 0;

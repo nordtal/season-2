@@ -19,11 +19,14 @@ import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * {@code /smp} - the escape hatches, and the little that has to be managed by hand.
@@ -104,11 +107,32 @@ public final class SmpCommand {
      * exactly when somebody needs a way in.
      */
     private boolean isAdmin(final CommandSourceStack source) {
-        final CommandSender sender = source.getSender();
-        if (!(sender instanceof Player player)) {
-            return true;
+        return mayUse(source.getSender(), uuid -> identities.of(uuid).admin());
+    }
+
+    /**
+     * The decision on its own: a player who is flagged admin, or the console. Nothing else.
+     *
+     * <h2>"Not a player" is not the same as "the console"</h2>
+     * It used to return {@code true} for everything that was not a {@link Player}, with a comment
+     * saying the console is the operator. The comment was right and the check was wider than the
+     * comment: a {@code BlockCommandSender} is not a player, and neither is the
+     * {@code ProxiedCommandSender} that {@code /execute as … run …} produces, nor a datapack
+     * function's sender. All three would have passed - which on this server means a command block
+     * could call {@code /smp aura}, {@code /smp milestone unlock} and {@code /smp update restart}.
+     *
+     * <p>That is not theoretical here. Terralith and Dungeons and Taverns are required datapacks on
+     * this server, and the SMP is explicitly a place where players build things: a command block is
+     * something the season hands people. Asking for the console <em>by type</em> is the whole fix.</p>
+     *
+     * <p>Package-visible and static so the decision can be asserted without a server, which is the
+     * only part of a command that ever can be.</p>
+     */
+    static boolean mayUse(final CommandSender sender, final Predicate<UUID> isAdmin) {
+        if (sender instanceof Player player) {
+            return isAdmin.test(player.getUniqueId());
         }
-        return identities.of(player.getUniqueId()).admin();
+        return sender instanceof ConsoleCommandSender;
     }
 
     private int handleReload(final CommandContext<CommandSourceStack> context) {

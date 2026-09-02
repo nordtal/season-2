@@ -80,9 +80,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
             configHandle = Configs.load(getDataFolder().toPath(), getLogger0());
             databaseHandle = Configs.database(getDataFolder().toPath(), getLogger0());
         } catch (final ConfigException exception) {
-            getLogger().severe("hunger-games is not starting because its configuration could not be read: "
+            severe("hunger-games is not starting because its configuration could not be read: "
                     + exception.getMessage());
-            getServer().getPluginManager().disablePlugin(this);
             return;
         }
 
@@ -100,9 +99,9 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         final World world = resolveWorld(config);
         if (world == null) {
-            getLogger().severe("hunger-games could not find/load world '" + config.worldName()
-                    + "' - the plugin is disabling itself rather than running without an event world");
-            getServer().getPluginManager().disablePlugin(this);
+            severe("hunger-games could not find/load world '" + config.worldName()
+                    + "' - stopping the server rather than running an event server with no event "
+                    + "world on it");
             return;
         }
 
@@ -213,4 +212,26 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private org.slf4j.Logger getLogger0() {
         return org.slf4j.LoggerFactory.getLogger(HungerGamesPlugin.class);
     }
+
+    /**
+     * The plugin cannot run, so neither can this server.
+     *
+     * <h2>Why it takes the server with it, since 2026-09-02</h2>
+     * Logging and disabling alone is the convention this repository states for
+     * {@code papermc-display-tags} - a plugin on somebody else's server, where "the plugin goes
+     * down, the server keeps running" is plainly right. On our own dedicated backends it is plainly
+     * wrong, and the first deployment showed what it costs: {@code smp}'s config threw on every
+     * start, the plugin disabled itself, Paper carried on, and the container stayed up and green
+     * with no season on it.
+     *
+     * <p>No check outside the JVM can tell that state from a healthy one - every jar is in the
+     * folder, so the entrypoint's guard passes, and the port is open, so the healthcheck passes.
+     * Here is the only place the difference is knowable.</p>
+     */
+    private void severe(final String message) {
+        getLogger().severe(message);
+        getServer().getPluginManager().disablePlugin(this);
+        getServer().shutdown();
+    }
+
 }

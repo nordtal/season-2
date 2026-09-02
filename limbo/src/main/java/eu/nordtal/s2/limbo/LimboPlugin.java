@@ -66,9 +66,8 @@ public final class LimboPlugin extends JavaPlugin {
             configHandle = Configs.load(getDataFolder().toPath(), slf4j());
             databaseHandle = Configs.database(getDataFolder().toPath(), slf4j());
         } catch (final ConfigException exception) {
-            getLogger().severe("limbo is not starting because its configuration could not be read: "
+            severe("limbo is not starting because its configuration could not be read: "
                     + exception.getMessage());
-            getServer().getPluginManager().disablePlugin(this);
             return;
         }
 
@@ -76,10 +75,10 @@ public final class LimboPlugin extends JavaPlugin {
 
         final WaitingWorld world = WaitingWorld.loadOrCreate(this, config);
         if (world == null) {
-            getLogger().severe("limbo could not create or load its waiting world '" + config.worldName()
+            severe("limbo could not create or load its waiting world '" + config.worldName()
                     + "'. Without it every login would be spawned into this server's own level-name "
-                    + "world, which is the one thing a waiting room must not show - disabling.");
-            getServer().getPluginManager().disablePlugin(this);
+                    + "world, which is the one thing a waiting room must not show. Stopping the "
+                    + "server rather than accepting logins onto it.");
             return;
         }
 
@@ -124,4 +123,26 @@ public final class LimboPlugin extends JavaPlugin {
     private org.slf4j.Logger slf4j() {
         return org.slf4j.LoggerFactory.getLogger(LimboPlugin.class);
     }
+
+    /**
+     * The plugin cannot run, so neither can this server.
+     *
+     * <h2>Why it takes the server with it, since 2026-09-02</h2>
+     * Logging and disabling alone is the convention this repository states for
+     * {@code papermc-display-tags} - a plugin on somebody else's server, where "the plugin goes
+     * down, the server keeps running" is plainly right. On our own dedicated backends it is plainly
+     * wrong, and the first deployment showed what it costs: {@code smp}'s config threw on every
+     * start, the plugin disabled itself, Paper carried on, and the container stayed up and green
+     * with no season on it.
+     *
+     * <p>No check outside the JVM can tell that state from a healthy one - every jar is in the
+     * folder, so the entrypoint's guard passes, and the port is open, so the healthcheck passes.
+     * Here is the only place the difference is knowable.</p>
+     */
+    private void severe(final String message) {
+        getLogger().severe(message);
+        getServer().getPluginManager().disablePlugin(this);
+        getServer().shutdown();
+    }
+
 }

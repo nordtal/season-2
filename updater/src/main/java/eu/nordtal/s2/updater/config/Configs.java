@@ -1,5 +1,7 @@
 package eu.nordtal.s2.updater.config;
 
+import eu.nordtal.s2.updater.source.PaperFill;
+
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
@@ -75,6 +77,8 @@ public final class Configs {
                     requireModrinthId("chunky-project", config.chunkyProject());
                     requireText("minecraft-version", config.minecraftVersion());
                     requireText("velocity-version", config.velocityVersion());
+                    requireBuild("paper-build", config.paperBuild());
+                    requireBuild("velocity-build", config.velocityBuild());
                     requireText("volumes-root", config.volumesRoot());
                     requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
                     requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
@@ -94,6 +98,22 @@ public final class Configs {
     }
 
     // ------------------------------------------------------------------ validation helpers
+
+    /**
+     * {@code latest} or a positive integer - the two things a Fill build pin can be. Anything else
+     * ({@code 'stable'}, {@code 'v121'}, {@code '121.jar'}) is refused here rather than turning
+     * into a 404 on the morning of an update.
+     */
+    private static void requireBuild(final String key, final String value) {
+        requireText(key, value);
+        if (PaperFill.LATEST.equals(value)) {
+            return;
+        }
+        if (!value.matches("[1-9][0-9]*")) {
+            throw new IllegalArgumentException(key + " must be 'latest' or a build number such as 121,"
+                    + " not '" + value + "'");
+        }
+    }
 
     private static void requireText(final String key, final String value) {
         if (value == null || value.isBlank()) {

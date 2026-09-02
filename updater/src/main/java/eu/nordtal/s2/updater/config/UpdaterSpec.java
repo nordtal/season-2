@@ -54,6 +54,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
         "NORDTAL_UPDATER_<PATH>, with '-' becoming '_':",
         "",
         "  season-release  ->  NORDTAL_UPDATER_SEASON_RELEASE",
+        "  paper-build     ->  NORDTAL_UPDATER_PAPER_BUILD",
         "",
         "The environment wins over this file and is never written back to it."
 })
@@ -160,7 +161,32 @@ public interface UpdaterSpec {
         return "4.1.1";
     }
 
-    @Order(9)
+    @Order(11)
+    @Key("paper-build")
+    @Comment({
+            "Which build of minecraft-version the three Paper servers run: the word 'latest'",
+            "for the newest STABLE build the Fill API lists, or an exact build number such",
+            "as '121'.",
+            "",
+            "An exact number is how a rollback is expressed, exactly like season-release: the",
+            "next apply installs that build, whether it is older or newer than what is there.",
+            "It is a person's decision and this module never writes it. PAPER_BUILD in .env is",
+            "a different thing - the build the entrypoint seeds an EMPTY cache with, once."
+    })
+    default String paperBuild() {
+        return "latest";
+    }
+
+    @Order(12)
+    @Key("velocity-build")
+    @Comment({
+            "Which build of velocity-version the proxy runs. Same rule as paper-build."
+    })
+    default String velocityBuild() {
+        return "latest";
+    }
+
+    @Order(11)
     @Key("volumes-root")
     @Comment({
             "Where the four Minecraft volumes are mounted inside this container - one",
@@ -178,7 +204,7 @@ public interface UpdaterSpec {
         return "/volumes";
     }
 
-    @Order(10)
+    @Order(12)
     @Key("github-token")
     @Comment({
             "Optional. A token raises GitHub's unauthenticated rate limit of 60 requests per",
@@ -192,7 +218,7 @@ public interface UpdaterSpec {
         return "";
     }
 
-    @Order(11)
+    @Order(13)
     @Key("http-timeout-seconds")
     @Comment({
             "How long any single API call may take before the run gives up.",
@@ -204,7 +230,7 @@ public interface UpdaterSpec {
         return 30;
     }
 
-    @Order(12)
+    @Order(14)
     @Key("download-timeout-seconds")
     @Comment({
             "How long a single jar may take to download during `updater apply`.",
@@ -217,7 +243,7 @@ public interface UpdaterSpec {
         return 600;
     }
 
-    @Order(13)
+    @Order(15)
     @Key("poll-interval-seconds")
     @Comment({
             "How often `updater serve` looks in update_request for work it was not told about.",
@@ -237,7 +263,7 @@ public interface UpdaterSpec {
         return 15;
     }
 
-    @Order(14)
+    @Order(16)
     @Key("arcane")
     @Comment({
             "How the restart is actually performed: one redeploy of the whole compose project",

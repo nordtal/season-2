@@ -63,8 +63,8 @@ public final class Resolver {
         resolveDisplayTags(newest, failures);
         resolveModrinth(newest, failures, Topology.PACKETEVENTS, config.packetEventsProject());
         resolveModrinth(newest, failures, Topology.CHUNKY, config.chunkyProject());
-        resolveFill(newest, failures, Topology.PAPER, config.minecraftVersion());
-        resolveFill(newest, failures, Topology.VELOCITY, config.velocityVersion());
+        resolveFill(newest, failures, Topology.PAPER, config.minecraftVersion(), config.paperBuild());
+        resolveFill(newest, failures, Topology.VELOCITY, config.velocityVersion(), config.velocityBuild());
 
         final List<Change> changes = new ArrayList<>();
         final List<UpdatePlan.Unclaimed> unclaimed = new ArrayList<>();
@@ -216,10 +216,16 @@ public final class Resolver {
         }
     }
 
+    /**
+     * Newest STABLE build of the pinned version - or, when {@code paper-build} /
+     * {@code velocity-build} names one, exactly that build. A pin that is older than what is
+     * installed comes out of {@code compare} as OUTDATED like any other difference, which is what
+     * makes it a rollback: the report shows {@code 125 -> 121} and the apply does it.
+     */
     private void resolveFill(final Map<String, RemoteFile> newest, final Map<String, String> failures,
-                             final String project, final String version) {
+                             final String project, final String version, final String build) {
         try {
-            newest.put(project, fill.newestStable(project, version));
+            newest.put(project, fill.resolve(project, version, build));
         } catch (final IOException failed) {
             failures.put(project, failed.getMessage());
         }

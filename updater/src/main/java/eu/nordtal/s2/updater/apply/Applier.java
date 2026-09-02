@@ -48,6 +48,10 @@ import java.util.Map;
  * DisplayTags is a <em>required</em> plugin of {@code smp} whose own required plugin PacketEvents
  * is - so a partial swap there is a server that does not start.
  *
+ * <p>The server jar is the one exception, since 2026-09-02: a Paper or Velocity build that could
+ * not be resolved is reported as skipped on its own row and the plugins move anyway. Plugins are
+ * compiled against the version, not the build, and the build already in {@code .server/} runs.</p>
+ *
  * <h2>What is deleted</h2>
  * Only a jar in the target directory whose filename prefix matches the one just installed, and
  * only after the new jar is safely in place - the same rule {@code entrypoint.sh} has always used
@@ -99,6 +103,7 @@ public final class Applier {
 
         final Change blocked = changes.stream()
                 .filter(change -> change.status().isFailure())
+                .filter(change -> !isServerJar(change.artifact()))
                 .findFirst()
                 .orElse(null);
         if (blocked != null) {
@@ -109,6 +114,22 @@ public final class Applier {
                     service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
             return outcomes;
         }
+
+        // A server jar that could not be resolved does NOT block the plugins beside it (decided
+        // 2026-09-02). The all-or-nothing rule exists because DisplayTags is a required plugin of
+        // smp and PacketEvents is required under it - a partial swap there is a server that does
+        // not start. The server jar is outside that coupling: every plugin is compiled against the
+        // VERSION, which never moves here, and never against a build; and the build lying in
+        // .server/ is one that already runs. Blocking three servers' plugins because Fill was down
+        // for a minute would produce exactly the split network the rule is meant to prevent, with
+        // the bot and the updater - which have no Fill row - moving on regardless.
+        changes.stream()
+                .filter(change -> change.status().isFailure())
+                .filter(change -> isServerJar(change.artifact()))
+                .forEach(change -> outcomes.add(new ApplyResult.Outcome(
+                        service, change.artifact(), ApplyResult.Status.SKIPPED,
+                        "could not be checked" + (change.note() == null ? "" : " (" + change.note() + ")")
+                                + "; the build in .server/ stays, and the plugins were not held back for it")));
 
         // The pack is NOT a file this module downloads. The proxy only describes it - url and
         // sha1 - and the Minecraft client fetches the zip itself. Putting a 40 KB pack zip into a
@@ -122,6 +143,7 @@ public final class Applier {
 
         changes.stream()
                 .filter(change -> !change.status().isWork())
+                .filter(change -> !change.status().isFailure())
                 .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
                 .forEach(change -> outcomes.add(new ApplyResult.Outcome(
                         service, change.artifact(), ApplyResult.Status.UNCHANGED, change.installed())));
@@ -241,9 +263,13 @@ public final class Applier {
         if (Topology.isStandalone(artifact)) {
             return volume;
         }
-        return Topology.PAPER.equals(artifact) || Topology.VELOCITY.equals(artifact)
+        return isServerJar(artifact)
                 ? volume.resolve(Installation.SERVER_CACHE)
                 : volume.resolve(Installation.PLUGINS);
+    }
+
+    private static boolean isServerJar(final String artifact) {
+        return Topology.PAPER.equals(artifact) || Topology.VELOCITY.equals(artifact);
     }
 
     private static List<String> removeSuperseded(final Path directory, final String installed)

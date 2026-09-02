@@ -99,7 +99,7 @@ Steps 3 to 6 collapse into one command from the repository root, and it still bu
 docker compose up -d
 ```
 
-`docker compose run --rm updater` (no argument) prints what is installed and changes nothing;
+`docker compose run --rm updater report` prints what is installed and changes nothing;
 `updater apply` is the manual form of step 6 and is what to reach for when the bootstrap is off or
 you want an upgrade now rather than through Discord.
 
@@ -240,7 +240,7 @@ what you read is the updater's own text, written once by the process that did th
 On the host it is one command, and a second one to make it take effect:
 
 ```bash
-docker compose run --rm updater          # what would change, changes nothing
+docker compose run --rm updater report   # what would change, changes nothing
 docker compose run --rm updater apply    # migrate, then fetch and put in place
 docker compose --profile mc restart      # the servers pick up what is on disk
 ```

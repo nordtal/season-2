@@ -9,7 +9,7 @@ commands**, and they are the same program:
 
 ```bash
 docker compose up -d updater             # `serve`: migrate, then wait for requests. What compose runs.
-docker compose run --rm updater          # resolve and report, changes nothing
+docker compose run --rm updater report   # resolve and report, changes nothing
 docker compose run --rm updater migrate  # apply the database schema, nothing else
 docker compose run --rm updater apply    # migrate, then fetch and place the files
 ```
@@ -23,8 +23,17 @@ server. The bot checks the schema and refuses a database it was not built agains
 `updater migrate`; a Minecraft container refuses an empty `plugins/` folder. Both say so by name
 rather than failing later.
 
-The default is the read-only one on purpose: a container started by accident, or with a misspelled
-argument, does the harmless thing.
+The default with no argument at all is the read-only one, on purpose: a container started by
+accident, or with a misspelled argument, does the harmless thing, and everything that writes has to
+be asked for by name.
+
+**That default is not reachable through `docker compose run`, which is why `report` also has a
+name.** Compose hands a `run` that names no subcommand the service's own `command` — `serve` — and
+when the service defines none it falls through to the image's `CMD` instead. Both were measured on
+2026-09-02. So the bare invocation, documented in five places as the harmless report, actually
+started a second long-running daemon: it migrated, ran the bootstrap, began listening on
+`nordtal_update`, and left the operator watching a terminal that never returned. Type
+`updater report`.
 
 ## Where a version comes from
 
@@ -55,6 +64,13 @@ or — the two that matter — *unknown* and *UNRESOLVED*. Those two exist so th
 - **A report run puts nothing into a Minecraft volume.** Only `apply` does, and `apply` still
   restarts nothing: it prints what it did and stops, because a person reading a half-done run
   before the network goes down on it is the entire point of the restart being a separate button.
+- **Two updaters cannot *serve* at once.** `serve` takes a second PostgreSQL advisory lock
+  (`nordtalS`) for its whole life, and a second one refuses to start rather than joining in. It is
+  what makes `settleOrphans` correct: that method closes every row left `RUNNING` on the reasoning
+  that nothing can still be running them, which is true of one serve and false of two - the second
+  one settles the first one's in-flight `APPLY` as a failure and the real report is lost. It waits
+  up to 30 s first, because on a redeploy the replacement starts while its predecessor is still
+  shutting down.
 - **Two updaters cannot move jars at once.** An apply takes the PostgreSQL advisory lock
   `nordtal1`, on a dedicated connection so a pool cannot leak it, and the second asker is **refused
   rather than queued** — a plan resolved now is stale by the time a queued run would start. The

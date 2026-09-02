@@ -8,7 +8,7 @@ are the same program:
 
 ```
 docker compose up -d updater             # `serve`: migrate, then wait for requests. What compose runs.
-docker compose run --rm updater          # resolve, compare, report. Changes nothing.
+docker compose run --rm updater report   # resolve, compare, report. Changes nothing.
 docker compose run --rm updater migrate  # apply the database schema, nothing else.
 docker compose run --rm updater apply    # migrate, then fetch and place the files.
 ```
@@ -18,9 +18,17 @@ deployment at any moment. `apply` installs the jars and writes the proxy's `pack
 restarts nothing**: it prints what it did and stops, which is the point of the restart being a
 separate button.
 
-The default with no argument at all is the read-only one, on purpose. A container started by
-accident, or with a misspelled argument, does the harmless thing; everything that writes has to be
-asked for by name.
+The default with no argument at all is the read-only one, on purpose: a container started by
+accident, or with a misspelled argument, does the harmless thing, and everything that writes has to
+be asked for by name.
+
+**That default is not reachable through `docker compose run`, which is why `report` also has a
+name.** Compose hands a `run` that names no subcommand the service's own `command` — `serve` — and
+when the service defines none it falls through to the image's `CMD` instead. Both were measured on
+2026-09-02. So the bare invocation, documented in five places as the harmless report, actually
+started a second long-running daemon: it migrated, ran the bootstrap, began listening on
+`nordtal_update`, and left the operator watching a terminal that never returned. Type
+`updater report`.
 
 **`serve` is not a scheduler.** At startup it applies the schema and installs what is *missing*,
 and then does nothing at all until somebody writes a row into `update_request` — no timer, no

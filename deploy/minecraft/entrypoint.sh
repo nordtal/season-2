@@ -19,7 +19,7 @@ die()  { printf '[nordtal] FATAL: %s\n' "$*" >&2; exit 1; }
 # --- inputs ----------------------------------------------------------------------------------
 : "${SERVER_KIND:?set SERVER_KIND to paper or velocity}"
 : "${SERVER_VERSION:?set SERVER_VERSION (paper: 26.2, velocity: 4.1.1)}"
-: "${SERVER_BUILD:?set SERVER_BUILD - the exact build number, never 'latest'}"
+: "${SERVER_BUILD:?set SERVER_BUILD - the exact build fetched into an empty cache; the updater moves it from there}"
 
 case "$SERVER_KIND" in
     paper|velocity) ;;
@@ -40,19 +40,39 @@ FILL_UA="nordtal-season-2/deploy (+https://github.com/nordtal/season-2)"
 mkdir -p "$CACHE" "$PLUGINS" "$(dirname "$SOCK")"
 
 # --- the server jar --------------------------------------------------------------------------
-# Cache-first. Fill's download URLs are content-addressed (fill-data.papermc.io/v1/objects/<sha256>)
-# and cannot be constructed by hand, so a cache miss means an API call. A cache HIT means no
-# network at all, which is what keeps a GitHub or PaperMC outage from blocking a restart.
-JAR_NAME="${SERVER_KIND}-${SERVER_VERSION}-${SERVER_BUILD}.jar"
-JAR_PATH="$CACHE/$JAR_NAME"
+# THE UPDATER OWNS THIS JAR (since 2026-09-02). What runs is whichever build of SERVER_VERSION is
+# lying in the cache: the `updater` container puts the newest STABLE build there and supersedes
+# the previous one by filename prefix. SERVER_BUILD is consulted only when the cache holds no jar
+# of this version at all - the first start of a fresh volume, or a version bump before the updater
+# has run against it - and is then fetched once, exactly, through the Fill API. It is a floor for
+# the first start, the same role the image tag plays for the bot and the updater, not the version.
+#
+# Until 2026-09-02 this section fetched SERVER_BUILD unconditionally and deleted every other jar,
+# which undid each updater run on the next restart: the updater installed build 125 and removed
+# 121, this script wanted 121, re-downloaded it and removed 125, and the next run started over.
+# Every restart after an update was a cache miss, so a Fill outage at that moment stopped the
+# container - the exact outage the cache exists to survive.
+#
+# Fill's download URLs are content-addressed (fill-data.papermc.io/v1/objects/<sha256>) and cannot
+# be constructed by hand, so the bootstrap is an API call. A cached jar means no network at all.
+shopt -s nullglob
+present=("$CACHE/${SERVER_KIND}-${SERVER_VERSION}-"*.jar)
+shopt -u nullglob
 
-if [[ -f "$JAR_PATH" ]]; then
-    log "server jar cached: ${JAR_NAME}"
+if (( ${#present[@]} > 0 )); then
+    # Highest build wins. Fill numbers builds as plain integers, and the updater leaves exactly one
+    # per version - two means a jar was copied in by hand, which is worth saying but not stopping for.
+    JAR_NAME=$(for jar in "${present[@]}"; do printf '%s\n' "${jar##*/}"; done | sort -t- -k3,3n | tail -n1)
+    JAR_PATH="$CACHE/$JAR_NAME"
+    (( ${#present[@]} > 1 )) && warn "${#present[@]} ${SERVER_KIND} ${SERVER_VERSION} jars in ${CACHE}; running the highest build, ${JAR_NAME}"
+    log "server jar from cache: ${JAR_NAME} (SERVER_BUILD=${SERVER_BUILD} is the bootstrap floor and was not consulted)"
 else
-    log "resolving ${SERVER_KIND} ${SERVER_VERSION} build ${SERVER_BUILD} through the Fill API"
+    JAR_NAME="${SERVER_KIND}-${SERVER_VERSION}-${SERVER_BUILD}.jar"
+    JAR_PATH="$CACHE/$JAR_NAME"
+    log "no ${SERVER_KIND} ${SERVER_VERSION} jar cached - bootstrapping build ${SERVER_BUILD} through the Fill API"
     meta=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" \
         "${FILL_API}/${SERVER_KIND}/versions/${SERVER_VERSION}/builds/${SERVER_BUILD}") \
-        || die "could not reach the Fill API, and ${JAR_NAME} is not cached in ${CACHE}. Refusing to start: this container has no server to run."
+        || die "could not reach the Fill API, and no ${SERVER_KIND} ${SERVER_VERSION} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
 
     url=$(jq -er '.downloads."server:default".url' <<<"$meta") \
         || die "the Fill API knows no 'server:default' download for ${SERVER_KIND} ${SERVER_VERSION} build ${SERVER_BUILD}. Check the pin in .env against https://fill.papermc.io/v3/projects/${SERVER_KIND}"
@@ -71,14 +91,19 @@ else
 
     mv "$tmp" "$JAR_PATH"
     log "downloaded and verified ${JAR_NAME}"
-
-    # One pinned build per kind; older jars are 40-70 MB each and nothing refers to them.
-    shopt -s nullglob
-    for old in "$CACHE/${SERVER_KIND}-"*.jar; do
-        [[ "$old" != "$JAR_PATH" ]] && { rm -f "$old"; log "removed superseded ${old##*/}"; }
-    done
-    shopt -u nullglob
 fi
+
+# One server jar per kind. What this removes is a jar of ANOTHER version - the updater supersedes
+# within a version (paper-26.2-121 -> paper-26.2-125) but never across one, so after a version bump
+# the old jar would otherwise sit here forever at 40-70 MB. A second build of the running version
+# was warned about above and goes the same way.
+shopt -s nullglob
+for old in "$CACHE/${SERVER_KIND}-"*.jar; do
+    [[ "$old" != "$JAR_PATH" ]] && { rm -f "$old"; log "removed superseded ${old##*/}"; }
+done
+shopt -u nullglob
+SERVER_BUILD_RUNNING="${JAR_NAME%.jar}"
+SERVER_BUILD_RUNNING="${SERVER_BUILD_RUNNING##*-}"
 
 # --- plugins ---------------------------------------------------------------------------------
 # THIS SCRIPT NO LONGER FETCHES PLUGINS. It did until 2026-09-01, pulling `<module>-$SEASON_VERSION
@@ -329,7 +354,7 @@ JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+Parallel
 # --- start it inside tmux --------------------------------------------------------------------
 # Arcane's per-container shell is a `docker exec` and therefore cannot reach PID 1's stdin. tmux
 # is what makes the console writable from there; `console` attaches, `mc <cmd>` sends one command.
-log "starting ${SERVER_KIND} ${SERVER_VERSION} build ${SERVER_BUILD}"
+log "starting ${SERVER_KIND} ${SERVER_VERSION} build ${SERVER_BUILD_RUNNING}"
 log "console: run 'console' in this container to attach, or 'mc <command>' to send one command"
 
 rm -f "$SOCK"

@@ -56,7 +56,7 @@ a value that has to be carried by hand from a release to a config file:
   `mc-network-control` volume. They are settings now (fixed 2026-09-01, before this module exists),
   but the sha1 still has to be copied out of the release by a person. The updater removes that.
 - `PAPER_BUILD` and `VELOCITY_BUILD` are pinned exactly, correctly, and nobody would notice them
-  going a year stale.
+  going a year stale. *(Since 2026-09-02 they seed an empty cache and nothing else — see below.)*
 
 ## What it owns
 
@@ -83,7 +83,7 @@ deployment starts with the updater, not with the database and the bot.
 | DisplayTags | GitHub releases API on `nordtal/papermc-display-tags` | our own fork, 2.0.0 on `main` |
 | PacketEvents | Modrinth API, `game_versions=["26.2"] loaders=["paper"]` | **exactly one** version: `2.13.0+spigot`, published 2026-06-22 |
 | Chunky | Modrinth API, same filter | **exactly one** version: `1.5.3`, published 2026-05-04 |
-| Paper, Velocity | PaperMC Fill API, newest `STABLE` of the pinned minor | the entrypoint already speaks this API |
+| Paper, Velocity | PaperMC Fill API, newest `STABLE` of the pinned minor | the entrypoint speaks the same API, but only to seed an empty `.server/` from `PAPER_BUILD` / `VELOCITY_BUILD`; from then on it runs whatever build of the version this module put there |
 
 The Modrinth answers were queried against the live API on 2026-09-01 and the filenames come back
 identical to what `compose.yml` pins today — `packetevents-spigot-2.13.0.jar` and
@@ -109,8 +109,10 @@ tests against it — so it is also the first thing to look at when something bre
    `entrypoint.sh` used. **Two phases, which the entrypoint did not do**, and for a reason it did
    not have: this moves eight artefacts across four servers at once, and a network running four
    servers on two versions of the season is worse than one that did not update. A server whose
-   artefacts cannot all be resolved is skipped whole — DisplayTags is a *required* plugin of `smp`
+   plugins cannot all be resolved is skipped whole — DisplayTags is a *required* plugin of `smp`
    and PacketEvents is required under it, so a partial swap there is a server that does not start.
+   The server jar is outside that rule (2026-09-02): a build Fill could not answer for is its own
+   skipped row and the plugins move regardless, because they depend on the version, not the build.
 4. **Set the pack.** Write the release's pack URL and the `.sha1` asset's content where
    network-control reads them.
 5. **Report.** Post the result: per artefact, old → new, "unchanged", or **"skipped, and here is
@@ -242,8 +244,9 @@ seconds it is showing.
 - **It does not update on its own.** No schedule, no watching. A crash restart at three in the
   morning must not move a version — the container comes back on exactly what it was running. This
   was the first decision taken and everything else follows from it.
-- **It does not roll back by itself.** A run can be given an explicit tag instead of "newest",
-  which is the rollback, and it is a person's decision.
+- **It does not roll back by itself.** A run can be given an explicit tag instead of "newest" —
+  `season-release`, `display-tags-release`, and since 2026-09-02 `paper-build` / `velocity-build`
+  for the platform — which is the rollback, and it is a person's decision.
 - **It does not touch worlds, configuration files inside volumes, or anything a player built.** It
   moves jars, one zip's URL and hash, and the schema.
 
@@ -270,6 +273,12 @@ jar and the datapacks. The price is stated plainly: **a volume that no updater r
 no plugins**, and the container's "refuse to start rather than run an older jar" guard goes with
 them. That is consistent rather than new — this module is the bootstrap already, because it owns
 the schema.
+
+*The server jar followed on 2026-09-02, for the identical reason found a day late:* this module
+installed build 125 into `.server/` and superseded 121, the entrypoint built the name
+`paper-26.2-121.jar` from `PAPER_BUILD`, found it gone, fetched it again and deleted 125 — on every
+restart after every apply, with a Fill API call in the middle of each one. The entrypoint now runs
+whichever build of `SERVER_VERSION` is in the cache and reads `SERVER_BUILD` only into an empty one.
 
 **The pack's URL and hash live in `pack.yml`, not in the environment.** *(Carried out in step 3.)* They were made compose
 variables earlier the same day, for a good reason: they were reachable only by editing a file

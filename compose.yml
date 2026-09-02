@@ -73,6 +73,10 @@ x-minecraft: &minecraft
   stop_grace_period: 180s
   environment: &minecraft-env
     TZ: ${TZ:-Europe/Berlin}
+    # SERVER_BUILD, set per service below, is a FLOOR: the updater owns the server jar too (since
+    # 2026-09-02) and the entrypoint runs whatever build of SERVER_VERSION is in .server/. The
+    # build from .env is fetched only into an empty cache - see .env.example.
+    #
     # SEASON_REPO and SEASON_RELEASE used to live here, because entrypoint.sh fetched the plugin
     # jars. It does not any more (2026-09-01): the `updater` service owns the plugin jars, and two
     # owners is one owner too many. What the updater follows is UPDATER_SEASON_RELEASE, on its own
@@ -433,6 +437,10 @@ services:
       NORDTAL_UPDATER_DISPLAY_TAGS_RELEASE: ${UPDATER_DISPLAY_TAGS_RELEASE:-latest}
       NORDTAL_UPDATER_MINECRAFT_VERSION: ${PAPER_VERSION:-26.2}
       NORDTAL_UPDATER_VELOCITY_VERSION: ${VELOCITY_VERSION:-4.1.1}
+      # Which BUILD of those versions to install: 'latest' STABLE, or an exact number - which is
+      # the rollback, and deliberately not PAPER_BUILD: that one only seeds an empty cache.
+      NORDTAL_UPDATER_PAPER_BUILD: ${UPDATER_PAPER_BUILD:-latest}
+      NORDTAL_UPDATER_VELOCITY_BUILD: ${UPDATER_VELOCITY_BUILD:-latest}
       # Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP; a run makes
       # two GitHub calls, so it only matters on a host that shares its address with something busy.
       NORDTAL_UPDATER_GITHUB_TOKEN: ${UPDATER_GITHUB_TOKEN:-}

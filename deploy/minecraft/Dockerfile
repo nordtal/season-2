@@ -1,13 +1,15 @@
 # One image for all four Minecraft services - the Velocity proxy and the three Paper backends.
-# The difference between them is entirely environment: SERVER_KIND, SERVER_VERSION, SERVER_BUILD
-# and which plugin jars are pulled. Nothing about a specific server is baked in here.
+# The difference between them is entirely environment: SERVER_KIND and SERVER_VERSION, plus a
+# SERVER_BUILD that only seeds an empty cache. Nothing about a specific server is baked in here,
+# and no jar is either: the server jar and the plugin jars live in the volume, and the `updater`
+# service owns both (plugins since 2026-09-01, the server jar since 2026-09-02).
 #
 #   docker build -t ghcr.io/nordtal/minecraft:<tag> deploy/minecraft
 #
 # WHY NOT itzg/docker-minecraft-server: it does not cover Velocity (that is a second image with
 # its own conventions), it would not have solved the proxy console either - Velocity has no RCON -
-# and we want a pinned server build rather than runtime version resolution. See
-# ../README.md#why-it-looks-like-this.
+# and we want the build to move through one mechanism, the updater, rather than through an image's
+# own version resolution at start. See ../README.md#why-it-looks-like-this.
 FROM eclipse-temurin:25-jre
 
 # tmux is the console (see entrypoint.sh); curl and jq resolve the server jar through PaperMC's

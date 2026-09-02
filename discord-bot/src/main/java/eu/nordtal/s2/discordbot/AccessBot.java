@@ -237,6 +237,23 @@ public class AccessBot implements AutoCloseable {
                 .build();
     }
 
+    /**
+     * How long a bot that cannot possibly start waits before letting the container exit.
+     *
+     * <h2>Why it waits at all</h2>
+     * {@code restart: unless-stopped} brings it straight back, so a token Discord refuses used to
+     * produce a loop of roughly eight seconds: a Hikari pool, a Flyway {@code validate}, and a
+     * failed login against Discord, over and over, with a raw {@code InvalidTokenException} stack
+     * trace each time. Repeated bad logins are exactly what Discord rate-limits, and the answer to
+     * a wrong token is a person editing {@code .env} - which takes minutes, not seconds.
+     *
+     * <p>A minute rather than a longer wait because the container must still come back promptly
+     * once the token is fixed, and rather than changing the restart policy because that would
+     * change the behaviour for <em>every</em> crash, including the transient ones this bot is
+     * supposed to recover from on its own.</p>
+     */
+    private static final java.time.Duration FATAL_BACKOFF = java.time.Duration.ofSeconds(60);
+
     public static void main(final String[] args) throws InterruptedException {
         final AccessBot bot;
         try {
@@ -248,9 +265,37 @@ public class AccessBot implements AutoCloseable {
             log.error("{}", e.getMessage());
             System.exit(1);
             return;
+        } catch (final net.dv8tion.jda.api.exceptions.InvalidTokenException badToken) {
+            // The same treatment as a config this bot refuses, because that is what it is: the
+            // token is a setting, and Discord has told us it is wrong. A stack trace says nothing
+            // a person can act on here.
+            log.error("access-bot is not starting: Discord rejected the bot token.");
+            log.error("Check NORDTAL_BOT_TOKEN in .env against the token in the Discord developer"
+                    + " portal - a regenerated token invalidates the old one immediately.");
+            backOffThenExit();
+            return;
         }
         // The process is normally stopped by SIGTERM from the container runtime, so the shutdown
         // hook is the only place the pool would ever get closed.
         Runtime.getRuntime().addShutdownHook(new Thread(bot::close, "access-bot-shutdown"));
+    }
+
+    /**
+     * Waits, then exits 1 - so the restart policy retries in minutes rather than in seconds.
+     * <p>
+     * Interruptible on purpose: a {@code docker stop} during the wait has to be able to end it at
+     * once, and a container that ignores SIGTERM for a minute is a worse problem than the one this
+     * is solving.
+     * </p>
+     */
+    private static void backOffThenExit() {
+        log.error("Waiting {}s before exiting, so this container does not retry a login Discord has"
+                + " already refused every few seconds.", FATAL_BACKOFF.toSeconds());
+        try {
+            Thread.sleep(FATAL_BACKOFF.toMillis());
+        } catch (final InterruptedException stopped) {
+            Thread.currentThread().interrupt();
+        }
+        System.exit(1);
     }
 }

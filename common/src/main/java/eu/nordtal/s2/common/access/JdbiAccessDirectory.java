@@ -267,4 +267,10 @@ final class JdbiAccessDirectory implements AccessDirectory {
         return exception.getCause() instanceof SQLException sqlException
                 && UNIQUE_VIOLATION_SQLSTATE.equals(sqlException.getSQLState());
     }
+
+    @Override
+    public java.util.Set<String> admins() {
+        return dao.adminDiscordIds();
+    }
+
 }

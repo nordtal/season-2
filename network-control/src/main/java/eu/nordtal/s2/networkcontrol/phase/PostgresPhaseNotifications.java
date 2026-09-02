@@ -42,6 +42,23 @@ final class PostgresPhaseNotifications implements PhaseNotifications {
     /** Must match {@code pg_notify('nordtal_phase', '')} in :common's PhaseDao. */
     static final String CHANNEL = "nordtal_phase";
 
+    /**
+     * Must match {@code pg_notify('nordtal_admin', discord_id)} in :common's AccessDao.
+     *
+     * <h2>Why it rides on this connection</h2>
+     * One dedicated {@code LISTEN} connection, one reconnect loop, one liveness check. A second
+     * channel needs none of that again: {@code getNotifications} returns whatever arrived on any
+     * channel this session listens to, and both listeners want the identical thing on a wake-up -
+     * re-read the authoritative state, because a notification is never the state. A parallel stack
+     * of connector, notifications, listener and watch would be ~350 lines whose only difference is
+     * a string, and two loops to keep alive instead of one.
+     *
+     * <p>The cost, stated plainly: a phase switch also refreshes the admin roster and an admin
+     * change also re-reads the phase row. Both are one small query and both are idempotent, so the
+     * cost is two queries nobody asked for at moments that are rare by construction.</p>
+     */
+    static final String ADMIN_CHANNEL = "nordtal_admin";
+
     /** How long the liveness check after a quiet interval may take before it counts as failed. */
     private static final int LIVENESS_CHECK_SECONDS = 5;
 
@@ -67,12 +84,13 @@ final class PostgresPhaseNotifications implements PhaseNotifications {
             // reconnect loop exists to recover from and would never be told about.
             properties.setProperty("socketTimeout", String.valueOf(config.queryTimeoutSeconds()));
             properties.setProperty("tcpKeepAlive", "true");
-            properties.setProperty("ApplicationName", "network-control-phase-listener");
+            properties.setProperty("ApplicationName", "network-control-notification-listener");
 
             final Connection connection = DriverManager.getConnection(config.jdbcUrl(), properties);
             try {
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("LISTEN " + CHANNEL);
+                    statement.execute("LISTEN " + ADMIN_CHANNEL);
                 }
                 return new PostgresPhaseNotifications(connection);
             } catch (final SQLException failure) {

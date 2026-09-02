@@ -189,7 +189,9 @@ player's access state when the phase changes and moves, leaves or disconnects th
 phase — [architecture.md](architecture.md#the-login-path-end-to-end)'s "every login lands on `limbo`
 first". The channel is **`nordtal:limbo`**; `limbo` sends `READY` once per join, the proxy sends
 `WAIT <reason>` whenever what the player is waiting for changes, and `PackStation` releases them
-onto the phase's backend when the pack is applied and that backend is there.
+onto the phase's backend when the pack is applied and that backend is there — or once everything but
+that `READY` has been settled for `gate.yml#limbo-ready-grace-seconds`, because the message is sent
+exactly once and Velocity has a path that loses it (finding 38, 2026-09-03).
 
 Two consequences worth stating plainly, because both are changes from the pre-2026-09-01 behaviour:
 

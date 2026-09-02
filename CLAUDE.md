@@ -261,9 +261,21 @@ What this buys, and the rules that come with it:
   package-private one when the config is built rather than failing later.
 - **A setting the interface does not declare stops the load**, names the key with its full path
   (including its index inside a list) and suggests the one that was probably meant. The file is
-  never trimmed. In a Paper plugin, catch `ConfigException` in `onLoad`/`onEnable` and call
-  `getServer().getPluginManager().disablePlugin(this)` — **the plugin goes down, the server keeps
-  running**. `papermc-display-tags` is the worked example.
+  never trimmed. In a Paper plugin, catch `ConfigException` in `onLoad`/`onEnable`, call
+  `getServer().getPluginManager().disablePlugin(this)` — **and then, in this repository's three
+  Paper plugins, `getServer().shutdown()`.**
+
+  **The second half is new on 2026-09-02 and reverses what this file used to say.** It said "the
+  plugin goes down, the server keeps running", with `papermc-display-tags` as the worked example —
+  and that is still right *there*: a third-party plugin on somebody else's server has no business
+  stopping it. It is wrong here. `smp`, `limbo` and `hunger-games` are dedicated backends that exist
+  to run exactly one thing, and the first deployment showed what the old rule costs: four nested
+  specs without `@ConfigSpec` made `config.yml` throw, `smp` disabled itself, Paper carried on, and
+  the container stayed up with a green healthcheck and no season on it. **Nothing outside the JVM
+  can see that state** — every jar is in `plugins/`, so the entrypoint's guard passes, and the port
+  is open, so the healthcheck passes. Inside the plugin is the only place the difference is
+  knowable, which is why the answer is there. `:common`'s `FatalPathsStopTheServerTest` asserts all
+  three still do it.
 - **Every value can be overridden by an environment variable.** Give each config its own prefix
   (`NORDTAL_<MODULE>`); a single shared `NORDTAL` prefix makes generic keys such as `password`
   collide across files. jcore rejects a collision within one spec at load time.

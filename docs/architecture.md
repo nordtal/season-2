@@ -324,6 +324,22 @@ that drifts, and a plugin message that does not parse is indistinguishable from 
 sent. The `READY` half is not redundant with the pack status: the proxy knows the pack is applied,
 `limbo` knows the player has finished joining, and neither fact implies the other.
 
+**The diagram's order is a description, not a guarantee — corrected 2026-09-03 after the first
+deployment.** The arrival, the pack status and `READY` reach the proxy on three unrelated paths that
+Velocity does not order against each other, and in practice `READY` routinely arrives *first*:
+`TransitionSessionHandler` stops reading from the backend while it awaits `ServerConnectedEvent`,
+resumes reading, and only then fires `ServerPostConnectEvent` — so a `READY` sent one tick after the
+backend's `PlayerJoinEvent` is already buffered and is read before the arrival has been dispatched to
+anybody. The proxy therefore records the three facts against the **session** (`WaitingBook`) and
+re-asks the whole question on every one of them, so that every order produces the same answer. It
+also **releases a player anyway** once everything else has been settled for
+`gate.yml#limbo-ready-grace-seconds`, and logs a warning naming the channel when it does: `limbo`
+sends `READY` exactly once, and Velocity has a path that loses it outright — a plugin message decoded
+in the same read batch as the join is handled by that same transition handler, which writes it to the
+client without ever asking whether a plugin wanted it. **No single message may be able to strand a
+player**; before the grace existed, one lost `READY` was a black screen for the rest of the session
+with nothing in any log. See [state-of-play.md](state-of-play.md) finding 38.
+
 **A `READY` is only believed from a backend.** Registering a channel makes the proxy advertise it to
 the *client*, so a modded client could otherwise write its own `READY` and release itself from the
 waiting room — which is to say skip the resource pack. `PackStation` rejects any message whose

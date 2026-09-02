@@ -12,7 +12,6 @@ import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
-import eu.nordtal.s2.common.limbo.WaitReason;
 import eu.nordtal.s2.networkcontrol.config.PackSpec;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
@@ -22,9 +21,6 @@ import net.kyori.adventure.text.Component;
 
 import org.slf4j.Logger;
 
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -47,9 +43,17 @@ import java.util.function.Consumer;
  *       joining it.</li>
  *   <li>{@link #onPackStatus} sees {@code SUCCESSFUL} - or one of the failures, each with its own
  *       screen.</li>
- *   <li>When nothing is left to wait for ({@link LimboHold}) the player is handed to the release
- *       callback, which is {@code PlayerRouter}'s connect.</li>
+ *   <li>When nothing is left to wait for ({@link WaitingBook}, which asks {@link LimboHold}) the
+ *       player is handed to the release callback, which is {@code PlayerRouter}'s connect.</li>
  * </ol>
+ *
+ * <h2>Those steps do not happen in that order</h2>
+ * They are numbered because that is the sequence being described, not because anything enforces it.
+ * Velocity dispatches the arrival, the pack status and {@code limbo}'s answer on different threads
+ * with no ordering between them, and step 3 routinely beats step 2 - see {@link WaitingBook}, which
+ * exists because this class once kept step 3's answer in an object step 1 created, and dropped it
+ * when it arrived first. <b>Every one of the handlers below records a fact and then re-asks the
+ * whole question</b>; none of them may assume anything about what has already happened.
  *
  * <h2>The backend never decides where a player goes</h2>
  * docs/season-phases.md#routing is explicit: "a backend must not be able to decide it wants a
@@ -73,24 +77,13 @@ import java.util.function.Consumer;
  * {@code limbo}, not to the design.
  *
  * <h2>Threading</h2>
- * Velocity fires {@code @Subscribe} handlers off the Netty threads, and the state here is two
- * concurrent maps and a set. Nothing in this class touches the database: the phase comes from
- * {@link PhaseWatch}'s in-memory value and the language from {@link LoginRoster}, both filled in by
- * the login query the gate already made.
+ * Velocity fires {@code @Subscribe} handlers off the Netty threads, and every piece of per-player
+ * state is in {@link WaitingBook}, which is responsible for making a release happen exactly once.
+ * Nothing in this class touches the database: the phase comes from {@link PhaseWatch}'s in-memory
+ * value and the language from {@link LoginRoster}, both filled in by the login query the gate
+ * already made.
  */
 public final class PackStation {
-
-    /** Per session: what we have offered this player and whether they applied it. */
-    private static final class Offered {
-        private volatile Instant at;
-        private volatile boolean applied;
-    }
-
-    /** Per visit to the waiting room: what limbo has told us and what it is currently showing. */
-    private static final class Hold {
-        private volatile boolean ready;
-        private volatile WaitReason shown;
-    }
 
     private final ProxyServer proxy;
     private final Logger logger;
@@ -99,16 +92,13 @@ public final class PackStation {
     private final LoginRoster roster;
     private final PackMessages messages;
     private final PackSpec config;
-    private final Clock clock;
+    private final WaitingBook book;
 
     /** {@code null} when {@code pack.yml#enabled} is off - the one thing that makes the wait short. */
     private final PackOffer offer;
 
     private final MinecraftChannelIdentifier channel =
             MinecraftChannelIdentifier.from(LimboProtocol.CHANNEL);
-
-    private final ConcurrentHashMap<UUID, Offered> offers = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<UUID, Hold> holds = new ConcurrentHashMap<>();
 
     /** UUIDs we have already complained about sending us a forged message, so a spammer logs once. */
     private final Set<UUID> reportedForgery = ConcurrentHashMap.newKeySet();
@@ -117,7 +107,7 @@ public final class PackStation {
 
     public PackStation(final ProxyServer proxy, final Logger logger, final PhaseRouting routing,
                        final PhaseWatch phases, final LoginRoster roster, final PackMessages messages,
-                       final PackSpec config, final PackOffer offer, final Clock clock) {
+                       final PackSpec config, final PackOffer offer, final WaitingBook book) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.routing = Objects.requireNonNull(routing, "routing");
@@ -125,7 +115,7 @@ public final class PackStation {
         this.roster = Objects.requireNonNull(roster, "roster");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.config = Objects.requireNonNull(config, "config");
-        this.clock = Objects.requireNonNull(clock, "clock");
+        this.book = Objects.requireNonNull(book, "book");
         this.offer = offer;
     }
 
@@ -153,7 +143,7 @@ public final class PackStation {
      *         is still downloading
      */
     public boolean isHeld(final UUID uuid) {
-        return uuid != null && holds.containsKey(uuid);
+        return book.isWaiting(uuid);
     }
 
     // ------------------------------------------------------------------ arriving in the waiting room
@@ -165,12 +155,12 @@ public final class PackStation {
 
         if (!onLimbo(player)) {
             // They have left the waiting room - released by us, or moved by a phase change. The
-            // offer state survives (it is per session), the hold does not.
-            holds.remove(uuid);
+            // session's facts survive; this visit's do not.
+            book.left(uuid);
             return;
         }
 
-        holds.computeIfAbsent(uuid, ignored -> new Hold());
+        book.entered(uuid);
         sendOfferIfNeeded(player);
         evaluate(player);
     }
@@ -179,13 +169,9 @@ public final class PackStation {
         if (offer == null) {
             return;
         }
-        final Offered offered = offers.computeIfAbsent(player.getUniqueId(), ignored -> new Offered());
-        if (offered.at != null || offered.applied) {
-            // Once per session. A player bounced back into limbo by a phase change is not asked a
-            // second time for a pack they already have.
+        if (!book.claimOffer(player.getUniqueId())) {
             return;
         }
-        offered.at = clock.instant();
         player.sendResourcePackOffer(offer.forLocale(localeOf(player)));
         logger.debug("Offered the resource pack to {}", player.getUsername());
     }
@@ -200,7 +186,7 @@ public final class PackStation {
 
         switch (event.getStatus()) {
             case SUCCESSFUL -> {
-                offers.computeIfAbsent(uuid, ignored -> new Offered()).applied = true;
+                book.packApplied(uuid);
                 evaluate(player);
             }
             case ACCEPTED, DOWNLOADED -> {
@@ -261,13 +247,14 @@ public final class PackStation {
         }
 
         final Player player = connection.getPlayer();
-        final Hold hold = holds.get(player.getUniqueId());
-        if (hold == null) {
-            // READY from a server the player is no longer on, or from one that is not limbo. Either
-            // way there is no hold to release.
-            return;
+        if (book.ready(player.getUniqueId())) {
+            // The arrival event has not reached us yet - the race this whole design was rebuilt
+            // around. Logged at INFO on purpose: it is the only evidence that it really happens, and
+            // its absence is what made the original deadlock invisible for a whole deployment.
+            logger.info("'{}' reported {} ready before the proxy had finished putting them in the "
+                            + "waiting room; remembered rather than dropped",
+                    connection.getServerInfo().getName(), player.getUsername());
         }
-        hold.ready = true;
         evaluate(player);
     }
 
@@ -297,7 +284,7 @@ public final class PackStation {
     public int sweep() {
         int seen = 0;
         for (final Player player : proxy.getAllPlayers()) {
-            if (holds.containsKey(player.getUniqueId())) {
+            if (book.isWaiting(player.getUniqueId())) {
                 evaluate(player);
                 seen++;
             }
@@ -306,60 +293,56 @@ public final class PackStation {
     }
 
     /**
-     * Looks at one held player and either updates what the waiting room says, releases them, or
-     * disconnects them for never answering the offer.
+     * Looks at one held player and carries out whatever {@link WaitingBook} says about them.
+     * <p>
+     * Everything that is a rule lives in the book and everything that is a Velocity call lives here,
+     * which is what makes the rule assertable at all. The one decision left in this method is
+     * whether the player is still on {@code limbo}, because that is a question about a connection.
+     * </p>
      *
      * @param player a connected player; doing nothing for one this station is not holding
      */
     public void evaluate(final Player player) {
         final UUID uuid = player.getUniqueId();
-        final Hold hold = holds.get(uuid);
-        if (hold == null) {
+        if (!book.isWaiting(uuid)) {
             return;
         }
         if (!onLimbo(player)) {
-            holds.remove(uuid);
-            return;
-        }
-
-        final Offered offered = offers.get(uuid);
-        final boolean applied = offered != null && offered.applied;
-        if (offer != null && !applied && timedOut(offered)) {
-            logger.warn("{} never answered the resource pack offer within {}s", player.getUsername(),
-                    config.applyTimeoutSeconds());
-            disconnect(player, messages.timedOut(localeOf(player)));
+            book.left(uuid);
             return;
         }
 
         final SeasonPhase phase = phases.lastKnown();
         final String destination = routing.servers().forPhase(phase);
-        final Optional<WaitReason> waiting = LimboHold.reason(offer == null || applied, phase,
-                proxy.getServer(destination).isPresent());
+        final WaitingDecision decision =
+                book.decide(uuid, phase, proxy.getServer(destination).isPresent());
 
-        if (waiting.isPresent()) {
-            show(player, hold, waiting.get());
-            return;
+        switch (decision.action()) {
+            case IDLE -> {
+                // Already looking at the right title, or waiting out the grace period. The common
+                // case by a wide margin, and the sweep hits it several times per second.
+            }
+            case SHOW -> sendToLimbo(player, LimboProtocol.wait(decision.reason()));
+            case TIMED_OUT -> {
+                logger.warn("{} never answered the resource pack offer within {}s",
+                        player.getUsername(), config.applyTimeoutSeconds());
+                disconnect(player, messages.timedOut(localeOf(player)));
+            }
+            case RELEASE -> {
+                logger.info("{} has the pack and is leaving the waiting room for '{}'",
+                        player.getUsername(), destination);
+                release.accept(player);
+            }
+            case RELEASE_UNCONFIRMED -> {
+                // Not fatal and not silent. The player goes where they were always going; what is
+                // wrong is the channel, and this is the only place that would ever say so.
+                logger.warn("Releasing {} to '{}' without a READY from '{}': everything else has "
+                                + "been settled for the grace period. The nordtal:limbo channel is "
+                                + "not delivering backend messages to this proxy.",
+                        player.getUsername(), destination, routing.servers().limbo());
+                release.accept(player);
+            }
         }
-        if (!hold.ready) {
-            // Nothing left to wait for except limbo itself saying the player has finished joining
-            // it. Deliberately silent - see LimboHold's own documentation for why no title is sent.
-            return;
-        }
-
-        holds.remove(uuid);
-        logger.info("{} has the pack and is leaving the waiting room for '{}'", player.getUsername(),
-                destination);
-        release.accept(player);
-    }
-
-    private void show(final Player player, final Hold hold, final WaitReason reason) {
-        if (reason == hold.shown) {
-            // The sweep runs every few seconds; re-sending an unchanged reason would make limbo
-            // re-issue the same title on a loop.
-            return;
-        }
-        hold.shown = reason;
-        sendToLimbo(player, LimboProtocol.wait(reason));
     }
 
     private void sendToLimbo(final Player player, final byte[] data) {
@@ -379,14 +362,8 @@ public final class PackStation {
     @Subscribe
     public void onDisconnect(final DisconnectEvent event) {
         final UUID uuid = event.getPlayer().getUniqueId();
-        holds.remove(uuid);
-        offers.remove(uuid);
+        book.forget(uuid);
         reportedForgery.remove(uuid);
-    }
-
-    private boolean timedOut(final Offered offered) {
-        return offered != null && offered.at != null
-                && Duration.between(offered.at, clock.instant()).getSeconds() >= config.applyTimeoutSeconds();
     }
 
     private boolean onLimbo(final Player player) {
@@ -401,7 +378,9 @@ public final class PackStation {
     }
 
     private void disconnect(final Player player, final Component reason) {
-        holds.remove(player.getUniqueId());
+        // Ending the visit before the disconnect, so a sweep running concurrently on another thread
+        // cannot decide anything else about somebody who is already on their way out.
+        book.left(player.getUniqueId());
         player.disconnect(reason);
     }
 }

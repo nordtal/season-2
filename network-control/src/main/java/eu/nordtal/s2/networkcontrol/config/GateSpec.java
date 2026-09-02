@@ -221,4 +221,31 @@ public interface GateSpec {
     default int limboSweepIntervalSeconds() {
         return 5;
     }
+
+    @Order(13)
+    @Key("limbo-ready-grace-seconds")
+    @Comment({
+            "How long the waiting room may be down to its last condition - limbo's own",
+            "confirmation that the player has finished joining it - before the player is",
+            "released anyway.",
+            "",
+            "THIS EXISTS BECAUSE A MISSING MESSAGE ONCE STRANDED A PLAYER FOR EVER, on the",
+            "first deployment (finding 38). limbo sends that confirmation exactly once per",
+            "join, over a plugin-message channel, and Velocity has a path that loses one: a",
+            "message decoded in the same read batch as the join is handled by the proxy's",
+            "transition handler, which writes it to the client and never asks whether a plugin",
+            "wanted it. Nothing retries, and no other condition can end the wait once the pack",
+            "is applied - so the player sits on a black screen with a title that is no longer",
+            "true, and no log line anywhere says so.",
+            "",
+            "The confirmation is worth keeping and is not worth waiting on for ever. It",
+            "normally arrives within a tick of the join, so anything above a second or two is",
+            "already generous; the release it guards only orders the player's arrival against",
+            "their onward connection, and the proxy has its own evidence of that arrival.",
+            "A release that runs out this clock is logged as a WARNING naming the channel,",
+            "because a network where it happens routinely has a broken one."
+    })
+    default int limboReadyGraceSeconds() {
+        return 5;
+    }
 }

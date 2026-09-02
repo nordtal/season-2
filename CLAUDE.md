@@ -648,15 +648,15 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**Seven modules have tests: 730 in total, none skipped, all green** (`./gradlew build --rerun-tasks`
-with a Docker daemon present, 2026-09-02). The counts below are what the JUnit XML reports, not
+**Seven modules have tests: 745 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-03). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
 | `smp` | 146 |
 | `common` | 145 |
-| `network-control` | 135 |
+| `network-control` | 150 |
 | `updater` | 129 |
 | `discord-bot` | 117 |
 | `hunger-games` | 47 |
@@ -704,7 +704,7 @@ that, and both are easy to undo by accident:
   that one, from the module directory, in preference to the real one. It was deleted with this
   change; the anchor is what stops the next one shadowing the root file silently.
 
-`network-control` has **135**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
+`network-control` has **150**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
 `gate.yml`; the `phase` and `routing` packages are tested as pure decisions, exhaustively over the
 four phases; and `PlaytimeDao`'s `seconds = seconds + EXCLUDED.seconds` gets a container, because no
@@ -712,6 +712,12 @@ in-memory test can say anything about it. The pack station adds `LimboHoldTest` 
 exhaustively over its three inputs) and eight more `ConfigsTest` cases for `pack.yml` - of which the
 one worth keeping is that a `sha1` which is not 40 hex characters stops the proxy, because every
 other way of finding a bad hash costs a player a `FAILED_DOWNLOAD` that reads as a network problem.
+**`WaitingBookTest` (15, new 2026-09-03) is the one that came out of a real client.** It drives all
+six orders in which the arrival, the pack status and `limbo`'s `READY` can reach the proxy, because
+Velocity orders none of them against each other and the old code only worked in three of the six. It
+fails on the old semantics — checked by putting the bug back — and it is the standing proof of the
+rule that replaced them: **no single plugin message may be able to strand a player.** See
+`docs/state-of-play.md` finding 38.
 
 `limbo` has **11**, seven of them `ConfigsTest`. The other four are the only ones the rest of the
 module can have: everything else in it is a world, a title, a potion effect or a plugin message.

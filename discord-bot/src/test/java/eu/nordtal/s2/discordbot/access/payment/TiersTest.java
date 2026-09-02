@@ -33,10 +33,10 @@ class TiersTest {
             List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 500);
 
     /** 60 days at 5 EUR with the donation added: the order that used to be mis-settled. */
-    private static final Tiers.Order SIXTY_WITH_DONATION = new Tiers.Order(60, 500, true);
+    private static final Tiers.Order SIXTY_WITH_DONATION = new Tiers.Order(60, 500, 500);
 
     /** 60 days at 5 EUR, no donation. */
-    private static final Tiers.Order SIXTY_PLAIN = new Tiers.Order(60, 500, false);
+    private static final Tiers.Order SIXTY_PLAIN = new Tiers.Order(60, 500, 0);
 
     @Test
     @DisplayName("the price list is offered cheapest first")
@@ -123,7 +123,7 @@ class TiersTest {
     @DisplayName("a payment short of the order falls back to the tier it does cover")
     void shortPaymentDowngrades() {
         // Ordered 90 days at 7 EUR, edited the amount down to 4 EUR on the bunq.me page.
-        final Tiers.Settlement settlement = tiers.resolve(400, new Tiers.Order(90, 700, false)).orElseThrow();
+        final Tiers.Settlement settlement = tiers.resolve(400, new Tiers.Order(90, 700, 0)).orElseThrow();
 
         assertAll(
                 () -> assertEquals(30, settlement.days()),
@@ -172,11 +172,59 @@ class TiersTest {
     }
 
     @Test
+    @DisplayName("M8: an order survives a change to the DONATION surcharge, not only to a tier price")
+    void orderSurvivesASurchargeChange() {
+        // Ordered 60 days plus the surcharge while it was 5 EUR: the payer was asked for 10 EUR and
+        // paid 10 EUR. The surcharge is then lowered to 3 EUR before the poll loop settles it.
+        //
+        // Order used to keep only a BOOLEAN for the donation, so the ordered total was rebuilt as
+        // "stored price of the days" + "today's surcharge" = 800 - a number nobody was ever asked
+        // for. 1000 >= 800, so this particular direction happened to over-credit; the other
+        // direction (surcharge raised) makes a payer who paid exactly what was asked look short and
+        // downgrades them. Either way a price change rewrites an order that was already placed,
+        // which is precisely what the javadoc on Order.of promises it does not.
+        final Tiers afterTheChange = Tiers.of(
+                List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 300);
+
+        final Tiers.Settlement settlement =
+                afterTheChange.resolve(1000, SIXTY_WITH_DONATION).orElseThrow();
+
+        assertAll(
+                () -> assertEquals(60, settlement.days()),
+                () -> assertFalse(settlement.downgraded(), "the payer paid exactly what was asked"),
+                () -> assertTrue(settlement.donation()),
+                () -> assertEquals(500, settlement.donationCents(),
+                        "the donation is what was ordered and paid, not what the surcharge costs"
+                                + " today")
+        );
+    }
+
+    @Test
+    @DisplayName("M8: a raised surcharge does not turn a fully paid order into a downgrade")
+    void aRaisedSurchargeDoesNotDowngradeAPaidOrder() {
+        // The dangerous direction. Ordered at a 5 EUR surcharge and paid 10 EUR; the surcharge then
+        // moves to 8 EUR, so the re-derived total becomes 1300 and 1000 reads as short - the payer
+        // is downgraded to the tier 10 EUR covers, having paid exactly what they were asked for.
+        final Tiers afterTheChange = Tiers.of(
+                List.of(new Tier(30, 300), new Tier(60, 500), new Tier(90, 700)), 800);
+
+        final Tiers.Settlement settlement =
+                afterTheChange.resolve(1000, SIXTY_WITH_DONATION).orElseThrow();
+
+        assertAll(
+                () -> assertEquals(60, settlement.days()),
+                () -> assertFalse(settlement.downgraded(),
+                        "a payer who paid the asked-for amount was downgraded because the price"
+                                + " list moved after they ordered")
+        );
+    }
+
+    @Test
     @DisplayName("an order priced from a retired tier is still honoured")
     void orderSurvivesAPriceChange() {
         // The request stored 45 days at 4 EUR; the price list no longer has a 45-day tier. The
         // order is read off the row, not looked up, so it still settles.
-        final Tiers.Settlement settlement = tiers.resolve(400, new Tiers.Order(45, 400, false)).orElseThrow();
+        final Tiers.Settlement settlement = tiers.resolve(400, new Tiers.Order(45, 400, 0)).orElseThrow();
 
         assertAll(
                 () -> assertEquals(45, settlement.days()),

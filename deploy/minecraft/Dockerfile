@@ -42,9 +42,29 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/console /usr/local/bin/
 ENV MC_TMUX_SOCKET=/run/mc/tmux.sock \
     MC_TMUX_SESSION=mc
 
-# Liveness: the session exists and its process is alive. A dead pane means the JVM exited.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=3 \
-    CMD tmux -S "$MC_TMUX_SOCKET" has-session -t "$MC_TMUX_SESSION" 2>/dev/null \
-        && [ "$(tmux -S "$MC_TMUX_SOCKET" display-message -p -t "$MC_TMUX_SESSION" '#{pane_dead}')" = "0" ]
+# HEALTHY MEANS "ACCEPTS PLAYERS", NOT "IS ALIVE" (changed 2026-09-02).
+#
+# It used to ask tmux whether the session existed and its pane was not dead, and that answered yes
+# six seconds after start - while Paper needs 30 to 130 to reach `Done`. So all four containers went
+# green immediately, stayed green when a plugin had disabled itself, and stayed green when the
+# server was not accepting anybody. Since every other service waits on `depends_on:
+# service_healthy`, that made the signal worthless as an ordering primitive as well: the whole stack
+# started against backends that were not up.
+#
+# Liveness is not what this needs to express - `restart: unless-stopped` already handles a JVM that
+# exited, and a dead pane cannot hold a port open anyway, so this check is strictly stronger than
+# the one it replaces.
+#
+# A TCP CONNECT AND NOT A LOG GREP. Both Paper and Velocity bind the port only at the end of their
+# startup, so "the port answers" is exactly the line between starting and serving - and it needs no
+# extra package, no Minecraft protocol, and no assumption about a startup string or a log path that
+# differs between the two. `/dev/tcp` is a bash builtin, not a file, and bash is in this base image.
+#
+# WHAT IT STILL CANNOT SEE: a jar that is present and whose onEnable threw. The port opens and the
+# server accepts players onto a world with no season on it. That gap is closed on the other side -
+# the season plugins take the server down with them rather than disabling themselves alone - because
+# no check from out here can tell those two states apart.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=180s --retries=4 \
+    CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/${SERVER_PORT:-25565}' 2>/dev/null
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

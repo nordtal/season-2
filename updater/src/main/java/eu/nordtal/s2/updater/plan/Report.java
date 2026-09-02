@@ -49,6 +49,14 @@ public final class Report {
         }
         out.append('\n');
 
+        // One outage, one explanation. A GitHub failure makes EVERY season row unresolved, and each
+        // carries the same ~450-character sentence including a trimmed JSON body: eight of them is
+        // ~4 600 characters, against the 4 000 an admin embed has for a description. What fell off
+        // the end was the summary and the "jars nothing accounts for" list - the two parts that say
+        // what to do. So a reason that appears more than once is printed once, at the bottom, and
+        // referenced by number from the rows.
+        final Map<String, Integer> footnotes = footnotesOf(plan);
+
         // Grouped the way the network is shaped, proxy first, with everything that lives outside a
         // Minecraft volume - the bot - collected at the end rather than filed under a server it
         // does not run on.
@@ -71,7 +79,7 @@ public final class Report {
             // it has, which buries the four rows that say something else. Said once, at the top.
             final String shared = sharedNote(changes);
             if (shared != null) {
-                out.append(INDENT).append(shared).append('\n');
+                out.append(INDENT).append(noteText(shared, footnotes)).append('\n');
             }
 
             for (final Change change : changes) {
@@ -85,7 +93,8 @@ public final class Report {
                         .append(detail)
                         .append('\n');
                 if (change.note() != null && !change.note().equals(shared)) {
-                    out.append(INDENT).append(INDENT).append(pad("", width)).append(change.note()).append('\n');
+                    out.append(INDENT).append(INDENT).append(pad("", width))
+                            .append(noteText(change.note(), footnotes)).append('\n');
                 }
             }
             out.append('\n');
@@ -100,8 +109,43 @@ public final class Report {
             out.append('\n');
         }
 
+        if (!footnotes.isEmpty()) {
+            out.append("why:\n");
+            footnotes.forEach((note, number) ->
+                    out.append(INDENT).append('[').append(number).append("] ").append(note).append('\n'));
+            out.append('\n');
+        }
+
         out.append(summary(plan)).append('\n');
         return out.toString();
+    }
+
+    /**
+     * The notes worth printing once instead of on every row that carries them.
+     *
+     * <p>Only the repeated ones: a note that appears exactly once reads better where it is than as
+     * a reference to a line further down. Insertion-ordered so the numbers run down the page.</p>
+     */
+    private static Map<String, Integer> footnotesOf(final UpdatePlan plan) {
+        final Map<String, Integer> counts = new LinkedHashMap<>();
+        for (final Change change : plan.changes()) {
+            if (change.note() != null) {
+                counts.merge(change.note(), 1, Integer::sum);
+            }
+        }
+        final Map<String, Integer> numbered = new LinkedHashMap<>();
+        counts.forEach((note, count) -> {
+            if (count > 1) {
+                numbered.put(note, numbered.size() + 1);
+            }
+        });
+        return numbered;
+    }
+
+    /** A note in full, or its reference number when it is printed at the bottom. */
+    private static String noteText(final String note, final Map<String, Integer> footnotes) {
+        final Integer number = footnotes.get(note);
+        return number == null ? note : "[" + number + "]";
     }
 
     /**

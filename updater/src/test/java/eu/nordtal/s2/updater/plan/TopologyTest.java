@@ -88,6 +88,34 @@ class TopologyTest {
         }
     }
 
+    @Test
+    @DisplayName("every Paper backend caps players at the same number the proxy advertises")
+    void theBackendsAgreeOnThePlayerLimit() {
+        // Velocity shows 500 and enforces nothing, Paper's own default is 20, and until 2026-09-02
+        // nothing set it - so the network advertised 500 slots and limbo refused the 21st player
+        // with "Server full", after they had passed the login gate and waited for the pack. Three
+        // backends that disagree with each other are the same fault one step further along.
+        final List<String> limits = new java.util.ArrayList<>();
+        for (final Topology.Service service : Topology.SERVICES) {
+            if (service.kind() != Topology.Kind.PAPER) {
+                continue;
+            }
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
+
+            final Object raw = environment.get("MAX_PLAYERS");
+            assertNotNull(raw, service.name() + " sets no MAX_PLAYERS, so it keeps Paper's default"
+                    + " of 20 while the proxy advertises 500");
+            limits.add(defaultOf(String.valueOf(raw)));
+        }
+        assertEquals(1, new LinkedHashSet<>(limits).size(),
+                "the Paper backends cap players at different numbers: " + limits
+                        + ". Whichever one a player lands on decides, and that is always limbo"
+                        + " first, so the smallest of these is the network's real limit.");
+    }
+
     /** {@code ${SMP_EXPECTED_PLUGINS:-smp …}} - what compose uses when .env says nothing. */
     private static String defaultOf(final String value) {
         final java.util.regex.Matcher matcher =

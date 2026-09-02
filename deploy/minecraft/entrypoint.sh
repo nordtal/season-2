@@ -341,6 +341,24 @@ Two ways out, and only you can pick:
     set_property "$file" level-seed "$LEVEL_SEED"
 }
 
+# The player limit, and it is ENFORCED on every start rather than seeded.
+#
+# Paper's default is 20. Velocity advertises 500 in the server browser and does not enforce a limit
+# of its own, so the number that actually decides who gets in is this one, on whichever backend the
+# player lands on - which is always `limbo` first. The result before 2026-09-02 was a network that
+# showed 500 slots and refused the 21st player with "Server full", AFTER they had passed the login
+# gate, been offered the resource pack and waited for it.
+#
+# Enforced, unlike level-name beside it, because the two failure modes are nothing alike: a
+# level-name that disagrees would swap a world, so it stops the container; a player limit that
+# disagrees just quietly caps the network below what it promises, and there is no world to lose by
+# correcting it on a restart. It also has to agree with a number that lives in another container,
+# which is exactly the kind of value that must not be editable in one place only.
+enforce_player_limit() {
+    [[ -n "${MAX_PLAYERS:-}" ]] || return 0
+    set_property "$DATA/server.properties" max-players "$MAX_PLAYERS"
+}
+
 # A Paper server that sits behind the proxy. Two things have to be true and neither of them is
 # Paper's default, which is why this used to be two manual steps per backend in the runbook.
 prepare_backend() {
@@ -443,6 +461,7 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
     # Before anything generates, and before the datapacks: level-name IS the folder they go into,
     # and the world every other one is created inside.
     seed_level_settings
+    enforce_player_limit
 
     if [[ -n "${DATAPACK_URLS:-}" ]]; then
         fetch_datapacks "$DATA/${LEVEL_NAME}/datapacks"

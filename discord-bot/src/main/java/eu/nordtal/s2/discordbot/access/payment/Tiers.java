@@ -105,7 +105,11 @@ public final class Tiers {
      * @return what to grant, or empty when the amount does not even cover the cheapest tier
      */
     public Optional<Settlement> resolve(final int receivedCents, final Order order) {
-        final int orderedTotal = order.totalCents(donationCents);
+        // The row's own total, never the configured one - see Order.of. `donationCents` below is
+        // the CURRENT surcharge and is used for a different question: whether a surplus nobody
+        // ordered is big enough to count as a spontaneous donation. That one has no stored intent
+        // to honour, so today's threshold is the right one to ask.
+        final int orderedTotal = order.totalCents();
         if (receivedCents < orderedTotal) {
             // Short. This is the only case the tiers are re-derived from the amount.
             return resolve(receivedCents).map(Settlement::asDowngrade);
@@ -152,16 +156,26 @@ public final class Tiers {
     /**
      * What was ordered, taken from the {@code payment_request} row rather than re-derived.
      *
-     * @param days            how many days were asked for
-     * @param priceCents      what those days cost, without any donation
-     * @param donationOrdered whether the surcharge was included in the order
+     * @param days          how many days were asked for
+     * @param priceCents    what those days cost, without any donation
+     * @param donationCents how much of the order was the surcharge - <b>the amount, not a flag</b>
      */
-    public record Order(int days, int priceCents, boolean donationOrdered) {
+    public record Order(int days, int priceCents, int donationCents) {
 
         /**
-         * Reads the order off a request. The row stores the total and the donation part, so the
-         * price of the days themselves is the difference - and it stays correct even if the price
-         * list changed after the request was written.
+         * Reads the order off a request.
+         *
+         * <p>The row stores the total and the donation part, so the price of the days themselves is
+         * the difference, and both survive a price change after the request was written.</p>
+         *
+         * <h2>Why the surcharge is an amount here and was a boolean until 2026-09-02</h2>
+         * The boolean threw away the one number the row had recorded, so
+         * {@code totalCents(configuredSurcharge)} rebuilt the order's total out of the stored price
+         * of the days and <em>today's</em> surcharge. An order placed at a 5 € surcharge and paid
+         * after it moved to 3 € was then compared against a total nobody had ever been asked for -
+         * a mixed number - and that comparison is the one that decides between "grant what was
+         * ordered" and "downgrade". The javadoc right here promised the opposite, which is how it
+         * survived review.
          *
          * @param request the request being settled
          * @return the order it recorded
@@ -169,15 +183,21 @@ public final class Tiers {
         public static Order of(final PaymentRequest request) {
             return new Order(request.days(),
                     request.amountCents() - request.donationCents(),
-                    request.donationRequested());
+                    request.donationCents());
+        }
+
+        /** @return whether the surcharge was part of the order */
+        public boolean donationOrdered() {
+            return donationCents > 0;
         }
 
         /**
-         * @param donationCents the configured surcharge
-         * @return what the payer was asked to pay
+         * @return what the payer was actually asked to pay, entirely out of the stored row. It
+         *         takes no configuration argument on purpose: there is no value the current config
+         *         could contribute that would not be a way for a price change to rewrite history.
          */
-        public int totalCents(final int donationCents) {
-            return priceCents + (donationOrdered ? donationCents : 0);
+        public int totalCents() {
+            return priceCents + donationCents;
         }
     }
 

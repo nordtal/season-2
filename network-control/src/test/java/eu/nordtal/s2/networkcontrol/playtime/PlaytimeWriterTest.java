@@ -7,6 +7,7 @@ import eu.nordtal.s2.networkcontrol.MutableClock;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -195,16 +196,73 @@ class PlaytimeWriterTest {
         writer.forget(mcUuid);
     }
 
+    // ---------------------------------------------------------------- the two paths racing
+
+    @Test
+    @DisplayName("M7: the periodic flush and the disconnect flush cannot book the same seconds twice")
+    void oneSessionIsNeverCountedTwice() throws Exception {
+        // The two writers are genuinely different threads: flushAll runs on the proxy's scheduler
+        // and the disconnect flush runs on the event thread, and there is nothing stopping them
+        // being in flush() for the same player at the same instant. Both used to read the same
+        // marker, compute the same seconds, and hand them to `seconds = seconds + N` - so the
+        // player was credited twice, both writers then advanced the marker, and nothing afterwards
+        // ever disagreed. Against a crest earned over a whole season, silent and permanent.
+        join(PLAYER, DISCORD_ID);
+        clock.advance(Duration.ofMinutes(10));
+
+        final long expected = Duration.ofMinutes(10).toSeconds();
+        store.slowBy = Duration.ofMillis(80);
+
+        final java.util.concurrent.CountDownLatch both =
+                new java.util.concurrent.CountDownLatch(1);
+        final Runnable flush = () -> {
+            try {
+                both.await();
+            } catch (final InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            writer.flush(PLAYER);
+        };
+        final Thread periodic = new Thread(flush, "periodic");
+        final Thread disconnect = new Thread(flush, "disconnect");
+        periodic.start();
+        disconnect.start();
+        both.countDown();
+        periodic.join();
+        disconnect.join();
+
+        final long booked = store.writes.stream()
+                .mapToLong(write -> Long.parseLong(write.substring(write.indexOf('+') + 1)))
+                .sum();
+        assertEquals(expected, booked,
+                "the same ten minutes were booked more than once: " + store.writes
+                        + ". flush() has to hold the session across reading the marker, writing the"
+                        + " seconds and advancing it - volatile makes each access atomic and says"
+                        + " nothing about two threads doing all three.");
+    }
+
     /** Records what it was asked to add, or refuses to. */
     private static final class RecordingStore implements PlaytimeStore {
 
-        private final List<String> writes = new ArrayList<>();
+        private final List<String> writes =
+                java.util.Collections.synchronizedList(new ArrayList<>());
         private boolean failing;
+
+        /** Widens the window the race needs, so the test does not depend on scheduler luck. */
+        private Duration slowBy = Duration.ZERO;
 
         @Override
         public void add(final String discordId, final long seconds) {
             if (failing) {
                 throw new IllegalStateException("the database is unreachable");
+            }
+            if (!slowBy.isZero()) {
+                try {
+                    Thread.sleep(slowBy.toMillis());
+                } catch (final InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
             }
             writes.add(discordId + "+" + seconds);
         }

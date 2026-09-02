@@ -151,26 +151,39 @@ public final class PlaytimeWriter {
             return false;
         }
 
-        final long seconds = Duration.between(session.since, clock.instant()).toSeconds();
-        if (seconds <= 0) {
-            return false;
-        }
+        // ONE SESSION IS FLUSHED BY ONE THREAD AT A TIME, and the lock has to cover all three steps:
+        // reading the marker, writing the seconds, and moving the marker. Without it the periodic
+        // flushAll and the DisconnectEvent flush - which are different threads and can be in here
+        // for the same player at the same moment - both read the same `since`, both compute the
+        // same seconds, and both hand them to `seconds = seconds + N`. The player is credited twice
+        // and both writers then advance the marker, so nothing afterwards disagrees and nothing ever
+        // reports it. Prestige is a 13-tier crest earned over a whole season, so the damage is
+        // silent and permanent rather than visible.
+        //
+        // Locking the session and not the whole class is deliberate: flushAll walks every player,
+        // and one player's slow database write must not hold up the rest.
+        synchronized (session) {
+            final long seconds = Duration.between(session.since, clock.instant()).toSeconds();
+            if (seconds <= 0) {
+                return false;
+            }
 
-        try {
-            store.add(session.discordId, seconds);
-        } catch (final RuntimeException exception) {
-            // The marker is deliberately NOT advanced: the seconds are still owed, and the next
-            // flush - or the disconnect - writes them along with everything since. A failed flush
-            // costs a retry, never the time itself.
-            logger.warn("Could not write {}s of play time for {} ({}); it will be written with the "
-                    + "next flush", seconds, mcUuid, session.discordId, exception);
-            return false;
-        }
+            try {
+                store.add(session.discordId, seconds);
+            } catch (final RuntimeException exception) {
+                // The marker is deliberately NOT advanced: the seconds are still owed, and the next
+                // flush - or the disconnect - writes them along with everything since. A failed
+                // flush costs a retry, never the time itself.
+                logger.warn("Could not write {}s of play time for {} ({}); it will be written with "
+                        + "the next flush", seconds, mcUuid, session.discordId, exception);
+                return false;
+            }
 
-        // Advance by what was written, not to now, so the sub-second remainder survives to the next
-        // flush instead of being thrown away once per interval.
-        session.since = session.since.plusSeconds(seconds);
-        return true;
+            // Advance by what was written, not to now, so the sub-second remainder survives to the
+            // next flush instead of being thrown away once per interval.
+            session.since = session.since.plusSeconds(seconds);
+            return true;
+        }
     }
 
     /** @return how many sessions are being counted, for tests and logging */
@@ -179,8 +192,13 @@ public final class PlaytimeWriter {
     }
 
     /**
-     * One player's running session. Mutable in exactly one field, only ever from
-     * {@link #flush(UUID)}.
+     * One player's running session.
+     * <p>
+     * Mutable in exactly one field and only ever from {@link #flush(UUID)}, which holds this
+     * object's monitor across the whole read-write-advance. {@code volatile} alone was not enough
+     * and reading as if it were is what the bug looked like: it makes each access atomic and says
+     * nothing about two threads doing all three steps at once.
+     * </p>
      */
     private static final class Session {
 

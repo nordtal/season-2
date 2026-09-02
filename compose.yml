@@ -293,6 +293,15 @@ services:
       # a hand-installed extra is fine. Counting jars was not enough - see finding B4 and the long
       # note in deploy/minecraft/entrypoint.sh.
       EXPECTED_PLUGINS: ${NETWORK_CONTROL_EXPECTED_PLUGINS:-network-control}
+      # What the server browser shows. Seeded into velocity.toml on a fresh volume only, like the
+      # rest of that file. Until 2026-09-02 neither was set, so the browser advertised Velocity's
+      # own default - "A Velocity Server" in Velocity blue - and 500 slots that no backend honoured.
+      #
+      # show-max-players is DISPLAY ONLY: Velocity enforces no limit, so the number that decides is
+      # max-players on the backend a player lands on. Both come from NETWORK_MAX_PLAYERS so they
+      # cannot say different things.
+      VELOCITY_MOTD: ${VELOCITY_MOTD:-nordtal.eu}
+      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       SERVER_VERSION: ${VELOCITY_VERSION:-4.1.1}
       SERVER_BUILD: ${VELOCITY_BUILD:-24}
       HEAP: ${PROXY_HEAP:-1G}

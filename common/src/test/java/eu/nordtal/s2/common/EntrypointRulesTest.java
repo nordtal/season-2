@@ -102,6 +102,30 @@ class EntrypointRulesTest {
                         + " creating latest.log. That is the case where it is the only copy.");
     }
 
+    @Test
+    @DisplayName("the seeded velocity.toml says who this network is and how many it takes")
+    void theProxyDoesNotAdvertiseItselfAsAVelocityServer() {
+        // Seeded velocity.toml carried only what a login needs, so the server browser showed
+        // Velocity's own default - "A Velocity Server" in Velocity blue - and 500 slots that no
+        // backend honoured. On launch day, in every player's list.
+        assertTrue(script.contains("motd = "),
+                "the seeded velocity.toml no longer sets a MOTD, so the browser falls back to"
+                        + " \"A Velocity Server\"");
+        assertTrue(script.contains("show-max-players = "),
+                "the seeded velocity.toml no longer sets show-max-players");
+        assertTrue(script.contains("${MAX_PLAYERS:-500}"),
+                "the browser's player count no longer comes from the same variable as the backends'"
+                        + " real limit, so the two can advertise different numbers again");
+    }
+
+    @Test
+    @DisplayName("the player limit is enforced on every start, not seeded once")
+    void thePlayerLimitCannotDriftFromTheProxys() {
+        assertTrue(script.contains("set_property \"$DATA/server.properties\" max-players"),
+                "nothing writes max-players any more, so every backend keeps Paper's default of 20"
+                        + " while the proxy advertises 500");
+    }
+
     /** The directory holding {@code settings.gradle.kts}, not the nearest file by name. */
     private static Path repositoryRoot() {
         Path directory = Path.of("").toAbsolutePath();

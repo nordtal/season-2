@@ -608,3 +608,36 @@ of PID 1 inheriting its stdout, does not do that, and gives a container log free
 sequences as a bonus. That is what `entrypoint.sh` does. An A/B of the identical image, one
 variable, both directions — written down because rediscovering it costs the same hour it cost the
 first time.
+
+**The rule is about `/proc/1/fd/1`, not about `pipe-pane` — and since 2026-09-02 the entrypoint uses
+`pipe-pane` into a *file*.** What makes the forbidden form lethal is the second handle on the
+container's stdout *pipe*; an ordinary file in the volume is a different descriptor and holds
+nothing open. Two comments in this repository (the image's `Dockerfile` and `compose.yml`) claimed
+until that day that the console *was* mirrored to `/proc/1/fd/1`, which is the one sentence most
+likely to make somebody implement it.
+
+**Why a capture was needed at all.** `tail -F logs/latest.log` can show nothing that happens before
+Paper creates that file. A Paperclip that could not load `mojang_26.2.jar` printed a forty-line
+stack trace into the tmux pane, the pane died with the container, and what an operator saw — on a
+loop, because `restart: unless-stopped` — was:
+
+```
+[nordtal] starting paper 26.2 build 121
+[nordtal] server exited with status 1
+```
+
+So the pane is captured to `logs/console.log`, emptied at every start and **switched off again the
+moment `latest.log` exists**: it is a boot log, bounded by construction, and it stops being written
+before a player could join — no rotation policy, nothing to grow. If the JVM dies before Paper
+starts logging, the entrypoint prints that file to stdout on the way out, which is the only place
+it would ever be read.
+
+**Two ordering bugs came out of the same drill, and both are one line.** `remain-on-exit` was set
+*after* `new-session`, which works for every server that runs for a while and fails for the only
+one where it matters: a JVM that dies at once takes the session with it before the option applies,
+every `display-message` falls back to `|| echo 1`, and a real exit status of 3 is reported as 1.
+Setting it globally first needs `exit-empty off`, because a tmux server with no sessions exits
+immediately. And `pipe-pane` has to be attached in the *same* `tmux` invocation as `new-session` —
+a separate call against a pane that already exited fails with *"target pane has exited"*, taking
+the crash output with it. Both measured in a container on 2026-09-02, both directions;
+`:common`'s `EntrypointRulesTest` is what notices if either is undone.

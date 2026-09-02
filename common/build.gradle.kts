@@ -10,6 +10,10 @@ repositoryRootTestInputs {
     reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
+
+    // EntrypointRulesTest keeps the container rules in deploy/minecraft/entrypoint.sh from being
+    // quietly untaught. Every one of them came out of a drill against a running container.
+    reads("deploy/minecraft/entrypoint.sh")
 }
 
 dependencies {

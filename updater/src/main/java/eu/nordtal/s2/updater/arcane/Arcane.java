@@ -43,6 +43,14 @@ import java.time.Duration;
  * {@code nordtal-s2} everywhere else in this deployment, and putting that name here answers 404.
  * </p>
  *
+ * <h2>{@code localhost} in this file is this container - finding 40, 2026-09-03</h2>
+ * The first restart anybody asked for failed forty milliseconds after the POST, against
+ * {@code http://localhost:3553}. Arcane was running and reachable; the URL was not, because inside
+ * this container {@code localhost} is <em>this container</em>, which has nothing listening on 3553.
+ * It is the one wrong value that looks right in every other context - it is what the browser bar
+ * says while somebody is copying it. So {@link #loopback(String)} names it: at startup as a warning,
+ * and again in the sentence that goes into the row when the call fails.
+ *
  * <h2>Arcane may answer success and do nothing</h2>
  * <a href="https://github.com/getarcaneapp/arcane/issues/1943">arcane#1943</a> reports a redeploy
  * of an <em>already running</em> project doing nothing while still answering success - which is
@@ -68,6 +76,16 @@ public final class Arcane {
 
     public Arcane(final @NotNull UpdaterSpec.ArcaneSpec config) {
         this.config = config;
+        if (configured() && loopback(config.baseUrl())) {
+            // Warned rather than refused. The updater is the bootstrap of the whole deployment -
+            // it is the only process that migrates - and refusing to start over an optional restart
+            // button would trade a working schema for a broken one.
+            log.warn("arcane.base-url is {}, and inside this container that is THIS CONTAINER, not"
+                    + " the host Arcane runs on. Every restart will fail with a connection error."
+                    + " Use http://host.docker.internal:{} (the updater service maps it), Arcane's"
+                    + " own container name if it shares a network with this one, or the host's"
+                    + " address on the network.", config.baseUrl(), portOf(config.baseUrl()));
+        }
         this.client = HttpClient.newBuilder()
                 // Arcane sits behind the same reverse proxy as everything else here, so a redirect
                 // is plausible; NORMAL follows it and refuses HTTPS to HTTP, which is the one
@@ -148,7 +166,55 @@ public final class Arcane {
             // and taken this container's network with it. Reported as refused rather than
             // triggered, on purpose: the row is then left RUNNING or FAILED, and a person looks -
             // which is the right way round for "the restart may or may not be happening".
-            return RedeployResult.refused("Could not reach Arcane at " + uri + ": " + failure);
+            return RedeployResult.refused("Could not reach Arcane at " + uri + ": " + failure
+                    + (loopback(config.baseUrl())
+                    ? " -- arcane.base-url is a loopback address, and inside this container that is"
+                    + " this container rather than the host Arcane runs on. Use"
+                    + " http://host.docker.internal:" + portOf(config.baseUrl()) + ", Arcane's"
+                    + " container name if it shares a network with this one, or the host's address."
+                    : ""));
+        }
+    }
+
+    /**
+     * Whether a base URL points at the machine making the request.
+     * <p>
+     * Static and string-only so that it can be asserted without a container and without a network:
+     * the whole value of this check is that it fires on a URL nobody can test from a laptop, where
+     * {@code localhost} is correct and means something else entirely.
+     * </p>
+     *
+     * @param baseUrl the configured origin, may be blank
+     * @return whether its host is a loopback name or address
+     */
+    public static boolean loopback(final String baseUrl) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return false;
+        }
+        final String host;
+        try {
+            host = URI.create(baseUrl.trim()).getHost();
+        } catch (final IllegalArgumentException notAUrl) {
+            return false;
+        }
+        if (host == null) {
+            return false;
+        }
+        final String lower = host.toLowerCase(java.util.Locale.ROOT);
+        return lower.equals("localhost")
+                || lower.endsWith(".localhost")
+                || lower.equals("::1")
+                || lower.equals("[::1]")
+                || lower.startsWith("127.");
+    }
+
+    /** The port out of a base URL, or Arcane's own default, for the sentence that suggests a fix. */
+    private static String portOf(final String baseUrl) {
+        try {
+            final int port = URI.create(baseUrl.trim()).getPort();
+            return port > 0 ? Integer.toString(port) : "3552";
+        } catch (final IllegalArgumentException notAUrl) {
+            return "3552";
         }
     }
 

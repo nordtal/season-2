@@ -1,5 +1,7 @@
 package eu.nordtal.s2.networkcontrol.update;
 
+import eu.nordtal.s2.common.update.UpdateStatus;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -76,32 +78,72 @@ class CountdownTest {
     // ---------------------------------------------------------------- cancelling
 
     @Test
-    @DisplayName("a countdown that stops before zero is announced as cancelled")
+    @DisplayName("a withdrawn countdown is announced as cancelled")
     void aStoppedCountdownIsAnnounced() {
         countdown.pending(1L, 60L);
         countdown.pending(1L, 30L);
 
-        final Announcement gone = countdown.gone().orElseThrow();
+        final Announcement gone = countdown.gone(UpdateStatus.CANCELLED).orElseThrow();
         assertEquals(Announcement.Kind.CANCELLED, gone.kind());
     }
 
     @Test
-    @DisplayName("a countdown that ran out is not a cancellation")
-    void reachingZeroIsNotCancelling() {
-        // The row disappears the moment the updater claims it, which is a fraction of a second
-        // after it hits zero. Telling everybody "the restart was called off" and then restarting
-        // is the worst of the possible messages.
+    @DisplayName("FINDING 39: a claimed restart is announced as happening, not as called off")
+    void aClaimedRestartIsNotACancellation() {
+        // The case that actually occurs, every single time, and the one nothing here covered.
+        // The proxy polls every five seconds; the updater sleeps to the exact instant and claims
+        // the row on it. So the last thing the countdown ever sees is a second or two left, and
+        // then the row is gone from the pending set - which the old rule read as a cancellation.
+        // Everybody watching a working restart was told it had been called off.
+        countdown.pending(1L, 30L);
+        countdown.pending(1L, 1L);
+
+        assertEquals(Announcement.Kind.NOW, countdown.gone(UpdateStatus.RUNNING).orElseThrow().kind());
+    }
+
+    @Test
+    @DisplayName("a restart that failed after the countdown says so, and is not a cancellation")
+    void aFailedRestartIsItsOwnLine() {
+        // What happened on 2026-09-03: the countdown ran, the updater claimed the row on time, and
+        // the redeploy failed because arcane.base-url pointed at the updater's own container. One
+        // of those is somebody's decision and the other went wrong; a player can tell.
+        countdown.pending(1L, 10L);
+        countdown.pending(1L, 1L);
+
+        assertEquals(Announcement.Kind.FAILED, countdown.gone(UpdateStatus.FAILED).orElseThrow().kind());
+    }
+
+    @Test
+    @DisplayName("a row that is gone from the table entirely reads as cancelled")
+    void aDeletedRowIsACancellation() {
+        countdown.pending(1L, 30L);
+        assertEquals(Announcement.Kind.CANCELLED, countdown.gone(null).orElseThrow().kind());
+    }
+
+    @Test
+    @DisplayName("a countdown that ran out has already spoken and does not speak twice")
+    void reachingZeroIsNotAnnouncedAgain() {
         countdown.pending(1L, 5L);
         countdown.pending(1L, 0L);
 
-        assertEquals(Optional.empty(), countdown.gone());
+        assertEquals(Optional.empty(), countdown.gone(UpdateStatus.RUNNING));
     }
 
     @Test
     @DisplayName("a quiet network says nothing at all")
     void nothingPendingSaysNothing() {
-        assertEquals(Optional.empty(), countdown.gone());
-        assertEquals(Optional.empty(), countdown.gone());
+        assertEquals(Optional.empty(), countdown.gone(null));
+        assertEquals(Optional.empty(), countdown.gone(UpdateStatus.RUNNING));
+    }
+
+    @Test
+    @DisplayName("the countdown names the row it is following, so the caller can read it back")
+    void theWatchedRequestIsVisible() {
+        assertEquals(null, countdown.watching());
+        countdown.pending(7L, 60L);
+        assertEquals(7L, countdown.watching());
+        countdown.gone(UpdateStatus.DONE);
+        assertEquals(null, countdown.watching());
     }
 
     @Test

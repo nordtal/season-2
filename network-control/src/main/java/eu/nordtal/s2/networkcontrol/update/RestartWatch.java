@@ -3,6 +3,7 @@ package eu.nordtal.s2.networkcontrol.update;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateRequest;
+import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
 import com.velocitypowered.api.proxy.Player;
@@ -92,7 +93,7 @@ public final class RestartWatch {
         }
 
         if (pending.isEmpty()) {
-            countdown.gone().ifPresent(this::say);
+            vanished();
             return;
         }
 
@@ -106,12 +107,47 @@ public final class RestartWatch {
                 });
     }
 
+    /**
+     * The row the countdown was following is no longer pending. Looks up what became of it.
+     * <p>
+     * The extra query is the whole of finding 39: a row leaving the pending set is far more often
+     * the updater claiming it on time than a person withdrawing it, and those two are opposite
+     * things to tell a player. It costs one indexed lookup by primary key, on the single pass where
+     * a countdown ends - not on the poll, which is the common case and still one query.
+     * </p>
+     */
+    private void vanished() {
+        final Long watched = countdown.watching();
+        if (watched == null) {
+            // Nothing was being counted down. Clears the bookkeeping and stays silent.
+            countdown.gone(null).ifPresent(this::say);
+            return;
+        }
+
+        final UpdateStatus status;
+        try {
+            status = updates.find(watched).map(UpdateRequest::status).orElse(null);
+        } catch (final RuntimeException failure) {
+            // Same rule as above: a database that cannot be reached is not a reason to announce
+            // anything, and guessing here is exactly what this method exists to stop. The countdown
+            // is left standing so the next pass asks again.
+            logger.warn("The restart {} stopped being pending and could not be read back; nobody was"
+                    + " told anything this pass", watched, failure);
+            return;
+        }
+
+        logger.info("Restart {} is no longer pending: {}", watched,
+                status == null ? "the row is gone" : status);
+        countdown.gone(status).ifPresent(this::say);
+    }
+
     private void say(final Announcement announcement) {
         broadcast(locale -> Component.text(switch (announcement.kind()) {
             case COUNTDOWN -> messages.format(locale, "restart.countdown",
                     "seconds", announcement.seconds());
             case NOW -> messages.get(locale, "restart.now");
             case CANCELLED -> messages.get(locale, "restart.cancelled");
+            case FAILED -> messages.get(locale, "restart.failed");
         }));
     }
 

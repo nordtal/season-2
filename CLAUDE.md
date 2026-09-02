@@ -558,10 +558,28 @@ Seven rules that are easy to break and expensive to break:
 - **`Topology` and `compose.yml` are two copies of one fact.** A fifth backend server is a
   change to both in the same commit; `TopologyTest` reads the real compose file and fails otherwise.
   It also fails if `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two `PACK_*` variables come back.
-- **`compose.yml` and `.env.example` live at the repository root and must stay there** (moved
-  2026-09-01). Arcane's GitOps sync pulls only the directory the compose file is in, and two build
-  contexts (`./updater`, `./discord-bot`) are above `deploy/` — so a compose file inside `deploy/`
-  syncs a tree that cannot build. Everything else about the deployment is still in `deploy/`.
+- **`compose.yml` and `.env.example` live at the repository root** (moved 2026-09-01). Arcane's
+  GitOps sync pulls only the directory the compose file is in. The original second half of this
+  rule — that two build contexts are above `deploy/` — expired on 2026-09-02 when the host stopped
+  building anything; it is a convention now, not a hard requirement, and both files say so. Do not
+  argue a future change down with the expired half.
+- **ARCANE PULLS AND NEVER BUILDS, so every image of ours has to be published** (learned the hard
+  way 2026-09-02, finding 31 in `docs/state-of-play.md`). Redeploy pulls; building is a separate
+  action in its interface. An image tagged for a local build — `ghcr.io/nordtal/minecraft:local`
+  was the real one — fails a deploy with `error from registry: denied`, which is *also* what a
+  private package answers, so the message identifies nothing. All four images are pushed by
+  `release.yml` and every `image:` in `compose.yml` defaults to a `ghcr.io/nordtal` reference tagged
+  from one `IMAGE_TAG`. `TopologyTest` fails if that stops being true. A `build:` block beside an
+  image proves nothing about production and is there for local development only.
+- **A `:?` is forbidden in a `build:` arg.** Compose interpolates build args on a deploy that only
+  pulls, so a required variable there stops Arcane before it fetches a single image. `SEASON_VERSION`
+  and `BOT_VERSION` are defaulted for exactly this reason.
+- **`serve` fills empty volumes at startup, and that is bounded on purpose.** It installs only
+  artefacts with *nothing* installed (`UpdatePlan#onlyMissing()`), so "a crash restart at three in
+  the morning does not move a version" stays literally true. Widening it to `isWork()` would break
+  the module's first rule; if a future change needs upgrades at startup, that is a decision to take
+  out loud and not a filter to relax. A failure there must not block the readiness marker — `serve`
+  runs on every restart of a *running* network, not only on a fresh one.
 - **Arcane's redeploy takes two IDs, not a name.** `POST /api/environments/{id}/projects/{projectId}/redeploy`,
   read from Arcane's own source at v2.10.0. `arcane.project` is a UUID and *not* the compose project
   name `nordtal-s2`; it has no default and the updater refuses to start without it once

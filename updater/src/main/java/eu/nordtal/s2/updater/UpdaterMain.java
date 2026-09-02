@@ -49,16 +49,23 @@ import java.util.Optional;
  * a schema older than itself.</p>
  *
  * <h2>{@code serve} is the container that runs all the time, and it is not a scheduler</h2>
- * It applies the schema once, at startup, and then does <b>nothing at all</b> until somebody writes
- * a row into {@code update_request}. There is no timer, no watch and no "check for updates on
- * boot": the first rule of this module is that a crash restart at three in the morning does not
- * move a version, and a container that comes back up comes back on exactly the jars it was running.
+ * At startup it applies the schema and installs what is <em>missing</em>, and then does
+ * <b>nothing at all</b> until somebody writes a row into {@code update_request}. There is no timer,
+ * no watch and no "check for updates on boot": the first rule of this module is that a crash restart
+ * at three in the morning does not move a version, and a container that comes back up comes back on
+ * exactly the jars it was running.
  *
- * <p>The startup migration is not a version move and does not break that rule - the schema applied
- * is whatever <em>this</em> jar carries, and this jar is what it was. It is done there because the
- * updater is the only process that migrates and the whole stack starts at once after a redeploy;
- * {@code compose.yml} makes every other service wait for the readiness marker this writes
- * once the schema is current.</p>
+ * <p>Neither startup step breaks that rule, and it is worth being exact about why. The schema
+ * applied is whatever <em>this</em> jar carries, and this jar is what it was. The install is
+ * restricted to artefacts with nothing installed at all ({@link UpdatePlan#onlyMissing()}), so a
+ * volume that already holds a jar keeps it however old it is - a restart of a live network finds
+ * nothing missing and moves nothing. What the install is for is the other case: a brand new stack,
+ * where every volume is empty and a Minecraft server refuses to start without plugins. That used to
+ * need {@code updater apply} typed on the host, which is a thing Arcane cannot do.</p>
+ *
+ * <p>Both are done here because the updater is the only process that migrates and the whole stack
+ * starts at once after a redeploy; {@code compose.yml} makes every other service wait for the
+ * readiness marker this writes once the schema is current and the empty volumes are filled.</p>
  *
  * <h2>Exit codes</h2>
  * {@code 0} when a report was produced, whatever the report says - including one full of rows that
@@ -207,6 +214,12 @@ public final class UpdaterMain {
                 return 1;
             }
 
+            // Fill empty volumes before anything is told this container is ready. See below for
+            // why a failure here does NOT stop the readiness marker.
+            if (config.bootstrap()) {
+                bootstrap(config, database);
+            }
+
             final Arcane arcane = new Arcane(config.arcane());
             if (!arcane.configured()) {
                 log.warn("arcane.base-url is empty, so nothing here can restart the network."
@@ -231,6 +244,90 @@ public final class UpdaterMain {
             }
         }
         return 0;
+    }
+
+    /**
+     * Installs what has <b>nothing</b> installed, once, before this container reports itself ready.
+     *
+     * <h2>What it is for</h2>
+     * A Minecraft server in this deployment refuses to start on an empty {@code plugins} folder,
+     * and filling it was {@code docker compose run --rm updater apply} - a command typed by a person
+     * with a shell on the host. Arcane deploys by pulling images and has no way to type it, so
+     * without this a stack managed from Arcane could never reach a running state on its own. This is
+     * the whole of "deployable from environment variables alone".
+     *
+     * <h2>It cannot move a version</h2>
+     * {@link UpdatePlan#onlyMissing()} drops everything but {@code MISSING}, so an artefact that
+     * already has a jar keeps it however old it is. A container that comes back up after a crash
+     * therefore finds nothing missing and does nothing at all - this module's first rule, kept as a
+     * property of the plan rather than a promise in a comment. Upgrades stay a request somebody
+     * makes.
+     *
+     * <h2>A failure here does not stop the readiness marker, deliberately</h2>
+     * The tempting symmetry is with the schema above, which refuses to become ready. It is the wrong
+     * symmetry: {@code serve} runs on <em>every</em> restart of a live network, not only on a fresh
+     * one, so a GitHub outage during an ordinary redeploy would take down four servers and the bot
+     * that were about to come back up perfectly well. The failure this guards against is also
+     * already reported precisely and by name one layer down - the entrypoint stops the container and
+     * says which folder is empty - whereas an updater that never goes healthy says only that
+     * everything is waiting for it. So this logs loudly and lets the stack come up.
+     *
+     * <p>It takes the same advisory lock as {@code updater apply}, so a person running one by hand
+     * at the moment a redeploy lands is refused rather than interleaved.</p>
+     */
+    private static void bootstrap(final UpdaterSpec config, final Database database) {
+        final Optional<RunLock> lock;
+        try {
+            lock = RunLock.tryAcquire(database.dataSource());
+        } catch (final java.sql.SQLException failure) {
+            log.error("Bootstrap: could not take the updater lock, so no missing file was installed."
+                    + " Any server whose plugins folder is empty will refuse to start and say so.",
+                    failure);
+            return;
+        }
+        if (lock.isEmpty()) {
+            log.warn("Bootstrap: another updater run holds the lock, so this start installed nothing."
+                    + " That run is doing the same work; nothing here needs repeating.");
+            return;
+        }
+
+        try (RunLock held = lock.get()) {
+            final UpdatePlan missing;
+            try {
+                missing = Runs.resolve(config).onlyMissing();
+            } catch (final RuntimeException failure) {
+                log.error("Bootstrap: nothing could be resolved, so no missing file was installed."
+                        + " Any server whose plugins folder is empty will refuse to start and say"
+                        + " so.", failure);
+                return;
+            }
+
+            if (missing.changes().isEmpty()) {
+                log.info("Bootstrap: every volume already holds a jar for everything that belongs"
+                        + " in it, so nothing was installed. This is the normal case on a restart.");
+                return;
+            }
+
+            log.info("Bootstrap: {} artefact(s) have nothing installed at all. Installing those, and"
+                    + " only those, before this container reports ready.", missing.changes().size());
+            final ApplyResult result;
+            try {
+                result = Runs.apply(config, missing);
+            } catch (final RuntimeException failure) {
+                log.error("Bootstrap: the install failed part way through. Some volumes may still be"
+                        + " empty, and a server whose plugins folder is one of them will refuse to"
+                        + " start and say so.", failure);
+                return;
+            }
+
+            // The report goes through the logger here, not stdout: this is a container's start-up
+            // record rather than a command's output, and the two are read in different places.
+            if (result.hasFailures()) {
+                log.error("Bootstrap finished with failures:\n{}", Report.render(result));
+            } else {
+                log.info("Bootstrap finished:\n{}", Report.render(result));
+            }
+        }
     }
 
     private static void markReady() {

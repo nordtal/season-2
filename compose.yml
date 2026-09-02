@@ -6,13 +6,32 @@
 #   cp .env.example .env        # fill it in; .env is gitignored and must never be committed
 #   docker compose up -d
 #
-# THIS FILE LIVES AT THE REPOSITORY ROOT, AND MOVING IT INTO deploy/ WOULD BREAK THE DEPLOYMENT.
-# Arcane's GitOps sync pulls "the entire directory the compose file lives in, not just the file
-# itself" (its own documentation, read 2026-09-01) - so a compose file under deploy/ would put
-# deploy/ on the host and nothing else, and the `./updater` and `./discord-bot` build contexts
-# below would not exist there. At the root, the synced directory is the whole repository and every
-# context resolves. Everything else that belongs to the deployment is still in deploy/; it is this
-# one file and .env.example that have to be up here.
+# THIS FILE LIVES AT THE REPOSITORY ROOT. Arcane's GitOps sync pulls "the entire directory the
+# compose file lives in, not just the file itself" (its own documentation, read 2026-09-01), so a
+# compose file under deploy/ would put deploy/ on the host and nothing else. Everything else that
+# belongs to the deployment is still in deploy/; it is this one file and .env.example that are up
+# here.
+#
+# The second half of that reasoning has since weakened, and it is written down rather than quietly
+# left standing: it used to be that the `./updater` and `./discord-bot` build contexts would not
+# exist in such a tree. Since 2026-09-02 nothing on the host builds, so a deploy that only pulls
+# never looks at a build context. The location is a convention now, not a hard requirement.
+#
+# EVERY IMAGE IS PULLED, NOTHING IS BUILT ON THE HOST. Arcane's Redeploy pulls and never builds -
+# building is a separate action in its interface (Arcane's own documentation, read 2026-09-02) - and
+# two of these images COPY a jar that Gradle produces and .gitignore excludes, so a host with only a
+# checkout could not build them even if it tried. All four therefore come from ghcr.io/nordtal,
+# pushed by .github/workflows/release.yml when a release is published. The `build:` blocks that
+# remain are for developing on this machine.
+#
+# IMAGE_TAG picks which release runs, and defaults to `latest`. Pinning it is the rollback:
+#
+#   IMAGE_TAG=0.2.1     every nordtal image at that release
+#   MC_IMAGE=...        one image somewhere else entirely, if it ever comes to that
+#
+# The images are a FLOOR, not the version of what runs. The updater replaces jars inside the volumes
+# at runtime, so `latest` here plus a pinned UPDATER_SEASON_RELEASE below is a legitimate and
+# deliberate combination - see docs/updater.md.
 #
 # COMPOSE_PROFILES in .env decides what "everything" means. The default is `db,bot,mc`.
 #
@@ -56,9 +75,14 @@ name: nordtal-s2
 # ---------------------------------------------------------------------------------------------
 x-minecraft: &minecraft
   profiles: ["mc"]
+  # ARCANE NEVER RUNS THIS. Its Redeploy pulls images and does not build; building is a separate
+  # action in its interface (its own documentation, read 2026-09-02). The block is kept because it
+  # is how this image is developed locally - `docker compose build network-control` after an edit to
+  # entrypoint.sh - and because build.yml runs the same build on every push, which is what catches a
+  # Dockerfile that COPYs a file .dockerignore excludes. What production runs is the pulled image.
   build:
     context: ./deploy/minecraft
-  image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:${MC_IMAGE_TAG:-local}}
+  image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:${IMAGE_TAG:-latest}}
   restart: unless-stopped
   depends_on:
     # The schema, and nothing else. Not the database - see the note at the top of this file about
@@ -147,7 +171,7 @@ services:
       context: ./deploy/postgres-backup
       args:
         POSTGRES_IMAGE: ${POSTGRES_IMAGE:-postgres:17-alpine}
-    image: ${BACKUP_IMAGE:-nordtal/postgres-backup:${POSTGRES_IMAGE_TAG:-17-alpine}}
+    image: ${BACKUP_IMAGE:-ghcr.io/nordtal/postgres-backup:${IMAGE_TAG:-latest}}
     restart: unless-stopped
     environment:
       TZ: ${TZ:-Europe/Berlin}
@@ -184,13 +208,15 @@ services:
     # BOT_VERSION therefore still pins the image, and still has to match gradle.properties for a
     # build - but it does not decide what the bot runs, and after the first `updater apply` it
     # never will again.
-    image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${BOT_VERSION:?set BOT_VERSION in .env; it must match gradle.properties}}
+    image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${IMAGE_TAG:-latest}}
     build:
-      # Compose cannot run Gradle: `./gradlew :discord-bot:shadowJar` has to happen first.
-      # A production host runs the released image and never builds.
+      # Compose cannot run Gradle: `./gradlew :discord-bot:shadowJar` has to happen first, which is
+      # why a production host pulls this image and never builds it. BOT_VERSION is defaulted rather
+      # than required because compose interpolates build args even on a deploy that only pulls - a
+      # `:?` here would stop Arcane before it reached a single image.
       context: ./discord-bot
       args:
-        JAR: build/libs/discord-bot-${BOT_VERSION}.jar
+        JAR: build/libs/discord-bot-${BOT_VERSION:-local}.jar
     restart: unless-stopped
     depends_on:
       # The bot validates the schema and refuses a database it was not built against, so without
@@ -402,10 +428,12 @@ services:
   # second one to ask is refused rather than queued.
   updater:
     build:
+      # Same as the bot: Gradle first, so production pulls. Defaulted for the same reason - a `:?`
+      # in a build arg is evaluated even by a deploy that builds nothing.
       context: ./updater
       args:
-        JAR: build/libs/updater-${SEASON_VERSION:?set SEASON_VERSION in .env}.jar
-    image: ${UPDATER_IMAGE:-nordtal/updater:${SEASON_VERSION:-local}}
+        JAR: build/libs/updater-${SEASON_VERSION:-local}.jar
+    image: ${UPDATER_IMAGE:-ghcr.io/nordtal/updater:${IMAGE_TAG:-latest}}
     restart: unless-stopped
     # `serve`. Every other mode is asked for by name on a `run`, and the default with no argument
     # at all is the read-only report - so a container started wrong does the harmless thing.
@@ -416,7 +444,12 @@ services:
       test: ["CMD-SHELL", "test -f /tmp/updater-ready"]
       interval: 10s
       timeout: 3s
-      retries: 30
+      # 15 minutes after start_period, not the 5 it used to be. On a FIRST deployment the marker is
+      # written only once the bootstrap has downloaded four server jars and every plugin, over
+      # whatever link the host has. Nothing acts on "unhealthy" here except the depends_on below,
+      # which simply keeps waiting - so a generous window costs a longer wait on a broken updater
+      # and buys a first deployment that does not fail half way through its own downloads.
+      retries: 90
       start_period: 120s
     environment:
       TZ: ${TZ:-Europe/Berlin}
@@ -441,6 +474,15 @@ services:
       # the rollback, and deliberately not PAPER_BUILD: that one only seeds an empty cache.
       NORDTAL_UPDATER_PAPER_BUILD: ${UPDATER_PAPER_BUILD:-latest}
       NORDTAL_UPDATER_VELOCITY_BUILD: ${UPDATER_VELOCITY_BUILD:-latest}
+      # Whether `serve` fills EMPTY volumes before it reports ready. This is what lets a stack come
+      # up with nobody typing anything on the host: a Minecraft server refuses to start on an empty
+      # plugins folder, and Arcane cannot run `docker compose run --rm updater apply`.
+      #
+      # It cannot move a version - only artefacts with nothing installed at all are fetched, so a
+      # restart of a live network finds nothing missing and does nothing. Repeated from
+      # UpdaterSpec#bootstrap for the reason given at ARCANE_ENVIRONMENT below: an env var set to
+      # the empty string still wins over the file, so `${VAR:-}` would blank the spec's own default.
+      NORDTAL_UPDATER_BOOTSTRAP: ${UPDATER_BOOTSTRAP:-true}
       # Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP; a run makes
       # two GitHub calls, so it only matters on a host that shares its address with something busy.
       NORDTAL_UPDATER_GITHUB_TOKEN: ${UPDATER_GITHUB_TOKEN:-}

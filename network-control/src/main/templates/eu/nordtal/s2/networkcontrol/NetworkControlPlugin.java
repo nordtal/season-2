@@ -194,18 +194,37 @@ public final class NetworkControlPlugin {
         phaseWatch.refresh();
 
         final Duration pollInterval = Duration.ofSeconds(gateConfig.phasePollIntervalSeconds());
-        proxy.getScheduler().buildTask(this, phaseWatch::refresh)
+
+        // The admin roster rides the same two signals as the phase - the poll and the LISTEN - for
+        // the same reason: LoginRoster is filled at login and was never touched again, so an admin
+        // who lost the role in Discord kept /phase and /smp until they disconnected. An emergency
+        // revocation is precisely the case where that is the wrong direction.
+        //
+        // The whole set, re-derived: a lost notification then costs latency and not correctness,
+        // and the poll needs no bookkeeping to catch up on.
+        final Runnable refreshAdmins = () -> {
+            final int changed = roster.refreshAdmins(access.admins());
+            if (changed > 0) {
+                logger.info("The admin flag changed for {} connected player(s)", changed);
+            }
+        };
+
+        proxy.getScheduler().buildTask(this, () -> {
+                    phaseWatch.refresh();
+                    refreshAdmins.run();
+                })
                 .delay(pollInterval)
                 .repeat(pollInterval)
                 .schedule();
 
         if (gateConfig.phaseListenEnabled()) {
             this.phaseListener = new PhaseListener(PhaseListener.postgres(databaseConfig), phaseWatch,
-                    logger, pollInterval);
+                    refreshAdmins, logger, pollInterval);
             phaseListener.start();
         } else {
-            logger.info("The nordtal_phase LISTEN connection is disabled; the {}s poll is the only "
-                    + "path a phase switch travels", pollInterval.toSeconds());
+            logger.info("The nordtal_phase and nordtal_admin LISTEN connection is disabled; the {}s "
+                    + "poll is the only path a phase switch or an admin change travels",
+                    pollInterval.toSeconds());
         }
 
         // ------------------------------------------------------------ the gate

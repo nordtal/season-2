@@ -62,14 +62,45 @@ interface AccessDao {
     /**
      * Mirrors the Discord admin role. Unlike {@code donor} this one is written in both directions:
      * losing the role loses the flag, because it is a permission and not an acknowledgement.
+     *
+     * <h2>It notifies, for the same reason the phase does</h2>
+     * The proxy fills {@code LoginRoster} from the login query and never again, so until 2026-09-02
+     * a revoked admin kept every power they had until they disconnected - and an emergency
+     * revocation is exactly the case where waiting for a reconnect is the wrong direction. The
+     * channel is {@code nordtal_admin} and the payload is the Discord id.
+     *
+     * <p>{@code pg_notify} rides inside the statement, as in {@code PhaseDao#switchPhase}, so a
+     * notification is only ever emitted for a write that committed. Unlike the phase's, this
+     * payload is <b>not</b> empty - but nothing is allowed to trust it as state either: the
+     * listener re-reads {@link #adminDiscordIds()} in full, which makes a lost notification cost
+     * latency rather than correctness and needs no per-id bookkeeping.</p>
+     *
+     * @return how many rows were notified about - always 1, and read by nothing
      */
-    @SqlUpdate("""
-            INSERT INTO discord_user (discord_id, admin, updated)
-            VALUES (:discordId, :admin, now())
-            ON CONFLICT (discord_id)
-                DO UPDATE SET admin = EXCLUDED.admin, updated = now()
+    @SqlQuery("""
+            WITH upserted AS (
+                INSERT INTO discord_user (discord_id, admin, updated)
+                VALUES (:discordId, :admin, now())
+                ON CONFLICT (discord_id)
+                    DO UPDATE SET admin = EXCLUDED.admin, updated = now()
+                RETURNING discord_id
+            ),
+                 notified AS (
+                     SELECT pg_notify('nordtal_admin', discord_id) FROM upserted
+                 )
+            SELECT count(*) FROM notified
             """)
-    void setAdmin(@Bind("discordId") String discordId, @Bind("admin") boolean admin);
+    int setAdmin(@Bind("discordId") String discordId, @Bind("admin") boolean admin);
+
+    /**
+     * Every Discord account that currently holds the admin flag.
+     *
+     * <p>One query for the whole set rather than one per connected player: the proxy refreshes its
+     * roster by asking this and re-deriving each session's flag from it, which is the same work
+     * whether one admin changed or ten, and is idempotent enough to be safe on a timer.</p>
+     */
+    @SqlQuery("SELECT discord_id FROM discord_user WHERE admin")
+    java.util.Set<String> adminDiscordIds();
 
     // ---------------------------------------------------------------- account_link
 

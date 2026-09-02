@@ -161,6 +161,17 @@ public interface AccessDirectory extends AutoCloseable {
     void setAdmin(String discordId, boolean admin);
 
     /**
+     * Every Discord account that currently holds the admin flag.
+     *
+     * <p>What the proxy re-reads when it is told the flag moved, so that a revocation reaches a
+     * player who is already online. One query for the whole set, because re-deriving every
+     * session's flag from it is idempotent and costs the same whether one changed or ten.</p>
+     *
+     * @return the ids, possibly empty
+     */
+    java.util.Set<String> admins();
+
+    /**
      * Writes the 1:1 link. Both halves of the 1:1 are enforced by unique constraints in the
      * database, so a losing concurrent attempt returns {@code false} rather than corrupting
      * anything.

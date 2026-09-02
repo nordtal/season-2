@@ -572,6 +572,15 @@ Seven rules that are easy to break and expensive to break:
 - **Nothing is rendered twice.** The Discord embed, the chat lines and the table all carry the
   updater's own report verbatim. A second rendering somewhere is the thing that eventually
   disagrees with the first.
+- **Exactly one `serve` may run, enforced by its own advisory lock (`nordtalS`) since 2026-09-02.**
+  `settleOrphans` closes every row left `RUNNING` because "nothing is running those rows: the only
+  process that claims one is an updater, and this one has just started" - a premise that is true of
+  one serve and false of two. A second serve marks the first one's in-flight `APPLY` as `FAILED`,
+  the real one's `finish(...)` then matches nothing, and the report of the run that was installing
+  jars is replaced by "the updater stopped while this request was running". Producing two was easy
+  until the same day: `docker compose run` inherits the service's `command`, so the documented
+  read-only report started a daemon. Both halves are fixed - `report` has a name, and the premise is
+  now a fact.
 - **An apply takes the advisory lock, and the second asker is refused, not queued.** The daemon and
   a hand-run `apply` overlap on exactly the day somebody is bootstrapping. A plan resolved now is
   stale by the time a queued run would start.

@@ -31,7 +31,7 @@ or a player, because none of them can; the rehearsal that has to follow is a che
 rather than a document, and it lives outside this repository.
 
 Everything else has behaviour: `common` (access API, messages, `PlayerLocales`, the phase directory,
-`Glyphs`, the `nordtal:limbo` protocol, migrations V1–V6), `network-control` (login gate, phase,
+`Glyphs`, the `nordtal:limbo` protocol, migrations V1–V7), `network-control` (login gate, phase,
 play time, routing **and the pack station**), `limbo` (the waiting room in full, built 2026-09-01),
 `discord-bot` (access, `/phase set`, the admin mirror, the language list, hunger games registration),
 `hunger-games` (the start event, both halves, built 2026-08-31) and `resource-pack` (three fonts,
@@ -350,7 +350,14 @@ carried a bare `run/` that matched the Java package as readily as `hunger-games/
 file is not an untracked one, so `git status` stayed clean and the local build was green
 throughout. Fixed 2026-09-02 by anchoring every directory pattern in `.gitignore` and by
 `checkSourcesTracked`, which asks Git the same question on every local `./gradlew build`; see
-`build-logic/src/main/kotlin/CheckSourcesTracked.kt`. There are still no releases on the remote.
+`build-logic/src/main/kotlin/CheckSourcesTracked.kt`.
+
+**`release.yml` has now run, and this file said the opposite until 2026-09-02.** It claimed "there
+are still no releases on the remote" while **v0.1.0, v0.2.0 and v0.2.1 were all published**; the
+v0.2.1 run succeeded, attached eight assets, and pushed all four images to `ghcr.io/nordtal`, from
+where they were pulled for the first full deployment. The sentence is kept as a correction rather
+than deleted, because it is this repository's most-repeated failure mode: a document that describes
+the state at the moment somebody wrote it and is read as the state now.
 
 `season-2` itself produces no combined build, and does not republish jars built in other repos.
 
@@ -641,13 +648,29 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**Six modules have tests: 537 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-01). The counts below are what the JUnit XML reports, not `@Test` counts.
+**Seven modules have tests: 730 in total, none skipped, all green** (`./gradlew build --rerun-tasks`
+with a Docker daemon present, 2026-09-02). The counts below are what the JUnit XML reports, not
+`@Test` counts.
 
-`:common` has **113**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
+| module | tests |
+|---|---|
+| `smp` | 146 |
+| `common` | 145 |
+| `network-control` | 135 |
+| `updater` | 129 |
+| `discord-bot` | 117 |
+| `hunger-games` | 47 |
+| `limbo` | 11 |
+
+This said "537 in six modules" until 2026-09-02 and was wrong twice over: the number was stale, and
+**`:updater` was missing from the list entirely** — a module with 129 tests, including the only ones
+in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
+than no count, because it reads as complete.
+
+`:common` has **145**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
 the access API and the link-code lifecycle against a real PostgreSQL container running the real
 migrations off `classpath:db/migration` — which also proves the location the bot depends on
-resolves, and now applies V1 through V6. `PhaseDirectoryIntegrationTest` (11) does the same for the
+resolves, and now applies V1 through V7. `PhaseDirectoryIntegrationTest` (11) does the same for the
 phase row and its audit entry. `MessagesTest` (10), `PlayerLocalesTest` (7), `LocalesTest` (3),
 `SeasonPhaseTest` (3) and `LimboProtocolTest` (11) are in memory - the last of those round-trips
 every `nordtal:limbo` message and pins the two header bytes, because a proxy and a backend of
@@ -655,7 +678,7 @@ different versions that stop understanding each other produce a player stuck in 
 with nothing in any log. The `make_interval(hours => days * 24)` bug from stage A (see
 below) is still the reason a day is never expressed in SQL as `interval 'N days'`.
 
-`discord-bot` has **112**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest` and `TiersTest` in
+`discord-bot` has **117**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest` and `TiersTest` in
 memory, `AdminFlagIntegrationTest` and `PaymentRequestIntegrationTest` against a container, plus the
 `hungergames` package's own. `LanguagesTest` owns every rule the `languages` list decides — which of
 several held roles wins, which channel a locale posts in, what a `managed_message.kind` is called —
@@ -681,7 +704,7 @@ that, and both are easy to undo by accident:
   that one, from the module directory, in preference to the real one. It was deleted with this
   change; the anchor is what stops the next one shadowing the root file silently.
 
-`network-control` has **120**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
+`network-control` has **135**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
 `gate.yml`; the `phase` and `routing` packages are tested as pure decisions, exhaustively over the
 four phases; and `PlaytimeDao`'s `seconds = seconds + EXCLUDED.seconds` gets a container, because no
@@ -698,7 +721,7 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **135**. `MilestonesTest` (9) writes a
+`smp` has **146**. `MilestonesTest` (9) writes a
 fresh `milestones.yml`, reads it back and asserts the whole track survives — which is also the proof
 that two levels of jcore nesting work; `AuraPayoutTest` (12) covers the 30/70 split, the 2 %
 threshold, the concept's own worked example, the case it never named (more qualifiers than there is
@@ -714,7 +737,7 @@ definition, and `MessageBundlesTest` (4) keeps the two language files symmetrica
 placeholders. What no test here covers is the world itself; that is what the drills and the
 rehearsals are for.
 
-`hunger-games` has **46**, all in memory and all of them arithmetic the game would otherwise get
+`hunger-games` has **47**, all in memory and all of them arithmetic the game would otherwise get
 wrong in front of players: `BorderMathTest` (the step, the extension of a running shrink, the
 divide-by-zero floor at one participant), `TeamColoursTest` (evenly spaced hues and the
 nearest-named mapping), `DemotionTest` (a duo whose partner never showed becoming a full-hearted
@@ -728,6 +751,18 @@ the four ways a game can end stay four distinguishable shapes, and `MessageBundl
 two language files carry the same keys with the same placeholders — a key added to one file and not
 the other reaches a player as the literal string `hg.start.countdown`, because `Messages` degrades
 to the key rather than throwing.
+
+`updater` has **129**, and this section did not mention the module at all until 2026-09-02.
+`TopologyTest` reads the real `compose.yml` and is what keeps that file and `Topology` from becoming
+two facts - it now also asserts that every plugin a service runs is one that service's entrypoint
+guard asks for, and that the Paper backends cap players at the same number. `ApplierTest` covers the
+two-phase swap, the all-or-nothing rule and both of its exceptions; `ResolverTest`, `GitHubReleasesTest`,
+`ModrinthTest` and `PaperFillTest` drive every source against recorded responses, so a
+`-sources.jar`, a pre-release and a renamed asset are all properties of a plan rather than things
+found in production. `ServeLockIntegrationTest` is the only place in this repository that drives a
+PostgreSQL advisory lock, and it needs a container: "a second connection is refused" has no in-JVM
+stand-in. `DocumentedCommandsTest` reads six documents rather than any code, because the bug it
+guards was in the documents.
 
 **What none of it proves.** Nothing here touches bunq, Discord, or a running Velocity proxy. Tab
 creation, cancellation and result inquiries need the **bunq sandbox**

@@ -32,7 +32,7 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `limbo` | 10 files, 1139 lines | 11 | The waiting room, in full |
 | `smp` | 83 files, 10452 lines | 135 | Everything docs/smp.md describes, none of it yet seen on a running server |
 
-537 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-01).
+730 tests, none skipped, all green with a Docker daemon present (`./gradlew build --rerun-tasks`, 2026-09-02), across **seven** modules - `:updater` was missing from this count until that day.
 Every number in this table is read out of the JUnit XML, never counted by eye: this line once read
 435 while the rows above it added to 438, and `season-2/CLAUDE.md` claimed 13 tests each for
 `AuraPayoutTest` and `TrackValidationTest` and 7 for `DeathPenaltyTest` where the reports say 12, 12

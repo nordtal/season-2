@@ -59,7 +59,7 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 **Re-derived from the code 2026-09-01, and updated the same day when `limbo` was built.** An
 earlier version of this table described three modules as unbuilt that had been built the evening
 before; it was committed after the implementation it failed to describe. Numbers come from a
-`./gradlew build` run — **435 tests, none skipped, all green** — not from the last plan.
+`./gradlew build` run — **730 tests in seven modules, none skipped, all green**, re-measured 2026-09-02 — not from the last plan.
 
 | area | state |
 |---|---|

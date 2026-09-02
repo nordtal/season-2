@@ -312,7 +312,12 @@ attaches four plugin jars + the bot jar + the pack zip and its `.sha1` to that r
 
 `.github/workflows/build.yml` runs `./gradlew build` on every push to `main` and every pull
 request. Until 2026-08-31 the release workflow was the only CI in the repository, so a compile
-error on `main` stayed invisible until somebody tagged.
+error on `main` stayed invisible until somebody tagged. **Since 2026-09-02 it also builds both
+Docker images and pushes neither** - the bot's and the updater's. Before that, `release.yml` was
+the only thing that ever built an image, so a `COPY` of a file the module's `.dockerignore`
+excludes could not fail before a release; that is precisely what happened to the bot image on
+2026-09-02, and the updater's image is worse off still, because nothing but `docker compose` on
+the host ever builds it.
 
 **`build.yml` has run and failed; `release.yml` is still unexercised.** The first run on `main`,
 2026-09-02, failed on `:updater:compileJava` with `package eu.nordtal.s2.updater.run does not

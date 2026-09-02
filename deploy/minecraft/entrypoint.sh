@@ -496,12 +496,37 @@ JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+Parallel
 log "starting ${SERVER_KIND} ${SERVER_VERSION} build ${SERVER_BUILD_RUNNING}"
 log "console: run 'console' in this container to attach, or 'mc <command>' to send one command"
 
-rm -f "$SOCK"
-tmux -S "$SOCK" new-session -d -s "$SESSION" -c "$DATA" -x 200 -y 50 \
-    "exec java ${JVM_OPTS} -jar '${JAR_PATH}' ${JAVA_ARGS[*]:-}"
+LOG_FILE="$DATA/logs/latest.log"
+BOOT_LOG="$DATA/logs/console.log"
+mkdir -p "$DATA/logs"
+: > "$BOOT_LOG"
 
-# Keep the pane after the JVM exits, so its exit status can be read and reported as ours.
-tmux -S "$SOCK" set-option -t "$SESSION" remain-on-exit on
+rm -f "$SOCK"
+
+# THE OPTIONS GO ON BEFORE THE SESSION EXISTS, and that ordering is the whole point.
+#
+# `remain-on-exit` is what keeps the pane after the JVM exits, so its status can be read back and
+# reported as this container's. It used to be set on the session AFTER new-session had already
+# started the JVM, which works for every server that runs for a while and fails for exactly the one
+# that does not: a JVM that dies at once takes the session with it before the option lands, the
+# `display-message` queries below then fail, and their `|| echo 1` fallbacks turn any exit status
+# into 1. So the crash-looping container reported "server exited with status 1" whatever had
+# actually happened - verified in a container 2026-09-02, where a real status of 3 came back as 1
+# before this change and as 3 after it.
+#
+# `exit-empty off` is what makes that possible at all: a tmux server with no sessions exits
+# immediately by default, so there is no server to set a global option on until a session exists.
+# With it off, the server is started first, told what every window should do, and given the session
+# afterwards.
+tmux -S "$SOCK" start-server \; set-option -g exit-empty off \; set-option -wg remain-on-exit on
+
+# new-session and pipe-pane in ONE invocation, for the same reason: a separate pipe-pane call
+# against a pane that has already died fails with "target pane has exited", and the output that
+# killed it is gone. Measured in a container 2026-09-02 with a command that exits instantly.
+tmux -S "$SOCK" new-session -d -s "$SESSION" -c "$DATA" -x 200 -y 50 \
+    "exec java ${JVM_OPTS} -jar '${JAR_PATH}' ${JAVA_ARGS[*]:-}" \
+  \; pipe-pane -o -t "$SESSION" "cat >> '$BOOT_LOG'"
+piping=1
 # Mirror the server log to this process's stdout, so `docker logs` and Arcane's log view keep
 # showing everything they would have shown without tmux.
 #
@@ -515,10 +540,34 @@ tmux -S "$SOCK" set-option -t "$SESSION" remain-on-exit on
 #
 # It also reads better: the log file carries no terminal escape sequences, so the container log is
 # clean while the tmux console keeps its colours for whoever is attached.
-LOG_FILE="$DATA/logs/latest.log"
-mkdir -p "$DATA/logs"
 tail -n 0 -F "$LOG_FILE" 2>/dev/null &
 TAIL_PID=$!
+
+# --- and the gap that leaves ------------------------------------------------------------------
+# `tail -F latest.log` shows nothing that happens BEFORE Paper creates that file, because there is
+# no file to follow. Everything the JVM writes until then - Paperclip resolving and patching the
+# server jar, a bad -Xmx, a missing class, an hs_err header - goes to the tmux pane and nowhere
+# else, and the pane dies with the container. That is not a corner: a Paperclip that cannot load
+# mojang_26.2.jar prints a forty-line stack trace and exits 1, and what reached `docker logs` was
+#
+#     [nordtal] starting paper 26.2 build 121
+#     [nordtal] server exited with status 1
+#
+# in an endless restart loop, with the cause in no log anybody could reach.
+#
+# THIS pipe-pane IS NOT THE FORBIDDEN ONE. ../README.md#never-mirror-the-console-with-tmux-pipe-pane
+# rules out `pipe-pane ... > /proc/1/fd/1`, and what makes that one lethal is the second handle on
+# the CONTAINER'S STDOUT PIPE: it wedges the container so completely that SIGTERM never reaches PID
+# 1 and even `docker rm -f` fails. Writing to an ordinary file in the volume shares none of that -
+# different descriptor, no pipe, nothing holding stdout open. Measured 2026-09-01 for the first
+# form; the distinction is the whole reason this is allowed.
+#
+# It is bounded by construction rather than by a rotation policy: the capture is emptied at every
+# start and switched OFF again the moment latest.log exists, below in the wait loop. Past that
+# point Paper is logging for itself and every line is already in the container log, so a second
+# escape-laden copy of the whole session would be pure cost. What it costs a running server is
+# therefore nothing at all - it is a boot log, and it stops being written before the first player
+# could join.
 
 # --- graceful shutdown -----------------------------------------------------------------------
 # Both Paper and Velocity install a JVM shutdown hook that saves and stops on SIGTERM, so the
@@ -545,6 +594,12 @@ trap on_term TERM INT
 while :; do
     dead=$(tmux -S "$SOCK" display-message -p -t "$SESSION" '#{pane_dead}' 2>/dev/null || echo 1)
     [[ "$dead" == "1" ]] && break
+    # Paper has taken over its own logging, and `tail -F` above is already mirroring it. Stop
+    # capturing the pane: from here the two would say the same thing, one of them in colour.
+    if (( piping == 1 )) && [[ -s "$LOG_FILE" ]]; then
+        tmux -S "$SOCK" pipe-pane -t "$SESSION" 2>/dev/null || true
+        piping=0
+    fi
     sleep 1 & wait $! || true
 done
 
@@ -552,6 +607,17 @@ status=$(tmux -S "$SOCK" display-message -p -t "$SESSION" '#{pane_dead_status}' 
 # Let the tail catch up on whatever the server wrote while shutting down, then stop holding stdout.
 sleep 1 & wait $! || true
 kill "$TAIL_PID" 2>/dev/null || true
+
+# THE POST-MORTEM, and the only reason the capture above exists. The JVM died without Paper ever
+# creating latest.log, so `tail -F` had nothing to follow and the container log is about to say
+# "server exited with status 1" and not one word about why. The pane held the answer and is about
+# to be destroyed with the tmux server, so it goes to stdout now - which is where a person, and
+# Arcane's log view, will actually look.
+if [[ ! -s "$LOG_FILE" && -s "$BOOT_LOG" ]]; then
+    warn "the server produced no ${LOG_FILE##*/}, so it died before Paper started logging. Its console output follows - this is the only copy, and it is also in ${BOOT_LOG} until the next start:"
+    cat "$BOOT_LOG" >&2
+fi
+
 tmux -S "$SOCK" kill-server 2>/dev/null || true
 log "server exited with status ${status:-1}"
 exit "${status:-1}"

@@ -37,8 +37,12 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/console /usr/local/bin/
 #   console            attach to the real server console, read and write. Detach with Ctrl-b d.
 #   mc <command>       send one command without a TTY. Works from any exec shell, scriptable.
 #
-# Output is mirrored to stdout with `tmux pipe-pane`, so `docker logs` and Arcane's log view are
-# unaffected and still show everything.
+# Output reaches `docker logs` and Arcane's log view by `tail -F`-ing the server's own
+# logs/latest.log - NOT by `tmux pipe-pane > /proc/1/fd/1`, which this comment claimed until
+# 2026-09-02 and which ../README.md#never-mirror-the-console-with-tmux-pipe-pane forbids outright:
+# a pipe-pane writer holding a second handle on the container's stdout pipe wedges the container so
+# completely that SIGTERM never reaches PID 1 and `docker rm -f` fails. The entrypoint does use
+# pipe-pane, but into a FILE in the volume, which shares none of that - see the long note there.
 ENV MC_TMUX_SOCKET=/run/mc/tmux.sock \
     MC_TMUX_SESSION=mc
 

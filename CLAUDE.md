@@ -223,7 +223,19 @@ Every config file in this repo is a commented YAML file described by an interfac
 `milestones.yml` is a list of milestones each carrying a list of objectives, which is one level
 deeper than anything here had used. It works — and a nested interface *without* the annotation
 fails as a Gson error about making `java.lang.reflect.Proxy#h` accessible, which names nothing
-useful. `MilestonesTest` is the standing proof.
+useful. `MilestonesTest` is the standing proof for `milestones.yml`.
+
+**Every module that has configs has a `ConfigsTest` that loads every one of its handles into an
+empty directory, and that rule is not decoration.** `smp` was the one module without one until
+2026-09-02, and what it cost was the whole plugin: four nested interfaces in `SmpSpec` carried no
+`@ConfigSpec`, so the first write of a fresh `config.yml` died on `Proxy#h`, `onEnable` threw on
+every start of every real server, and Paper disabled the plugin while the server carried on. 135
+green tests said nothing, because not one of them had ever called `Configs.load`. Loading is what
+*writes* the file, and writing is what serialises every nested spec — so the round trip is the
+check. `smp`'s `ConfigsTest` also asserts the rule outright, by reflection over the three spec
+roots: the round trip only fails because Gradle's test worker has `java.lang.reflect` closed, which
+is a property of the JVM the build happens to start and not of the code, and a toolchain that
+opened it would make the round trip pass on a plugin that still dies on a server.
 
 ```java
 @ConfigSpec(header = "hunger-games")

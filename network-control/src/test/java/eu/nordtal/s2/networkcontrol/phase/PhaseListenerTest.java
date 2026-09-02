@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.phase.PhaseChange;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +40,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PhaseListenerTest {
 
+    /**
+     * How often the admin roster was asked to refresh. It rides the same two signals as the phase -
+     * every connect and every notification - so the loop's shape is what these assert.
+     */
+    private final java.util.concurrent.atomic.AtomicInteger adminRefreshes =
+            new java.util.concurrent.atomic.AtomicInteger();
+
     private static final Logger LOGGER = LoggerFactory.getLogger(PhaseListenerTest.class);
     private static final Duration WAIT = Duration.ofMillis(20);
 
@@ -54,7 +62,7 @@ class PhaseListenerTest {
         // notification, this would refresh zero times - and a switch made while the proxy was
         // disconnected would be invisible until the next poll.
         final FakeChannel quiet = FakeChannel.quiet();
-        final PhaseListener listener = new PhaseListener(() -> quiet, watch, LOGGER, WAIT, BACKOFF);
+        final PhaseListener listener = new PhaseListener(() -> quiet, watch, adminRefreshes::incrementAndGet, LOGGER, WAIT, BACKOFF);
 
         runBriefly(listener);
 
@@ -69,7 +77,7 @@ class PhaseListenerTest {
         final PhaseWatch watch = new PhaseWatch(directory, LOGGER, (previous, current) -> { });
 
         final FakeChannel channel = FakeChannel.publishing(3);
-        final PhaseListener listener = new PhaseListener(() -> channel, watch, LOGGER, WAIT, BACKOFF);
+        final PhaseListener listener = new PhaseListener(() -> channel, watch, adminRefreshes::incrementAndGet, LOGGER, WAIT, BACKOFF);
 
         runBriefly(listener);
 
@@ -91,7 +99,7 @@ class PhaseListenerTest {
             opened.incrementAndGet();
             thirdOpened.countDown();
             return FakeChannel.dying();
-        }, watch, LOGGER, WAIT, BACKOFF);
+        }, watch, adminRefreshes::incrementAndGet, LOGGER, WAIT, BACKOFF);
 
         final Thread thread = start(listener);
         assertTrue(thirdOpened.await(30, TimeUnit.SECONDS), "the listener stopped reconnecting");
@@ -116,7 +124,7 @@ class PhaseListenerTest {
             attempts.incrementAndGet();
             tried.countDown();
             throw new SQLException("the database is not there");
-        }, watch, LOGGER, WAIT, slowBackoff);
+        }, watch, adminRefreshes::incrementAndGet, LOGGER, WAIT, slowBackoff);
 
         final Thread thread = start(listener);
         assertTrue(tried.await(10, TimeUnit.SECONDS));
@@ -134,7 +142,7 @@ class PhaseListenerTest {
         final PhaseWatch watch = new PhaseWatch(directory, LOGGER, (previous, current) -> { });
 
         final FakeChannel channel = FakeChannel.quiet();
-        final PhaseListener listener = new PhaseListener(() -> channel, watch, LOGGER, WAIT, BACKOFF);
+        final PhaseListener listener = new PhaseListener(() -> channel, watch, adminRefreshes::incrementAndGet, LOGGER, WAIT, BACKOFF);
 
         final Thread thread = start(listener);
         Thread.sleep(150);
@@ -239,4 +247,50 @@ class PhaseListenerTest {
             closed = true;
         }
     }
+
+    @Test
+    @DisplayName("M9: the admin roster is refreshed on every connect and every notification")
+    void adminsAreRefreshedOnTheSameSignalsAsThePhase() throws Exception {
+        // LoginRoster was filled at login and never touched again, so an admin who lost the role in
+        // Discord kept /phase and /smp until they disconnected. It rides this loop rather than
+        // getting a second one, so what has to hold is that it gets the identical signals: the
+        // unconditional re-read on connect - a notification published while this process was away
+        // is lost forever - and one per notification after it.
+        final CountingDirectory directory = new CountingDirectory();
+        final PhaseWatch watch = new PhaseWatch(directory, LOGGER, (previous, current) -> { });
+
+        final PhaseListener listener = new PhaseListener(() -> FakeChannel.publishing(3), watch,
+                adminRefreshes::incrementAndGet, LOGGER, WAIT, BACKOFF);
+
+        runBriefly(listener);
+
+        assertEquals(directory.reads.get(), adminRefreshes.get(),
+                "the admin roster and the phase have to be refreshed on exactly the same signals;"
+                        + " otherwise one of them ends up trusting a notification it never received");
+        assertTrue(adminRefreshes.get() >= 4,
+                "one refresh for the connect plus one per notification; saw " + adminRefreshes.get());
+    }
+
+    @Test
+    @DisplayName("M9: a failing admin refresh does not take the phase listener down with it")
+    void aBrokenAdminRefreshDoesNotStopThePhase() throws Exception {
+        // The phase is why this thread exists. The roster riding along must not be able to cost the
+        // network its phase propagation - and the failure is self-correcting anyway, because the
+        // next notification asks again.
+        final CountingDirectory directory = new CountingDirectory();
+        final PhaseWatch watch = new PhaseWatch(directory, LOGGER, (previous, current) -> { });
+
+        final PhaseListener listener = new PhaseListener(() -> FakeChannel.publishing(3), watch,
+                () -> {
+                    adminRefreshes.incrementAndGet();
+                    throw new IllegalStateException("the database went away mid-refresh");
+                }, LOGGER, WAIT, BACKOFF);
+
+        runBriefly(listener);
+
+        assertTrue(directory.reads.get() >= 4,
+                "the phase stopped being re-read because the admin refresh threw; saw "
+                        + directory.reads.get());
+    }
+
 }

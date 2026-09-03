@@ -48,6 +48,26 @@ public final class SeasonStart {
     }
 
     /**
+     * The phases in which a missing anchor actually costs somebody days.
+     * <p>
+     * All three of them, not just {@code PRE_LAUNCH} - which is what this checked until it was
+     * pointed out on review. {@code AccessDao} starts a grant at {@code now()} whenever
+     * {@code smp_start} is {@code NULL}, and access is not consumed in {@code PRE_EVENT} or
+     * {@code START_EVENT} either, so a purchase made during the event would lose exactly as many
+     * days and say nothing about it.
+     * </p><p>
+     * {@code SMP} is excluded because {@code now()} is then the right answer and no date is needed;
+     * {@code MAINTENANCE} because it interrupts a season that is already running
+     * ({@code docs/season-phases.md}), so it is not a pre-season state.
+     * </p>
+     */
+    private static boolean beforeTheSmp(final SeasonPhase phase) {
+        return phase == SeasonPhase.PRE_LAUNCH
+                || phase == SeasonPhase.PRE_EVENT
+                || phase == SeasonPhase.START_EVENT;
+    }
+
+    /**
      * Checks one freshly written grant and reports it if it was anchored to nothing.
      *
      * @param discordId who it was written for
@@ -55,7 +75,7 @@ public final class SeasonStart {
      */
     public void warnIfUnanchored(final String discordId, final AccessGrant grant) {
         try {
-            if (phases.currentPhase() != SeasonPhase.PRE_LAUNCH || phases.smpStart().isPresent()) {
+            if (phases.smpStart().isPresent() || !beforeTheSmp(phases.currentPhase())) {
                 return;
             }
         } catch (final RuntimeException unreachable) {

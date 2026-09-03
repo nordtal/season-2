@@ -194,7 +194,7 @@ public final class GuildState extends ListenerAdapter {
      * </p>
      * <p>
      * The third pass also deletes the account link, but <b>only when the picture is complete</b>:
-     * see {@link #memberCacheLooksComplete(long, int)} and this class's own documentation. That is
+     * see {@link #memberCacheLooksComplete(int, int)} and this class's own documentation. That is
      * the one place where being wrong is not repaired by the next run.
      * </p>
      */
@@ -207,7 +207,13 @@ public final class GuildState extends ListenerAdapter {
 
         final Set<String> seen = new HashSet<>();
 
-        for (final Member member : guild.getMemberCache()) {
+        // One snapshot, taken before the pass and used for both the pass and the decision below.
+        // Reading the cache twice is what let somebody join between the two reads: they would be
+        // missing from `seen` and counted in the size, so the completeness check would pass and the
+        // third pass would delete the link of a member who had just arrived.
+        final List<Member> members = guild.getMemberCache().asList();
+
+        for (final Member member : members) {
             if (member.getUser().isBot()) {
                 continue;
             }
@@ -229,9 +235,12 @@ public final class GuildState extends ListenerAdapter {
             log.error("Could not read the ban list; banned users may still be marked as members", exception);
         }
 
-        final boolean mayUnlink =
-                memberCacheLooksComplete(guild.getMemberCache().size(), guild.getMemberCount())
-                        && banListRead;
+        // getMemberCount() is read AFTER the snapshot, deliberately: somebody who joins during the
+        // pass raises it while the snapshot stays where it was, so the check fails and nothing is
+        // deleted. Reading it first would have the opposite effect, which is the direction that
+        // costs somebody their link.
+        final int expected = guild.getMemberCount();
+        final boolean mayUnlink = memberCacheLooksComplete(members.size(), expected) && banListRead;
 
         int left = 0;
         int unlinked = 0;
@@ -253,8 +262,7 @@ public final class GuildState extends ListenerAdapter {
                     + " holds {} of {} member(s) and the ban list {} read. Deleting on an"
                     + " incomplete picture would unlink the whole guild; the next reconcile that"
                     + " sees everything will do it.",
-                    left, guild.getMemberCache().size(), guild.getMemberCount(),
-                    banListRead ? "was" : "was not");
+                    left, members.size(), expected, banListRead ? "was" : "was not");
         }
     }
 
@@ -264,17 +272,20 @@ public final class GuildState extends ListenerAdapter {
      * Package-private and static so the rule can be tested without a guild - it is the only thing
      * standing between an unlucky startup and every account link in the database.
      * {@code expected} is what the guild itself reports; a chunking pass that was cut short leaves
-     * the cache smaller than that. Greater-than-or-equal rather than equal because the two are read
-     * a moment apart and somebody joining in between must not look like a failure.
+     * the cache smaller than that. Both come from {@link #reconcile()}'s single member snapshot and
+     * a count read <em>after</em> it, so a member who joins mid-pass raises {@code expected} and
+     * fails this check rather than passing it - the safe direction, since the alternative deletes
+     * the link of somebody who has just arrived. Greater-than-or-equal rather than equal for the
+     * other order: somebody who <em>leaves</em> mid-pass is still in the snapshot, so they are in
+     * {@code seen} and the third pass never reaches them anyway.
      * </p>
      *
-     * @param cached   how many members the cache holds - a {@code long}, because that is what
-     *                 JDA's {@code SnowflakeCacheView#size()} answers
+     * @param cached   how many members the snapshot holds
      * @param expected how many the guild says it has; {@code 0} or less means Discord has not told
      *                 us, which is not an answer and is treated as "cannot tell"
      * @return whether links may be deleted on the strength of this cache
      */
-    static boolean memberCacheLooksComplete(final long cached, final int expected) {
+    static boolean memberCacheLooksComplete(final int cached, final int expected) {
         return expected > 0 && cached >= expected;
     }
 

@@ -8,9 +8,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,21 +58,84 @@ class RedemptionLimitTest {
 
     @Test
     void anAccountThatHasNeverGuessedIsAllowed() {
-        assertTrue(new RedemptionLimit(5, new Movable()).allows(SOMEBODY));
+        assertTrue(new RedemptionLimit(5, new Movable()).acquire(SOMEBODY) >= 0);
     }
 
     @Test
     void theCapIsReachedExactlyOnTheConfiguredNumberOfFailures() {
         final RedemptionLimit limit = new RedemptionLimit(5, new Movable());
 
-        assertEquals(4, limit.recordFailure(SOMEBODY));
-        assertEquals(3, limit.recordFailure(SOMEBODY));
-        assertEquals(2, limit.recordFailure(SOMEBODY));
-        assertEquals(1, limit.recordFailure(SOMEBODY));
-        assertTrue(limit.allows(SOMEBODY), "four failures out of five still leaves one");
+        assertEquals(4, limit.acquire(SOMEBODY));
+        assertEquals(3, limit.acquire(SOMEBODY));
+        assertEquals(2, limit.acquire(SOMEBODY));
+        assertEquals(1, limit.acquire(SOMEBODY));
+        assertEquals(0, limit.acquire(SOMEBODY), "the fifth is allowed and is the last one");
 
-        assertEquals(0, limit.recordFailure(SOMEBODY));
-        assertFalse(limit.allows(SOMEBODY));
+        assertEquals(-1, limit.acquire(SOMEBODY));
+    }
+
+    @Test
+    @DisplayName("an attempt that was not a wrong guess is given back")
+    void aReleasedAttemptDoesNotCount() {
+        // The code was right, or it was a real code on an already-linked account, or the database
+        // threw. None of those is evidence of guessing, so none of them may cost an attempt.
+        final RedemptionLimit limit = new RedemptionLimit(2, new Movable());
+
+        limit.acquire(SOMEBODY);
+        limit.release(SOMEBODY);
+        limit.acquire(SOMEBODY);
+        limit.release(SOMEBODY);
+
+        assertEquals(1, limit.acquire(SOMEBODY), "two released attempts left the account untouched");
+    }
+
+    @Test
+    void releasingWithNothingRecordedIsHarmless() {
+        // The normal path after a successful redemption: clear() has already emptied the account
+        // and the finally still runs.
+        final RedemptionLimit limit = new RedemptionLimit(1, new Movable());
+
+        limit.release(SOMEBODY);
+
+        assertEquals(0, limit.acquire(SOMEBODY));
+    }
+
+    @Test
+    @DisplayName("concurrent modals cannot get more attempts than the cap")
+    void admissionIsAtomicUnderConcurrency() throws Exception {
+        // The bot hands interactions to a pool of four workers, so this really can happen. A check
+        // followed by a separate record - which is what this class did until review - let every
+        // racing worker pass the check before any of them had recorded anything.
+        final int cap = 5;
+        final int threads = 32;
+        final RedemptionLimit limit = new RedemptionLimit(cap, new Movable());
+        final CountDownLatch start = new CountDownLatch(1);
+        final AtomicInteger admitted = new AtomicInteger();
+
+        final ExecutorService pool = Executors.newFixedThreadPool(8);
+        try {
+            for (int i = 0; i < threads; i++) {
+                pool.execute(() -> {
+                    try {
+                        start.await();
+                    } catch (final InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                    if (limit.acquire(SOMEBODY) >= 0) {
+                        admitted.incrementAndGet();
+                    }
+                });
+            }
+            start.countDown();
+            pool.shutdown();
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS), "the pool did not finish");
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertEquals(cap, admitted.get(),
+                "exactly the cap may reach the database, however many workers ask at once");
     }
 
     @Test
@@ -77,28 +144,27 @@ class RedemptionLimitTest {
         final Movable clock = new Movable();
         final RedemptionLimit limit = new RedemptionLimit(2, clock);
 
-        limit.recordFailure(SOMEBODY);
+        limit.acquire(SOMEBODY);
         clock.advance(Duration.ofMinutes(30));
-        limit.recordFailure(SOMEBODY);
-        assertFalse(limit.allows(SOMEBODY));
+        limit.acquire(SOMEBODY);
+        assertEquals(-1, limit.acquire(SOMEBODY));
 
         // Just past an hour after the first one, and only the first one has aged out.
         clock.advance(Duration.ofMinutes(30).plusSeconds(1));
-        assertTrue(limit.allows(SOMEBODY));
 
-        // The second is still inside the window, so one more failure closes the door again.
-        assertEquals(0, limit.recordFailure(SOMEBODY));
-        assertFalse(limit.allows(SOMEBODY));
+        // The second is still inside the window, so one more attempt closes the door again.
+        assertEquals(0, limit.acquire(SOMEBODY));
+        assertEquals(-1, limit.acquire(SOMEBODY));
     }
 
     @Test
     void oneAccountsFailuresDoNotTouchAnother() {
         final RedemptionLimit limit = new RedemptionLimit(1, new Movable());
 
-        limit.recordFailure(SOMEBODY);
+        limit.acquire(SOMEBODY);
 
-        assertFalse(limit.allows(SOMEBODY));
-        assertTrue(limit.allows(SOMEBODY_ELSE));
+        assertEquals(-1, limit.acquire(SOMEBODY));
+        assertEquals(0, limit.acquire(SOMEBODY_ELSE));
     }
 
     @Test
@@ -107,13 +173,13 @@ class RedemptionLimitTest {
         // Somebody who has just proved they hold a real code is not the case this defends against,
         // and their next link must not start capped.
         final RedemptionLimit limit = new RedemptionLimit(2, new Movable());
-        limit.recordFailure(SOMEBODY);
-        limit.recordFailure(SOMEBODY);
-        assertFalse(limit.allows(SOMEBODY));
+        limit.acquire(SOMEBODY);
+        limit.acquire(SOMEBODY);
+        assertEquals(-1, limit.acquire(SOMEBODY));
 
         limit.clear(SOMEBODY);
 
-        assertTrue(limit.allows(SOMEBODY));
+        assertEquals(1, limit.acquire(SOMEBODY));
     }
 
     @Test

@@ -1,10 +1,13 @@
-package eu.nordtal.s2.networkcontrol.ping;
+package eu.nordtal.s2.common.network;
 
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
 /**
- * The one query behind every MOTD placeholder.
+ * The one query behind every MOTD placeholder and every status channel name.
+ *
+ * <p>Package-private, reached through {@link SnapshotDirectory}: no consumer holds a {@code Jdbi}
+ * or a DAO of ours, which is the same rule {@code AccessDao} and {@code PhaseDao} follow.
  *
  * <p><b>One query, not six.</b> It runs on a timer while nobody is necessarily looking, so its cost
  * is a standing cost of running the proxy - and six round trips on a ten-second interval is six

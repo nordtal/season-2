@@ -668,17 +668,17 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 788 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 823 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-03). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
 | `smp` | 146 |
-| `common` | 145 |
+| `common` | 153 |
 | `network-control` | 189 |
 | `updater` | 133 |
-| `discord-bot` | 117 |
+| `discord-bot` | 144 |
 | `hunger-games` | 47 |
 | `limbo` | 11 |
 
@@ -687,24 +687,34 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **145**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
+`:common` has **153**: `AccessDirectoryIntegrationTest` (46) and `LinkCodeIntegrationTest` (12) drive
 the access API and the link-code lifecycle against a real PostgreSQL container running the real
 migrations off `classpath:db/migration` — which also proves the location the bot depends on
-resolves, and now applies V1 through V8. `PhaseDirectoryIntegrationTest` (11) does the same for the
-phase row and its audit entry. `MessagesTest` (10), `PlayerLocalesTest` (7), `LocalesTest` (3),
+resolves, and now applies V1 through V9. `PhaseDirectoryIntegrationTest` (14) does the same for the
+phase row, its audit entry and the two dates on it. Five of the access cases are the season-start
+anchor: a period bought weeks before the SMP opens has to begin when it opens, two such purchases
+have to stack into one run, and a lapse after the opening has to start today rather than back at
+the anchor — periods are never summed. `MessagesTest` (10), `PlayerLocalesTest` (7), `LocalesTest` (3),
 `SeasonPhaseTest` (3) and `LimboProtocolTest` (11) are in memory - the last of those round-trips
 every `nordtal:limbo` message and pins the two header bytes, because a proxy and a backend of
 different versions that stop understanding each other produce a player stuck in the waiting room
 with nothing in any log. The `make_interval(hours => days * 24)` bug from stage A (see
 below) is still the reason a day is never expressed in SQL as `interval 'N days'`.
 
-`discord-bot` has **117**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest` and `TiersTest` in
-memory, `AdminFlagIntegrationTest` and `PaymentRequestIntegrationTest` against a container, plus the
-`hungergames` package's own. `LanguagesTest` owns every rule the `languages` list decides — which of
+`discord-bot` has **144**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest`, `TiersTest`,
+`RedemptionLimitTest`, `StatusNameTest` and `GuildStateTest` in memory, `AdminFlagIntegrationTest`
+and `PaymentRequestIntegrationTest` against a container, plus the `hungergames` package's own.
+The three added on 2026-09-03 are each a rule that cannot be exercised against a real guild without
+waiting for one: `RedemptionLimitTest` moves a clock through the sliding window that makes a
+four-character link code safe, `StatusNameTest` pins every channel name against the real message
+bundles — the granularity there *is* Discord's two-renames-per-ten-minutes budget — and
+`GuildStateTest` covers the completeness check that decides whether the startup reconcile may
+delete account links at all. `LanguagesTest` owns every rule the `languages` list decides — which of
 several held roles wins, which channel a locale posts in, what a `managed_message.kind` is called —
 because none of the three classes that use them (`GuildState`, `ManagedMessages`,
-`PaymentProcessor`) can be exercised without a real guild. `LinkFlow`, the redemption side, is still
-untested by anything but `common`'s DAO-level tests and a manual guild check. Three of
+`PaymentProcessor`) can be exercised without a real guild. `LinkFlow` itself is still untested by
+anything but `common`'s DAO-level tests and a manual guild check; the cap it now enforces is tested
+on its own, in `RedemptionLimitTest`, which is the half that has arithmetic in it. Three of
 `ConfigsTest`'s cases (added 2026-09-01) pin `.env.example` rather than the bot: the JSON
 language list and price list it ships have to come back out of jcore's environment overlay as a
 list of specs, and its `REPLACE_ME` placeholders have to be *refused by name*. A `.env.example`

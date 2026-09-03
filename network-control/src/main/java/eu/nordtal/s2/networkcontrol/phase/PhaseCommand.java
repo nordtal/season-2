@@ -12,14 +12,18 @@ import com.velocitypowered.api.proxy.ProxyServer;
 
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.phase.DateChange;
 import eu.nordtal.s2.common.phase.PhaseChange;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
+import eu.nordtal.s2.common.phase.SeasonDateRefused;
+import eu.nordtal.s2.common.phase.SeasonDates;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
 import net.kyori.adventure.text.Component;
 
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -99,8 +103,23 @@ public final class PhaseCommand {
                 })
                 .executes(this::set);
 
-        return new BrigadierCommand(root.then(
-                BrigadierCommand.literalArgumentBuilder("set").then(phaseArgument)));
+        // greedyString, not word: a date carries a space, and Brigadier would otherwise hand over
+        // "2026-10-01" and call "18:00" an unexpected second argument.
+        return new BrigadierCommand(root
+                .then(BrigadierCommand.literalArgumentBuilder("set").then(phaseArgument))
+                .then(BrigadierCommand.literalArgumentBuilder("launch")
+                        .then(dateArgument(Column.LAUNCH)))
+                .then(BrigadierCommand.literalArgumentBuilder("smp-start")
+                        .then(dateArgument(Column.SMP_START))));
+    }
+
+    private RequiredArgumentBuilder<CommandSource, String> dateArgument(final Column column) {
+        return BrigadierCommand.requiredArgumentBuilder("when", StringArgumentType.greedyString())
+                .suggests((context, builder) -> {
+                    builder.suggest(SeasonDates.CLEAR);
+                    return builder.buildFuture();
+                })
+                .executes(context -> date(context, column));
     }
 
     /** @return the alias, so the caller can build the {@code CommandMeta} without repeating it */
@@ -136,7 +155,118 @@ public final class PhaseCommand {
         player.sendMessage(Component.text(watch.everRead()
                 ? messages.format(locale, "phase.current", "phase", watch.lastKnown().name())
                 : messages.format(locale, "phase.current.unread", "phase", watch.lastKnown().name())));
+
+        // The dates come from the watch too, and only the opening is cached there - smp_start is
+        // read fresh, off the calling thread, because nothing in this process needs it otherwise.
+        proxy.getScheduler().buildTask(plugin, () -> {
+            final String smpStart;
+            try {
+                smpStart = SeasonDates.format(phases.smpStart().orElse(null));
+            } catch (final RuntimeException exception) {
+                logger.warn("Could not read the season dates for /phase", exception);
+                return;
+            }
+            player.sendMessage(Component.text(messages.format(locale, "phase.dates",
+                    "launch", SeasonDates.format(watch.launch().orElse(null)),
+                    "smpStart", smpStart,
+                    "zone", SeasonDates.ZONE.getId())));
+        }).schedule();
         return com.mojang.brigadier.Command.SINGLE_SUCCESS;
+    }
+
+    // ---------------------------------------------------------------- the two dates
+
+    /** Which column a {@code /phase launch} or {@code /phase smp-start} is about. */
+    enum Column {
+
+        LAUNCH("phase.date.what.launch"),
+        SMP_START("phase.date.what.smp-start");
+
+        private final String key;
+
+        Column(final String key) {
+            this.key = key;
+        }
+    }
+
+    private int date(final CommandContext<CommandSource> context, final Column column) {
+        final Player player = (Player) context.getSource();
+        final Locale locale = roster.localeOf(player.getUniqueId());
+        final String typed = StringArgumentType.getString(context, "when");
+
+        final Instant at;
+        if (SeasonDates.isClear(typed)) {
+            at = null;
+        } else {
+            final var parsed = SeasonDates.parse(typed);
+            if (parsed.isEmpty()) {
+                player.sendMessage(Component.text(messages.format(locale, "phase.date.invalid",
+                        "pattern", SeasonDates.PATTERN,
+                        "zone", SeasonDates.ZONE.getId(),
+                        "clear", SeasonDates.CLEAR)));
+                return com.mojang.brigadier.Command.SINGLE_SUCCESS;
+            }
+            at = parsed.get();
+        }
+
+        final String actor = roster.of(player.getUniqueId())
+                .map(LoginRoster.Session::discordId)
+                .orElse(null);
+
+        proxy.getScheduler().buildTask(plugin,
+                () -> writeDate(player, locale, column, at, actor)).schedule();
+        return com.mojang.brigadier.Command.SINGLE_SUCCESS;
+    }
+
+    private void writeDate(final Player player, final Locale locale, final Column column,
+                           final Instant at, final String actor) {
+        final DateChange change;
+        try {
+            change = column == Column.LAUNCH
+                    ? phases.setLaunch(at, actor)
+                    : phases.setSmpStart(at, actor);
+        } catch (final SeasonDateRefused refused) {
+            // The model said no, in a sentence written for the person who typed it.
+            player.sendMessage(Component.text(messages.format(locale, "phase.date.refused",
+                    "reason", refused.getMessage())));
+            return;
+        } catch (final RuntimeException exception) {
+            logger.error("{} could not write a season date from the proxy", player.getUsername(),
+                    exception);
+            player.sendMessage(Component.text(messages.get(locale, "phase.date.failed")));
+            return;
+        }
+
+        logger.warn("Season date written from the proxy by {} ({}): {} {} -> {}, {} grants moved",
+                player.getUsername(), actor, column, change.previous(), change.current(),
+                change.grants());
+
+        // The opening lives in the watch, so refresh for the same reason the phase switch does.
+        watch.refresh();
+
+        final String what = messages.get(locale, column.key);
+        if (change.current() == null) {
+            player.sendMessage(Component.text(
+                    messages.format(locale, "phase.date.cleared", "what", what)));
+            if (column == Column.SMP_START) {
+                player.sendMessage(Component.text(messages.get(locale, "phase.date.kept")));
+            }
+            return;
+        }
+
+        player.sendMessage(Component.text(change.unchanged()
+                ? messages.format(locale, "phase.date.unchanged",
+                        "what", what, "current", SeasonDates.format(change.current()))
+                : messages.format(locale, "phase.date.set",
+                        "what", what,
+                        "current", SeasonDates.format(change.current()),
+                        "previous", SeasonDates.format(change.previous()))));
+
+        if (column == Column.SMP_START && change.movedAccess()) {
+            player.sendMessage(Component.text(messages.format(locale, "phase.date.moved",
+                    "grants", String.valueOf(change.grants()),
+                    "accounts", String.valueOf(change.accounts()))));
+        }
     }
 
     private int set(final CommandContext<CommandSource> context) {

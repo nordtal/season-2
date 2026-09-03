@@ -37,10 +37,10 @@ stateDiagram-v2
 **`PRE_LAUNCH` is the season's initial state, added 2026-09-03.** It is not `MAINTENANCE` with
 another name: maintenance interrupts a season that is running and holds players in `limbo`, while
 this precedes the season entirely, admits nobody but an admin, and is the only phase with a **date**
-attached — `season_phase.launch`, added by `V8__pre_launch.sql` and set by hand:
+attached — `season_phase.launch`, added by `V8__pre_launch.sql`:
 
-```sql
-UPDATE season_phase SET launch = timestamptz '2026-10-01 18:00+02' WHERE id;
+```
+/phase launch 2026-10-01 18:00
 ```
 
 **Nothing switches out of it when that instant passes.** The countdown reaching zero changes what
@@ -60,18 +60,80 @@ expensive in a way nothing would report:
 
 They differ because **access is only asked for in `SMP`** — `PRE_EVENT` and `START_EVENT` let every
 linked, unbanned member in without it. Anchoring a purchase to `launch` would therefore spend the
-whole hunger games event out of somebody's thirty days. Both are set by hand, and both keep their
-value once the season is running: `smp_start` in the past simply loses to `now()` in the `GREATEST`,
-so nothing has to clear it.
+whole hunger games event out of somebody's thirty days. Both keep their value once the season is
+running: `smp_start` in the past simply loses to `now()` in the `GREATEST`, so nothing has to clear
+it.
 
-```sql
-UPDATE season_phase SET smp_start = timestamptz '2026-10-08 18:00+02' WHERE id;
+```
+/phase smp-start 2026-10-08 18:00
 ```
 
 A `NULL` `smp_start` does **not** stop the shop (decided 2026-09-03, so the payment path can be
 exercised before the season is dated). A period sold in that state starts immediately, which is the
 behaviour the anchor exists to remove — so every such grant is a WARNING in the log and a line in
 the admin channel. Setting the date before the season opens is on the workspace checklist.
+
+### Setting the two dates
+
+Both dates were `UPDATE` statements typed into `psql` until 2026-09-03, which is the same as saying
+nobody could set them: the SQL existed only inside a migration comment. There are now four
+subcommands, in Discord and on the proxy, authorised by the same `discord_user.admin` flag as
+`/phase set`:
+
+| command | what it does |
+|---|---|
+| `/phase show` (Discord) or `/phase` (proxy) | the phase and both dates |
+| `/phase launch <when>` | when the network opens |
+| `/phase smp-start <when>` | when paid access starts running |
+| `<when>` = `clear` | takes the date away again |
+
+**A date is typed as `yyyy-MM-dd HH:mm` in `Europe/Berlin` and never with an offset.** The zone is
+hard-coded in `SeasonDates`, because every container in the stack runs on UTC — an admin typing
+`18:00` and getting 18:00 UTC is two hours out from the clock the season is announced on. Daylight
+saving is applied for the date in question, so the same `18:00` is `+02:00` in October and `+01:00`
+in November. The parser is `ResolverStyle.STRICT`: `2026-02-30` is refused rather than quietly
+resolved to the end of February.
+
+**Three things are refused outright**, each with nothing written:
+
+- a date in the past,
+- `smp_start` before `launch`, or `launch` after `smp_start` — nobody could use the days in between,
+- **any change to `smp_start` once the phase is `SMP`.** From then on paid time is genuinely being
+  consumed, and moving the anchor would hand somebody days they have already played or take away
+  days they have not. Past that point it is an `UPDATE` by hand, deliberately.
+
+#### Moving `smp_start` moves the access anchored to it
+
+This is the half that is not just a column write. `AccessDao`'s append rule computes `valid_from`
+from `smp_start` **at the moment of purchase**, weeks in advance, and a grant is never rewritten
+afterwards — so a date that moves without its grants leaves everything sold so far running from a
+day that no longer means anything.
+
+`setSmpStart` therefore moves them, in the same statement, and the rule is **per Discord account**:
+each account's earliest live grant is placed on the new date, and that account's remaining grants
+keep their distance from it.
+
+- Stacked purchases stay stacked — two thirty-day periods remain sixty consecutive days.
+- Two people who bought on different days **both** start when the SMP opens. A single table-wide
+  delta would get this wrong and leave the later buyer starting late, which is why the shift is
+  grouped by account rather than computed once.
+- Setting the date for the first time moves every live grant. That is the case the whole mechanism
+  exists for: selling is deliberately allowed while the season has no date, and those periods start
+  at `now()` until this repairs them.
+- Revoked and already-expired grants are left where they are, and writing the same date twice moves
+  nothing.
+- **Clearing moves nothing** — there is no instant left to anchor to, so everybody keeps the window
+  they have, and the command says so.
+
+The shift is expressed in **seconds**, never in days. Subtracting two `timestamptz` values yields a
+day-based interval, and adding one of those back is calendar arithmetic in the session's time zone —
+so a thirty-day period moved across the October clock change would come out thirty days and one hour
+long. `AccessDao` writes these windows with `make_interval(hours => ...)` for the same reason, and a
+shift that did not match it would silently change what somebody paid for.
+
+Each write files an `audit_log` row (`SET_LAUNCH` / `SET_SMP_START`) naming both values and how many
+grants moved, and fires the same `nordtal_phase` notification a phase switch does, so the proxy's
+MOTD countdown follows without waiting for its poll.
 
 ### The status channel
 

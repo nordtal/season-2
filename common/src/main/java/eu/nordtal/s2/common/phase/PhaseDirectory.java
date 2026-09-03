@@ -120,4 +120,64 @@ public interface PhaseDirectory {
      *                               by {@code V4} and there is no code path that removes it
      */
     PhaseChange switchPhase(SeasonPhase phase, String actor, String reason);
+
+    /**
+     * Sets or clears {@code launch}, the instant the network opens.
+     * <p>
+     * Nothing is derived from this column - the server browser counts down to it and the
+     * disconnect screens name it, and that is all. Switching the phase when it passes stays an
+     * admin's decision, exactly as {@code V8__pre_launch.sql} says.
+     * </p>
+     *
+     * <h2>What is refused</h2>
+     * A date in the past, and a date after {@link #smpStart()} when that is set - paid access
+     * would then start running before the network was open. Both throw
+     * {@link SeasonDateRefused} and write nothing.
+     *
+     * @param at    the instant the network opens, or {@code null} to go back to "no date
+     *              announced", which is a real state the countdown renders
+     * @param actor the Discord id of the admin who asked for it, for the audit entry
+     * @return what the column held before and holds now; no access is ever moved by this
+     * @throws SeasonDateRefused     if the date is in the past or after {@link #smpStart()}
+     * @throws IllegalStateException if the {@code season_phase} row does not exist
+     */
+    DateChange setLaunch(Instant at, String actor);
+
+    /**
+     * Sets or clears {@code smp_start}, <b>and moves the paid access anchored to it</b>.
+     *
+     * <h2>This one is not just a column</h2>
+     * {@code AccessDao}'s append rule computes {@code valid_from} from this instant at the moment
+     * of purchase, weeks in advance. Moving the date without moving those rows would leave
+     * everything sold so far running from a day that no longer means anything, so this method
+     * moves them: per Discord account, the earliest live grant is placed on the new date and that
+     * account's remaining grants keep their distance from it. Stacked purchases stay stacked, and
+     * two people who bought on different days both start when the SMP opens.
+     * <p>
+     * Setting the date for the first time moves every live grant, which is the case the whole
+     * method exists for: selling is deliberately allowed while the season has no date, and those
+     * grants start at {@code now()} until this repairs them.
+     * </p>
+     * <p>
+     * <b>Clearing moves nothing.</b> There would be no instant left to anchor to, so the grants
+     * keep the windows they have and the caller says so.
+     * </p>
+     *
+     * <h2>What is refused</h2>
+     * A date in the past, a date before {@link #launch()} when that is set, and <b>any change at
+     * all once the phase is {@code SMP}</b> - from then on the season is running, paid time is
+     * genuinely being consumed, and moving it would hand somebody days they have already played
+     * or take away days they have not. All three throw {@link SeasonDateRefused} and write
+     * nothing. The phase is read immediately before the write rather than inside it, so a switch
+     * to {@code SMP} racing this call by milliseconds is not caught; the audit entry is what makes
+     * that visible afterwards, and both writers are admins acting by hand.
+     *
+     * @param at    the instant paid access starts running, or {@code null} to clear the date
+     * @param actor the Discord id of the admin who asked for it, for the audit entry
+     * @return what the column held before and holds now, and how much access moved with it
+     * @throws SeasonDateRefused     if the date is in the past, before {@link #launch()}, or the
+     *                               phase is already {@code SMP}
+     * @throws IllegalStateException if the {@code season_phase} row does not exist
+     */
+    DateChange setSmpStart(Instant at, String actor);
 }

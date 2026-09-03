@@ -52,7 +52,22 @@ public record RouteDecision(Action action, String server) {
          * {@code MAINTENANCE}. A configuration error; disconnect rather than leave the player
          * somewhere the phase says they should not be.
          */
-        REFUSE_NO_SERVER
+        REFUSE_NO_SERVER,
+
+        /**
+         * The network was switched <b>back</b> to {@code PRE_LAUNCH} while this player was on it,
+         * and they have not bought an access period. Disconnect with the same countdown screen the
+         * login gate shows.
+         * <p>
+         * Only reachable from {@code PhaseRouting#decide(AccessState, Set)}, the phase-change
+         * re-route: the initial and release routes are only ever taken by somebody the gate has
+         * already admitted, and in {@code PRE_LAUNCH} that is an admin.
+         * </p>
+         */
+        REFUSE_PRE_LAUNCH_BUY,
+
+        /** The same, for a player who has already bought a period. See above. */
+        REFUSE_PRE_LAUNCH_READY
     }
 
     public RouteDecision {

@@ -34,6 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <caption>Gate outcome per phase and player kind</caption>
  *   <tr><th></th><th>unlinked</th><th>left / banned</th><th>member, no access</th>
  *       <th>member, access</th><th>admin, no access</th></tr>
+ *   <tr><th>{@code PRE_LAUNCH}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>PRE_LAUNCH_BUY</td>
+ *       <td>PRE_LAUNCH_READY</td><td>ALLOW</td></tr>
  *   <tr><th>{@code PRE_EVENT}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>ALLOW</td>
  *       <td>ALLOW</td><td>ALLOW</td></tr>
  *   <tr><th>{@code START_EVENT}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>ALLOW</td>
@@ -128,7 +130,9 @@ class GateOutcomeTest {
     @Test
     void theFullDecisionTableIsWhatThisClassProduces() {
         // Every cell of the table in this class's documentation, asserted rather than described.
-        // Four phases times five player kinds; the reversal is auditable by reading this method.
+        // Five phases times five player kinds; the reversal is auditable by reading this method.
+        assertRow(SeasonPhase.PRE_LAUNCH, GateOutcome.PRE_LAUNCH_BUY, GateOutcome.PRE_LAUNCH_READY,
+                GateOutcome.ALLOW);
         assertRow(SeasonPhase.PRE_EVENT, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
         assertRow(SeasonPhase.START_EVENT, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
         assertRow(SeasonPhase.SMP, GateOutcome.NO_ACCESS, GateOutcome.ALLOW, GateOutcome.NO_ACCESS);
@@ -178,10 +182,14 @@ class GateOutcomeTest {
     }
 
     @Test
-    void theAdminFlagNoLongerChangesTheGateDecisionAnywhere() {
-        // It decides where a player goes during maintenance (PhaseRouting), not whether they get in.
-        // If this ever fails, admission and routing have started disagreeing about what admin means.
+    void theAdminFlagChangesTheGateDecisionInPreLaunchAndNowhereElse() {
+        // In every other phase it decides where a player goes during maintenance (PhaseRouting),
+        // not whether they get in. PRE_LAUNCH is the exception and the only one: before the network
+        // has ever opened, being an admin IS the admission rule.
         for (final SeasonPhase phase : SeasonPhase.values()) {
+            if (phase == SeasonPhase.PRE_LAUNCH) {
+                continue;
+            }
             for (final boolean accessActive : new boolean[]{false, true}) {
                 assertEquals(GateOutcome.of(state(phase, MemberState.MEMBER, accessActive, false)),
                         GateOutcome.of(state(phase, MemberState.MEMBER, accessActive, true)),
@@ -225,7 +233,7 @@ class GateOutcomeTest {
     @Test
     void aNullPhaseIsTreatedAsMaintenanceRatherThanCrashingTheLoginPath() {
         final AccessState state = new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, true, null,
-                false, false, Locale.ENGLISH, null);
+                false, false, Locale.ENGLISH, null, null);
 
         assertEquals(SeasonPhase.MAINTENANCE, state.phase());
         // The guess still lands on MAINTENANCE, but since 2026-08-31 that no longer means "nobody
@@ -237,10 +245,49 @@ class GateOutcomeTest {
 
     @Test
     void thereIsNoOutcomeLeftThatOnlyMaintenanceCouldProduce() {
-        // The enum has four constants, not five: MAINTENANCE_CLOSED was deleted rather than left
-        // unreachable, so nothing can accidentally start returning it again.
-        assertEquals(4, GateOutcome.values().length,
-                "ALLOW, NOT_LINKED, NOT_MEMBER, NO_ACCESS - and nothing about maintenance");
+        // MAINTENANCE_CLOSED was deleted rather than left unreachable, so nothing can accidentally
+        // start returning it again. The two added on 2026-09-03 are the PRE_LAUNCH screens, and
+        // neither of them is a maintenance concept.
+        assertEquals(6, GateOutcome.values().length,
+                "ALLOW, NOT_LINKED, NOT_MEMBER, NO_ACCESS, PRE_LAUNCH_BUY, PRE_LAUNCH_READY"
+                        + " - and nothing about maintenance");
+    }
+
+    // ---------------------------------------------------------------- PRE_LAUNCH
+
+    @Test
+    void preLaunchLetsNobodyInButAnAdmin() {
+        assertEquals(GateOutcome.ALLOW,
+                GateOutcome.of(state(SeasonPhase.PRE_LAUNCH, MemberState.MEMBER, false, true)),
+                "somebody has to be able to get on the network before it opens, and that is the"
+                        + " whole of who");
+        assertFalse(GateOutcome.of(member(SeasonPhase.PRE_LAUNCH, false)).allowed());
+        assertFalse(GateOutcome.of(member(SeasonPhase.PRE_LAUNCH, true)).allowed());
+    }
+
+    @Test
+    void preLaunchAsksWhetherAccessWasBoughtAndNotWhetherItIsRunning() {
+        // THE POINT OF THE TWO SCREENS. A period bought before the season opens is meant to sit and
+        // wait rather than burn (todo.md #9), so it can be paid for and not active - and asking
+        // accessActive() there would show "buy your first month" to the very people who just did.
+        final AccessState boughtButNotRunning = new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER,
+                false, Instant.now().plus(Duration.ofDays(30)), false, false, Locale.ENGLISH,
+                SeasonPhase.PRE_LAUNCH, null);
+
+        assertEquals(GateOutcome.PRE_LAUNCH_READY, GateOutcome.of(boughtButNotRunning));
+        assertEquals(GateOutcome.PRE_LAUNCH_BUY, GateOutcome.of(member(SeasonPhase.PRE_LAUNCH, false)),
+                "nothing bought, so the screen is the invitation to buy");
+    }
+
+    @Test
+    void preLaunchStillAsksAboutLinkingAndMembershipFirst() {
+        assertEquals(GateOutcome.NOT_LINKED,
+                GateOutcome.of(AccessState.unlinked(PLAYER, SeasonPhase.PRE_LAUNCH)),
+                "an unlinked player gets their code before the network opens, not after - that is"
+                        + " the first of the three countdown screens");
+        assertEquals(GateOutcome.NOT_MEMBER,
+                GateOutcome.of(state(SeasonPhase.PRE_LAUNCH, MemberState.BANNED, true, true)),
+                "a banned admin is still banned, before the opening as after it");
     }
 
     // ---------------------------------------------------------------- helpers
@@ -253,6 +300,6 @@ class GateOutcomeTest {
                                      final boolean accessActive, final boolean admin) {
         return new AccessState(PLAYER, DISCORD_ID, membership, accessActive,
                 accessActive ? Instant.now().plus(Duration.ofDays(1)) : null,
-                false, admin, Locale.ENGLISH, phase);
+                false, admin, Locale.ENGLISH, phase, null);
     }
 }

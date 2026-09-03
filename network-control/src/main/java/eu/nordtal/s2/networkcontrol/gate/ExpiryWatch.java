@@ -143,6 +143,12 @@ public final class ExpiryWatch {
             case NOT_LINKED -> messages.unlinked(state.locale());
             case NOT_MEMBER -> messages.notMember(state.locale());
             case NO_ACCESS -> messages.expired(state.locale());
+            // The network was switched back to PRE_LAUNCH while people were on it - a rehearsal, or
+            // an admin undoing an opening. They are shown the same two screens the gate shows,
+            // countdown and all, rather than a generic kick: what happened to them is exactly what
+            // the gate would now say.
+            case PRE_LAUNCH_BUY -> messages.preLaunchBuy(state.locale(), state.launch(), Instant.now());
+            case PRE_LAUNCH_READY -> messages.preLaunchReady(state.locale(), state.launch(), Instant.now());
             // Unreachable: this method is only called when mayJoin() was false, and GateOutcome
             // agrees with mayJoin() for every combination (asserted by GateOutcomeTest).
             case ALLOW -> messages.trouble(state.locale());

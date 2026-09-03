@@ -186,7 +186,7 @@ class PlaytimeWriterTest {
 
     private void join(final UUID mcUuid, final String discordId) {
         roster.remember(mcUuid, new AccessState(mcUuid, discordId, MemberState.MEMBER, true,
-                clock.instant().plus(Duration.ofDays(1)), false, false, Locale.ENGLISH, SeasonPhase.SMP));
+                clock.instant().plus(Duration.ofDays(1)), false, false, Locale.ENGLISH, SeasonPhase.SMP, null));
         writer.begin(mcUuid, "player-" + discordId);
     }
 

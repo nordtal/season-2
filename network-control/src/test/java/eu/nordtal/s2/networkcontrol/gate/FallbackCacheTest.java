@@ -138,12 +138,12 @@ class FallbackCacheTest {
 
     private AccessState activeState(final Locale locale) {
         return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, true,
-                clock.instant().plus(Duration.ofDays(1)), false, false, locale, SeasonPhase.SMP);
+                clock.instant().plus(Duration.ofDays(1)), false, false, locale, SeasonPhase.SMP, null);
     }
 
     private AccessState inactiveState() {
         return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, false, null, false, false,
-                Locale.ENGLISH, SeasonPhase.SMP);
+                Locale.ENGLISH, SeasonPhase.SMP, null);
     }
 
     /**
@@ -153,6 +153,6 @@ class FallbackCacheTest {
      */
     private AccessState memberInAFreePhase() {
         return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, false, null, false, false,
-                Locale.ENGLISH, SeasonPhase.PRE_EVENT);
+                Locale.ENGLISH, SeasonPhase.PRE_EVENT, null);
     }
 }

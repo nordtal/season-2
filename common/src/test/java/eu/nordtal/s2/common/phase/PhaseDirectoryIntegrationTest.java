@@ -156,6 +156,36 @@ class PhaseDirectoryIntegrationTest {
 
     // ---------------------------------------------------------------- switch and audit
 
+    // ---------------------------------------------------------------- the two dates
+
+    @Test
+    void bothDatesAreEmptyOnAFreshDatabase() {
+        // NULL is a real state and not a defect: the phase works without either date, and every
+        // surface that would show one says so instead.
+        assertTrue(phases.launch().isEmpty());
+        assertTrue(phases.smpStart().isEmpty());
+    }
+
+    @Test
+    void eachDateIsReadBackFromTheRowItWasWrittenTo() {
+        execute("UPDATE season_phase SET launch = timestamptz '2026-10-01 18:00+02',"
+                + " smp_start = timestamptz '2026-10-08 18:00+02' WHERE id");
+
+        assertEquals(Instant.parse("2026-10-01T16:00:00Z"), phases.launch().orElseThrow());
+        assertEquals(Instant.parse("2026-10-08T16:00:00Z"), phases.smpStart().orElseThrow());
+    }
+
+    @Test
+    void theOpeningAndTheStartOfPaidTimeAreIndependent() {
+        // They are a week apart in life - the network opens into the hunger games and paid access
+        // only starts running at the SMP - so setting one must not touch the other. A single date
+        // reused for both is exactly the bug V9 exists to prevent.
+        execute("UPDATE season_phase SET launch = timestamptz '2026-10-01 18:00+02' WHERE id");
+
+        assertTrue(phases.launch().isPresent());
+        assertTrue(phases.smpStart().isEmpty());
+    }
+
     @Test
     void switchingChangesTheRowAndReportsWhatItReplaced() {
         final PhaseChange change = phases.switchPhase(SeasonPhase.START_EVENT, ADMIN_ID, "the event begins");

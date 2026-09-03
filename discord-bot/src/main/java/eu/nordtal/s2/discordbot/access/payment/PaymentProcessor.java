@@ -5,6 +5,7 @@ import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.access.bunq.Money;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
 import eu.nordtal.s2.common.access.AccessDirectory;
@@ -57,11 +58,13 @@ public final class PaymentProcessor {
     private final JDA jda;
     private final Instant watermark;
 
+    private final SeasonStart seasonStart;
+
     public PaymentProcessor(final AccessSpec config, final Languages languages, final BunqGateway bunq,
                             final PaymentRequests requests,
                             final Purchases purchases, final Tiers tiers, final AccessDirectory access,
                             final AccessRoles roles, final AdminLog admin, final Messages messages,
-                            final JDA jda, final Instant watermark) {
+                            final JDA jda, final SeasonStart seasonStart, final Instant watermark) {
         this.config = config;
         this.languages = languages;
         this.bunq = bunq;
@@ -73,6 +76,7 @@ public final class PaymentProcessor {
         this.admin = admin;
         this.messages = messages;
         this.jda = jda;
+        this.seasonStart = seasonStart;
         this.watermark = watermark;
     }
 
@@ -197,6 +201,7 @@ public final class PaymentProcessor {
         final Tiers.Settlement settlement = resolved.get();
         final AccessGrant grant = access.grantAccess(
                 request.discordId(), settlement.days(), AccessSource.PURCHASE, request.id());
+        seasonStart.warnIfUnanchored(request.discordId(), grant);
         final Locale locale = roles.localeOf(request.discordId());
 
         if (settlement.donation()) {

@@ -153,6 +153,7 @@ public final class Configs {
 
         requirePositive("donation-cents", config.donationCents());
         requirePositive("expiry-reminder-lead-days", config.expiryReminderLeadDays());
+        requirePositive("link-code-attempts-per-hour", config.linkCodeAttemptsPerHour());
         requirePositive("role-reconcile-interval-minutes", config.roleReconcileIntervalMinutes());
         requirePositive("payment.poll-interval-seconds", config.payment().pollIntervalSeconds());
         requirePositive("payment.request-ttl-hours", config.payment().requestTtlHours());
@@ -269,6 +270,11 @@ public final class Configs {
             requireSnowflake(path + ".contribution-channel", language.contributionChannel());
             requireSnowflake(path + ".link-channel", language.linkChannel());
             requireSnowflake(path + ".hunger-games-channel", language.hungerGamesChannel());
+            // The one optional id in the file: empty means this language has no status channel and
+            // the bot renames nothing. A value that is present still has to be a snowflake - the
+            // failure mode of a typo here is silence, because a channel that cannot be resolved
+            // looks exactly like a channel nobody configured.
+            requireSnowflakeIfSet(path + ".status-channel", language.statusChannel());
         }
 
         if (!tags.contains(FALLBACK_LANGUAGE)) {
@@ -311,6 +317,17 @@ public final class Configs {
             throw new IllegalArgumentException(
                     key + " is empty. Set " + variable + " in the environment.");
         }
+    }
+
+    /**
+     * The lenient form, for the one id that may be left out. Empty is a decision ("this language
+     * has no status channel"), anything else has to be a real snowflake.
+     */
+    private static void requireSnowflakeIfSet(final String key, final String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        requireSnowflake(key, value);
     }
 
     private static void requireSnowflake(final String key, final String value) {

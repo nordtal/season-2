@@ -185,6 +185,12 @@ class PhaseListenerTest {
             return java.util.Optional.empty();
         }
 
+        @Override
+        public java.util.Optional<java.time.Instant> smpStart() {
+            // Nothing in network-control reads it: it anchors purchases, which happen in the bot.
+            return java.util.Optional.empty();
+        }
+
 
         private final AtomicInteger reads = new AtomicInteger();
 

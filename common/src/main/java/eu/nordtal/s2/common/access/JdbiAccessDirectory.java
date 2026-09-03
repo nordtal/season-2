@@ -204,8 +204,15 @@ final class JdbiAccessDirectory implements AccessDirectory {
 
     /**
      * How many times a colliding {@code code} primary key is retried with a freshly generated
-     * candidate. Each retry is astronomically unlikely to be needed at all - see {@link LinkCodes}
-     * - so this bounds a pathological run rather than anything expected to trigger in practice.
+     * candidate.
+     * <p>
+     * This used to say a retry was astronomically unlikely to be needed. At four characters
+     * (2026-09-03) it is merely unlikely: the space is 923 521, so with {@code n} codes alive at
+     * once each candidate collides with probability {@code n / 923 521} - about one in nine
+     * thousand for a hundred live codes. Five attempts turn that into a number with twenty zeroes
+     * after the point, which is where "astronomically" belongs. The loop is now load-bearing
+     * rather than theatre, and the exception it ends in is deliberately loud.
+     * </p>
      */
     private static final int MAX_LINK_CODE_ATTEMPTS = 5;
 

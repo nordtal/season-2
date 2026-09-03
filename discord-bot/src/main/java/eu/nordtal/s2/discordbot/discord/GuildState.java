@@ -51,6 +51,28 @@ import java.util.Set;
  * an admin" does not: a stale {@code true} is what would let somebody through
  * {@code MAINTENANCE} and switch the season phase.
  *
+ * <h2>Leaving the guild removes the account link</h2>
+ * Decided 2026-09-03. {@code member_state = LEFT} already refuses the login on its own, so this
+ * changes no access decision - what it changes is what "linked" means in the database: a member,
+ * and not somebody who used to be one. Nothing is lost with it. Play time, aura and access grants
+ * hang off {@code discord_user}, not off the link, so re-linking the same Discord account restores
+ * all of it; the cost is that a returning member types a fresh link code, which they can get from
+ * a single refused login in any phase.
+ * <p>
+ * <b>A ban is a removal too</b> - Discord sends the remove event either way - so a banned member
+ * also loses the link. That is the same answer, for the same reason: they are not in the guild.
+ * </p>
+ * <p>
+ * <b>The startup reconcile deletes links only when it can see the whole guild.</b> Its third pass
+ * is "everybody we know about who is in neither list has left", which is safe while the
+ * consequence is a column that the next pass can put back. Deleting is not: a member cache that
+ * chunked incompletely, or a ban list that failed to load, would take every link in the guild with
+ * it and each member would have to link again by hand. So the pass writes {@code LEFT} always and
+ * unlinks only when the cache is at least as large as the guild says it is and the ban list came
+ * back. When it cannot tell, it says so in the log and leaves the links alone - a link that
+ * outlives its member is untidy, and the alternative is not.
+ * </p>
+ *
  * <h2>A ban does not pause anything</h2>
  * {@code BANNED} refuses the login now; the paid period keeps running down. Unbanned before it
  * ends, the rest is still usable. This class writes the state and nothing else - it never touches
@@ -98,6 +120,12 @@ public final class GuildState extends ListenerAdapter {
         // Somebody who is not in the guild cannot be holding a role in it. The flag would otherwise
         // survive a removal and let an ex-member switch the season phase from the proxy.
         access.setAdmin(event.getUser().getId(), false);
+        // And they are not a linked member either. Safe here in a way it is not in reconcile():
+        // this is one named user Discord has told us about, not an inference from a list that may
+        // have loaded incompletely.
+        if (access.unlink(event.getUser().getId())) {
+            log.info("{} left the guild; their Minecraft account link was removed", event.getUser().getId());
+        }
     }
 
     @Override
@@ -164,6 +192,11 @@ public final class GuildState extends ListenerAdapter {
      * is the only full member load in the process - the periodic role reconcile reads the same
      * cache.
      * </p>
+     * <p>
+     * The third pass also deletes the account link, but <b>only when the picture is complete</b>:
+     * see {@link #memberCacheLooksComplete(long, int)} and this class's own documentation. That is
+     * the one place where being wrong is not repaired by the next run.
+     * </p>
      */
     public void reconcile() {
         final Guild guild = jda.getGuildById(config.guildId());
@@ -184,6 +217,7 @@ public final class GuildState extends ListenerAdapter {
             seen.add(member.getId());
         }
 
+        boolean banListRead = true;
         try {
             guild.retrieveBanList().stream().forEach(ban -> {
                 access.setMemberState(ban.getUser().getId(), MemberState.BANNED);
@@ -191,20 +225,57 @@ public final class GuildState extends ListenerAdapter {
                 seen.add(ban.getUser().getId());
             });
         } catch (final RuntimeException exception) {
+            banListRead = false;
             log.error("Could not read the ban list; banned users may still be marked as members", exception);
         }
 
+        final boolean mayUnlink =
+                memberCacheLooksComplete(guild.getMemberCache().size(), guild.getMemberCount())
+                        && banListRead;
+
         int left = 0;
+        int unlinked = 0;
         for (final String discordId : dao.allUsers()) {
             if (!seen.contains(discordId)) {
                 access.setMemberState(discordId, MemberState.LEFT);
                 access.setAdmin(discordId, false);
                 left++;
+                if (mayUnlink && access.unlink(discordId)) {
+                    unlinked++;
+                }
             }
         }
 
-        log.info("Reconciled guild state: {} member(s), {} known account(s) no longer present",
-                seen.size(), left);
+        log.info("Reconciled guild state: {} member(s), {} known account(s) no longer present,"
+                + " {} link(s) removed", seen.size(), left, unlinked);
+        if (!mayUnlink && left > 0) {
+            log.warn("Account links were left in place for those {} account(s): the member cache"
+                    + " holds {} of {} member(s) and the ban list {} read. Deleting on an"
+                    + " incomplete picture would unlink the whole guild; the next reconcile that"
+                    + " sees everything will do it.",
+                    left, guild.getMemberCache().size(), guild.getMemberCount(),
+                    banListRead ? "was" : "was not");
+        }
+    }
+
+    /**
+     * Whether the member cache can be trusted to answer "who is in this guild".
+     * <p>
+     * Package-private and static so the rule can be tested without a guild - it is the only thing
+     * standing between an unlucky startup and every account link in the database.
+     * {@code expected} is what the guild itself reports; a chunking pass that was cut short leaves
+     * the cache smaller than that. Greater-than-or-equal rather than equal because the two are read
+     * a moment apart and somebody joining in between must not look like a failure.
+     * </p>
+     *
+     * @param cached   how many members the cache holds - a {@code long}, because that is what
+     *                 JDA's {@code SnowflakeCacheView#size()} answers
+     * @param expected how many the guild says it has; {@code 0} or less means Discord has not told
+     *                 us, which is not an answer and is treated as "cannot tell"
+     * @return whether links may be deleted on the strength of this cache
+     */
+    static boolean memberCacheLooksComplete(final long cached, final int expected) {
+        return expected > 0 && cached >= expected;
     }
 
     // ---------------------------------------------------------------- helpers

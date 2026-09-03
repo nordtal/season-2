@@ -3,6 +3,7 @@ package eu.nordtal.s2.discordbot;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
 import eu.nordtal.s2.discordbot.config.BotSpec;
@@ -14,6 +15,7 @@ import eu.nordtal.s2.discordbot.access.discord.AdminCommands;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
 import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
+import eu.nordtal.s2.discordbot.access.discord.RedemptionLimit;
 import eu.nordtal.s2.discordbot.access.discord.ManagedMessages;
 import eu.nordtal.s2.discordbot.discord.PhaseCommand;
 import eu.nordtal.s2.discordbot.discord.UpdateCommand;
@@ -23,11 +25,13 @@ import eu.nordtal.s2.discordbot.access.payment.PaymentRequests;
 import eu.nordtal.s2.discordbot.access.payment.Purchases;
 import eu.nordtal.s2.discordbot.access.payment.Watermark;
 import eu.nordtal.s2.discordbot.access.payment.Tiers;
+import eu.nordtal.s2.discordbot.status.StatusChannels;
 import eu.nordtal.s2.discordbot.hungergames.RegisterFlow;
 import eu.nordtal.s2.discordbot.hungergames.RegisterMessages;
 import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.network.SnapshotDirectory;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 
@@ -40,6 +44,7 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -138,21 +143,26 @@ public class AccessBot implements AutoCloseable {
                     Activity.of(Activity.ActivityType.CUSTOM_STATUS, "It's that time of the year again..."), false);
 
             final AdminLog admin = new AdminLog(jda, accessConfig, database.jdbi());
+            // Every grant is checked against it: a period sold while season_phase.smp_start is
+            // NULL starts now instead of at the SMP opening, which is allowed and has to be loud.
+            final SeasonStart seasonStart = new SeasonStart(phases, admin);
             final AccessRoles roles = new AccessRoles(jda, accessConfig, access, messages, admin, database.jdbi());
             // Resolved once, at startup: the first start ever stamps its own instant into
             // bot_setting and every later start reads it back. Payments older than it are ignored
             // forever, which is what stops the first poll booking fifty historical payments.
             final PaymentProcessor processor = new PaymentProcessor(accessConfig, languages, bunq, requests,
                     purchases, tiers, access, roles, admin, messages, jda,
-                    Watermark.resolve(database.jdbi(), accessConfig.payment().watermark()));
+                    seasonStart, Watermark.resolve(database.jdbi(), accessConfig.payment().watermark()));
             final GuildState guildState = new GuildState(jda, accessConfig, languages, access, database.jdbi());
             final Teams teams = new Teams(database.jdbi());
 
             jda.addEventListener(
                     guildState,
                     new PurchaseFlow(accessConfig, tiers, purchases, requests, messages, roles, admin, worker),
-                    new LinkFlow(access, roles, messages, admin, worker),
-                    new AdminCommands(access, roles, requests, admin, messages, worker),
+                    new LinkFlow(access, roles, messages, admin,
+                            new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), Clock.systemUTC()),
+                            worker),
+                    new AdminCommands(access, roles, requests, admin, messages, seasonStart, worker),
                     new PhaseCommand(phases, admin, database.jdbi(), worker),
                     new UpdateCommand(updates, admin, database.jdbi(), worker, timers),
                     new RegisterFlow(jda, teams, messages, worker));
@@ -169,7 +179,12 @@ public class AccessBot implements AutoCloseable {
             guildState.reconcile();
             roles.reconcile();
 
-            schedule(accessConfig, processor, roles);
+            // The sidebar status channels, if any language configured one. Built after the guild
+            // state is reconciled so the first tick renames against a settled picture.
+            final StatusChannels status = new StatusChannels(jda, languages, messages, phases,
+                    SnapshotDirectory.using(database.dataSource()), Clock.systemUTC());
+
+            schedule(accessConfig, processor, roles, status);
             started = true;
             log.info("access-bot is up");
         } finally {
@@ -187,7 +202,8 @@ public class AccessBot implements AutoCloseable {
      * bot that looks healthy and stops booking payments.
      * </p>
      */
-    private void schedule(final AccessSpec config, final PaymentProcessor processor, final AccessRoles roles) {
+    private void schedule(final AccessSpec config, final PaymentProcessor processor,
+                          final AccessRoles roles, final StatusChannels status) {
         final int poll = config.payment().pollIntervalSeconds();
         timers.scheduleWithFixedDelay(guarded("payment poll", processor::poll), poll, poll, TimeUnit.SECONDS);
 
@@ -201,6 +217,16 @@ public class AccessBot implements AutoCloseable {
             roles.sweepExpiryNotices();
             roles.sweepLinkCodes();
         }), 1, 1, TimeUnit.HOURS);
+
+        // Every minute, and almost always free: the tick only calls Discord when the rendered name
+        // is different from the one this process last set, and StatusChannels keeps its own floor
+        // between two renames of the same channel. Not scheduled at all when nobody configured a
+        // channel, so the phase is not read once a minute for nothing.
+        if (status.configured()) {
+            timers.scheduleWithFixedDelay(guarded("status channels", status::tick), 0, 1, TimeUnit.MINUTES);
+        } else {
+            log.info("No language has a status-channel; the sidebar status is off");
+        }
     }
 
     private Runnable guarded(final String name, final Runnable task) {

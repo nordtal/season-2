@@ -81,6 +81,29 @@ public interface PhaseDirectory {
     Optional<Instant> launch();
 
     /**
+     * When paid access starts running, from the same single row {@link #currentPhase()} reads.
+     * <p>
+     * <b>This is not {@link #launch()}.</b> The network opens into {@code PRE_EVENT}, where nobody
+     * needs access at all - the gate asks for it in {@code SMP} and nowhere else - so the day the
+     * server browser counts down to and the day a purchase starts running are separated by a whole
+     * event. {@code AccessDao}'s append rule anchors {@code valid_from} on this instant, which is
+     * why it has to be a date set in advance rather than the moment the phase is switched: a grant
+     * is computed when it is bought, weeks earlier, and is never rewritten afterwards.
+     * </p>
+     * <p>
+     * Empty means no date has been announced. Purchases still go through in that state and start
+     * at {@code now()}, so the shop works before the season is dated; the bot warns on every such
+     * grant. See {@code V9__smp_start.sql}.
+     * </p>
+     * <p>
+     * <b>Database failures propagate</b>, exactly as for {@link #currentPhase()}.
+     * </p>
+     *
+     * @return the instant paid access starts running, or empty when none is set
+     */
+    Optional<Instant> smpStart();
+
+    /**
      * Switches the phase <b>and</b> records who did it, in one statement.
      * <p>
      * A switch to the phase that is already current is not an error: it writes the same row, and

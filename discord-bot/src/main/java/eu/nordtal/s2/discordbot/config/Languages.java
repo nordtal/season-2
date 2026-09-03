@@ -65,7 +65,8 @@ public final class Languages {
                         language.role(),
                         language.contributionChannel(),
                         language.linkChannel(),
-                        language.hungerGamesChannel()))
+                        language.hungerGamesChannel(),
+                        language.statusChannel()))
                 .toList());
     }
 
@@ -202,9 +203,18 @@ public final class Languages {
      * @param hungerGamesChannelId  where the hunger games Register message goes - a separate channel
      *                              from {@code contributionChannelId} on purpose, since registering
      *                              for the start event and buying paid access are unrelated actions
+     * @param statusChannelId       the channel whose NAME carries the countdown and then the live
+     *                              status, or {@code ""} for a language that has none. The only
+     *                              optional id here: the bot writes no message into it and simply
+     *                              renames nothing when it is empty
      */
     public record Language(String tag, String roleId, String contributionChannelId, String linkChannelId,
-                            String hungerGamesChannelId) {
+                            String hungerGamesChannelId, String statusChannelId) {
+
+        /** @return whether this language has a status channel to rename at all */
+        public boolean hasStatusChannel() {
+            return statusChannelId != null && !statusChannelId.isBlank();
+        }
 
         /** @return the tag as a {@link Locale}, for the message bundles and {@code discord_user.locale} */
         public Locale locale() {

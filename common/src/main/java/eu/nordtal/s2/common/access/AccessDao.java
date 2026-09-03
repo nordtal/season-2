@@ -135,15 +135,33 @@ interface AccessDao {
     /**
      * The append rule, as one statement.
      * <p>
-     * {@code valid_from} is {@code max(now(), current valid_until)}: renewing early never loses
-     * paid time, and buying with no access running starts now. It is computed by PostgreSQL from
+     * {@code valid_from} is {@code max(now(), season_phase.smp_start, current valid_until)}:
+     * renewing early never loses paid time, buying with no access running starts now, and buying
+     * before the SMP has opened starts on the day it opens. It is computed by PostgreSQL from
      * PostgreSQL's own clock, inside the insert - two callers cannot each implement their own
      * version of it, and there is no read-then-write window in which a second purchase could read
      * the same {@code valid_until}.
      * </p>
      * <p>
      * The subquery deliberately ignores revoked grants and grants that have already run out, so a
-     * user whose access lapsed in March does not get a period starting in March.
+     * user whose access lapsed in March does not get a period starting in March. <b>Periods are
+     * therefore never summed</b>, which is the whole reason this is a {@code GREATEST} over the
+     * running end rather than an addition: somebody who lapses for a week and buys again starts
+     * today, not a week ago, and their two purchases do not silently become one continuous run.
+     * </p>
+     * <p>
+     * <b>{@code smp_start}, not {@code launch}</b> ({@code V9__smp_start.sql}). Access is only
+     * asked for in the {@code SMP} phase - {@code PRE_EVENT} and {@code START_EVENT} let every
+     * linked member in without it - so anchoring to the network's opening would spend the whole
+     * hunger games event out of a thirty-day purchase. The column stays set once the season is
+     * running, at which point it is in the past and {@code now()} wins on its own; nothing has to
+     * clear it.
+     * </p>
+     * <p>
+     * A {@code NULL} {@code smp_start} means no date has been announced and the period starts now,
+     * which is deliberate (decided 2026-09-03: the shop has to work before the season is dated).
+     * The bot warns loudly every time that happens - see {@code SeasonStart} - because that is the
+     * only thing separating an internal test from a date somebody forgot to set.
      * </p>
      * <p>
      * <b>A day here is exactly 24 hours</b>, which is why the interval is built from hours and not
@@ -162,11 +180,14 @@ interface AccessDao {
                    appended.starts_at + make_interval(hours => :days * 24),
                    :source,
                    :paymentRequestId
-            FROM (SELECT GREATEST(now(), COALESCE((SELECT max(valid_until)
-                                                   FROM access_grant
-                                                   WHERE discord_id = :discordId
-                                                     AND revoked IS NULL
-                                                     AND valid_until > now()), now())) AS starts_at) appended
+            FROM (SELECT GREATEST(now(),
+                                  COALESCE((SELECT phase.smp_start FROM season_phase phase
+                                            WHERE phase.id), now()),
+                                  COALESCE((SELECT max(valid_until)
+                                            FROM access_grant
+                                            WHERE discord_id = :discordId
+                                              AND revoked IS NULL
+                                              AND valid_until > now()), now())) AS starts_at) appended
             RETURNING id, discord_id, valid_from, valid_until, source, payment_request_id, revoked, created
             """)
     @RegisterRowMapper(AccessGrantMapper.class)

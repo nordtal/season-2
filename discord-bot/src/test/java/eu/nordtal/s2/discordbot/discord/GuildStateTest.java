@@ -24,11 +24,22 @@ class GuildStateTest {
     }
 
     @Test
-    @DisplayName("somebody joining between the two reads is not a failure")
-    void aCacheLargerThanTheReportedCountIsStillComplete() {
-        // getMemberCache().size() and getMemberCount() are read a moment apart, so the cache can
-        // legitimately be one ahead. Greater-than-or-equal rather than equal for exactly that.
+    @DisplayName("somebody LEAVING mid-pass leaves the snapshot one ahead, and that is still complete")
+    void aSnapshotLargerThanTheLaterCountIsStillComplete() {
+        // reconcile() takes the member snapshot first and reads getMemberCount() after it, so this
+        // is the leave case: the member is still in the snapshot, therefore in `seen`, therefore
+        // never reached by the pass that deletes. Nothing is at risk, so it does not block.
         assertTrue(GuildState.memberCacheLooksComplete(121, 120));
+    }
+
+    @Test
+    @DisplayName("somebody JOINING mid-pass must block deletion, not authorise it")
+    void aCountThatGrewPastTheSnapshotBlocksDeletion() {
+        // The order of the two reads is what makes this the safe direction. A member who joins
+        // after the snapshot is missing from `seen` and present in the later count - so if this
+        // returned true, the third pass would mark them LEFT and delete the link of somebody who
+        // had just arrived. Reading the count last turns that race into a refusal.
+        assertFalse(GuildState.memberCacheLooksComplete(120, 121));
     }
 
     @Test

@@ -15,9 +15,9 @@ import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Renames one channel per language so the guild's sidebar says what the network is doing.
@@ -68,8 +68,14 @@ public final class StatusChannels {
     private final SnapshotDirectory snapshots;
     private final Clock clock;
 
-    /** Channel id to the name this bot last set on it, and when. Never read back from Discord. */
-    private final Map<String, Rename> lastSet = new HashMap<>();
+    /**
+     * Channel id to the name this bot last got Discord to accept, and when it last tried.
+     * <p>
+     * Concurrent because the failure callback runs on a JDA thread while {@link #tick()} runs on
+     * the bot's timer, and the two write the same entry.
+     * </p>
+     */
+    private final Map<String, Rename> attempts = new ConcurrentHashMap<>();
 
     public StatusChannels(final JDA jda, final Languages languages, final Messages messages,
                           final PhaseDirectory phases, final SnapshotDirectory snapshots,
@@ -118,14 +124,16 @@ public final class StatusChannels {
 
     private void rename(final Languages.Language language, final String name, final Instant now) {
         final String channelId = language.statusChannelId();
-        final Rename previous = lastSet.get(channelId);
-        if (previous != null && previous.name().equals(name)) {
+        final Rename previous = attempts.get(channelId);
+        if (previous != null && name.equals(previous.confirmed())) {
             return;
         }
         if (previous != null
                 && Duration.between(previous.at(), now).toMinutes() < MINIMUM_RENAME_MINUTES) {
             // The name is stale by design for a few minutes. The next tick tries again; nothing is
             // lost, because the value it would have written is recomputed from scratch each time.
+            // This is also what stops a channel Discord keeps refusing from being retried every
+            // minute - the cooldown counts attempts, not successes.
             return;
         }
 
@@ -136,17 +144,33 @@ public final class StatusChannels {
             return;
         }
 
-        // Recorded before the request rather than in the callback: a rename that Discord accepted
-        // but whose callback we never saw must not be retried on the next tick, and the cost of
-        // being wrong the other way is one name that stays stale for six minutes.
-        lastSet.put(channelId, new Rename(name, now));
+        // Optimistic: the name is recorded as confirmed before the request, so a rename Discord
+        // accepted but whose callback we never saw is not sent twice. A callback that reports
+        // failure takes it back again - see below.
+        final Rename sent = new Rename(name, now);
+        attempts.put(channelId, sent);
         channel.getManager().setName(name).queue(
                 success -> log.debug("Status channel for '{}' is now \"{}\"", language.tag(), name),
-                failure -> log.warn("Could not rename the status channel for '{}' to \"{}\"",
-                        language.tag(), name, failure));
+                failure -> {
+                    // Forget the name but keep the attempt time. Without this the entry would still
+                    // claim the channel is called `name`, and the next tick would return at the
+                    // equality check above - so a channel that failed once would stay stale until
+                    // the rendered text happened to change, which for a days-and-hours countdown is
+                    // an hour and for MAINTENANCE is for ever. Conditional, so a callback arriving
+                    // after a later tick has already written something else cannot undo it.
+                    attempts.replace(channelId, sent, new Rename(null, sent.at()));
+                    log.warn("Could not rename the status channel for '{}' to \"{}\"; it will be"
+                            + " retried once the cooldown is up", language.tag(), name, failure);
+                });
     }
 
-    /** What this bot last set on a channel, and when it sent it. */
-    private record Rename(String name, Instant at) {
+    /**
+     * What this bot believes a channel is called, and when it last tried to change it.
+     *
+     * @param confirmed the name last sent and not reported as failed, or {@code null} when the last
+     *                  attempt failed - which makes the next eligible tick send it again
+     * @param at        when that attempt was made, successful or not; the cooldown runs off this
+     */
+    private record Rename(String confirmed, Instant at) {
     }
 }

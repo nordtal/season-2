@@ -62,25 +62,52 @@ public final class RedemptionLimit {
     }
 
     /**
-     * @param discordId the account about to submit a code
-     * @return whether it may; {@code false} means every one of its allowed attempts in the last
-     *         hour was wrong
+     * Takes one attempt, if there is one to take.
+     *
+     * <h2>Why this is one call and not a check followed by a record</h2>
+     * It used to be exactly that, and it was racy: the bot hands interactions to a pool of four
+     * workers, so four modals from one account could each pass the check before any of them
+     * recorded anything, and the account would get eight or nine guesses out of a cap of five.
+     * Small against 923 521 possibilities, and still a hole in the one mechanism that makes a
+     * four-character code defensible. Admission and accounting are therefore the same synchronized
+     * operation, and the caller gives the attempt back when it turns out not to have been a guess.
+     *
+     * @param discordId the account submitting a code
+     * @return how many attempts are left after taking this one - {@code 0} means the next one is
+     *         refused - or {@code -1} when there was nothing left to take and the caller must not
+     *         look at the code at all
      */
-    public synchronized boolean allows(final String discordId) {
-        return recent(discordId).size() < maxFailures;
+    public synchronized int acquire(final String discordId) {
+        final Deque<Instant> recent = recent(discordId);
+        if (recent.size() >= maxFailures) {
+            return -1;
+        }
+        recent.addLast(clock.instant());
+        failures.put(discordId, recent);
+        return maxFailures - recent.size();
     }
 
     /**
-     * Records one wrong code.
+     * Gives back the attempt {@link #acquire(String)} took, because it was not a wrong guess after
+     * all: the code was right, or it was a real code belonging to an account that is already
+     * linked, or the redemption threw before it could answer either way.
+     * <p>
+     * Only the attempt this caller took is returned - the most recent one - so two workers racing
+     * cannot give each other's back. Harmless when there is nothing recorded, which is the normal
+     * case after a successful redemption has already cleared the account.
+     * </p>
      *
-     * @param discordId the account that submitted it
-     * @return how many attempts it has left after this one; {@code 0} means the next one is refused
+     * @param discordId the account
      */
-    public synchronized int recordFailure(final String discordId) {
-        final Deque<Instant> recent = recent(discordId);
-        recent.addLast(clock.instant());
-        failures.put(discordId, recent);
-        return Math.max(0, maxFailures - recent.size());
+    public synchronized void release(final String discordId) {
+        final Deque<Instant> recorded = failures.get(discordId);
+        if (recorded == null) {
+            return;
+        }
+        recorded.pollLast();
+        if (recorded.isEmpty()) {
+            failures.remove(discordId);
+        }
     }
 
     /**

@@ -182,9 +182,12 @@ while down.
   cap below**. The two were decided together (2026-09-03) and neither survives without the other —
   a link code is a bearer credential for taking over somebody's account link.
 - **Five wrong codes per Discord account per hour**, counted in the bot's memory and enforced in the
-  modal handler (`access.yml#link-code-attempts-per-hour`). Only a code that matched nothing counts;
-  a code refused because the account is already linked does not, since that is a real code and a
-  wrong click. Reaching the cap is written to the admin channel once.
+  modal handler (`access.yml#link-code-attempts-per-hour`). The attempt is taken **before** the
+  database is touched and in one atomic operation, because the bot runs four workers and a check
+  followed by a separate record lets every racing modal past the same last attempt. Only a code that
+  matched nothing keeps it; a right code, a code refused because the account is already linked, and
+  a redemption that threw all give it back — none of those is evidence of guessing. Reaching the cap
+  is written to the admin channel once.
 - The link channel (one per language) carries a bot-maintained message with a button opening a modal
   to enter the code.
 - **1:1**, and the user may unlink themselves with no waiting period. Every link and unlink is

@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -27,6 +28,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -90,6 +92,9 @@ class PhaseDirectoryIntegrationTest {
         // Put the singleton back the way V4 seeded it. DELETE + INSERT rather than an UPDATE
         // because one test below removes the row on purpose.
         execute("TRUNCATE TABLE audit_log");
+        // Grants cascade off the user. Without this, the date tests below move each other's rows
+        // and every count is the running total of the whole class.
+        execute("TRUNCATE TABLE discord_user CASCADE");
         execute("DELETE FROM season_phase");
         execute("INSERT INTO season_phase (phase) VALUES ('PRE_EVENT')");
         phases = PhaseDirectory.using(dataSource);
@@ -301,7 +306,237 @@ class PhaseDirectoryIntegrationTest {
         return null;
     }
 
+    // ---------------------------------------------------------------- the two dates
+
+    @Test
+    void settingTheLaunchDateWritesItAndFilesAnAuditEntry() {
+        final Instant when = Instant.now().plus(Duration.ofDays(14));
+
+        final DateChange change = phases.setLaunch(when, ADMIN_ID);
+
+        assertNull(change.previous());
+        assertWithinSeconds(when, change.current(), 1);
+        assertWithinSeconds(when, phases.launch().orElseThrow(), 1);
+        assertEquals(0, change.grants(), "launch owns no access_grant rows");
+        assertEquals(1, count("SELECT count(*) FROM audit_log WHERE action = 'SET_LAUNCH'"));
+    }
+
+    @Test
+    void clearingALaunchDateGoesBackToNoDateAnnounced() {
+        phases.setLaunch(Instant.now().plus(Duration.ofDays(14)), ADMIN_ID);
+
+        final DateChange change = phases.setLaunch(null, ADMIN_ID);
+
+        assertNotNull(change.previous());
+        assertNull(change.current());
+        assertTrue(phases.launch().isEmpty(), "the column should be NULL again");
+    }
+
+    @Test
+    void aDateInThePastIsRefusedAndWritesNothing() {
+        final Instant past = Instant.now().minus(Duration.ofHours(1));
+
+        assertThrows(SeasonDateRefused.class, () -> phases.setLaunch(past, ADMIN_ID));
+
+        assertTrue(phases.launch().isEmpty());
+        assertEquals(0, count("SELECT count(*) FROM audit_log"), "a refusal writes no audit entry");
+    }
+
+    @Test
+    void theTwoDatesMayNotCrossEachOther() {
+        phases.setLaunch(Instant.now().plus(Duration.ofDays(10)), ADMIN_ID);
+
+        // The SMP cannot start running before the network it runs on is open.
+        assertThrows(SeasonDateRefused.class,
+                () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(3)), ADMIN_ID));
+        // And the opening cannot be moved past a start that is already announced.
+        phases.setSmpStart(Instant.now().plus(Duration.ofDays(17)), ADMIN_ID);
+        assertThrows(SeasonDateRefused.class,
+                () -> phases.setLaunch(Instant.now().plus(Duration.ofDays(20)), ADMIN_ID));
+    }
+
+    // ---------------------------------------------------------------- what moves with smp_start
+
+    @Test
+    void settingTheDateForTheFirstTimeMovesAccessThatWasSoldWithoutOne() {
+        // Exactly the state the shop is deliberately allowed to be in: sold before the season had
+        // a date, so the period started at now().
+        user("400000000000000001");
+        grant("400000000000000001", "now()", "now() + make_interval(hours => 720)");
+        final Instant opening = Instant.now().plus(Duration.ofDays(20));
+
+        final DateChange change = phases.setSmpStart(opening, ADMIN_ID);
+
+        assertEquals(1, change.grants());
+        assertEquals(1, change.accounts());
+        assertWithinSeconds(opening, validFrom("400000000000000001"), 2);
+        assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil("400000000000000001"), 2);
+    }
+
+    @Test
+    void stackedPurchasesStayStackedRatherThanCollapsingOntoTheDate() {
+        // Two thirty-day purchases the append rule chained back to back. Moving the anchor must
+        // move the pair, not put both of them on the opening day.
+        user("400000000000000002");
+        grant("400000000000000002", "now()", "now() + make_interval(hours => 720)");
+        // Anchored on the first period's real end rather than on now() a second time - two
+        // statements see two different now()s, and the append rule this imitates chains on
+        // max(valid_until) for exactly that reason.
+        final String endOfTheFirst = "(SELECT max(valid_until) FROM access_grant"
+                + " WHERE discord_id = '400000000000000002')";
+        grant("400000000000000002", endOfTheFirst, endOfTheFirst + " + make_interval(hours => 720)");
+        final Instant opening = Instant.now().plus(Duration.ofDays(20));
+
+        final DateChange change = phases.setSmpStart(opening, ADMIN_ID);
+
+        assertEquals(2, change.grants());
+        assertEquals(1, change.accounts(), "one person, two periods");
+        assertWithinSeconds(opening, earliestFrom("400000000000000002"), 2);
+        assertWithinSeconds(opening.plus(Duration.ofDays(60)),
+                latestUntil("400000000000000002"), 2);
+        // Nothing but the earliest period may start anywhere other than where the earliest one
+        // ends - which with two periods is the whole of "still stacked, and with no gap".
+        assertEquals(0, count("SELECT count(*) FROM access_grant later"
+                + " WHERE later.discord_id = '400000000000000002'"
+                + "   AND later.valid_from <> (SELECT min(valid_from) FROM access_grant"
+                + "                            WHERE discord_id = '400000000000000002')"
+                + "   AND later.valid_from <> (SELECT min(valid_until) FROM access_grant"
+                + "                            WHERE discord_id = '400000000000000002')"),
+                "the second period must still begin exactly where the first one ends");
+    }
+
+    @Test
+    void twoPeopleWhoBoughtOnDifferentDaysBothStartWhenTheSmpOpens() {
+        // The case a single table-wide delta gets wrong: shifting everything by one amount would
+        // leave the later buyer starting later than the opening.
+        user("400000000000000003");
+        user("400000000000000004");
+        grant("400000000000000003", "now() - make_interval(hours => 120)", "now() + make_interval(hours => 600)");
+        grant("400000000000000004", "now()", "now() + make_interval(hours => 720)");
+        final Instant opening = Instant.now().plus(Duration.ofDays(20));
+
+        final DateChange change = phases.setSmpStart(opening, ADMIN_ID);
+
+        assertEquals(2, change.grants());
+        assertEquals(2, change.accounts());
+        assertWithinSeconds(opening, validFrom("400000000000000003"), 2);
+        assertWithinSeconds(opening, validFrom("400000000000000004"), 2);
+        // Each keeps the length they paid for, which is not the same for the two of them.
+        assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil("400000000000000003"), 2);
+        assertWithinSeconds(opening.plus(Duration.ofDays(30)), validUntil("400000000000000004"), 2);
+    }
+
+    @Test
+    void movingAnAnnouncedDateShiftsEverythingAnchoredToItByTheSameAmount() {
+        final Instant first = Instant.now().plus(Duration.ofDays(10));
+        phases.setSmpStart(first, ADMIN_ID);
+        user("400000000000000005");
+        grant("400000000000000005",
+                "(SELECT smp_start FROM season_phase WHERE id)",
+                "(SELECT smp_start FROM season_phase WHERE id) + make_interval(hours => 720)");
+
+        final Instant moved = first.plus(Duration.ofDays(7));
+        final DateChange change = phases.setSmpStart(moved, ADMIN_ID);
+
+        assertEquals(1, change.grants());
+        assertWithinSeconds(moved, validFrom("400000000000000005"), 2);
+        assertWithinSeconds(moved.plus(Duration.ofDays(30)), validUntil("400000000000000005"), 2);
+    }
+
+    @Test
+    void aRevokedGrantIsLeftWhereItIs() {
+        user("400000000000000006");
+        grant("400000000000000006", "now()", "now() + make_interval(hours => 720)");
+        execute("UPDATE access_grant SET revoked = now() WHERE discord_id = '400000000000000006'");
+        final Instant before = validFrom("400000000000000006");
+
+        final DateChange change = phases.setSmpStart(Instant.now().plus(Duration.ofDays(20)), ADMIN_ID);
+
+        assertEquals(0, change.grants(), "a revoked grant no longer counts and must not move");
+        assertWithinSeconds(before, validFrom("400000000000000006"), 1);
+    }
+
+    @Test
+    void clearingTheDateMovesNothing() {
+        phases.setSmpStart(Instant.now().plus(Duration.ofDays(10)), ADMIN_ID);
+        user("400000000000000007");
+        grant("400000000000000007",
+                "(SELECT smp_start FROM season_phase WHERE id)",
+                "(SELECT smp_start FROM season_phase WHERE id) + make_interval(hours => 720)");
+        final Instant before = validFrom("400000000000000007");
+
+        final DateChange change = phases.setSmpStart(null, ADMIN_ID);
+
+        assertNull(change.current());
+        assertEquals(0, change.grants(), "there is no date left to anchor them to");
+        assertWithinSeconds(before, validFrom("400000000000000007"), 1);
+    }
+
+    @Test
+    void writingTheSameDateTwiceMovesNothingTheSecondTime() {
+        final Instant opening = Instant.now().plus(Duration.ofDays(20));
+        user("400000000000000008");
+        grant("400000000000000008", "now()", "now() + make_interval(hours => 720)");
+        assertEquals(1, phases.setSmpStart(opening, ADMIN_ID).grants());
+
+        final DateChange again = phases.setSmpStart(opening, ADMIN_ID);
+
+        assertTrue(again.unchanged());
+        assertEquals(0, again.grants(), "everything is already anchored to that instant");
+    }
+
+    @Test
+    void onceTheSeasonIsRunningTheDateIsRefused() {
+        phases.switchPhase(SeasonPhase.SMP, ADMIN_ID, "test");
+
+        assertThrows(SeasonDateRefused.class,
+                () -> phases.setSmpStart(Instant.now().plus(Duration.ofDays(5)), ADMIN_ID));
+
+        assertTrue(phases.smpStart().isEmpty());
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    private static void user(final String discordId) {
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')"
+                + " ON CONFLICT DO NOTHING");
+    }
+
+    /** {@code from} and {@code until} are SQL expressions, so a test can anchor on the row itself. */
+    private static void grant(final String discordId, final String from, final String until) {
+        execute("INSERT INTO access_grant (discord_id, valid_from, valid_until, source)"
+                + " VALUES ('" + discordId + "', " + from + ", " + until + ", 'ADMIN')");
+    }
+
+    private static Instant validFrom(final String discordId) {
+        return earliestFrom(discordId);
+    }
+
+    private static Instant validUntil(final String discordId) {
+        return latestUntil(discordId);
+    }
+
+    private static Instant earliestFrom(final String discordId) {
+        return instant("SELECT min(valid_from) FROM access_grant WHERE discord_id = '"
+                + discordId + "'");
+    }
+
+    private static Instant latestUntil(final String discordId) {
+        return instant("SELECT max(valid_until) FROM access_grant WHERE discord_id = '"
+                + discordId + "'");
+    }
+
+    private static Instant instant(final String sql) {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(sql)) {
+            assertTrue(rs.next(), "no row for: " + sql);
+            final OffsetDateTime value = rs.getObject(1, OffsetDateTime.class);
+            return value == null ? null : value.toInstant();
+        } catch (final SQLException exception) {
+            throw new IllegalStateException("Test query failed: " + sql, exception);
+        }
+    }
 
     private static void execute(final String sql) {
         try {

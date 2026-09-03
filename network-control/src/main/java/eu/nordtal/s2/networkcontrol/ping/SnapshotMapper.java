@@ -18,8 +18,10 @@ import java.sql.SQLException;
  * {@code alive} is computed here rather than in SQL, from the two counts the query does return:
  * one fewer subquery over {@code hg_member}, and the invariant
  * {@code alive + eliminated == participants} is then true by construction instead of by two
- * queries agreeing. Clamped at zero because a {@code DEATH} row whose member has since been
- * reworked would otherwise render a negative count in the server browser.
+ * queries agreeing. The subtraction cannot go negative, because the query counts eliminated
+ * players over exactly the set it counts participants over; the clamp stays as the cheaper half of
+ * a belt and braces, since the alternative to a wrong number here is a negative one in every
+ * server browser on the list.
  * </p>
  */
 public final class SnapshotMapper implements RowMapper<NetworkSnapshot> {

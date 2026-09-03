@@ -668,7 +668,7 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 753 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 788 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-03). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
@@ -676,7 +676,7 @@ daemon present, 2026-09-03). The counts below are what the JUnit XML reports, no
 |---|---|
 | `smp` | 146 |
 | `common` | 145 |
-| `network-control` | 154 |
+| `network-control` | 189 |
 | `updater` | 133 |
 | `discord-bot` | 117 |
 | `hunger-games` | 47 |
@@ -724,7 +724,7 @@ that, and both are easy to undo by accident:
   that one, from the module directory, in preference to the real one. It was deleted with this
   change; the anchor is what stops the next one shadowing the root file silently.
 
-`network-control` has **154**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
+`network-control` has **189**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
 `gate.yml`; the `phase` and `routing` packages are tested as pure decisions, exhaustively over the
 five phases; and `PlaytimeDao`'s `seconds = seconds + EXCLUDED.seconds` gets a container, because no

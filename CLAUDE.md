@@ -668,17 +668,17 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 827 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 854 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-03). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
 | `smp` | 146 |
-| `common` | 153 |
+| `common` | 173 |
 | `network-control` | 189 |
 | `updater` | 133 |
-| `discord-bot` | 148 |
+| `discord-bot` | 155 |
 | `hunger-games` | 47 |
 | `limbo` | 11 |
 
@@ -687,11 +687,15 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **153**: `AccessDirectoryIntegrationTest` (46) and `LinkCodeIntegrationTest` (12) drive
+`:common` has **173**: `AccessDirectoryIntegrationTest` (46) and `LinkCodeIntegrationTest` (12) drive
 the access API and the link-code lifecycle against a real PostgreSQL container running the real
 migrations off `classpath:db/migration` — which also proves the location the bot depends on
-resolves, and now applies V1 through V9. `PhaseDirectoryIntegrationTest` (14) does the same for the
-phase row, its audit entry and the two dates on it. Five of the access cases are the season-start
+resolves, and now applies V1 through V9. `PhaseDirectoryIntegrationTest` (26) does the same for the
+phase row, its audit entry and the two dates on it - twelve of those cases are the grant shift that
+follows `smp_start` when it moves, including the two a table-wide delta gets wrong (two buyers on
+different days both starting at the opening, and a stacked pair staying stacked) and the DST trap
+that makes the shift seconds rather than days. `SeasonDatesTest` (8) pins the one date format both
+`/phase` commands share, the summer/winter offset it derives, and its refusal of `2026-02-30`. Five of the access cases are the season-start
 anchor: a period bought weeks before the SMP opens has to begin when it opens, two such purchases
 have to stack into one run, and a lapse after the opening has to start today rather than back at
 the anchor — periods are never summed. `MessagesTest` (10), `PlayerLocalesTest` (7), `LocalesTest` (3),
@@ -701,7 +705,7 @@ different versions that stop understanding each other produce a player stuck in 
 with nothing in any log. The `make_interval(hours => days * 24)` bug from stage A (see
 below) is still the reason a day is never expressed in SQL as `interval 'N days'`.
 
-`discord-bot` has **148**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest`, `TiersTest`,
+`discord-bot` has **155**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest`, `TiersTest`,
 `RedemptionLimitTest`, `StatusNameTest` and `GuildStateTest` in memory, `AdminFlagIntegrationTest`
 and `PaymentRequestIntegrationTest` against a container, plus the `hungergames` package's own.
 The three added on 2026-09-03 are each a rule that cannot be exercised against a real guild without

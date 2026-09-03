@@ -1,6 +1,7 @@
 package eu.nordtal.s2.networkcontrol.phase;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.phase.DateChange;
 import eu.nordtal.s2.common.phase.PhaseChange;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 
@@ -189,6 +190,16 @@ class PhaseListenerTest {
         public java.util.Optional<java.time.Instant> smpStart() {
             // Nothing in network-control reads it: it anchors purchases, which happen in the bot.
             return java.util.Optional.empty();
+        }
+
+        @Override
+        public DateChange setLaunch(final java.time.Instant at, final String actor) {
+            throw new UnsupportedOperationException("this fake only reads the row");
+        }
+
+        @Override
+        public DateChange setSmpStart(final java.time.Instant at, final String actor) {
+            throw new UnsupportedOperationException("this fake only reads the row");
         }
 
 

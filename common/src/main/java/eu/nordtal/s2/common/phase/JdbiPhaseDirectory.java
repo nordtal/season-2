@@ -45,6 +45,11 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
     }
 
     @Override
+    public Optional<Instant> smpStart() {
+        return dao.smpStart();
+    }
+
+    @Override
     public PhaseChange switchPhase(final SeasonPhase phase, final String actor, final String reason) {
         Objects.requireNonNull(phase, "phase");
 

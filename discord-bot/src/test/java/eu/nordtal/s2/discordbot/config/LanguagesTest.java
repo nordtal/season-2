@@ -33,9 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LanguagesTest {
 
-    private static final Languages.Language EN = new Languages.Language("en", "10", "11", "12", "13");
-    private static final Languages.Language DE = new Languages.Language("de", "20", "21", "22", "23");
-    private static final Languages.Language FR = new Languages.Language("fr", "30", "31", "32", "33");
+    private static final Languages.Language EN = new Languages.Language("en", "10", "11", "12", "13", "14");
+    private static final Languages.Language DE = new Languages.Language("de", "20", "21", "22", "23", "24");
+    private static final Languages.Language FR = new Languages.Language("fr", "30", "31", "32", "33", "");
 
     /** The two languages that exist today, in the order {@code DefaultLanguages} writes them. */
     private static Languages today() {
@@ -210,7 +210,7 @@ class LanguagesTest {
     @DisplayName("a list with a duplicate tag is refused")
     void aListWithADuplicateTagIsRefused() {
         final IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> Languages.of(List.of(EN, new Languages.Language("en", "40", "41", "42", "43"))));
+                () -> Languages.of(List.of(EN, new Languages.Language("en", "40", "41", "42", "43", "44"))));
         assertTrue(error.getMessage().contains("unique"), error.getMessage());
     }
 

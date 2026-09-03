@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.access.discord;
 
+import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
 
 import eu.nordtal.s2.discordbot.access.bunq.Money;
@@ -58,14 +59,17 @@ public final class AdminCommands extends ListenerAdapter {
     private final Messages messages;
     private final ExecutorService executor;
 
+    private final SeasonStart seasonStart;
+
     public AdminCommands(final AccessDirectory access, final AccessRoles roles,
                          final PaymentRequests requests, final AdminLog admin, final Messages messages,
-                         final ExecutorService executor) {
+                         final SeasonStart seasonStart, final ExecutorService executor) {
         this.access = access;
         this.roles = roles;
         this.requests = requests;
         this.admin = admin;
         this.messages = messages;
+        this.seasonStart = seasonStart;
         this.executor = executor;
     }
 
@@ -130,6 +134,7 @@ public final class AdminCommands extends ListenerAdapter {
         event.deferReply(true).queue();
         executor.execute(() -> {
             final AccessGrant grant = access.grantAccess(user.getId(), days, AccessSource.ADMIN, null);
+            seasonStart.warnIfUnanchored(user.getId(), grant);
             roles.applyAccessRole(user.getId(), true);
             roles.dm(user.getId(), messages.format(roles.localeOf(user.getId()), "dm.granted.admin",
                     "days", days, "until", AccessRoles.timestamp(grant.validUntil())));
@@ -227,6 +232,7 @@ public final class AdminCommands extends ListenerAdapter {
             // which is exactly why this needed a human in the first place.
             final AccessGrant grant = access.grantAccess(
                     request.discordId(), request.days(), AccessSource.PURCHASE, request.id());
+            seasonStart.warnIfUnanchored(request.discordId(), grant);
             roles.applyAccessRole(request.discordId(), true);
             if (request.donationRequested()) {
                 access.setDonor(request.discordId(), true);

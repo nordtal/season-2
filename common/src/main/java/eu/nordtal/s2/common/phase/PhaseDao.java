@@ -32,6 +32,13 @@ interface PhaseDao {
     Optional<Instant> launch();
 
     /**
+     * @return the announced instant paid access starts running, empty when the column is
+     *         {@code NULL} or the singleton row is gone - {@code V9__smp_start.sql}
+     */
+    @SqlQuery("SELECT smp_start FROM season_phase WHERE id")
+    Optional<Instant> smpStart();
+
+    /**
      * The switch, the audit entry and the notification as <b>one statement</b>.
      *
      * <h2>Why one statement and not three calls in a transaction</h2>

@@ -96,12 +96,22 @@ class AccessDirectoryIntegrationTest {
         // access assertion below keeps meaning exactly what it meant before the merge. The tests
         // that are about the phase itself set their own.
         phase(SeasonPhase.SMP);
+        // Nor is smp_start, for the same reason - so it is cleared explicitly here. A test that
+        // sets it would otherwise anchor every test that ran after it, which is exactly the kind
+        // of order-dependent green that a truncate-per-test exists to prevent.
+        execute("UPDATE season_phase SET smp_start = NULL WHERE id");
         directory = AccessDirectory.using(dataSource);
     }
 
     /** Puts the season_phase singleton into one phase for the duration of a test. */
     private static void phase(final SeasonPhase phase) {
         execute("UPDATE season_phase SET phase = '" + phase.name() + "' WHERE id");
+    }
+
+    /** Announces when paid access starts running - {@code V9__smp_start.sql}, set by hand in life. */
+    private static void smpStartsIn(final Duration fromNow) {
+        execute("UPDATE season_phase SET smp_start = now() + interval '"
+                + fromNow.toSeconds() + " seconds' WHERE id");
     }
 
     // ---------------------------------------------------------------- appending
@@ -146,6 +156,81 @@ class AccessDirectoryIntegrationTest {
                 UPDATE access_grant
                 SET valid_from = now() - interval '1440 hours',
                     valid_until = now() - interval '720 hours'
+                WHERE discord_id = '%s'
+                """.formatted(DISCORD_ID));
+
+        final AccessGrant grant = directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+
+        assertWithinSeconds(Instant.now(), grant.validFrom(), 5);
+        assertDaysApart(30, grant.validFrom(), grant.validUntil());
+    }
+
+    // ---------------------------------------------------------------- the season start anchor
+
+    @Test
+    void aPurchaseBeforeTheSeasonStartsBeginsWhenTheSeasonDoes() {
+        // The point of the whole anchor: access is only asked for in SMP, so a thirty-day purchase
+        // made a fortnight before the opening must still be thirty days of SMP.
+        phase(SeasonPhase.PRE_LAUNCH);
+        smpStartsIn(Duration.ofDays(14));
+
+        final AccessGrant grant = directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+
+        assertWithinSeconds(Instant.now().plus(Duration.ofDays(14)), grant.validFrom(), 60);
+        assertDaysApart(30, grant.validFrom(), grant.validUntil());
+    }
+
+    @Test
+    void twoPurchasesBeforeTheSeasonStartStackIntoOneRunFromTheOpening() {
+        // Buying 30 and then another 30 weeks in advance has to be 60 days of season, not 60 days
+        // of calendar starting today and not 30 days twice over the same fortnight.
+        phase(SeasonPhase.PRE_LAUNCH);
+        smpStartsIn(Duration.ofDays(14));
+
+        final AccessGrant first = directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+        final AccessGrant second = directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+
+        assertWithinSeconds(Instant.now().plus(Duration.ofDays(14)), first.validFrom(), 60);
+        assertWithinSeconds(first.validUntil(), second.validFrom(), 2);
+        assertWithinSeconds(Instant.now().plus(Duration.ofDays(74)), second.validUntil(), 60);
+    }
+
+    @Test
+    void aPurchaseAfterTheSeasonHasOpenedIgnoresTheStoredDate() {
+        // smp_start is deliberately never cleared once the season is running, so it has to stop
+        // mattering on its own. It does: it is in the past, and now() is the greater of the two.
+        execute("UPDATE season_phase SET smp_start = now() - interval '30 days' WHERE id");
+
+        final AccessGrant grant = directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+
+        assertWithinSeconds(Instant.now(), grant.validFrom(), 5);
+        assertDaysApart(30, grant.validFrom(), grant.validUntil());
+    }
+
+    @Test
+    void withNoSeasonStartTheChainStillStartsNowSoTheShopWorksUndated() {
+        // Decided 2026-09-03: selling is not blocked on somebody having picked a date, so that the
+        // payment path can be exercised internally. The bot says so loudly on every such grant -
+        // see SeasonStart - and that warning is the only thing standing between this and a real
+        // customer losing the weeks before an opening nobody dated.
+        phase(SeasonPhase.PRE_LAUNCH);
+
+        final AccessGrant grant = directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+
+        assertWithinSeconds(Instant.now(), grant.validFrom(), 5);
+    }
+
+    @Test
+    void aLapseAfterTheOpeningStartsTodayRatherThanBackAtTheSeasonStart() {
+        // Periods are never summed. Somebody who bought before the season, let it run out and buys
+        // again gets a period starting today - the anchor is in the past by then and the expired
+        // grant is invisible to the subquery, so neither can drag the new period backwards.
+        execute("UPDATE season_phase SET smp_start = now() - interval '90 days' WHERE id");
+        directory.grantAccess(DISCORD_ID, 30, AccessSource.PURCHASE, null);
+        execute("""
+                UPDATE access_grant
+                SET valid_from = now() - interval '2160 hours',
+                    valid_until = now() - interval '1440 hours'
                 WHERE discord_id = '%s'
                 """.formatted(DISCORD_ID));
 

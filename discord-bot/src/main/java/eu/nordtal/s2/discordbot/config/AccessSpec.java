@@ -160,6 +160,31 @@ public interface AccessSpec {
         return 10;
     }
 
+    @Order(10)
+    @Key("link-code-attempts-per-hour")
+    @Comment({
+            "How many WRONG link codes one Discord account may submit per hour before the modal",
+            "stops answering it. Only a code that matched nothing counts; a correct code, and a",
+            "code that failed because the account is already linked, do not.",
+            "",
+            "THIS IS HALF OF A SECURITY PROPERTY, NOT A COMFORT SETTING. A link code is four",
+            "characters from a 31-symbol alphabet - 923 521 possibilities - and it is a bearer",
+            "credential for taking over somebody's account link. Five guesses an hour turns the",
+            "space into decades; five hundred turns it into weeks. The code was shortened to four",
+            "characters ON CONDITION that this cap exists (see LinkCodes in :common), so raising",
+            "it far is not tuning, it is undoing the other half of a decision.",
+            "",
+            "Raising it a little is fine and is why the key exists: a code lives ten minutes, so a",
+            "player who mistypes it repeatedly can reach five in one sitting, and the punishment",
+            "for that is an hour of waiting.",
+            "",
+            "The counter lives in the bot's memory and is lost on restart. Deliberate: it costs",
+            "nothing against a space this size, and nobody who is guessing can restart the bot."
+    })
+    default int linkCodeAttemptsPerHour() {
+        return 5;
+    }
+
     @Reload
     void reload();
 
@@ -249,6 +274,30 @@ public interface AccessSpec {
                 "(docs/hunger-games.md)."
         })
         default String hungerGamesChannel() {
+            return "";
+        }
+
+        @Order(6)
+        @Key("status-channel")
+        @Comment({
+                "The channel this language's status line is written into, as a channel NAME - the",
+                "bot renames it, it never posts in it. A voice channel is the usual shape for one",
+                "of these, but any channel type works.",
+                "",
+                "OPTIONAL, unlike every other id in this file. Empty means this language has no",
+                "status channel and the bot renames nothing - which is the default, because a",
+                "channel that does not exist yet must not stop the bot from starting.",
+                "",
+                "What it says follows the phase: a countdown to season_phase.launch before the",
+                "opening, the registered teams during PRE_EVENT, the surviving teams during the",
+                "event, the registered players during SMP, and a maintenance line otherwise. The",
+                "wording of each is a message key, so it is translated rather than configured here.",
+                "",
+                "Discord allows 2 renames per 10 minutes PER CHANNEL and blocks hard on abuse, so",
+                "the bot renames at most once every six minutes and only when the text actually",
+                "changed. Two languages are two channels and two independent budgets."
+        })
+        default String statusChannel() {
             return "";
         }
     }

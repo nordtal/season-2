@@ -43,6 +43,12 @@ import java.util.UUID;
  * @param phase            the season phase the {@code season_phase} row carried when this state was
  *                         read; {@link SeasonPhase#MAINTENANCE} when it could not be read at all,
  *                         because the state that lets nobody in is the safe one to guess
+ * @param launch           when the network opens, from the same {@code season_phase} row;
+ *                         {@code null} when no date has been announced. It rides along for the
+ *                         same reason {@code phase} does - the three {@link SeasonPhase#PRE_LAUNCH}
+ *                         disconnect screens all count down to it, and a second round trip to
+ *                         fetch a timestamp for a screen would break the one-query rule that
+ *                         {@code docs/season-phases.md} pins the login path to
  */
 public record AccessState(
         UUID minecraftAccount,
@@ -53,7 +59,8 @@ public record AccessState(
         boolean donor,
         boolean admin,
         Locale locale,
-        SeasonPhase phase) {
+        SeasonPhase phase,
+        Instant launch) {
 
     /**
      * A {@code null} phase becomes {@link SeasonPhase#MAINTENANCE} rather than staying {@code null}.
@@ -100,7 +107,7 @@ public record AccessState(
      */
     public static AccessState unlinked(final UUID minecraftAccount, final SeasonPhase phase) {
         return new AccessState(minecraftAccount, null, null, false, null, false, false,
-                Locale.ENGLISH, phase);
+                Locale.ENGLISH, phase, null);
     }
 
     /** @return whether a Discord account is linked to this UUID */
@@ -116,6 +123,29 @@ public record AccessState(
     /** @return the end of the current run of access, if any */
     public Optional<Instant> validUntil() {
         return Optional.ofNullable(accessValidUntil);
+    }
+
+    /** @return when the network opens, if a date has been announced */
+    public Optional<Instant> launchAt() {
+        return Optional.ofNullable(launch);
+    }
+
+    /**
+     * Whether any access period has ever been bought and still has time on it - which is <b>not</b>
+     * the same question as {@link #accessActive()}, and the difference is the whole point of the
+     * {@link SeasonPhase#PRE_LAUNCH} screens.
+     * <p>
+     * A period bought before the season opens is meant to be waiting rather than running (todo.md
+     * #9: it must start at the season start, not at the moment of purchase). Somebody who has
+     * bought one is "all set" and must not be asked to buy again, even though nothing is active
+     * yet. {@code accessValidUntil} is the max over every unrevoked grant that has not yet ended,
+     * so it is set for exactly those players.
+     * </p>
+     *
+     * @return whether a period exists that has not run out
+     */
+    public boolean accessBought() {
+        return accessValidUntil != null;
     }
 
     /**
@@ -141,6 +171,7 @@ public record AccessState(
      * <table>
      *   <caption>Who gets in, per phase</caption>
      *   <tr><th>phase</th><th>who gets in</th></tr>
+     *   <tr><td>{@code PRE_LAUNCH}</td><td><b>admins only</b> - the network has not opened yet</td></tr>
      *   <tr><td>{@code PRE_EVENT}</td><td>linked Discord member, not banned</td></tr>
      *   <tr><td>{@code START_EVENT}</td><td>linked Discord member, not banned</td></tr>
      *   <tr><td>{@code SMP}</td><td>the above <b>plus active access</b></td></tr>
@@ -155,8 +186,10 @@ public record AccessState(
      * now answers {@code true} for any linked, non-banned member during maintenance and the
      * <em>destination</em> is what makes maintenance different, not admission.
      * <p>
-     * That is why {@link #admin()} no longer appears in this method at all. The flag has not become
-     * irrelevant - it decides <em>where</em> a player goes during maintenance
+     * That is why {@link #admin()} appears in this method for exactly one phase, {@code PRE_LAUNCH},
+     * and nowhere else - before the opening, being an admin <em>is</em> the admission rule. In every
+     * other phase the flag has not become irrelevant either: it decides <em>where</em> a player goes
+     * during maintenance
      * ({@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting}: an admin is left where they are,
      * everyone else is put in {@code limbo}) - but it is no longer part of "may they join". A banned
      * admin is still banned, because {@link #linkedMember()} is still asked first.
@@ -180,6 +213,10 @@ public record AccessState(
             // phase decides where they land, and that is not this method's question.
             case PRE_EVENT, START_EVENT, MAINTENANCE -> true;
             case SMP -> accessActive;
+            // The exception to the paragraph above, and the only one: before the network has ever
+            // opened, an admin is the only person who may be on it. Everybody else is refused with
+            // a countdown - see GateOutcome for which of the three screens they get.
+            case PRE_LAUNCH -> admin;
         };
     }
 }

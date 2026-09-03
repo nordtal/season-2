@@ -3,12 +3,14 @@ package eu.nordtal.s2.networkcontrol.gate;
 import com.velocitypowered.api.event.ResultedEvent.ComponentResult;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
+import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 
 import eu.nordtal.s2.common.message.Messages;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import org.slf4j.Logger;
 
@@ -45,12 +47,20 @@ import java.util.concurrent.atomic.AtomicLong;
  * <h2>The screen is bilingual</h2>
  * For a stronger version of the reason the unlinked screen is: not only is the player unidentified,
  * the table that stores every player's language is unreachable. English first, German underneath in
- * grey italics, exactly like {@link GateMessages#notLinked(String)}.
+ * grey italics, exactly like {@link GateMessages#notLinked}.
+ *
+ * <h2>It answers the ping too, since 2026-09-03</h2>
+ * The MOTD moved out of {@code velocity.toml} and into {@code network.yml}, and {@code network.yml}
+ * is one of the files that can be what is broken - so without this the server browser would fall
+ * back to Velocity's own "A Velocity Server" at exactly the moment the network most needs to
+ * explain itself. The line comes from the message bundle, which is a classpath resource and
+ * therefore the one thing still readable when the configuration is the problem.
  */
 public final class MisconfiguredGate {
 
     private final Logger logger;
     private final Component screen;
+    private final Component motd;
 
     /** How many logins have been refused, so the log line can say "and 400 others" rather than 400 lines. */
     private final AtomicLong refused = new AtomicLong();
@@ -68,6 +78,21 @@ public final class MisconfiguredGate {
                 .append(Component.text(messages.get(Locale.GERMAN, "gate.misconfigured"))
                         .color(NamedTextColor.GRAY)
                         .decorate(TextDecoration.ITALIC));
+        // English only: a ping carries no player, so there is no language to pick - the same reason
+        // NetworkPing renders its countdown in English.
+        this.motd = MiniMessage.miniMessage().deserialize(messages.get(Locale.ENGLISH, "motd.misconfigured"));
+    }
+
+    /**
+     * What the server browser shows while nobody can join. Deliberately not the configured MOTD:
+     * the configuration is what failed, and a network advertising its season while refusing every
+     * login is a worse lie than one that says it is broken.
+     */
+    @Subscribe
+    public void onPing(final ProxyPingEvent event) {
+        event.setPing(event.getPing().asBuilder()
+                .description(motd)
+                .build());
     }
 
     @Subscribe

@@ -293,15 +293,28 @@ services:
       # a hand-installed extra is fine. Counting jars was not enough - see finding B4 and the long
       # note in deploy/minecraft/entrypoint.sh.
       EXPECTED_PLUGINS: ${NETWORK_CONTROL_EXPECTED_PLUGINS:-network-control}
-      # What the server browser shows. Seeded into velocity.toml on a fresh volume only, like the
-      # rest of that file. Until 2026-09-02 neither was set, so the browser advertised Velocity's
-      # own default - "A Velocity Server" in Velocity blue - and 500 slots that no backend honoured.
+      # THE PLAYER LIMIT AND THE MOTD, and they both belong to the plugin now (2026-09-03).
       #
-      # show-max-players is DISPLAY ONLY: Velocity enforces no limit, so the number that decides is
-      # max-players on the backend a player lands on. Both come from NETWORK_MAX_PLAYERS so they
-      # cannot say different things.
-      VELOCITY_MOTD: ${VELOCITY_MOTD:-nordtal.eu}
-      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
+      # They used to be seeded into velocity.toml on a fresh volume, which meant a MOTD nobody could
+      # change afterwards and a limit that Velocity does not enforce anyway. Both are network.yml
+      # keys today: network-control answers every ping with the MOTD for the current phase and
+      # refuses the login that would exceed the limit. These are jcore environment overrides, so
+      # they win over the file and are never written back into it.
+      #
+      # NETWORK_MAX_PLAYERS is the ONLY number that decides who gets on the network.
+      # BACKEND_MAX_PLAYERS is what the Paper backends are set to, far above it, so that they never
+      # refuse anybody - the proxy carries a copy of it and refuses to start if the two cross.
+      #
+      # The five MOTDs are one per season phase and are only listed here so that .env can override
+      # them without anybody learning the NORDTAL_ naming rule. Leaving one unset keeps the default
+      # from network.yml, which is a real MOTD and not a placeholder.
+      NORDTAL_NETWORK_CONTROL_NETWORK_MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
+      NORDTAL_NETWORK_CONTROL_NETWORK_BACKEND_LIMIT: ${BACKEND_MAX_PLAYERS:-1000}
+      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_PRE_LAUNCH: ${NETWORK_MOTD_PRE_LAUNCH:-}
+      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_PRE_EVENT: ${NETWORK_MOTD_PRE_EVENT:-}
+      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_START_EVENT: ${NETWORK_MOTD_START_EVENT:-}
+      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_SMP: ${NETWORK_MOTD_SMP:-}
+      NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_MAINTENANCE: ${NETWORK_MOTD_MAINTENANCE:-}
       SERVER_VERSION: ${VELOCITY_VERSION:-4.1.1}
       SERVER_BUILD: ${VELOCITY_BUILD:-24}
       HEAP: ${PROXY_HEAP:-1G}
@@ -344,13 +357,12 @@ services:
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
       EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
-      # THE NUMBER THAT ACTUALLY DECIDES WHO GETS IN, and it has to be the same on all three.
-      # Velocity advertises 500 in the server browser and enforces nothing; Paper's own default is
-      # 20. Until 2026-09-02 nothing set it, so the network showed 500 slots and `limbo` refused the
-      # 21st player with "Server full" - after they had passed the login gate and waited for the
-      # resource pack. Enforced on every start, because it has to agree with a value in another
-      # container.
-      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
+      # DELIBERATELY NOT A LIMIT. It is set far above anything the network will hold so that this
+      # server never refuses anybody: the proxy owns the limit (NETWORK_MAX_PLAYERS above) and
+      # refuses at the login gate, where it can say why, rather than here - after the player has
+      # passed that gate, downloaded the resource pack and waited in limbo. Paper's own default is
+      # 20, which is what made that failure possible in the first place.
+      BACKEND_MAX_PLAYERS: ${BACKEND_MAX_PLAYERS:-1000}
       HEAP: ${LIMBO_HEAP:-1G}
       # No LEVEL_NAME and no LEVEL_SEED, deliberately. limbo builds its own empty world at enable
       # (LimboSpec#world-name, default `limbo`) and moves every player into it before they are ever
@@ -377,7 +389,7 @@ services:
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
       EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
-      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
+      BACKEND_MAX_PLAYERS: ${BACKEND_MAX_PLAYERS:-1000}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       # The hand-built event world. HungerGamesSpec#world-name defaults to `hunger_games` and the
       # plugin does NOT load a world of its own - it disables itself when that world is not there -
@@ -441,7 +453,7 @@ services:
       # assuming them, and this list does assume them. A publisher renaming a jar therefore stops
       # this container with the prefix in the message, which is the right side to fail on.
       EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit}
-      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
+      BACKEND_MAX_PLAYERS: ${BACKEND_MAX_PLAYERS:-1000}
       HEAP: ${SMP_HEAP:-6G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
       # A Paper server given a forwarding secret is a backend: the entrypoint sets

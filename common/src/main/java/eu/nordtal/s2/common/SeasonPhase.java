@@ -10,16 +10,34 @@ package eu.nordtal.s2.common;
  * read and how it is switched.
  * </p>
  * <p>
- * The ordering here is the network's routing order: the season runs {@link #PRE_EVENT} to
- * {@link #START_EVENT} to {@link #SMP}, and {@link #MAINTENANCE} sits at the end because it is the
- * one phase that is not a stage of the season but an interruption of any of them.
+ * The ordering here is the network's routing order: the season runs {@link #PRE_LAUNCH} to
+ * {@link #PRE_EVENT} to {@link #START_EVENT} to {@link #SMP}, and {@link #MAINTENANCE} sits at the
+ * end because it is the one phase that is not a stage of the season but an interruption of any of
+ * them.
  * </p>
  * <p>
  * The names are the exact strings stored in {@code season_phase.phase}, which a database
- * {@code CHECK} constraint restricts to these four.
+ * {@code CHECK} constraint restricts to these five. Adding one is a migration:
+ * {@code V8__pre_launch.sql} is the worked example.
  * </p>
  */
 public enum SeasonPhase {
+
+    /**
+     * Before the network has ever opened. <b>Nobody but an admin gets in</b>, and everybody else is
+     * refused with a screen that counts down to {@code season_phase.launch} - which of the three
+     * screens they see depends on how far they already are, so the wait is also the onboarding:
+     * a link code for an unlinked account, an invitation to buy the first month for a linked one
+     * without a period, and a "you're all set" for somebody who has both. See
+     * {@code eu.nordtal.s2.common.access.GateOutcome} and {@code docs/season-phases.md}.
+     * <p>
+     * This is the season's <b>initial</b> state and the one phase that has a date attached to it.
+     * Nothing switches out of it on its own: the countdown reaching zero changes what the server
+     * browser says and nothing else, because who may join is an admin's decision and not a
+     * timestamp somebody set weeks earlier.
+     * </p>
+     */
+    PRE_LAUNCH,
 
     /**
      * Before the start event. The network is open, the lobby stands and teams register; players

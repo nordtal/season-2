@@ -437,20 +437,29 @@ fetch_datapacks() {
 
 # The player limit, and it is ENFORCED on every start rather than seeded.
 #
-# Paper's default is 20. Velocity advertises 500 in the server browser and does not enforce a limit
-# of its own, so the number that actually decides who gets in is this one, on whichever backend the
-# player lands on - which is always `limbo` first. The result before 2026-09-02 was a network that
-# showed 500 slots and refused the 21st player with "Server full", AFTER they had passed the login
-# gate, been offered the resource pack and waited for it.
+# THE BACKENDS NO LONGER LIMIT ANYTHING, since 2026-09-03. This writes a number high enough that
+# it can never be reached, so that the proxy is the only thing on the network that ever refuses a
+# player - and refuses them at the login gate, where it can say why, instead of after they have
+# passed it, downloaded the resource pack and waited in limbo.
 #
-# Enforced, unlike level-name beside it, because the two failure modes are nothing alike: a
-# level-name that disagrees would swap a world, so it stops the container; a player limit that
-# disagrees just quietly caps the network below what it promises, and there is no world to lose by
-# correcting it on a restart. It also has to agree with a number that lives in another container,
-# which is exactly the kind of value that must not be editable in one place only.
+# Paper's own default is 20, and until 2026-09-02 nothing set it: the network advertised 500 slots
+# while `limbo` - the first backend every login reaches - refused the 21st player with "Server
+# full". Setting it from the network's own limit fixed that and left the fault one step further
+# along, because whichever backend a player lands on still decided, and three backends can be
+# raised out of step with each other and with the proxy.
+#
+# The real limit is network.yml#max-players in network-control, which the proxy enforces once. That
+# file also carries a copy of THIS number (backend-limit): the proxy refuses to start when its own
+# limit is above it, because a max-players above this value would silently make the backends the
+# network's real limit again. If you raise one, raise the other.
+#
+# Enforced on every start, unlike level-name beside it, because the two failure modes are nothing
+# alike: a level-name that disagrees would swap a world, so it stops the container; a player limit
+# that disagrees just quietly caps the network below what it promises, and there is no world to
+# lose by correcting it on a restart.
 enforce_player_limit() {
-    [[ -n "${MAX_PLAYERS:-}" ]] || return 0
-    set_property "$DATA/server.properties" max-players "$MAX_PLAYERS"
+    [[ -n "${BACKEND_MAX_PLAYERS:-}" ]] || return 0
+    set_property "$DATA/server.properties" max-players "$BACKEND_MAX_PLAYERS"
 }
 
 # A Paper server that sits behind the proxy. Two things have to be true and neither of them is
@@ -529,17 +538,16 @@ seed_velocity_config() {
         printf 'bind = "0.0.0.0:25565"\n'
         printf 'online-mode = true\n'
         printf 'player-info-forwarding-mode = "modern"\n'
-        printf 'forwarding-secret-file = "forwarding.secret"\n'
-        # What the server browser shows. Left at Velocity's own default until 2026-09-02, which is
-        # "A Velocity Server" in Velocity blue - on launch day, in every player's server list.
-        # MOTD is MiniMessage, so <gradient>, <#rrggbb> and <newline> all work; the default here is
-        # deliberately plain text, because a placeholder that looks finished is one nobody replaces.
+        printf 'forwarding-secret-file = "forwarding.secret"\n\n'
+        # NO motd AND NO show-max-players HERE, and that is the point rather than an omission.
+        # Both moved into network-control's network.yml on 2026-09-03, where the plugin answers
+        # every ProxyPingEvent with them. Seeding them here would put a second, permanently stale
+        # copy of the MOTD in a file this script only ever writes once - which is exactly the trap
+        # that made VELOCITY_MOTD do nothing on any volume that had already started.
         #
-        # show-max-players is only what the browser DISPLAYS. Velocity enforces no limit of its own:
-        # the number that decides is max-players on whichever backend the player lands on, which is
-        # MAX_PLAYERS in compose.yml. The two are set from the same variable for that reason.
-        printf 'motd = "%s"\n' "${VELOCITY_MOTD:-nordtal.eu}"
-        printf 'show-max-players = %s\n\n' "${MAX_PLAYERS:-500}"
+        # Velocity's own defaults for the two are harmless: nothing reads its motd once the plugin
+        # answers the ping, and show-max-players is a display value the plugin overrides. A proxy
+        # without network-control does not start at all - see EXPECTED_PLUGINS.
         printf '[servers]\n'
         for entry in $VELOCITY_SERVERS; do
             name="${entry%%=*}"

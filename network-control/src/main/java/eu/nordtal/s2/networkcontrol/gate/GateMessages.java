@@ -2,11 +2,13 @@ package eu.nordtal.s2.networkcontrol.gate;
 
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.networkcontrol.config.GateSpec;
+import eu.nordtal.s2.networkcontrol.launch.LaunchCountdown;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
+import java.time.Instant;
 import java.util.Locale;
 
 /**
@@ -32,7 +34,7 @@ public final class GateMessages {
      * The unlinked screen: English first, German underneath in grey italics, because the account
      * is unknown at this point and there is no locale to pick from.
      */
-    Component notLinked(final String code) {
+    Component notLinked(final String code, final Instant launch, final Instant now) {
         Component result = Component.text(messages.format(Locale.ENGLISH, "gate.not-linked", "code", code))
                 .appendNewline()
                 .append(Component.text(messages.format(Locale.GERMAN, "gate.not-linked", "code", code))
@@ -43,7 +45,7 @@ public final class GateMessages {
                     .append(Component.text(messages.format(Locale.ENGLISH, "gate.not-linked.invite",
                             "invite", config.discordInviteUrl())));
         }
-        return result;
+        return withCountdown(result, Locale.ENGLISH, launch, now);
     }
 
     /**
@@ -113,6 +115,55 @@ public final class GateMessages {
      */
     public Component noServer(final Locale locale) {
         return Component.text(messages.get(locale, "gate.no-server"));
+    }
+
+    /**
+     * The network is at {@code network.yml#max-players} and this player is not an admin.
+     * <p>
+     * The numbers are in the text on purpose. "Full" without them invites the reading that
+     * something is broken - the browser was showing a slot a moment ago - while "312 of 312" is
+     * self-evidently a limit somebody chose. They are the proxy's own count and the configured
+     * limit, which since 2026-09-03 are the only two numbers involved: the Paper backends are
+     * configured far above any network limit and no longer refuse anybody.
+     * </p>
+     */
+    Component full(final Locale locale, final int online, final int max) {
+        return Component.text(messages.format(locale, "gate.full", "online", online, "max", max));
+    }
+
+    /**
+     * {@code PRE_LAUNCH}, linked, nothing bought yet: the invitation to buy the first month now so
+     * that the SMP is playable the moment the event ends. Not a refusal the player can do anything
+     * about - nobody is getting in yet - which is exactly why it is worth using the screen for
+     * something other than saying no.
+     */
+    public Component preLaunchBuy(final Locale locale, final Instant launch, final Instant now) {
+        Component result = Component.text(messages.get(locale, "gate.pre-launch.buy"));
+        if (hasInvite()) {
+            result = result.appendNewline()
+                    .append(Component.text(messages.format(locale, "gate.no-access.invite",
+                            "invite", config.discordInviteUrl())));
+        }
+        return withCountdown(result, locale, launch, now);
+    }
+
+    /** {@code PRE_LAUNCH}, linked, and a period already bought. Nothing to do but wait. */
+    public Component preLaunchReady(final Locale locale, final Instant launch, final Instant now) {
+        return withCountdown(Component.text(messages.get(locale, "gate.pre-launch.ready")), locale, launch, now);
+    }
+
+    /**
+     * Appends the countdown line, in grey, with a blank line above it - or nothing at all when
+     * there is no countdown to show, which is every phase but {@code PRE_LAUNCH}.
+     */
+    private Component withCountdown(final Component screen, final Locale locale, final Instant launch,
+                                    final Instant now) {
+        if (now == null) {
+            return screen;
+        }
+        return screen.appendNewline().appendNewline()
+                .append(Component.text(LaunchCountdown.sentence(messages, locale, launch, now))
+                        .color(NamedTextColor.GRAY));
     }
 
     /** The database is unreachable and the fallback cache has nothing usable for this player. */

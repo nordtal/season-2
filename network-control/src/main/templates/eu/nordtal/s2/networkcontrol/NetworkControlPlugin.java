@@ -20,6 +20,7 @@ import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.networkcontrol.config.Configs;
 import eu.nordtal.s2.networkcontrol.config.DatabaseSpec;
 import eu.nordtal.s2.networkcontrol.config.GateSpec;
+import eu.nordtal.s2.networkcontrol.config.NetworkSpec;
 import eu.nordtal.s2.networkcontrol.config.PackSpec;
 import eu.nordtal.s2.networkcontrol.db.AccessPool;
 import eu.nordtal.s2.networkcontrol.gate.ExpiryWatch;
@@ -28,6 +29,7 @@ import eu.nordtal.s2.networkcontrol.gate.GateMessages;
 import eu.nordtal.s2.networkcontrol.gate.LoginGate;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 import eu.nordtal.s2.networkcontrol.gate.MisconfiguredGate;
+import eu.nordtal.s2.networkcontrol.launch.LaunchCountdown;
 import eu.nordtal.s2.networkcontrol.pack.PackMessages;
 import eu.nordtal.s2.networkcontrol.pack.PackOffer;
 import eu.nordtal.s2.networkcontrol.pack.PackStation;
@@ -35,6 +37,8 @@ import eu.nordtal.s2.networkcontrol.pack.WaitingBook;
 import eu.nordtal.s2.networkcontrol.phase.PhaseCommand;
 import eu.nordtal.s2.networkcontrol.phase.PhaseListener;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
+import eu.nordtal.s2.networkcontrol.ping.NetworkPing;
+import eu.nordtal.s2.networkcontrol.ping.SnapshotStore;
 import eu.nordtal.s2.networkcontrol.playtime.PlaytimeStore;
 import eu.nordtal.s2.networkcontrol.playtime.PlaytimeWriter;
 import eu.nordtal.s2.networkcontrol.routing.PhaseRouting;
@@ -128,6 +132,7 @@ public final class NetworkControlPlugin {
             start(Configs.database(dataDirectory, logger).get(),
                     Configs.gate(dataDirectory, logger).get(),
                     Configs.pack(dataDirectory, logger).get(),
+                    Configs.network(dataDirectory, logger).get(),
                     messages);
         } catch (final ConfigException | RuntimeException failure) {
             failClosed(messages, failure);
@@ -135,7 +140,8 @@ public final class NetworkControlPlugin {
     }
 
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
-                       final PackSpec packConfig, final Messages messages) {
+                       final PackSpec packConfig, final NetworkSpec networkConfig,
+                       final Messages messages) {
         this.pool = AccessPool.open(databaseConfig);
         this.access = AccessDirectory.using(pool);
 
@@ -233,7 +239,8 @@ public final class NetworkControlPlugin {
 
         // ------------------------------------------------------------ the gate
 
-        final LoginGate loginGate = new LoginGate(logger, access, fallback, roster, gateMessages, gateConfig);
+        final LoginGate loginGate = new LoginGate(logger, proxy, access, fallback, roster, gateMessages,
+                gateConfig, networkConfig, Clock.systemUTC());
         final ExpiryWatch expiryWatch = new ExpiryWatch(proxy, logger, access, fallback, gateMessages,
                 Duration.ofMinutes(gateConfig.expiryWarningLeadMinutes()));
 
@@ -245,6 +252,22 @@ public final class NetworkControlPlugin {
                 .delay(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))
                 .repeat(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))
                 .schedule();
+
+        // ------------------------------------------------------------ the server browser
+
+        // The MOTD and the advertised limit, both out of network.yml. The snapshot behind the
+        // placeholders is refreshed on a timer and never on the ping itself: a ping is
+        // unauthenticated and arrives in bursts, so it must not be able to make the proxy query
+        // anything.
+        final SnapshotStore snapshots = SnapshotStore.using(pool, logger);
+        final Duration snapshotInterval = Duration.ofSeconds(networkConfig.snapshotRefreshSeconds());
+        snapshots.refresh();
+        proxy.getScheduler().buildTask(this, snapshots::refresh)
+                .delay(snapshotInterval)
+                .repeat(snapshotInterval)
+                .schedule();
+        proxy.getEventManager().register(this, new NetworkPing(proxy, logger, networkConfig, phaseWatch,
+                snapshots, messages, Clock.systemUTC()));
 
         // ------------------------------------------------------------ play time
 
@@ -285,6 +308,15 @@ public final class NetworkControlPlugin {
                 gateConfig.fallbackCacheWindowMinutes(), gateConfig.expiryCheckIntervalSeconds(),
                 pollInterval.toSeconds(), flushInterval.toSeconds(), gateConfig.serverLimbo(),
                 sweepInterval.toSeconds());
+        logger.info("The network takes {} players and the browser is told so; the Paper backends are "
+                        + "configured for {} and refuse nobody. MOTD refreshed every {}s.",
+                networkConfig.maxPlayers(), networkConfig.backendLimit(), snapshotInterval.toSeconds());
+        if (phaseWatch.lastKnown() == SeasonPhase.PRE_LAUNCH) {
+            logger.info("The network has not opened yet: only admins get in, everybody else is shown "
+                            + "the countdown ({}).",
+                    LaunchCountdown.render(messages, Locale.ENGLISH, phaseWatch.launch().orElse(null),
+                            Clock.systemUTC().instant()));
+        }
     }
 
     /**

@@ -40,13 +40,19 @@ public interface GateSpec {
     @Order(1)
     @Key("discord-invite-url")
     @Comment({
-            "Shown on the two disconnect screens that point a player at Discord: not yet a",
-            "member (or banned), and not linked. Empty is allowed - the message still makes",
-            "sense without a clickable link - but filling it in is what makes the screen",
-            "actually useful to somebody who has never joined the Discord server."
+            "Shown on every disconnect screen that points a player at Discord: not yet a member",
+            "(or banned), not linked, and the 'buy your first month' screen before the opening.",
+            "",
+            "IT IS THE WEBSITE, NOT AN INVITE LINK (decided 2026-09-03). nordtal.eu forwards to",
+            "the Discord and is expected to keep doing so, and an address that never changes is",
+            "worth more on a screen somebody reads once than an invite link that can expire and",
+            "then silently sends nobody anywhere.",
+            "",
+            "Empty is still allowed - every message makes sense without it - but there is no",
+            "reason to empty it."
     })
     default String discordInviteUrl() {
-        return "";
+        return "https://nordtal.eu";
     }
 
     @Order(2)

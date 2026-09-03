@@ -178,6 +178,14 @@ class PhaseListenerTest {
     /** Counts reads and answers the same phase every time. */
     private static final class CountingDirectory implements PhaseDirectory {
 
+        @Override
+        public java.util.Optional<java.time.Instant> launch() {
+            // No test here is about the opening date; PhaseWatch reads it on the same refresh as
+            // the phase and renders it only into the MOTD.
+            return java.util.Optional.empty();
+        }
+
+
         private final AtomicInteger reads = new AtomicInteger();
 
         @Override

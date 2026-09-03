@@ -20,6 +20,7 @@ import net.kyori.adventure.text.Component;
 
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Objects;
@@ -134,7 +135,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 logger.error("No '{}' server is registered on this proxy, so {} cannot be put in the "
                                 + "waiting room in phase {} and is being disconnected instead",
                         routing.servers().limbo(), player.getUsername(), phase);
-                player.disconnect(reasonFor(decision, roster.localeOf(uuid)));
+                player.disconnect(reasonFor(decision, roster.localeOf(uuid), null, null));
             }
         }
     }
@@ -166,7 +167,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             default -> {
                 logger.error("The pack station released {} but routing now says {}",
                         player.getUsername(), decision.action());
-                player.disconnect(reasonFor(decision, roster.localeOf(player.getUniqueId())));
+                player.disconnect(reasonFor(decision, roster.localeOf(player.getUniqueId()), null, null));
             }
         }
     }
@@ -249,7 +250,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             default -> {
                 logger.info("Disconnecting {} on the phase change: {}", player.getUsername(),
                         decision.action());
-                player.disconnect(reasonFor(decision, state.locale()));
+                player.disconnect(reasonFor(decision, state.locale(), state.launch(), Instant.now()));
                 yield true;
             }
         };
@@ -304,7 +305,14 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         return names;
     }
 
-    private Component reasonFor(final RouteDecision decision, final Locale locale) {
+    /**
+     * @param launch the announced opening instant, and {@code now} the instant to count from -
+     *               both {@code null} on the two paths that cannot produce a {@code PRE_LAUNCH}
+     *               refusal, where the screen is then shown without its countdown line rather than
+     *               refusing to render
+     */
+    private Component reasonFor(final RouteDecision decision, final Locale locale,
+                                final Instant launch, final Instant now) {
         return switch (decision.action()) {
             case REFUSE_UNLINKED -> messages.unlinked(locale);
             case REFUSE_NOT_MEMBER -> messages.notMember(locale);
@@ -312,6 +320,8 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             case REFUSE_NO_ACCESS -> messages.noAccess(locale);
             case REFUSE_MAINTENANCE_UNAVAILABLE -> messages.maintenance(locale);
             case REFUSE_NO_SERVER -> messages.noServer(locale);
+            case REFUSE_PRE_LAUNCH_BUY -> messages.preLaunchBuy(locale, launch, now);
+            case REFUSE_PRE_LAUNCH_READY -> messages.preLaunchReady(locale, launch, now);
             case CONNECT, STAY -> throw new IllegalArgumentException(
                     "not a refusal: " + decision.action());
         };

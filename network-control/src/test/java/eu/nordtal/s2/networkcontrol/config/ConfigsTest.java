@@ -1,6 +1,7 @@
 package eu.nordtal.s2.networkcontrol.config;
 
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
+import eu.nordtal.s2.common.SeasonPhase;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -9,6 +10,8 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -16,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The fail-fast for {@code network-control}'s own two config files - same philosophy as
+ * The fail-fast for {@code network-control}'s own config files - same philosophy as
  * {@code access-bot}'s {@code ConfigsTest}: everything here is a value that must stop the gate
  * from starting rather than surface as a confusing failure later (a query timeout of zero, a
  * negative cache window).
@@ -83,7 +86,9 @@ class ConfigsTest {
     void aFreshGateConfigGetsTheDocumentedDefaults() throws Exception {
         final GateSpec config = Configs.gate(directory, LOGGER).get();
 
-        assertEquals("", config.discordInviteUrl());
+        assertEquals("https://nordtal.eu", config.discordInviteUrl(),
+                "the website, not an invite link, decided 2026-09-03: nordtal.eu forwards to the "
+                        + "Discord and an address that never changes beats one that can expire");
         assertEquals(10, config.linkCodeTtlMinutes());
         assertEquals(15, config.fallbackCacheWindowMinutes());
         assertEquals(60, config.expiryCheckIntervalSeconds());
@@ -285,9 +290,95 @@ class ConfigsTest {
                 """.formatted(enabled, url, sha1, force, timeout));
     }
 
+    // ------------------------------------------------------------- network.yml
+
+    @Test
+    void aFreshNetworkConfigLoadsAndCarriesAMotdForEveryPhase() throws Exception {
+        final NetworkSpec config = Configs.network(directory, LOGGER).get();
+
+        assertEquals(500, config.maxPlayers());
+        assertEquals(1000, config.backendLimit());
+        assertTrue(Files.isRegularFile(directory.resolve("network.yml")),
+                "a fresh load must write the defaults out - and this file is also the only place the"
+                        + " placeholder list is documented");
+
+        // The nested MotdSpec is the part that has to survive the round trip. A nested spec without
+        // its own @ConfigSpec fails as a Gson error about java.lang.reflect.Proxy#h, which names
+        // nothing useful - and it fails on the first WRITE, which is what a fresh load does. This is
+        // the module's standing check for that; see the repository CLAUDE.md, "Configuration".
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            assertFalse(motdFor(config, phase).isBlank(), "no MOTD for " + phase);
+        }
+    }
+
+    @Test
+    void everyPhaseGetsItsOwnMotdRatherThanOneSharedLine() throws Exception {
+        // Five values, five meanings. If two of them are ever equal by default, the file has stopped
+        // being worth having five keys.
+        final NetworkSpec config = Configs.network(directory, LOGGER).get();
+        final Set<String> distinct = new HashSet<>();
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            distinct.add(motdFor(config, phase));
+        }
+        assertEquals(SeasonPhase.values().length, distinct.size(),
+                "two phases ship the same default MOTD, so one of them is not saying anything");
+    }
+
+    @Test
+    void aLimitAboveTheBackendsIsRejectedBecauseTheBackendsWouldBecomeTheLimit() throws Exception {
+        // The whole reason backend-limit is repeated in this file. A max-players above it means the
+        // Paper servers refuse players before the proxy does - with "Server full", after the login
+        // gate, the resource pack and the wait in limbo - which is the fault this arrangement was
+        // built to remove. Loudly, at startup, rather than at some busy moment.
+        Files.writeString(directory.resolve("network.yml"), """
+                max-players: 2000
+                backend-limit: 1000
+                snapshot-refresh-seconds: 10
+                motd:
+                  pre-launch: 'a'
+                  pre-event: 'b'
+                  start-event: 'c'
+                  smp: 'd'
+                  maintenance: 'e'
+                """);
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+                () -> Configs.network(directory, LOGGER));
+        assertTrue(error.getMessage().contains("backend-limit"), error.getMessage());
+    }
+
+    @Test
+    void anEmptyMotdIsRejectedRatherThanShownAsAnEmptyServerBrowserEntry() throws Exception {
+        Files.writeString(directory.resolve("network.yml"), """
+                max-players: 500
+                backend-limit: 1000
+                snapshot-refresh-seconds: 10
+                motd:
+                  pre-launch: ''
+                  pre-event: 'b'
+                  start-event: 'c'
+                  smp: 'd'
+                  maintenance: 'e'
+                """);
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+                () -> Configs.network(directory, LOGGER));
+        assertTrue(error.getMessage().contains("motd.pre-launch"), error.getMessage());
+    }
+
+    private static String motdFor(final NetworkSpec config, final SeasonPhase phase) {
+        return switch (phase) {
+            case PRE_LAUNCH -> config.motd().preLaunch();
+            case PRE_EVENT -> config.motd().preEvent();
+            case START_EVENT -> config.motd().startEvent();
+            case SMP -> config.motd().smp();
+            case MAINTENANCE -> config.motd().maintenance();
+        };
+    }
+
     private void writeGate(final String override) throws Exception {
         final String[] defaults = {
-                "discord-invite-url: ''",
+                "discord-invite-url: 'https://nordtal.eu'",
                 "link-code-ttl-minutes: 10",
                 "fallback-cache-window-minutes: 15",
                 "expiry-check-interval-seconds: 60",

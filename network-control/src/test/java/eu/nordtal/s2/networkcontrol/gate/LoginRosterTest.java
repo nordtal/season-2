@@ -76,7 +76,7 @@ class LoginRosterTest {
 
     private static AccessState state(final boolean admin, final Locale locale) {
         return new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER, true, null, false, admin,
-                locale, SeasonPhase.SMP);
+                locale, SeasonPhase.SMP, null);
     }
 
     // ---------------------------------------------------------------- M9: revocation reaches a live session

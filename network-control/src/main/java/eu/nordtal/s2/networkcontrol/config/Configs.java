@@ -64,6 +64,44 @@ public final class Configs {
         });
     }
 
+    /**
+     * {@code network.yml} - the MOTD and the one player limit.
+     * <p>
+     * The {@code max-players} against {@code backend-limit} check is the interesting one: it is a
+     * value in this file compared against a value that is written into <em>another container's</em>
+     * {@code server.properties} by the entrypoint. They are two halves of one decision, and the
+     * failure mode of letting them drift is silent - the backends quietly become the network's real
+     * limit again, exactly as they were before 2026-09-03. So it stops the proxy rather than
+     * warning: a warning in a container log is a thing nobody reads until they are already looking
+     * for the cause.
+     * </p>
+     */
+    public static @NotNull ConfigHandle<NetworkSpec> network(final Path directory, final Logger logger)
+            throws ConfigException {
+        return load(directory, logger, "network", NetworkSpec.class, "NORDTAL_NETWORK_CONTROL_NETWORK", config -> {
+            requirePositive("max-players", config.maxPlayers());
+            requirePositive("backend-limit", config.backendLimit());
+            requirePositive("snapshot-refresh-seconds", config.snapshotRefreshSeconds());
+            if (config.maxPlayers() > config.backendLimit()) {
+                throw new IllegalArgumentException(
+                        "max-players (" + config.maxPlayers() + ") is above backend-limit ("
+                                + config.backendLimit() + "), so the Paper backends would refuse players"
+                                + " before this proxy does - and they refuse with \"Server full\" after"
+                                + " the login gate, the resource pack and the wait in limbo. Raise"
+                                + " BACKEND_MAX_PLAYERS in .env to at least max-players, or lower this.");
+            }
+            final NetworkSpec.MotdSpec motd = config.motd();
+            if (motd == null) {
+                throw new IllegalArgumentException("motd is missing; it needs one entry per season phase");
+            }
+            requireText("motd.pre-launch", motd.preLaunch());
+            requireText("motd.pre-event", motd.preEvent());
+            requireText("motd.start-event", motd.startEvent());
+            requireText("motd.smp", motd.smp());
+            requireText("motd.maintenance", motd.maintenance());
+        });
+    }
+
     public static @NotNull ConfigHandle<PackSpec> pack(final Path directory, final Logger logger)
             throws ConfigException {
         return load(directory, logger, "pack", PackSpec.class, "NORDTAL_NETWORK_CONTROL_PACK", config -> {

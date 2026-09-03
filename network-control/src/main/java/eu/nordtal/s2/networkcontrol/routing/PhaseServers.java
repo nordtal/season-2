@@ -58,7 +58,11 @@ public final class PhaseServers {
         return switch (phase) {
             case PRE_EVENT, START_EVENT -> hungerGames;
             case SMP -> smp;
-            case MAINTENANCE -> limbo;
+            // MAINTENANCE holds non-admins in the waiting room. PRE_LAUNCH admits nobody but
+            // admins in the first place (GateOutcome), so the only players this ever answers for
+            // are those admins - and limbo is where a network that has not opened yet should put
+            // somebody, since the season's own servers may not be built.
+            case MAINTENANCE, PRE_LAUNCH -> limbo;
         };
     }
 

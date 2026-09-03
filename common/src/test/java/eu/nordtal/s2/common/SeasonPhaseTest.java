@@ -16,15 +16,18 @@ class SeasonPhaseTest {
     @Test
     void theOrderingIsTheNetworksRoutingOrder() {
         // The enum's own javadoc calls this the routing order, and docs/season-phases.md draws the
-        // season as PRE_EVENT -> START_EVENT -> SMP with MAINTENANCE as the interruption of any of
-        // them. Something later will switch on ordinals or render this list; pin it.
+        // season as PRE_LAUNCH -> PRE_EVENT -> START_EVENT -> SMP with MAINTENANCE as the
+        // interruption of any of them. Something later will switch on ordinals or render this list;
+        // pin it. PRE_LAUNCH was added at the FRONT on 2026-09-03, which is where the season starts.
         assertEquals(
-                List.of(SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT, SeasonPhase.SMP, SeasonPhase.MAINTENANCE),
+                List.of(SeasonPhase.PRE_LAUNCH, SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT,
+                        SeasonPhase.SMP, SeasonPhase.MAINTENANCE),
                 List.of(SeasonPhase.values()));
     }
 
     @Test
     void parsesTheValuesTheColumnActuallyStores() {
+        assertEquals(SeasonPhase.PRE_LAUNCH, SeasonPhase.fromDatabase("PRE_LAUNCH"));
         assertEquals(SeasonPhase.PRE_EVENT, SeasonPhase.fromDatabase("PRE_EVENT"));
         assertEquals(SeasonPhase.START_EVENT, SeasonPhase.fromDatabase("START_EVENT"));
         assertEquals(SeasonPhase.SMP, SeasonPhase.fromDatabase("SMP"));

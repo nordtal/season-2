@@ -12,7 +12,7 @@ import eu.nordtal.s2.common.access.MemberState;
  * separately from {@link LoginGate} for two reasons:
  *
  * <ul>
- *   <li>The decision is the part worth testing, and it can be tested exhaustively - four phases
+ *   <li>The decision is the part worth testing, and it can be tested exhaustively - five phases
  *       times the account states - without a Velocity {@code LoginEvent} or a running proxy.</li>
  *   <li>{@link AccessState#mayJoin()} collapses the same table to one boolean, which is right for
  *       the fallback cache and the expiry sweep and useless for choosing between four different
@@ -33,8 +33,10 @@ import eu.nordtal.s2.common.access.MemberState;
  * {@link #ALLOW}. The one place a maintenance screen still appears is that router's fallback for a
  * {@code limbo} server the proxy does not have.
  *
- * <p>{@link AccessState#admin()} consequently plays no part in this class. It decides where a
- * player goes during maintenance, not whether they get in.
+ * <p>{@link AccessState#admin()} consequently plays no part in this class <b>except in
+ * {@link SeasonPhase#PRE_LAUNCH}</b>, where it is the entire admission rule: before the network has
+ * ever opened, an admin is the only person allowed on it. In every other phase the flag still only
+ * decides where a player goes during maintenance, not whether they get in.
  */
 public enum GateOutcome {
 
@@ -47,8 +49,22 @@ public enum GateOutcome {
     /** Linked, but that Discord account has left the guild or is banned. */
     NOT_MEMBER,
 
-    /** {@link SeasonPhase#SMP} and no access period is running. The only phase that refuses. */
-    NO_ACCESS;
+    /** {@link SeasonPhase#SMP} and no access period is running. */
+    NO_ACCESS,
+
+    /**
+     * {@link SeasonPhase#PRE_LAUNCH}, linked member, <b>no access period bought yet</b>. The
+     * network has not opened, so nobody is getting in either way - the screen counts down to the
+     * opening and points out that a period can already be bought now, so that the SMP is playable
+     * the moment the event is over.
+     */
+    PRE_LAUNCH_BUY,
+
+    /**
+     * {@link SeasonPhase#PRE_LAUNCH}, linked member, and a period already bought. Nothing is left
+     * to do but wait: the screen says so and counts down.
+     */
+    PRE_LAUNCH_READY;
 
     /**
      * Walks docs/season-phases.md's phase table once.
@@ -69,6 +85,19 @@ public enum GateOutcome {
             // For MAINTENANCE it is the 2026-08-31 reversal: they are let in and then held in limbo.
             case PRE_EVENT, START_EVENT, MAINTENANCE -> ALLOW;
             case SMP -> state.accessActive() ? ALLOW : NO_ACCESS;
+            // Before the opening, an admin is the only person the network is for. Everybody else
+            // gets one of two waiting screens, and which one is the whole onboarding idea: the
+            // difference between them is a purchase, not a permission.
+            //
+            // accessBought(), NOT accessActive(): a period bought during PRE_LAUNCH is meant to sit
+            // and wait rather than burn (todo.md #9), so asking whether it is running right now
+            // would show the buy-it screen to the very people who just did.
+            case PRE_LAUNCH -> {
+                if (state.admin()) {
+                    yield ALLOW;
+                }
+                yield state.accessBought() ? PRE_LAUNCH_READY : PRE_LAUNCH_BUY;
+            }
         };
     }
 

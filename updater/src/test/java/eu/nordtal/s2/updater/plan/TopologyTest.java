@@ -20,6 +20,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -89,12 +90,19 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("every Paper backend caps players at the same number the proxy advertises")
-    void theBackendsAgreeOnThePlayerLimit() {
-        // Velocity shows 500 and enforces nothing, Paper's own default is 20, and until 2026-09-02
-        // nothing set it - so the network advertised 500 slots and limbo refused the 21st player
-        // with "Server full", after they had passed the login gate and waited for the pack. Three
-        // backends that disagree with each other are the same fault one step further along.
+    @DisplayName("no Paper backend limits the network")
+    void theBackendsDoNotLimitTheNetwork() {
+        // Until 2026-09-03 this test asserted the opposite: that all three backends carried the
+        // SAME limit, because whichever one a player landed on decided and the smallest of them was
+        // the network's real limit. That was the second version of one fault. The first was setting
+        // nothing at all, so Paper's default of 20 stood while the browser advertised 500 - and the
+        // 21st player was refused with "Server full" AFTER passing the login gate, accepting the
+        // resource pack and waiting in limbo.
+        //
+        // The limit is network.yml#max-players now, enforced once by the proxy at the login gate.
+        // What these three carry is a number that must never be reached, and it must not be tied to
+        // the network's limit at all - a backend that tracks the network limit is a backend that can
+        // become the limit again.
         final List<String> limits = new java.util.ArrayList<>();
         for (final Topology.Service service : Topology.SERVICES) {
             if (service.kind() != Topology.Kind.PAPER) {
@@ -105,15 +113,20 @@ class TopologyTest {
             @SuppressWarnings("unchecked")
             final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
 
-            final Object raw = environment.get("MAX_PLAYERS");
-            assertNotNull(raw, service.name() + " sets no MAX_PLAYERS, so it keeps Paper's default"
-                    + " of 20 while the proxy advertises 500");
+            assertNull(environment.get("MAX_PLAYERS"), service.name() + " sets MAX_PLAYERS again."
+                    + " The entrypoint no longer reads it, so this is either dead or - worse - a"
+                    + " backend limit tracking the network limit, which is how the backends became"
+                    + " the real limit in the first place.");
+
+            final Object raw = environment.get("BACKEND_MAX_PLAYERS");
+            assertNotNull(raw, service.name() + " sets no BACKEND_MAX_PLAYERS, so it keeps Paper's"
+                    + " default of 20 and refuses the 21st player after the login gate");
             limits.add(defaultOf(String.valueOf(raw)));
         }
         assertEquals(1, new LinkedHashSet<>(limits).size(),
-                "the Paper backends cap players at different numbers: " + limits
-                        + ". Whichever one a player lands on decides, and that is always limbo"
-                        + " first, so the smallest of these is the network's real limit.");
+                "the Paper backends are configured for different numbers: " + limits
+                        + ". They are all supposed to be out of reach, and the smallest of them is"
+                        + " the one that would be hit first.");
     }
 
     /** {@code ${SMP_EXPECTED_PLUGINS:-smp …}} - what compose uses when .env says nothing. */

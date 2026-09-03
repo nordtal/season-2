@@ -140,6 +140,14 @@ class PhaseWatchTest {
     /** Answers whatever it is told to, or throws - the two things a real directory does. */
     private static final class FakeDirectory implements PhaseDirectory {
 
+        @Override
+        public java.util.Optional<java.time.Instant> launch() {
+            // No test here is about the opening date; PhaseWatch reads it on the same refresh as
+            // the phase and renders it only into the MOTD.
+            return java.util.Optional.empty();
+        }
+
+
         private SeasonPhase phase;
         private boolean failing;
         private int reads;

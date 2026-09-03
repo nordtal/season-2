@@ -237,6 +237,12 @@ interface AccessDao {
      * {@link AccessStateMapper} reads as exactly the unlinked state), and an unreadable phase is a
      * null that {@code SeasonPhase.fromDatabase} maps to {@code MAINTENANCE}.
      *
+     * <p>{@code launch} rides along on the same row as the phase, from the same single-row table,
+     * for the reason the phase itself does: the three {@code PRE_LAUNCH} disconnect screens all
+     * count down to it, and fetching a timestamp for a screen would be the second round trip this
+     * query exists to avoid. A {@code NULL} means no opening date has been announced, which is a
+     * state the screens handle rather than an error.
+     *
      * @return the state; empty is not reachable while PostgreSQL can answer at all, and
      *         {@link AccessDirectory#accessState(UUID)} still handles it defensively
      */
@@ -259,7 +265,9 @@ interface AccessDao {
                       AND grant_row.revoked IS NULL
                       AND grant_row.valid_until > now())                    AS valid_until,
                    (SELECT season.phase FROM season_phase season
-                    WHERE season.id)                                        AS phase
+                    WHERE season.id)                                        AS phase,
+                   (SELECT season.launch FROM season_phase season
+                    WHERE season.id)                                        AS launch
             FROM (VALUES (1)) AS anchor (one)
                      LEFT JOIN account_link link ON link.mc_uuid = cast(:mcUuid AS uuid)
                      LEFT JOIN discord_user usr ON usr.discord_id = link.discord_id

@@ -111,7 +111,7 @@ IMAGE_TAG=0.2.1
 
 ## First-start seeding
 
-The container writes six things, **only when they are not there already**, and a file that exists
+The container writes seven things, **only when they are not there already**, and a file that exists
 is never edited again. It is deliberately the minimum that makes a login work, not a set of
 opinions about how to run a server: everything else stays Paper's and Velocity's own default.
 
@@ -123,6 +123,14 @@ opinions about how to run a server: everything else stays Paper's and Velocity's
 | `level-name=$LEVEL_NAME` | each Paper server, `server.properties` | seeded once; a volume still on Paper's default `world` is repaired, any **other** disagreement stops the container, see below |
 | `level-seed=$LEVEL_SEED` | each Paper server, `server.properties` | only while the `level-name` world does not exist yet — which is `level.dat`, not the folder; an existing world is compared and warned about |
 | `forwarding.secret` | proxy | every start, from `VELOCITY_FORWARDING_SECRET` |
+| `max-players=$BACKEND_MAX_PLAYERS` | each Paper server, `server.properties` | **every start** — and it is not a limit, see below |
+
+**The MOTD and the player limit are deliberately not in that table** (2026-09-03). They used to be:
+the entrypoint seeded `motd` and `show-max-players` into `velocity.toml`, which meant a MOTD nobody
+could change afterwards — editing `.env` on a volume that had already started did nothing at all,
+silently. Both are `network-control` config now (`plugins/network-control/network.yml`), the plugin
+answers every ping with them, and `.env` reaches them through jcore environment overrides that win
+over the file on every start. See [Who limits the players](#who-limits-the-players).
 
 **`level-name` was missing from this table and from the script until 2026-09-02, and that was the
 whole of the first deployment's worst finding.** `entrypoint.sh` fetched Terralith and Dungeons and
@@ -193,6 +201,39 @@ everything you leave out" is true per key, not per table.
 now has. The seeding otherwise only ever fires on a first start, so a server that has run before
 keeps whatever is in its volume; the manual equivalent is `online-mode=false` in
 `server.properties` and `proxies.velocity.enabled: true` in `config/paper-global.yml`.
+
+## Who limits the players
+
+**One number decides, and it lives in `network.yml`.** `NETWORK_MAX_PLAYERS` in `.env` is what the
+server browser advertises *and* what the proxy enforces at the login gate, where it can say why.
+Admins are exempt, so a full network can still be entered by whoever has to go and fix it.
+
+`BACKEND_MAX_PLAYERS` (default 1000) is a different thing with a similar name: it is what the
+entrypoint writes into every Paper server's `server.properties#max-players`, chosen so it can never
+be reached. **Raise it whenever you raise `NETWORK_MAX_PLAYERS` above it** — the proxy carries a
+copy of it and refuses to start when the two cross, rather than letting the backends quietly become
+the network's real limit again.
+
+Two versions of that fault have already shipped. Before 2026-09-02 nothing set `max-players` at
+all, so Paper's own default of 20 was the real limit while the browser advertised 500 — and the
+21st player was refused with *"Server full"* **after** passing the login gate, accepting the
+resource pack and waiting in `limbo`. Setting all three backends from the network's limit fixed the
+number and left the shape: whichever backend a player landed on still decided, and three backends
+can be raised out of step with each other and with the proxy.
+
+## What the server browser shows
+
+`NETWORK_MOTD_PRE_LAUNCH`, `_PRE_EVENT`, `_START_EVENT`, `_SMP` and `_MAINTENANCE` in `.env` — one
+per season phase, MiniMessage, with placeholders in braces. The full placeholder list is in
+`network.yml` itself, which the proxy writes on first start with real defaults rather than
+placeholders. Anything left unset in `.env` keeps that default.
+
+Read at **proxy start**. There is no reload command: the MOTD follows the phase on its own, live,
+but an edit to the file or to `.env` needs a restart of the `proxy` service.
+
+When `network-control` cannot start at all, the browser says so — the fail-closed handler answers
+the ping with a line from the plugin's own message bundle, because a network advertising its season
+while refusing every login is a worse lie than one that admits it is broken.
 
 ## The forwarding secret
 
@@ -496,7 +537,10 @@ worth having here, because they are the kind that get rediscovered expensively:
 | Every login fails with *"Unable to connect you to the backend server"* | The forwarding secret does not match — which now means one container did not get `VELOCITY_FORWARDING_SECRET`, or the volume predates the automation and still carries an old one. |
 | Velocity exits at once with *"Your configuration is invalid"* | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define. |
 | A backend logs *"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"* | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login. |
-| Proxy starts but refuses every login with a "network misconfigured" screen | `network-control` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`. Intended; read the log. |
+| Proxy starts but refuses every login with a "network misconfigured" screen | `network-control` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log. |
+| Proxy will not start, log says `max-players` is above `backend-limit` | `NETWORK_MAX_PLAYERS` was raised past `BACKEND_MAX_PLAYERS`. Raise the second one too — see [Who limits the players](#who-limits-the-players). |
+| The browser shows the old MOTD after editing `.env` | `network.yml` is read at proxy start. Restart the `proxy` service; there is no reload command. |
+| Everybody is refused with a countdown, and nobody asked for that | The phase is `PRE_LAUNCH`, which is the seeded initial state. `/phase set PRE_EVENT` opens the network. |
 | `docker rm -f` fails with *"did not receive an exit event"* | You are running a container that mirrors its console with `tmux pipe-pane > /proc/1/fd/1`. Do not do that — see [below](#never-mirror-the-console-with-tmux-pipe-pane). Only a Docker daemon restart clears it. |
 
 ## Third-party plugins

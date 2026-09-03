@@ -103,27 +103,39 @@ class EntrypointRulesTest {
     }
 
     @Test
-    @DisplayName("the seeded velocity.toml says who this network is and how many it takes")
-    void theProxyDoesNotAdvertiseItselfAsAVelocityServer() {
-        // Seeded velocity.toml carried only what a login needs, so the server browser showed
-        // Velocity's own default - "A Velocity Server" in Velocity blue - and 500 slots that no
-        // backend honoured. On launch day, in every player's list.
-        assertTrue(script.contains("motd = "),
-                "the seeded velocity.toml no longer sets a MOTD, so the browser falls back to"
-                        + " \"A Velocity Server\"");
-        assertTrue(script.contains("show-max-players = "),
-                "the seeded velocity.toml no longer sets show-max-players");
-        assertTrue(script.contains("${MAX_PLAYERS:-500}"),
-                "the browser's player count no longer comes from the same variable as the backends'"
-                        + " real limit, so the two can advertise different numbers again");
+    @DisplayName("the seeded velocity.toml does not carry a MOTD or a player count")
+    void theProxyConfigDoesNotCarryASecondCopyOfTheMotd() {
+        // The reverse of what this test asserted until 2026-09-03, and the reversal is the point.
+        // Both values moved into network-control's network.yml, where the plugin answers every ping
+        // with them. Seeding them here as well would leave a second copy in a file this script
+        // writes exactly once - which is what made VELOCITY_MOTD do nothing on any volume that had
+        // already started, silently.
+        assertFalse(script.contains("printf 'motd = "),
+                "the entrypoint seeds a MOTD into velocity.toml again. That file is written once and"
+                        + " never touched, so the copy in it goes stale the first time network.yml"
+                        + " changes - and nothing says so.");
+        assertFalse(script.contains("show-max-players"),
+                "the entrypoint seeds show-max-players again, which is now the plugin's answer to"
+                        + " ProxyPingEvent and must have exactly one source");
+        assertFalse(script.contains("VELOCITY_MOTD"),
+                "VELOCITY_MOTD is back. It names nothing Velocity reads any more - the MOTD is"
+                        + " NETWORK_MOTD_<PHASE>, mapped onto network.yml in compose.yml.");
     }
 
     @Test
-    @DisplayName("the player limit is enforced on every start, not seeded once")
-    void thePlayerLimitCannotDriftFromTheProxys() {
+    @DisplayName("the backends are given a limit that can never be reached")
+    void theBackendsDoNotLimitTheNetwork() {
         assertTrue(script.contains("set_property \"$DATA/server.properties\" max-players"),
                 "nothing writes max-players any more, so every backend keeps Paper's default of 20"
-                        + " while the proxy advertises 500");
+                        + " and the 21st player is refused after the login gate and the pack");
+        assertTrue(script.contains("${BACKEND_MAX_PLAYERS:-}"),
+                "the backends' max-players no longer comes from BACKEND_MAX_PLAYERS. If it is back"
+                        + " on NETWORK_MAX_PLAYERS, the backends are the network's real limit again"
+                        + " - which is the fault this arrangement removed on 2026-09-03.");
+        assertFalse(script.contains("${MAX_PLAYERS:-"),
+                "the entrypoint reads MAX_PLAYERS again. The network limit lives in network.yml and"
+                        + " is enforced by the proxy; this script only writes the number the"
+                        + " backends must never reach.");
     }
 
     /** The directory holding {@code settings.gradle.kts}, not the nearest file by name. */

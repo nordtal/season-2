@@ -12,7 +12,8 @@ Status: **the phase model, the gate, routing and the resource-pack station are a
 ```mermaid
 stateDiagram-v2
     direction LR
-    [*] --> PRE_EVENT
+    [*] --> PRE_LAUNCH
+    PRE_LAUNCH --> PRE_EVENT: admin opens the network
     PRE_EVENT --> START_EVENT: admin starts the event
     START_EVENT --> SMP: admin switches after the winner is crowned
     PRE_EVENT --> MAINTENANCE
@@ -21,15 +22,44 @@ stateDiagram-v2
     MAINTENANCE --> PRE_EVENT
     MAINTENANCE --> START_EVENT
     MAINTENANCE --> SMP
+    PRE_LAUNCH --> MAINTENANCE
     SMP --> [*]: season ends — no fixed date
 ```
 
 | phase | who gets in | where they land | what it is |
 |---|---|---|---|
+| `PRE_LAUNCH` | **admins only** | not moved | Before the network has ever opened; everybody else sees a countdown |
 | `PRE_EVENT` | linked Discord member, not banned | `hunger-games` lobby | Network is open, the lobby stands, teams register |
 | `START_EVENT` | linked Discord member, not banned | `hunger-games` | The event itself, from countdown to winner |
 | `SMP` | the above **plus active access** | `smp` | The season proper |
 | `MAINTENANCE` | linked Discord member, not banned | `limbo` (admins are not moved) | Planned work; everyone else waits in the waiting room |
+
+**`PRE_LAUNCH` is the season's initial state, added 2026-09-03.** It is not `MAINTENANCE` with
+another name: maintenance interrupts a season that is running and holds players in `limbo`, while
+this precedes the season entirely, admits nobody but an admin, and is the only phase with a **date**
+attached — `season_phase.launch`, added by `V8__pre_launch.sql` and set by hand:
+
+```sql
+UPDATE season_phase SET launch = timestamptz '2026-10-01 18:00+02' WHERE id;
+```
+
+**Nothing switches out of it when that instant passes.** The countdown reaching zero changes what
+the server browser and the disconnect screens say, and nothing else; who may join stays an admin's
+decision taken with `/phase`, not a value somebody set weeks earlier and forgot. A `NULL` launch is
+a normal state — the screens then say no date has been announced.
+
+**Its three refusals are the onboarding**, and which one a player sees depends only on how far they
+already are. All three carry the countdown:
+
+| state | screen |
+|---|---|
+| not linked | the link code, plus a pointer to `nordtal.eu` |
+| linked, no access period bought | "you can buy your first month now, and the SMP is yours the moment the event ends" |
+| linked, a period bought | "you're all set" |
+
+The middle one asks whether a period was **bought**, not whether one is **running** — a period
+bought before the opening is meant to wait rather than burn, which is [todo.md](../todo.md) §9's
+second item and the reason `AccessState#accessBought()` exists next to `accessActive()`.
 
 **Access is only required from `SMP` onwards.** The start event is free for anyone who has linked
 their Minecraft account to their Discord account — that is the decision the whole phase mechanism
@@ -59,6 +89,11 @@ flowchart TD
     B -->|yes| C{"Discord member<br/>and not banned?"}
     C -->|no| C1["Disconnect pointing at Discord"]
     C -->|yes| D{"Phase"}
+    D -->|PRE_LAUNCH| P1{"Admin?"}
+    P1 -->|yes| F
+    P1 -->|no| P2{"Access period bought?"}
+    P2 -->|no| P3["Disconnect: buy your first month now<br/>+ countdown to season_phase.launch"]
+    P2 -->|yes| P4["Disconnect: you're all set<br/>+ countdown to season_phase.launch"]
     D -->|MAINTENANCE| D1{"Admin?"}
     D1 -->|no| D2["Hold in limbo, which shows<br/>the explanation"]
     D1 -->|yes| F

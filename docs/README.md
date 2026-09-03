@@ -40,7 +40,7 @@ a projection of it; LuckPerms is not involved anywhere.
 | document | what it answers |
 |---|---|
 | [architecture.md](architecture.md) | Which modules exist, what depends on what, who owns the schema, what the login path looks like end to end |
-| [season-phases.md](season-phases.md) | The four phases, who gets in during each, where the phase lives and how a switch propagates |
+| [season-phases.md](season-phases.md) | The five phases, who gets in during each, where the phase lives and how a switch propagates |
 | [i18n.md](i18n.md) | How German and English work everywhere, and how a third language is added without a release |
 | [hunger-games.md](hunger-games.md) | The start event in full: registration, teams, border, loot, HUD, winning |
 | [smp.md](smp.md) | The SMP in full: worlds, travel, milestones, aura, prestige, duels, graves, POIs |

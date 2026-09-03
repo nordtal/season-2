@@ -5,7 +5,9 @@ import eu.nordtal.s2.common.phase.PhaseDirectory;
 
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -56,6 +58,13 @@ public final class PhaseWatch {
     /** {@code null} until the row has been read successfully at least once. */
     private final AtomicReference<SeasonPhase> lastKnown = new AtomicReference<>();
 
+    /**
+     * The announced opening instant from the same row, {@code null} when none is set - and also
+     * {@code null} until the first successful read, which the MOTD renders as "not announced yet".
+     * Read on the same refresh as the phase so the two cannot come from different moments.
+     */
+    private final AtomicReference<Instant> launch = new AtomicReference<>();
+
     public PhaseWatch(final PhaseDirectory phases, final Logger logger, final ChangeListener listener) {
         this.phases = Objects.requireNonNull(phases, "phases");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -77,13 +86,19 @@ public final class PhaseWatch {
      */
     public boolean refresh() {
         final SeasonPhase current;
+        final Instant announced;
         try {
             current = phases.currentPhase();
+            // A second, trivial query on a thirty-second timer, and not on the login path: the
+            // login query carries its own copy of this column (AccessDao), because the disconnect
+            // screens need it in the same round trip. This one is for the MOTD.
+            announced = phases.launch().orElse(null);
         } catch (final RuntimeException exception) {
             logger.warn("Could not read the season phase; staying on the last known one ({})",
                     lastKnown(), exception);
             return false;
         }
+        launch.set(announced);
 
         final SeasonPhase previous = lastKnown.getAndSet(current);
         if (previous != current) {
@@ -104,6 +119,15 @@ public final class PhaseWatch {
     public SeasonPhase lastKnown() {
         final SeasonPhase known = lastKnown.get();
         return known == null ? SeasonPhase.MAINTENANCE : known;
+    }
+
+    /**
+     * @return when the network opens, empty when no date is announced or the row has never been
+     *         read; the MOTD renders both cases the same way, because both mean "we cannot tell
+     *         you yet"
+     */
+    public Optional<Instant> launch() {
+        return Optional.ofNullable(launch.get());
     }
 
     /**

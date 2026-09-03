@@ -4,15 +4,20 @@ import com.velocitypowered.api.event.ResultedEvent.ComponentResult;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
 
+import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.LinkCode;
 import eu.nordtal.s2.networkcontrol.config.GateSpec;
+import eu.nordtal.s2.networkcontrol.config.NetworkSpec;
 
 import org.slf4j.Logger;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -69,20 +74,27 @@ import java.util.UUID;
 public final class LoginGate {
 
     private final Logger logger;
+    private final ProxyServer proxy;
     private final AccessDirectory access;
     private final FallbackCache fallback;
     private final LoginRoster roster;
     private final GateMessages messages;
     private final GateSpec config;
+    private final NetworkSpec network;
+    private final Clock clock;
 
-    public LoginGate(final Logger logger, final AccessDirectory access, final FallbackCache fallback,
-                     final LoginRoster roster, final GateMessages messages, final GateSpec config) {
+    public LoginGate(final Logger logger, final ProxyServer proxy, final AccessDirectory access,
+                     final FallbackCache fallback, final LoginRoster roster, final GateMessages messages,
+                     final GateSpec config, final NetworkSpec network, final Clock clock) {
         this.logger = logger;
+        this.proxy = proxy;
         this.access = access;
         this.fallback = fallback;
         this.roster = roster;
         this.messages = messages;
         this.config = config;
+        this.network = network;
+        this.clock = clock;
     }
 
     @Subscribe
@@ -106,15 +118,49 @@ public final class LoginGate {
         // And the facts the /phase command and the play-time writer need, from the same row.
         roster.remember(uuid, state);
 
+        final Instant countdownFrom = state.phase() == SeasonPhase.PRE_LAUNCH ? clock.instant() : null;
+
         switch (GateOutcome.of(state)) {
-            // ALLOW leaves the event's own default result (ComponentResult.allowed()) standing.
-            // Where the player then lands is PlayerRouter's question, and in MAINTENANCE the answer
+            // ALLOW leaves the event's own default result (ComponentResult.allowed()) standing -
+            // unless the network is full, which is the one refusal that is not about this player at
+            // all. Where they then land is PlayerRouter's question, and in MAINTENANCE the answer
             // is limbo - which is the whole of what that phase now does to a non-admin.
-            case ALLOW -> { }
-            case NOT_LINKED -> issueCodeAndDeny(event, player, uuid);
+            case ALLOW -> refuseIfFull(event, state);
+            case NOT_LINKED -> issueCodeAndDeny(event, player, uuid, state.launch(), countdownFrom);
             case NOT_MEMBER -> event.setResult(ComponentResult.denied(messages.notMember(state.locale())));
             case NO_ACCESS -> event.setResult(ComponentResult.denied(messages.noAccess(state.locale())));
+            case PRE_LAUNCH_BUY -> event.setResult(ComponentResult.denied(
+                    messages.preLaunchBuy(state.locale(), state.launch(), countdownFrom)));
+            case PRE_LAUNCH_READY -> event.setResult(ComponentResult.denied(
+                    messages.preLaunchReady(state.locale(), state.launch(), countdownFrom)));
         }
+    }
+
+    /**
+     * The network-wide player limit, and the only place it is enforced.
+     * <p>
+     * It is checked <b>after</b> the access decision rather than before it, which costs a database
+     * round trip for a player who is then refused anyway. That is deliberate: the admin flag lives
+     * on the row that query returns, and a full network that cannot be entered by the person who
+     * has to go and fix it is the wrong kind of full. The row is worth one query.
+     * </p>
+     * <p>
+     * The count is {@code proxy.getPlayerCount()} - every connected player, including the ones
+     * still in the waiting room, because a slot they are holding is a slot. Two logins arriving in
+     * the same instant can both see room and both take it: the limit is exceeded by one, nothing
+     * breaks, and no reservation scheme is worth what it would cost to prevent a number nobody can
+     * observe. {@code >=} rather than {@code >} because the player being decided about is not in
+     * the count yet.
+     * </p>
+     */
+    private void refuseIfFull(final LoginEvent event, final AccessState state) {
+        final int maximum = network.maxPlayers();
+        final int online = proxy.getPlayerCount();
+        if (online < maximum || state.admin()) {
+            return;
+        }
+        logger.info("Refused {} - the network is full ({} of {})", state.minecraftAccount(), online, maximum);
+        event.setResult(ComponentResult.denied(messages.full(state.locale(), online, maximum)));
     }
 
     /**
@@ -130,10 +176,11 @@ public final class LoginGate {
      * wasted attempt later.
      * </p>
      */
-    private void issueCodeAndDeny(final LoginEvent event, final Player player, final UUID uuid) {
+    private void issueCodeAndDeny(final LoginEvent event, final Player player, final UUID uuid,
+                                  final Instant launch, final Instant now) {
         try {
             final LinkCode code = access.issueLinkCode(uuid, Duration.ofMinutes(config.linkCodeTtlMinutes()));
-            event.setResult(ComponentResult.denied(messages.notLinked(code.code())));
+            event.setResult(ComponentResult.denied(messages.notLinked(code.code(), launch, now)));
         } catch (final RuntimeException exception) {
             logger.error("Could not issue a link code for {} ({})", uuid, player.getUsername(), exception);
             // The player's language is unknown either way at this point (that is exactly why the
@@ -155,6 +202,16 @@ public final class LoginGate {
      */
     private void fallBackToCache(final LoginEvent event, final UUID uuid) {
         if (fallback.mayJoin(uuid)) {
+            // The player limit still applies. Nothing about it needs the database - the count is
+            // the proxy's own and the limit is a config value - so an outage must not become a way
+            // past it. Nobody is exempt on this path: the admin flag is exactly what could not be
+            // read, and guessing it would be guessing in the permissive direction.
+            final int maximum = network.maxPlayers();
+            final int online = proxy.getPlayerCount();
+            if (online >= maximum) {
+                event.setResult(ComponentResult.denied(
+                        messages.full(fallback.localeOf(uuid), online, maximum)));
+            }
             return; // default result stands: allowed
         }
         event.setResult(ComponentResult.denied(messages.trouble(fallback.localeOf(uuid))));

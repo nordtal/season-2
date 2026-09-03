@@ -53,6 +53,9 @@ class PhaseRoutingTest {
         assertEquals("hunger-games", servers.forPhase(SeasonPhase.START_EVENT));
         assertEquals("smp", servers.forPhase(SeasonPhase.SMP));
         assertEquals("limbo", servers.forPhase(SeasonPhase.MAINTENANCE));
+        // PRE_LAUNCH has no backend of its own: nobody but an admin is on the network, and limbo is
+        // the harmless place to name for the players who never get that far.
+        assertEquals("limbo", servers.forPhase(SeasonPhase.PRE_LAUNCH));
     }
 
     @Test
@@ -206,6 +209,14 @@ class PhaseRoutingTest {
         // drift, a player is routed one way at login and another way on the next phase change.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             for (final boolean admin : new boolean[]{false, true}) {
+                if (phase == SeasonPhase.PRE_LAUNCH && !admin) {
+                    // Not a drift, an unreachable combination. decideAdmitted() is only ever asked
+                    // about a player the gate has already let in, and before the opening that is an
+                    // admin and nobody else (GateOutcome). decide() is asked about everybody,
+                    // because it is also the phase-change re-route - which is exactly where a
+                    // non-admin caught by a switch back to PRE_LAUNCH gets their countdown screen.
+                    continue;
+                }
                 final AccessState state = state(phase, MemberState.MEMBER, true, admin);
 
                 assertEquals(routing.decide(state, ALL), routing.decideAdmitted(phase, admin, ALL),
@@ -239,16 +250,20 @@ class PhaseRoutingTest {
     }
 
     @Test
-    void anAdminIsTheOnePlayerMaintenanceDoesNotSendToTheWaitingRoom() {
+    void anAdminIsNotSentToTheWaitingRoomWhileTheNetworkIsClosed() {
+        // The two phases where there is nothing to wait for: maintenance (the network is running,
+        // the admin is here to look at what is being worked on) and PRE_LAUNCH (the admin is the
+        // only player there is). In both, holding them in limbo would hold them nowhere.
         assertEquals(Action.STAY, routing.decideInitial(SeasonPhase.MAINTENANCE, true, ALL).action());
+        assertEquals(Action.STAY, routing.decideInitial(SeasonPhase.PRE_LAUNCH, true, ALL).action());
     }
 
     @Test
     void anAdminInEveryOtherPhaseGoesThroughTheWaitingRoomLikeEverybodyElse() {
-        // The admin exemption is about not being moved during maintenance, not about skipping the
-        // pack: an admin joining a running network needs the glyphs as much as anybody.
+        // The admin exemption is about not being moved while the network is closed, not about
+        // skipping the pack: an admin joining a running network needs the glyphs as much as anybody.
         for (final SeasonPhase phase : SeasonPhase.values()) {
-            if (phase == SeasonPhase.MAINTENANCE) {
+            if (phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH) {
                 continue;
             }
             assertEquals(Action.CONNECT, routing.decideInitial(phase, true, ALL).action(), phase.toString());
@@ -294,7 +309,13 @@ class PhaseRoutingTest {
             final boolean same = routing.decideInitial(phase, false, ALL)
                     .equals(routing.decideAdmitted(phase, false, ALL));
 
-            assertEquals(phase == SeasonPhase.MAINTENANCE, same, phase.toString());
+            // The two phases whose destination IS the waiting room are the two where the routes
+            // agree: there is nowhere to release a player to. PRE_LAUNCH joined MAINTENANCE there
+            // on 2026-09-03 - and for a non-admin it is theory anyway, because the gate refuses
+            // them before either route is taken.
+            final boolean destinationIsLimbo =
+                    phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH;
+            assertEquals(destinationIsLimbo, same, phase.toString());
         }
     }
 
@@ -308,6 +329,6 @@ class PhaseRoutingTest {
                                      final boolean accessActive, final boolean admin) {
         return new AccessState(PLAYER, DISCORD_ID, membership, accessActive,
                 accessActive ? Instant.now().plus(Duration.ofDays(1)) : null,
-                false, admin, Locale.ENGLISH, phase);
+                false, admin, Locale.ENGLISH, phase, null);
     }
 }

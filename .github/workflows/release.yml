@@ -1,0 +1,49 @@
+name: release
+
+# Unlike papermc-display-tags or season-2, a jcore release has no GitHub Release and no asset to
+# attach: JitPack builds a tag lazily, straight from source, the first time some consumer's build
+# requests com.github.nordtal:jcore:<tag> (see ../../README.md#publishing-via-jitpack). Publishing
+# here is `git tag <version> && git push origin <version>` and nothing else - that is it.
+#
+# What this workflow adds: JitPack has no Docker, so its own build (jitpack.yml) is
+# `./gradlew build publishToMavenLocal` with the Testcontainers tests skipping themselves. A tag
+# that fails to compile, or whose non-Docker-dependent tests fail, would otherwise surface for the
+# first time inside a consumer's build log, on a tag that already looks "released" because it is
+# pushed. This runs the exact JitPack build command, with Docker available, against the pushed tag
+# before anyone downstream requests it - an early warning, not a gate: it cannot stop JitPack from
+# building the tag, only catch a break before a consumer does.
+#
+# Tags here carry NO leading 'v' (1.0.2, 2.0.0, 3.0.0 - see README.md), matching
+# papermc-display-tags's convention and unlike season-2's v0.1.0 style.
+on:
+  push:
+    tags: ['*']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Reject a tag with a leading 'v'
+        run: |
+          tag="${{ github.ref_name }}"
+          case "$tag" in
+            v*) echo "tag $tag has a leading 'v'; this repository's tags do not (2.0.0, not v2.0.0)" >&2; exit 1 ;;
+          esac
+
+      # The same command JitPack itself runs (jitpack.yml), but on a runner with Docker, so the
+      # Testcontainers-backed tests execute instead of skipping themselves.
+      - name: Build and test as JitPack would, with Docker available
+        run: VERSION="${{ github.ref_name }}" ./gradlew build publishToMavenLocal

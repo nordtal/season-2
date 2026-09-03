@@ -48,6 +48,44 @@ the server browser and the disconnect screens say, and nothing else; who may joi
 decision taken with `/phase`, not a value somebody set weeks earlier and forgot. A `NULL` launch is
 a normal state — the screens then say no date has been announced.
 
+### The row carries two dates, and they are not the same day
+
+`V9__smp_start.sql` added a second one, `season_phase.smp_start`, and confusing the two would be
+expensive in a way nothing would report:
+
+| column | what it is | who reads it |
+|---|---|---|
+| `launch` | when the **network** opens, into `PRE_EVENT` | the MOTD, the three `PRE_LAUNCH` disconnect screens, the bot's status channel |
+| `smp_start` | when **paid access starts running** | the append rule in `AccessDao`, and nothing else |
+
+They differ because **access is only asked for in `SMP`** — `PRE_EVENT` and `START_EVENT` let every
+linked, unbanned member in without it. Anchoring a purchase to `launch` would therefore spend the
+whole hunger games event out of somebody's thirty days. Both are set by hand, and both keep their
+value once the season is running: `smp_start` in the past simply loses to `now()` in the `GREATEST`,
+so nothing has to clear it.
+
+```sql
+UPDATE season_phase SET smp_start = timestamptz '2026-10-08 18:00+02' WHERE id;
+```
+
+A `NULL` `smp_start` does **not** stop the shop (decided 2026-09-03, so the payment path can be
+exercised before the season is dated). A period sold in that state starts immediately, which is the
+behaviour the anchor exists to remove — so every such grant is a WARNING in the log and a line in
+the admin channel. Setting the date before the season opens is on the workspace checklist.
+
+### The status channel
+
+The bot renames one channel per language (`access.yml`, `languages[].status-channel`, optional and
+empty by default) so the sidebar says what the network is doing: a countdown to `launch` during
+`PRE_LAUNCH`, then the registered teams, the surviving teams and players, the registered SMP
+players, and a maintenance line. The numbers come from the same query the MOTD uses, which moved
+into `:common` for exactly that reason — two surfaces computing "the same" counts separately is how
+they end up disagreeing on a screenshot.
+
+Discord allows **two renames per ten minutes per channel** and blocks the route hard on abuse, so
+every line above is deliberately coarse: the channel is renamed only when the rendered text actually
+changes, and never more than once every six minutes.
+
 **Its three refusals are the onboarding**, and which one a player sees depends only on how far they
 already are. All three carry the countdown:
 

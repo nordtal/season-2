@@ -54,6 +54,10 @@ Everything the plan gives this module exists:
 - `phase/` — `PhaseDirectory`, `PhaseDao`, `JdbiPhaseDirectory`, `PhaseChange`. The switch and its
   audit entry are one method, which is what [season-phases.md](season-phases.md#who-may-switch-it)
   demands of two writers.
+- `network/` — **new 2026-09-03.** `SnapshotDirectory` and the one query behind every count the
+  network shows in public. It moved here out of `network-control` when the Discord bot gained a
+  status channel that says the same things; it reads `hg_*` and `smp_*`, which two other modules
+  own, and names the migrations it depends on for that reason.
 - `SeasonPhase` — the four agreed values, with `fromDatabase` falling back to `MAINTENANCE`.
 - `Glyphs` — season 2's inventory across all three fonts: the donor star, thirteen prestige crests,
   the board frame pieces, the bossbar icons and arrows.
@@ -64,7 +68,8 @@ Everything the plan gives this module exists:
   any log.
 - `db/migration/` — V1 access, V2 bot state, V3 bot setting, V4 phase/admin/playtime, V5 hunger
   games, **V6 the SMP** (2026-09-01), V7 update requests, **V8 the `PRE_LAUNCH` phase and
-  `season_phase.launch`** (2026-09-03).
+  `season_phase.launch`**, **V9 `season_phase.smp_start`** — the second date, the one paid access is
+  anchored to (both 2026-09-03).
 
 ### `network-control`
 
@@ -80,8 +85,11 @@ Everything the plan gives this module exists:
   without access, and `decideInitial` puts every login in `limbo` first.
 - `ping/` — **new 2026-09-03.** `NetworkPing` answers `ProxyPingEvent` with the MOTD for the current
   phase and the one advertised limit, both from `network.yml`; `Placeholders` substitutes the
-  braces; `SnapshotStore`/`SnapshotDao` keep the numbers behind them fresh with one query on a
-  ten-second timer, because a ping is unauthenticated and must never reach the database.
+  braces; `SnapshotStore` keeps the numbers behind them fresh on a ten-second timer, because a ping
+  is unauthenticated and must never reach the database. **The query itself moved to
+  `:common/network` on 2026-09-03** (`SnapshotDirectory`), because the Discord bot renders the same
+  counts into a channel name and two queries computing "the same" numbers is how two public
+  surfaces start disagreeing. What is left here is the cache and the failure rule.
 - `launch/` — `LaunchCountdown`, shared by the server browser and the three `PRE_LAUNCH` disconnect
   screens, so the network counts down to one instant in one wording.
 - `pack/` — **built 2026-09-01, and it was the module's last gap.** `PackStation` (the forced
@@ -100,13 +108,18 @@ of them can be answered here — see [the unverified assumptions](#the-unverifie
 
 ### `discord-bot`
 
-- `access/` — the sales, matching, linking and admin surface, unchanged and deployable.
+- `access/` — the sales, matching, linking and admin surface. `RedemptionLimit` (2026-09-03) is the
+  five-wrong-codes-an-hour cap that makes a four-character link code safe; `SeasonStart` is the
+  warning on every grant written while the season has no start date.
 - `discord/PhaseCommand` — `/phase set`, the normal path for switching the phase.
 - `discord/AdminFlagDao` — the admin-role mirror into `discord_user.admin`.
 - `config/Languages` + `DefaultLanguages` — the `languages` list; a third language is a config edit,
   proven by a test that drives an `fr` entry no source file mentions.
 - `hungergames/` — `RegisterFlow`, `Teams`, `RegisterMessages`, the invitation accept/decline, the
   managed message per language channel.
+- `status/` — **new 2026-09-03.** `StatusName` renders the sidebar channel name for a phase and a
+  snapshot, and is pure; `StatusChannels` is the minute timer that renames one channel per language
+  and everything that keeps it inside Discord's two-per-ten-minutes budget.
 - The bunq environment is a config key rather than a hardcoded `PRODUCTION`.
 
 What it does not have is an SMP surface — announcements, admin commands — and that is correct: the

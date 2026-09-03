@@ -1,5 +1,7 @@
 package eu.nordtal.s2.networkcontrol.ping;
 
+import eu.nordtal.s2.common.network.NetworkSnapshot;
+
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

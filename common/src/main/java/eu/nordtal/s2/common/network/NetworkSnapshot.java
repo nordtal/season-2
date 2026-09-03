@@ -1,4 +1,4 @@
-package eu.nordtal.s2.networkcontrol.ping;
+package eu.nordtal.s2.common.network;
 
 /**
  * The numbers behind the MOTD placeholders, as of the last successful refresh.

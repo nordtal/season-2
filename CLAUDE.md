@@ -726,7 +726,8 @@ that, and both are easy to undo by accident:
 
 `network-control` has **189**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
-`gate.yml`; the `phase` and `routing` packages are tested as pure decisions, exhaustively over the
+`gate.yml`, `pack.yml` and `network.yml` - all four handles it has; the `phase` and `routing`
+packages are tested as pure decisions, exhaustively over the
 five phases; and `PlaytimeDao`'s `seconds = seconds + EXCLUDED.seconds` gets a container, because no
 in-memory test can say anything about it. The pack station adds `LimboHoldTest` (the release rule,
 exhaustively over its three inputs) and eight more `ConfigsTest` cases for `pack.yml` - of which the

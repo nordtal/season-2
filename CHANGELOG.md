@@ -37,8 +37,12 @@ needs editing.
 - The direct `io.github.revxrsal:spec:1.5` dependency is replaced by
   `com.github.nordtal:jcore:3.0.0`, which vendors that same library and hardens it. Spec has not
   been updated since May 2025.
-- Gson and SnakeYAML are no longer bundled — Paper already ships both, and the plugin uses the
-  platform's copies. The shaded jar is unchanged in size.
+- Gson, SnakeYAML and slf4j-api are no longer bundled — Paper ships all three, and the plugin uses
+  the platform's copies. The jar is 203 KB instead of 272 KB.
+
+  The slf4j one mattered beyond the size: it arrived with the new config library, and a plugin that
+  carries its own copy finds no logging provider behind it. The symptom would have been a single
+  `No SLF4J providers were found` line in the console and no configuration log output at all.
 
 # DisplayTags 2.0.0
 

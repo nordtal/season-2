@@ -76,13 +76,24 @@ tasks {
         // the old relocate("revxrsal.spec", "eu.nordtal.libs.spec") is gone with the direct
         // Spec dependency.
         //
-        // Gson and SnakeYAML come from Paper at runtime (see the dependency block). Excluding
-        // them keeps a second copy out of the jar and avoids a version clash with the platform's
-        // own. If a future Paper release stops shipping either, this is what breaks - re-run the
+        // Gson, SnakeYAML and slf4j-api all come from Paper at runtime - paper-api brings all
+        // three transitively, checked with `gradlew dependencies` on 2026-09-03. Excluding them
+        // keeps a second copy out of the jar and avoids a version clash with the platform's own.
+        // If a future Paper release stops shipping one, this is what breaks - re-run the
         // Class.forName check before bumping the platform.
+        //
+        // slf4j is the one that was missed until 2026-09-03. It arrives transitively through
+        // jcore, whose ConfigHandle logs through it, and a plugin-local copy resolves no provider:
+        // the failure is a quiet "No SLF4J providers were found" and every config log line gone.
+        // The release workflow asserts all three are absent for that reason.
+        //
+        // Only the exclusion is needed for it. Unlike gson and snakeyaml there is no compileOnly
+        // line for slf4j in the dependency block, because paper-api already puts it on the compile
+        // classpath and a pinned version here would be a third number that has to track Paper's.
         dependencies {
             exclude(dependency("com.google.code.gson:gson"))
             exclude(dependency("org.yaml:snakeyaml"))
+            exclude(dependency("org.slf4j:slf4j-api"))
         }
 
         archiveClassifier.set("")

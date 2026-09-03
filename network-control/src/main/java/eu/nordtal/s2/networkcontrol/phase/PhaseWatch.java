@@ -55,15 +55,25 @@ public final class PhaseWatch {
     private final Logger logger;
     private final ChangeListener listener;
 
-    /** {@code null} until the row has been read successfully at least once. */
-    private final AtomicReference<SeasonPhase> lastKnown = new AtomicReference<>();
-
     /**
-     * The announced opening instant from the same row, {@code null} when none is set - and also
-     * {@code null} until the first successful read, which the MOTD renders as "not announced yet".
-     * Read on the same refresh as the phase so the two cannot come from different moments.
+     * The phase and the announced opening instant, as one value.
+     * <p>
+     * One reference rather than two, because {@link #known()} has a reader who wants both:
+     * {@code NetworkPing} renders a {@code PRE_LAUNCH} MOTD out of the phase <em>and</em> the
+     * countdown, and two references published one after the other let a ping arriving between the
+     * two writes pair the old phase with the new instant. The window is a few nanoseconds once
+     * every poll interval and nobody would ever catch it - which is exactly why it is worth
+     * removing rather than documenting.
+     * </p>
+     *
+     * @param phase  what the row said
+     * @param launch when the network opens, {@code null} when no date is set
      */
-    private final AtomicReference<Instant> launch = new AtomicReference<>();
+    public record Known(SeasonPhase phase, Instant launch) {
+    }
+
+    /** {@code null} until the row has been read successfully at least once. */
+    private final AtomicReference<Known> known = new AtomicReference<>();
 
     public PhaseWatch(final PhaseDirectory phases, final Logger logger, final ChangeListener listener) {
         this.phases = Objects.requireNonNull(phases, "phases");
@@ -98,9 +108,8 @@ public final class PhaseWatch {
                     lastKnown(), exception);
             return false;
         }
-        launch.set(announced);
-
-        final SeasonPhase previous = lastKnown.getAndSet(current);
+        final Known before = known.getAndSet(new Known(current, announced));
+        final SeasonPhase previous = before == null ? null : before.phase();
         if (previous != current) {
             if (previous == null) {
                 logger.info("Season phase is {}", current);
@@ -117,8 +126,21 @@ public final class PhaseWatch {
      *         has never read one at all
      */
     public SeasonPhase lastKnown() {
-        final SeasonPhase known = lastKnown.get();
-        return known == null ? SeasonPhase.MAINTENANCE : known;
+        final Known current = known.get();
+        return current == null ? SeasonPhase.MAINTENANCE : current.phase();
+    }
+
+    /**
+     * The phase and the opening instant as they were read together, for the one caller that needs
+     * both to agree - see {@link Known}.
+     *
+     * @return never {@code null}; before the first successful read it is
+     *         {@link SeasonPhase#MAINTENANCE} with no announced instant, the same guess
+     *         {@link #lastKnown()} makes
+     */
+    public Known known() {
+        final Known current = known.get();
+        return current == null ? new Known(SeasonPhase.MAINTENANCE, null) : current;
     }
 
     /**
@@ -127,7 +149,7 @@ public final class PhaseWatch {
      *         you yet"
      */
     public Optional<Instant> launch() {
-        return Optional.ofNullable(launch.get());
+        return Optional.ofNullable(known().launch());
     }
 
     /**
@@ -136,7 +158,7 @@ public final class PhaseWatch {
      *         out loud in {@code /phase}'s reply
      */
     public boolean everRead() {
-        return lastKnown.get() != null;
+        return known.get() != null;
     }
 
     private void notifyListener(final SeasonPhase previous, final SeasonPhase current) {

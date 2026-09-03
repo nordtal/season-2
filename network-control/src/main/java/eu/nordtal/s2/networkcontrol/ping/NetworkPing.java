@@ -17,7 +17,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.util.Locale;
 
 /**
@@ -77,11 +76,15 @@ public final class NetworkPing {
     }
 
     private Component description() {
-        final SeasonPhase phase = phases.lastKnown();
+        // One read, not two: the phase decides which MOTD is shown and the instant is what its
+        // countdown counts to, so a ping that caught them from either side of a refresh could
+        // render a PRE_LAUNCH line against an opening date that had just been cleared.
+        final PhaseWatch.Known known = phases.known();
+        final SeasonPhase phase = known.phase();
         final String template = motdFor(phase);
-        final Instant launch = phases.launch().orElse(null);
         // English: a ping carries no player, so there is nobody whose language could be looked up.
-        final String countdown = LaunchCountdown.render(messages, Locale.ENGLISH, launch, clock.instant());
+        final String countdown =
+                LaunchCountdown.render(messages, Locale.ENGLISH, known.launch(), clock.instant());
         final String substituted = Placeholders.apply(template, proxy, phase, config.maxPlayers(),
                 snapshots.current(), countdown);
 

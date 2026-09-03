@@ -41,11 +41,18 @@ interface SnapshotDao {
                                             WHERE game.state <> 'DECIDED')
                       AND member.state IN ('OWNER', 'ACCEPTED'))                             AS hg_participants,
 
+                   -- Counted over the same set hg_participants counts, so that eliminated can
+                   -- never exceed it and the mapper's alive = participants - eliminated cannot go
+                   -- negative or leave the two disagreeing in the server browser. The EXISTS also
+                   -- subsumes the victim_id IS NOT NULL this used to carry: a DEATH row whose
+                   -- member has been deleted has victim_id SET NULL (V5) and matches nothing.
                    (SELECT count(DISTINCT event.victim_id) FROM hg_event event
                     WHERE event.game_id = (SELECT game.id FROM hg_game game
                                            WHERE game.state <> 'DECIDED')
                       AND event.type = 'DEATH'
-                      AND event.victim_id IS NOT NULL)                                       AS hg_eliminated,
+                      AND EXISTS (SELECT 1 FROM hg_member member
+                                  WHERE member.id = event.victim_id
+                                    AND member.state IN ('OWNER', 'ACCEPTED')))              AS hg_eliminated,
 
                    -- A team is still in while any of its members has no DEATH against them.
                    (SELECT count(*) FROM hg_team team

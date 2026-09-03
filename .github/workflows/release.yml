@@ -1,0 +1,104 @@
+name: release
+
+# A release is a GitHub release, published by a human - the same arrangement as
+# nordtal/season-2/.github/workflows/release.yml, and for the same reason: publishing a release
+# from a brand-new tag and from a tag that has existed for weeks both build, which a `push: tags`
+# trigger cannot do. `git push --tags` on its own builds nothing. Tag, then publish the release.
+#
+# WHY THIS EXISTS: the 2.0.0 release (2026-08-29) carried a jar somebody built locally and attached
+# by hand, and `main` sat at 2.1.0 with the jcore config move for days without a release at all.
+# season-2's updater follows this repository's /releases/latest, so a fix that is not released
+# is a fix that never reaches a server - and a jar built on a laptop is one nobody can rebuild.
+#
+# The version in build.gradle is the single source of truth; the tag must equal it exactly. Tags
+# here carry NO leading 'v' (2.0.0, not v2.0.0) - season-2's updater.yml says so under
+# display-tags-release, and the check below refuses a 'v'.
+#
+# THE ASSET NAME IS AN INTERFACE. season-2's updater matches the installed jar by filename prefix
+# (papermc-display-tags-<version>.jar -> 'papermc-display-tags'); renaming the artifact would
+# make every deployed copy an "unclaimed" jar that nothing supersedes.
+on:
+  release:
+    types: [published]
+  # For re-running a release whose build failed, without unpublishing anything.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build, e.g. 2.1.0 (no leading v)'
+        required: true
+
+permissions:
+  contents: write
+
+# One build per tag. A re-run started by hand while the release build is still going would
+# otherwise upload the same asset twice.
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Check the tag matches build.gradle
+        run: |
+          tag="${{ github.event.release.tag_name || inputs.tag }}"
+          case "$tag" in
+            v*) echo "tag $tag has a leading 'v'; this repository's tags do not (2.0.0, not v2.0.0)" >&2; exit 1 ;;
+          esac
+          declared="$(sed -n "s/^version = '\(.*\)'$/\1/p" build.gradle)"
+          if [ -z "$declared" ]; then
+            echo "could not read version = '...' from build.gradle" >&2
+            exit 1
+          fi
+          if [ "$tag" != "$declared" ]; then
+            echo "tag $tag does not match version = '$declared' in build.gradle" >&2
+            exit 1
+          fi
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "VERSION=$declared" >> "$GITHUB_ENV"
+
+      # `check` runs checkSourcesTracked, which is the only thing standing between an ignored
+      # source file and a jar that compiles locally and nowhere else. jcore comes from JitPack,
+      # which needs no token.
+      - name: Build and test
+        run: ./gradlew check shadowJar
+
+      - name: Verify the artifact
+        run: |
+          jar="build/libs/papermc-display-tags-${VERSION}.jar"
+          test -f "$jar" || { echo "$jar was not built" >&2; ls -la build/libs >&2; exit 1; }
+          # The shaded jar, not the thin one: it has to carry jcore's config package.
+          unzip -Z1 "$jar" | grep -q '^eu/nordtal/jcore/config/' \
+            || { echo "$jar does not contain eu.nordtal.jcore.config - is this the thin jar?" >&2; exit 1; }
+          # And none of the three Paper provides itself. A second copy of any of them is a
+          # classloader clash, and slf4j's version of that clash is silent: jcore's ConfigHandle
+          # logs through slf4j, a plugin-local slf4j-api finds no provider, and the result is one
+          # "No SLF4J providers were found" line and nothing else ever again. It was in the 2.1.0
+          # jar until 2026-09-03, arriving transitively through jcore, which is why this check
+          # names all three rather than the two somebody remembered.
+          if unzip -Z1 "$jar" | grep -qE '^(com/google/gson|org/yaml/snakeyaml|org/slf4j)/'; then
+            echo "$jar shades gson, snakeyaml or slf4j-api, which Paper already provides:" >&2
+            unzip -Z1 "$jar" | grep -E '^(com/google/gson|org/yaml/snakeyaml|org/slf4j)/' | head -5 >&2
+            exit 1
+          fi
+          ls -la "$jar"
+
+      # Onto the release that triggered this run. The release notes are left alone - a human
+      # wrote them, and generate_release_notes would replace them on every re-run.
+      - name: Attach the jar to the release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          files: build/libs/papermc-display-tags-${{ env.VERSION }}.jar

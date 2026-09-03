@@ -1,0 +1,58 @@
+name: build
+
+# Every push to main and every pull request. release.yml only runs when a release is published, so
+# without this a broken main - a compile error, a source file Git ignores - stays invisible until
+# somebody tags, and then it fails on the release instead of on the commit that caused it.
+# nordtal/season-2 learned that on 2026-09-02: its first build.yml run on main failed immediately on
+# a package that had been missing from the repository for days while every local build was green.
+#
+# This repository had no CI at all before 2026-09-02, which is worse than it sounds here: it has
+# NO TESTS, so `check` is checkSourcesTracked and a compile. That is exactly the pair of failures a
+# fresh checkout produces and a laptop does not, and nothing else in this repository looks for them.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same branch makes the older run pointless.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # `build` is compile + checkSourcesTracked + shadowJar in both projects. jcore comes from
+      # JitPack, which needs no token; a JitPack build of com.github.nordtal:jcore:3.0.0 that has
+      # never been requested is built on first request and can take a few minutes.
+      - name: Build
+        run: ./gradlew build
+
+      # The same three exclusions release.yml asserts, checked on every commit rather than only on
+      # the one somebody tags. Paper ships gson, snakeyaml and slf4j-api itself and a second copy in
+      # the plugin jar is a classloader clash - silent, in slf4j's case, which is how it survived in
+      # the 2.1.0 build from 2026-08-30 to 2026-09-03. All three arrive transitively through jcore,
+      # so any jcore bump can put them back.
+      - name: The shaded jar carries jcore's config and none of Paper's own libraries
+        run: |
+          version="$(sed -n "s/^version = '\(.*\)'$/\1/p" build.gradle)"
+          jar="build/libs/papermc-display-tags-${version}.jar"
+          test -f "$jar" || { echo "$jar was not built" >&2; ls -la build/libs >&2; exit 1; }
+          unzip -Z1 "$jar" | grep -q '^eu/nordtal/jcore/config/' \
+            || { echo "$jar does not contain eu.nordtal.jcore.config - is this the thin jar?" >&2; exit 1; }
+          if unzip -Z1 "$jar" | grep -qE '^(com/google/gson|org/yaml/snakeyaml|org/slf4j)/'; then
+            echo "$jar shades gson, snakeyaml or slf4j-api, which Paper already provides:" >&2
+            unzip -Z1 "$jar" | grep -E '^(com/google/gson|org/yaml/snakeyaml|org/slf4j)/' | head -5 >&2
+            exit 1
+          fi
+          ls -la "$jar"

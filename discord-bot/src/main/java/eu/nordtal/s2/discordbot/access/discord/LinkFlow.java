@@ -37,6 +37,14 @@ import java.util.concurrent.ExecutorService;
  * database owns the constraints behind it. This class only turns a
  * {@link LinkRedemption.Status} into the right message.
  *
+ * <h2>Except for the one thing the database cannot see: how often somebody is guessing</h2>
+ * A link code is four characters, and {@link RedemptionLimit} is what makes that a safe number
+ * rather than a reckless one. It sits here rather than behind {@code AccessDirectory} because it
+ * counts <em>Discord accounts</em>, and the proxy - the other user of that interface - has no
+ * Discord account to count. Reaching the cap is written to the admin channel once, on the attempt
+ * that reaches it: somebody grinding codes is a thing a human should see, and repeating it for
+ * every later attempt would drown the channel the moment it mattered.
+ *
  * <h2>Unlink has no waiting period, and is always reported</h2>
  * {@code /unlink} only ever touches the caller's own link - there is no target user parameter,
  * because the concept ("the user may unlink themselves") is self-service, not an admin action.
@@ -53,14 +61,16 @@ public final class LinkFlow extends ListenerAdapter {
     private final AccessRoles roles;
     private final Messages messages;
     private final AdminLog admin;
+    private final RedemptionLimit limit;
     private final ExecutorService executor;
 
     public LinkFlow(final AccessDirectory access, final AccessRoles roles, final Messages messages,
-                    final AdminLog admin, final ExecutorService executor) {
+                    final AdminLog admin, final RedemptionLimit limit, final ExecutorService executor) {
         this.access = access;
         this.roles = roles;
         this.messages = messages;
         this.admin = admin;
+        this.limit = limit;
         this.executor = executor;
     }
 
@@ -113,17 +123,36 @@ public final class LinkFlow extends ListenerAdapter {
     }
 
     private void redeem(final ModalInteractionEvent event, final Locale locale, final String code) {
-        final LinkRedemption result = access.redeemLinkCode(event.getUser().getId(), code);
+        final String discordId = event.getUser().getId();
+        if (!limit.allows(discordId)) {
+            // No database call at all: a capped account does not get to ask whether its next guess
+            // happened to be right.
+            event.getHook().editOriginal(messages.get(locale, "link.too-many")).queue();
+            return;
+        }
+
+        final LinkRedemption result = access.redeemLinkCode(discordId, code);
 
         switch (result.status()) {
             case LINKED -> {
-                admin.record("LINK", null, event.getUser().getId(), result.mcUuid(), "redeemed a link code");
+                limit.clear(discordId);
+                admin.record("LINK", null, discordId, result.mcUuid(), "redeemed a link code");
                 admin.note(event.getUser().getAsMention() + " linked Minecraft account `"
                         + result.mcUuid() + "`.");
                 event.getHook().editOriginal(messages.get(locale, "link.success")).queue();
             }
-            case INVALID_CODE ->
-                    event.getHook().editOriginal(messages.get(locale, "link.invalid-code")).queue();
+            case INVALID_CODE -> {
+                if (limit.recordFailure(discordId) == 0) {
+                    log.warn("{} has used up its link-code attempts for this hour", discordId);
+                    admin.note(event.getUser().getAsMention() + " has submitted "
+                            + "the maximum number of wrong link codes for this hour and is now"
+                            + " being refused. One person mistyping a code looks like this too.");
+                }
+                event.getHook().editOriginal(messages.get(locale, "link.invalid-code")).queue();
+            }
+            // Not a failure and deliberately not counted: the code was real, the account simply
+            // already has a Minecraft account on it. Charging an attempt for that would punish a
+            // wrong click with the defence built for a guesser.
             case ALREADY_LINKED ->
                     event.getHook().editOriginal(messages.get(locale, "link.already-linked")).queue();
         }

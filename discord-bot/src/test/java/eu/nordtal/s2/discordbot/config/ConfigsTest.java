@@ -21,6 +21,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -328,6 +329,43 @@ class ConfigsTest {
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("languages[1].hunger-games-channel"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("a language with no status-channel is a language with no status channel")
+    void anAbsentStatusChannelIsAllowed() throws Exception {
+        // The one optional id in the file. VALID_LANGUAGES does not carry it at all, which is the
+        // case an operator who has not created the channels yet is actually in.
+        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES));
+
+        final AccessSpec config = Configs.access().get();
+
+        assertEquals("", config.languages().getFirst().statusChannel());
+        assertFalse(Languages.of(config).all().getFirst().hasStatusChannel());
+    }
+
+    @Test
+    @DisplayName("a status-channel that is set has to be a real snowflake")
+    void aMistypedStatusChannelStopsTheBot() throws Exception {
+        // Being lenient about it being absent must not become being lenient about it being wrong:
+        // the failure mode of an unresolvable channel id is silence, which looks exactly like a
+        // channel nobody configured.
+        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES
+                .replace("hunger-games-channel: '40'", "hunger-games-channel: '40'\n  status-channel: 'not-an-id'")));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("languages[1].status-channel"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("a link-code attempt cap of zero would lock everybody out and is refused")
+    void aZeroAttemptCapStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("access.yml"),
+                access().replace("role-reconcile-interval-minutes: 10",
+                        "role-reconcile-interval-minutes: 10\nlink-code-attempts-per-hour: 0"));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("link-code-attempts-per-hour"), error.getMessage());
     }
 
     @Test
@@ -655,13 +693,17 @@ class ConfigsTest {
         assertEquals(2, config.languages().size(), "both entries have to survive the round trip");
         assertEquals("en", config.languages().get(0).tag());
         assertEquals("de", config.languages().get(1).tag());
-        // The four ids are the reason the block exists: a JSON key that does not match the @Key
+        // The ids are the reason the block exists: a JSON key that does not match the @Key
         // name comes back as null rather than as an error, which would surface as a null channel
         // id hours later. REPLACE_ME arriving intact is what proves the names line up.
         assertEquals("REPLACE_ME", config.languages().get(0).role());
         assertEquals("REPLACE_ME", config.languages().get(0).contributionChannel());
         assertEquals("REPLACE_ME", config.languages().get(0).linkChannel());
         assertEquals("REPLACE_ME", config.languages().get(1).hungerGamesChannel());
+        // And status-channel is empty rather than REPLACE_ME, because it is the one id an operator
+        // may leave out - a REPLACE_ME there would refuse to start a bot that does not need it.
+        assertEquals("", config.languages().get(0).statusChannel());
+        assertEquals("", config.languages().get(1).statusChannel());
     }
 
     @Test

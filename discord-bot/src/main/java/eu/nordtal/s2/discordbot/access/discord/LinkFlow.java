@@ -124,37 +124,51 @@ public final class LinkFlow extends ListenerAdapter {
 
     private void redeem(final ModalInteractionEvent event, final Locale locale, final String code) {
         final String discordId = event.getUser().getId();
-        if (!limit.allows(discordId)) {
-            // No database call at all: a capped account does not get to ask whether its next guess
-            // happened to be right.
+
+        // Taken before the database is touched, and taken atomically: a capped account does not get
+        // to ask whether its next guess happened to be right, and two workers cannot both be told
+        // there is room for the same last attempt.
+        final int remaining = limit.acquire(discordId);
+        if (remaining < 0) {
             event.getHook().editOriginal(messages.get(locale, "link.too-many")).queue();
             return;
         }
 
-        final LinkRedemption result = access.redeemLinkCode(discordId, code);
+        // Only a wrong guess keeps the attempt. Everything else gives it back in the finally, the
+        // exception path included - a redemption that failed on an unreachable database is not
+        // evidence that anybody was guessing.
+        boolean wrongGuess = false;
+        try {
+            final LinkRedemption result = access.redeemLinkCode(discordId, code);
 
-        switch (result.status()) {
-            case LINKED -> {
-                limit.clear(discordId);
-                admin.record("LINK", null, discordId, result.mcUuid(), "redeemed a link code");
-                admin.note(event.getUser().getAsMention() + " linked Minecraft account `"
-                        + result.mcUuid() + "`.");
-                event.getHook().editOriginal(messages.get(locale, "link.success")).queue();
-            }
-            case INVALID_CODE -> {
-                if (limit.recordFailure(discordId) == 0) {
-                    log.warn("{} has used up its link-code attempts for this hour", discordId);
-                    admin.note(event.getUser().getAsMention() + " has submitted "
-                            + "the maximum number of wrong link codes for this hour and is now"
-                            + " being refused. One person mistyping a code looks like this too.");
+            switch (result.status()) {
+                case LINKED -> {
+                    limit.clear(discordId);
+                    admin.record("LINK", null, discordId, result.mcUuid(), "redeemed a link code");
+                    admin.note(event.getUser().getAsMention() + " linked Minecraft account `"
+                            + result.mcUuid() + "`.");
+                    event.getHook().editOriginal(messages.get(locale, "link.success")).queue();
                 }
-                event.getHook().editOriginal(messages.get(locale, "link.invalid-code")).queue();
+                case INVALID_CODE -> {
+                    wrongGuess = true;
+                    if (remaining == 0) {
+                        log.warn("{} has used up its link-code attempts for this hour", discordId);
+                        admin.note(event.getUser().getAsMention() + " has submitted "
+                                + "the maximum number of wrong link codes for this hour and is now"
+                                + " being refused. One person mistyping a code looks like this too.");
+                    }
+                    event.getHook().editOriginal(messages.get(locale, "link.invalid-code")).queue();
+                }
+                // Not a failure and deliberately not counted: the code was real, the account simply
+                // already has a Minecraft account on it. Charging an attempt for that would punish a
+                // wrong click with the defence built for a guesser.
+                case ALREADY_LINKED ->
+                        event.getHook().editOriginal(messages.get(locale, "link.already-linked")).queue();
             }
-            // Not a failure and deliberately not counted: the code was real, the account simply
-            // already has a Minecraft account on it. Charging an attempt for that would punish a
-            // wrong click with the defence built for a guesser.
-            case ALREADY_LINKED ->
-                    event.getHook().editOriginal(messages.get(locale, "link.already-linked")).queue();
+        } finally {
+            if (!wrongGuess) {
+                limit.release(discordId);
+            }
         }
     }
 

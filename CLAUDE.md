@@ -668,7 +668,7 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 823 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 827 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-03). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
@@ -678,7 +678,7 @@ daemon present, 2026-09-03). The counts below are what the JUnit XML reports, no
 | `common` | 153 |
 | `network-control` | 189 |
 | `updater` | 133 |
-| `discord-bot` | 144 |
+| `discord-bot` | 148 |
 | `hunger-games` | 47 |
 | `limbo` | 11 |
 
@@ -701,12 +701,12 @@ different versions that stop understanding each other produce a player stuck in 
 with nothing in any log. The `make_interval(hours => days * 24)` bug from stage A (see
 below) is still the reason a day is never expressed in SQL as `interval 'N days'`.
 
-`discord-bot` has **144**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest`, `TiersTest`,
+`discord-bot` has **148**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest`, `TiersTest`,
 `RedemptionLimitTest`, `StatusNameTest` and `GuildStateTest` in memory, `AdminFlagIntegrationTest`
 and `PaymentRequestIntegrationTest` against a container, plus the `hungergames` package's own.
 The three added on 2026-09-03 are each a rule that cannot be exercised against a real guild without
 waiting for one: `RedemptionLimitTest` moves a clock through the sliding window that makes a
-four-character link code safe, `StatusNameTest` pins every channel name against the real message
+four-character link code safe and races eight threads at one account's last attempt, `StatusNameTest` pins every channel name against the real message
 bundles — the granularity there *is* Discord's two-renames-per-ten-minutes budget — and
 `GuildStateTest` covers the completeness check that decides whether the startup reconcile may
 delete account links at all. `LanguagesTest` owns every rule the `languages` list decides — which of

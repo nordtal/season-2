@@ -216,6 +216,12 @@ limit again. Strictly above, because admins are exempt from the proxy's limit: a
 `NETWORK_MAX_PLAYERS` plus whichever admins joined it, and the backend they land on needs that room.
 Leave a gap that covers the admins you expect.
 
+**Changing `BACKEND_MAX_PLAYERS` means restarting the backends, not the proxy.** It is written into
+each Paper server's `server.properties` by that container's own entrypoint, on every start — so
+`docker compose restart network-control` picks up the proxy's copy of the number and leaves all
+three backends on the old one, which is the half that actually refuses players. Raising both values
+is `docker compose restart network-control limbo hunger-games smp`, or a redeploy.
+
 Two versions of that fault have already shipped. Before 2026-09-02 nothing set `max-players` at
 all, so Paper's own default of 20 was the real limit while the browser advertised 500 — and the
 21st player was refused with *"Server full"* **after** passing the login gate, accepting the
@@ -231,8 +237,10 @@ per season phase, MiniMessage, with placeholders in braces. The full placeholder
 placeholders. Anything left unset in `.env` keeps that default.
 
 Read at **proxy start**. There is no reload command: the MOTD follows the phase on its own, live,
-but an edit to the file or to `.env` needs a restart of the `network-control` service —
-`docker compose restart network-control`.
+but an edit to `network.yml` or to any `NETWORK_MOTD_*` in `.env` needs a restart of the
+`network-control` service — `docker compose restart network-control`. That restart is enough for
+the MOTD and for `NETWORK_MAX_PLAYERS`, and it is *not* enough for `BACKEND_MAX_PLAYERS`; see
+[Who limits the players](#who-limits-the-players).
 
 When `network-control` cannot start at all, the browser says so — the fail-closed handler answers
 the ping with a line from the plugin's own message bundle, because a network advertising its season

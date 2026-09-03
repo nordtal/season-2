@@ -210,9 +210,11 @@ Admins are exempt, so a full network can still be entered by whoever has to go a
 
 `BACKEND_MAX_PLAYERS` (default 1000) is a different thing with a similar name: it is what the
 entrypoint writes into every Paper server's `server.properties#max-players`, chosen so it can never
-be reached. **Raise it whenever you raise `NETWORK_MAX_PLAYERS` above it** — the proxy carries a
-copy of it and refuses to start when the two cross, rather than letting the backends quietly become
-the network's real limit again.
+be reached. **It has to stay strictly above `NETWORK_MAX_PLAYERS`** — the proxy carries a copy of it
+and refuses to start otherwise, rather than letting the backends quietly become the network's real
+limit again. Strictly above, because admins are exempt from the proxy's limit: a full network holds
+`NETWORK_MAX_PLAYERS` plus whichever admins joined it, and the backend they land on needs that room.
+Leave a gap that covers the admins you expect.
 
 Two versions of that fault have already shipped. Before 2026-09-02 nothing set `max-players` at
 all, so Paper's own default of 20 was the real limit while the browser advertised 500 — and the
@@ -229,7 +231,8 @@ per season phase, MiniMessage, with placeholders in braces. The full placeholder
 placeholders. Anything left unset in `.env` keeps that default.
 
 Read at **proxy start**. There is no reload command: the MOTD follows the phase on its own, live,
-but an edit to the file or to `.env` needs a restart of the `proxy` service.
+but an edit to the file or to `.env` needs a restart of the `network-control` service —
+`docker compose restart network-control`.
 
 When `network-control` cannot start at all, the browser says so — the fail-closed handler answers
 the ping with a line from the plugin's own message bundle, because a network advertising its season
@@ -538,8 +541,8 @@ worth having here, because they are the kind that get rediscovered expensively:
 | Velocity exits at once with *"Your configuration is invalid"* | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define. |
 | A backend logs *"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"* | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login. |
 | Proxy starts but refuses every login with a "network misconfigured" screen | `network-control` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log. |
-| Proxy will not start, log says `max-players` is above `backend-limit` | `NETWORK_MAX_PLAYERS` was raised past `BACKEND_MAX_PLAYERS`. Raise the second one too — see [Who limits the players](#who-limits-the-players). |
-| The browser shows the old MOTD after editing `.env` | `network.yml` is read at proxy start. Restart the `proxy` service; there is no reload command. |
+| Proxy will not start, log says `max-players` is not below `backend-limit` | `NETWORK_MAX_PLAYERS` reached or passed `BACKEND_MAX_PLAYERS`; equal is rejected too, because admins are exempt from the proxy's limit. Raise the second one — see [Who limits the players](#who-limits-the-players). |
+| The browser shows the old MOTD after editing `.env` | `network.yml` is read at proxy start. Restart the `network-control` service; there is no reload command. |
 | Everybody is refused with a countdown, and nobody asked for that | The phase is `PRE_LAUNCH`, which is the seeded initial state. `/phase set PRE_EVENT` opens the network. |
 | `docker rm -f` fails with *"did not receive an exit event"* | You are running a container that mirrors its console with `tmux pipe-pane > /proc/1/fd/1`. Do not do that — see [below](#never-mirror-the-console-with-tmux-pipe-pane). Only a Docker daemon restart clears it. |
 

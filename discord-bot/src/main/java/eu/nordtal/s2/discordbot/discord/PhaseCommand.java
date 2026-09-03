@@ -115,7 +115,7 @@ public final class PhaseCommand extends ListenerAdapter {
         final OptionMapping option = event.getOption("phase");
         final Optional<SeasonPhase> target = phaseOf(option == null ? null : option.getAsString());
         if (target.isEmpty()) {
-            event.reply("That is not a season phase. The four are: " + String.join(", ", names()) + ".")
+            event.reply("That is not a season phase. The five are: " + String.join(", ", names()) + ".")
                     .setEphemeral(true).queue();
             return;
         }

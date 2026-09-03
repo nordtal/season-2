@@ -348,6 +348,29 @@ class ConfigsTest {
     }
 
     @Test
+    void aLimitEqualToTheBackendsIsRejectedTooBecauseAdminsAreExemptFromIt() throws Exception {
+        // Equal looks safe and is not. LoginGate lets an admin past a full network on purpose -
+        // they are the person who has to come and fix it - so a network at its limit holds
+        // max-players plus however many admins joined, and the backend they are then routed to
+        // would answer "Server full". The buffer exists precisely for those players.
+        Files.writeString(directory.resolve("network.yml"), """
+                max-players: 1000
+                backend-limit: 1000
+                snapshot-refresh-seconds: 10
+                motd:
+                  pre-launch: 'a'
+                  pre-event: 'b'
+                  start-event: 'c'
+                  smp: 'd'
+                  maintenance: 'e'
+                """);
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+                () -> Configs.network(directory, LOGGER));
+        assertTrue(error.getMessage().contains("backend-limit"), error.getMessage());
+    }
+
+    @Test
     void anEmptyMotdIsRejectedRatherThanShownAsAnEmptyServerBrowserEntry() throws Exception {
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500

@@ -31,6 +31,14 @@ release.
   gone with the rest of the contribution model.
 - Buying while access is still running **appends**: the new period starts when the current one
   ends. Nobody loses paid time by renewing early.
+- Buying **before the SMP opens** starts when it opens, not when it is paid. Access is only asked
+  for in the `SMP` phase, so a period anchored to the purchase would spend the whole hunger games
+  event out of somebody's thirty days. The anchor is `season_phase.smp_start` (`V9`), a date set by
+  hand and deliberately not the same as `launch` — the network opens into the event a week or so
+  earlier. Two purchases made in advance stack into one run from the opening.
+- Periods are **never summed**. The append rule looks only at grants that are still running, so
+  somebody who lets access lapse and buys again starts today rather than having a fortnight of
+  calendar quietly credited to them.
 - The **donor role is permanent**. The bot grants it and never takes it away — which is also what
   makes it safe to hand out by hand through Discord's role UI without fighting the bot.
 - The **access role is strictly bot-owned**. Granting it manually holds only until the next
@@ -63,8 +71,10 @@ need (JDBI + HikariCP + driver), never the full `jcore` dependency block — a P
 carry the bot's ~33 MB jar.
 
 Two rules belong to that API rather than to any of its callers. **Appending is the API's job**:
-granting computes `valid_from = max(now, current valid_until)` in one statement, so two callers
-cannot each write their own version of that rule. And **`accessState` answers all of the proxy's
+granting computes `valid_from = max(now, season_phase.smp_start, current valid_until)` in one
+statement, so two callers cannot each write their own version of that rule. The season start is
+read in that same statement rather than passed in, for the reason the clock is: a value the caller
+supplies is a value two callers can disagree about. And **`accessState` answers all of the proxy's
 questions in one query** — linked, member, banned, valid until — because a login path must not make
 three round trips.
 
@@ -167,11 +177,24 @@ while down.
 
 - A join attempt produces a code, valid **10 minutes**, **one per UUID** — a repeated attempt shows
   the same code rather than minting another, which makes join-spam pointless without a rate limiter.
+- The code is **four characters** from a 31-symbol alphabet: 923 521 possibilities. That is short
+  enough to be read off a disconnect screen and typed back in, and it is only safe **because of the
+  cap below**. The two were decided together (2026-09-03) and neither survives without the other —
+  a link code is a bearer credential for taking over somebody's account link.
+- **Five wrong codes per Discord account per hour**, counted in the bot's memory and enforced in the
+  modal handler (`access.yml#link-code-attempts-per-hour`). Only a code that matched nothing counts;
+  a code refused because the account is already linked does not, since that is a real code and a
+  wrong click. Reaching the cap is written to the admin channel once.
 - The link channel (one per language) carries a bot-maintained message with a button opening a modal
   to enter the code.
 - **1:1**, and the user may unlink themselves with no waiting period. Every link and unlink is
   written to the admin channel with the Discord user and the Minecraft account, because without a
   waiting period that log is the only thing that makes passing an access around visible.
+- **Leaving the guild removes the link.** `member_state = LEFT` already refuses the login, so this
+  decides no access question — it makes "linked" mean "member". Nothing is lost: play time, aura
+  and grants hang off `discord_user`, so re-linking the same Discord account restores all of it.
+  A ban is a removal too and is treated the same. The startup reconcile only deletes links when it
+  can see the whole guild, because that inference is the one it can get catastrophically wrong.
 
 ## Language
 

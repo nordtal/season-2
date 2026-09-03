@@ -1,4 +1,4 @@
-# DisplayTags 2.1.0
+# DisplayTags 2.1.1
 
 Configuration handling moved onto nordtal's own hardened copy of the Spec library, shipped in
 `jcore`. Your `config.yml` keeps the same layout, the same keys and the same comments — nothing
@@ -43,6 +43,8 @@ needs editing.
   The slf4j one mattered beyond the size: it arrived with the new config library, and a plugin that
   carries its own copy finds no logging provider behind it. The symptom would have been a single
   `No SLF4J providers were found` line in the console and no configuration log output at all.
+- `gradlew` lost its executable bit at some point and broke both `build.yml` and `release.yml`,
+  which is why this release carries no functional changes over what would have been 2.1.0.
 
 # DisplayTags 2.0.0
 

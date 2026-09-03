@@ -1,6 +1,9 @@
 package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import java.time.Instant;
+import eu.nordtal.s2.common.phase.SeasonDates;
+import eu.nordtal.s2.common.phase.DateChange;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -165,5 +168,77 @@ class PhaseCommandTest {
                     () -> assertTrue(text.contains("hunger-games"), text)
             );
         }
+    }
+
+    // ---------------------------------------------------------------- the two dates
+
+    @Test
+    void theOverviewNamesThePhaseAndBothDates() {
+        final String text = PhaseCommand.overview(SeasonPhase.PRE_LAUNCH,
+                SeasonDates.parse("2026-10-01 18:00").orElseThrow(),
+                SeasonDates.parse("2026-10-08 18:00").orElseThrow());
+
+        assertTrue(text.contains("PRE_LAUNCH"));
+        assertTrue(text.contains("2026-10-01 18:00"), text);
+        assertTrue(text.contains("2026-10-08 18:00"), text);
+        assertTrue(text.contains("Europe/Berlin"), "the zone has to be stated: " + text);
+    }
+
+    @Test
+    void theOverviewSpellsOutADateThatIsNotSet() {
+        final String text = PhaseCommand.overview(SeasonPhase.PRE_LAUNCH, null, null);
+
+        // "not set" rather than an empty space: an admin has to be able to tell a missing date
+        // from a rendering bug.
+        assertTrue(text.contains("not set"), text);
+    }
+
+    @Test
+    void theRefusalOfANonDateNamesThePatternAndTheEscape() {
+        final String text = PhaseCommand.notADate();
+
+        assertTrue(text.contains(SeasonDates.PATTERN), text);
+        assertTrue(text.contains("Europe/Berlin"), text);
+        assertTrue(text.contains(SeasonDates.CLEAR), "the way out has to be named too: " + text);
+    }
+
+    @Test
+    void movingTheSmpStartReportsHowMuchAccessMovedWithIt() {
+        final Instant was = SeasonDates.parse("2026-10-08 18:00").orElseThrow();
+        final Instant now = SeasonDates.parse("2026-10-15 18:00").orElseThrow();
+
+        final String text = PhaseCommand.summary(PhaseCommand.Column.SMP_START,
+                new DateChange(was, now, 7, 4));
+
+        assertTrue(text.contains("2026-10-15 18:00"), text);
+        assertTrue(text.contains("2026-10-08 18:00"), "the previous date belongs in it too: " + text);
+        assertTrue(text.contains("7"), text);
+        assertTrue(text.contains("4"), "the number of people is the one a human reacts to: " + text);
+    }
+
+    @Test
+    void movingTheOpeningNeverTalksAboutAccess() {
+        final String text = PhaseCommand.summary(PhaseCommand.Column.LAUNCH,
+                new DateChange(null, SeasonDates.parse("2026-10-01 18:00").orElseThrow(), 0, 0));
+
+        assertFalse(text.contains("access period"), "launch owns no grants: " + text);
+    }
+
+    @Test
+    void clearingTheSmpStartSaysThatAccessStayedWhereItWas() {
+        final String text = PhaseCommand.summary(PhaseCommand.Column.SMP_START,
+                new DateChange(SeasonDates.parse("2026-10-08 18:00").orElseThrow(), null, 0, 0));
+
+        assertTrue(text.contains("did not move"), text);
+    }
+
+    @Test
+    void writingTheDateThatWasAlreadyThereSaysSoInsteadOfClaimingAChange() {
+        final Instant same = SeasonDates.parse("2026-10-08 18:00").orElseThrow();
+
+        final String text = PhaseCommand.summary(PhaseCommand.Column.SMP_START,
+                new DateChange(same, same, 0, 0));
+
+        assertTrue(text.contains("already"), text);
     }
 }

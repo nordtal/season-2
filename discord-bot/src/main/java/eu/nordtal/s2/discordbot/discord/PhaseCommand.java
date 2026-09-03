@@ -1,8 +1,11 @@
 package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.phase.DateChange;
 import eu.nordtal.s2.common.phase.PhaseChange;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
+import eu.nordtal.s2.common.phase.SeasonDateRefused;
+import eu.nordtal.s2.common.phase.SeasonDates;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -21,6 +24,7 @@ import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import org.jdbi.v3.core.Jdbi;
 import org.jetbrains.annotations.NotNull;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -100,18 +104,42 @@ public final class PhaseCommand extends ListenerAdapter {
         }
 
         return List.of(Commands.slash("phase", "The season phase: who may join and where they land.")
-                .addSubcommands(new SubcommandData("set", "Switch the season phase.")
-                        .addOptions(phase))
+                .addSubcommands(
+                        new SubcommandData("set", "Switch the season phase.").addOptions(phase),
+                        new SubcommandData("show",
+                                "Show the phase and the two dates the season is measured against."),
+                        new SubcommandData("launch", "When the network opens.")
+                                .addOptions(dateOption()),
+                        new SubcommandData("smp-start", "When paid access starts running.")
+                                .addOptions(dateOption()))
                 .setDefaultPermissions(DefaultMemberPermissions.DISABLED));
+    }
+
+    /**
+     * A fresh option per subcommand: JDA's builders are mutable, and handing the same instance to
+     * two subcommands makes them one option that two commands share.
+     */
+    private static OptionData dateOption() {
+        return new OptionData(OptionType.STRING, "when",
+                SeasonDates.PATTERN + " in " + SeasonDates.ZONE.getId()
+                        + " time, or '" + SeasonDates.CLEAR + "'", true);
     }
 
     // ---------------------------------------------------------------- the command
 
     @Override
     public void onSlashCommandInteraction(final @NotNull SlashCommandInteractionEvent event) {
-        if (!"phase set".equals(event.getFullCommandName())) {
-            return;
+        switch (event.getFullCommandName()) {
+            case "phase set" -> set(event);
+            case "phase show" -> show(event);
+            case "phase launch" -> date(event, Column.LAUNCH);
+            case "phase smp-start" -> date(event, Column.SMP_START);
+            // Every other command in the bot comes through this listener too.
+            default -> { }
         }
+    }
+
+    private void set(final SlashCommandInteractionEvent event) {
         final OptionMapping option = event.getOption("phase");
         final Optional<SeasonPhase> target = phaseOf(option == null ? null : option.getAsString());
         if (target.isEmpty()) {
@@ -141,6 +169,91 @@ public final class PhaseCommand extends ListenerAdapter {
                         Button.danger(Ids.PHASE_CONFIRM + target.name(), "Switch to " + target),
                         Button.secondary(Ids.PHASE_CANCEL, "Cancel")))
                 .queue();
+    }
+
+    // ---------------------------------------------------------------- the two dates
+
+    /** Which column a {@code /phase launch} or {@code /phase smp-start} is about. */
+    enum Column {
+
+        LAUNCH("the network opens", "SET_LAUNCH"),
+        SMP_START("paid access starts running", "SET_SMP_START");
+
+        private final String what;
+        private final String action;
+
+        Column(final String what, final String action) {
+            this.what = what;
+            this.action = action;
+        }
+    }
+
+    /**
+     * {@code /phase show} - the phase and both dates in one place.
+     * <p>
+     * Discord cannot invoke a command that has subcommands on its own, so this is a subcommand
+     * rather than the bare {@code /phase} the proxy answers. It is the only one of the four that
+     * asks nothing of the admin flag: reading the dates changes nothing, and an admin who cannot
+     * see them is an admin who guesses.
+     * </p>
+     */
+    private void show(final SlashCommandInteractionEvent event) {
+        event.deferReply(true).queue();
+        executor.execute(() -> {
+            try {
+                event.getHook().editOriginal(overview(phases.currentPhase(),
+                        phases.launch().orElse(null), phases.smpStart().orElse(null))).queue();
+            } catch (final RuntimeException exception) {
+                fail(event, "reading the season dates", exception);
+            }
+        });
+    }
+
+    private void date(final SlashCommandInteractionEvent event, final Column column) {
+        final OptionMapping option = event.getOption("when");
+        final String typed = option == null ? "" : option.getAsString();
+
+        final Instant at;
+        if (SeasonDates.isClear(typed)) {
+            at = null;
+        } else {
+            final var parsed = SeasonDates.parse(typed);
+            if (parsed.isEmpty()) {
+                // Answered before deferring: nothing was read and nothing will be written, so the
+                // admin gets the pattern back immediately rather than after a round trip.
+                event.reply(notADate()).setEphemeral(true).queue();
+                return;
+            }
+            at = parsed.get();
+        }
+
+        event.deferReply(true).queue();
+        executor.execute(() -> {
+            try {
+                if (!maySwitch(dao.isAdmin(event.getUser().getId()))) {
+                    event.getHook().editOriginal(NOT_AN_ADMIN).queue();
+                    return;
+                }
+                final String actor = event.getUser().getId();
+                final DateChange change = column == Column.LAUNCH
+                        ? phases.setLaunch(at, actor)
+                        : phases.setSmpStart(at, actor);
+
+                admin.note(event.getUser().getAsMention() + " set when " + column.what + " to **"
+                        + SeasonDates.format(change.current()) + "**"
+                        + (change.movedAccess()
+                           ? ", moving " + change.grants() + " access period(s) across "
+                                   + change.accounts() + " account(s) with it."
+                           : "."));
+                event.getHook().editOriginal(summary(column, change)).queue();
+            } catch (final SeasonDateRefused refused) {
+                // Not a failure: the admin asked for something the model does not allow, and the
+                // message is written for them. Nothing was written, so nothing is reported.
+                event.getHook().editOriginal(refused.getMessage()).queue();
+            } catch (final RuntimeException exception) {
+                fail(event, "setting when " + column.what, exception);
+            }
+        });
     }
 
     // ---------------------------------------------------------------- the confirmation
@@ -295,6 +408,66 @@ public final class PhaseCommand extends ListenerAdapter {
      * failed halfway is exactly the thing nobody may find out about from a log file.
      * </p>
      */
+    /** What an admin sees when {@code when} was neither a date nor {@code clear}. */
+    static String notADate() {
+        return "That is not a date. Type it as `" + SeasonDates.PATTERN + "` in "
+                + SeasonDates.ZONE.getId() + " time - for example `2026-10-01 18:00` - or `"
+                + SeasonDates.CLEAR + "` to take the date away again.";
+    }
+
+    /** {@code /phase show}, kept out of the interaction so it can be asserted. */
+    static String overview(final SeasonPhase phase, final Instant launch, final Instant smpStart) {
+        return "The season phase is **" + phase + "**.\n"
+                + "\u2022 The network opens: **" + SeasonDates.format(launch) + "**\n"
+                + "\u2022 Paid access starts running: **" + SeasonDates.format(smpStart) + "**\n\n"
+                + "Both are set by hand and neither switches the phase when it passes - that stays "
+                + "`/phase set`. Times are " + SeasonDates.ZONE.getId() + ".";
+    }
+
+    /**
+     * What one date write is reported as.
+     * <p>
+     * The moved-access sentence is not decoration: {@code smp_start} rewrites rows belonging to
+     * people who are not in the room, and the number is the only place an admin finds out that it
+     * did. Clearing says so explicitly for the same reason - "nothing moved" is a different fact
+     * from "nothing was there to move".
+     * </p>
+     */
+    static String summary(final Column column, final DateChange change) {
+        final StringBuilder text = new StringBuilder();
+        if (change.current() == null) {
+            text.append("There is no date for when ").append(column.what)
+                    .append(" any more. Access bought from now on starts immediately, and the bot "
+                            + "warns on every such purchase.");
+            if (column == Column.SMP_START) {
+                text.append("\n\nThe access already sold **did not move** - there is no date left "
+                        + "to anchor it to, so everybody keeps the window they have.");
+            }
+            return text.toString();
+        }
+
+        text.append("**").append(capitalise(column.what)).append("** on **")
+                .append(SeasonDates.format(change.current())).append("**");
+        if (change.unchanged()) {
+            text.append(", which is what it already said.");
+            return text.toString();
+        }
+        text.append(" (was ").append(SeasonDates.format(change.previous())).append(").");
+
+        if (column == Column.SMP_START) {
+            text.append(change.movedAccess()
+                        ? "\n\nMoved **" + change.grants() + "** access period(s) belonging to **"
+                                + change.accounts() + "** account(s) to match. Stacked periods stay "
+                                + "stacked and nobody's length changed."
+                        : "\n\nNo access had to move.");
+        }
+        return text.toString();
+    }
+
+    private static String capitalise(final String what) {
+        return Character.toUpperCase(what.charAt(0)) + what.substring(1);
+    }
+
     private void fail(final IDeferrableCallback event, final String what,
                       final RuntimeException exception) {
         log.error("A phase switch failed while {}", what, exception);

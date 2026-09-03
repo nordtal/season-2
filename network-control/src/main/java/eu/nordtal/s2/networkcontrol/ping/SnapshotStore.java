@@ -1,8 +1,8 @@
 package eu.nordtal.s2.networkcontrol.ping;
 
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.postgres.PostgresPlugin;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import eu.nordtal.s2.common.network.NetworkSnapshot;
+import eu.nordtal.s2.common.network.SnapshotDirectory;
+
 import org.slf4j.Logger;
 
 import javax.sql.DataSource;
@@ -19,15 +19,19 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>The one caller that must not block is {@link NetworkPing}: {@link #current()} is a field read
  * and touches nothing else.
+ *
+ * <p>The query itself lives in {@code :common} since 2026-09-03, because the Discord bot renders
+ * the same numbers into a channel name. What stays here is the cache and the failure rule - the
+ * bot keeps its own, with a different tolerance for staleness.
  */
 public final class SnapshotStore {
 
-    private final SnapshotDao dao;
+    private final SnapshotDirectory snapshots;
     private final Logger logger;
     private final AtomicReference<NetworkSnapshot> current = new AtomicReference<>(NetworkSnapshot.EMPTY);
 
-    private SnapshotStore(final SnapshotDao dao, final Logger logger) {
-        this.dao = dao;
+    private SnapshotStore(final SnapshotDirectory snapshots, final Logger logger) {
+        this.snapshots = snapshots;
         this.logger = logger;
     }
 
@@ -39,10 +43,7 @@ public final class SnapshotStore {
     public static SnapshotStore using(final DataSource dataSource, final Logger logger) {
         Objects.requireNonNull(dataSource, "dataSource");
         Objects.requireNonNull(logger, "logger");
-        return new SnapshotStore(Jdbi.create(dataSource)
-                .installPlugin(new SqlObjectPlugin())
-                .installPlugin(new PostgresPlugin())
-                .onDemand(SnapshotDao.class), logger);
+        return new SnapshotStore(SnapshotDirectory.using(dataSource), logger);
     }
 
     /** @return the last snapshot that came back, or {@link NetworkSnapshot#EMPTY} if none ever has */
@@ -56,7 +57,7 @@ public final class SnapshotStore {
      */
     public void refresh() {
         try {
-            final NetworkSnapshot snapshot = dao.snapshot();
+            final NetworkSnapshot snapshot = snapshots.snapshot();
             if (snapshot != null) {
                 current.set(snapshot);
             }

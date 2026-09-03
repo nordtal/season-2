@@ -1,5 +1,7 @@
 package eu.nordtal.s2.networkcontrol.ping;
 
+import eu.nordtal.s2.common.network.NetworkSnapshot;
+
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 import com.velocitypowered.api.proxy.ProxyServer;

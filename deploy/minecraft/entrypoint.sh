@@ -16,6 +16,175 @@ log()  { printf '[nordtal] %s\n' "$*"; }
 warn() { printf '[nordtal] WARN: %s\n' "$*" >&2; }
 die()  { printf '[nordtal] FATAL: %s\n' "$*" >&2; exit 1; }
 
+# The server directory, and the world inside it Paper treats as primary. Both are resolved here,
+# above everything else, because what follows them is the half of this script that
+# entrypoint-test.sh SOURCES and exercises against fixture directories instead of a real volume.
+#
+# DATA is overridable for that reason and for no other - nothing in the container ever sets it,
+# and it is not a knob offered to an operator. The image mounts the volume at /data, the Dockerfile
+# says so, and a second answer to "where is the server directory" is not something this deployment
+# should have.
+DATA="${DATA:-/data}"
+
+# Paper's own default. The one place LEVEL_NAME is resolved: seed_level_settings writes it into
+# server.properties and fetch_datapacks reads the same value, so the two cannot disagree.
+LEVEL_NAME="${LEVEL_NAME:-world}"
+
+# --- first-start configuration -----------------------------------------------------------------
+# Everything below is SEEDING, not editing: a file that already exists is left alone and belongs
+# to the operator from then on. The one exception is server.properties#online-mode, which is
+# enforced on every start because a proxied backend that authenticates players itself does not
+# start at all - see prepare_backend.
+
+# Sets key=value in a Java properties file, creating the file if it is not there yet. Idempotent,
+# and it says so in the log when it actually changes something.
+set_property() {
+    local file="$1" key="$2" value="$3" tmp
+    if [[ -f "$file" ]] && grep -qE "^${key}=" "$file"; then
+        grep -qxF "${key}=${value}" "$file" && return 0
+        tmp="${file}.tmp"
+        sed "s|^${key}=.*|${key}=${value}|" "$file" > "$tmp" && mv "$tmp" "$file"
+        log "${file##*/}: ${key} set to ${value}"
+    else
+        printf '%s=%s\n' "$key" "$value" >> "$file"
+        log "${file##*/}: ${key}=${value} added"
+    fi
+}
+
+# Repairs the one level-name disagreement that was never anybody's decision, and answers whether it
+# did. Returns 0 when the volume has been adopted and the old world is gone; 1 when the caller must
+# refuse to start.
+#
+# TWO CONDITIONS, AND BOTH ARE NARROW ON PURPOSE. This function deletes a world folder without
+# asking, in an automatic start, so what it is allowed to delete has to be a shape that cannot be
+# anything but junk:
+#
+#   1. THE OLD NAME IS LITERALLY `world`. That is Paper's own default, the value it writes when
+#      nothing has told it otherwise - which is exactly what every volume from before v0.2.3 has,
+#      because the key was not written then. Any other name was typed by a person into .env, and a
+#      name somebody chose is a decision this script does not get to overrule. It also means the
+#      repair happens at most once per volume: after this, level-name is `nordtal` or
+#      `hunger_games`, and a later mismatch can only be an edit to .env - the case the refusal is
+#      for.
+#   2. NOBODY HAS EVER LOGGED OUT IN IT. Paper writes <world>/playerdata/<uuid>.dat when a player
+#      leaves, so a single file there means somebody was in this world and it is not ours to bin.
+#      An empty or absent folder means Paper generated terrain that no one has seen.
+#
+# `limbo` never reaches here and is the proof the first condition is not arbitrary: it deliberately
+# has no LEVEL_NAME (compose.yml), so its level-name IS `world`, matches, and never disagrees.
+#
+# WHAT GOES WITH IT: world_nether and world_the_end, which are that same world's two dimensions
+# under Paper's naming. Deleting the overworld and leaving its Nether behind would keep gigabytes
+# of data belonging to a world nothing can reach any more.
+adopt_paper_default_world() {
+    local current="$1" playerdata="$DATA/world/playerdata" dimension
+
+    [[ "$current" == "world" ]] || return 1
+
+    # -print -quit stops at the first entry rather than listing the folder, and unlike `ls -A` it
+    # says nothing on stdout that has to be filtered back out.
+    if [[ -d "$playerdata" ]] \
+        && [[ -n "$(find "$playerdata" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
+        warn "this volume's world is called 'world' (Paper's default, from before this image wrote level-name) and LEVEL_NAME says '${LEVEL_NAME}' - but somebody has played in it, so it is not being thrown away automatically."
+        return 1
+    fi
+
+    warn "this volume carries level-name=world, Paper's default from before this image wrote the key, while LEVEL_NAME says '${LEVEL_NAME}'. No player has ever logged out in it, so it is being removed and the name corrected - the alternative is a container that refuses to start forever over a value nobody chose."
+    rm -rf "${DATA:?}/world"
+    for dimension in world_nether world_the_end; do
+        [[ -d "$DATA/$dimension" ]] || continue
+        rm -rf "${DATA:?}/$dimension"
+        log "removed /data/${dimension} - a dimension of the world just deleted"
+    done
+    log "removed /data/world; '${LEVEL_NAME}' will be generated fresh"
+    return 0
+}
+
+# The world this server generates, and the seed it generates it with. BOTH have to be settled
+# before anything else touches the volume: level-name decides which folder the datapacks go into,
+# and a seed means nothing once the terrain exists.
+#
+# WHY level-name IS SEEDED RATHER THAN ENFORCED, and why a disagreement is fatal. Paper's default
+# is `world`, and until 2026-09-02 nothing here wrote the key at all - so the datapacks were fetched
+# into /data/${LEVEL_NAME}/datapacks while Paper generated `world/` and never looked at them. The
+# fix is not to force the value on every start the way online-mode is forced: online-mode=true is a
+# backend that CANNOT work, whereas a level-name that disagrees is a server that works perfectly on
+# the wrong world. Pointing an existing volume at a new name does not move a world - it generates a
+# second, empty one beside it and leaves the season where nobody is looking. So it is written once,
+# on a volume that has none, and after that a disagreement stops the container: the same trade this
+# script already makes for a datapack whose checksum moved, and that smp makes for a missing pack.
+# "Wrong world forever, silently" becomes "the server did not come up", on purpose.
+#
+# THE ONE DISAGREEMENT THAT IS NOBODY'S DECISION, and why it is repaired instead of refused. The
+# release that first wrote the key (v0.2.3) met volumes that had already run without it, so every
+# one of them said `level-name=world` - a value Paper picked because nothing had told it otherwise.
+# The guard above then did exactly what it says on the tin and stopped `smp` and `hunger-games` on
+# every start: a check built to prevent a misconfiguration had become the misconfiguration. Which
+# is the shape worth naming, because a guard that fires on its own migration is a guard people
+# switch off.
+#
+# So `world`, and only the literal string `world`, is adopted rather than refused - see
+# adopt_paper_default_world for what that costs and what it checks first. Every other disagreement
+# is still fatal, and after this runs once no volume in this deployment says `world` any more:
+# a later mismatch can only mean somebody changed LEVEL_NAME in .env, which is precisely the case
+# the refusal exists for.
+seed_level_settings() {
+    local file="$DATA/server.properties" current
+
+    current=""
+    [[ -f "$file" ]] && current=$(sed -n 's/^level-name=//p' "$file" | head -n1)
+    if [[ -n "$current" && "$current" != "$LEVEL_NAME" ]] && ! adopt_paper_default_world "$current"; then
+        die "this volume's server.properties says level-name=${current}, but LEVEL_NAME is '${LEVEL_NAME}'.
+
+Refusing to start. Changing it would not move the existing world: Paper would generate an empty '${LEVEL_NAME}' beside '${current}' and run the season on that, while the world with everything in it sat untouched in the same volume.
+
+Two ways out, and only you can pick:
+  - the world in this volume is the right one -> set LEVEL_NAME=${current} for this service
+  - '${LEVEL_NAME}' really is meant to be a new, empty world -> remove /data/${current} from the volume first, with the server stopped. If the whole volume is disposable, that is
+
+        docker compose stop <service>
+        docker volume rm nordtal-s2_mc-<service>
+        docker compose up -d <service>"
+    fi
+    set_property "$file" level-name "$LEVEL_NAME"
+
+    # The seed is only ever an input to GENERATION, so it is written while there is still nothing
+    # to generate against and only compared afterwards. Writing it onto a volume whose world
+    # already exists would change no terrain and would leave the file claiming a seed the world on
+    # disk does not have - which is worse than saying nothing, because the next person reads it.
+    #
+    # A disagreement here warns rather than stops: unlike level-name it cannot swap the world under
+    # anybody, it only means this world came from a different seed than .env now claims.
+    # "The world already exists" IS level.dat AND NOT THE DIRECTORY, and the difference is not
+    # pedantry: fetch_datapacks below creates /data/${LEVEL_NAME}/datapacks before Paper has
+    # generated anything, so on every volume that has ever had datapacks the directory test was
+    # already true and the seed was never written. Nordtal would have generated from a random seed
+    # while .env named 1837371427, and terrain is not re-rolled - the mistake would have been
+    # permanent and silent. Paper writes level.dat when it saves the world, so it is the only file
+    # here whose presence means a world rather than a folder somebody made.
+    [[ -n "${LEVEL_SEED:-}" ]] || return 0
+    if [[ -f "$DATA/$LEVEL_NAME/level.dat" ]]; then
+        current=""
+        [[ -f "$file" ]] && current=$(sed -n 's/^level-seed=//p' "$file" | head -n1)
+        if [[ "$current" != "$LEVEL_SEED" ]]; then
+            warn "world '${LEVEL_NAME}' already exists and was generated with ${current:-a seed nothing recorded}, not with LEVEL_SEED=${LEVEL_SEED}. Terrain is never re-rolled, so this is a note, not a fault - but .env and this volume do not describe the same world."
+        fi
+        return 0
+    fi
+    set_property "$file" level-seed "$LEVEL_SEED"
+}
+
+# --- sourced rather than executed ---------------------------------------------------------------
+# Everything ABOVE this line is definitions and can be pulled into another shell; everything BELOW
+# it is this container's own run and reaches for the network, the volume and tmux. entrypoint-test.sh
+# sources this file to exercise the seeding against fixture directories, which is the only way that
+# logic gets tested at all: it decides whether a world folder is deleted, and there is no second
+# chance to notice it decided wrong on a real volume.
+#
+# The `: "${SERVER_KIND:?}"` checks below are the immediate reason the guard sits exactly here and
+# not lower - a sourcing shell has none of those variables and would be killed by the first of them.
+[[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
+
 # --- inputs ----------------------------------------------------------------------------------
 : "${SERVER_KIND:?set SERVER_KIND to paper or velocity}"
 : "${SERVER_VERSION:?set SERVER_VERSION (paper: 26.2, velocity: 4.1.1)}"
@@ -26,11 +195,6 @@ case "$SERVER_KIND" in
     *) die "SERVER_KIND must be 'paper' or 'velocity', not '${SERVER_KIND}'" ;;
 esac
 
-# Paper's own default. The one place it is resolved: seed_level_settings writes it into
-# server.properties and fetch_datapacks reads the same value, so the two cannot disagree.
-LEVEL_NAME="${LEVEL_NAME:-world}"
-
-DATA=/data
 CACHE="$DATA/.server"
 PLUGINS="$DATA/plugins"
 SOCK="${MC_TMUX_SOCKET:-/run/mc/tmux.sock}"
@@ -269,76 +433,6 @@ fetch_datapacks() {
 
         mv "$tmp" "$dest"
     done
-}
-
-# --- first-start configuration -----------------------------------------------------------------
-# Everything below is SEEDING, not editing: a file that already exists is left alone and belongs
-# to the operator from then on. The one exception is server.properties#online-mode, which is
-# enforced on every start because a proxied backend that authenticates players itself does not
-# start at all - see prepare_backend.
-
-# Sets key=value in a Java properties file, creating the file if it is not there yet. Idempotent,
-# and it says so in the log when it actually changes something.
-set_property() {
-    local file="$1" key="$2" value="$3" tmp
-    if [[ -f "$file" ]] && grep -qE "^${key}=" "$file"; then
-        grep -qxF "${key}=${value}" "$file" && return 0
-        tmp="${file}.tmp"
-        sed "s|^${key}=.*|${key}=${value}|" "$file" > "$tmp" && mv "$tmp" "$file"
-        log "${file##*/}: ${key} set to ${value}"
-    else
-        printf '%s=%s\n' "$key" "$value" >> "$file"
-        log "${file##*/}: ${key}=${value} added"
-    fi
-}
-
-# The world this server generates, and the seed it generates it with. BOTH have to be settled
-# before anything else touches the volume: level-name decides which folder the datapacks go into,
-# and a seed means nothing once the terrain exists.
-#
-# WHY level-name IS SEEDED RATHER THAN ENFORCED, and why a disagreement is fatal. Paper's default
-# is `world`, and until 2026-09-02 nothing here wrote the key at all - so the datapacks were fetched
-# into /data/${LEVEL_NAME}/datapacks while Paper generated `world/` and never looked at them. The
-# fix is not to force the value on every start the way online-mode is forced: online-mode=true is a
-# backend that CANNOT work, whereas a level-name that disagrees is a server that works perfectly on
-# the wrong world. Pointing an existing volume at a new name does not move a world - it generates a
-# second, empty one beside it and leaves the season where nobody is looking. So it is written once,
-# on a volume that has none, and after that a disagreement stops the container: the same trade this
-# script already makes for a datapack whose checksum moved, and that smp makes for a missing pack.
-# "Wrong world forever, silently" becomes "the server did not come up", on purpose.
-seed_level_settings() {
-    local file="$DATA/server.properties" current
-
-    current=""
-    [[ -f "$file" ]] && current=$(sed -n 's/^level-name=//p' "$file" | head -n1)
-    if [[ -n "$current" && "$current" != "$LEVEL_NAME" ]]; then
-        die "this volume's server.properties says level-name=${current}, but LEVEL_NAME is '${LEVEL_NAME}'.
-
-Refusing to start. Changing it would not move the existing world: Paper would generate an empty '${LEVEL_NAME}' beside '${current}' and run the season on that, while the world with everything in it sat untouched in the same volume.
-
-Two ways out, and only you can pick:
-  - the world in this volume is the right one -> set LEVEL_NAME=${current} for this service
-  - '${LEVEL_NAME}' really is meant to be a new, empty world -> remove /data/${current} from the volume first, with the server stopped"
-    fi
-    set_property "$file" level-name "$LEVEL_NAME"
-
-    # The seed is only ever an input to GENERATION, so it is written while there is still nothing
-    # to generate against and only compared afterwards. Writing it onto a volume whose world
-    # already exists would change no terrain and would leave the file claiming a seed the world on
-    # disk does not have - which is worse than saying nothing, because the next person reads it.
-    #
-    # A disagreement here warns rather than stops: unlike level-name it cannot swap the world under
-    # anybody, it only means this world came from a different seed than .env now claims.
-    [[ -n "${LEVEL_SEED:-}" ]] || return 0
-    if [[ -d "$DATA/$LEVEL_NAME" ]]; then
-        current=""
-        [[ -f "$file" ]] && current=$(sed -n 's/^level-seed=//p' "$file" | head -n1)
-        if [[ "$current" != "$LEVEL_SEED" ]]; then
-            warn "world '${LEVEL_NAME}' already exists and was generated with ${current:-a seed nothing recorded}, not with LEVEL_SEED=${LEVEL_SEED}. Terrain is never re-rolled, so this is a note, not a fault - but .env and this volume do not describe the same world."
-        fi
-        return 0
-    fi
-    set_property "$file" level-seed "$LEVEL_SEED"
 }
 
 # The player limit, and it is ENFORCED on every start rather than seeded.

@@ -120,8 +120,8 @@ opinions about how to run a server: everything else stays Paper's and Velocity's
 | `player-info-forwarding-mode`, `bind`, `online-mode`, `[servers]`, `try`, an empty `[forced-hosts]` | proxy, `velocity.toml` | no `velocity.toml` yet and `VELOCITY_SERVERS` is set |
 | `proxies.velocity.enabled: true` | each backend, `config/paper-global.yml` | no `paper-global.yml` yet and `PAPER_VELOCITY_SECRET` is set |
 | `online-mode=false` | each backend, `server.properties` | **every start**, see below |
-| `level-name=$LEVEL_NAME` | each Paper server, `server.properties` | seeded once; **a volume that disagrees stops the container**, see below |
-| `level-seed=$LEVEL_SEED` | each Paper server, `server.properties` | only while the `level-name` world does not exist yet; an existing one is compared and warned about |
+| `level-name=$LEVEL_NAME` | each Paper server, `server.properties` | seeded once; a volume still on Paper's default `world` is repaired, any **other** disagreement stops the container, see below |
+| `level-seed=$LEVEL_SEED` | each Paper server, `server.properties` | only while the `level-name` world does not exist yet — which is `level.dat`, not the folder; an existing world is compared and warned about |
 | `forwarding.secret` | proxy | every start, from `VELOCITY_FORWARDING_SECRET` |
 
 **`level-name` was missing from this table and from the script until 2026-09-02, and that was the
@@ -142,6 +142,42 @@ container refuses to start and names both values and the two ways out. `:smp`'s 
 `:hunger-games`' `ComposeWorldTest` compare the `LEVEL_NAME` in `compose.yml` against each plugin's
 own configured world name on every build.
 
+**With one exception, added 2026-09-03, because the guard's own arrival was the first thing it
+stopped.** v0.2.3 shipped the fix above onto volumes that had already run without it — so every one
+of them said `level-name=world`, and `smp` and `hunger-games` went into a restart loop on the
+`FATAL` above from the moment the release landed. A check written to prevent a misconfiguration had
+become one, and it is worth naming as a shape: a guard that fires on its own migration is a guard
+people switch off.
+
+So `world`, **and only the literal string `world`**, is now repaired instead of refused. Two
+conditions, both narrow because this deletes a world folder in an automatic start:
+
+- **the old name is `world`** — Paper's own default, what it writes when nothing tells it
+  otherwise, and therefore not a name anybody chose. Any other name was typed into `.env` by a
+  person, and the container still refuses. `limbo` is the proof this is not arbitrary: it
+  deliberately has no `LEVEL_NAME`, so *its* `level-name` is `world`, it matches, and it never
+  reaches this path.
+- **nobody has ever logged out in it** — Paper writes `<world>/playerdata/<uuid>.dat` on quit, so
+  one file there is enough to refuse. The message then says so and gives the volume-wipe command.
+
+`world_nether` and `world_the_end` go with it: they are that same world's two dimensions, and
+keeping them would leave gigabytes belonging to a world nothing can reach. The repair happens at
+most once per volume — afterwards `level-name` is `nordtal` or `hunger_games`, and a later mismatch
+can only mean somebody edited `.env`, which is exactly what the refusal is for.
+
+**`deploy/minecraft/entrypoint-test.sh` is where that logic is verified**, on `./gradlew check` via
+the root build's `checkEntrypoint`. It sources `entrypoint.sh` — which carries a guard at the line
+where its definitions end and the container's run begins — and drives ten cases against fixture
+directories: no Docker, no network, no server jar. It is the only shell in this deployment with a
+test, and the reason is specific: everything else here is verified by running it and looking, while
+this one deletes a folder that on the SMP is the season.
+
+**The seed's "does this world exist yet" test is `level.dat` and not the directory**, corrected in
+the same pass. `fetch_datapacks` creates `/data/$LEVEL_NAME/datapacks` before Paper has generated
+anything, so on every volume that had ever fetched a datapack the directory test was already true
+and `level-seed` was never written — Nordtal would have generated from a random seed while `.env`
+named `1837371427`, permanently and silently.
+
 `online-mode` is the one thing enforced rather than seeded. It is not a preference: a backend that
 authenticates players itself refuses every forwarded login, so `online-mode=true` there is a server
 that cannot work, not a choice somebody might have made. The rest is seeded once and yours
@@ -153,10 +189,10 @@ Velocity 4.1.1 build 24: leave the table out of `velocity.toml` and Velocity fal
 — and it then refuses to start at all with *"Your configuration is invalid"*. "Velocity defaults
 everything you leave out" is true per key, not per table.
 
-**What this does not do** is fix a volume that already exists. The seeding only ever fires on a
-first start, so a server that has run before keeps whatever is in its volume; the manual equivalent
-is `online-mode=false` in `server.properties` and `proxies.velocity.enabled: true` in
-`config/paper-global.yml`.
+**What this does not do** is fix a volume that already exists — with the two exceptions above it
+now has. The seeding otherwise only ever fires on a first start, so a server that has run before
+keeps whatever is in its volume; the manual equivalent is `online-mode=false` in
+`server.properties` and `proxies.velocity.enabled: true` in `config/paper-global.yml`.
 
 ## The forwarding secret
 

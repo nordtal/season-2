@@ -307,6 +307,11 @@ block plus its own dependencies.
 Every external version lives in `gradle/libs.versions.toml`. Nothing pins a version in a module
 build file.
 
+The **root** build file applies `base` and nothing else. That is deliberate and it is not the start
+of a `subprojects {}` block: `base` exists there to give the root project a `check` task, which
+`checkEntrypoint` hangs off so the deployment's shell test runs wherever `check` runs. Shared Java
+configuration still belongs in `build-logic`.
+
 **`app.simplecloud.api:api` is not a dependency of this build any more** (removed 2026-09-01), and
 **there is no reason left for it to come back**: SimpleCloud itself was dropped the same day, so
 nothing in production would provide that API at runtime. Both decisions are under "Target platform"
@@ -647,6 +652,16 @@ the same, and writes the SHA-1 next to the zip. The client is sent the URL *and*
 refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
+
+**The deployment's shell has a test too, and it is the only one.** `deploy/minecraft/entrypoint-test.sh`
+sources `entrypoint.sh` and drives its seeding against fixture directories — ten cases, no Docker,
+no network — and runs on `check` through the root build's `checkEntrypoint`. Everything else in
+`deploy/` is verified by running it and looking; that one function is exempt because it **deletes a
+world folder** on a container that starts by itself, and on the SMP that folder is the season. The
+guard it tests is itself the repair of a guard that stopped `smp` and `hunger-games` on every start
+from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` therefore carries a source
+guard at the line where its definitions end; do not move code across it without reading the comment
+there.
 
 **Seven modules have tests: 753 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-03). The counts below are what the JUnit XML reports, not

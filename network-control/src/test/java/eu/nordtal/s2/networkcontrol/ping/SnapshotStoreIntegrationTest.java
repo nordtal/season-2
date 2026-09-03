@@ -11,9 +11,13 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import javax.sql.DataSource;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -209,18 +213,46 @@ class SnapshotStoreIntegrationTest {
     }
 
     @Test
-    void aFailedRefreshKeepsTheNumbersThatWereAlreadyThere() {
+    void aDeathAgainstSomebodyWhoNeverJoinedATeamIsNotAnElimination() {
+        // eliminated is counted over exactly the set participants is counted over. Without that
+        // restriction a DEATH row belonging to a member who is not playing - an unanswered
+        // invitation, or somebody whose row moved after they died - makes eliminated exceed
+        // participants, and the server browser then reads "0 alive, 4 eliminated, 3 registered".
         seedGame();
-        store.refresh();
-        assertEquals(2, store.current().hgTeams());
-
-        // The tables are gone. The MOTD keeps showing what it last knew rather than blanking, which
-        // is the whole reason a failure here is caught and not thrown.
-        execute("DROP TABLE hg_event, hg_member, hg_team, hg_game CASCADE");
+        kill("100000000000000003"); // the INVITED row on Alpha
         store.refresh();
 
-        assertEquals(2, store.current().hgTeams(),
+        assertEquals(0, store.current().hgEliminated(),
+                "an INVITED member is not a participant, so their death cannot eliminate one");
+        assertEquals(3, store.current().hgAlive());
+        assertEquals(2, store.current().hgTeamsAlive());
+    }
+
+    @Test
+    void aFailedRefreshKeepsTheNumbersThatWereAlreadyThere() {
+        // The database stops answering, by refusing connections rather than by losing its tables:
+        // dropping them would leave the schema broken for whichever test runs next, since Flyway
+        // builds it once per class and @BeforeEach only truncates. JUnit's method order is not
+        // something this file should have to depend on.
+        final AtomicBoolean unreachable = new AtomicBoolean();
+        final SnapshotStore overAnOutage = SnapshotStore.using(failingWhen(unreachable),
+                LoggerFactory.getLogger(SnapshotStoreIntegrationTest.class));
+
+        seedGame();
+        overAnOutage.refresh();
+        assertEquals(2, overAnOutage.current().hgTeams());
+
+        // The MOTD keeps showing what it last knew rather than blanking, which is the whole reason
+        // a failure here is caught and not thrown.
+        unreachable.set(true);
+        overAnOutage.refresh();
+
+        assertEquals(2, overAnOutage.current().hgTeams(),
                 "a database hiccup must cost freshness and nothing else");
+
+        unreachable.set(false);
+        overAnOutage.refresh();
+        assertEquals(2, overAnOutage.current().hgTeams(), "and the next tick is the retry");
     }
 
     // ---------------------------------------------------------------- fixtures
@@ -272,6 +304,26 @@ class SnapshotStoreIntegrationTest {
                 INSERT INTO hg_event (game_id, type, victim_id)
                 SELECT game_id, 'DEATH', id FROM hg_member WHERE discord_id = '%s'
                 """.formatted(discordId));
+    }
+
+    /**
+     * The real pool, until the flag is set - at which point every {@code getConnection} fails the
+     * way an unreachable database does. A {@link Proxy} rather than a hand-written {@code
+     * DataSource}: the interface has nine methods and this needs one of them.
+     */
+    private static DataSource failingWhen(final AtomicBoolean unreachable) {
+        return (DataSource) Proxy.newProxyInstance(DataSource.class.getClassLoader(),
+                new Class<?>[]{DataSource.class},
+                (instance, method, arguments) -> {
+                    if (unreachable.get() && method.getName().equals("getConnection")) {
+                        throw new SQLException("the database is unreachable");
+                    }
+                    try {
+                        return method.invoke(dataSource, arguments);
+                    } catch (final InvocationTargetException wrapped) {
+                        throw wrapped.getCause();
+                    }
+                });
     }
 
     private static void execute(final String sql) {

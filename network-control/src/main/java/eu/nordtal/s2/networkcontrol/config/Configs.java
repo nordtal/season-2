@@ -82,13 +82,16 @@ public final class Configs {
             requirePositive("max-players", config.maxPlayers());
             requirePositive("backend-limit", config.backendLimit());
             requirePositive("snapshot-refresh-seconds", config.snapshotRefreshSeconds());
-            if (config.maxPlayers() > config.backendLimit()) {
+            if (config.maxPlayers() >= config.backendLimit()) {
                 throw new IllegalArgumentException(
-                        "max-players (" + config.maxPlayers() + ") is above backend-limit ("
+                        "max-players (" + config.maxPlayers() + ") is not below backend-limit ("
                                 + config.backendLimit() + "), so the Paper backends would refuse players"
                                 + " before this proxy does - and they refuse with \"Server full\" after"
-                                + " the login gate, the resource pack and the wait in limbo. Raise"
-                                + " BACKEND_MAX_PLAYERS in .env to at least max-players, or lower this.");
+                                + " the login gate, the resource pack and the wait in limbo. Equal is"
+                                + " already too close: admins are exempt from the proxy's limit, so a"
+                                + " full network holds max-players plus however many admins joined it,"
+                                + " and the backend has to have room for them. Raise BACKEND_MAX_PLAYERS"
+                                + " in .env above max-players, or lower this.");
             }
             final NetworkSpec.MotdSpec motd = config.motd();
             if (motd == null) {

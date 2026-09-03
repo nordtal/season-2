@@ -3,6 +3,8 @@ package eu.nordtal.s2.common.phase;
 import eu.nordtal.s2.common.SeasonPhase;
 
 import javax.sql.DataSource;
+import java.time.Instant;
+import java.util.Optional;
 
 /**
  * The current {@link SeasonPhase}, as seen by every process: the bot, the proxy and the plugins.
@@ -59,6 +61,24 @@ public interface PhaseDirectory {
      *         permissive than the real one
      */
     SeasonPhase currentPhase();
+
+    /**
+     * When the network opens, from the same single row {@link #currentPhase()} reads.
+     * <p>
+     * Only {@link SeasonPhase#PRE_LAUNCH} has anything to count down to, but the value is not
+     * cleared when the phase moves on - it stays as the record of when the season opened. Nothing
+     * here acts on it: the proxy renders it into the MOTD, the disconnect screens name it, and the
+     * phase itself is still switched by hand. See {@code V8__pre_launch.sql}.
+     * </p>
+     * <p>
+     * <b>Database failures propagate</b>, exactly as for {@link #currentPhase()}. An empty result
+     * means the column is {@code NULL} - no date has been announced - and not that the database
+     * could not be asked.
+     * </p>
+     *
+     * @return the opening instant, or empty when none is set
+     */
+    Optional<Instant> launch();
 
     /**
      * Switches the phase <b>and</b> records who did it, in one statement.

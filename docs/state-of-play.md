@@ -27,7 +27,7 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `discord-bot` | 43 files, 6054 lines | 112 | Access end to end, the phase command, the admin mirror, the language list, hunger games registration |
 | `hunger-games` | 41 files, 3971 lines | 57 | The start event, essentially in full |
 | `network-control` | 29 files, 4110 lines | 120 | Login gate, phase, play time, routing, **the pack station** |
-| `common` | 26 files, 2671 lines | 98 | Access API, messages, locales, phase, glyphs, **the limbo protocol**, V1–V6 |
+| `common` | 26 files, 2671 lines | 98 | Access API, messages, locales, phase, glyphs, **the limbo protocol**, V1–V8 |
 | `resource-pack` | — | — | Three fonts, every code point allocated and drawn |
 | `limbo` | 10 files, 1139 lines | 11 | The waiting room, in full |
 | `smp` | 83 files, 10452 lines | 135 | Everything docs/smp.md describes, none of it yet seen on a running server |
@@ -63,7 +63,8 @@ Everything the plan gives this module exists:
   never sent, so the failure would be a player sitting in the waiting room forever with nothing in
   any log.
 - `db/migration/` — V1 access, V2 bot state, V3 bot setting, V4 phase/admin/playtime, V5 hunger
-  games, **V6 the SMP** (2026-09-01).
+  games, **V6 the SMP** (2026-09-01), V7 update requests, **V8 the `PRE_LAUNCH` phase and
+  `season_phase.launch`** (2026-09-03).
 
 ### `network-control`
 
@@ -77,6 +78,12 @@ Everything the plan gives this module exists:
 - `routing/` — `PhaseServers`, `PhaseRouting`, `PlayerRouter`, `RouteDecision`. A phase change
   re-routes everyone; a `MAINTENANCE` login lands in `limbo`; a switch to `SMP` disconnects a player
   without access, and `decideInitial` puts every login in `limbo` first.
+- `ping/` — **new 2026-09-03.** `NetworkPing` answers `ProxyPingEvent` with the MOTD for the current
+  phase and the one advertised limit, both from `network.yml`; `Placeholders` substitutes the
+  braces; `SnapshotStore`/`SnapshotDao` keep the numbers behind them fresh with one query on a
+  ten-second timer, because a ping is unauthenticated and must never reach the database.
+- `launch/` — `LaunchCountdown`, shared by the server browser and the three `PRE_LAUNCH` disconnect
+  screens, so the network counts down to one instant in one wording.
 - `pack/` — **built 2026-09-01, and it was the module's last gap.** `PackStation` (the forced
   offer, the `nordtal:limbo` channel, the release), `PackOffer` (one `ResourcePackInfo` per language,
   id derived from the pack's own hash), `PackMessages` and `LimboHold` — the last of which is the

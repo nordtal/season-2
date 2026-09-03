@@ -7,7 +7,9 @@ import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import javax.sql.DataSource;
+import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * The only implementation of {@link PhaseDirectory}. Package-private: consumers get it from the
@@ -35,6 +37,11 @@ final class JdbiPhaseDirectory implements PhaseDirectory {
         // out as the phase that lets nobody in. A database that cannot be reached at all throws
         // instead - see the interface for why those two must not be the same answer.
         return SeasonPhase.fromDatabase(dao.currentPhase().orElse(null));
+    }
+
+    @Override
+    public Optional<Instant> launch() {
+        return dao.launch();
     }
 
     @Override

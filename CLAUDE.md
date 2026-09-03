@@ -31,7 +31,7 @@ or a player, because none of them can; the rehearsal that has to follow is a che
 rather than a document, and it lives outside this repository.
 
 Everything else has behaviour: `common` (access API, messages, `PlayerLocales`, the phase directory,
-`Glyphs`, the `nordtal:limbo` protocol, migrations V1–V7), `network-control` (login gate, phase,
+`Glyphs`, the `nordtal:limbo` protocol, migrations V1–V8), `network-control` (login gate, phase,
 play time, routing **and the pack station**), `limbo` (the waiting room in full, built 2026-09-01),
 `discord-bot` (access, `/phase set`, the admin mirror, the language list, hunger games registration),
 `hunger-games` (the start event, both halves, built 2026-08-31) and `resource-pack` (three fonts,
@@ -482,6 +482,11 @@ implemented yet** - they belong to the next session that touches these files:
   - `V6__smp.sql` (2026-09-01): `smp_player`, `smp_aura_event`, `smp_milestone`, `smp_objective`,
     `smp_contribution`, `smp_poi`, `smp_grave`, `smp_duel`, `smp_spin`. Progress only — a milestone
     is *defined* in the plugin's reloadable YAML, never here.
+  - `V8__pre_launch.sql` (2026-09-03): the fifth `SeasonPhase`, `PRE_LAUNCH`, and the
+    `season_phase.launch` column the countdown in the MOTD and in the three pre-opening disconnect
+    screens is measured against. A `DROP`/`ADD CONSTRAINT` rather than an edit to `V4`, for the
+    reason `V3` already wrote down. The seeded row moves from `PRE_EVENT` to `PRE_LAUNCH`, guarded
+    so a database somebody has already switched by hand is not dragged backwards.
 - **Money is integer cents** in Java and in the database. `Money` is the only place that converts
   to and from bunq's decimal strings, and it goes through `BigDecimal`. Season 1 used
   `Float.parseFloat` and `<`.
@@ -685,7 +690,7 @@ than no count, because it reads as complete.
 `:common` has **145**: `AccessDirectoryIntegrationTest` (38) and `LinkCodeIntegrationTest` (12) drive
 the access API and the link-code lifecycle against a real PostgreSQL container running the real
 migrations off `classpath:db/migration` — which also proves the location the bot depends on
-resolves, and now applies V1 through V7. `PhaseDirectoryIntegrationTest` (11) does the same for the
+resolves, and now applies V1 through V8. `PhaseDirectoryIntegrationTest` (11) does the same for the
 phase row and its audit entry. `MessagesTest` (10), `PlayerLocalesTest` (7), `LocalesTest` (3),
 `SeasonPhaseTest` (3) and `LimboProtocolTest` (11) are in memory - the last of those round-trips
 every `nordtal:limbo` message and pins the two header bytes, because a proxy and a backend of
@@ -722,7 +727,7 @@ that, and both are easy to undo by accident:
 `network-control` has **154**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
 `gate.yml`; the `phase` and `routing` packages are tested as pure decisions, exhaustively over the
-four phases; and `PlaytimeDao`'s `seconds = seconds + EXCLUDED.seconds` gets a container, because no
+five phases; and `PlaytimeDao`'s `seconds = seconds + EXCLUDED.seconds` gets a container, because no
 in-memory test can say anything about it. The pack station adds `LimboHoldTest` (the release rule,
 exhaustively over its three inputs) and eight more `ConfigsTest` cases for `pack.yml` - of which the
 one worth keeping is that a `sha1` which is not 40 hex characters stops the proxy, because every

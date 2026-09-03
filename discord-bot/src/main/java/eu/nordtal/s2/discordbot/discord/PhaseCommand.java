@@ -277,6 +277,10 @@ public final class PhaseCommand extends ListenerAdapter {
                     + "or refused.";
             case PRE_EVENT, START_EVENT -> "Everyone online is moved to `hunger-games`. Access is "
                     + "not required in this phase - a linked, non-banned member is enough.";
+            case PRE_LAUNCH -> "**The network closes.** Only admins get in; everybody else online "
+                    + "is disconnected and sees the countdown to `season_phase.launch`. Switching "
+                    + "here is going back before the opening, not pausing - use `MAINTENANCE` for a "
+                    + "pause.";
         };
     }
 

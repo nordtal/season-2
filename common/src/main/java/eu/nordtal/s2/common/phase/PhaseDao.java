@@ -4,6 +4,7 @@ import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 
+import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -22,6 +23,13 @@ interface PhaseDao {
      */
     @SqlQuery("SELECT phase FROM season_phase WHERE id")
     Optional<String> currentPhase();
+
+    /**
+     * @return the announced opening instant, empty when the column is {@code NULL} or the singleton
+     *         row is gone - the caller cannot tell those apart and has no reason to
+     */
+    @SqlQuery("SELECT launch FROM season_phase WHERE id")
+    Optional<Instant> launch();
 
     /**
      * The switch, the audit entry and the notification as <b>one statement</b>.

@@ -67,6 +67,12 @@ public final class PhaseRouting {
                 // push them to limbo, and this is the one branch that must never be "softened" into
                 // a redirect - limbo is for waiting on something that ends.
                 return RouteDecision.of(RouteDecision.Action.REFUSE_NO_ACCESS);
+            case PRE_LAUNCH_BUY:
+                // The network went back to PRE_LAUNCH under a player who was already on it. Same
+                // screens as the gate: what happened to them is exactly what the gate would now say.
+                return RouteDecision.of(RouteDecision.Action.REFUSE_PRE_LAUNCH_BUY);
+            case PRE_LAUNCH_READY:
+                return RouteDecision.of(RouteDecision.Action.REFUSE_PRE_LAUNCH_READY);
             case ALLOW:
                 break;
             default:
@@ -110,12 +116,18 @@ public final class PhaseRouting {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
 
-        if (phase == SeasonPhase.MAINTENANCE && admin) {
+        if ((phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH) && admin) {
             // Unchanged from before the pack station: an admin during maintenance is the one player
             // the phase does not move, and the login path is where that starts. The cost is that
             // they are also the one player who is not offered the pack, which is the right way
             // round - an admin joining a network under maintenance is there to look at the servers
             // being worked on, and is the person best placed to fix their own pack.
+            //
+            // PRE_LAUNCH joined it on 2026-09-03 for the same reason and a stronger one: before the
+            // opening an admin is the ONLY player on the network, and putting the only player in
+            // the waiting room - whose whole purpose is holding people until a phase's backend is
+            // ready - would leave them nowhere to go. The servers they came to look at are the
+            // point.
             return RouteDecision.of(RouteDecision.Action.STAY);
         }
 

@@ -51,5 +51,11 @@ bunq-config.conf
 /bin/
 /*/bin/
 
+### Python ###
+# The pack tools are scripts, not a package, but generate_gui_panels.py imports the PNG writer
+# out of generate_dummy_textures.py rather than keeping a second copy of it - and an import is
+# what makes CPython write a cache directory. Anchored, like every other directory pattern here.
+/resource-pack/tools/__pycache__/
+
 ### Mac OS ###
 .DS_Store

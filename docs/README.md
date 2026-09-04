@@ -59,7 +59,7 @@ in [../CLAUDE.md](../CLAUDE.md), and the cross-repository map lives in
 **Re-derived from the code 2026-09-01, and updated the same day when `limbo` was built.** An
 earlier version of this table described three modules as unbuilt that had been built the evening
 before; it was committed after the implementation it failed to describe. Numbers come from a
-`./gradlew build` run — **730 tests in seven modules, none skipped, all green**, re-measured 2026-09-02 — not from the last plan.
+`./gradlew build` run — **887 tests in seven modules, none skipped, all green**, re-measured 2026-09-04 — not from the last plan.
 
 | area | state |
 |---|---|
@@ -78,7 +78,7 @@ before; it was committed after the implementation it failed to describe. Numbers
 | `limbo` waiting room and pack enforcement | **built** 2026-09-01 — and unrehearsed: three open verifications now have a written probe |
 | SMP: the milestone track, aura, prestige, the milestone engine | **built** 2026-09-01 |
 | SMP: worlds, travel, duels, graves, POIs, boards, the wheel | **built** 2026-09-01, in three blocks — and unrehearsed: nothing in it has been seen on a running server |
-| PostgreSQL backup and restore | **not designed** — the one open piece of concept work |
+| PostgreSQL backup and restore | **built and measured 2026-09-01**, and this row said "not designed — the one open piece of concept work" until 2026-09-04. `postgres-backup` dumps daily with `pg_dump --format=custom`, verifies each dump by reading its own TOC back before renaming it, keeps `BACKUP_KEEP`, and stops on SIGTERM; the restore path, the reason Arcane must snapshot `postgres-dumps` and never `postgres-data`, and a table of what was actually measured are all in [../deploy/README.md](../deploy/README.md#backups). What is **not** proven is a restore of the real season database — a rehearsal step, not a design gap |
 | Version and schema management (`updater`) | **all six steps built 2026-09-01** — resolves every version from GitHub, Modrinth and the Fill API, compares against the volumes, reports, and on `apply` migrates the schema, installs every jar (the bot's and its own included) and writes the proxy's `pack.yml`. Driven from `/update` in Discord and `/smp update` in game; restarts the stack through Arcane's API after a one-minute countdown every player sees. The one unfinished thing is Arcane's endpoint path, which is a setting — [updater.md](updater.md) |
 
 **What is left is a rehearsal, not a feature.** Every module in this repository has behaviour as of
@@ -96,18 +96,99 @@ change to HUD code that now exists. Thirteen more were found since, the last thr
 2026-09-01 in a deployment audit — the sharpest being that the *published* release contained the
 scaffold `smp` and `limbo` jars while `.env.example` pinned it.
 
-**One piece of concept work is open, and it is not a game design question: PostgreSQL backup and
-restore.** Every gameplay decision is taken — the milestone track, the last and the season's spine,
+**No concept work is open any more.** This paragraph named PostgreSQL backup and restore as the
+one remaining piece until 2026-09-04, when the review read `deploy/README.md` and found it designed,
+built and measured on 2026-09-01 — the sentence had outlived the work it described by three days.
+Every gameplay decision is taken — the milestone track, the last and the season's spine,
 was designed on 2026-08-31 and is in [smp.md](smp.md#the-track) — and everything else left in
 [state-of-play.md §3](state-of-play.md#3-what-still-needs-a-decision) is a config default, a
-drawing, a text, or a build. But the whole season lives in one database that nothing
-yet says how to back up, and that is the only irreversible risk in the project —
-[../deploy/README.md](../deploy/README.md#backups) records the gap rather than closing it.
+drawing, a text, or a build. The whole season still lives in one database, which is the only
+irreversible risk in the project — and [../deploy/README.md](../deploy/README.md#backups) now
+closes it rather than recording it. The half that is left there is a rehearsal: nobody has restored
+the *real* season database from a dump pulled back out of storage.
 
 `smp-farm-world` → `smp`, `resource-pack-coercion` → `limbo` and `access-bot` → `discord-bot` were
 all carried out by 2026-08-31. One rename is still part of the plan and is cheap only until
 something runs in production: the `SeasonPhase` values. See
 [architecture.md](architecture.md#modules).
+
+## Every command in the network
+
+**Written 2026-09-04, because eight of these appeared in no document at all** and `docs/smp.md`
+describes its three escape hatches over two paragraphs without naming the command that operates any
+of them (`state-of-play.md` finding 54). An admin who reads the concept still could not use the
+feature it argues for.
+
+There is no command framework: Brigadier directly on both platforms, and JDA's own builders in
+Discord ([architecture.md](architecture.md#commands)).
+
+### In game — `smp`
+
+| command | who | what |
+|---|---|---|
+| `/navigate` | anyone | opens the navigation menu; the second boss bar line then tracks the target |
+| `/poi add <name>` | anyone | a public point of interest at your position. Farm-world POIs die with the daily reset |
+| `/poi remove <name>` | its creator, or an admin | admins may remove any POI, which is what `smp.md` means by "admins can manage and delete any of them" |
+| `/smp reload` | admin | re-reads `milestones.yml` **and** the message bundles, and reports the two separately - they fail independently |
+| `/smp farmreset now` | admin | resets the farm world immediately, skipping the 30/10/5/1-minute warnings |
+| `/smp objective complete <key>` | admin | **escape hatch 1**: one objective, paid `pot × (reached ÷ target)` |
+| `/smp milestone unlock <key>` | admin | **escape hatch 2**, the blunt one: every open objective pays proportionally |
+| `/smp aura <player> <delta>` | admin | corrects a balance. Writes its reason, like every other aura change |
+| `/smp update` | admin | asks the updater what differs, and reports its answer verbatim |
+| `/smp update apply` | admin | installs what differs |
+| `/smp update restart [cancel]` | admin | the countdown, and the way out of it |
+
+**Escape hatch 3 is not a command**: it is lowering an objective's `target` in `milestones.yml`
+below the progress already collected, which completes it on the next `/smp reload`.
+
+### In game — `hunger-games`
+
+| command | who | what |
+|---|---|---|
+| `/hg start [confirm]` | admin | starts the event. `confirm` is the second step below the recommended minimum |
+| `/hg ready` | a registered participant | marks your team ready. The lobby broadcast's clickable link runs exactly this |
+| `/hg ready-status` | a registered participant | which teams are ready |
+| `/hg reload` | admin | the message bundles only - `config.yml` holds the border schedule, and a running game is a running clock |
+
+### In game — `limbo`
+
+| command | who | what |
+|---|---|---|
+| `/limbo reload` | console, or `limbo.admin` | the message bundles. This server's whole interface is eight titles, and a wording fix must not need a restart while somebody is waiting in it |
+
+### On the proxy — `network-control`
+
+| command | who | what |
+|---|---|---|
+| `/phase` | admin | the current phase and both season dates |
+| `/phase set <phase>` | admin | switches it, and moves everybody online to where the new phase says |
+| `/phase launch <when\|clear>` | admin | when the network opens - what the MOTD and the pre-opening screens count down to |
+| `/phase smp-start <when\|clear>` | admin | when paid access starts running. Moving it shifts every grant that has not started yet |
+| `/network reload` | admin, or the console | the message bundles. `gate.yml`, `pack.yml`, `network.yml` and `database.yml` are read once and stay read |
+
+### In Discord
+
+| command | who | what |
+|---|---|---|
+| `/grant-access <user> <days>` | admin | replaces season 1's `/manual-con` |
+| `/revoke-access <user>` | admin | |
+| `/access-status <user>` | admin | valid-until, history, open requests |
+| `/settle <ref>` | admin | books a request by hand, autocompleting over open references |
+| `/phase set\|show\|launch\|smp-start` | admin | the same four as on the proxy, with a confirmation naming who it moves |
+| `/update` | admin | the updater, from Discord |
+| `/messages reload` | admin | the bot's own bundles and the override in `config/messages/` |
+| `/unlink` | anyone | self-service, no waiting period, always written to the admin channel |
+
+**There is no `/home`, `/tpa`, `/back` or `/spawn`, and there never will be** — distance is the
+season's design ([smp.md](smp.md)). The only fast travel that is given is the balloon.
+
+### Permissions
+
+The admin flag is **the Discord admin role mirrored into the database**, read from a cache; there is
+no LuckPerms and no second admin list. `smp` attaches the configured permission nodes to an admin at
+join and removes them at quit. `/limbo reload` is the one command gated on a Paper permission
+(`limbo.admin`) rather than on that flag, because the database is exactly what a broken `limbo` may
+not be able to reach — the console holds it unconditionally.
 
 ## Decisions, and when they were taken
 

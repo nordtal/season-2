@@ -4,6 +4,7 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.hud.BoardFrame;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -139,6 +140,17 @@ public final class Configs {
             requireText("wheel-prizes: item", prize.item());
             requirePositive("wheel-prizes: weight for '" + prize.item() + "'", prize.weight());
             requirePositive("wheel-prizes: amount for '" + prize.item() + "'", prize.amount());
+        }
+
+        for (final SmpSpec.BoardSpec board : config.boards()) {
+            requireText("boards: world", board.world());
+            if (board.width() < BoardFrame.MIN_WIDTH || board.width() > BoardFrame.MAX_WIDTH) {
+                throw new IllegalArgumentException(
+                        "boards: '" + board.kind() + "' is " + board.width() + " pixels wide; the "
+                                + "frame's shifts reach " + BoardFrame.MIN_WIDTH + " to "
+                                + BoardFrame.MAX_WIDTH + ", and a width outside that would throw on "
+                                + "the first render rather than here");
+            }
         }
 
         for (final SmpSpec.SpawnRegionSpec region : config.spawnRegions()) {

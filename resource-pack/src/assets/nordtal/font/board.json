@@ -10,7 +10,13 @@
                 "\uDBBC\uDC16": -16,
                 "\uDBBC\uDC32": -32,
                 "\uDBBC\uDC64": -64,
-                "\uDBBC\uDD28": -128
+                "\uDBBC\uDD28": -128,
+                "\uDBBF\uDF01": 1,
+                "\uDBBF\uDF02": 2,
+                "\uDBBF\uDF04": 4,
+                "\uDBBF\uDF08": 8,
+                "\uDBBF\uDF16": 16,
+                "\uDBBF\uDF32": 32
             }
         },
         {

@@ -100,7 +100,7 @@ pieces moving out of `minecraft:default` — see [`nordtal:board`](#nordtalboard
 |---|---|---|---|
 | `minecraft:default` | [`minecraft/font/default.json`](src/assets/minecraft/font/default.json) | anything rendered as ordinary text — tab list, chat, nametags, Text Display boards | height 7 / ascent 7, height 9 / ascent 8 for prestige crests, except the logo |
 | `nordtal:bossbar` | [`nordtal/font/bossbar.json`](src/assets/nordtal/font/bossbar.json) | the boss bar HUDs only, with the vanilla bar made invisible | height 14 / ascent 6 for bar segments, height 10 / ascent 4 for icons, height 8 / ascent 3 for text |
-| `nordtal:board` | [`nordtal/font/board.json`](src/assets/nordtal/font/board.json) | the objective board and aura leaderboard's frame only | height 9 / ascent 8 |
+| `nordtal:board` | [`nordtal/font/board.json`](src/assets/nordtal/font/board.json) | the objective board and aura leaderboard's frame only — drawn by `:common`'s `BoardFrame` since 2026-09-04 | height 9 / ascent 8 |
 | `nordtal:gui` | [`nordtal/font/gui.json`](src/assets/nordtal/font/gui.json) | the menu panels, drawn out of a chest inventory's **title** | ascent 13, height = the window's own pixel height (132…222) |
 
 The four fonts allocate **independently**. `\uFE001` is a reserved player-badge code point in
@@ -239,6 +239,33 @@ crowding `minecraft:default`. It reuses `nordtal:bossbar`'s own `\uFF001`–`\uF
 that space provider — not a collision, since fonts allocate independently (see the note under
 `nordtal:bossbar` below).
 
+**It gained the six *positive* advances `\uFFF01`–`\uFFF32` on 2026-09-04, when the frame was
+actually built** (`:common`'s `BoardFrame`), and the reason is the one thing about this frame worth
+understanding before changing it. A board's content is text in `minecraft:default`, whose
+per-character advances live in the client and nowhere in this repository — so **the width of a
+rendered line is the one quantity nothing here can compute**. The frame therefore never places
+anything *after* the content: a row draws its left edge, walks right to a position derived only
+from the configured width, draws the right edge there, and walks back to the content column. That
+walk out is what needs positive advances. There is no `+64` or `+128`, because the naming rule puts
+the decimal advance in the low digits and `"FFF" + "128"` is six hex digits, past the end of
+SPUA-A; wider shifts repeat the `+32`.
+
+The consequence, decided by the owner on 2026-09-04: **the board's width is configuration**
+(`smp`'s `config.yml`, `boards[].width`, 32–240 px), and a line that outgrows it draws over the
+right-hand edge rather than wrapping. A wrapped line's continuation would carry no frame at all and
+would land outside the box, which reads as a bug; an overrun reads as a board that wants to be
+wider, and is fixed by editing one number.
+
+**The frame is drawn in the menu panels' own two colours since 2026-09-04**, out of
+`generate_gui_panels.py`'s `PALETTE`: the border, the corners and the verticals in `highlight`
+(#4E5668), the interior divider in `accent` (#B08A4A). Two things changed there and only one of
+them was style. The frame had been drawn **black** - the generator's default, never a decision -
+and a board hangs in the world on a Text Display's dark translucent background, so a black frame is
+a frame nobody can see; nothing had ever rendered one, so nothing had ever noticed. And the divider
+now differs from the border, which is what allocating the two separately was reserved for: the menu
+panel spends its one saturated colour on a single line under the title bar and nowhere else, and
+the board follows the same rule.
+
 Height 9 / ascent 8, matching the prestige crests above. Every corner and edge line is drawn
 **centered** in its 9 px cell (row 4.5, not flush to the top or bottom): that is what lets the same
 `edge_h` glyphs serve as both the top and the bottom border of the board, and it is a design
@@ -256,6 +283,8 @@ the original allocation never budgeted for.
 | `\uFE04C` | ![source](src/assets/nordtal/textures/ui/board/edge_v_l.png) | Vertical edge, left | generated — final candidate |
 | `\uFE04D` | ![source](src/assets/nordtal/textures/ui/board/edge_v_r.png) | Vertical edge, right | generated — final candidate |
 | `\uFE04E` – `\uFE055` | `ui/board/divider_{1,2,4,8,16,32,64,128}.png` | Divider, a horizontal rule inside the board, same eight widths as the outer edge | generated — final candidate |
+| `\uFF001` – `\uFF128` | — | Space advances, −1 to −128. Verbatim `nordtal:bossbar`'s block; `ResourcePackTest` fails if the two drift | — |
+| `\uFFF01` – `\uFFF32` | — | Space advances, +1 to +32, added 2026-09-04. No +64 or +128 — see above | — |
 | `\uFE056` – `\uFE05F` | — | reserved | — |
 
 **The divider grew from one code point to eight on 2026-08-31.** It was originally a single glyph,

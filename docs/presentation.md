@@ -112,8 +112,18 @@ the larger surface; the 22 `nordtal:board` textures are regenerated to match. Bo
 `resource-pack/tools/`, which means the style is a script change rather than 22 hand edits.
 
 The boards themselves are Text Display entities, not inventories, so they share the *look* and
-nothing else. Board width is computed from the longest entry, and the divider between title and
-content is drawn.
+nothing else. The divider between title and content is drawn.
+
+**Board width is *not* computed from the longest entry, and this paragraph said it was until
+2026-09-04.** It cannot be: a board's text renders in `minecraft:default`, whose per-character
+advances live in the client jar and nowhere in this repository — the pack's own `ascii.png` belongs
+to `nordtal:bossbar`, not to the default font. So the width is configuration (`smp`'s `config.yml`,
+`boards[].width`, 32–240 px), decided by the owner on the same day, and a line that outgrows it
+draws over the right-hand edge rather than wrapping — a wrapped continuation would carry no frame at
+all and land outside the box. `:common`'s `BoardFrame` owns the composition and the reason; the
+trick that makes it work without measuring is that **nothing is ever placed after the content**: a
+row draws its right-hand edge first, at a position derived only from the configured width, and walks
+the cursor back to the content column.
 
 Panel art is **programmatic placeholder** for now — frame, title bar, slot recesses, in the exact
 measurements, drawn by `resource-pack/tools/generate_gui_panels.py` into six PNGs (one per chest

@@ -7,6 +7,7 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.GraveRow;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
+import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.db.SmpDao;
 
 import net.kyori.adventure.text.Component;
@@ -64,6 +65,7 @@ public final class Graves implements InventoryHolder {
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSounds sounds;
+    private final WorldEffects effects;
 
     /** Grave id -> the entities drawing it, so they can be removed together. */
     private final Map<UUID, List<org.bukkit.entity.Entity>> parts = new HashMap<>();
@@ -78,12 +80,13 @@ public final class Graves implements InventoryHolder {
     private final Map<Inventory, UUID> viewing = new HashMap<>();
 
     public Graves(final Plugin plugin, final SmpDao dao, final Messages messages,
-                  final PlayerLocales locales, final SmpSounds sounds) {
+                  final PlayerLocales locales, final SmpSounds sounds, final WorldEffects effects) {
         this.plugin = plugin;
         this.dao = dao;
         this.messages = messages;
         this.locales = locales;
         this.sounds = sounds;
+        this.effects = effects;
     }
 
     /**
@@ -228,6 +231,13 @@ public final class Graves implements InventoryHolder {
 
         viewing.put(inventory, graveId);
         player.openInventory(inventory);
+
+        // At the grave, not at the player: the person opening it is standing next to it, and
+        // anybody else nearby is being told a grave has just been disturbed.
+        final org.bukkit.World world = Bukkit.getWorld(row.world());
+        if (world != null) {
+            effects.graveOpened(new org.bukkit.Location(world, row.x(), row.y(), row.z()));
+        }
     }
 
     /**

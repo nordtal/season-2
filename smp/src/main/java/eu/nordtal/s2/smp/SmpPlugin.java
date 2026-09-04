@@ -33,6 +33,7 @@ import eu.nordtal.s2.smp.chat.SystemLines;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
+import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.feedback.SurfaceListener;
 import eu.nordtal.s2.smp.grave.GraveListener;
 import eu.nordtal.s2.smp.grave.Graves;
@@ -206,6 +207,12 @@ public final class SmpPlugin extends JavaPlugin {
                 dao, navigation, sounds);
         farmReset.start();
 
+        // One instance, registered as a listener and handed to everything that has a moment: it
+        // has to be the same object that stamped a rocket and the one asked whether that rocket may
+        // hurt anybody (WorldEffects#onDamage).
+        final WorldEffects effects = new WorldEffects(this);
+        getServer().getPluginManager().registerEvents(effects, this);
+
         final PlayerComposition composition =
                 new PlayerComposition(new Prestige(config.prestigeThresholdHours()));
         final PlayerSurfaces surfaces =
@@ -235,12 +242,13 @@ public final class SmpPlugin extends JavaPlugin {
 
         // ---- block 3: the activities -----------------------------------------------------
         engine = new ObjectiveEngine(this, dao, track, season, worlds, identities, messages,
-                locales, config, sounds);
+                locales, config, sounds, effects);
         poller = new StatisticPoller(this, track, engine, identities);
         poller.start();
 
-        graves = new Graves(this, dao, messages, locales, sounds);
-        duels = new Duels(this, dao, config, worlds, identities, messages, locales, sounds);
+        graves = new Graves(this, dao, messages, locales, sounds, effects);
+        duels = new Duels(this, dao, config, worlds, identities, messages, locales, sounds,
+                effects);
 
         final DeathPenalty penalty = new DeathPenalty(config.deathPenalty(),
                 config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
@@ -279,7 +287,8 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new ProtectionListener(regions, identities, messages, locales, sounds), this);
         getServer().getPluginManager().registerEvents(
-                new BalloonListener(balloons, worlds, season, track, messages, locales, sounds), this);
+                new BalloonListener(balloons, worlds, season, track, messages, locales, sounds,
+                        effects), this);
         getServer().getPluginManager().registerEvents(
                 new PortalGate(worlds, season, messages, locales, sounds), this);
 

@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.player;
 
 import eu.nordtal.displaytags.api.events.NameTagCreateEvent;
 import eu.nordtal.s2.common.Glyphs;
+import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -16,13 +17,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.permissions.PermissionAttachment;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Join, quit, and the third surface a player appears on: chat.
@@ -34,9 +32,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * the composition in front of the message - flag, name, crest - and never the routing.
  *
  * <h2>Permissions without LuckPerms</h2>
- * An admin gets a {@link PermissionAttachment} with the configured node list at join, and it is
- * removed at quit. The admin flag itself is mirrored from Discord into the database by the bot, so
- * there is one truth, no sync cycle, and nothing to reconcile (docs/smp.md#admins).
+ * An admin becomes a server <b>operator</b> at join and stops being one at quit, through
+ * {@link AdminOperators}. The admin flag itself is mirrored from Discord into the database by the
+ * bot, so there is one truth, no sync cycle, and nothing to reconcile (docs/smp.md#admins).
+ *
+ * <p>Until 2026-09-04 this attached a configured list of six permission nodes instead. A list
+ * cannot answer "an admin must reliably have every permission" - it only knows what somebody wrote
+ * down - so {@code config.yml#admin-permissions} is retired and {@link AdminOperators} carries the
+ * whole reasoning, including why {@code ops.json} is swept at every enable.</p>
  */
 public final class PresenceListener implements Listener {
 
@@ -47,13 +50,12 @@ public final class PresenceListener implements Listener {
     private final SmpSpec config;
     private final Messages messages;
     private final PlayerLocales locales;
-
-    private final Map<UUID, PermissionAttachment> attachments = new ConcurrentHashMap<>();
+    private final AdminOperators operators;
 
     public PresenceListener(final Plugin plugin, final Identities identities,
                             final PlayerSurfaces surfaces, final PlayerComposition composition,
                             final SmpSpec config, final Messages messages,
-                            final PlayerLocales locales) {
+                            final PlayerLocales locales, final AdminOperators operators) {
         this.plugin = plugin;
         this.identities = identities;
         this.surfaces = surfaces;
@@ -61,12 +63,15 @@ public final class PresenceListener implements Listener {
         this.config = config;
         this.messages = messages;
         this.locales = locales;
+        this.operators = operators;
     }
 
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
-        attachAdminPermissions(player);
+        // Identities is already filled for this player - JoinGate reads it at pre-login, on the
+        // thread that is allowed to wait - so this is a map read and not a query.
+        operators.onJoin(player.getUniqueId(), identities.of(player.getUniqueId()).admin());
         surfaces.refresh(player);
 
         // Everybody else's ordering depends on who is online, and this player is new to that set.
@@ -90,10 +95,7 @@ public final class PresenceListener implements Listener {
 
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
-        final PermissionAttachment attachment = attachments.remove(event.getPlayer().getUniqueId());
-        if (attachment != null) {
-            event.getPlayer().removeAttachment(attachment);
-        }
+        operators.onQuit(event.getPlayer().getUniqueId());
         // Identities forgets them in JoinGate's quit handler, which owns the cache's lifetime.
     }
 
@@ -136,15 +138,4 @@ public final class PresenceListener implements Listener {
                 : Locales.DEFAULT;
     }
 
-    private void attachAdminPermissions(final Player player) {
-        if (!identities.of(player.getUniqueId()).admin()) {
-            return;
-        }
-        final PermissionAttachment attachment = player.addAttachment(plugin);
-        for (final String node : config.adminPermissions()) {
-            attachment.setPermission(node, true);
-        }
-        attachments.put(player.getUniqueId(), attachment);
-        player.recalculatePermissions();
-    }
 }

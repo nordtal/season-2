@@ -223,8 +223,9 @@ byte counts are the sum of the jars that would actually be shaded, annotation-on
   not by a permission node — see [season-phases.md](season-phases.md#who-may-switch-it) for what
   that costs when the database is the thing that is down.
 - Bukkit permission nodes, where a vanilla or third-party command wants one, still come from the
-  `PermissionAttachment` in [smp.md](smp.md#admins). Brigadier's own `requires` predicate is what
-  gates our commands.
+  operator flag in [smp.md](smp.md#admins) — an admin is one on all three Paper servers, granted at
+  join and removed at quit (it was a `PermissionAttachment` with a configured node list until
+  2026-09-04). Brigadier's own `requires` predicate is what gates our commands.
 
 ## Schema ownership
 

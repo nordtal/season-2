@@ -740,14 +740,14 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 987 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-04, after the player limit became one number). The counts below are what the JUnit XML reports, not
+**Seven modules have tests: 999 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-04, after an admin became a server operator). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
-| `smp` | 169 |
-| `common` | 266 |
+| `smp` | 170 |
+| `common` | 277 |
 | `network-control` | 188 |
 | `updater` | 136 |
 | `discord-bot` | 155 |
@@ -836,6 +836,17 @@ every `nordtal:limbo` message and pins the two header bytes, because a proxy and
 different versions that stop understanding each other produce a player stuck in the waiting room
 with nothing in any log. The `make_interval(hours => days * 24)` bug from stage A (see
 below) is still the reason a day is never expressed in SQL as `interval 'N days'`.
+
+`:common`'s newest eleven are `AdminOperatorsTest`, added 2026-09-04 when an admin became a server
+**operator** on all three Paper servers instead of carrying `smp`'s six configured permission nodes
+(`docs/smp.md#admins`). Two of the eleven assert something about the *disk* rather than about
+behaviour: `setOp` writes `ops.json`, and `AdminOperators#refresh` is built to be called on every
+poll tick of the admin watcher, so "a call that changes nothing writes nothing" is the property that
+keeps the file from being rewritten on a timer for as long as the server runs. A third asserts by
+signature that the enable-time sweep consults no admin list at all — which is what makes it safe to
+run when the database is unreachable, and is also why a hand-set emergency operator does not survive
+a restart. `smp`'s ConfigsTest gained the twelfth: `admin-permissions` is retired, and a deployed
+`config.yml` that still carries it has to fail **by name** rather than quietly ignore the key.
 
 `discord-bot` has **155**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest`, `TiersTest`,
 `RedemptionLimitTest`, `StatusNameTest` and `GuildStateTest` in memory, `AdminFlagIntegrationTest`

@@ -94,6 +94,32 @@ class ConfigsTest {
                 "the refusal has to name the key, or nobody can act on it: " + refused.getMessage());
     }
 
+    /**
+     * {@code admin-permissions} is retired, and a deployed {@code config.yml} that still carries it
+     * must stop the plugin rather than quietly ignore it.
+     *
+     * <p>Retired 2026-09-04, when an admin became a server operator instead
+     * ({@link eu.nordtal.s2.common.access.AdminOperators}). The refusal is the <em>point</em>: this
+     * key is in a file that already exists in a production volume, so the choice was between
+     * failing by name at the next start and leaving a block that reads like a working setting and
+     * does nothing. jcore gives the first for free - what this test pins is that nobody
+     * re-declares the key as a deprecated no-op to make an upgrade quieter.</p>
+     */
+    @Test
+    void configYmlRefusesRetiredAdminPermissions() throws Exception {
+        Configs.load(directory, LOGGER);
+        final Path file = directory.resolve("config.yml");
+        Files.writeString(file, Files.readString(file) + System.lineSeparator()
+                + "admin-permissions:" + System.lineSeparator()
+                + "  - minecraft.command.gamemode" + System.lineSeparator());
+
+        final ConfigException refused =
+                assertThrows(ConfigException.class, () -> Configs.load(directory, LOGGER));
+        assertTrue(refused.getMessage().contains("admin-permissions"),
+                "the refusal has to name the key, or the operator cannot act on it: "
+                        + refused.getMessage());
+    }
+
     /** Every value below the nested interfaces survives the round trip, not just the flat ones. */
     @Test
     void theNestedListsComeBackWithTheirValues() throws Exception {

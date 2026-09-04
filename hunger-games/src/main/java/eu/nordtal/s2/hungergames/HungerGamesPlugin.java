@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Locales;
@@ -185,9 +186,22 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // fullness - and during the start event, when every registered player is routed here at
         // once, the login it would refuse is the admin's who has to start the game. See
         // FullServerAdmission.
+        // Admins are operators for as long as they are admins. The sweep runs before a single join
+        // can be handled: ops.json is persistent, so anybody left in it by a crash or a SIGKILL
+        // would otherwise still be an operator on this start. AdminOperators carries the whole
+        // reasoning, including why it asks the database nothing.
+        final AdminOperators operators = new AdminOperators(bukkitOps());
+        operators.sweep();
+
+        // One instance, shared: the gate fills the admin flag at pre-login and both the fullness
+        // answer and the operator grant read it back. Two instances would be two caches, one of
+        // them always empty.
+        final FullServerAdmission admission = new FullServerAdmission();
+
         getServer().getPluginManager().registerEvents(
-                new FullServerGate(dao, new FullServerAdmission(), getLogger0()), this);
-        getServer().getPluginManager().registerEvents(new PresenceListener(this, locales, bodies, state, messages), this);
+                new FullServerGate(dao, admission, getLogger0()), this);
+        getServer().getPluginManager().registerEvents(
+                new PresenceListener(this, locales, bodies, state, messages, operators, admission), this);
         getServer().getPluginManager().registerEvents(
                 new CombatListener(this, dao, state, bodies, border, winTracker, sounds,
                         this::onGameDecided), this);
@@ -354,6 +368,30 @@ public final class HungerGamesPlugin extends JavaPlugin {
         getLogger().severe(message);
         getServer().getPluginManager().disablePlugin(this);
         getServer().shutdown();
+    }
+
+
+    /**
+     * The two Bukkit calls {@link AdminOperators} needs, which {@code :common} cannot make itself -
+     * it is compiled against no platform.
+     *
+     * <p>{@code getOfflinePlayer(UUID)} rather than {@code getPlayer}: a de-op has to work for
+     * somebody who has already left, which is exactly what the quit handler does.</p>
+     */
+    private AdminOperators.Ops bukkitOps() {
+        return new AdminOperators.Ops() {
+            @Override
+            public void setOp(final java.util.UUID player, final boolean operator) {
+                Bukkit.getOfflinePlayer(player).setOp(operator);
+            }
+
+            @Override
+            public java.util.Set<java.util.UUID> operators() {
+                return Bukkit.getOperators().stream()
+                        .map(org.bukkit.OfflinePlayer::getUniqueId)
+                        .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            }
+        };
     }
 
 }

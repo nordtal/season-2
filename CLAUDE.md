@@ -207,9 +207,25 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   `minecraft/font/default.json` (ordinary text: tab list, chat, nametags, boards) and
   `nordtal/font/bossbar.json` (the HUDs, with their own height/ascent). `:common`'s `Glyphs` and the
   two font files are mirrors of that table; a change is a change in all of them, in one commit.
-  `docs/smp.md` and `docs/hunger-games.md` no longer carry code points of their own. `Glyphs` is
-  knowingly behind the table today — it still declares the four retired season-1 role tags and names
-  nothing at all from the boss bar font.
+  `docs/smp.md` and `docs/hunger-games.md` no longer carry code points of their own. **There are
+  three fonts, not two**: `nordtal/font/board.json` is the third, and every component carrying a
+  glyph from a `nordtal:` font has to name that font — see the next bullet.
+
+  This paragraph used to end by calling `Glyphs` "knowingly behind the table — it still declares the
+  four retired season-1 role tags and names nothing at all from the boss bar font". **Both halves
+  were false and it is kept as a correction** (`docs/state-of-play.md` finding 57): `Glyphs` declares
+  one tag and one badge, and it names the whole boss bar font — nine background segments, thirteen
+  icons, sixteen arrows, fifteen space advances. `ResourcePackTest` in `:common` is what makes the
+  sentence unnecessary now: it holds `Glyphs`, the three font files and every PNG they name against
+  each other on every `check`, so "is the mirror still a mirror" is answered by the build rather
+  than by a paragraph somebody has to remember to update.
+- **A component carrying a `nordtal:` glyph must name its font**, and forgetting is not a subtle
+  bug. The three fonts allocate independently, so a boss bar code point left in `minecraft:default`
+  does not fail to draw - it draws whatever `default.json` put at that code point.
+  `Glyphs.BOSSBAR_BG_4` and `Glyphs.TAG_ADMIN` are both `U+E004`, which is why a real client showed
+  the admin nametag inside the SMP's boss bar background on 2026-09-04 and four days of screenshots
+  read it as missing art (`docs/state-of-play.md` finding 41). `Glyphs.FONT_BOSSBAR` and
+  `FONT_BOARD` are the keys; `BossBarFontTest` asserts both renderers name one.
 
 ## Configuration
 
@@ -385,8 +401,12 @@ issued by `network-control` (`AccessDirectory#issueLinkCode`, package-private SQ
 `ReconcileDao#deleteExpiredLinkCodes` now actually cleans up rows something else writes, rather
 than a table nothing has ever put a row into.
 
-**Two things this stage left open were decided on 2026-08-31. Both are decided and neither is
-implemented yet** - they belong to the next session that touches these files:
+**Two things this stage left open were decided on 2026-08-31, and BOTH ARE NOW IMPLEMENTED** -
+this paragraph said "neither is implemented yet" until 2026-09-04, which is the same drift
+`docs/state-of-play.md` opens by warning about. `AccessSpec` carries a comment where the retired
+setting used to be and `ConfigsTest` asserts the key is refused by name; `MisconfiguredGate` is
+registered by `NetworkControlPlugin` and refuses every login with a bilingual screen. Both entries
+are kept because the reasoning is what a future change has to argue with:
 
 - **`access.yml#link-code-ttl-minutes` is retired; `gate.yml#link-code-ttl-minutes` is the only
   one.** The bot never read its own copy - `ReconcileDao#deleteExpiredLinkCodes` only compares
@@ -482,11 +502,19 @@ implemented yet** - they belong to the next session that touches these files:
   - `V6__smp.sql` (2026-09-01): `smp_player`, `smp_aura_event`, `smp_milestone`, `smp_objective`,
     `smp_contribution`, `smp_poi`, `smp_grave`, `smp_duel`, `smp_spin`. Progress only — a milestone
     is *defined* in the plugin's reloadable YAML, never here.
+  - `V7__update_request.sql` (2026-09-01): the one row the updater is driven by - `/update` in
+    Discord and `/smp update` in game both write here, and nothing calls that container. It was
+    missing from this list until 2026-09-04, which is how a reader came to believe the numbering
+    skipped a version (`docs/state-of-play.md` finding 56).
   - `V8__pre_launch.sql` (2026-09-03): the fifth `SeasonPhase`, `PRE_LAUNCH`, and the
     `season_phase.launch` column the countdown in the MOTD and in the three pre-opening disconnect
     screens is measured against. A `DROP`/`ADD CONSTRAINT` rather than an edit to `V4`, for the
     reason `V3` already wrote down. The seeded row moves from `PRE_EVENT` to `PRE_LAUNCH`, guarded
     so a database somebody has already switched by hand is not dragged backwards.
+  - `V9__smp_start.sql` (2026-09-03): `season_phase.smp_start`, the second season date - the day
+    paid access starts running, which is what a period bought weeks earlier is anchored to. Moving
+    it shifts every grant that has not started yet; `PhaseDirectoryIntegrationTest` owns that
+    arithmetic, including the DST trap that makes the shift seconds rather than days.
 - **Money is integer cents** in Java and in the database. `Money` is the only place that converts
   to and from bunq's decimal strings, and it goes through `BigDecimal`. Season 1 used
   `Float.parseFloat` and `<`.
@@ -668,14 +696,14 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 854 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-03). The counts below are what the JUnit XML reports, not
+**Seven modules have tests: 887 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-04). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
 | `smp` | 146 |
-| `common` | 173 |
+| `common` | 206 |
 | `network-control` | 189 |
 | `updater` | 133 |
 | `discord-bot` | 155 |
@@ -687,7 +715,11 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **173**: `AccessDirectoryIntegrationTest` (46) and `LinkCodeIntegrationTest` (12) drive
+`:common` has **206**, thirty-three of them added by the review of 2026-09-04 - `ResourcePackTest`
+(8, the pack's three mirrors held against each other), `MessageOverridesTest` (9, the operator's
+key-by-key override), `TabListTest` (4, one tab list written by three servers), `OneMessageFormatTest`
+(4, one message format and a named allowlist of what still composes by hand), `BossBarFontTest` (3)
+and `MessageRendererTest` (5). The older ones: `AccessDirectoryIntegrationTest` (46) and `LinkCodeIntegrationTest` (12) drive
 the access API and the link-code lifecycle against a real PostgreSQL container running the real
 migrations off `classpath:db/migration` — which also proves the location the bot depends on
 resolves, and now applies V1 through V9. `PhaseDirectoryIntegrationTest` (26) does the same for the

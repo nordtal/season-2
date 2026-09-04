@@ -146,10 +146,18 @@ below the progress already collected, which completes it on the next `/smp reloa
 
 | command | who | what |
 |---|---|---|
-| `/hg start [confirm]` | admin | starts the event. `confirm` is the second step below the recommended minimum |
-| `/hg ready` | a registered participant | marks your team ready. The lobby broadcast's clickable link runs exactly this |
-| `/hg ready-status` | a registered participant | which teams are ready |
-| `/hg reload` | admin | the message bundles **and** `sounds.yml` - `config.yml` holds the border schedule, and a running game is a running clock |
+| `/hg start [confirm]` | admin, **or the console** | starts the event. `confirm` is the second step below the recommended minimum |
+| `/hg ready` | a registered participant | marks your team ready. The lobby broadcast's clickable link runs exactly this. **The one `/hg` the console cannot run** - it marks *the sender* ready |
+| `/hg ready-status` | admin, or the console | which teams are ready |
+| `/hg reload` | admin, or the console | the message bundles **and** `sounds.yml` - `config.yml` holds the border schedule, and a running game is a running clock |
+
+**The console gained all of these on 2026-09-04, and had none of them before.** Every subcommand was
+gated on the sender being a player, so the start of the season's flagship event depended on one
+client being able to connect and stay connected — with no second path, while `/phase` has had a
+documented one since 2026-08-31. The console is an admin without a database lookup, which is the
+single exception to `discord_user.admin` being the only admin list ([smp.md](smp.md#admins)): a
+container shell can edit that table by hand, so refusing it would protect nothing and would remove
+the one path that still works when the database holds no admin at all.
 
 ### In game — `limbo`
 

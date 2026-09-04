@@ -280,8 +280,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private void registerCommands(final HungerGamesSpec config, final World world) {
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final HungerGamesCommand command = new HungerGamesCommand(this, dao, config, messages, locales,
-                    manager, lobby, sounds, this::reloadSounds,
-                    () -> currentGameId, (gameId, admin) -> startGame(gameId, world));
+                    lobby, sounds, this::reloadSounds,
+                    () -> currentGameId, gameId -> startGame(gameId, world));
             event.registrar().register(command.build());
         });
     }

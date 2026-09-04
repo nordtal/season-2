@@ -91,7 +91,11 @@ public final class HungerGamesPlugin extends JavaPlugin {
         final Jdbi jdbi = Jdbi.create(pool).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         dao = jdbi.onDemand(HungerGamesDao.class);
 
-        messages = Messages.load(getClass().getClassLoader(), "messages/hunger-games", Locale.ENGLISH, Locale.GERMAN);
+        messages = Messages.load(getClass().getClassLoader(), "messages/hunger-games",
+                getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
+        messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
+                "the message override names " + key + ", which no bundle declares - it is stored"
+                        + " and never used; check the spelling"));
         locales = new PlayerLocales(mcUuid -> {
             final var discordId = dao.discordIdOf(mcUuid);
             return discordId.map(id -> Locales.parse(dao.localeOf(id).orElse(null))).orElse(Locales.DEFAULT);
@@ -121,7 +125,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         lobby.startBroadcasting(world, () -> currentGameId);
 
         getServer().getPluginManager().registerEvents(new FreezeListener(manager), this);
-        getServer().getPluginManager().registerEvents(new PresenceListener(this, locales, bodies, state), this);
+        getServer().getPluginManager().registerEvents(new PresenceListener(this, locales, bodies, state, messages), this);
         getServer().getPluginManager().registerEvents(
                 new CombatListener(this, dao, state, bodies, border, winTracker, this::onGameDecided), this);
 

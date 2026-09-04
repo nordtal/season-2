@@ -1,5 +1,6 @@
 package eu.nordtal.s2.networkcontrol.update;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateRequest;
@@ -142,13 +143,13 @@ public final class RestartWatch {
     }
 
     private void say(final Announcement announcement) {
-        broadcast(locale -> Component.text(switch (announcement.kind()) {
-            case COUNTDOWN -> messages.format(locale, "restart.countdown",
+        broadcast(locale -> switch (announcement.kind()) {
+            case COUNTDOWN -> MessageRenderer.of(messages).format(locale, "restart.countdown",
                     "seconds", announcement.seconds());
-            case NOW -> messages.get(locale, "restart.now");
-            case CANCELLED -> messages.get(locale, "restart.cancelled");
-            case FAILED -> messages.get(locale, "restart.failed");
-        }));
+            case NOW -> MessageRenderer.of(messages).get(locale, "restart.now");
+            case CANCELLED -> MessageRenderer.of(messages).get(locale, "restart.cancelled");
+            case FAILED -> MessageRenderer.of(messages).get(locale, "restart.failed");
+        });
     }
 
     /**

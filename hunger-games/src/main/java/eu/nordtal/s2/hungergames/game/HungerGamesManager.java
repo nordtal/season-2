@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.game;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
@@ -147,8 +148,8 @@ public final class HungerGamesManager {
             }
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
-                online.sendMessage(Component.text(messages.format(locales.of(participant.mcUuid()),
-                        "hg.team.demoted", "team", participant.teamName())));
+                online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
+                        "hg.team.demoted", "team", participant.teamName()));
             }
         }
     }
@@ -171,9 +172,9 @@ public final class HungerGamesManager {
                 for (final Participant participant : participants) {
                     final Player online = plugin.getServer().getPlayer(participant.mcUuid());
                     if (online != null) {
-                        online.sendMessage(Component.text(messages.format(
+                        online.sendMessage(MessageRenderer.of(messages).format(
                                 locales.of(participant.mcUuid()), "hg.start.countdown",
-                                "seconds", remaining)));
+                                "seconds", remaining));
                     }
                 }
             }, delayTicks);
@@ -248,8 +249,8 @@ public final class HungerGamesManager {
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
                 online.setInvulnerable(false);
-                online.sendMessage(Component.text(messages.format(locales.of(participant.mcUuid()),
-                        "hg.start.released", "seconds", config.pvpProtectionSeconds())));
+                online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
+                        "hg.start.released", "seconds", config.pvpProtectionSeconds()));
             }
         }
     }

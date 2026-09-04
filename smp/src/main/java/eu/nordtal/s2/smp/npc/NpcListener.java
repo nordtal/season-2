@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.npc;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
@@ -72,12 +73,12 @@ public final class NpcListener implements Listener {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Optional<String> activeKey = dao.activeMilestoneKey();
             if (activeKey.isEmpty()) {
-                tell(player, messages.get(locale, "smp.objectives.none"));
+                tell(player, MessageRenderer.of(messages).get(locale, "smp.objectives.none"));
                 return;
             }
             final Milestone milestone = track.milestone(activeKey.get()).orElse(null);
             if (milestone == null) {
-                tell(player, messages.get(locale, "smp.objectives.none"));
+                tell(player, MessageRenderer.of(messages).get(locale, "smp.objectives.none"));
                 return;
             }
             final List<ObjectiveRow> rows = dao.objectivesOf(activeKey.get());
@@ -133,14 +134,14 @@ public final class NpcListener implements Listener {
         final Locale locale = locales.of(player.getUniqueId());
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(Component.text(messages.get(locale, "smp.error.no-account-link")));
+            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.error.no-account-link"));
             return;
         }
 
         final HandIn.Result result =
                 HandIn.sort(gui.offered(), gui.wanted(), gui.stillNeeded());
         if (result.accepted() <= 0) {
-            player.sendMessage(Component.text(messages.get(locale, "smp.handin.nothing-wanted")));
+            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.handin.nothing-wanted"));
             return;
         }
 
@@ -154,8 +155,8 @@ public final class NpcListener implements Listener {
                 if (!player.isOnline()) {
                     return;
                 }
-                player.sendMessage(Component.text(messages.format(locale, "smp.handin.accepted",
-                        "amount", credited)));
+                player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.handin.accepted",
+                        "amount", credited));
                 player.closeInventory();
             });
         });
@@ -169,10 +170,11 @@ public final class NpcListener implements Listener {
         }
     }
 
-    private void tell(final Player player, final String message) {
+    /** Sends one already-rendered message on the main thread, from wherever it is called. */
+    private void tell(final Player player, final Component message) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) {
-                player.sendMessage(Component.text(message));
+                player.sendMessage(message);
             }
         });
     }

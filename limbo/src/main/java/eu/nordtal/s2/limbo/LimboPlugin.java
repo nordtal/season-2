@@ -7,6 +7,7 @@ import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.limbo.command.LimboCommand;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.limbo.config.Configs;
 import eu.nordtal.s2.limbo.config.DatabaseSpec;
@@ -87,7 +88,10 @@ public final class LimboPlugin extends JavaPlugin {
         final PlayerLocales locales = new PlayerLocales(access::locale);
 
         final Messages messages = Messages.load(getClass().getClassLoader(), "messages/limbo",
-                Locale.ENGLISH, Locale.GERMAN);
+                getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
+        messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
+                "the message override names " + key + ", which no bundle declares - it is stored"
+                        + " and never used; check the spelling"));
 
         room = new WaitingRoom(this, config, messages, locales, world);
         room.start();
@@ -96,7 +100,11 @@ public final class LimboPlugin extends JavaPlugin {
         channel.register();
 
         getServer().getPluginManager()
-                .registerEvents(new PresenceListener(this, world, room, channel, locales), this);
+                .registerEvents(new PresenceListener(this, world, room, channel, locales, messages), this);
+
+        getLifecycleManager().registerEventHandler(
+                io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS,
+                event -> event.registrar().register(new LimboCommand(this, messages).build()));
 
         getLogger().info("limbo enabled - waiting world '" + config.worldName() + "', title refreshed "
                 + "every " + config.titleRefreshSeconds() + "s, speaking " + LimboProtocol.CHANNEL);

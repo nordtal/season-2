@@ -1,5 +1,6 @@
 package eu.nordtal.s2.networkcontrol.pack;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 
 import net.kyori.adventure.text.Component;
@@ -31,7 +32,7 @@ public final class PackMessages {
      * </p>
      */
     public Component prompt(final Locale locale) {
-        return Component.text(messages.get(locale, "pack.prompt"));
+        return MessageRenderer.of(messages).get(locale, "pack.prompt");
     }
 
     /**
@@ -44,7 +45,7 @@ public final class PackMessages {
      * </p>
      */
     public Component declined(final Locale locale) {
-        return Component.text(messages.get(locale, "pack.declined"));
+        return MessageRenderer.of(messages).get(locale, "pack.declined");
     }
 
     /**
@@ -55,7 +56,7 @@ public final class PackMessages {
      * </p>
      */
     public Component failedDownload(final Locale locale) {
-        return Component.text(messages.get(locale, "pack.failed-download"));
+        return MessageRenderer.of(messages).get(locale, "pack.failed-download");
     }
 
     /**
@@ -63,11 +64,11 @@ public final class PackMessages {
      * pack failure that will happen to <em>everybody</em> at once.
      */
     public Component invalidUrl(final Locale locale) {
-        return Component.text(messages.get(locale, "pack.invalid-url"));
+        return MessageRenderer.of(messages).get(locale, "pack.invalid-url");
     }
 
     /** The client never answered the offer at all, for {@code pack.yml#apply-timeout-seconds}. */
     public Component timedOut(final Locale locale) {
-        return Component.text(messages.get(locale, "pack.timeout"));
+        return MessageRenderer.of(messages).get(locale, "pack.timeout");
     }
 }

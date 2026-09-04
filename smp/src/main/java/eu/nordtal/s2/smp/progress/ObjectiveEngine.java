@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.progress;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.aura.AuraPayout;
@@ -231,9 +232,9 @@ public final class ObjectiveEngine {
         Bukkit.getScheduler().runTask(plugin, () -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
                 final var locale = locales.of(player.getUniqueId());
-                player.sendMessage(Component.text(messages.format(locale, "smp.objective.completed",
+                player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.objective.completed",
                         "objective", nameOf("smp.objective." + milestoneKey + "." + objectiveKey,
-                                objectiveKey, locale))));
+                                objectiveKey, locale)));
             }
         });
     }
@@ -241,8 +242,8 @@ public final class ObjectiveEngine {
     private void announceMilestone(final String milestoneKey) {
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = locales.of(player.getUniqueId());
-            player.sendMessage(Component.text(messages.format(locale, "smp.milestone.completed",
-                    "milestone", nameOf("smp.milestone." + milestoneKey, milestoneKey, locale))));
+            player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.milestone.completed",
+                    "milestone", nameOf("smp.milestone." + milestoneKey, milestoneKey, locale)));
         }
     }
 

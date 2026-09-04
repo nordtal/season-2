@@ -43,6 +43,26 @@ public final class MessageRenderer {
         this.messages = Objects.requireNonNull(messages, "messages");
     }
 
+    /**
+     * A renderer over {@code messages}, for a call site that has a bundle and wants a component.
+     *
+     * <p><b>It allocates rather than caching, and that is deliberate.</b> The object holds one
+     * reference and nothing else; the work is in MiniMessage's parser, which is a cached singleton.
+     * A cache keyed on {@code Messages} identity would buy nothing measurable and would be one more
+     * thing that has to be right. What this exists for is the call sites - some ninety of them -
+     * that hold a {@code Messages} and would otherwise each need a second field threaded through a
+     * constructor to say the same thing.</p>
+     *
+     * <p>The one place not to use it is a loop that runs every tick. Nothing in this repository
+     * does: the two boss bar HUDs compose {@code String}s and wrap them once.</p>
+     *
+     * @param messages the bundle to render
+     * @return a renderer over it
+     */
+    public static MessageRenderer of(final Messages messages) {
+        return new MessageRenderer(messages);
+    }
+
     /** The raw bundle behind this renderer, for the callers that genuinely want a {@code String}. */
     public Messages raw() {
         return messages;
@@ -74,8 +94,17 @@ public final class MessageRenderer {
      * Makes a substituted value inert for MiniMessage. Only {@code <} can begin a tag, and
      * MiniMessage's own escape for it is a backslash - so one character has to be handled, and it is
      * handled here rather than trusted never to appear.
+     *
+     * <p>Public because {@code network-control}'s MOTD substitutes its own placeholders - dynamic
+     * names such as {@code {players:smp}} that no name/value pair can express - and then needs
+     * exactly this rule. It had its own copy of these two lines until 2026-09-04, which is two
+     * implementations of one security property and no test comparing them.</p>
+     *
+     * @param value an arbitrary substituted value - a player name, a world name, a milestone title
+     *              out of a YAML file somebody edits
+     * @return the same text, unable to open a tag
      */
-    static String escape(final String value) {
+    public static String escape(final String value) {
         return value.indexOf('<') < 0 ? value : value.replace("<", "\\<");
     }
 }

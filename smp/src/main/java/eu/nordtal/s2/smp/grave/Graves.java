@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.grave;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.GraveRow;
@@ -204,7 +205,7 @@ public final class Graves implements InventoryHolder {
 
         final int size = Math.max(9, ((contents.length + 8) / 9) * 9);
         final Inventory inventory = Bukkit.createInventory(null, Math.min(54, size),
-                Component.text(messages.get(locale, "smp.grave.title")));
+                MessageRenderer.of(messages).get(locale, "smp.grave.title"));
         inventory.setContents(java.util.Arrays.copyOf(contents, inventory.getSize()));
 
         viewing.put(inventory, graveId);
@@ -249,9 +250,9 @@ public final class Graves implements InventoryHolder {
                 erase(graveId);
                 if (experience > 0 && player.isOnline()) {
                     player.giveExp(experience);
-                    player.sendMessage(Component.text(messages.format(
+                    player.sendMessage(MessageRenderer.of(messages).format(
                             locales.of(player.getUniqueId()), "smp.grave.experience",
-                            "experience", experience)));
+                            "experience", experience));
                 }
             });
         });

@@ -1,6 +1,4 @@
-package eu.nordtal.s2.commands.phase;
-
-import eu.nordtal.s2.commands.NordtalUser;
+package eu.nordtal.s2.commands;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,18 +15,18 @@ import java.util.UUID;
  * proxy with a real client, or a real Discord guild with a real admin - which is why the answer had
  * drifted into two different sentences on the two surfaces without anybody noticing.</p>
  */
-final class FakeUser implements NordtalUser {
+public final class FakeUser implements NordtalUser {
 
     /** Every reply, as {@code key} plus its placeholders, in the order they were sent. */
-    final List<Reply> replies = new ArrayList<>();
+    public final List<Reply> replies = new ArrayList<>();
 
     private final Origin origin;
     private final String discordId;
     private final UUID mcUuid;
 
-    record Reply(String key, Map<String, ?> placeholders) {
+    public record Reply(String key, Map<String, ?> placeholders) {
 
-        Object of(final String placeholder) {
+        public Object of(final String placeholder) {
             return placeholders.get(placeholder);
         }
     }
@@ -39,25 +37,25 @@ final class FakeUser implements NordtalUser {
         this.mcUuid = mcUuid;
     }
 
-    static FakeUser inGame() {
+    public static FakeUser inGame() {
         return new FakeUser(Origin.GAME, "100000000000000001",
                 UUID.fromString("11111111-2222-3333-4444-555555555555"));
     }
 
-    static FakeUser inDiscord() {
+    public static FakeUser inDiscord() {
         return new FakeUser(Origin.DISCORD, "100000000000000002", null);
     }
 
-    static FakeUser console() {
+    public static FakeUser console() {
         return new FakeUser(Origin.CONSOLE, null, null);
     }
 
     /** The keys only, which is what most assertions are actually about. */
-    List<String> keys() {
+    public List<String> keys() {
         return replies.stream().map(Reply::key).toList();
     }
 
-    Reply only() {
+    public Reply only() {
         if (replies.size() != 1) {
             throw new AssertionError("expected exactly one reply, got " + keys());
         }

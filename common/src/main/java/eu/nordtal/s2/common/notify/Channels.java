@@ -35,6 +35,19 @@ public final class Channels {
      */
     public static final String ADMIN = "nordtal_admin";
 
+    /**
+     * A command was addressed to a process that is not the one it was typed in. Payload: the
+     * target's name.
+     *
+     * <p>Matches {@code pg_notify('nordtal_command', target)} in {@code CommandRequestDao#submit}.
+     * The payload names a target and is <b>still</b> not inspected by anybody: every inbox wakes on
+     * every signal and claims rows for its own target with a {@code WHERE}, which is what makes one
+     * connection carrying three channels cheaper than three connections and no worse. Filtering on
+     * the payload would also be the one way to lose a row permanently - a notification is delivered
+     * once, and a listener that decided the message was not for it has no second chance.</p>
+     */
+    public static final String COMMAND = "nordtal_command";
+
     private Channels() {
     }
 }

@@ -14,12 +14,19 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Where {@code hunger-games}'s config file lives, and every rule about what a valid value is.
+ * Where {@code hunger-games}'s config files live, and every rule about what a valid value is.
  * <p>
- * Same shape as {@code network-control}'s and {@code access-bot}'s own {@code Configs} classes:
- * one file, one environment namespace, every check run once at startup. This is the first Paper
- * plugin in this repository to wire up {@code eu.nordtal.jcore.config} - see
- * {@code season-2/CLAUDE.md}, "Configuration".
+ * Same shape as {@code network-control}'s and {@code access-bot}'s own {@code Configs} classes: one
+ * environment namespace per file, every check run once at startup. This is the first Paper plugin in
+ * this repository to wire up {@code eu.nordtal.jcore.config} - see {@code season-2/CLAUDE.md},
+ * "Configuration".
+ * </p>
+ * <p>
+ * Three files: {@code config.yml} for the game, {@code database.yml} for the connection and
+ * {@code sounds.yml} for the feedback sounds. The third is separate for the reason
+ * {@link SoundsSpec} gives - {@code /hg reload} re-reads it in the middle of a game and re-reads
+ * nothing out of {@code config.yml}, because a border parameter must not move while players are
+ * running from it.
  * </p>
  */
 public final class Configs {
@@ -67,6 +74,35 @@ public final class Configs {
         if (fresh) {
             logger.warn("No config existed at {} - defaults were written and are almost certainly "
                     + "not what you want", file.toAbsolutePath());
+        }
+        return handle;
+    }
+
+    /**
+     * Loads the sounds.
+     *
+     * <p><b>No validator</b>, matching {@code smp}'s handle of the same name. Every rule about a
+     * sound is enforced where it is parsed, in {@code FeedbackSounds}, and every one of them
+     * corrects or silences rather than refusing: a typo in a chime must not be the reason an event
+     * server is offline while forty people wait to be let in. Refusing here would put that decision
+     * in the one place that can only answer by stopping the server.
+     */
+    public static @NotNull ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger)
+            throws ConfigException {
+        final Path file = dataFolder.resolve("sounds.yml");
+        final boolean fresh = !java.nio.file.Files.isRegularFile(file);
+
+        final ConfigHandle<SoundsSpec> handle = ConfigLoader.builder(file, SoundsSpec.class)
+                .envPrefix("NORDTAL_HUNGER_GAMES_SOUNDS")
+                .validator(config -> { })
+                .load();
+
+        if (fresh) {
+            // Deliberately not the "almost certainly not what you want" line the other two carry:
+            // a freshly written sounds.yml IS what you want, and only stops being so once somebody
+            // has heard it with players on the server.
+            logger.info("No sounds config existed at {} - the ten defaults were written",
+                    file.toAbsolutePath());
         }
         return handle;
     }

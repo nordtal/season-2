@@ -1,10 +1,12 @@
 package eu.nordtal.s2.hungergames.loot;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
+import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 
 import net.kyori.adventure.text.Component;
 
@@ -45,17 +47,20 @@ public final class LootRefill {
     private final BorderController border;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final HungerGamesSounds sounds;
 
     private final List<BukkitTask> scheduled = new ArrayList<>();
 
     public LootRefill(final Plugin plugin, final World world, final HungerGamesSpec config,
-                      final BorderController border, final Messages messages, final PlayerLocales locales) {
+                      final BorderController border, final Messages messages, final PlayerLocales locales,
+                      final HungerGamesSounds sounds) {
         this.plugin = plugin;
         this.world = world;
         this.config = config;
         this.border = border;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     /** Schedules every configured tier's refill, relative to the moment the game was released. */
@@ -112,9 +117,17 @@ public final class LootRefill {
         }
     }
 
+    /**
+     * {@code NETWORK_EVENT}: something happened to the whole world at once and nobody caused it.
+     *
+     * <p>It is also the one announcement in this module that a player is expected to <em>act</em>
+     * on - the chests they walked past an hour ago have something in them again - and a chat line
+     * is easy to miss in the middle of a fight.
+     */
     private void announce() {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "hg.loot.refill"));
+            sounds.play(player, Feedback.NETWORK_EVENT);
         }
     }
 }

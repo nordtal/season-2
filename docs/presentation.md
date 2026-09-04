@@ -121,24 +121,69 @@ line of code changing.
 rule, not a matter of discipline: a codebase where each call site names its own sound drifts into
 nine different chimes for the same kind of event, and no amount of care prevents it.
 
-| category | when | examples |
-|---|---|---|
-| `SMALL_SUCCESS` | something small went right | objective handed in, spin won |
-| `BIG_SUCCESS` | something that took work | milestone completed, duel won |
-| `REFUSED` | the server said no | spawn-protected, not your POI, no spin left |
-| `LOSS` | something was taken | duel lost, death penalty |
-| `SURFACE_OPEN` / `SURFACE_CLOSE` | a menu or a grave | every GUI |
-| `SELECT` | a click inside a menu | picking a navigation target |
-| `TRAVEL` | going somewhere | balloon, duel arena |
-| `COUNTDOWN_TICK` | a clock running out | farm reset, restart, duel start, border |
-| `NETWORK_EVENT` | everyone hears it | milestone, hunger games start, phase switch |
+| category | when | default key (`smp`) | pitch |
+|---|---|---|---|
+| `SMALL_SUCCESS` | something small went right — objective handed in, POI added or removed | `entity.experience_orb.pickup` | 1.4 |
+| `BIG_SUCCESS` | something that took work — a milestone *you* closed, a duel won, a wheel prize | `entity.player.levelup` | 1.0 |
+| `REFUSED` | the server said no — spawn-protected, not your POI, no spin left, nothing to show | `block.note_block.bass` | 0.7 |
+| `LOSS` | something was taken — a duel lost, a death penalty, a spin spent on a broken prize | `entity.villager.no` | 0.9 |
+| `SURFACE_OPEN` / `SURFACE_CLOSE` | a menu or a grave | `block.barrel.open` / `.close` | 1.2 |
+| `SELECT` | a click that picked something — a menu entry, a duel platform stepped onto | `ui.button.click` | 1.0 |
+| `TRAVEL` | going somewhere — balloon, farm reset, duel arena | `block.beacon.power_select` | 1.0 |
+| `COUNTDOWN_TICK` | a clock running out — duel 3-2-1-**Go**, farm reset, restart, border | `block.note_block.hat` | 1.0 |
+| `NETWORK_EVENT` | everyone hears it — a milestone somebody *else* closed, a phase switch | `ui.toast.challenge_complete` | 1.0 |
 
-The enum lives in `:common`; each module maps category → sound, pitch and volume in its own
-`config.yml`. **An empty mapping silences that category**, which is the escape hatch for a sound
-that turns out to be irritating in practice. A test asserts that no call site outside the mapping
-names a sound directly.
+Nine categories, **ten constants**: open and close are the two halves of one. Every key above was
+resolved against `org.bukkit.Sound` as compiled for `paper-api:26.2.build.121-stable` on 2026-09-04,
+and `SoundDefaultsTest` re-resolves all ten on every build — a Minecraft release that retires one
+turns the build red instead of turning a chime silent. **Nobody has heard them next to each other**;
+they are proposals, and retuning one is a config edit.
 
----
+**A key is a namespaced registry key, never a Bukkit constant** — `minecraft:ui.button.click`, not
+`UI_BUTTON_CLICK`. The constants are generated from the registry and documented as removable between
+versions; the key is what the resource pack, `/playsound` and the protocol all use. It is also how a
+custom sound out of `resource-pack/` arrives later with no Java change: a key that parses but names
+nothing the server knows simply plays nothing.
+
+**An empty key silences that category**, which is the escape hatch for a sound that turns out to be
+irritating with twenty people in a tavern — and it works everywhere in the module at once, which is
+the point of a call site choosing a category rather than a sound. In `smp` that lives in
+**`sounds.yml`, not `config.yml`**, and the separation is load-bearing: `config.yml` is deliberately
+not reloadable (the plugin binds worlds, borders and coordinates once at enable and would not notice
+them changing), so an escape hatch inside it would have cost a restart of the season to use.
+`/smp reload` re-reads the sounds, the track and the message bundles, each reported separately
+because each fails on its own.
+
+**Nothing about a bad sound stops a server.** A key that does not parse, or a volume or pitch that
+makes no sense, is reported once in the console and the category is silenced or the number corrected;
+a sound that throws when it is played is silenced for the rest of the run. That deviates from this
+repository's usual "a bad config is `getServer().shutdown()`" and it is deliberate — a typo in a
+chime is not worth a season offline.
+
+### Where the vocabulary is deliberately silent
+
+Naming these is as much a decision as the rest, and each is a comment at its call site so the next
+session does not "finish" it:
+
+- **an objective closing** — the middle rung of a ladder. Handing something in is `SMALL_SUCCESS`
+  for the one player; a milestone is `BIG_SUCCESS` for whoever closed it and `NETWORK_EVENT` for
+  everybody else. There are several objectives per milestone, so a network-wide sound on each would
+  make the milestone's own sound mean less.
+- **a duel queued** — whoever stepped on second already heard `SELECT` in the same tick.
+- **a farm reset postponed** — the countdown ticks because the world is about to be taken away; a
+  reset that did not happen takes nothing.
+- **a duel interrupted by the server stopping** — it cost nobody anything.
+
+### What the proxy cannot do
+
+**Velocity cannot play a sound the ordinary way.** `velocity-api:4.1.1` documents both
+`Player#playSound(Sound)` and the coordinate overload as *"not currently implemented in Velocity and
+will not perform any actions"* — they are empty default methods (read from the 4.1.1 sources jar,
+2026-09-04). Only `playSound(Sound, Sound.Emitter)` works, on 1.19.3+, and it "requires a present
+`getCurrentServer()` for the emitting player as well as this player". `Player` is itself a
+`Sound.Emitter`, so `player.playSound(sound, player)` is the shape that could work for a player
+already on a backend — **untested, and it needs a real client**. Until somebody has heard it, a
+restart countdown from the proxy is chat and title only.
 
 ## 5. Chat and system messages
 

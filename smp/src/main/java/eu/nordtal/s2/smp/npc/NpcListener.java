@@ -161,19 +161,55 @@ public final class NpcListener implements Listener {
             return;
         }
 
-        gui.apply(result);
+        // Taken now, on the click, so the player cannot pull them back out while the credit is in
+        // flight - and held, because the credit can legitimately pay for none of them.
+        final java.util.List<org.bukkit.inventory.ItemStack> taken = gui.apply(result);
         final String objectiveKey = gui.objective().key();
         final long accepted = result.accepted();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            final long credited =
-                    engine.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
+            long credited;
+            try {
+                credited = engine.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
+            } catch (final RuntimeException failure) {
+                // The database said no. Without this the items are gone and the player is told
+                // nothing at all, because the callback below never runs.
+                plugin.getLogger().severe("the hand-in for " + player.getName() + " on "
+                        + objectiveKey + " could not be credited, giving the items back: "
+                        + failure.getMessage());
+                credited = 0;
+            }
+            final long paid = credited;
             Bukkit.getScheduler().runTask(plugin, () -> {
+                if (paid <= 0) {
+                    // Nothing was credited - the objective finished while this screen was open, or
+                    // the write failed. The items were already taken, so they go straight back:
+                    // returnEverything only knows about the slots, and these are no longer in them.
+                    // A "handed in 0, thank you" line with the diamonds gone is the one outcome this
+                    // screen must never produce.
+                    if (!player.isOnline()) {
+                        // The one case nothing here can fix: the items belong to a player who is no
+                        // longer on the server, and this plugin has no mailbox. Named in the log,
+                        // stack by stack, so an admin can hand them back - which is the whole
+                        // difference between an incident and a silent loss. It is on the owner's
+                        // rehearsal list whether this deserves a real store.
+                        plugin.getLogger().severe(player.getName() + " left while a hand-in on "
+                                + objectiveKey + " was in flight, it credited nothing, and these"
+                                + " items could not be returned: " + describe(taken));
+                        return;
+                    }
+                    gui.giveBack(player, taken);
+                    player.sendMessage(MessageRenderer.of(messages)
+                            .get(locale, "smp.handin.nothing-credited"));
+                    sounds.play(player, Feedback.REFUSED);
+                    player.closeInventory();
+                    return;
+                }
                 if (!player.isOnline()) {
                     return;
                 }
                 player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.handin.accepted",
-                        "amount", credited));
+                        "amount", paid));
                 sounds.play(player, Feedback.SMALL_SUCCESS);
                 player.closeInventory();
             });
@@ -186,6 +222,13 @@ public final class NpcListener implements Listener {
                 && event.getPlayer() instanceof Player player) {
             gui.returnEverything(player);
         }
+    }
+
+    /** {@code 12x DIAMOND, 3x EMERALD} - for a log line an admin has to act on. */
+    private static String describe(final java.util.List<org.bukkit.inventory.ItemStack> stacks) {
+        return stacks.stream()
+                .map(stack -> stack.getAmount() + "x " + stack.getType().name())
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     /** Sends one already-rendered message on the main thread, from wherever it is called. */

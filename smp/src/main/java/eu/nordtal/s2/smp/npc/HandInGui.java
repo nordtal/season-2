@@ -105,12 +105,29 @@ public final class HandInGui implements Surface {
         return stillNeeded;
     }
 
-    /** Applies a sorted deposit: takes what was accepted, leaves the rest in place. */
-    public void apply(final HandIn.Result result) {
+    /**
+     * Applies a sorted deposit: takes what was accepted, leaves the rest in place.
+     *
+     * <p><b>It hands back what it took</b>, and that return value is not a convenience. The credit
+     * that pays for these items runs asynchronously, and it can legitimately credit <em>nothing</em>
+     * - a second player finished the objective while this screen was open, or the database refused
+     * the write. The only restore path is {@link #returnEverything}, which reads the very slots this
+     * method has just emptied, so without the copies the items are gone and the player is told the
+     * hand-in succeeded. Found by review, 2026-09-04.
+     *
+     * @return the stacks that were removed, as they were before removal
+     */
+    public List<ItemStack> apply(final HandIn.Result result) {
+        final List<ItemStack> taken = new ArrayList<>();
         for (final HandIn.Take take : result.takes()) {
             final ItemStack stack = inventory.getItem(take.slot());
             if (stack == null) {
                 continue;
+            }
+            if (take.taken() > 0) {
+                final ItemStack copy = stack.clone();
+                copy.setAmount(take.taken());
+                taken.add(copy);
             }
             if (take.returned() <= 0) {
                 inventory.setItem(take.slot(), null);
@@ -119,6 +136,18 @@ public final class HandInGui implements Surface {
                 inventory.setItem(take.slot(), stack);
             }
         }
+        return taken;
+    }
+
+    /**
+     * Gives back stacks {@link #apply} removed, when the credit they paid for did not happen.
+     *
+     * <p>Straight into the player's inventory rather than back into the screen: by the time this is
+     * known the screen may be closed, and a slot that is put back after {@link #returnEverything}
+     * has run would be emptied by nothing at all.
+     */
+    public void giveBack(final Player player, final List<ItemStack> stacks) {
+        stacks.forEach(stack -> give(player, stack));
     }
 
     /**
@@ -135,8 +164,13 @@ public final class HandInGui implements Surface {
                 continue;
             }
             inventory.setItem(slot, null);
-            player.getInventory().addItem(stack).values()
-                    .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+            give(player, stack);
         }
+    }
+
+    /** Into the inventory, and on the floor at their feet if it does not fit. Never nowhere. */
+    private static void give(final Player player, final ItemStack stack) {
+        player.getInventory().addItem(stack).values()
+                .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
     }
 }

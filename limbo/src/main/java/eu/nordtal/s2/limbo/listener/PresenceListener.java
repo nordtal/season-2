@@ -1,5 +1,8 @@
 package eu.nordtal.s2.limbo.listener;
 
+import eu.nordtal.s2.common.hud.TabList;
+import eu.nordtal.s2.common.message.MessageRenderer;
+import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
@@ -46,14 +49,34 @@ public final class PresenceListener implements Listener {
     private final WaitingRoom room;
     private final LimboChannel channel;
     private final PlayerLocales locales;
+    private final MessageRenderer messages;
 
     public PresenceListener(final Plugin plugin, final WaitingWorld world, final WaitingRoom room,
-                            final LimboChannel channel, final PlayerLocales locales) {
+                            final LimboChannel channel, final PlayerLocales locales,
+                            final Messages messages) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.world = Objects.requireNonNull(world, "world");
         this.room = Objects.requireNonNull(room, "room");
         this.channel = Objects.requireNonNull(channel, "channel");
         this.locales = Objects.requireNonNull(locales, "locales");
+        this.messages = new MessageRenderer(Objects.requireNonNull(messages, "messages"));
+    }
+
+    /**
+     * Draws the tab list frame this one player sees.
+     *
+     * <p>Only this player, and no count: {@link #hideEverybodyFromEachOther} means the list above
+     * the footer holds exactly one name - their own - so the {@code {online}/{max}} the SMP and the
+     * hunger games put there would sit over a list that contradicts it. limbo's {@code tab.footer}
+     * therefore says something else, and is the one of the three that is allowed to differ; see
+     * {@code TabListTest}. The header is shared, because a player who presses Tab here has just
+     * arrived on the network and the logo is the only thing on the screen that says where.</p>
+     */
+    private void sendTabList(final Player player) {
+        final java.util.Locale locale = locales.of(player.getUniqueId());
+        player.sendPlayerListHeaderAndFooter(
+                TabList.header(messages, locale),
+                TabList.footer(messages, locale, 1, 1));
     }
 
     /**
@@ -79,6 +102,7 @@ public final class PresenceListener implements Listener {
 
         room.receive(player);
         hideEverybodyFromEachOther(player);
+        sendTabList(player);
 
         // One tick later: by then the join is unambiguously complete, whatever order Bukkit ran the
         // handlers of this event in. See LimboChannel#sendReady.
@@ -118,6 +142,7 @@ public final class PresenceListener implements Listener {
                         return;
                     }
                     room.redraw(player);
+                    sendTabList(player);
                 }));
     }
 

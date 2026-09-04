@@ -1,5 +1,8 @@
 package eu.nordtal.s2.hungergames.listener;
 
+import eu.nordtal.s2.common.hud.TabList;
+import eu.nordtal.s2.common.message.MessageRenderer;
+import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.game.GameState;
@@ -32,13 +35,33 @@ public final class PresenceListener implements Listener {
     private final PlayerLocales locales;
     private final PlayerBodies bodies;
     private final GameState state;
+    private final MessageRenderer messages;
 
     public PresenceListener(final Plugin plugin, final PlayerLocales locales, final PlayerBodies bodies,
-                            final GameState state) {
+                            final GameState state, final Messages messages) {
         this.plugin = plugin;
         this.locales = locales;
         this.bodies = bodies;
         this.state = state;
+        this.messages = new MessageRenderer(messages);
+    }
+
+    /**
+     * Rewrites the tab list header and footer for everybody online.
+     *
+     * <p>For everybody, not just the player who moved: the footer carries the player count, so one
+     * join changes what every other player's screen should say. The composition itself is
+     * {@link TabList}, shared with limbo and the SMP - the tab list is the one surface a player
+     * carries unchanged across all three servers.</p>
+     */
+    private void refreshTabList() {
+        for (final Player online : Bukkit.getOnlinePlayers()) {
+            final java.util.Locale locale = locales.of(online.getUniqueId());
+            online.sendPlayerListHeaderAndFooter(
+                    TabList.header(messages, locale),
+                    TabList.footer(messages, locale,
+                            Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers()));
+        }
     }
 
     @EventHandler
@@ -57,7 +80,11 @@ public final class PresenceListener implements Listener {
                 .thenRun(() -> {
                     if (!player.isOnline()) {
                         locales.quit(player.getUniqueId());
+                        return;
                     }
+                    // Only now: until the language lands, of() answers English, and a tab list
+                    // drawn here would be the English one for a German player until they relog.
+                    Bukkit.getScheduler().runTask(plugin, this::refreshTabList);
                 });
 
         if (state.isRunning() && bodies.hasBody(player.getUniqueId())) {
@@ -76,6 +103,10 @@ public final class PresenceListener implements Listener {
     public void onQuit(final PlayerQuitEvent event) {
         final Player player = event.getPlayer();
         locales.quit(player.getUniqueId());
+
+        // A tick later: during PlayerQuitEvent the leaver is still in getOnlinePlayers(), so
+        // counting here would tell everyone the number that was true a moment ago.
+        Bukkit.getScheduler().runTask(plugin, this::refreshTabList);
 
         // Only a disconnect once the game is actually RUNNING (state.isRunning() becomes true in
         // HungerGamesManager#release, not at the start of the countdown) gets a body here. A

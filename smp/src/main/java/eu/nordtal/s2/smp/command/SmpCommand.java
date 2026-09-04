@@ -65,12 +65,14 @@ public final class SmpCommand {
      * anything to do with it.
      */
     private final UpdateCommands updates;
+    private final AccessLookup accessLookup;
     private final SmpSounds sounds;
 
     public SmpCommand(final Plugin plugin, final SmpDao dao, final ObjectiveEngine engine,
                       final FarmWorldReset farmReset, final Identities identities,
                       final Messages messages, final PlayerLocales locales, final Runnable reload,
-                      final UpdateCommands updates, final SmpSounds sounds) {
+                      final UpdateCommands updates, final AccessLookup accessLookup,
+                      final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.engine = engine;
@@ -80,6 +82,7 @@ public final class SmpCommand {
         this.locales = locales;
         this.reload = reload;
         this.updates = updates;
+        this.accessLookup = accessLookup;
         this.sounds = sounds;
     }
 
@@ -98,6 +101,7 @@ public final class SmpCommand {
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .executes(this::handleUnlockMilestone))))
                 .then(updates.build())
+                .then(accessLookup.build())
                 .then(Commands.literal("aura")
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .then(Commands.argument("delta", IntegerArgumentType.integer(-10000, 10000))

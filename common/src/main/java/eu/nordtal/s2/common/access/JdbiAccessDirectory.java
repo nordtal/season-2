@@ -285,4 +285,9 @@ final class JdbiAccessDirectory implements AccessDirectory {
         return dao.adminMinecraftAccounts();
     }
 
+    @Override
+    public java.util.Optional<OpenPayment> openPayment(final String discordId) {
+        return dao.openPayment(discordId);
+    }
+
 }

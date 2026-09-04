@@ -1016,6 +1016,42 @@ lookup that already happens. If that ever shows up, the fix is one query returni
 conditional operator — an operator that is missing exactly when the network is busy is worse than
 the query.
 
+### `/smp access <player>` — why can this person not get in?
+
+Added 2026-09-04, and it is the one command the survey of that day moved *into* the game rather than
+out of it. Discord's `/access-status` is the full picture and stays there: it names roles, channels
+and a purchase history, none of which mean anything in chat. What an admin standing next to somebody
+who cannot get in needs is three lines.
+
+```
+/smp access Till
+  Till is linked to Discord account 100000000000000001.
+  Access runs until 2026-11-14 18:00.
+  Open purchase NT-A1B2C3: 30 days, 3.00 EUR, started 2026-11-01 12:04. The payment link exists;
+  they have not paid yet.
+```
+
+**The third line is why it exists.** "They have not paid" and "they are in the middle of paying"
+produce the same disconnect screen and the same complaint, and only one of them means the admin
+should wait rather than act. It is readable from a Paper server at all because the purchase flow's
+state is a **row** and not a cache — season 1 kept it in Guava, so a restart answered "setup
+expired" to everybody mid-purchase.
+
+Four things it does deliberately:
+
+- **The answer goes to the asker and nowhere else.** It carries a Discord id and a payment
+  reference; those are things this network's admins already see in the admin channel, and they are
+  not things to print into a shared chat.
+- **It distinguishes a purchase with no bunq tab from one with a link.** `bunq_tab_id IS NULL` is
+  exactly the difference between "chose 30 days" and "asked for a payment link", and a purchase
+  stuck on the first is a different thing to chase.
+- **It is read-only, and `:common`'s access API stays read-only on `payment_request`.** That table
+  is a state machine with one owner (`Purchases` in the bot); a second writer is a second
+  half-finished purchase.
+- **Online players only**, like `/smp aura`. `account_link` stores UUIDs and Discord ids and no
+  names, so this server has no source for an offline name lookup — and the case the command is for
+  is somebody standing in front of you.
+
 ### `/smp update` — the network's updater, from in game
 
 Added 2026-09-01, and it is the one part of `/smp` that has nothing to do with this server:

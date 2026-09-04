@@ -53,7 +53,17 @@ public interface HungerGamesSpec {
      * divides by zero, so a lower value is not "strict", it is broken. See
      * {@code docs/hunger-games.md#start}.
      */
-    int HARD_MINIMUM_PARTICIPANTS = 2;
+    /**
+     * An alias for {@code HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS}, which moved there on
+     * 2026-09-05 with {@code /hg start}.
+     *
+     * <p>It is one number in one place, not two that agree: the command that refuses a game below it
+     * lives in {@code :commands}, which is compiled against no platform and cannot see this
+     * interface. Kept as a name here so that the validator below and {@code BorderMath}'s comment
+     * still read as they did.</p>
+     */
+    int HARD_MINIMUM_PARTICIPANTS =
+            eu.nordtal.s2.commands.hungergames.HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS;
 
     @Order(1)
     @Key("countdown-seconds")

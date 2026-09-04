@@ -206,6 +206,20 @@ byte counts are the sum of the jars that would actually be shaded, annotation-on
   1.0.0-SNAPSHOT`; the two are different artefacts, **neither is on Maven Central**, and `:common`
   is deliberately compiled against no platform at all. The abstraction would exist to serve *one*
   command on the proxy. What genuinely is shared is shared already: the message system.
+
+  **Half of that rejection was reopened on 2026-09-04, and the half that was reopened is the
+  premise, not the reasoning.** The artefact argument stands untouched and is why the new module
+  does not break it: `:commands` shares the *decision* half of a command — who is asking, may they,
+  in which language, what is said back — behind a `NordtalUser`, and touches **no platform type at
+  all**, exactly like `:common`. There is still no shared Brigadier helper; the Brigadier adapters
+  live per platform, and the Paper ones in `:paper-common`.
+
+  What expired is "the abstraction would exist to serve *one* command on the proxy". The owner
+  decided on 2026-09-04 that every command that is an admin command today becomes available on both
+  platforms, and on all three Minecraft servers — nine commands on two or three surfaces each,
+  reached through a `command_request` row when the effect belongs to another process. The decision
+  was not wrong when it was taken; its grounds moved, which is a different thing, and it is written
+  down that way so a later change argues with the reasoning rather than with the count.
 - **`BasicCommand` on Paper.** Simpler per command, but it parses arguments as `String[]` and
   supplies its own suggestions, so the commands that carry arguments would need a Brigadier tree
   anyway — and then the repository has two shapes. One shape, learned once.
@@ -224,9 +238,11 @@ byte counts are the sum of the jars that would actually be shaded, annotation-on
   not by a permission node — see [season-phases.md](season-phases.md#who-may-switch-it) for what
   that costs when the database is the thing that is down.
 - Bukkit permission nodes, where a vanilla or third-party command wants one, still come from the
-  operator flag in [smp.md](smp.md#admins) — an admin is one on all three Paper servers, granted at
-  join and removed at quit (it was a `PermissionAttachment` with a configured node list until
-  2026-09-04). Brigadier's own `requires` predicate is what gates our commands.
+  operator flag in [smp.md](smp.md#admins) — an admin is one on all three Paper servers for as long
+  as `discord_user.admin` says so, granted at join, removed at quit **and removed while they are
+  online** when the flag is revoked (it was a `PermissionAttachment` with a configured node list
+  until 2026-09-04, and read once per session until later the same day). Brigadier's own `requires`
+  predicate is what gates our commands.
 
 ## Schema ownership
 

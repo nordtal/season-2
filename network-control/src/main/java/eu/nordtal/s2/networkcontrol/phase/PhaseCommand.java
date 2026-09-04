@@ -8,91 +8,101 @@ import com.mojang.brigadier.context.CommandContext;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
-import com.velocitypowered.api.proxy.ProxyServer;
 
+import eu.nordtal.s2.commands.Confirmations;
+import eu.nordtal.s2.commands.NordtalCommand;
+import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.commands.Values;
+import eu.nordtal.s2.commands.phase.PhaseCommands;
+import eu.nordtal.s2.commands.phase.PhaseEffects;
+import eu.nordtal.s2.commands.phase.SetPhase;
+import eu.nordtal.s2.commands.phase.SetSeasonDate;
+import eu.nordtal.s2.commands.phase.ShowPhase;
 import eu.nordtal.s2.common.SeasonPhase;
-import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.phase.DateChange;
-import eu.nordtal.s2.common.phase.PhaseChange;
-import eu.nordtal.s2.common.phase.PhaseDirectory;
-import eu.nordtal.s2.common.phase.SeasonDateRefused;
 import eu.nordtal.s2.common.phase.SeasonDates;
+import eu.nordtal.s2.networkcontrol.command.VelocityUser;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
-import net.kyori.adventure.text.Component;
-
-import org.slf4j.Logger;
-
-import java.time.Instant;
-import java.util.Arrays;
-import java.util.Locale;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.Optional;
 
 /**
- * {@code /phase} and {@code /phase set <phase>} on the proxy - the <b>emergency</b> path for
- * switching the season phase when the bot or Discord is down. The normal path is
- * {@code /phase set} in Discord (docs/season-phases.md#who-may-switch-it).
+ * The Brigadier half of {@code /phase} on the proxy - the <b>emergency</b> path for switching the
+ * season phase when the bot or Discord is down. The normal path is {@code /phase set} in Discord
+ * (docs/season-phases.md#who-may-switch-it).
  *
- * <h2>Decided, and not re-opened here</h2>
+ * <h2>This class is an adapter now, and that is the change</h2>
+ * It was 346 lines of tree-building <em>and</em> decisions until 2026-09-04, and the bot had its own
+ * 480 that made some of those decisions differently. What is left here is the three things only
+ * Velocity can do: build the tree, decide who the source is, and confirm. Everything the command
+ * <em>says</em> and everything it decides lives in {@code eu.nordtal.s2.commands.phase}, once, and
+ * is asserted by {@code PhaseCommandsTest} without a proxy.
+ *
+ * <h2>Decided elsewhere, and not re-opened here</h2>
  * <ul>
- *   <li><b>Brigadier directly</b>, through {@code CommandManager.metaBuilder} - no command
- *       framework, {@code BasicCommand} is not used, and Brigadier is never shaded because Velocity
- *       provides {@code com.mojang.brigadier.*} at runtime. docs/architecture.md#commands.</li>
- *   <li><b>Authorised by {@code discord_user.admin}</b> - not by console and not by a Velocity
- *       permission node. "The same flag, read with the same query the login gate already makes",
- *       which is what {@link LoginRoster} holds. Console was considered and rejected on 2026-08-31:
- *       it would be a second, different notion of who may do this on a proxy that already knows
- *       exactly who is an admin. A non-player source therefore fails {@code requires} and the
- *       command does not exist for it.</li>
- *   <li><b>The switch goes through {@link PhaseDirectory#switchPhase}</b>, which writes the row, the
- *       {@code audit_log} entry and the {@code NOTIFY} as one statement. Nothing here writes the
- *       phase itself.</li>
+ *   <li><b>Brigadier directly</b>, through {@code CommandManager.metaBuilder} - no framework, and
+ *       Brigadier is never shaded because Velocity provides it. docs/architecture.md#commands.</li>
+ *   <li><b>Authorised by {@code discord_user.admin}</b>, from {@link LoginRoster}, which the login
+ *       gate filled and the notification listener keeps current. Not by console and not by a
+ *       Velocity permission node: a non-{@link Player} source fails {@code requires} and the command
+ *       does not exist for it. Rejected on 2026-08-31 and re-stated in {@code PhaseCommands}.</li>
+ *   <li><b>The write goes through {@code PhaseDirectory#switchPhase}</b>, which writes the row, the
+ *       {@code audit_log} entry and the {@code NOTIFY} as one statement.</li>
  * </ul>
  *
  * <h2>What it cannot do</h2>
- * If the <em>database</em> is what is down, this command does not work either - the row lives
- * there. docs/season-phases.md says so in as many words and names the last resort: an {@code UPDATE}
- * by hand, which the proxy picks up on its next poll within thirty seconds. Authorisation still
- * works during an outage, because the admin flag was read at login and is held in memory; it is the
- * write that fails, and it fails loudly rather than silently.
+ * If the <em>database</em> is what is down, this command does not work either - the row lives there.
+ * docs/season-phases.md says so and names the last resort: an {@code UPDATE} by hand, which the
+ * proxy picks up on its next poll. Authorisation still works during an outage, because the admin
+ * flag was read at login and is held in memory; it is the write that fails, and it fails loudly.
  *
- * <h2>Threading</h2>
- * Every database call is handed to the proxy scheduler rather than made on the thread Brigadier
- * hands us, and {@code requires} is a map lookup for the same reason: Brigadier evaluates that
- * predicate while building the command tree it sends to a client, which is not a place for a
- * blocking JDBC call.
+ * <h2>The confirmation, and what it costs here</h2>
+ * {@code /phase set} and {@code /phase smp-start} are declared irreversible, so they are typed
+ * twice - inside {@link Confirmations#WINDOW}. On the emergency path that is a deliberate extra
+ * second or two, decided by the owner on 2026-09-04 together with "two-step everywhere". The first
+ * invocation is also the only place the proxy has ever said <em>what a switch will do to the people
+ * who are connected</em>, which the bot's button dialogue has said since it was written.
  */
 public final class PhaseCommand {
 
     private static final String ALIAS = "phase";
 
-    private final Object plugin;
-    private final ProxyServer proxy;
-    private final Logger logger;
-    private final PhaseDirectory phases;
-    private final PhaseWatch watch;
     private final LoginRoster roster;
     private final Messages messages;
+    private final PhaseEffects effects;
+    private final PhaseWatch watch;
+    private final Confirmations confirmations;
 
-    public PhaseCommand(final Object plugin, final ProxyServer proxy, final Logger logger,
-                        final PhaseDirectory phases, final PhaseWatch watch, final LoginRoster roster,
-                        final Messages messages) {
-        this.plugin = plugin;
-        this.proxy = proxy;
-        this.logger = logger;
-        this.phases = phases;
-        this.watch = watch;
+    private final ShowPhase show = new ShowPhase();
+    private final SetPhase set = new SetPhase();
+    private final SetSeasonDate launch = SetSeasonDate.launch();
+    private final SetSeasonDate smpStart = SetSeasonDate.smpStart();
+
+    public PhaseCommand(final LoginRoster roster, final Messages messages,
+                        final PhaseEffects effects, final PhaseWatch watch,
+                        final Confirmations confirmations) {
         this.roster = roster;
         this.messages = messages;
+        this.effects = effects;
+        this.watch = watch;
+        this.confirmations = confirmations;
+    }
+
+    /** @return the alias, so the caller can build the {@code CommandMeta} without repeating it */
+    public static String alias() {
+        return ALIAS;
     }
 
     /** @return the command, ready to hand to {@code CommandManager#register(CommandMeta, Command)} */
     public BrigadierCommand build() {
+        // The bare /phase executes `show`. That is a Brigadier tree detail and not a second
+        // command: Discord cannot invoke a command that has subcommands on its own, so the shared
+        // path is ["phase", "show"] and the proxy adds this as a convenience.
         final LiteralArgumentBuilder<CommandSource> root = BrigadierCommand
                 .literalArgumentBuilder(ALIAS)
                 .requires(this::mayUse)
-                .executes(this::report);
+                .executes(this::show);
 
         final RequiredArgumentBuilder<CommandSource, String> phaseArgument = BrigadierCommand
                 .requiredArgumentBuilder("phase", StringArgumentType.word())
@@ -104,28 +114,24 @@ public final class PhaseCommand {
                 })
                 .executes(this::set);
 
-        // greedyString, not word: a date carries a space, and Brigadier would otherwise hand over
-        // "2026-10-01" and call "18:00" an unexpected second argument.
         return new BrigadierCommand(root
+                .then(BrigadierCommand.literalArgumentBuilder("show").executes(this::show))
                 .then(BrigadierCommand.literalArgumentBuilder("set").then(phaseArgument))
                 .then(BrigadierCommand.literalArgumentBuilder("launch")
-                        .then(dateArgument(Column.LAUNCH)))
+                        .then(dateArgument(launch)))
                 .then(BrigadierCommand.literalArgumentBuilder("smp-start")
-                        .then(dateArgument(Column.SMP_START))));
+                        .then(dateArgument(smpStart))));
     }
 
-    private RequiredArgumentBuilder<CommandSource, String> dateArgument(final Column column) {
+    private RequiredArgumentBuilder<CommandSource, String> dateArgument(final SetSeasonDate command) {
+        // greedyString, not word: a date carries a space, and Brigadier would otherwise hand over
+        // "2026-10-01" and call "18:00" an unexpected second argument.
         return BrigadierCommand.requiredArgumentBuilder("when", StringArgumentType.greedyString())
                 .suggests((context, builder) -> {
                     builder.suggest(SeasonDates.CLEAR);
                     return builder.buildFuture();
                 })
-                .executes(context -> date(context, column));
-    }
-
-    /** @return the alias, so the caller can build the {@code CommandMeta} without repeating it */
-    public static String alias() {
-        return ALIAS;
+                .executes(context -> date(context, command));
     }
 
     // ---------------------------------------------------------------- authorisation
@@ -133,214 +139,87 @@ public final class PhaseCommand {
     /**
      * The whole authorisation rule: a connected player whose login query found
      * {@code discord_user.admin} set.
-     * <p>
-     * A non-{@link Player} source - the console - fails here and the command does not exist for it,
-     * which is the rejection docs/season-phases.md records rather than an oversight. The lookup is
-     * a {@link java.util.concurrent.ConcurrentHashMap} read because Brigadier evaluates this while
-     * building the tree it sends to a client.
-     * </p>
+     *
+     * <p>A non-{@link Player} source - the console - fails here and the command does not exist for
+     * it, which is the rejection docs/season-phases.md records rather than an oversight. The lookup
+     * is a map read because Brigadier evaluates this while building the tree it sends to a
+     * client.</p>
      */
     private boolean mayUse(final CommandSource source) {
         return source instanceof Player player && roster.isAdmin(player.getUniqueId());
     }
 
-    // ---------------------------------------------------------------- the two branches
+    private NordtalUser userOf(final CommandContext<CommandSource> context) {
+        return new VelocityUser((Player) context.getSource(), roster, messages);
+    }
 
-    private int report(final CommandContext<CommandSource> context) {
-        final Player player = (Player) context.getSource();
-        final Locale locale = roster.localeOf(player.getUniqueId());
+    // ---------------------------------------------------------------- the four branches
 
-        // Answered from the watch rather than with a query: this is the command somebody runs while
-        // the network is misbehaving, and it should still say something useful when the database is
-        // unreachable. Whether the value is an observation or the MAINTENANCE fallback is stated.
-        player.sendMessage(watch.everRead()
-                ? MessageRenderer.of(messages).format(locale, "phase.current",
-                        "phase", watch.lastKnown().name())
-                : MessageRenderer.of(messages).format(locale, "phase.current.unread",
-                        "phase", watch.lastKnown().name()));
-
-        // The dates come from the watch too, and only the opening is cached there - smp_start is
-        // read fresh, off the calling thread, because nothing in this process needs it otherwise.
-        proxy.getScheduler().buildTask(plugin, () -> {
-            final String smpStart;
-            try {
-                smpStart = SeasonDates.format(phases.smpStart().orElse(null));
-            } catch (final RuntimeException exception) {
-                logger.warn("Could not read the season dates for /phase", exception);
-                return;
-            }
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.dates",
-                    "launch", SeasonDates.format(watch.launch().orElse(null)),
-                    "smpStart", smpStart,
-                    "zone", SeasonDates.ZONE.getId()));
-        }).schedule();
+    private int show(final CommandContext<CommandSource> context) {
+        show.run(userOf(context), Values.none(PhaseCommands.SHOW), effects);
         return com.mojang.brigadier.Command.SINGLE_SUCCESS;
-    }
-
-    // ---------------------------------------------------------------- the two dates
-
-    /** Which column a {@code /phase launch} or {@code /phase smp-start} is about. */
-    enum Column {
-
-        LAUNCH("phase.date.what.launch"),
-        SMP_START("phase.date.what.smp-start");
-
-        private final String key;
-
-        Column(final String key) {
-            this.key = key;
-        }
-    }
-
-    private int date(final CommandContext<CommandSource> context, final Column column) {
-        final Player player = (Player) context.getSource();
-        final Locale locale = roster.localeOf(player.getUniqueId());
-        final String typed = StringArgumentType.getString(context, "when");
-
-        final Instant at;
-        if (SeasonDates.isClear(typed)) {
-            at = null;
-        } else {
-            final var parsed = SeasonDates.parse(typed);
-            if (parsed.isEmpty()) {
-                player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.date.invalid",
-                        "pattern", SeasonDates.PATTERN,
-                        "zone", SeasonDates.ZONE.getId(),
-                        "clear", SeasonDates.CLEAR));
-                return com.mojang.brigadier.Command.SINGLE_SUCCESS;
-            }
-            at = parsed.get();
-        }
-
-        final String actor = roster.of(player.getUniqueId())
-                .map(LoginRoster.Session::discordId)
-                .orElse(null);
-
-        proxy.getScheduler().buildTask(plugin,
-                () -> writeDate(player, locale, column, at, actor)).schedule();
-        return com.mojang.brigadier.Command.SINGLE_SUCCESS;
-    }
-
-    private void writeDate(final Player player, final Locale locale, final Column column,
-                           final Instant at, final String actor) {
-        final DateChange change;
-        try {
-            change = column == Column.LAUNCH
-                    ? phases.setLaunch(at, actor)
-                    : phases.setSmpStart(at, actor);
-        } catch (final SeasonDateRefused refused) {
-            // The model said no, in a sentence written for the person who typed it.
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.date.refused",
-                    "reason", refused.getMessage()));
-            return;
-        } catch (final RuntimeException exception) {
-            logger.error("{} could not write a season date from the proxy", player.getUsername(),
-                    exception);
-            player.sendMessage(MessageRenderer.of(messages).get(locale, "phase.date.failed"));
-            return;
-        }
-
-        logger.warn("Season date written from the proxy by {} ({}): {} {} -> {}, {} grants moved",
-                player.getUsername(), actor, column, change.previous(), change.current(),
-                change.grants());
-
-        // The opening lives in the watch, so refresh for the same reason the phase switch does.
-        watch.refresh();
-
-        final String what = messages.get(locale, column.key);
-        if (change.current() == null) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.date.cleared", "what", what));
-            if (column == Column.SMP_START) {
-                player.sendMessage(MessageRenderer.of(messages).get(locale, "phase.date.kept"));
-            }
-            return;
-        }
-
-        player.sendMessage(change.unchanged()
-                ? MessageRenderer.of(messages).format(locale, "phase.date.unchanged",
-                        "what", what, "current", SeasonDates.format(change.current()))
-                : MessageRenderer.of(messages).format(locale, "phase.date.set",
-                        "what", what,
-                        "current", SeasonDates.format(change.current()),
-                        "previous", SeasonDates.format(change.previous())));
-
-        if (column == Column.SMP_START && change.movedAccess()) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.date.moved",
-                    "grants", String.valueOf(change.grants()),
-                    "accounts", String.valueOf(change.accounts())));
-        }
     }
 
     private int set(final CommandContext<CommandSource> context) {
-        final Player player = (Player) context.getSource();
-        final Locale locale = roster.localeOf(player.getUniqueId());
+        final NordtalUser user = userOf(context);
         final String requested = StringArgumentType.getString(context, "phase");
+        final Values values = new Values(PhaseCommands.SET, Map.of("phase", requested));
 
-        final SeasonPhase target = parse(requested);
-        if (target == null) {
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.unknown",
-                    "value", requested, "phases", names()));
+        // An unknown name is answered by the command, not here: there is one place that decides
+        // what "that is not a phase" says, and asking somebody to confirm a phase that does not
+        // exist would be worse than useless.
+        final Optional<SeasonPhase> target = SetPhase.parse(requested);
+        if (target.isEmpty()) {
+            return run(set, user, values);
+        }
+
+        // Normalised, so that "/phase set smp" confirms "/phase set SMP" - they are the same
+        // command, and a confirmation that depended on capitalisation would be a confirmation that
+        // silently never arrives.
+        final String typed = "/phase set " + target.get().name();
+        if (!confirmations.confirm(user, typed)) {
+            final SeasonPhase current = watch.lastKnown();
+            user.reply(current == target.get() ? "phase.confirm.same" : "phase.confirm", Map.of(
+                    "previous", current.name(),
+                    "current", target.get().name(),
+                    "consequence", user.phrase(SetPhase.consequenceKey(target.get()))));
+            retype(user, typed);
             return com.mojang.brigadier.Command.SINGLE_SUCCESS;
         }
-
-        final String actor = roster.of(player.getUniqueId())
-                .map(LoginRoster.Session::discordId)
-                .orElse(null);
-
-        // Off the calling thread: switchPhase is a blocking round trip, and this command may well
-        // be run at the exact moment the database is slow.
-        proxy.getScheduler().buildTask(plugin, () -> switchNow(player, locale, target, actor)).schedule();
-        return com.mojang.brigadier.Command.SINGLE_SUCCESS;
+        return run(set, user, values);
     }
 
-    private void switchNow(final Player player, final Locale locale, final SeasonPhase target,
-                           final String actor) {
-        final PhaseChange change;
-        try {
-            change = phases.switchPhase(target, actor,
-                    "emergency switch from the proxy by " + player.getUsername());
-        } catch (final RuntimeException exception) {
-            logger.error("{} could not switch the season phase to {} from the proxy",
-                    player.getUsername(), target, exception);
-            player.sendMessage(MessageRenderer.of(messages).get(locale, "phase.failed"));
-            return;
+    private int date(final CommandContext<CommandSource> context, final SetSeasonDate command) {
+        final NordtalUser user = userOf(context);
+        final String when = StringArgumentType.getString(context, "when");
+        final Values values = new Values(command.declaration(), Map.of("when", when));
+
+        // Same shape as an unknown phase: the command owns the sentence, and a typo must not have
+        // to be typed twice before it is called a typo. SeasonDates is :common's parser, so asking
+        // it here duplicates no decision.
+        if (!SeasonDates.isClear(when) && SeasonDates.parse(when).isEmpty()) {
+            return run(command, user, values);
         }
 
-        logger.warn("Season phase switched from the proxy by {} ({}): {} -> {}",
-                player.getUsername(), actor, change.previous(), change.current());
-
-        // Do not wait for the poll or the notification to come back around: this process already
-        // knows, and refreshing here is what makes the reply and the log agree.
-        watch.refresh();
-
-        player.sendMessage(change.unchanged()
-                ? MessageRenderer.of(messages).format(locale, "phase.unchanged",
-                        "phase", change.current().name())
-                : MessageRenderer.of(messages).format(locale, "phase.changed",
-                        "previous", change.previous().name(), "current", change.current().name()));
-    }
-
-    // ---------------------------------------------------------------- helpers
-
-    /**
-     * Resolves what an admin typed, case-insensitively.
-     *
-     * @param value the raw argument
-     * @return the phase, or {@code null} when it is not one
-     */
-    static SeasonPhase parse(final String value) {
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            if (phase.name().equalsIgnoreCase(value)) {
-                return phase;
+        if (command.declaration().irreversible()) {
+            final String typed = command.declaration().name() + " " + when;
+            if (!confirmations.confirm(user, typed)) {
+                retype(user, typed);
+                return com.mojang.brigadier.Command.SINGLE_SUCCESS;
             }
         }
-        // Deliberately not SeasonPhase.fromDatabase: that maps anything unrecognised to
-        // MAINTENANCE, which is the right answer when reading a row and a catastrophic one when
-        // reading a typo out of a command line.
-        return null;
+        return run(command, user, values);
     }
 
-    private static String names() {
-        return Arrays.stream(SeasonPhase.values()).map(Enum::name).collect(Collectors.joining(", "));
+    private void retype(final NordtalUser user, final String typed) {
+        user.reply("command.confirm.retype", Map.of(
+                "command", typed,
+                "seconds", String.valueOf(confirmations.window().toSeconds())));
+    }
+
+    private int run(final NordtalCommand<PhaseEffects> command, final NordtalUser user,
+                    final Values values) {
+        command.run(user, values, effects);
+        return com.mojang.brigadier.Command.SINGLE_SUCCESS;
     }
 }

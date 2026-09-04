@@ -19,6 +19,11 @@ repositories {
 }
 
 dependencies {
+    // Every command this process answers that also exists somewhere else. :commands carries the
+    // declaration, the decisions and the message keys; this module carries the adapter. It brings
+    // :common with it (declared `api` there), which the convention plugin already adds.
+    implementation(project(":commands"))
+
     // The only jcore dependency in this repo. It carries the commented-YAML config system
     // (eu.nordtal.jcore.config) and the eu.nordtal.jcore.persistence.sql layer
     // (JDBI 3 + HikariCP + Flyway) the bot is built on, and exports jdbi3-core,

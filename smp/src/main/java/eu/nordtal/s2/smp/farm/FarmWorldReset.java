@@ -7,6 +7,7 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
+import eu.nordtal.s2.smp.hud.SmpHud;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.pregen.PreGenerator;
 import eu.nordtal.s2.smp.world.WorldRole;
@@ -56,6 +57,7 @@ public final class FarmWorldReset {
     private final SmpDao dao;
     private final Navigation navigation;
     private final SmpSounds sounds;
+    private final SmpHud hud;
     private final DailySchedule schedule;
 
     /**
@@ -71,7 +73,8 @@ public final class FarmWorldReset {
     public FarmWorldReset(final Plugin plugin, final SmpSpec config, final Worlds worlds,
                           final FarmWorldSwap swap, final PreGenerator pregen,
                           final Messages messages, final PlayerLocales locales,
-                          final SmpDao dao, final Navigation navigation, final SmpSounds sounds) {
+                          final SmpDao dao, final Navigation navigation, final SmpSounds sounds,
+                          final SmpHud hud) {
         this.plugin = plugin;
         this.config = config;
         this.worlds = worlds;
@@ -82,6 +85,7 @@ public final class FarmWorldReset {
         this.dao = dao;
         this.navigation = navigation;
         this.sounds = sounds;
+        this.hud = hud;
         this.schedule = DailySchedule.parse(config.farmResetTime());
     }
 
@@ -137,10 +141,21 @@ public final class FarmWorldReset {
         return Math.max(1L, duration.toSeconds() * 20L);
     }
 
+    /**
+     * One of the four warnings, in all three places somebody might be looking.
+     *
+     * <p>Chat carries the whole sentence, because chat is where a sentence fits and because it stays
+     * on screen to be scrolled back to. The status bar carries four words, because the person this
+     * warning is actually for is mining with chat closed - that half was missing until 2026-09-04
+     * and was finding 51 of the review, against a design document that had said "chat + HUD" from
+     * the beginning. The sound is the third: it costs nothing to somebody who is looking at neither.
+     */
     private void warn(final long minutes) {
         forEachInFarmWorld(player -> {
             final Locale locale = locales.of(player.getUniqueId());
             player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.farm.warning", "minutes", minutes));
+            hud.announce(player, messages.format(locale, "smp.hud.farm-warning",
+                    java.util.Map.of("minutes", minutes)));
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         });
     }

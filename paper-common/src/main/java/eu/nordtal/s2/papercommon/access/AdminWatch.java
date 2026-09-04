@@ -106,6 +106,31 @@ public final class AdminWatch implements AutoCloseable {
      *                      dedicated {@code LISTEN nordtal_admin} connection against
      */
     public void start(final Duration pollInterval, final DatabaseConnection listenOn) {
+        start(pollInterval, listenOn, List.of(), List.of());
+    }
+
+    /**
+     * The same, plus somebody else's channels on the same connection.
+     *
+     * <h2>Why they share one</h2>
+     * {@link NotificationListener} was built for exactly this: it takes several channels and several
+     * refreshes, never inspects which channel woke it, and runs every refresh on every signal. So
+     * one connection carrying two channels is cheaper than two connections and no worse - and the
+     * reconnect loop, the liveness check and the "re-read in full on every reconnect" rule are all
+     * written once instead of twice.
+     *
+     * <p>The command inbox is the second caller. Its own poll is separate and much shorter than the
+     * admin poll, because a command typed in Discord should not wait half a minute when a
+     * notification is missed; this only gives it the instant path.</p>
+     *
+     * @param alsoRefresh  extra work to do on every signal and on every reconnect
+     * @param alsoChannels extra channels to listen on. Ignored when {@code listenOn} is null - the
+     *                     caller's own poll is then the only path, which is the same trade the
+     *                     admin roster makes
+     */
+    public void start(final Duration pollInterval, final DatabaseConnection listenOn,
+                      final List<NotificationListener.Refresh> alsoRefresh,
+                      final List<String> alsoChannels) {
         final long ticks = Math.max(20L, pollInterval.toSeconds() * 20L);
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::refresh, ticks, ticks);
 
@@ -115,15 +140,21 @@ public final class AdminWatch implements AutoCloseable {
             return;
         }
 
+        final List<String> channels = new java.util.ArrayList<>(List.of(Channels.ADMIN));
+        channels.addAll(alsoChannels);
+
         final Notifications.Connector connector = PostgresNotifications.connector(
                 listenOn.jdbcUrl(), listenOn.username(), listenOn.password(),
                 listenOn.socketTimeoutSeconds(),
-                plugin.getName() + "-admin-listener", List.of(Channels.ADMIN));
+                plugin.getName() + "-admin-listener", channels);
+
+        final List<NotificationListener.Refresh> refreshes =
+                new java.util.ArrayList<>(List.of(
+                        new NotificationListener.Refresh("the admin roster", this::refresh)));
+        refreshes.addAll(alsoRefresh);
 
         final NotificationListener started = new NotificationListener(connector,
-                plugin.getName() + "-admin-listener",
-                List.of(new NotificationListener.Refresh("the admin roster", this::refresh)),
-                logger, pollInterval);
+                plugin.getName() + "-admin-listener", refreshes, logger, pollInterval);
         this.listener = started;
         started.start();
     }

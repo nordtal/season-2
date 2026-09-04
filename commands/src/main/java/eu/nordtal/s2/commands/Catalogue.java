@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.commands.phase.PhaseCommands;
+import eu.nordtal.s2.commands.smp.SmpCommands;
 
 import java.util.List;
 
@@ -30,11 +31,12 @@ public final class Catalogue {
 
     /** Every declaration, in no particular order. */
     public static List<Declaration> all() {
-        return List.of(
-                PhaseCommands.SHOW,
-                PhaseCommands.SET,
-                PhaseCommands.LAUNCH,
-                PhaseCommands.SMP_START);
+        return java.util.stream.Stream.of(
+                        List.of(PhaseCommands.SHOW, PhaseCommands.SET, PhaseCommands.LAUNCH,
+                                PhaseCommands.SMP_START),
+                        SmpCommands.declarations())
+                .flatMap(List::stream)
+                .toList();
     }
 
     /** Everything one process is expected to be able to run. */

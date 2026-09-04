@@ -7,6 +7,12 @@ plugins {
 // UP-TO-DATE and the comparison never runs.
 repositoryRootTestInputs {
     reads("compose.yml")
+
+    // ConsoleUsableTest reads this module's own command as text. Gradle's test input is the
+    // compiled class, not the source, so a change that alters only a comment - or a build that
+    // happens to produce identical bytecode - would leave :hunger-games:test UP-TO-DATE and the one
+    // check that says "the console can still run /hg" would not run.
+    reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/command/HungerGamesCommand.java")
 }
 
 repositories {

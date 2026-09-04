@@ -9,6 +9,12 @@ plugins {
 repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
+
+    // IrreversibleCommandsTest reads this module's own command as text. Gradle's test input is the
+    // compiled class, not the source, so without this a change that produced identical bytecode
+    // would leave :smp:test UP-TO-DATE - and the check it would skip is the one that says
+    // /smp farmreset now still asks before it deletes a world folder.
+    reads("smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java")
 }
 
 repositories {

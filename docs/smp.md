@@ -1016,6 +1016,29 @@ lookup that already happens. If that ever shows up, the fix is one query returni
 conditional operator — an operator that is missing exactly when the network is busy is worse than
 the query.
 
+### The three commands that ask before they act
+
+Since 2026-09-04, and decided with the owner as "two-step everywhere": `/smp farmreset now`,
+`/smp objective complete <key>` and `/smp milestone unlock <key>` have to be typed **twice**, within
+thirty seconds. The first invocation only says what is about to happen; nothing has been touched
+when it returns. The mechanism is `:commands`' `Confirmations`, the same one the proxy's
+`/phase set` uses, and it keys on the **whole command line** - so a pending
+`/smp milestone unlock ancient-debris` cannot be spent on a different milestone typed half a minute
+later.
+
+**What is deliberately not guarded matters as much**, because a flag on everything that writes is a
+flag nobody reads:
+
+- `/smp aura <player> <delta>` - applying the negative is an exact undo.
+- `/smp reload` - re-reading a file changes nothing that was not already on disk.
+- `/smp update restart` - it has a confirmation of its own shape already, and a better one: a minute
+  of countdown every player on the network sees, which an admin who mistyped can cancel.
+
+`IrreversibleCommandsTest` asserts both halves. `farmreset` is the one that justifies the rule: it
+deletes a world folder, which is why the deployment's shell has a test at all
+([deploy/README.md](../deploy/README.md#first-start-seeding)), and a refactor that drops the guard
+would produce a command that works perfectly and destroys the farm world on a typo.
+
 ### `/smp access <player>` — why can this person not get in?
 
 Added 2026-09-04, and it is the one command the survey of that day moved *into* the game rather than

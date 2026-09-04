@@ -299,6 +299,18 @@ Two paths write the same row, decided 2026-08-30:
    Console was considered and rejected on 2026-08-31: it would be a second, different notion of
    who may do this, on a proxy that already knows exactly who is an admin.
 
+**Since 2026-09-04 those two paths are one implementation with two adapters**
+([architecture.md](architecture.md#commands), `eu.nordtal.s2.commands.phase`). Before that they
+were two, and the two had drifted in ways nothing could have caught: the bot answered in hardcoded
+English while the proxy answered in the asker's language, only the bot confirmed, and only one of
+them reported that moving `smp_start` had shifted other people's paid access.
+
+**The emergency path confirms now too, and that is a deliberate cost.** `/phase set` on the proxy
+asks for the command to be typed again within thirty seconds. During an incident that is a second
+or two; what it buys is that the one command which disconnects every player without active access
+cannot be run by a mistyped tab-completion. `/phase launch` is *not* guarded, because setting it
+again is an exact undo — a flag on everything that writes is a flag nobody reads.
+
    **What that costs, stated so nobody rediscovers it in an outage:** if the *database* is what is
    down, neither path works — the bot cannot write the row and the proxy cannot authorise anybody
    to. There is no third command that fixes that, because the phase lives in the database. The last

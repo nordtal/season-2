@@ -87,6 +87,9 @@ class OneMessageFormatTest {
                     "the updater's report, verbatim by module rule - see the comment there"),
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/ping/NetworkPing.java",
                     "the MOTD, which NetworkPing parses itself with its own placeholder resolver"),
+            Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityUser.java",
+                    "NordtalUser#replyLiteral - text that IS already the answer and must not be"
+                            + " rendered twice, which is docs/updater.md's rule about its report"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/board/Boards.java",
                     "OUTSTANDING: board lines composed from a message plus a glyph progress bar"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java",

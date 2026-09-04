@@ -93,7 +93,7 @@ class AdminFlagIntegrationTest {
     @DisplayName("an account the bot has never written about has no flag at all")
     void unknownAccountHasNoFlag() {
         assertEquals(Optional.empty(), dao.isAdmin(STRANGER));
-        assertFalse(PhaseCommand.maySwitch(dao.isAdmin(STRANGER)),
+        assertFalse(AdminFlagDao.admits(dao.isAdmin(STRANGER)),
                 "and therefore may not switch the phase");
     }
 
@@ -105,7 +105,7 @@ class AdminFlagIntegrationTest {
         access.ensureUser(USER);
 
         assertEquals(Optional.of(false), dao.isAdmin(USER));
-        assertFalse(PhaseCommand.maySwitch(dao.isAdmin(USER)));
+        assertFalse(AdminFlagDao.admits(dao.isAdmin(USER)));
     }
 
     @Test
@@ -116,7 +116,7 @@ class AdminFlagIntegrationTest {
         access.setAdmin(USER, true);
 
         assertEquals(Optional.of(true), dao.isAdmin(USER));
-        assertTrue(PhaseCommand.maySwitch(dao.isAdmin(USER)));
+        assertTrue(AdminFlagDao.admits(dao.isAdmin(USER)));
     }
 
     @Test
@@ -126,7 +126,7 @@ class AdminFlagIntegrationTest {
         access.setAdmin(USER, false);
 
         assertEquals(Optional.of(false), dao.isAdmin(USER));
-        assertFalse(PhaseCommand.maySwitch(dao.isAdmin(USER)),
+        assertFalse(AdminFlagDao.admits(dao.isAdmin(USER)),
                 "a stale true is what would let an ex-admin switch the season phase");
     }
 
@@ -136,7 +136,7 @@ class AdminFlagIntegrationTest {
         access.setAdmin(USER, true);
         access.ensureUser(STRANGER);
 
-        assertTrue(PhaseCommand.maySwitch(dao.isAdmin(USER)));
-        assertFalse(PhaseCommand.maySwitch(dao.isAdmin(STRANGER)));
+        assertTrue(AdminFlagDao.admits(dao.isAdmin(USER)));
+        assertFalse(AdminFlagDao.admits(dao.isAdmin(STRANGER)));
     }
 }

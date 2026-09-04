@@ -387,10 +387,47 @@ three surfaces each. The decision was not wrong; its grounds moved.
 
 The module carries `NordtalUser` (identity through `account_link`, locale, the admin flag and a
 reply channel), `Declaration` + `Argument` + `Values` (what a command is, checked once rather than in
-each adapter) and `NordtalCommand<E>`, where `E` is the effect interface the owning process
-implements. **The split it rests on is front half / back half**, not admin / player: who is asking,
-may they, in which language, what is said back — all shareable; the effect — bound to the JVM that
-owns the world, and reached through a `command_request` row when it is somewhere else.
+each adapter), `Confirmations` (the "type it again" half of an irreversible command) and
+`NordtalCommand<E>`, where `E` is the effect interface the owning process implements. **The split it
+rests on is front half / back half**, not admin / player: who is asking, may they, in which language,
+what is said back — all shareable; the effect — bound to the JVM that owns the world, and reached
+through a `command_request` row when it is somewhere else.
+
+**`/phase` is the first command folded into it, and it was chosen as the proof rather than as the
+easiest.** It is the only command in the network that existed on *two* surfaces before this module
+did — 346 lines of Brigadier on the proxy and 480 of JDA in the bot, written three days apart — so it
+is the only one on which "does this layer make one implementation out of two, or a third standing
+next to them?" can be answered instead of assumed. What the two turned out to disagree about is the
+argument for the module:
+
+- The bot answered in **hardcoded English**, eleven sentences of it, while the proxy rendered message
+  keys against the asker's database locale. `docs/architecture.md#commands` calls that a bug and not
+  a shortcut, and nothing had ever compared the two.
+- The bot **confirmed** a switch with a button and the proxy switched immediately — so the surface
+  that skipped the confirmation was the one where a mistyped tab-completion disconnects everybody
+  without access. The proxy now asks for the command to be typed again inside 30 seconds
+  (`Confirmations`), which is a deliberate extra second or two on the emergency path.
+- Only one of them reported that moving `smp-start` had **shifted other people's paid access**.
+
+Two rules came with it and both are easy to undo:
+
+- **A shared command's message keys live in `:commands`' own bundle**, `messages/commands/`, and a
+  process loads it *underneath* its own through the new
+  `Messages.load(ClassLoader, List<String> roots, Path, Locale...)`. Later roots win, so a surface
+  can reword a shared line without editing the shared file. The proxy's `network-control` bundle no
+  longer carries a single `phase.*` key, and says so where they used to be.
+- **The shared bundle carries no markup at all.** Paper and Velocity render MiniMessage, Discord
+  renders its own markdown, and a string cannot carry both — either one's syntax is literal text on
+  the other surface. The bot's `/phase` confirmation lost its `**bold**` to this, which is the price
+  of one sentence in two languages instead of two sentences in one. `MessageBundlesTest` in
+  `:commands` enforces it, along with "every key a command names exists".
+
+**What the fold did *not* change** is worth writing down too, because it is what a shared layer is
+most likely to break by accident: the proxy still answers `/phase` from its `PhaseWatch` before it
+touches the database (it is the command somebody runs while the network is misbehaving), the console
+still cannot use it (rejected 2026-08-31, and re-stated in `PhaseCommands` rather than silently
+reversed), and `switchPhase` is still the one statement that writes the row, the `audit_log` entry
+and the `NOTIFY` together.
 
 **`:paper-common` is new on 2026-09-04, and it is a layer this repository did not have.** `:common`
 is compiled against no platform at all, on purpose - that rule is what lets one shared module serve
@@ -800,19 +837,19 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Eight modules have tests: 1020 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-04, after the admin watcher). The counts below are what the JUnit XML reports, not
+**Eight modules have tests: 1039 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-04, after `/phase` was folded into `:commands`). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
 | `smp` | 170 |
 | `common` | 289 |
-| `network-control` | 181 |
+| `network-control` | 178 |
 | `updater` | 136 |
-| `discord-bot` | 155 |
+| `discord-bot` | 140 |
 | `hunger-games` | 62 |
-| `commands` | 16 |
+| `commands` | 53 |
 | `limbo` | 11 |
 
 This said "537 in six modules" until 2026-09-02 and was wrong twice over: the number was stale, and
@@ -923,7 +960,18 @@ run when the database is unreachable, and is also why a hand-set emergency opera
 a restart. `smp`'s ConfigsTest gained the twelfth: `admin-permissions` is retired, and a deployed
 `config.yml` that still carries it has to fail **by name** rather than quietly ignore the key.
 
-`discord-bot` has **155**: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest`, `TiersTest`,
+`discord-bot` has **140**, and the drop of fifteen is the point rather than a loss. `PhaseCommandTest`
+was twenty-one cases asserting this bot's own authorisation rule, its own phase parsing, its own
+confirmation wording, its own overview and its own date refusal - every one of which the proxy
+decided separately, and some of which it decided differently. Those live once now, in `:commands`,
+and are asserted against a fake user rather than against a string this bot happened to build. What
+stayed here is the six cases that could not move, because a component id is a Discord concept: a
+confirm button has to round-trip the phase or the date it was built for, an id minted by an older
+build must do nothing, and no other flow's button may be read as a phase switch. `AdminFlagDao`
+gained the folding rule the removed `maySwitch` carried ("an account with no row is not an admin"),
+so `AdminFlagIntegrationTest` still drives it against a real database.
+
+The rest: `ConfigsTest`, `LanguagesTest`, `PhaseCommandTest`, `TiersTest`,
 `RedemptionLimitTest`, `StatusNameTest` and `GuildStateTest` in memory, `AdminFlagIntegrationTest`
 and `PaymentRequestIntegrationTest` against a container, plus the `hungergames` package's own.
 The three added on 2026-09-03 are each a rule that cannot be exercised against a real guild without
@@ -956,10 +1004,12 @@ that, and both are easy to undo by accident:
   that one, from the module directory, in preference to the real one. It was deleted with this
   change; the anchor is what stops the next one shadowing the root file silently.
 
-`network-control` has **181** - eight fewer than before 2026-09-04, and both subtractions are worth
-knowing. Seven left the module with `PhaseListenerTest`, which moved into `:common` as
+`network-control` has **178** - eleven fewer than before 2026-09-04, and all three subtractions are
+worth knowing. Seven left the module with `PhaseListenerTest`, which moved into `:common` as
 `NotificationListenerTest` when the reconnect loop did; the module lost the tests and the code
-together, and `:common` gained nine. The eighth is the arithmetic that is the point:
+together, and `:common` gained nine. Three more left with `PhaseCommandTest`, whose subject -
+parsing a phase name, and whether every reply has a translation - is now `:commands`' and is checked
+there for both surfaces at once. The eleventh is the arithmetic that is the point:
 two tests that pinned `max-players` against `backend-limit` were replaced by one that asserts a
 `network.yml` still carrying the retired `backend-limit` stops the proxy **with that key named**.
 There is no pair left to cross, so there is nothing left to compare; what an operator needs instead
@@ -978,6 +1028,20 @@ Velocity orders none of them against each other and the old code only worked in 
 fails on the old semantics — checked by putting the bug back — and it is the standing proof of the
 rule that replaced them: **no single plugin message may be able to strand a player.** See
 `docs/state-of-play.md` finding 38.
+
+`commands` has **53**, and it went from 16 on the day it was scaffolded to this on the day the first
+command was folded into it - which is the whole difference between a module and a shape. Twenty-two
+are `PhaseCommandsTest`, and every case in it was previously answerable only by running the command
+on a real proxy or in a real guild: what `/phase` says when the phase is already the one asked for,
+what it says when the database refuses the write, whether an unknown phase name reaches the database
+at all, and whether moving `smp-start` reports the access it moved. Nine are `ConfirmationsTest`,
+driven by a settable clock: a confirmation must not be inherited by a *different* command
+(`/phase set MAINTENANCE` followed by `/phase set SMP` is the case that matters), must not be
+inherited by a different person, must be consumed rather than leaving the command unguarded for the
+rest of the window, and must expire. Six are `MessageBundlesTest`, which is where the two bundle
+rules live: no markup on either surface, and no command may name a key that does not exist - the
+latter walks the module's own sources, because a command holds no bundle and a typo in a key is
+invisible until somebody hits that branch, which for the interesting ones is a failure branch.
 
 `limbo` has **11**, seven of them `ConfigsTest`. The other four are the only ones the rest of the
 module can have: everything else in it is a world, a title, a potion effect or a plugin message.

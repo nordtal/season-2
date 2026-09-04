@@ -37,6 +37,7 @@ import eu.nordtal.s2.networkcontrol.pack.PackStation;
 import eu.nordtal.s2.networkcontrol.pack.WaitingBook;
 import eu.nordtal.s2.networkcontrol.command.NetworkCommand;
 import eu.nordtal.s2.networkcontrol.phase.PhaseCommand;
+import eu.nordtal.s2.networkcontrol.phase.ProxyPhaseEffects;
 import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
 import eu.nordtal.s2.common.notify.PostgresNotifications;
@@ -55,6 +56,7 @@ import org.slf4j.Logger;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -137,9 +139,13 @@ public final class NetworkControlPlugin {
             // accepting logins, with neither LoginGate nor MisconfiguredGate registered. Found by
             // review, 2026-09-04; the deny-all gate exists precisely because Velocity has no
             // per-plugin disable, and it cannot deny anything it was never registered for.
+            // Two roots: the shared bundle of :commands underneath this module's own. Every string
+            // /phase says is declared with the command rather than here, because the bot says the
+            // same ones - see Messages.load(ClassLoader, List, Path, Locale...). This module's own
+            // keys win on a collision, which is what lets the proxy reword a shared line for chat.
             final Messages messages = Messages.load(getClass().getClassLoader(),
-                    "messages/network-control", dataDirectory.resolve("messages"),
-                    Locale.ENGLISH, Locale.GERMAN);
+                    List.of("messages/commands", "messages/network-control"),
+                    dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
             messages.unknownOverrideKeys().forEach(key -> logger.warn(
                     "the message override names {}, which no bundle declares - it is stored and"
                             + " never used; check the spelling", key));
@@ -324,8 +330,11 @@ public final class NetworkControlPlugin {
 
         // ------------------------------------------------------------ the emergency command
 
-        final PhaseCommand phaseCommand = new PhaseCommand(this, proxy, logger, phases, phaseWatch,
-                roster, messages);
+        // The command's decisions live in :commands and are shared with the bot's /phase; this
+        // builds the Brigadier tree, decides who the source is, and confirms. See PhaseCommand.
+        final PhaseCommand phaseCommand = new PhaseCommand(roster, messages,
+                new ProxyPhaseEffects(this, proxy, logger, phases, phaseWatch), phaseWatch,
+                new eu.nordtal.s2.commands.Confirmations());
         final CommandManager commands = proxy.getCommandManager();
         commands.register(commands.metaBuilder(PhaseCommand.alias()).plugin(this).build(),
                 phaseCommand.build());

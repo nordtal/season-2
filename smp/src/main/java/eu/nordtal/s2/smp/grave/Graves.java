@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.grave;
 
+import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.feedback.Feedback;
@@ -218,9 +219,11 @@ public final class Graves implements InventoryHolder {
         final Locale locale = locales.of(player.getUniqueId());
         final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
 
-        final int size = Math.max(9, ((contents.length + 8) / 9) * 9);
-        final Inventory inventory = Bukkit.createInventory(null, Math.min(54, size),
-                MessageRenderer.of(messages).get(locale, "smp.grave.title"));
+        // Rows rather than slots, because the frame is chosen by row count - and clamped to the
+        // six the pack draws before it reaches MenuTitle, which throws on a seventh.
+        final int rows = Math.min(MenuTitle.MAX_ROWS, Math.max(1, (contents.length + 8) / 9));
+        final Inventory inventory = Bukkit.createInventory(null, rows * 9,
+                MenuTitle.of(rows, MessageRenderer.of(messages).get(locale, "smp.grave.title")));
         inventory.setContents(java.util.Arrays.copyOf(contents, inventory.getSize()));
 
         viewing.put(inventory, graveId);

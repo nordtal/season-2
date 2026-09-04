@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Two rules about menus, both of them enforced over the source text rather than over a running
@@ -43,18 +44,20 @@ class ChestOnlyMenuTest {
             List.of("smp", "limbo", "hunger-games", "network-control");
 
     /**
-     * Menus that still compose their own title, and why they may for now.
+     * Menus that compose their own title, and why they may.
      *
-     * <p>All four are the second half of the menu pass - the panel mechanic was built on
-     * {@code NavigateGui} first, deliberately, because a misread offset there costs one menu rather
-     * than six. <b>Each line is deleted the moment that menu is converted; when the map is empty,
-     * so is this exception.</b></p>
+     * <p><b>Empty since 2026-09-04</b>, which is the whole point of it having existed. It carried
+     * the four menus of the second pass - {@code ObjectiveGui}, {@code HandInGui},
+     * {@code BalloonGui} and the grave - from the day the panel was built on {@code NavigateGui}
+     * until the day they were all converted, and each line was deleted as its menu landed. The
+     * remaining work was in the build rather than in a document, and the list emptying itself is
+     * what said the pass was over.
+     *
+     * <p>It is kept rather than deleted because the next exception will want it, and an allowlist
+     * that has to be reinvented is one that gets reinvented as a commented-out check. An entry here
+     * is a debt: {@link #theAllowlistHasNoGhosts} is what collects it.</p>
      */
-    private static final Map<String, String> UNFRAMED = new LinkedHashMap<>(Map.of(
-            "ObjectiveGui.java", "the objective list - part of the second menu pass",
-            "HandInGui.java", "the hand-in surface - part of the second menu pass",
-            "BalloonGui.java", "the balloon menu - part of the second menu pass",
-            "Graves.java", "a grave's contents, the one menu with no holder of its own"));
+    private static final Map<String, String> UNFRAMED = new LinkedHashMap<>();
 
     @Test
     @DisplayName("no menu opens anything but a chest")
@@ -91,16 +94,17 @@ class ChestOnlyMenuTest {
         });
         // The non-vacuity anchor. A rule of the shape "nothing in these four trees does X" passes
         // just as well when the walk finds no files at all, which is the one way this test could
-        // go quietly useless - a moved source root, a renamed module.
-        assertEquals(List.of("smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java"), framed,
+        // go quietly useless - a moved source root, a renamed module. NavigateGui is pinned rather
+        // than the whole census, so adding a menu correctly does not fail a test.
+        assertTrue(framed.contains("smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java"),
                 "NavigateGui is the reference implementation of the panel and has to be found by"
                         + " this scan; if it is not, the scan is finding nothing and the rule"
-                        + " below is passing on an empty set. Add the next framed menu here.");
+                        + " below is passing on an empty set. Found: " + framed);
         assertEquals(List.of(), offenders,
                 "a menu whose title skips MenuTitle opens without a frame, and nothing about that"
                         + " fails - it is simply a vanilla window where a Nordtal one was meant."
                         + " If this menu is deliberately unframed, say so in UNFRAMED with the"
-                        + " reason, the way the four in the second menu pass do.");
+                        + " reason, the way the second menu pass did while it was running.");
     }
 
     @Test
@@ -116,8 +120,9 @@ class ChestOnlyMenuTest {
         assertEquals(UNFRAMED.keySet(), new java.util.LinkedHashSet<>(present),
                 "an allowlist entry for a menu that no longer opens an inventory - or that has"
                         + " since been framed - is an exception nobody is using, and it silently"
-                        + " excuses the next file that happens to share the name. This is also the"
-                        + " check that fails when the second menu pass is done: delete the entry.");
+                        + " excuses the next file that happens to share the name. This is the check"
+                        + " that failed as each menu of the second pass landed, which is how the"
+                        + " list emptied itself.");
     }
 
     // --- helpers ---------------------------------------------------------------------------

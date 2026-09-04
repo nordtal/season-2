@@ -131,10 +131,10 @@ Discord ([architecture.md](architecture.md#commands)).
 | `/poi add <name>` | anyone | a public point of interest at your position. Farm-world POIs die with the daily reset |
 | `/poi remove <name>` | its creator, or an admin | admins may remove any POI, which is what `smp.md` means by "admins can manage and delete any of them" |
 | `/smp reload` | admin | re-reads `sounds.yml`, `milestones.yml` **and** the message bundles, and reports the three separately in the console - they fail independently |
-| `/smp farmreset now` | admin | resets the farm world immediately, skipping the 30/10/5/1-minute warnings |
-| `/smp objective complete <key>` | admin | **escape hatch 1**: one objective, paid `pot × (reached ÷ target)` |
-| `/smp milestone unlock <key>` | admin | **escape hatch 2**, the blunt one: every open objective pays proportionally |
-| `/smp aura <player> <delta>` | admin | corrects a balance. Writes its reason, like every other aura change |
+| `/smp farmreset now` | admin | resets the farm world immediately, skipping the 30/10/5/1-minute warnings. **Type it twice** - it deletes a world folder |
+| `/smp objective complete <key>` | admin | **escape hatch 1**: one objective, paid `pot × (reached ÷ target)`. **Type it twice** |
+| `/smp milestone unlock <key>` | admin | **escape hatch 2**, the blunt one: every open objective pays proportionally. **Type it twice** |
+| `/smp aura <player> <delta>` | admin | corrects a balance. Writes its reason, like every other aura change. **Not** confirmed - applying the negative is an exact undo |
 | `/smp access <player>` | admin | **new 2026-09-04.** Is that account linked, does it have access, and is there a purchase halfway through? The shortened form of Discord's `/access-status`, answered to the asker only |
 | `/smp update` | admin | asks the updater what differs, and reports its answer verbatim |
 | `/smp update apply` | admin | installs what differs |

@@ -5,10 +5,13 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import eu.nordtal.s2.commands.Confirmations;
+import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -66,6 +69,18 @@ public final class SmpCommand {
      */
     private final UpdateCommands updates;
     private final AccessLookup accessLookup;
+
+    /**
+     * "Type it again" for the three subcommands here that cannot be undone.
+     *
+     * <p>Decided 2026-09-04 with the owner, "two-step everywhere". {@code /smp farmreset now}
+     * <b>deletes a world folder</b>; {@code /smp milestone unlock} and {@code /smp objective
+     * complete} advance the season track and pay aura out, and neither can be un-paid cleanly.
+     * {@code /smp aura} is deliberately not guarded - applying the negative is an exact undo - and
+     * {@code /smp update restart} already has a confirmation of its own shape: a minute of countdown
+     * every player sees, which an admin who mistyped can cancel.</p>
+     */
+    private final Confirmations confirmations = new Confirmations();
     private final SmpSounds sounds;
 
     public SmpCommand(final Plugin plugin, final SmpDao dao, final ObjectiveEngine engine,
@@ -151,6 +166,9 @@ public final class SmpCommand {
     }
 
     private int handleFarmReset(final CommandContext<CommandSourceStack> context) {
+        if (!confirmed(context, "/smp farmreset now", "smp.admin.farmreset-confirm")) {
+            return Command.SINGLE_SUCCESS;
+        }
         reply(context, "smp.admin.farmreset");
         farmReset.resetNow();
         return Command.SINGLE_SUCCESS;
@@ -164,6 +182,9 @@ public final class SmpCommand {
      */
     private int handleCompleteObjective(final CommandContext<CommandSourceStack> context) {
         final String key = StringArgumentType.getString(context, "key");
+        if (!confirmed(context, "/smp objective complete " + key, null)) {
+            return Command.SINGLE_SUCCESS;
+        }
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Optional<String> active = dao.activeMilestoneKey();
             if (active.isEmpty()) {
@@ -186,6 +207,9 @@ public final class SmpCommand {
 
     private int handleUnlockMilestone(final CommandContext<CommandSourceStack> context) {
         final String key = StringArgumentType.getString(context, "key");
+        if (!confirmed(context, "/smp milestone unlock " + key, null)) {
+            return Command.SINGLE_SUCCESS;
+        }
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             engine.unlockMilestone(key, null);
             plugin.getLogger().info("an admin unlocked milestone " + key);
@@ -220,6 +244,49 @@ public final class SmpCommand {
         });
         reply(context, "smp.admin.aura-changed");
         return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * The confirmation gate for the three subcommands that cannot be undone.
+     *
+     * <p>Nothing has happened yet when this returns {@code false}: the first invocation only arms
+     * and says so. The command line is part of the key, so a pending {@code /smp milestone unlock
+     * ancient-debris} cannot be spent on a different milestone typed thirty seconds later.</p>
+     *
+     * @param what    the exact command, which is both what is keyed and what the reply asks for
+     * @param warning a message key naming what is about to happen, or {@code null} when the command
+     *                line already says it. {@code farmreset} has one because "now" does not convey
+     *                that a world folder is deleted
+     * @return whether the command may proceed
+     */
+    private boolean confirmed(final CommandContext<CommandSourceStack> context, final String what,
+                              final String warning) {
+        final NordtalUser user = asker(context.getSource().getSender());
+        if (confirmations.confirm(user, what)) {
+            return true;
+        }
+        if (warning != null) {
+            user.reply(warning, java.util.Map.of(), Feedback.REFUSED);
+        }
+        user.reply("command.confirm.retype", java.util.Map.of(
+                "command", what,
+                "seconds", String.valueOf(Confirmations.WINDOW.toSeconds())));
+        return false;
+    }
+
+    /**
+     * Whoever typed it.
+     *
+     * <p>{@code admin} is {@code true} without a lookup, and that is not a hole: this whole command
+     * is gated on {@link #mayUse} before any handler runs, so reaching here <em>is</em> the admin
+     * check.</p>
+     */
+    private NordtalUser asker(final CommandSender sender) {
+        if (sender instanceof Player player) {
+            return PaperUser.of(plugin, player, locales.of(player.getUniqueId()), true, null,
+                    messages, sounds::play);
+        }
+        return PaperUser.console(plugin, sender, messages);
     }
 
     /** Answers on the main thread, in the sender's language when there is one. */

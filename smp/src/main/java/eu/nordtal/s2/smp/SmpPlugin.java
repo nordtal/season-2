@@ -217,7 +217,11 @@ public final class SmpPlugin extends JavaPlugin {
         dao = jdbi.onDemand(SmpDao.class);
         identities = new Identities(dao);
 
-        messages = Messages.load(getClass().getClassLoader(), "messages/smp",
+        // Two roots: :commands' shared bundle underneath this module's own. What a shared mechanism
+        // says has to say the same thing on every surface, and the confirmation line is the first
+        // of those to reach this plugin. This module's own keys win on a collision.
+        messages = Messages.load(getClass().getClassLoader(),
+                java.util.List.of("messages/commands", "messages/smp"),
                 getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         reportUnknownOverrides();
         locales = new PlayerLocales(mcUuid -> dao.discordIdOf(mcUuid)

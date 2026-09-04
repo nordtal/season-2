@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.message.Locales;
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.Configs;
@@ -156,7 +157,8 @@ public final class SmpPlugin extends JavaPlugin {
         identities = new Identities(dao);
 
         messages = Messages.load(getClass().getClassLoader(), "messages/smp",
-                Locale.ENGLISH, Locale.GERMAN);
+                getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
+        reportUnknownOverrides();
         locales = new PlayerLocales(mcUuid -> dao.discordIdOf(mcUuid)
                 .map(id -> Locales.parse(dao.localeOf(id).orElse(null)))
                 .orElse(Locales.DEFAULT));
@@ -181,7 +183,8 @@ public final class SmpPlugin extends JavaPlugin {
 
         final PlayerComposition composition =
                 new PlayerComposition(new Prestige(config.prestigeThresholdHours()));
-        final PlayerSurfaces surfaces = new PlayerSurfaces(this, identities, composition);
+        final PlayerSurfaces surfaces =
+                new PlayerSurfaces(this, identities, composition, new MessageRenderer(messages));
 
         hud = new SmpHud(this, worlds, season, navigation, messages, locales);
         hud.start();
@@ -340,6 +343,31 @@ public final class SmpPlugin extends JavaPlugin {
             getLogger().severe("the milestone track could not be reloaded, the running one is "
                     + "unchanged: " + exception.getMessage());
         }
+
+        // The wording is reloaded in the same breath and reported separately, because the two fail
+        // independently: a broken milestones.yml must not stop a corrected message from arriving,
+        // and a typo'd override must not read as a track that failed to load.
+        try {
+            messages.reload();
+            reportUnknownOverrides();
+            getLogger().info("the message bundles were reloaded");
+        } catch (final RuntimeException exception) {
+            getLogger().severe("the messages could not be reloaded, the running ones are "
+                    + "unchanged: " + exception.getMessage());
+        }
+    }
+
+    /**
+     * Names every override entry that overrode nothing.
+     *
+     * <p>An override for a key no bundle declares is stored and never looked up, so the failure is
+     * a line that does not change and no error anywhere. Naming them in the console is the only
+     * place the difference between "my override is wrong" and "my override is ignored" is visible.
+     */
+    private void reportUnknownOverrides() {
+        messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
+                "the message override names " + key + ", which no bundle declares - it is stored"
+                        + " and never used; check the spelling"));
     }
 
     /**

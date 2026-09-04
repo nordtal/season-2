@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AdminOperators;
+import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
@@ -25,7 +26,6 @@ import eu.nordtal.s2.limbo.world.WaitingWorld;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Locale;
-import org.bukkit.Bukkit;
 
 /**
  * The season 2 waiting room. Every login lands here first, whatever the phase, and leaves when the
@@ -132,7 +132,7 @@ public final class LimboPlugin extends JavaPlugin {
         // can be handled: ops.json is persistent, so anybody left in it by a crash or a SIGKILL
         // would otherwise still be an operator on this start. AdminOperators carries the whole
         // reasoning, including why it asks the database nothing.
-        final AdminOperators operators = new AdminOperators(bukkitOps());
+        final AdminOperators operators = BukkitOps.create();
         operators.sweep();
 
         // One instance, shared: the gate fills the admin flag at pre-login and both the fullness
@@ -237,27 +237,5 @@ public final class LimboPlugin extends JavaPlugin {
     }
 
 
-    /**
-     * The two Bukkit calls {@link AdminOperators} needs, which {@code :common} cannot make itself -
-     * it is compiled against no platform.
-     *
-     * <p>{@code getOfflinePlayer(UUID)} rather than {@code getPlayer}: a de-op has to work for
-     * somebody who has already left, which is exactly what the quit handler does.</p>
-     */
-    private AdminOperators.Ops bukkitOps() {
-        return new AdminOperators.Ops() {
-            @Override
-            public void setOp(final java.util.UUID player, final boolean operator) {
-                Bukkit.getOfflinePlayer(player).setOp(operator);
-            }
-
-            @Override
-            public java.util.Set<java.util.UUID> operators() {
-                return Bukkit.getOperators().stream()
-                        .map(org.bukkit.OfflinePlayer::getUniqueId)
-                        .collect(java.util.stream.Collectors.toUnmodifiableSet());
-            }
-        };
-    }
 
 }

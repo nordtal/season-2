@@ -22,6 +22,7 @@ repositories {
 }
 
 dependencies {
+    implementation(project(":paper-common"))
     // The same block hunger-games and limbo have: eu.nordtal.jcore.config is this repository's
     // config system, and jcore 3.0.0 exports the JDBI 3 / HikariCP / PostgreSQL stack this module
     // needs anyway. The SMP is the module docs/architecture.md says needs persistence "heavily" -

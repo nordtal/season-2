@@ -30,6 +30,8 @@ import eu.nordtal.s2.smp.command.SmpCommand;
 import eu.nordtal.s2.smp.command.UpdateCommands;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
+import eu.nordtal.s2.smp.feedback.SurfaceListener;
 import eu.nordtal.s2.smp.grave.GraveListener;
 import eu.nordtal.s2.smp.grave.Graves;
 import eu.nordtal.s2.smp.hud.SmpHud;
@@ -120,6 +122,11 @@ public final class SmpPlugin extends JavaPlugin {
         final SmpSpec config = configHandle.get();
         track = Milestones.read(milestonesHandle.get()).track();
 
+        // The sound vocabulary, read once. A key that is wrong is reported here and silences its
+        // own category; it deliberately does not join the refusals below, because a typo in a chime
+        // is not worth a season offline and the console line says exactly what was ignored.
+        final SmpSounds sounds = SmpSounds.of(config.sounds(), getLogger()::warning);
+
         // ---- refusal 1: the datapacks -------------------------------------------------------
         // A world generated without them is vanilla terrain permanently, because terrain is never
         // re-rolled once it is on disk. For the farm world that is one flat day; for Nordtal, which
@@ -180,7 +187,7 @@ public final class SmpPlugin extends JavaPlugin {
         final FarmWorldSwap swap = new FarmWorldSwap(this, config.worldFarm(),
                 config.farmWorldStagingSuffix(), config.farmWorldRetiredSuffix());
         farmReset = new FarmWorldReset(this, config, worlds, swap, pregen, messages, locales,
-                dao, navigation);
+                dao, navigation, sounds);
         farmReset.start();
 
         final PlayerComposition composition =
@@ -205,33 +212,35 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new PresenceListener(this, identities, surfaces, composition, config), this);
         getServer().getPluginManager().registerEvents(
-                new NavigateListener(this, dao, navigation, identities, locales), this);
+                new NavigateListener(this, dao, navigation, identities, locales, sounds), this);
 
         // ---- block 3: the activities -----------------------------------------------------
         engine = new ObjectiveEngine(this, dao, track, season, worlds, identities, messages,
-                locales, config);
+                locales, config, sounds);
         poller = new StatisticPoller(this, track, engine, identities);
         poller.start();
 
-        graves = new Graves(this, dao, messages, locales);
-        duels = new Duels(this, dao, config, worlds, identities, messages, locales);
+        graves = new Graves(this, dao, messages, locales, sounds);
+        duels = new Duels(this, dao, config, worlds, identities, messages, locales, sounds);
 
         final DeathPenalty penalty = new DeathPenalty(config.deathPenalty(),
                 config.deathPenaltyListed(), java.util.Set.copyOf(config.deathCausesListed()));
-        final Wheel wheel = new Wheel(this, dao, config, identities, messages, locales);
+        final Wheel wheel = new Wheel(this, dao, config, identities, messages, locales, sounds);
 
         getServer().getPluginManager().registerEvents(
-                new AdvancementListener(this, dao, engine, identities, config, messages, locales), this);
+                new AdvancementListener(this, dao, engine, identities, config, messages, locales,
+                        sounds), this);
         getServer().getPluginManager().registerEvents(
                 new GraveListener(this, dao, graves, identities, penalty, duels::isInArena,
-                        messages, locales), this);
+                        messages, locales, sounds), this);
         getServer().getPluginManager().registerEvents(new DuelListener(config, duels), this);
 
         // The figure in the tavern, and the only way a HAND_IN objective can be fulfilled.
         npc = new SpawnNpc(this, config);
         npc.spawn();
         getServer().getPluginManager().registerEvents(
-                new NpcListener(this, dao, npc, track, engine, identities, messages, locales), this);
+                new NpcListener(this, dao, npc, track, engine, identities, messages, locales,
+                        sounds), this);
         getServer().getPluginManager().registerEvents(
                 new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
 
@@ -249,13 +258,19 @@ public final class SmpPlugin extends JavaPlugin {
             Bukkit.getScheduler().runTask(this, () -> graves.restore(rows));
         });
         getServer().getPluginManager().registerEvents(
-                new ProtectionListener(regions, identities, messages, locales), this);
+                new ProtectionListener(regions, identities, messages, locales, sounds), this);
         getServer().getPluginManager().registerEvents(
-                new BalloonListener(balloons, worlds, season, track, messages, locales), this);
+                new BalloonListener(balloons, worlds, season, track, messages, locales, sounds), this);
         getServer().getPluginManager().registerEvents(
-                new PortalGate(worlds, season, messages, locales), this);
+                new PortalGate(worlds, season, messages, locales, sounds), this);
 
-        registerCommands();
+        // One listener for SURFACE_OPEN and SURFACE_CLOSE across every menu this plugin opens - see
+        // Surface. The grave inventory has a null holder and is recognised by identity, which is
+        // what the predicate is for.
+        getServer().getPluginManager().registerEvents(
+                new SurfaceListener(sounds, graves::isShowingGrave), this);
+
+        registerCommands(sounds);
 
         startHeartbeat();
 
@@ -315,17 +330,18 @@ public final class SmpPlugin extends JavaPlugin {
         getLogger().info("smp disabled");
     }
 
-    private void registerCommands() {
+    private void registerCommands(final SmpSounds sounds) {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final NavigateCommand commands =
-                    new NavigateCommand(this, dao, navigation, identities, messages, locales);
+                    new NavigateCommand(this, dao, navigation, identities, messages, locales, sounds);
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
             event.registrar().register(new SmpCommand(this, dao, engine, farmReset, identities,
                     messages, locales, this::reloadTrack,
                     // Over the pool this plugin already owns. The updater is a different container
                     // and this is how it is reached: a row and a notification, never a call.
-                    new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales)).build());
+                    new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales),
+                    sounds).build());
         });
     }
 

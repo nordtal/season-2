@@ -1,11 +1,13 @@
 package eu.nordtal.s2.smp.duel;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
@@ -61,6 +63,7 @@ public final class Duels {
     private final Identities identities;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
     private final ArenaSlots slots;
 
     /** Who is standing on which platform right now, so a second arrival starts a duel. */
@@ -76,7 +79,8 @@ public final class Duels {
     private final Map<Integer, List<Location>> placed = new HashMap<>();
 
     public Duels(final Plugin plugin, final SmpDao dao, final SmpSpec config, final Worlds worlds,
-                 final Identities identities, final Messages messages, final PlayerLocales locales) {
+                 final Identities identities, final Messages messages, final PlayerLocales locales,
+                 final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -84,6 +88,7 @@ public final class Duels {
         this.identities = identities;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
         this.slots = new ArenaSlots(config.concurrentDuelLimit(), config.duelArenaBaseY(),
                 config.duelArenaSpacing());
     }
@@ -172,6 +177,7 @@ public final class Duels {
         player.teleport(at);
         player.setGameMode(GameMode.ADVENTURE);
         giveLoadout(player, type);
+        sounds.play(player, Feedback.TRAVEL);
     }
 
     private void giveLoadout(final Player player, final DuelType type) {
@@ -223,6 +229,9 @@ public final class Duels {
                             "smp.duel.countdown", "seconds", remaining)
                     : MessageRenderer.of(messages).get(locales.of(player.getUniqueId()),
                             "smp.duel.go"));
+            if (remaining > 0) {
+                sounds.play(player, Feedback.COUNTDOWN_TICK);
+            }
         });
         if (remaining > 0) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> countdown(duel, remaining - 1), 20L);
@@ -247,13 +256,15 @@ public final class Duels {
         teardown(duel.slot());
         slots.release(duel.slot());
 
-        restore(duel, winnerId, "smp.duel.won");
-        restore(duel, loserId, "smp.duel.lost");
+        restore(duel, winnerId, "smp.duel.won", Feedback.BIG_SUCCESS);
+        restore(duel, loserId, "smp.duel.lost", Feedback.LOSS);
         book(winnerId, loserId, duel);
         drainQueue();
     }
 
-    private void restore(final ActiveDuel duel, final UUID playerId, final String messageKey) {
+    private void restore(final ActiveDuel duel, final UUID playerId, final String messageKey,
+                         final Feedback feedback) {
+        // feedback is null for the interrupted case - see stop().
         final SavedState state = duel.saved().get(playerId);
         final Player player = Bukkit.getPlayer(playerId);
         if (player == null || state == null) {
@@ -262,6 +273,9 @@ public final class Duels {
         state.restore(player);
         player.sendMessage(MessageRenderer.of(messages).format(locales.of(playerId), messageKey,
                 "aura", config.duelStake()));
+        if (feedback != null) {
+            sounds.play(player, feedback);
+        }
     }
 
     /**
@@ -361,8 +375,10 @@ public final class Duels {
         List.copyOf(byPlayer.values()).forEach(duel -> {
             byPlayer.remove(duel.first());
             byPlayer.remove(duel.second());
-            restore(duel, duel.first(), "smp.duel.interrupted");
-            restore(duel, duel.second(), "smp.duel.interrupted");
+            // No sound: a duel called off because the server is stopping cost nobody anything, so
+            // there is nothing to congratulate and nothing to mourn.
+            restore(duel, duel.first(), "smp.duel.interrupted", null);
+            restore(duel, duel.second(), "smp.duel.interrupted", null);
             teardown(duel.slot());
             slots.release(duel.slot());
         });

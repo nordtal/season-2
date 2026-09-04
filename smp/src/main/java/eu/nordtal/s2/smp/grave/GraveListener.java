@@ -1,11 +1,13 @@
 package eu.nordtal.s2.smp.grave;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 
 import net.kyori.adventure.text.Component;
@@ -53,11 +55,12 @@ public final class GraveListener implements Listener {
     private final Predicate<Player> inArena;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
 
     public GraveListener(final Plugin plugin, final SmpDao dao, final Graves graves,
                          final Identities identities, final DeathPenalty penalty,
                          final Predicate<Player> inArena, final Messages messages,
-                         final PlayerLocales locales) {
+                         final PlayerLocales locales, final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.graves = graves;
@@ -66,6 +69,7 @@ public final class GraveListener implements Listener {
         this.inArena = inArena;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -120,6 +124,7 @@ public final class GraveListener implements Listener {
                 if (player.isOnline()) {
                     player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.aura.death",
                             "aura", Math.abs(delta)));
+                    sounds.play(player, Feedback.LOSS);
                 }
             });
         });

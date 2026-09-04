@@ -1,8 +1,11 @@
 package eu.nordtal.s2.smp.travel;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
+import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Unlock;
@@ -18,7 +21,6 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -37,26 +39,28 @@ import java.util.Optional;
  * somebody wants to know why the Nether is not available, and an entry that has simply vanished
  * answers nothing.
  */
-public final class BalloonGui implements InventoryHolder {
+public final class BalloonGui implements Surface {
 
     private final Messages messages;
     private final PlayerLocales locales;
     private final Worlds worlds;
     private final SeasonState season;
     private final MilestoneTrack track;
+    private final SmpSounds sounds;
 
     private final WorldRole here;
     private final List<BalloonMenu.Entry> entries;
     private final Inventory inventory;
 
     public BalloonGui(final Messages messages, final PlayerLocales locales, final Worlds worlds,
-                      final SeasonState season, final MilestoneTrack track, final Player viewer,
-                      final WorldRole here) {
+                      final SeasonState season, final MilestoneTrack track, final SmpSounds sounds,
+                      final Player viewer, final WorldRole here) {
         this.messages = messages;
         this.locales = locales;
         this.worlds = worlds;
         this.season = season;
         this.track = track;
+        this.sounds = sounds;
         this.here = here;
         this.entries = BalloonMenu.of(here, season.unlocked());
 
@@ -157,6 +161,7 @@ public final class BalloonGui implements InventoryHolder {
             if (entry.state() == BalloonMenu.State.LOCKED) {
                 player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.balloon.locked",
                         "milestone", milestoneName(entry.destination(), locale)));
+                sounds.play(player, Feedback.REFUSED);
             }
             return false;
         }
@@ -164,6 +169,7 @@ public final class BalloonGui implements InventoryHolder {
         final World destination = worlds.world(entry.destination()).orElse(null);
         if (destination == null) {
             player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.balloon.unavailable"));
+            sounds.play(player, Feedback.REFUSED);
             return false;
         }
 
@@ -173,6 +179,7 @@ public final class BalloonGui implements InventoryHolder {
         player.teleport(destination.getSpawnLocation());
         player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.balloon.travelled",
                 "world", messages.get(locale, nameKey(entry.destination()))));
+        sounds.play(player, Feedback.TRAVEL);
         return true;
     }
 

@@ -2,8 +2,10 @@ package eu.nordtal.s2.smp.grave;
 
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.GraveRow;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.db.SmpDao;
 
 import net.kyori.adventure.text.Component;
@@ -60,6 +62,7 @@ public final class Graves implements InventoryHolder {
     private final SmpDao dao;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
 
     /** Grave id -> the entities drawing it, so they can be removed together. */
     private final Map<UUID, List<org.bukkit.entity.Entity>> parts = new HashMap<>();
@@ -74,11 +77,23 @@ public final class Graves implements InventoryHolder {
     private final Map<Inventory, UUID> viewing = new HashMap<>();
 
     public Graves(final Plugin plugin, final SmpDao dao, final Messages messages,
-                  final PlayerLocales locales) {
+                  final PlayerLocales locales, final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
+    }
+
+    /**
+     * Whether {@code inventory} is a grave standing open right now.
+     *
+     * <p>A grave inventory is created with a null holder and recognised by identity here, which is
+     * why {@code SurfaceListener} takes this as a predicate rather than checking for a marker
+     * interface.
+     */
+    public boolean isShowingGrave(final Inventory inventory) {
+        return viewing.containsKey(inventory);
     }
 
     @Override
@@ -253,6 +268,7 @@ public final class Graves implements InventoryHolder {
                     player.sendMessage(MessageRenderer.of(messages).format(
                             locales.of(player.getUniqueId()), "smp.grave.experience",
                             "experience", experience));
+                    sounds.play(player, Feedback.SMALL_SUCCESS);
                 }
             });
         });

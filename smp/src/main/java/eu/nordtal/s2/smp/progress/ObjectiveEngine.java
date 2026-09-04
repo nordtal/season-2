@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.progress;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -8,6 +9,7 @@ import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.db.ContributionRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
@@ -28,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * The spine of the season: crediting progress, finishing an objective, paying it out, and unlocking
@@ -55,10 +58,12 @@ public final class ObjectiveEngine {
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSpec config;
+    private final SmpSounds sounds;
 
     public ObjectiveEngine(final Plugin plugin, final SmpDao dao, final MilestoneTrack track,
                            final SeasonState season, final Worlds worlds, final Identities identities,
-                           final Messages messages, final PlayerLocales locales, final SmpSpec config) {
+                           final Messages messages, final PlayerLocales locales, final SmpSpec config,
+                           final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.track = track;
@@ -68,6 +73,7 @@ public final class ObjectiveEngine {
         this.messages = messages;
         this.locales = locales;
         this.config = config;
+        this.sounds = sounds;
     }
 
     /**
@@ -81,10 +87,15 @@ public final class ObjectiveEngine {
      * @param discordId  who to credit
      * @param objectiveKey which objective of the active milestone
      * @param delta      how much, in the objective's own unit
+     * @param completedBy the player this credit came from, or null when nobody is standing behind
+     *                    it - an admin's escape hatch. Carried through only so that a milestone
+     *                    finished by this credit sounds different to the person who finished it
+     *                    than it does to everybody else
      * @return how much was actually credited, which is less than {@code delta} when the objective
      *         was finished by it
      */
-    public long credit(final String discordId, final String objectiveKey, final long delta) {
+    public long credit(final String discordId, final String objectiveKey, final long delta,
+                       final UUID completedBy) {
         if (delta <= 0) {
             return 0L;
         }
@@ -108,7 +119,7 @@ public final class ObjectiveEngine {
         dao.addContribution(objective.id(), discordId, advance.credited());
 
         if (advance.completes()) {
-            finishObjective(activeKey.get(), objective);
+            finishObjective(activeKey.get(), objective, completedBy);
         }
         return advance.credited();
     }
@@ -119,7 +130,8 @@ public final class ObjectiveEngine {
      * <p>Called both by {@link #credit} and by the admin escape hatch, which is why the completion
      * guard lives in SQL rather than in the caller.
      */
-    public void finishObjective(final String milestoneKey, final ObjectiveRow objective) {
+    public void finishObjective(final String milestoneKey, final ObjectiveRow objective,
+                                final UUID completedBy) {
         if (dao.completeObjective(objective.id()) == 0) {
             // Somebody else's delivery completed it a moment ago and has already paid everyone.
             return;
@@ -136,7 +148,7 @@ public final class ObjectiveEngine {
 
         payOut(objective, pot, milestoneKey);
         announceObjective(milestoneKey, objective.key());
-        checkMilestone(milestoneKey);
+        checkMilestone(milestoneKey, completedBy);
     }
 
     /**
@@ -193,12 +205,12 @@ public final class ObjectiveEngine {
     /**
      * Unlocks the milestone if every one of its objectives is now finished. <b>Async.</b>
      */
-    public void checkMilestone(final String milestoneKey) {
+    public void checkMilestone(final String milestoneKey, final UUID completedBy) {
         final List<ObjectiveRow> objectives = dao.objectivesOf(milestoneKey);
         if (objectives.isEmpty() || !objectives.stream().allMatch(ObjectiveRow::completed)) {
             return;
         }
-        unlockMilestone(milestoneKey);
+        unlockMilestone(milestoneKey, completedBy);
     }
 
     /**
@@ -207,7 +219,7 @@ public final class ObjectiveEngine {
      * <p>The row and the {@code pg_notify} that tells Discord are one statement, so an announcement
      * can never go out for an unlock the database does not hold.
      */
-    public void unlockMilestone(final String milestoneKey) {
+    public void unlockMilestone(final String milestoneKey, final UUID completedBy) {
         if (dao.completeMilestone(milestoneKey).isEmpty()) {
             return;
         }
@@ -222,7 +234,7 @@ public final class ObjectiveEngine {
                 // crawling outwards is the ceremony.
                 worlds.expandNordtal(milestone.borderDiameter(), true);
             }
-            announceMilestone(milestoneKey);
+            announceMilestone(milestoneKey, completedBy);
         });
     }
 
@@ -239,11 +251,20 @@ public final class ObjectiveEngine {
         });
     }
 
-    private void announceMilestone(final String milestoneKey) {
+    /**
+     * Tells everybody the milestone is finished - and tells the person who finished it differently.
+     *
+     * <p>Same line, two sounds: {@code BIG_SUCCESS} for whoever's contribution closed the last
+     * objective and {@code NETWORK_EVENT} for the rest of the server. An admin's hand-completion
+     * passes null, so everybody hears the network event and nobody is congratulated for a command.
+     */
+    private void announceMilestone(final String milestoneKey, final UUID completedBy) {
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = locales.of(player.getUniqueId());
             player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.milestone.completed",
                     "milestone", nameOf("smp.milestone." + milestoneKey, milestoneKey, locale)));
+            sounds.play(player, player.getUniqueId().equals(completedBy)
+                    ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
         }
     }
 

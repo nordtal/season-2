@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.npc;
 
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.milestone.Objective;
 
 import net.kyori.adventure.text.Component;
@@ -11,7 +12,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -33,7 +33,7 @@ import java.util.Set;
  * <p>There is no hopper-fed chest anywhere in this design either. Automated delivery would turn
  * contribution counting into a race between farms.
  */
-public final class HandInGui implements InventoryHolder {
+public final class HandInGui implements Surface {
 
     private static final int ROWS = 4;
     private static final int DEPOSIT_SLOTS = 27;

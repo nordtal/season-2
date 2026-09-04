@@ -62,8 +62,9 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   described by a `@ConfigSpec` interface. It is the default for every new config in this repo.
   `network-control` (`database.yml`, `gate.yml`, `pack.yml`), `hunger-games` (`config.yml`,
   `database.yml`), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`, `database.yml`,
-  `milestones.yml`, `sounds.yml`) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`) all
-  use it — read one of them, and "Configuration" below, before writing the next.
+  `milestones.yml`, `sounds.yml`), `hunger-games` (`config.yml`, `database.yml`, `sounds.yml`) and
+  `discord-bot` (`access.yml`, `bot.yml`, `database.yml`) all use it — read one of them, and
+  "Configuration" below, before writing the next.
 - **No command framework, decided 2026-08-31.** Season 1 used Incendo Cloud; season 2 uses
   **Brigadier directly, through each platform's own API** — `io.papermc.paper.command.brigadier.
   Commands` on the Lifecycle API for the three Paper plugins, `BrigadierCommand` through
@@ -232,8 +233,8 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
 Every config file in this repo is a commented YAML file described by an interface, loaded through
 `eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). Six modules have one:
 `network-control` (`database.yml`, `gate.yml`, **`pack.yml`**), `hunger-games` (`config.yml`,
-`database.yml`), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`, `database.yml`,
-**`milestones.yml`**, **`sounds.yml`**) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`).
+`database.yml`, **`sounds.yml`**), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`,
+`database.yml`, **`milestones.yml`**, **`sounds.yml`**) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`).
 
 **A file is separate when it is reloaded, and `smp` now has two such files.** `config.yml` is
 deliberately *not* reloadable — the plugin binds worlds, borders, boxes and coordinates once at
@@ -727,7 +728,7 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 919 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 933 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-04). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
@@ -738,7 +739,7 @@ daemon present, 2026-09-04). The counts below are what the JUnit XML reports, no
 | `network-control` | 189 |
 | `updater` | 136 |
 | `discord-bot` | 155 |
-| `hunger-games` | 47 |
+| `hunger-games` | 61 |
 | `limbo` | 11 |
 
 This said "537 in six modules" until 2026-09-02 and was wrong twice over: the number was stale, and
@@ -854,7 +855,11 @@ definition, and `MessageBundlesTest` (4) keeps the two language files symmetrica
 placeholders. What no test here covers is the world itself; that is what the drills and the
 rehearsals are for.
 
-`hunger-games` has **47**, all in memory and all of them arithmetic the game would otherwise get
+`hunger-games` has **61**. Fourteen are new on 2026-09-04: `SoundDefaultsTest` (6) and
+`ConfigsTest` (4) - this was **the last module with configs and no `ConfigsTest`**, the exact gap
+that once cost `smp` its whole plugin - plus `KillCountsIntegrationTest` (4), the only test in this
+module that needs a container and the one that made the ceremony's main-thread query loop safe to
+replace. The other 47 are in memory and all of them arithmetic the game would otherwise get
 wrong in front of players: `BorderMathTest` (the step, the extension of a running shrink, the
 divide-by-zero floor at one participant), `TeamColoursTest` (evenly spaced hues and the
 nearest-named mapping), `DemotionTest` (a duo whose partner never showed becoming a full-hearted

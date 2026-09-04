@@ -123,19 +123,21 @@ class EntrypointRulesTest {
     }
 
     @Test
-    @DisplayName("the backends are given a limit that can never be reached")
-    void theBackendsDoNotLimitTheNetwork() {
+    @DisplayName("the backends are given the network's own limit, out of one variable")
+    void theBackendsCarryTheNetworkLimit() {
         assertTrue(script.contains("set_property \"$DATA/server.properties\" max-players"),
                 "nothing writes max-players any more, so every backend keeps Paper's default of 20"
                         + " and the 21st player is refused after the login gate and the pack");
-        assertTrue(script.contains("${BACKEND_MAX_PLAYERS:-}"),
-                "the backends' max-players no longer comes from BACKEND_MAX_PLAYERS. If it is back"
-                        + " on NETWORK_MAX_PLAYERS, the backends are the network's real limit again"
-                        + " - which is the fault this arrangement removed on 2026-09-03.");
-        assertFalse(script.contains("${MAX_PLAYERS:-"),
-                "the entrypoint reads MAX_PLAYERS again. The network limit lives in network.yml and"
-                        + " is enforced by the proxy; this script only writes the number the"
-                        + " backends must never reach.");
+        assertTrue(script.contains("${MAX_PLAYERS:-}"),
+                "the backends' max-players no longer comes from MAX_PLAYERS, which compose fills"
+                        + " from the same NETWORK_MAX_PLAYERS the proxy is given");
+        // The variable reference, not the name: the comment above the function tells the whole
+        // history and names it, which is exactly where a reader should meet it.
+        assertFalse(script.contains("${BACKEND_MAX_PLAYERS"),
+                "the entrypoint reads BACKEND_MAX_PLAYERS again. That was a SECOND player number,"
+                        + " deliberately out of reach - and it was the one every screen on a backend"
+                        + " could actually reach, so the browser advertised 500 while the tab list"
+                        + " said 3/1000. Retired 2026-09-04; there is one number now.");
     }
 
     /** The directory holding {@code settings.gradle.kts}, not the nearest file by name. */

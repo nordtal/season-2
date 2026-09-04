@@ -123,7 +123,7 @@ opinions about how to run a server: everything else stays Paper's and Velocity's
 | `level-name=$LEVEL_NAME` | each Paper server, `server.properties` | seeded once; a volume still on Paper's default `world` is repaired, any **other** disagreement stops the container, see below |
 | `level-seed=$LEVEL_SEED` | each Paper server, `server.properties` | only while the `level-name` world does not exist yet — which is `level.dat`, not the folder; an existing world is compared and warned about |
 | `forwarding.secret` | proxy | every start, from `VELOCITY_FORWARDING_SECRET` |
-| `max-players=$BACKEND_MAX_PLAYERS` | each Paper server, `server.properties` | **every start** — and it is not a limit, see below |
+| `max-players=$MAX_PLAYERS` | each Paper server, `server.properties` | **every start** — the network's own limit, out of the same `NETWORK_MAX_PLAYERS` the proxy gets, see below |
 
 **The MOTD and the player limit are deliberately not in that table** (2026-09-03). They used to be:
 the entrypoint seeded `motd` and `show-max-players` into `velocity.toml`, which meant a MOTD nobody
@@ -204,30 +204,44 @@ keeps whatever is in its volume; the manual equivalent is `online-mode=false` in
 
 ## Who limits the players
 
-**One number decides, and it lives in `network.yml`.** `NETWORK_MAX_PLAYERS` in `.env` is what the
-server browser advertises *and* what the proxy enforces at the login gate, where it can say why.
-Admins are exempt, so a full network can still be entered by whoever has to go and fix it.
+**One number decides, and since 2026-09-04 it is the only one there is.** `NETWORK_MAX_PLAYERS` in
+`.env` is what the server browser advertises, what the proxy enforces at the login gate — where it
+can say why — *and* what every Paper backend's `server.properties#max-players` is set to. All four
+services read the same variable, so nothing is derived and nothing can drift.
 
-`BACKEND_MAX_PLAYERS` (default 1000) is a different thing with a similar name: it is what the
-entrypoint writes into every Paper server's `server.properties#max-players`, chosen so it can never
-be reached. **It has to stay strictly above `NETWORK_MAX_PLAYERS`** — the proxy carries a copy of it
-and refuses to start otherwise, rather than letting the backends quietly become the network's real
-limit again. Strictly above, because admins are exempt from the proxy's limit: a full network holds
-`NETWORK_MAX_PLAYERS` plus whichever admins joined it, and the backend they land on needs that room.
-Leave a gap that covers the admins you expect.
+That last part is what changed. Between 2026-09-02 and 2026-09-04 there was a second number,
+`BACKEND_MAX_PLAYERS`, set far out of reach (1000 against 500) so that the proxy would be the only
+thing that ever refused a player; `network.yml` carried a copy of it and the proxy refused to start
+if the two crossed. It was safe and it was still wrong, because **the backends' number is the one
+every screen on a backend can reach**: `Bukkit.getMaxPlayers()` is what a tab list has, so the
+browser promised 500 while the tab list said `3/1000`. Two numbers were visible to players at once
+and only one of them was true.
 
-**Changing `BACKEND_MAX_PLAYERS` means restarting the backends, not the proxy.** It is written into
-each Paper server's `server.properties` by that container's own entrypoint, on every start — so
-`docker compose restart network-control` picks up the proxy's copy of the number and leaves all
-three backends on the old one, which is the half that actually refuses players. Raising both values
-is `docker compose restart network-control limbo hunger-games smp`, or a redeploy.
+**The proxy is still the only thing that refuses.** It refuses at the login gate, before the
+resource pack and before the wait in `limbo`, which is the whole point of the gate. What the
+backends' `max-players` does now is guarantee they are never a *smaller* limit than the advertised
+one — Paper's own default is 20, and that is exactly how this failed the first time.
 
-Two versions of that fault have already shipped. Before 2026-09-02 nothing set `max-players` at
-all, so Paper's own default of 20 was the real limit while the browser advertised 500 — and the
-21st player was refused with *"Server full"* **after** passing the login gate, accepting the
-resource pack and waiting in `limbo`. Setting all three backends from the network's limit fixed the
-number and left the shape: whichever backend a player landed on still decided, and three backends
-can be raised out of step with each other and with the proxy.
+**Admins are the one thing that had to be rebuilt.** They are exempt from the proxy's limit — they
+are the people who have to come and fix a full network — so a full network holds
+`NETWORK_MAX_PLAYERS` plus whoever came to fix it, and a backend on the same number would refuse
+those logins with *"Server full"*. Each Paper plugin therefore answers Paper's own
+`PlayerServerFullCheckEvent` itself: the admin flag is read on the async pre-login thread (only when
+the server is near its cap, so an ordinary login costs nothing) and an admin is let through. The
+flag is `discord_user.admin` in the database, not `ops.json`, which is why this cannot be a server
+setting. See `common/…/access/FullServerAdmission.java` for the reasoning and for the one ordering
+assumption in it that a running server still has to confirm.
+
+**Changing the number means restarting the backends, not just the proxy.** It is written into each
+Paper server's `server.properties` by that container's own entrypoint, on every start — so
+`docker compose restart network-control` picks up the browser's half and leaves all three backends
+on the old one. The whole change is
+`docker compose restart network-control limbo hunger-games smp`, or a redeploy.
+
+**`network.yml` in an existing volume still carries `backend-limit`, and the proxy will refuse to
+start until it is deleted.** That is jcore's strict loading working as intended — the key meant
+something, so a file still carrying it is a deployment nobody has told. The proxy names the key in
+its own error. Remove the line, or delete `network.yml` and let the plugin write a fresh one.
 
 ## What the server browser shows
 
@@ -239,8 +253,8 @@ placeholders. Anything left unset in `.env` keeps that default.
 Read at **proxy start**. There is no reload command: the MOTD follows the phase on its own, live,
 but an edit to `network.yml` or to any `NETWORK_MOTD_*` in `.env` needs a restart of the
 `network-control` service — `docker compose restart network-control`. That restart is enough for
-the MOTD and for `NETWORK_MAX_PLAYERS`, and it is *not* enough for `BACKEND_MAX_PLAYERS`; see
-[Who limits the players](#who-limits-the-players).
+the MOTD, and it is *not* enough for `NETWORK_MAX_PLAYERS` — that one also has to reach the three
+backends' `server.properties`; see [Who limits the players](#who-limits-the-players).
 
 When `network-control` cannot start at all, the browser says so — the fail-closed handler answers
 the ping with a line from the plugin's own message bundle, because a network advertising its season
@@ -549,7 +563,8 @@ worth having here, because they are the kind that get rediscovered expensively:
 | Velocity exits at once with *"Your configuration is invalid"* | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define. |
 | A backend logs *"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"* | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login. |
 | Proxy starts but refuses every login with a "network misconfigured" screen | `network-control` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log. |
-| Proxy will not start, log says `max-players` is not below `backend-limit` | `NETWORK_MAX_PLAYERS` reached or passed `BACKEND_MAX_PLAYERS`; equal is rejected too, because admins are exempt from the proxy's limit. Raise the second one — see [Who limits the players](#who-limits-the-players). |
+| Proxy will not start, log names `backend-limit` as an unknown key | `network.yml` in the volume predates 2026-09-04, when that key was retired along with the second player number. Delete the line — see [Who limits the players](#who-limits-the-players). |
+| A backend answers *"Server full"* | Only an admin should ever see this, and only if the exemption is not firing. Everybody else is refused by the proxy at the login gate. Check the backend's `max-players` really is `NETWORK_MAX_PLAYERS` (the container was restarted after the last change) and see [Who limits the players](#who-limits-the-players). |
 | The browser shows the old MOTD after editing `.env` | `network.yml` is read at proxy start. Restart the `network-control` service; there is no reload command. |
 | Everybody is refused with a countdown, and nobody asked for that | The phase is `PRE_LAUNCH`, which is the seeded initial state. `/phase set PRE_EVENT` opens the network. |
 | `docker rm -f` fails with *"did not receive an exit event"* | You are running a container that mirrors its console with `tmux pipe-pane > /proc/1/fd/1`. Do not do that — see [below](#never-mirror-the-console-with-tmux-pipe-pane). Only a Docker daemon restart clears it. |

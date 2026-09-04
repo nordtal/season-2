@@ -22,9 +22,23 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * <h2>{@link #maxPlayers()} is the only limit on the network, since 2026-09-03</h2>
  * Velocity enforces no limit of its own - {@code show-max-players} is a display value - so before
  * this the number that actually decided was {@code max-players} on whichever Paper backend the
- * player landed on, which is always {@code limbo} first. The three backends are now configured far
- * above any network limit ({@code BACKEND_MAX_PLAYERS}, see {@link #backendLimit()}) and refuse
- * nobody; the proxy refuses, once, at the login gate, where it can say why.
+ * player landed on, which is always {@code limbo} first. The proxy refuses, once, at the login
+ * gate, where it can say why.
+ *
+ * <h2>How it reaches the backends, since 2026-09-04</h2>
+ * <b>It is the same number, not a smaller one.</b> This file used to carry a second key,
+ * {@code backend-limit}: a copy of {@code BACKEND_MAX_PLAYERS}, the deliberately unreachable
+ * {@code server.properties#max-players} the three Paper backends were given so that the proxy would
+ * be the only thing that ever refused a player. The proxy refused to start when the two crossed,
+ * which made the arrangement safe without making it right - the backends' number is what every
+ * screen <em>on</em> a backend can reach, so the browser advertised 500 while the tab list said
+ * {@code 3/1000}. Two numbers were visible at once and only one of them was true.
+ *
+ * <p>{@code NETWORK_MAX_PLAYERS} in {@code .env} is now written into this file <em>and</em> into
+ * every backend's {@code server.properties}, so there is nothing left to keep in step. What that
+ * costs is the admin exemption below: a Paper server on the network's own limit will refuse the
+ * admins this proxy deliberately lets past it, so each backend rebuilds the exemption at its own
+ * login - see {@code eu.nordtal.s2.common.access.FullServerAdmission}.</p>
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",
@@ -58,6 +72,14 @@ public interface NetworkSpec {
             "same database row as the access check, so a full network still lets in whoever has",
             "to go and fix it.",
             "",
+            "It is also what every Paper backend's server.properties#max-players is set to, out of",
+            "the same NETWORK_MAX_PLAYERS in .env: this file is an environment override of it and",
+            "so is each backend. That is why a backend's tab list can say 3/500 rather than the",
+            "3/1000 it said while the backends carried a separate, unreachable number. Changing it",
+            "therefore needs the backends restarted as well as this proxy - the entrypoint writes",
+            "server.properties on every start, and `docker compose restart network-control` alone",
+            "moves the half that advertises and not the half that runs the servers.",
+            "",
             "Two logins arriving in the same instant can exceed this by one. That is accepted",
             "rather than fixed with a reservation scheme: the count is read live from the proxy,",
             "and one player over a limit of several hundred is not a state anybody can observe."
@@ -66,33 +88,15 @@ public interface NetworkSpec {
         return 500;
     }
 
-    @Order(2)
-    @Key("backend-limit")
-    @Comment({
-            "What the entrypoint writes into every Paper backend's server.properties#max-players",
-            "(BACKEND_MAX_PLAYERS in .env). It is NOT a second network limit - it is the number",
-            "that must never be reached, so that the proxy is the only thing that ever refuses a",
-            "player.",
-            "",
-            "It is repeated here so that this proxy can check it. max-players at or above this",
-            "value would mean the backends quietly become the real limit again - the exact fault",
-            "this arrangement exists to remove - so the proxy REFUSES TO START rather than run",
-            "into it at some busy moment. If you raise one, raise the other.",
-            "",
-            "STRICTLY ABOVE, not equal: admins are exempt from the proxy's limit (they are the",
-            "people who have to come and fix a full network), so a full network holds max-players",
-            "plus however many admins joined it, and the backend they land on needs the room. The",
-            "gap should cover the admins you expect, not just one.",
-            "",
-            "Paper's own default is 20. Until 2026-09-02 nothing set it at all, and the network",
-            "advertised 500 slots while limbo refused the 21st player with \"Server full\" - after",
-            "they had passed the login gate, been offered the resource pack and waited for it."
-    })
-    default int backendLimit() {
-        return 1000;
-    }
+    // There is no backend-limit here any more, and this comment is the reason rather than a gap in
+    // the numbering. It held a copy of BACKEND_MAX_PLAYERS - the unreachable number the Paper
+    // backends were given so that only this proxy ever refused a player - and this proxy refused to
+    // start when max-players reached it. Retired 2026-09-04 together with the second number itself:
+    // the backends are written from NETWORK_MAX_PLAYERS now, so there is no pair left to cross. A
+    // network.yml in a volume that still carries the key stops the proxy with the key named, which
+    // is jcore's strict load doing exactly what it is for; ConfigsTest asserts that it does.
 
-    @Order(3)
+    @Order(2)
     @Key("snapshot-refresh-seconds")
     @Comment({
             "How often the numbers behind the MOTD placeholders are re-read from the database.",
@@ -110,7 +114,7 @@ public interface NetworkSpec {
         return 10;
     }
 
-    @Order(4)
+    @Order(3)
     @Key("motd")
     @Comment({
             "What the server browser shows, per season phase. MiniMessage, so <gradient>,",

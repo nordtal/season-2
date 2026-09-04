@@ -67,32 +67,25 @@ public final class Configs {
     /**
      * {@code network.yml} - the MOTD and the one player limit.
      * <p>
-     * The {@code max-players} against {@code backend-limit} check is the interesting one: it is a
-     * value in this file compared against a value that is written into <em>another container's</em>
-     * {@code server.properties} by the entrypoint. They are two halves of one decision, and the
-     * failure mode of letting them drift is silent - the backends quietly become the network's real
-     * limit again, exactly as they were before 2026-09-03. So it stops the proxy rather than
-     * warning: a warning in a container log is a thing nobody reads until they are already looking
-     * for the cause.
+     * There is nothing to cross-check here any more, and that is the point. Until 2026-09-04 this
+     * file carried a second number, {@code backend-limit}: a copy of what the entrypoint wrote into
+     * <em>another container's</em> {@code server.properties}, kept here so the proxy could refuse to
+     * start when the two crossed. The check was sound and the arrangement was not - two numbers that
+     * must not cross are two numbers, and the second one is the one every screen on a backend
+     * actually shows. {@code max-players} is now written into the backends from the same {@code
+     * .env} variable this file is overridden with, so nothing can drift and nothing needs guarding.
+     * </p>
+     * <p>
+     * A {@code network.yml} in a volume that still carries {@code backend-limit} stops the proxy
+     * with that key named, which is jcore's ordinary strict behaviour and the right one here: the
+     * key meant something, and a file still carrying it is a deployment that has not been told.
      * </p>
      */
     public static @NotNull ConfigHandle<NetworkSpec> network(final Path directory, final Logger logger)
             throws ConfigException {
         return load(directory, logger, "network", NetworkSpec.class, "NORDTAL_NETWORK_CONTROL_NETWORK", config -> {
             requirePositive("max-players", config.maxPlayers());
-            requirePositive("backend-limit", config.backendLimit());
             requirePositive("snapshot-refresh-seconds", config.snapshotRefreshSeconds());
-            if (config.maxPlayers() >= config.backendLimit()) {
-                throw new IllegalArgumentException(
-                        "max-players (" + config.maxPlayers() + ") is not below backend-limit ("
-                                + config.backendLimit() + "), so the Paper backends would refuse players"
-                                + " before this proxy does - and they refuse with \"Server full\" after"
-                                + " the login gate, the resource pack and the wait in limbo. Equal is"
-                                + " already too close: admins are exempt from the proxy's limit, so a"
-                                + " full network holds max-players plus however many admins joined it,"
-                                + " and the backend has to have room for them. Raise BACKEND_MAX_PLAYERS"
-                                + " in .env above max-players, or lower this.");
-            }
             final NetworkSpec.MotdSpec motd = config.motd();
             if (motd == null) {
                 throw new IllegalArgumentException("motd is missing; it needs one entry per season phase");

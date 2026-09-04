@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.Messages;
@@ -17,6 +18,7 @@ import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.config.SoundsSpec;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
+import eu.nordtal.s2.hungergames.listener.FullServerGate;
 import eu.nordtal.s2.hungergames.db.HungerGamesPool;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
@@ -179,6 +181,12 @@ public final class HungerGamesPlugin extends JavaPlugin {
         lobby.startBroadcasting(world, () -> currentGameId);
 
         getServer().getPluginManager().registerEvents(new FreezeListener(manager), this);
+        // The player cap on this server is the network's own now, so Paper can refuse a login for
+        // fullness - and during the start event, when every registered player is routed here at
+        // once, the login it would refuse is the admin's who has to start the game. See
+        // FullServerAdmission.
+        getServer().getPluginManager().registerEvents(
+                new FullServerGate(dao, new FullServerAdmission(), getLogger0()), this);
         getServer().getPluginManager().registerEvents(new PresenceListener(this, locales, bodies, state, messages), this);
         getServer().getPluginManager().registerEvents(
                 new CombatListener(this, dao, state, bodies, border, winTracker, sounds,

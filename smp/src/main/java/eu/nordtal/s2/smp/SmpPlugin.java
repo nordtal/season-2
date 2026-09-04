@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp;
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRenderer;
@@ -264,7 +265,7 @@ public final class SmpPlugin extends JavaPlugin {
 
         final Boxes regions = ConfigBoxes.spawnRegions(config);
         getServer().getPluginManager().registerEvents(
-                new JoinGate(identities, messages, logger()), this);
+                new JoinGate(identities, new FullServerAdmission(), messages, logger()), this);
         getServer().getPluginManager().registerEvents(
                 new PresenceListener(this, identities, surfaces, composition, config,
                         messages, locales), this);

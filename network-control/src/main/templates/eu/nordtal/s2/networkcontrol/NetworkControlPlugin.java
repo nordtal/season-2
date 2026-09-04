@@ -326,9 +326,9 @@ public final class NetworkControlPlugin {
                 gateConfig.fallbackCacheWindowMinutes(), gateConfig.expiryCheckIntervalSeconds(),
                 pollInterval.toSeconds(), flushInterval.toSeconds(), gateConfig.serverLimbo(),
                 sweepInterval.toSeconds());
-        logger.info("The network takes {} players and the browser is told so; the Paper backends are "
-                        + "configured for {} and refuse nobody. MOTD refreshed every {}s.",
-                networkConfig.maxPlayers(), networkConfig.backendLimit(), snapshotInterval.toSeconds());
+        logger.info("The network takes {} players, the browser is told so, and every Paper backend "
+                        + "is set to the same number. MOTD refreshed every {}s.",
+                networkConfig.maxPlayers(), snapshotInterval.toSeconds());
         if (phaseWatch.lastKnown() == SeasonPhase.PRE_LAUNCH) {
             logger.info("The network has not opened yet: only admins get in, everybody else is shown "
                             + "the countdown ({}).",

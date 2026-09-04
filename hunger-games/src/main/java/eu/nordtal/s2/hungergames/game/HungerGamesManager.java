@@ -227,7 +227,21 @@ public final class HungerGamesManager {
     private void placeOnTower(final Participant participant, final Location tower) {
         final Player online = plugin.getServer().getPlayer(participant.mcUuid());
         if (online != null) {
-            online.teleportAsync(tower);
+            // The ordering below is NOT changed on the teleport's answer, deliberately. A false
+            // here would be a participant made invulnerable in the lobby while the game runs
+            // without them - but it needs a plugin cancelling PlayerTeleportEvent, and nothing on
+            // this network does. Moving setInvulnerable into the future's callback would push it a
+            // tick later and reorder the one sequence in this module that cannot be rehearsed
+            // without twenty people; the risk of that is larger than the risk it removes. So: the
+            // result is watched and said out loud, and the release at the end of the head start
+            // runs either way. Reviewed and decided 2026-09-04.
+            online.teleportAsync(tower).thenAccept(moved -> {
+                if (!moved) {
+                    plugin.getLogger().severe(online.getName() + " could not be placed on their "
+                            + "spawn tower and is invulnerable wherever they are standing. The "
+                            + "head start releases them with everybody else.");
+                }
+            });
             online.setInvulnerable(true);
             // TRAVEL, and this is the module's real "the game has started" moment: a player standing
             // in the lobby is picked up and put on a pillar without having asked for it. The admin's

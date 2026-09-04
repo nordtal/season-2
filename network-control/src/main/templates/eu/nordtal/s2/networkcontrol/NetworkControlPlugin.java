@@ -127,23 +127,28 @@ public final class NetworkControlPlugin {
     public void onProxyInitialize(final ProxyInitializeEvent event) {
         logger.info("network-control enabled, {} backends registered", proxy.getAllServers().size());
 
-        // Loaded before anything else and off the config path entirely: it is a classpath bundle,
-        // so it is the one thing still available when the configuration is what is broken.
-        final Messages messages = Messages.load(getClass().getClassLoader(),
-                "messages/network-control", dataDirectory.resolve("messages"),
-                Locale.ENGLISH, Locale.GERMAN);
-        messages.unknownOverrideKeys().forEach(key -> logger.warn(
-                "the message override names {}, which no bundle declares - it is stored and never"
-                        + " used; check the spelling", key));
-
         try {
+            // Inside the try, and that is the whole point of this block. Messages.load creates the
+            // override directory and writes a README into it - so on a read-only or full volume it
+            // throws an UncheckedIOException, and it used to throw it OUT of this method, before
+            // failClosed could run. The result was the one state this proxy must never be in: up,
+            // accepting logins, with neither LoginGate nor MisconfiguredGate registered. Found by
+            // review, 2026-09-04; the deny-all gate exists precisely because Velocity has no
+            // per-plugin disable, and it cannot deny anything it was never registered for.
+            final Messages messages = Messages.load(getClass().getClassLoader(),
+                    "messages/network-control", dataDirectory.resolve("messages"),
+                    Locale.ENGLISH, Locale.GERMAN);
+            messages.unknownOverrideKeys().forEach(key -> logger.warn(
+                    "the message override names {}, which no bundle declares - it is stored and"
+                            + " never used; check the spelling", key));
+
             start(Configs.database(dataDirectory, logger).get(),
                     Configs.gate(dataDirectory, logger).get(),
                     Configs.pack(dataDirectory, logger).get(),
                     Configs.network(dataDirectory, logger).get(),
                     messages);
         } catch (final ConfigException | RuntimeException failure) {
-            failClosed(messages, failure);
+            failClosed(failure);
         }
     }
 
@@ -356,12 +361,33 @@ public final class NetworkControlPlugin {
      * been registered by the time this runs, so this handler is the only thing that sees a login,
      * and it refuses every one of them.
      */
-    private void failClosed(final Messages messages, final Exception failure) {
+    private void failClosed(final Exception failure) {
         logger.error("network-control could not start, so NOBODY will be let onto this network. "
                 + "Fix the configuration and restart the proxy.");
         logger.error("{}", failure.getMessage(), failure);
 
-        proxy.getEventManager().register(this, new MisconfiguredGate(logger, messages));
+        // Its own bundle, from the classpath and with NO override directory. The override layer is
+        // one of the things that can be broken here - it is a directory this plugin writes into -
+        // so the screen that says "the network is misconfigured" must not depend on it. The cost is
+        // that an operator who reworded gate.misconfigured sees the packaged wording on this one
+        // path; the alternative is no screen at all, and Velocity letting everybody in.
+        try {
+            final Messages messages = Messages.load(getClass().getClassLoader(),
+                    "messages/network-control", Locale.ENGLISH, Locale.GERMAN);
+            proxy.getEventManager().register(this, new MisconfiguredGate(logger, messages));
+        } catch (final RuntimeException broken) {
+            // The packaged bundle is inside this jar, so reaching here means the jar itself is
+            // damaged. There is no screen left to refuse anybody with, and a proxy that cannot
+            // refuse must not keep accepting: this is the same rule the three Paper plugins follow
+            // with getServer().shutdown(), for the same reason. "The proxy is down" announces
+            // itself; "the proxy is up and the gate is off" never does.
+            logger.error("network-control cannot even load its own packaged messages, so it cannot "
+                    + "put up a refusal screen. Stopping the proxy - that is the only way left to "
+                    + "refuse everybody.", broken);
+            closeResources();
+            proxy.shutdown();
+            return;
+        }
 
         // Whatever got as far as being opened before the failure has to go: a half-built plugin
         // holding a connection pool open is worse than one holding nothing.

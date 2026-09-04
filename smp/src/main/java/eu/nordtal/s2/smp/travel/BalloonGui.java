@@ -184,7 +184,15 @@ public final class BalloonGui implements Surface {
         final org.bukkit.Location from = player.getLocation();
         // Always the world spawn. The balloon never drops anyone anywhere else, which is what makes
         // a world spawn a landmark everybody knows; portals are the only exception in the design.
-        player.teleport(destination.getSpawnLocation());
+        // Unreachable from an open chest screen today - a player clicking one is by definition
+        // alive, awake and connected - but the success path below is six unconditional statements
+        // and one of them is a message saying they arrived. Reusing the branch six lines up rather
+        // than inventing a second way to say the same thing.
+        if (!player.teleport(destination.getSpawnLocation())) {
+            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.balloon.unavailable"));
+            sounds.play(player, Feedback.REFUSED);
+            return false;
+        }
         effects.travelled(from);
         effects.travelled(destination.getSpawnLocation());
         player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.balloon.travelled",

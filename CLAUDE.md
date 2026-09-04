@@ -729,14 +729,14 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 972 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-04). The counts below are what the JUnit XML reports, not
+**Seven modules have tests: 982 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-04, after the review of the pull request). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
-| `smp` | 163 |
-| `common` | 256 |
+| `smp` | 169 |
+| `common` | 260 |
 | `network-control` | 189 |
 | `updater` | 136 |
 | `discord-bot` | 155 |
@@ -748,7 +748,17 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **256**. Eleven are `BoardFrameTest`, added 2026-09-04 with the board frame, and it
+`:common` has **260**. **Four are new on 2026-09-04, from the review of the pull request**, and two
+of them carry a rule rather than a case. `BundleContinuationTest` (1) walks every message bundle in
+the repository and asserts that a line continued with a backslash ends with a *space* -
+`Properties.load` strips the next line's indentation, so six values had reached a reader as
+`neugelesen`, `bleibenunverändert`, `Theconsole` and `sayswhether`, one of them in both languages,
+and nothing else could have caught it: the file parses, the key resolves, both languages carry the
+same keys and the same placeholders. `MessageRendererTest` gained two (a backslash before a tag no
+longer unescapes it, and a lone backslash is not doubled), and the first of those fails on the
+version that shipped - checked by putting it back. `MessageOverridesTest` gained one: an override of
+a key only *English* declares works, so it must not be reported as a key no bundle declares.
+Eleven are `BoardFrameTest`, added 2026-09-04 with the board frame, and it
 is the one test in this repository that runs the client's own layout: it reads `board.json`, derives
 every code point's advance the way the client does - a space provider's number, or a bitmap's
 rightmost non-transparent column plus the two pixels Minecraft adds - and then *walks* the composed
@@ -866,7 +876,17 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **163**. The newest is one case in `MessageBundlesTest` holding the two languages to
+`smp` has **169**. **Six are new on 2026-09-04**, and they are this module's first that need a
+container: `SpinRefundIntegrationTest` drives the two wheel-refund statements against a real
+PostgreSQL running the real migrations. The wheel spends the spin in SQL before it draws a prize -
+deliberately, so the animation cannot become a second answer about one spin - and the cost of that
+ordering was two paths ending with a spent row and an empty hand: a player who disconnects between
+the commit and the next tick, and a `wheel-prizes` entry naming an item this server does not know.
+Both logged a warning and left the player a spin poorer. What needs a database is that `last_free`
+is a nullable `date`, so refunding a player's *first ever* free spin writes null into it; that the
+free refund has to be idempotent; and that the earned one has to stay inside
+`smp_spin_used_not_negative`. None of the three has an in-memory stand-in. It skips itself with no
+Docker daemon. The next newest is one case in `MessageBundlesTest` holding the two languages to
 the same `<_component>` slots, added with the chat format - see `:common` above for what a slot is
 and why an unresolved one is silent. Eight are `WheelStripTest`, new 2026-09-04 with the animation: over every pool
 size and every winner, the last frame has to centre the prize the database already gave away. That is
@@ -914,7 +934,7 @@ two language files carry the same keys with the same placeholders — a key adde
 the other reaches a player as the literal string `hg.start.countdown`, because `Messages` degrades
 to the key rather than throwing.
 
-`updater` has **133**, and this section did not mention the module at all until 2026-09-02.
+`updater` has **136**, and this section did not mention the module at all until 2026-09-02.
 `TopologyTest` reads the real `compose.yml` and is what keeps that file and `Topology` from becoming
 two facts - it now also asserts that every plugin a service runs is one that service's entrypoint
 guard asks for, and that the Paper backends cap players at the same number. `ApplierTest` covers the

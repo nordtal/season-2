@@ -130,7 +130,7 @@ Discord ([architecture.md](architecture.md#commands)).
 | `/navigate` | anyone | opens the navigation menu; the second boss bar line then tracks the target |
 | `/poi add <name>` | anyone | a public point of interest at your position. Farm-world POIs die with the daily reset |
 | `/poi remove <name>` | its creator, or an admin | admins may remove any POI, which is what `smp.md` means by "admins can manage and delete any of them" |
-| `/smp reload` | admin | re-reads `milestones.yml` **and** the message bundles, and reports the two separately - they fail independently |
+| `/smp reload` | admin | re-reads `sounds.yml`, `milestones.yml` **and** the message bundles, and reports the three separately in the console - they fail independently |
 | `/smp farmreset now` | admin | resets the farm world immediately, skipping the 30/10/5/1-minute warnings |
 | `/smp objective complete <key>` | admin | **escape hatch 1**: one objective, paid `pot × (reached ÷ target)` |
 | `/smp milestone unlock <key>` | admin | **escape hatch 2**, the blunt one: every open objective pays proportionally |
@@ -149,7 +149,7 @@ below the progress already collected, which completes it on the next `/smp reloa
 | `/hg start [confirm]` | admin | starts the event. `confirm` is the second step below the recommended minimum |
 | `/hg ready` | a registered participant | marks your team ready. The lobby broadcast's clickable link runs exactly this |
 | `/hg ready-status` | a registered participant | which teams are ready |
-| `/hg reload` | admin | the message bundles only - `config.yml` holds the border schedule, and a running game is a running clock |
+| `/hg reload` | admin | the message bundles **and** `sounds.yml` - `config.yml` holds the border schedule, and a running game is a running clock |
 
 ### In game — `limbo`
 

@@ -56,6 +56,12 @@ repositoryRootTestInputs {
     readsTree("limbo/src/main")
     readsTree("hunger-games/src/main")
     readsTree("network-control/src/main")
+
+    // BundleContinuationTest walks every message bundle in the repository, the bot's included -
+    // Properties.load strips a continued line's indentation in every module equally, so a rule that
+    // covered only the Minecraft-facing four would be a rule with a hole in it. Only the messages
+    // directory: the bot's source tree is not an input to anything in :common.
+    readsTree("discord-bot/src/main/resources/messages")
 }
 
 dependencies {

@@ -8,6 +8,7 @@ import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
+import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
@@ -64,6 +65,7 @@ public final class Duels {
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSounds sounds;
+    private final WorldEffects effects;
     private final ArenaSlots slots;
 
     /** Who is standing on which platform right now, so a second arrival starts a duel. */
@@ -80,7 +82,7 @@ public final class Duels {
 
     public Duels(final Plugin plugin, final SmpDao dao, final SmpSpec config, final Worlds worlds,
                  final Identities identities, final Messages messages, final PlayerLocales locales,
-                 final SmpSounds sounds) {
+                 final SmpSounds sounds, final WorldEffects effects) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -89,6 +91,7 @@ public final class Duels {
         this.messages = messages;
         this.locales = locales;
         this.sounds = sounds;
+        this.effects = effects;
         this.slots = new ArenaSlots(config.concurrentDuelLimit(), config.duelArenaBaseY(),
                 config.duelArenaSpacing());
     }
@@ -185,6 +188,7 @@ public final class Duels {
         player.setGameMode(GameMode.ADVENTURE);
         giveLoadout(player, type);
         sounds.play(player, Feedback.TRAVEL);
+        effects.arenaEntered(at);
     }
 
     private void giveLoadout(final Player player, final DuelType type) {

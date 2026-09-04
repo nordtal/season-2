@@ -46,6 +46,14 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/console /usr/local/bin/
 ENV MC_TMUX_SOCKET=/run/mc/tmux.sock \
     MC_TMUX_SESSION=mc
 
+# COMPOSE OVERRIDES THIS ONE (since 2026-09-04). A `healthcheck:` on a service replaces the image's
+# outright, and the x-minecraft anchor in ../../compose.yml now carries a stricter test: this same
+# TCP connect AND a readiness marker no more than 90 seconds old, written by the season plugin at
+# the end of its onEnable and refreshed every 30 seconds. That closes the gap named at the bottom of
+# this comment - a jar that is present and whose onEnable threw. What is left here is what the image
+# answers when it is run WITHOUT that compose file, which is a development case and nothing else; it
+# is kept rather than deleted so `docker run` of this image is never silently unmonitored.
+#
 # HEALTHY MEANS "ACCEPTS PLAYERS", NOT "IS ALIVE" (changed 2026-09-02).
 #
 # It used to ask tmux whether the session existed and its pane was not dead, and that answered yes

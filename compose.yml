@@ -108,6 +108,40 @@ x-minecraft: &minecraft
   # 10s (the default) does not save a border-4000 world. The entrypoint forwards SIGTERM to the
   # JVM, whose shutdown hook saves and stops; this is the time it is given to finish.
   stop_grace_period: 180s
+  # HEALTHY MEANS "THE SEASON PLUGIN IS RUNNING", NOT "A JVM EXISTS" (new 2026-09-04, finding 55).
+  #
+  # Two conditions, and it needs both. The marker is written by the plugin at the very END of its
+  # onEnable and refreshed every 30s from there; the port is what Paper and Velocity open for
+  # players. THIS SUPERSEDES THE `HEALTHCHECK` IN deploy/minecraft/Dockerfile, whose TCP half is
+  # repeated here on purpose - a compose healthcheck replaces the image's outright, and dropping the
+  # port test would have traded one blind spot for another.
+  #
+  # Why the marker had to exist at all: on the first deployment smp's config threw, the plugin
+  # disabled itself, and Paper carried on. Every jar was in plugins/ so the entrypoint's guard
+  # passed, and the port was open so the port check passed - a Minecraft server with no season on
+  # it, green in Arcane. Nothing outside the JVM could tell that state from a healthy one. Now the
+  # only process that writes /tmp/nordtal-ready is one that finished starting, and one that stops
+  # ticking stops writing it.
+  #
+  # 90 SECONDS IS THREE MISSED BEATS, and it is a literal here because this is a shell test inside a
+  # YAML file - it cannot read Readiness.STALE_AFTER. :updater's TopologyTest holds the two equal.
+  #
+  # `bash -c` and not CMD-SHELL: /bin/sh in this image is dash, which has no /dev/tcp.
+  healthcheck:
+    test: ["CMD", "bash", "-c",
+           "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/nordtal-ready) )) -lt 90 && exec 3<>/dev/tcp/127.0.0.1/$${SERVER_PORT:-25565}"]
+    interval: 15s
+    timeout: 5s
+    # 45s of consecutive failure after the start period, on top of the 90s the marker takes to go
+    # stale. Deliberately not 1: the accept queue can refuse a connection during a long tick, and a
+    # backend that flickers red on a lag spike is a signal people learn to ignore.
+    retries: 3
+    # FIVE MINUTES, and the temptation is to shorten it. The image's own check used 180s for the
+    # port alone; the marker lands strictly later than the port, because it is the last line of
+    # onEnable - after four worlds are loaded and the milestone track is read. Nothing in this stack
+    # waits on a Minecraft service being healthy, so a generous window costs only a longer "starting"
+    # in Arcane, while a short one makes every ordinary restart flap red first.
+    start_period: 300s
   environment: &minecraft-env
     TZ: ${TZ:-Europe/Berlin}
     # SERVER_BUILD, set per service below, is a FLOOR: the updater owns the server jar too (since
@@ -236,6 +270,22 @@ services:
       # this it would crash-loop until the updater got there. One dependency, one clear message.
       updater:
         condition: service_healthy
+    # The same marker the four Minecraft services use, and for the same reason (finding 55): this
+    # container reported nothing at all until 2026-09-04, so a bot that was up, connected and no
+    # longer running any of its timers looked exactly like a working one. It is written after JDA is
+    # ready and both reconciles are done, and refreshed on the timer thread - so a wedged timer
+    # thread, which is a bot that has silently stopped booking payments, goes red.
+    #
+    # No port half here: this process listens on nothing. CMD-SHELL is enough for the same reason.
+    healthcheck:
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/nordtal-ready) )) -lt 90"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      # Three minutes. The bot's startup is a Discord login, a full member chunk of the guild, the
+      # managed messages and two reconciles - all before the marker - and a bad token deliberately
+      # sleeps 60s before exiting, which must not be reported as a health failure on the way.
+      start_period: 180s
     environment:
       TZ: ${TZ:-Europe/Berlin}
 

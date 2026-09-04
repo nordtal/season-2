@@ -837,8 +837,8 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Eight modules have tests: 1039 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-04, after `/phase` was folded into `:commands`). The counts below are what the JUnit XML reports, not
+**Eight modules have tests: 1041 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-04, after `/hg` was opened to the console). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
@@ -848,7 +848,7 @@ daemon present, 2026-09-04, after `/phase` was folded into `:commands`). The cou
 | `network-control` | 178 |
 | `updater` | 136 |
 | `discord-bot` | 140 |
-| `hunger-games` | 62 |
+| `hunger-games` | 64 |
 | `commands` | 53 |
 | `limbo` | 11 |
 
@@ -1088,7 +1088,26 @@ definition, and `MessageBundlesTest` (4) keeps the two language files symmetrica
 placeholders. What no test here covers is the world itself; that is what the drills and the
 rehearsals are for.
 
-`hunger-games` has **62**. One is the `<_component>` slot check its `MessageBundlesTest` gained
+`hunger-games` has **64**. **The newest two are `ConsoleUsableTest`, added 2026-09-04 with the fix
+for the defect the whole command survey turned on:** every `/hg` subcommand was gated on
+`getSender() instanceof Player` and every handler opened with a cast to `Player`, so **the console
+could run none of it** - and the start of the season's flagship event depended on one client being
+able to connect and stay connected, with no second path and nothing anywhere saying so. `/phase` has
+had a documented second path for exactly that failure since 2026-08-31. The handlers now take a
+`NordtalUser` (`:paper-common`'s `PaperUser`, which makes the console an admin without a database
+read - the one place in this repository something other than `discord_user.admin` decides, and it is
+one because a container shell can edit that table by hand). `/hg ready` stays player-only and is
+named in the test rather than excluded quietly: it marks *the sender* ready, and the console is
+registered for no game. The test counts the Brigadier gate specifically and not any mention of the
+type, because the file now also tests its sender in order to *open* the command up, and counting
+that would make the check pass or fail for reasons unrelated to what it is about.
+
+The same change replaced this module's hand-rolled `Map<UUID, Instant>` confirmation window with
+`:commands`' `Confirmations`, which keys on the whole command rather than on the person, is consumed
+rather than leaving a window open, and works for a sender with no UUID at all - which is what this
+class had just gained.
+
+One is the `<_component>` slot check its `MessageBundlesTest` gained
 with `smp`'s on 2026-09-04: this module has no component slot yet, and the check is here so that the
 first one is not the one that discovers the rule is missing. Fourteen more are new the same day: `SoundDefaultsTest` (6) and
 `ConfigsTest` (4) - this was **the last module with configs and no `ConfigsTest`**, the exact gap

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.remote;
 
+import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -81,13 +82,16 @@ public final class CommandInbox {
      * so nothing downstream has to know that {@code /smp aura} and {@code /hg start} are typed
      * differently.</p>
      *
-     * @throws IllegalArgumentException if the command's target is not this inbox's, or if two
-     *                                  commands claim the same path
+     * @throws IllegalArgumentException if the command's target is not this inbox's, if two commands
+     *                                  claim the same path, or if the effects hand their work to
+     *                                  another thread - see {@link #requireInline}
      */
-    public <E> CommandInbox register(final NordtalCommand<E> command, final E effects) {
+    public <E extends CommandEffects> CommandInbox register(final NordtalCommand<E> command,
+                                                            final E effects) {
         Objects.requireNonNull(command, "command");
         Objects.requireNonNull(effects, "effects");
 
+        requireInline(command, effects);
         final Declaration declaration = command.declaration();
         if (!declaration.target().name().equals(target)) {
             throw new IllegalArgumentException(declaration.name() + " is run by "
@@ -139,6 +143,38 @@ public final class CommandInbox {
     /** How many commands can be run here. For a startup log line, and for tests. */
     public int size() {
         return commands.size();
+    }
+
+    /**
+     * Refuse effects whose {@code async} does not run before it returns.
+     *
+     * <h2>The bug it makes impossible</h2>
+     * A command's work happens inside {@link CommandEffects#async}, and this inbox settles the
+     * request row the moment {@code run} returns. Effects built with a scheduler - the ones the
+     * local chat adapter uses, and the obvious thing to pass here by accident - would therefore
+     * settle the row before the command had said a word: the asker gets "the command changed
+     * something and had nothing to say about it" for work that has not started, and the real answer
+     * is written into a row nobody reads any more.
+     *
+     * <p>Nothing about that failure points at its cause, and it only happens on the surface furthest
+     * from the logs. So it is checked here, once, at startup: a no-op is submitted through
+     * {@code async} and has to have run by the time the call returns.</p>
+     *
+     * <p><b>It cannot be fooled by a scheduler that happens to be fast</b>, because the check does
+     * not wait: an executor that runs the task on another thread has, by definition, not finished it
+     * before {@code async} returned. A same-thread executor always has.</p>
+     */
+    private static void requireInline(final NordtalCommand<?> command,
+                                      final CommandEffects effects) {
+        final AtomicBoolean ran = new AtomicBoolean();
+        effects.async(() -> ran.set(true));
+        if (!ran.get()) {
+            throw new IllegalArgumentException(command.declaration().name()
+                    + " was registered on the command inbox with effects that hand their work to"
+                    + " another thread. The inbox settles the request when run() returns, so the"
+                    + " answer would be written before the command produced it - build these"
+                    + " effects with Runnable::run instead of a scheduler.");
+        }
     }
 
     private void handle(final CommandRequest request) {

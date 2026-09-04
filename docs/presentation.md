@@ -215,21 +215,115 @@ restart countdown from the proxy is chat and title only.
 
 ## 5. Chat and system messages
 
-Every line a player reads all day. Vanilla's own wording is replaced, not decorated:
+Every line a player reads all day, **built 2026-09-04** (`smp`'s `SystemLines` and
+`PresenceListener`). Vanilla's own broadcast is replaced, not decorated:
 
-- **chat** — flag, name, prestige crest, a glyph separator, then the message
-- **join and leave** — our own, in each reader's language
-- **death** — our own, and the vanilla message suppressed
-- **advancement** — intercepted; `PlayerAdvancementDoneEvent#message` is nullable, so an
-  advancement can be announced in our wording or not announced at all
+| line | what it is | icon |
+|---|---|---|
+| chat | flag, name, crest, a hairline rule, the message | `\uFE080` |
+| join | the same composition, plus a line in each reader's language | `\uFE081` |
+| leave | the same, and not sent to the person leaving | `\uFE082` |
+| death | our line around **vanilla's own component** — see below | `\uFE083` |
+| advancement | our line around the advancement's own title | `\uFE084` |
+| a server-wide announcement — milestone, objective | in front of the existing line | `\uFE085` |
 
 All of it goes through `MessageRenderer`, which parses MiniMessage and escapes substituted values —
-a player named `<red>` cannot colour the rest of the line. All of it is overridable per key from
-the data folder without a release.
+a player named `<red>` cannot colour the rest of the line. All of it is overridable per key from the
+data folder without a release, **including the whole shape of a chat line**: `smp.chat.line` carries
+the separator's colour, the spacing and the order, so retuning any of that is an edit rather than a
+build.
+
+### Two kinds of value, and why the second exists
+
+A `{name}` placeholder is substituted into the raw string *before* MiniMessage parses it, which is
+exactly what makes escaping possible and exactly what makes it useless for a value that is already
+styled. So `MessageRenderer` has a second kind: a **`<_name>` tag** is a slot for something that is
+already a `Component`. The underscore is not decoration — it is what lets `MessageBundlesTest` tell
+a slot from a style tag and hold both languages to the same set, and an unresolved slot renders as
+*nothing at all*, in silence, which is the failure it exists to catch.
+
+**The vanilla death message is kept, and section 5 said the opposite until 2026-09-04** ("our own,
+and the vanilla message suppressed"). The sentence is left here as a correction rather than quietly
+replaced, because the reasoning is what a future change has to argue with: a death message is a
+`TranslatableComponent`, so a German client reads *"wurde von einem Zombie getötet"* and an English
+one reads *"was slain by a Zombie"* — off the same packet, with the mob's name and the killer's
+weapon in it. Fifty hand-written keys per language could not match that and would go stale on the
+next Minecraft release. The wording is vanilla's; the *line* is ours. The same holds for an
+advancement's title.
+
+### When a death is announced
+
+**Exactly when vanilla would have announced it.** `event.deathMessage()` being null already means
+somebody has decided this death is not news — `DuelListener` does it for an arena death, which costs
+nobody anything and is already reported to the two people it concerns, and
+`/gamerule showDeathMessages false` does it for the whole server. Reading that instead of asking
+each subsystem in turn is what keeps `SystemLines` from having to know about duels, and it cannot be
+got wrong by an event-priority accident.
+
+The one ordering that *is* load-bearing is written down at its handler: `SystemLines#onQuit` runs at
+`LOWEST` because `JoinGate#onQuit` forgets the identity at the default priority, and the identity is
+what carries the flag and the crest.
+
+### The palette
+
+Five colours, and they are the pack's own rather than a new set: `#4e5668` (the panel highlight) for
+furniture — the chat rule; `#b08a4a` (the accent) for an announcement and an advancement; `#8ba888`
+and `#a8888b` for arriving and leaving; `<gray>` for the sentence and `<white>` for what somebody
+actually typed. **The icons are drawn white on purpose**, because Minecraft multiplies a glyph by
+the component's colour: white art can be tinted to whatever the bundle asks for, black art cannot be
+tinted lighter. That is the same lesson the board frame taught the hard way (section 3).
 
 ---
 
-## 6. What stays vanilla, on purpose
+## 6. Moments
+
+Four places where something happens in the world rather than on a screen, **built 2026-09-04**
+(`smp`'s `WorldEffects`). Before that date `spawnParticle` and `Particle.` returned zero hits across
+all seven modules and `showTitle` appeared once, in `limbo` — so the least interactive server on the
+network was the only one that used the screen. That was finding 53, and it was the largest single
+gap in how the season feels.
+
+| moment | what happens |
+|---|---|
+| a milestone closes | a title held three seconds, and three rockets up around **every** player, wherever they are standing |
+| the balloon | a cloud puff at both ends, read off before the teleport so the people left behind see the departure |
+| a grave is opened | souls at the grave, not at the player — anybody nearby is being told a grave has just been disturbed |
+| the duel arena | a burst on the platform as somebody lands on it |
+
+**The milestone is the one that had a document behind it.** `docs/smp.md` has called a milestone a
+server-wide event since the concept was written — "title and chat announcement in every player's
+language" — and what the code did was send a chat line whose German half said *Schau nach oben*, at
+a sky where nothing happened (finding 50). The line is unchanged and was made true instead. There is
+no sequencer: a milestone closes a handful of times in a season and the whole ceremony is one tick's
+work per online player, so machinery in the path of the one moment it protects would be a poor
+trade.
+
+**The rockets cannot hurt anybody, and that took a listener rather than a safe altitude.** A rocket
+carrying explosion effects damages whatever is near it when it bursts, whoever launched it — so each
+one is stamped in its persistent data and `WorldEffects#onDamage` refuses damage from a stamped one.
+Bursting far above somebody's head is true until the first player standing under a ceiling, and a
+celebration that takes four hearts off the person it is celebrating is what a season gets remembered
+for.
+
+### Why this is code and the sounds are config
+
+**A deliberate asymmetry, not an oversight.** Ten sound categories cover some forty call sites, so
+`sounds.yml` compresses; four effects cover four call sites, so a config file for them would be four
+entries pointing one-to-one at four methods — ceremony rather than compression. The escape-hatch
+argument is weaker too: a chime repeated in a crowded tavern is exactly what `sounds.yml` exists for,
+and a puff of cloud is not. A fifth and a sixth moment appearing is the point at which to reopen
+this out loud, not a filter to relax quietly.
+
+What *is* the same as sound is the structural rule: **a call site names a moment, never a particle.**
+`WorldEffectVocabularyTest` in `:common` fails the build if `spawnParticle(`, `org.bukkit.Particle`,
+a bare `Particle.` constant or `org.bukkit.entity.Firework` appears anywhere in the four
+client-facing modules outside one named adapter per module — and it was written while `WorldEffects`
+was still the only such file, which is the cheap moment for a rule like it. It also counts: every
+place that spawns a rocket has to stamp it in the same method.
+
+---
+
+## 7. What stays vanilla, on purpose
 
 Naming these is as much a decision as naming the rest, and it stops the next session from
 "finishing" something that was left alone deliberately.
@@ -245,7 +339,7 @@ Naming these is as much a decision as naming the rest, and it stops the next ses
 
 ---
 
-## 7. Where the authority lives
+## 8. Where the authority lives
 
 | thing | owned by |
 |---|---|

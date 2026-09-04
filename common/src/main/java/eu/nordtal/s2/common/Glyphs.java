@@ -175,6 +175,19 @@ public final class Glyphs {
     public static final String BOARD_SPACE_MINUS_64 = cp(0xFF064);
     public static final String BOARD_SPACE_MINUS_128 = cp(0xFF128);
 
+    // Space advances - positive, added 2026-09-04 with the frame. The same six the bossbar
+    // font declares, and for the same reason a frame needs them: the right-hand vertical
+    // edge has to be drawn at a known x before the content is, because the content's own
+    // width is what nothing here can measure. There is no +64 or +128 - the naming rule puts
+    // the decimal advance in the low digits, and "FFF" + "128" is six hex digits, past the
+    // end of SPUA-A. Wider shifts repeat the +32, which is what BoardFrame does.
+    public static final String BOARD_SPACE_PLUS_1 = cp(0xFFF01);
+    public static final String BOARD_SPACE_PLUS_2 = cp(0xFFF02);
+    public static final String BOARD_SPACE_PLUS_4 = cp(0xFFF04);
+    public static final String BOARD_SPACE_PLUS_8 = cp(0xFFF08);
+    public static final String BOARD_SPACE_PLUS_16 = cp(0xFFF16);
+    public static final String BOARD_SPACE_PLUS_32 = cp(0xFFF32);
+
     // Corners - U+FE040..U+FE043, height 9 / ascent 8
     public static final String BOARD_CORNER_TOP_LEFT = cp(0xFE040);
     public static final String BOARD_CORNER_TOP_RIGHT = cp(0xFE041);

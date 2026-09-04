@@ -328,6 +328,18 @@ public interface SmpSpec {
         @Order(6) @Key("yaw")
         @Comment("Which way the board faces, in degrees. 0 is south, 90 west, 180 north, 270 east.")
         default float yaw() { return 0.0f; }
+
+        @Order(7) @Key("width")
+        @Comment({
+                "How wide the frame is drawn, in pixels of the board's own text - 32 to 240.",
+                "",
+                "This is a number somebody picks by looking at the board, not one the plugin can",
+                "work out: the width of a line of text is decided by the vanilla font's per-",
+                "character advances, which live in the client and not in this repository. A line",
+                "that outgrows the frame draws over the right-hand edge, which is visible at once",
+                "and is fixed here without a release. See BoardFrame."
+        })
+        default int width() { return 180; }
     }
 
     // ---------------------------------------------------------------- the duel platforms

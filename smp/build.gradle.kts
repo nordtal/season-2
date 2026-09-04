@@ -16,6 +16,7 @@ repositoryRootTestInputs {
     // command inbox is actually started, which is the difference between /smp working from Discord
     // and timing out as though this server were down.
     reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
+    reads("smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java")
 }
 
 repositories {

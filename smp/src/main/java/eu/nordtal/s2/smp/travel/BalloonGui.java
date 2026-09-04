@@ -1,6 +1,7 @@
 package eu.nordtal.s2.smp.travel;
 
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -66,7 +67,8 @@ public final class BalloonGui implements Surface {
 
         final Locale locale = locales.of(viewer.getUniqueId());
         this.inventory = Bukkit.createInventory(this, BalloonMenu.ROWS * 9,
-                MessageRenderer.of(messages).get(locale, "smp.balloon.title"));
+                MenuTitle.of(BalloonMenu.ROWS,
+                        MessageRenderer.of(messages).get(locale, "smp.balloon.title")));
         draw(locale);
     }
 

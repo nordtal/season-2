@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.npc;
 
+import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.smp.board.ProgressBar;
@@ -48,8 +49,8 @@ public final class ObjectiveGui implements Surface {
     public ObjectiveGui(final Messages messages, final Locale locale, final Milestone milestone,
                         final List<ObjectiveRow> rows) {
         final int size = Math.min(54, Math.max(27, ((rows.size() + 8) / 9 + 2) * 9));
-        this.inventory = Bukkit.createInventory(this, size,
-                MessageRenderer.of(messages).get(locale, "smp.objectives.title"));
+        this.inventory = Bukkit.createInventory(this, size, MenuTitle.of(size / 9,
+                MessageRenderer.of(messages).get(locale, "smp.objectives.title")));
 
         int slot = FIRST_SLOT;
         for (final ObjectiveRow row : rows) {

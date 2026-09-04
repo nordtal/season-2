@@ -5,17 +5,19 @@ package eu.nordtal.s2.common;
  * private-use escape that the pack has since moved.
  *
  * <p><b>The authoritative mapping is {@code resource-pack/README.md}</b>, "Code point allocation"
- * (decided 2026-08-31). It covers all <b>three</b> fonts - {@code minecraft/font/default.json},
- * {@code nordtal/font/board.json} and {@code nordtal/font/bossbar.json} - and this class, those
- * three files and that table are mirrors of one allocation. A change is a change in all of them,
- * in one commit, and {@code ResourcePackTest} fails when they drift.
+ * (decided 2026-08-31). It covers all <b>four</b> fonts - {@code minecraft/font/default.json},
+ * {@code nordtal/font/board.json}, {@code nordtal/font/bossbar.json} and
+ * {@code nordtal/font/gui.json} - and this class, those four files and that table are mirrors of
+ * one allocation. A change is a change in all of them, in one commit, and
+ * {@code ResourcePackTest} fails when they drift.
  *
  * <p>Constants are grouped by font. {@code minecraft:default} is drawn as ordinary text - tab
- * list, chat, nametags, Text Display boards. {@code nordtal:board} is the boards' frame and
- * {@code nordtal:bossbar} the boss bar HUDs, with the vanilla bar made invisible. <b>The three
- * fonts allocate independently</b>, so the same code point means three different glyphs depending
- * on which font a component names - see {@link #FONT_BOSSBAR} for what that costs when a
- * component names none.
+ * list, chat, nametags, Text Display boards. {@code nordtal:board} is the boards' frame,
+ * {@code nordtal:bossbar} the boss bar HUDs with the vanilla bar made invisible, and
+ * {@code nordtal:gui} the menu panels a chest inventory's title carries. <b>The four fonts
+ * allocate independently</b>, so the same code point means four different glyphs depending on
+ * which font a component names - see {@link #FONT_BOSSBAR} for what that costs when a component
+ * names none.
  */
 public final class Glyphs {
 
@@ -64,6 +66,9 @@ public final class Glyphs {
 
     /** The font the {@code BOARD_*} code points below resolve in - same rule as {@link #FONT_BOSSBAR}. */
     public static final String FONT_BOARD = "nordtal:board";
+
+    /** The font the {@code GUI_*} code points below resolve in - same rule as {@link #FONT_BOSSBAR}. */
+    public static final String FONT_GUI = "nordtal:gui";
 
     // === minecraft:default ===
 
@@ -294,5 +299,44 @@ public final class Glyphs {
             BOSSBAR_ARROW_090_0, BOSSBAR_ARROW_112_5, BOSSBAR_ARROW_135_0, BOSSBAR_ARROW_157_5,
             BOSSBAR_ARROW_180_0, BOSSBAR_ARROW_202_5, BOSSBAR_ARROW_225_0, BOSSBAR_ARROW_247_5,
             BOSSBAR_ARROW_270_0, BOSSBAR_ARROW_292_5, BOSSBAR_ARROW_315_0, BOSSBAR_ARROW_337_5,
+    };
+
+    // === nordtal:gui ===
+    //
+    // The menu panels - docs/presentation.md#2-menu-panels. A menu on this server is an ordinary
+    // chest inventory whose TITLE carries a bitmap glyph big enough to cover the whole window; the
+    // glyph rises out of the title's baseline on a large positive ascent and the slots draw on top
+    // of it, because the client renders labels after the background. That is the whole technique,
+    // and it is why there is one glyph per chest size rather than one panel: a window is
+    // 114 + 18*rows pixels tall, so a panel drawn for six rows is 90 px too tall for one row.
+
+    // Space advances - negative, U+FF001..U+FF128. The same code points board.json and
+    // bossbar.json use, which is not a collision: the fonts allocate independently, and a menu
+    // title composed in nordtal:gui can only ever reach nordtal:gui's own table.
+    //
+    // There are deliberately no POSITIVE advances here. Nothing in a menu title moves right: the
+    // panel is drawn from the window's left edge and the readable title walks back to x = 8 behind
+    // it. Adding them the day a title needs to be centred is one line in gui.json and one here.
+    public static final String GUI_SPACE_MINUS_1 = cp(0xFF001);
+    public static final String GUI_SPACE_MINUS_2 = cp(0xFF002);
+    public static final String GUI_SPACE_MINUS_4 = cp(0xFF004);
+    public static final String GUI_SPACE_MINUS_8 = cp(0xFF008);
+    public static final String GUI_SPACE_MINUS_16 = cp(0xFF016);
+    public static final String GUI_SPACE_MINUS_32 = cp(0xFF032);
+    public static final String GUI_SPACE_MINUS_64 = cp(0xFF064);
+    public static final String GUI_SPACE_MINUS_128 = cp(0xFF128);
+
+    // Panels - U+FE060..U+FE065, one per chest size, ascent 13 and height = the window's own
+    // pixel height so each renders 1:1. U+FE066..U+FE07F is this font's room to grow.
+    public static final String GUI_PANEL_1 = cp(0xFE060);
+    public static final String GUI_PANEL_2 = cp(0xFE061);
+    public static final String GUI_PANEL_3 = cp(0xFE062);
+    public static final String GUI_PANEL_4 = cp(0xFE063);
+    public static final String GUI_PANEL_5 = cp(0xFE064);
+    public static final String GUI_PANEL_6 = cp(0xFE065);
+
+    /** The six panels, one row first, for {@code rows - 1} indexing. */
+    public static final String[] GUI_PANELS = {
+            GUI_PANEL_1, GUI_PANEL_2, GUI_PANEL_3, GUI_PANEL_4, GUI_PANEL_5, GUI_PANEL_6,
     };
 }

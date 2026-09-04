@@ -91,24 +91,26 @@ The same script also writes two things outside this table's scope:
 
 # Code point allocation
 
-Three fonts, and the difference matters: a glyph only lines up where its `height` and `ascent`
+Four fonts, and the difference matters: a glyph only lines up where its `height` and `ascent`
 match the surface it is drawn on. `nordtal:board` was added 2026-08-31, alongside the board frame
 pieces moving out of `minecraft:default` — see [`nordtal:board`](#nordtalboard) below for why.
+`nordtal:gui` was added 2026-09-04 with the first menu panel.
 
 | font | file | used for | metrics |
 |---|---|---|---|
 | `minecraft:default` | [`minecraft/font/default.json`](src/assets/minecraft/font/default.json) | anything rendered as ordinary text — tab list, chat, nametags, Text Display boards | height 7 / ascent 7, height 9 / ascent 8 for prestige crests, except the logo |
 | `nordtal:bossbar` | [`nordtal/font/bossbar.json`](src/assets/nordtal/font/bossbar.json) | the boss bar HUDs only, with the vanilla bar made invisible | height 14 / ascent 6 for bar segments, height 10 / ascent 4 for icons, height 8 / ascent 3 for text |
 | `nordtal:board` | [`nordtal/font/board.json`](src/assets/nordtal/font/board.json) | the objective board and aura leaderboard's frame only | height 9 / ascent 8 |
+| `nordtal:gui` | [`nordtal/font/gui.json`](src/assets/nordtal/font/gui.json) | the menu panels, drawn out of a chest inventory's **title** | ascent 13, height = the window's own pixel height (132…222) |
 
-The three fonts allocate **independently**. `\uFE001` is a reserved player-badge code point in
+The four fonts allocate **independently**. `\uFE001` is a reserved player-badge code point in
 `minecraft:default`, a 1-pixel bar segment in `nordtal:bossbar`, and (as `\uFF001` specifically, in
-the space-advance block) a −1px tiling correction reused verbatim in `nordtal:board`; none of that
-is a collision, because a component names the font it is drawn in. It is still worth knowing
-before assigning anything new — **and a component that names no font at all draws whichever of the
-three `minecraft:default` happens to hold**, which is not a missing glyph but a wrong one. That
-cost four days of screenshots on 2026-09-04; `BossBarFontTest` now asserts both renderers name
-their font.
+the space-advance block) a −1px tiling correction reused verbatim in `nordtal:board` and
+`nordtal:gui`; none of that is a collision, because a component names the font it is drawn in. It
+is still worth knowing before assigning anything new — **and a component that names no font at all
+draws whichever of the four `minecraft:default` happens to hold**, which is not a missing glyph but
+a wrong one. That cost four days of screenshots on 2026-09-04; `BossBarFontTest` now asserts both
+renderers name their font.
 
 ## The plane, and why it moved (2026-09-04)
 
@@ -407,6 +409,56 @@ direction to the nearest loot point ([hunger-games.md](../docs/hunger-games.md#t
 
 `\uFEF20` – `\uFEF2F` reserved for a large digit set, should the ASCII grid ever prove too small.
 Nothing above that is allocated.
+
+## `nordtal:gui`
+
+**The menu panels, and they are drawn out of the inventory's title.** A menu on this server is an
+ordinary chest inventory; its title carries a bitmap glyph big enough to cover the whole window,
+sitting on a large positive `ascent` so it rises out of the title's baseline and fills the screen
+behind the slots. The client renders labels *after* the background, which is the only reason this
+works at all — the panel is painted on top of `generic_54.png` rather than instead of it. The
+technique, its measurements and the three decisions that follow are in
+[`docs/presentation.md`](../docs/presentation.md#2-menu-panels).
+
+**The panel is opaque on purpose.** Making `generic_54.png` transparent is what the polished
+servers do, and they can, because on those servers *every* inventory is opened by their own plugin
+and brings its own panel. On an SMP whose whole concept is bases and chests that is not true: every
+chest in the world would be frameless. So the vanilla background stays, and ours covers it.
+
+### `\uFF001` – `\uFF128` — space advances
+
+The same negative block `nordtal:board` uses, verbatim, and `ResourcePackTest` fails if the two
+stop being identical. Composing a title needs exactly two offsets: **−8** to bring the cursor from
+the title anchor to the window's left edge, and **−169** (as −128 −32 −8 −1) to walk back from the
+panel's 177px advance to where the readable title belongs.
+
+There are deliberately **no positive advances** here. Nothing in a menu title moves right; the
+panel is drawn from the left edge and the text follows it back. The day a title needs centring,
+that is one entry in `gui.json` and one constant in `Glyphs`.
+
+### `\uFE060` – `\uFE065` — chest panels
+
+| Char code | File | Description | Status |
+|---|---|---|---|
+| `\uFE060` | `ui/gui/panel_1.png` | 1-row chest panel, 176 × 132 | generated — placeholder |
+| `\uFE061` | `ui/gui/panel_2.png` | 2-row chest panel, 176 × 150 | generated — placeholder |
+| `\uFE062` | `ui/gui/panel_3.png` | 3-row chest panel, 176 × 168 | generated — placeholder |
+| `\uFE063` | `ui/gui/panel_4.png` | 4-row chest panel, 176 × 186 | generated — placeholder |
+| `\uFE064` | `ui/gui/panel_5.png` | 5-row chest panel, 176 × 204 | generated — placeholder |
+| `\uFE065` | `ui/gui/panel_6.png` | 6-row chest panel, 176 × 222 | generated — placeholder |
+| `\uFE066` – `\uFE07F` | — | reserved for this font's growth | — |
+
+**Six panels rather than one**, because a chest window is `114 + 18 × rows` pixels tall and a panel
+drawn for six rows is 90px too tall for one. All six heights are even, which is what makes "a panel
+per size" safe; the hopper (133, odd) is the one container where it would not be, and no menu opens
+one.
+
+Drawn by [`tools/generate_gui_panels.py`](tools/generate_gui_panels.py), which is anchored to the
+**measurements** rather than to an image: a hand-drawn panel of the same dimensions drops in
+without a line of Java changing, and the palette at the top of that script is the whole design
+surface. The slot grid in it was read off the extracted 26.2 `generic_54.png` — the drawable cell
+starts at **(7, 17)**, not at the (8, 18) every tutorial quotes, which is the item area inside it.
+**Re-measure at every version bump:** 1.21.9 moved the villager trading result slot by one pixel.
 
 ## Vanilla overrides
 

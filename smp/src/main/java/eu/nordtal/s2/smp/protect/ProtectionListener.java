@@ -1,8 +1,10 @@
 package eu.nordtal.s2.smp.protect;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.region.Boxes;
 
@@ -58,13 +60,16 @@ public final class ProtectionListener implements Listener {
     private final Identities identities;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
 
     public ProtectionListener(final Boxes regions, final Identities identities,
-                              final Messages messages, final PlayerLocales locales) {
+                              final Messages messages, final PlayerLocales locales,
+                              final SmpSounds sounds) {
         this.regions = regions;
         this.identities = identities;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     // ------------------------------------------------------------------ players
@@ -182,6 +187,7 @@ public final class ProtectionListener implements Listener {
             return false;
         }
         player.sendActionBar(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.protect.denied"));
+        sounds.play(player, Feedback.REFUSED);
         return true;
     }
 }

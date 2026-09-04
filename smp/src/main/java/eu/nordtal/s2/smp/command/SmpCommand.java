@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -12,6 +13,7 @@ import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.farm.FarmWorldReset;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.progress.ObjectiveEngine;
 
@@ -63,11 +65,12 @@ public final class SmpCommand {
      * anything to do with it.
      */
     private final UpdateCommands updates;
+    private final SmpSounds sounds;
 
     public SmpCommand(final Plugin plugin, final SmpDao dao, final ObjectiveEngine engine,
                       final FarmWorldReset farmReset, final Identities identities,
                       final Messages messages, final PlayerLocales locales, final Runnable reload,
-                      final UpdateCommands updates) {
+                      final UpdateCommands updates, final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.engine = engine;
@@ -77,6 +80,7 @@ public final class SmpCommand {
         this.locales = locales;
         this.reload = reload;
         this.updates = updates;
+        this.sounds = sounds;
     }
 
     public LiteralCommandNode<CommandSourceStack> build() {
@@ -167,7 +171,10 @@ public final class SmpCommand {
                 reply(context, "smp.admin.no-such-objective");
                 return;
             }
-            engine.finishObjective(active.get(), objective.get());
+            // null: an admin's escape hatch has nobody standing behind it, so the milestone it may
+            // complete is a network event for everybody rather than a congratulation for whoever
+            // typed the command.
+            engine.finishObjective(active.get(), objective.get(), null);
             plugin.getLogger().info("an admin completed objective " + active.get() + "/" + key);
         });
         return Command.SINGLE_SUCCESS;
@@ -176,7 +183,7 @@ public final class SmpCommand {
     private int handleUnlockMilestone(final CommandContext<CommandSourceStack> context) {
         final String key = StringArgumentType.getString(context, "key");
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            engine.unlockMilestone(key);
+            engine.unlockMilestone(key, null);
             plugin.getLogger().info("an admin unlocked milestone " + key);
         });
         reply(context, "smp.admin.milestone-unlocked");
@@ -193,7 +200,7 @@ public final class SmpCommand {
         }
         final Optional<String> discordId = identities.discordIdOf(target.getUniqueId());
         if (discordId.isEmpty()) {
-            reply(context, "smp.error.no-account-link");
+            reply(context, "smp.error.no-account-link", Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -213,10 +220,22 @@ public final class SmpCommand {
 
     /** Answers on the main thread, in the sender's language when there is one. */
     private void reply(final CommandContext<CommandSourceStack> context, final String key) {
+        reply(context, key, null);
+    }
+
+    /**
+     * The same, plus a sound - which the console, being no player, never hears.
+     */
+    private void reply(final CommandContext<CommandSourceStack> context, final String key,
+                       final Feedback feedback) {
         final CommandSender sender = context.getSource().getSender();
         final Locale locale = sender instanceof Player player
                 ? locales.of(player.getUniqueId()) : Locale.ENGLISH;
-        Bukkit.getScheduler().runTask(plugin,
-                () -> sender.sendMessage(MessageRenderer.of(messages).get(locale, key)));
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            sender.sendMessage(MessageRenderer.of(messages).get(locale, key));
+            if (feedback != null && sender instanceof Player player) {
+                sounds.play(player, feedback);
+            }
+        });
     }
 }

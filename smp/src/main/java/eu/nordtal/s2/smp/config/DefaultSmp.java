@@ -165,7 +165,70 @@ final class DefaultSmp {
             item("LEATHER_BOOTS", 1, 1),
             item("COOKED_BEEF", 8, 1));
 
+    // ---------------------------------------------------------------- the sound vocabulary
+    //
+    // Ten vanilla sounds, one per Feedback category. EVERY KEY BELOW WAS RESOLVED against Bukkit's
+    // own sound list as compiled for paper-api 26.2.build.121-stable on 2026-09-04, not taken from
+    // memory - SoundDefaultsTest re-resolves all ten on every build, so a Minecraft release that
+    // retires one turns the build red rather than turning a chime silent.
+    //
+    // The pitches are the only part chosen rather than named: they are what separates two categories
+    // that share a family. Retuning any of them is a config edit.
+
+    /** A pickup, pitched up so it reads as lighter than the level-up. */
+    static final SmpSpec.SoundSpec SMALL_SUCCESS = sound("minecraft:entity.experience_orb.pickup", 1.4f);
+
+    /** The level-up chime - the game's own sound for "that took a while". */
+    static final SmpSpec.SoundSpec BIG_SUCCESS = sound("minecraft:entity.player.levelup", 1.0f);
+
+    /** A low note block. Short, unmistakably negative, and not the villager's groan. */
+    static final SmpSpec.SoundSpec REFUSED = sound("minecraft:block.note_block.bass", 0.7f);
+
+    /** The villager's "no", which everybody already reads as having lost something. */
+    static final SmpSpec.SoundSpec LOSS = sound("minecraft:entity.villager.no", 0.9f);
+
+    static final SmpSpec.SoundSpec SURFACE_OPEN = sound("minecraft:block.barrel.open", 1.2f);
+
+    static final SmpSpec.SoundSpec SURFACE_CLOSE = sound("minecraft:block.barrel.close", 1.2f);
+
+    /** The vanilla UI click, because a menu should sound like the game's own menus. */
+    static final SmpSpec.SoundSpec SELECT = sound("minecraft:ui.button.click", 1.0f);
+
+    static final SmpSpec.SoundSpec TRAVEL = sound("minecraft:block.beacon.power_select", 1.0f);
+
+    /** A hi-hat: short enough to fire four times in four seconds without becoming noise. */
+    static final SmpSpec.SoundSpec COUNTDOWN_TICK = sound("minecraft:block.note_block.hat", 1.0f);
+
+    /** The advancement toast, which is the one sound vanilla itself uses to mean "look". */
+    static final SmpSpec.SoundSpec NETWORK_EVENT = sound("minecraft:ui.toast.challenge_complete", 1.0f);
+
+    /** The whole block, as a fresh config.yml writes it. */
+    static final SmpSpec.SoundsSpec SOUNDS = sounds();
+
     private DefaultSmp() {
+    }
+
+    private static SmpSpec.SoundSpec sound(final String key, final float pitch) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("key", key);
+        values.put("volume", 1.0f);
+        values.put("pitch", pitch);
+        return Specs.createUnsafe(SmpSpec.SoundSpec.class, values);
+    }
+
+    private static SmpSpec.SoundsSpec sounds() {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("small-success", SMALL_SUCCESS);
+        values.put("big-success", BIG_SUCCESS);
+        values.put("refused", REFUSED);
+        values.put("loss", LOSS);
+        values.put("surface-open", SURFACE_OPEN);
+        values.put("surface-close", SURFACE_CLOSE);
+        values.put("select", SELECT);
+        values.put("travel", TRAVEL);
+        values.put("countdown-tick", COUNTDOWN_TICK);
+        values.put("network-event", NETWORK_EVENT);
+        return Specs.createUnsafe(SmpSpec.SoundsSpec.class, values);
     }
 
     private static SmpSpec.SpawnRegionSpec region(final String world, final int minX, final int minY,

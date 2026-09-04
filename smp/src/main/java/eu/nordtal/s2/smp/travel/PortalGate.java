@@ -1,8 +1,10 @@
 package eu.nordtal.s2.smp.travel;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.world.WorldRole;
@@ -47,13 +49,15 @@ public final class PortalGate implements Listener {
     private final SeasonState season;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
 
     public PortalGate(final Worlds worlds, final SeasonState season, final Messages messages,
-                      final PlayerLocales locales) {
+                      final PlayerLocales locales, final SmpSounds sounds) {
         this.worlds = worlds;
         this.season = season;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     /** A Nether portal frame only lights once the milestone has been finished. */
@@ -73,6 +77,7 @@ public final class PortalGate implements Listener {
         event.setCancelled(true);
         if (event.getEntity() instanceof Player player) {
             player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.portal.nether-locked"));
+            sounds.play(player, Feedback.REFUSED);
         }
     }
 
@@ -90,6 +95,7 @@ public final class PortalGate implements Listener {
         }
         event.setCancelled(true);
         event.getPlayer().sendMessage(MessageRenderer.of(messages).get(locales.of(event.getPlayer().getUniqueId()), "smp.portal.end-inactive"));
+        sounds.play(event.getPlayer(), Feedback.REFUSED);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -116,6 +122,7 @@ public final class PortalGate implements Listener {
             // plugin, or an admin's, must not become a way past the milestone either.
             event.setCancelled(true);
             event.getPlayer().sendMessage(MessageRenderer.of(messages).get(locales.of(event.getPlayer().getUniqueId()), "smp.portal.nether-locked"));
+            sounds.play(event.getPlayer(), Feedback.REFUSED);
         }
     }
 }

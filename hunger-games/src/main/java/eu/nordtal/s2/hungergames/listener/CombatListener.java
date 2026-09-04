@@ -7,6 +7,7 @@ import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
+import eu.nordtal.s2.hungergames.game.Ceremony;
 import eu.nordtal.s2.hungergames.game.GameState;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 
@@ -29,7 +30,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * PvP protection, friendly fire (always on - no code needed, vanilla already allows player-vs-player
@@ -65,12 +66,12 @@ public final class CombatListener implements Listener {
      * finished doing exactly that kind of work, and travels with the outcome. {@code null} when the
      * game ended with no winner, or when the winner has no linked Minecraft account.
      */
-    private final BiConsumer<WinTracker.Outcome, UUID> onGameDecided;
+    private final Consumer<Ceremony.Decision> onGameDecided;
 
     public CombatListener(final Plugin plugin, final HungerGamesDao dao, final GameState state,
                           final PlayerBodies bodies, final BorderController border, final WinTracker winTracker,
                           final HungerGamesSounds sounds,
-                          final BiConsumer<WinTracker.Outcome, UUID> onGameDecided) {
+                          final Consumer<Ceremony.Decision> onGameDecided) {
         this.plugin = plugin;
         this.dao = dao;
         this.state = state;
@@ -145,25 +146,37 @@ public final class CombatListener implements Listener {
             final Optional<WinTracker.Outcome> outcome =
                     winTracker.recordDeath(gameId, victimEntry.get().memberId(), killerMemberId);
 
-            // Off the main thread on purpose - see the field's own documentation. Only queried when
-            // there is a winner to look up, which is at most once per game.
-            final UUID winnerMcUuid = outcome
-                    .map(WinTracker.Outcome::winnerMemberId)
-                    .flatMap(memberId -> dao.roster(gameId).stream()
-                            .filter(entry -> memberId.equals(entry.memberId()))
-                            .map(RosterEntry::mcUuid)
-                            // RosterEntry#mcUuid is null for a member who never linked, and
-                            // Stream#findFirst throws on a null element rather than answering empty.
-                            // Such a member can still be the last one standing, because WinTracker
-                            // is reset from activeMembersOf and not from the resolved participants.
-                            .filter(java.util.Objects::nonNull)
-                            .findFirst())
-                    .orElse(null);
+            // Everything the ceremony needs, read here rather than there - see Ceremony.Decision
+            // for what that used to cost. All of it happens at most once per game, and none of it
+            // happens at all until there is a winner to announce.
+            final Ceremony.Decision decision = outcome.map(decided -> {
+                final UUID winnerMcUuid = decided.winnerMemberId() == null ? null
+                        : dao.roster(gameId).stream()
+                                .filter(entry -> decided.winnerMemberId().equals(entry.memberId()))
+                                .map(RosterEntry::mcUuid)
+                                // RosterEntry#mcUuid is null for a member who never linked, and
+                                // Stream#findFirst throws on a null element rather than answering
+                                // empty. Such a member can still be the last one standing, because
+                                // WinTracker is reset from activeMembersOf and not from the
+                                // resolved participants.
+                                .filter(java.util.Objects::nonNull)
+                                .findFirst().orElse(null);
+
+                // The write goes here too, ahead of the ceremony rather than inside it. A game is
+                // decided the moment WinTracker says so; the ceremony is what players see of that,
+                // and if the server dies between the two the database is still right - which is the
+                // direction that matters, because a game left un-DECIDED is the one the partial
+                // unique index refuses to let a second game start beside.
+                dao.decideGame(gameId, decided.winnerMemberId());
+
+                return new Ceremony.Decision(decided, winnerMcUuid,
+                        dao.activeMembersOf(gameId), dao.killCounts(gameId));
+            }).orElse(null);
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 border.onDeath(state);
-                if (outcome.isPresent()) {
-                    onGameDecided.accept(outcome.get(), winnerMcUuid);
+                if (decision != null) {
+                    onGameDecided.accept(decision);
                 } else {
                     // SMALL_SUCCESS for the kill, and only in this branch. When the kill decided the
                     // game the ceremony's BIG_SUCCESS lands in the same tick, and two chimes on top

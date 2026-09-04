@@ -173,6 +173,16 @@ session does not "finish" it:
 - **a farm reset postponed** — the countdown ticks because the world is about to be taken away; a
   reset that did not happen takes nothing.
 - **a duel interrupted by the server stopping** — it cost nobody anything.
+- **an admin command whose effect the admin can see** — `/smp reload`, `/smp farmreset`. The chat
+  line is the confirmation, and the world in front of them is the rest of it.
+
+The one admin command that *does* get a sound is `/hg start`, and the line is worth stating because
+it looks like an exception and is not: **a command whose whole effect happens to other people,
+somewhere else, gets a confirmation the admin can hear.** Starting the games teleports forty
+players onto towers in another world; the `TRAVEL`, the countdown and the release all go to
+participants, so an admin who is not playing would otherwise hear nothing at all after pressing the
+irreversible button. It is `SMALL_SUCCESS` and not `BIG_SUCCESS` so the admin's private line is
+never louder than what the participants get.
 
 ### What the proxy cannot do
 

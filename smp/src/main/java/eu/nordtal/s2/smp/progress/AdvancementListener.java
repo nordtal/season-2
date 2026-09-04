@@ -1,11 +1,13 @@
 package eu.nordtal.s2.smp.progress;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.aura.AuraReason;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 
 import net.kyori.adventure.text.Component;
@@ -42,19 +44,22 @@ public final class AdvancementListener implements Listener {
     private final Identities identities;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
 
     /** The curated award list, flattened once at construction rather than scanned per advancement. */
     private final Map<String, Integer> awards = new HashMap<>();
 
     public AdvancementListener(final Plugin plugin, final SmpDao dao, final ObjectiveEngine engine,
                                final Identities identities, final SmpSpec config,
-                               final Messages messages, final PlayerLocales locales) {
+                               final Messages messages, final PlayerLocales locales,
+                               final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.engine = engine;
         this.identities = identities;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
         for (final SmpSpec.AdvancementAwardSpec award : config.advancementAwards()) {
             awards.put(award.advancement().toLowerCase(Locale.ROOT), award.aura());
         }
@@ -87,12 +92,13 @@ public final class AdvancementListener implements Listener {
                     if (player.isOnline()) {
                         player.sendMessage(MessageRenderer.of(messages).format(locale,
                                 "smp.aura.advancement", "aura", award));
+                        sounds.play(player, Feedback.SMALL_SUCCESS);
                     }
                 });
             }
             // An ADVANCEMENT objective is keyed by the advancement it wants, so the key is the
             // lookup. One player, one credit - the objective's target is a headcount.
-            engine.credit(discordId.get(), objectiveKey, 1L);
+            engine.credit(discordId.get(), objectiveKey, 1L, player.getUniqueId());
         });
     }
 }

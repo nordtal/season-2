@@ -1,10 +1,12 @@
 package eu.nordtal.s2.smp.npc;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.player.Identities;
@@ -44,11 +46,12 @@ public final class NpcListener implements Listener {
     private final Identities identities;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
 
     public NpcListener(final Plugin plugin, final SmpDao dao, final SpawnNpc npc,
                        final MilestoneTrack track, final ObjectiveEngine engine,
                        final Identities identities, final Messages messages,
-                       final PlayerLocales locales) {
+                       final PlayerLocales locales, final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.npc = npc;
@@ -57,6 +60,7 @@ public final class NpcListener implements Listener {
         this.identities = identities;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -102,11 +106,19 @@ public final class NpcListener implements Listener {
         if (holder instanceof ObjectiveGui gui) {
             // Nothing in the list is ever picked up.
             event.setCancelled(true);
-            gui.at(event.getRawSlot())
-                    .filter(ObjectiveGui.Entry::isHandIn)
-                    .ifPresent(entry -> player.openInventory(new HandInGui(messages,
+            gui.at(event.getRawSlot()).ifPresent(entry -> {
+                if (entry.isHandIn()) {
+                    sounds.play(player, Feedback.SELECT);
+                    player.openInventory(new HandInGui(messages,
                             locales.of(player.getUniqueId()), entry.objective(),
-                            entry.row().amount(), entry.row().target()).getInventory()));
+                            entry.row().amount(), entry.row().target()).getInventory());
+                } else {
+                    // A statistic counts itself and an advancement is earned elsewhere, which is
+                    // what the item's own lore says. Clicking one is a click the server cannot do
+                    // anything with, and silence there reads as a menu that is broken.
+                    sounds.play(player, Feedback.REFUSED);
+                }
+            });
             return;
         }
 
@@ -135,6 +147,7 @@ public final class NpcListener implements Listener {
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.error.no-account-link"));
+            sounds.play(player, Feedback.REFUSED);
             return;
         }
 
@@ -142,6 +155,7 @@ public final class NpcListener implements Listener {
                 HandIn.sort(gui.offered(), gui.wanted(), gui.stillNeeded());
         if (result.accepted() <= 0) {
             player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.handin.nothing-wanted"));
+            sounds.play(player, Feedback.REFUSED);
             return;
         }
 
@@ -150,13 +164,15 @@ public final class NpcListener implements Listener {
         final long accepted = result.accepted();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            final long credited = engine.credit(discordId.get(), objectiveKey, accepted);
+            final long credited =
+                    engine.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (!player.isOnline()) {
                     return;
                 }
                 player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.handin.accepted",
                         "amount", credited));
+                sounds.play(player, Feedback.SMALL_SUCCESS);
                 player.closeInventory();
             });
         });

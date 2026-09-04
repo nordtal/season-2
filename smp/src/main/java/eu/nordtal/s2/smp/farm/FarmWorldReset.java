@@ -1,10 +1,12 @@
 package eu.nordtal.s2.smp.farm;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.pregen.PreGenerator;
 import eu.nordtal.s2.smp.world.WorldRole;
@@ -53,6 +55,7 @@ public final class FarmWorldReset {
     private final PlayerLocales locales;
     private final SmpDao dao;
     private final Navigation navigation;
+    private final SmpSounds sounds;
     private final DailySchedule schedule;
 
     /**
@@ -68,7 +71,7 @@ public final class FarmWorldReset {
     public FarmWorldReset(final Plugin plugin, final SmpSpec config, final Worlds worlds,
                           final FarmWorldSwap swap, final PreGenerator pregen,
                           final Messages messages, final PlayerLocales locales,
-                          final SmpDao dao, final Navigation navigation) {
+                          final SmpDao dao, final Navigation navigation, final SmpSounds sounds) {
         this.plugin = plugin;
         this.config = config;
         this.worlds = worlds;
@@ -78,6 +81,7 @@ public final class FarmWorldReset {
         this.locales = locales;
         this.dao = dao;
         this.navigation = navigation;
+        this.sounds = sounds;
         this.schedule = DailySchedule.parse(config.farmResetTime());
     }
 
@@ -137,6 +141,7 @@ public final class FarmWorldReset {
         forEachInFarmWorld(player -> {
             final Locale locale = locales.of(player.getUniqueId());
             player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.farm.warning", "minutes", minutes));
+            sounds.play(player, Feedback.COUNTDOWN_TICK);
         });
     }
 
@@ -171,6 +176,7 @@ public final class FarmWorldReset {
             forEachInFarmWorld(player -> {
                 player.teleport(spawn);
                 player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.farm.moved"));
+                sounds.play(player, Feedback.TRAVEL);
             });
 
             swap.swap().ifPresent(this::settleNewWorld);

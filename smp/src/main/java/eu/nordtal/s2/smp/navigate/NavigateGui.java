@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.PoiRow;
+import eu.nordtal.s2.smp.feedback.Surface;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -12,7 +13,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -33,7 +33,7 @@ import java.util.Optional;
  * on, and the way back has to be as easy as the way in - and as visible, because an arrow nobody
  * asked for any more is the kind of thing that quietly annoys somebody for a week.
  */
-public final class NavigateGui implements InventoryHolder {
+public final class NavigateGui implements Surface {
 
     private static final int STOP_SLOT = 0;
     private static final int FIRST_TARGET_SLOT = 9;

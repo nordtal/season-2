@@ -4,12 +4,14 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.PlaceRow;
 import eu.nordtal.s2.smp.db.PoiRow;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.navigate.NavigateGui;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.navigate.NavigationTarget;
@@ -51,16 +53,18 @@ public final class NavigateCommand {
     private final Identities identities;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
 
     public NavigateCommand(final Plugin plugin, final SmpDao dao, final Navigation navigation,
                            final Identities identities, final Messages messages,
-                           final PlayerLocales locales) {
+                           final PlayerLocales locales, final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.navigation = navigation;
         this.identities = identities;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     public LiteralCommandNode<CommandSourceStack> navigate() {
@@ -113,25 +117,29 @@ public final class NavigateCommand {
         final String name = StringArgumentType.getString(context, "name").trim();
 
         if (name.isEmpty() || name.length() > MAX_POI_NAME) {
-            tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.bad-name", "max", MAX_POI_NAME));
+            tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.bad-name", "max", MAX_POI_NAME),
+                    Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
-            tell(player, MessageRenderer.of(messages).get(locale, "smp.error.no-account-link"));
+            tell(player, MessageRenderer.of(messages).get(locale, "smp.error.no-account-link"),
+                    Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 
         final Location at = player.getLocation();
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (dao.allPois().stream().anyMatch(poi -> poi.name().equalsIgnoreCase(name))) {
-                tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.duplicate", "name", name));
+                tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.duplicate", "name", name),
+                        Feedback.REFUSED);
                 return;
             }
             dao.createPoi(name, at.getWorld().getName(), at.getBlockX(), at.getBlockY(),
                     at.getBlockZ(), discordId.get());
-            tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.added", "name", name));
+            tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.added", "name", name),
+                    Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;
     }
@@ -148,12 +156,14 @@ public final class NavigateCommand {
                     .filter(poi -> poi.name().equalsIgnoreCase(name))
                     .findFirst();
             if (found.isEmpty()) {
-                tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.not-found", "name", name));
+                tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.not-found", "name", name),
+                        Feedback.REFUSED);
                 return;
             }
             final PoiRow poi = found.get();
             if (!admin && !poi.createdBy().equals(discordId.orElse(""))) {
-                tell(player, MessageRenderer.of(messages).get(locale, "smp.poi.not-yours"));
+                tell(player, MessageRenderer.of(messages).get(locale, "smp.poi.not-yours"),
+                        Feedback.REFUSED);
                 return;
             }
             dao.deletePoi(poi.id());
@@ -163,12 +173,24 @@ public final class NavigateCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** Sends one line on the main thread, from wherever it is called. */
     /** Sends one already-rendered message on the main thread, from wherever it is called. */
     private void tell(final Player player, final Component message) {
+        tell(player, message, null);
+    }
+
+    /**
+     * The same, plus a sound.
+     *
+     * <p>Both in the one hop back to the main thread: the message and its sound belong to the same
+     * moment, and scheduling them separately is how they end up a tick apart.
+     */
+    private void tell(final Player player, final Component message, final Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) {
                 player.sendMessage(message);
+                if (feedback != null) {
+                    sounds.play(player, feedback);
+                }
             }
         });
     }

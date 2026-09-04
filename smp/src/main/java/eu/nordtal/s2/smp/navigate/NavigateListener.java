@@ -1,7 +1,9 @@
 package eu.nordtal.s2.smp.navigate;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 
 import org.bukkit.Bukkit;
@@ -28,14 +30,17 @@ public final class NavigateListener implements Listener {
     private final Navigation navigation;
     private final Identities identities;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
 
     public NavigateListener(final Plugin plugin, final SmpDao dao, final Navigation navigation,
-                            final Identities identities, final PlayerLocales locales) {
+                            final Identities identities, final PlayerLocales locales,
+                            final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.navigation = navigation;
         this.identities = identities;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     @EventHandler
@@ -48,6 +53,7 @@ public final class NavigateListener implements Listener {
             return;
         }
         if (gui.click(player, event.getRawSlot(), locales.of(player.getUniqueId()))) {
+            sounds.play(player, Feedback.SELECT);
             player.closeInventory();
         }
     }

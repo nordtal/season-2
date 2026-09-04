@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.travel;
 
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.region.Boxes;
 import eu.nordtal.s2.smp.state.SeasonState;
@@ -41,19 +42,21 @@ public final class BalloonListener implements Listener {
     private final MilestoneTrack track;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
 
     /** Who is currently standing in a balloon, so entry is an edge and not a state. */
     private final Map<UUID, Boolean> inside = new ConcurrentHashMap<>();
 
     public BalloonListener(final Boxes balloons, final Worlds worlds, final SeasonState season,
                            final MilestoneTrack track, final Messages messages,
-                           final PlayerLocales locales) {
+                           final PlayerLocales locales, final SmpSounds sounds) {
         this.balloons = balloons;
         this.worlds = worlds;
         this.season = season;
         this.track = track;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -101,7 +104,7 @@ public final class BalloonListener implements Listener {
         if (role.isEmpty()) {
             return;
         }
-        player.openInventory(new BalloonGui(messages, locales, worlds, season, track, player,
+        player.openInventory(new BalloonGui(messages, locales, worlds, season, track, sounds, player,
                 role.get()).getInventory());
     }
 }

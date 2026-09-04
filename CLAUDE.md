@@ -62,8 +62,8 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   described by a `@ConfigSpec` interface. It is the default for every new config in this repo.
   `network-control` (`database.yml`, `gate.yml`, `pack.yml`), `hunger-games` (`config.yml`,
   `database.yml`), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`, `database.yml`,
-  `milestones.yml`) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`) all use it — read
-  one of them, and "Configuration" below, before writing the next.
+  `milestones.yml`, `sounds.yml`) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`) all
+  use it — read one of them, and "Configuration" below, before writing the next.
 - **No command framework, decided 2026-08-31.** Season 1 used Incendo Cloud; season 2 uses
   **Brigadier directly, through each platform's own API** — `io.papermc.paper.command.brigadier.
   Commands` on the Lifecycle API for the three Paper plugins, `BrigadierCommand` through
@@ -233,7 +233,19 @@ Every config file in this repo is a commented YAML file described by an interfac
 `eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). Six modules have one:
 `network-control` (`database.yml`, `gate.yml`, **`pack.yml`**), `hunger-games` (`config.yml`,
 `database.yml`), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`, `database.yml`,
-**`milestones.yml`**) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`).
+**`milestones.yml`**, **`sounds.yml`**) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`).
+
+**A file is separate when it is reloaded, and `smp` now has two such files.** `config.yml` is
+deliberately *not* reloadable — the plugin binds worlds, borders, boxes and coordinates once at
+enable and would not notice any of them changing, so re-reading the handle would only make it
+disagree with the running server. `milestones.yml` is separate because a milestone is appended
+mid-season; `sounds.yml` is separate since 2026-09-04 because the documented escape hatch for a
+sound that turns out to be irritating is "blank the key", and an escape hatch that costs a restart
+of the season is worth very little. Both are re-read by `/smp reload`, each reported separately
+because each fails on its own. The sounds spent one afternoon as a `sounds:` block inside
+`config.yml` before the reload path was written and the mistake became visible; `ConfigsTest`
+asserts by name that `config.yml` refuses such a block, because the *reason* is invisible from
+`SmpSpec`.
 
 **A nested spec interface needs its own `@ConfigSpec`, and two levels of nesting work.** `smp`'s
 `milestones.yml` is a list of milestones each carrying a list of objectives, which is one level
@@ -715,16 +727,16 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 887 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 919 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-04). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
-| `smp` | 146 |
-| `common` | 206 |
+| `smp` | 153 |
+| `common` | 228 |
 | `network-control` | 189 |
-| `updater` | 133 |
+| `updater` | 136 |
 | `discord-bot` | 155 |
 | `hunger-games` | 47 |
 | `limbo` | 11 |
@@ -734,7 +746,14 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **206**, thirty-three of them added by the review of 2026-09-04 - `ResourcePackTest`
+`:common` has **228**, twenty-two of them the sound vocabulary added on 2026-09-04 -
+`SoundVocabularyTest` (3) and `FeedbackSoundsTest` (8), plus the readiness pair. The first of those
+is the one that carries a rule rather than an assertion: it walks all four client-facing modules'
+`src/main` for `playSound(`, `org.bukkit.Sound`, `net.kyori.adventure.sound.` and a bare `Sound.`
+constant, with a named allowlist of one file and its reason, exactly the way `OneMessageFormatTest`
+polices message construction. It was written while the answer was still *zero* call sites, which is
+the cheap moment: after the first exception exists a rule like this is an argument rather than a
+fact. Thirty-three more came from the review of 2026-09-04 - `ResourcePackTest`
 (8, the pack's three mirrors held against each other), `MessageOverridesTest` (9, the operator's
 key-by-key override), `TabListTest` (4, one tab list written by three servers), `OneMessageFormatTest`
 (4, one message format and a named allowlist of what still composes by hand), `BossBarFontTest` (3)
@@ -813,7 +832,13 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **146**. `MilestonesTest` (9) writes a
+`smp` has **153**. `SoundDefaultsTest` (6) is the newest and the only one that can say anything
+about a sound without a server: every one of the ten defaults resolves against `org.bukkit.Sound` as
+compiled for this Paper version (via `getField`, which initialises no registry), blanking a key in
+the real `sounds.yml` really does silence that one category and nothing else, `refused` and
+`countdown-tick` do not ship as the same note block, and a `/smp reload` reaches the single
+`SmpSounds` instance every listener was handed at enable - which is the whole reason the sounds are
+their own file. `MilestonesTest` (9) writes a
 fresh `milestones.yml`, reads it back and asserts the whole track survives — which is also the proof
 that two levels of jcore nesting work; `AuraPayoutTest` (12) covers the 30/70 split, the 2 %
 threshold, the concept's own worked example, the case it never named (more qualifiers than there is

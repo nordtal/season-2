@@ -11,8 +11,11 @@ import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.papercommon.command.PaperCommands;
+import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
+import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.player.Identities;
+import eu.nordtal.s2.smp.state.SeasonState;
 
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 
@@ -51,7 +54,8 @@ public final class SmpCommand {
     public static List<LiteralCommandNode<CommandSourceStack>> build(
             final Plugin plugin, final Messages messages, final PlayerLocales locales,
             final Identities identities, final SmpSounds sounds, final Outbox outbox,
-            final SmpEffects effects, final UpdateCommands updates) {
+            final SmpEffects effects, final UpdateCommands updates, final MilestoneTrack track,
+            final SeasonState season) {
 
         final PaperCommands commands = new PaperCommands(plugin, messages, Target.SMP, outbox,
                 mcUuid -> locales.of(mcUuid),
@@ -62,6 +66,17 @@ public final class SmpCommand {
         for (final NordtalCommand<SmpEffects> command : SmpCommands.all()) {
             commands.local(command, effects);
         }
+
+        // The two arguments a person cannot be expected to remember. Both sources are already in
+        // memory for the boards, so a keystroke costs a list walk rather than a query - which is the
+        // rule a suggestion source has to meet, because Brigadier asks once per keystroke per
+        // client.
+        commands.suggest(SmpCommands.UNLOCK_MILESTONE, "key", track::keys);
+        commands.suggest(SmpCommands.COMPLETE_OBJECTIVE, "key",
+                // The ACTIVE milestone's objectives, because that is the only milestone this
+                // command can close one of - offering the whole track would suggest keys that are
+                // always refused.
+                () -> season.active().objectives().stream().map(ObjectiveRow::key).toList());
 
         // /smp update is not a NordtalCommand and should not become one: it already travels,
         // through update_request to a container that is not a command target, and its answer is the

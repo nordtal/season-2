@@ -13,6 +13,7 @@ import eu.nordtal.s2.hungergames.game.GameState;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.ShadowColor;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -220,9 +221,20 @@ public final class HudRenderer {
      * undefined or defined as something else - see the note on {@link Glyphs#FONT_BOSSBAR}. The
      * readable text rides in the same component on purpose: the bossbar font carries its own ascii
      * provider.</p>
+     *
+     * <p><b>And it carries no shadow.</b> Vanilla draws every glyph a second time, one pixel down
+     * and right; on a background composed of power-of-two tiles butted against each other that
+     * second copy bleeds out of each tile into the next, so the bar the pack draws as one surface
+     * arrives with a dark seam at every segment boundary. The shadow costs no advance, so
+     * {@link BossBarWidth}'s arithmetic is untouched and nothing moves - the bar only looks wrong,
+     * which is why reading the composition never finds it. The whole line is one component, so the
+     * readable text loses its shadow too; that is the deliberate trade for keeping the line
+     * un-split (owner's call, 2026-09-05).</p>
      */
     private static Component bossBarText(final String line) {
-        return Component.text(line).font(Key.key(Glyphs.FONT_BOSSBAR));
+        return Component.text(line)
+                .font(Key.key(Glyphs.FONT_BOSSBAR))
+                .shadowColor(ShadowColor.none());
     }
 
 }

@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.Glyphs;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.ShadowColor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -221,17 +222,25 @@ public final class BoardFrame {
     }
 
     /**
-     * A frame component: {@code nordtal:board}, white, and italic-free.
+     * A frame component: {@code nordtal:board}, white, shadowless, and italic-free.
      *
-     * <p>Both halves matter. A component that names no font resolves its code points in
+     * <p>All three halves matter. A component that names no font resolves its code points in
      * {@code minecraft:default}, where they are other glyphs entirely - the mistake
      * {@link Glyphs#FONT_BOSSBAR} documents. A component that names no colour inherits the parent's,
      * and a board whose heading is gold would then have a gold frame.
+     *
+     * <p><b>And a component that names no shadow gets vanilla's</b>, which is the whole glyph drawn
+     * again one pixel down and right. On a line of text that is what text is supposed to look like;
+     * on a frame composed of tiles butted against each other it is a dark ghost bleeding out of
+     * every tile into its neighbour, and the seam it draws is exactly where the composition was
+     * meant to be invisible. The shadow costs no advance, so nothing here moves - it only looks
+     * broken, which is why it survives a reading of the arithmetic.
      */
     private static Component frameText(final String composed) {
         return Component.text(composed)
                 .font(Key.key(Glyphs.FONT_BOARD))
-                .color(NamedTextColor.WHITE);
+                .color(NamedTextColor.WHITE)
+                .shadowColor(ShadowColor.none());
     }
 
     private static void checkWidth(final int width) {

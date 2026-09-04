@@ -513,7 +513,8 @@ public final class SmpPlugin extends JavaPlugin {
                             // Over the pool this plugin already owns. The updater is a different
                             // container and this is how it is reached: a row and a notification,
                             // never a call.
-                            new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales))
+                            new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales),
+                            track, season)
                     .forEach(node -> event.registrar().register(node));
         });
     }

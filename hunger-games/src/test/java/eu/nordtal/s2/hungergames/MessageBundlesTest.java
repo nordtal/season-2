@@ -82,6 +82,41 @@ class MessageBundlesTest {
         }
     }
 
+    /**
+     * The component slots, which are the other half of {@link #thePlaceholdersOfATranslationMatchItsOriginal()}.
+     *
+     * <p>A {@code <_name>} tag is where something that is already a component goes - the sender's
+     * flag and crest, vanilla's own death message, an advancement's title. It is written with a
+     * leading underscore precisely so a test can find it: every other angle bracket in these files
+     * is a MiniMessage style tag, which the two languages are entitled to differ on.
+     *
+     * <p>The failure it catches is worse than a printed {@code {name}}. A translation that drops
+     * {@code <_death>} does not print the tag - MiniMessage silently renders nothing for an
+     * unresolved tag, so German readers would get a death line with no death in it and the server
+     * would log nothing at all.
+     */
+    @Test
+    void theComponentSlotsOfATranslationMatchItsOriginal() throws IOException {
+        final Properties english = load("en");
+        final Properties german = load("de");
+
+        for (final String key : english.stringPropertyNames()) {
+            assertEquals(slots(english.getProperty(key)), slots(german.getProperty(key)),
+                    key + " uses different <_component> slots in the two languages - an unresolved"
+                            + " slot renders as nothing at all, in silence");
+        }
+    }
+
+    private static Set<String> slots(final String text) {
+        final Set<String> found = new TreeSet<>();
+        final java.util.regex.Matcher matcher =
+                java.util.regex.Pattern.compile("<(_[a-zA-Z0-9_-]+)>").matcher(text);
+        while (matcher.find()) {
+            found.add(matcher.group(1));
+        }
+        return found;
+    }
+
     private static Set<String> placeholders(final String text) {
         final Set<String> found = new TreeSet<>();
         final java.util.regex.Matcher matcher =

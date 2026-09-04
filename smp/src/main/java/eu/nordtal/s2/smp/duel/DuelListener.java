@@ -66,6 +66,13 @@ public final class DuelListener implements Listener {
      * <p>{@code setCancelled} is not available on a death, so the drops are emptied here instead: the
      * loadout was the arena's, not the player's, and letting it fall on the floor would turn every
      * duel into a source of free iron.
+     *
+     * <p>The death message is cleared for the same reason the drops are: a duel costs nobody
+     * anything, both people are told the outcome by {@link Duels}, and a server-wide "was slain by"
+     * for a consequence-free sparring match would make the real death line mean less. Clearing it
+     * here rather than teaching {@code SystemLines} about duels is deliberate - a null death message
+     * already means "somebody decided this is not news", which is the same thing
+     * {@code showDeathMessages} says, and it needs no agreement about event priorities.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(final PlayerDeathEvent event) {
@@ -75,6 +82,7 @@ public final class DuelListener implements Listener {
         }
         event.getDrops().clear();
         event.setDroppedExp(0);
+        event.deathMessage(null);
         duels.decide(player);
     }
 

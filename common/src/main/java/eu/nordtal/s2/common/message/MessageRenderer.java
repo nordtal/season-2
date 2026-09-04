@@ -2,6 +2,8 @@ package eu.nordtal.s2.common.message;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -79,6 +81,40 @@ public final class MessageRenderer {
      * @return the formatted message, parsed as MiniMessage
      */
     public Component format(final Locale locale, final String key, final Object... parameters) {
+        return format(locale, key, Map.of(), parameters);
+    }
+
+    /**
+     * The same, plus values that are already {@link Component}s.
+     *
+     * <h2>Why there are two kinds of value at all</h2>
+     * A {@code {name}} placeholder is substituted into the raw string before MiniMessage sees it,
+     * which is exactly what makes escaping possible - and exactly what makes it useless for a value
+     * that is already styled. Three things in this network are components before they are anything
+     * else and cannot survive a trip through {@code String}:
+     *
+     * <ul>
+     *   <li><b>Vanilla's death message.</b> It is a {@code TranslatableComponent}, so every reader's
+     *       own client renders it in their own language, with the mob's name and the killer's
+     *       weapon in it. Nothing in a bundle here can do that, and flattening it to text would
+     *       throw the per-viewer translation away.</li>
+     *   <li><b>An advancement's title</b>, for the same reason.</li>
+     *   <li><b>A player's composition</b> - flag, name, crest - which is glyphs in a specific font
+     *       and specific colours.</li>
+     * </ul>
+     *
+     * <p>These arrive as MiniMessage <em>tags</em> ({@code <sender>}) rather than as braces, so the
+     * bundle still decides where they sit and what is around them, and the two kinds cannot be
+     * confused by whoever edits the file. A component value is not escaped and does not need to be:
+     * it never passes through the parser at all.</p>
+     *
+     * @param components tag name to component, e.g. {@code Map.of("death", event.deathMessage())}
+     *                   for a bundle value containing {@code <death>}
+     * @param parameters the ordinary alternating name/value pairs, escaped as always
+     * @return the formatted message, parsed as MiniMessage
+     */
+    public Component format(final Locale locale, final String key,
+                            final Map<String, Component> components, final Object... parameters) {
         if (parameters.length % 2 != 0) {
             throw new IllegalArgumentException(
                     "parameters must alternate name and value, got " + parameters.length);
@@ -87,7 +123,13 @@ public final class MessageRenderer {
         for (int i = 0; i < parameters.length; i += 2) {
             escaped.put(String.valueOf(parameters[i]), escape(String.valueOf(parameters[i + 1])));
         }
-        return MiniMessage.miniMessage().deserialize(messages.format(locale, key, escaped));
+        final String raw = messages.format(locale, key, escaped);
+        if (components.isEmpty()) {
+            return MiniMessage.miniMessage().deserialize(raw);
+        }
+        final TagResolver.Builder resolver = TagResolver.builder();
+        components.forEach((name, value) -> resolver.resolver(Placeholder.component(name, value)));
+        return MiniMessage.miniMessage().deserialize(raw, resolver.build());
     }
 
     /**

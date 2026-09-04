@@ -16,6 +16,11 @@ repositories {
 }
 
 dependencies {
+    // Every command this process answers that also exists somewhere else. :commands carries the
+    // declaration, the decisions and the message keys; this module carries the adapter. It brings
+    // :common with it (declared `api` there), which the convention plugin already adds.
+    implementation(project(":commands"))
+
     // eu.nordtal.jcore.config is the config system used everywhere in this repo (see the module
     // CLAUDE.md, "Configuration") - database.yml and gate.yml are both loaded through it. jcore
     // 3.0.0 also exports JDBI 3 (api) and HikariCP + the PostgreSQL driver (implementation /

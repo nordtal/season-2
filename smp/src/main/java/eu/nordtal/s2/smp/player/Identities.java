@@ -64,6 +64,30 @@ public final class Identities {
         return Optional.ofNullable(discordIds.get(mcUuid));
     }
 
+    /**
+     * Re-derives everybody's admin flag from the authoritative set.
+     *
+     * <p>Called by the admin watcher on every notification and every poll tick. The whole set is
+     * handed in rather than a delta, for the reason {@code AdminWatch} gives: a notification is
+     * never trusted as state, so a lost one costs latency and not correctness.</p>
+     *
+     * @param admins every admin's Minecraft account, freshly read
+     * @return whether any cached flag actually changed - the caller redraws the six-element
+     *         composition only then, because a redraw of every surface on a thirty-second timer for
+     *         the life of the season is exactly the kind of work that is invisible until it is not
+     */
+    public boolean recordAdmins(final java.util.Set<UUID> admins) {
+        boolean changed = false;
+        for (final Map.Entry<UUID, Identity> entry : byPlayer.entrySet()) {
+            final boolean isAdmin = admins.contains(entry.getKey());
+            if (entry.getValue().admin() != isAdmin) {
+                byPlayer.computeIfPresent(entry.getKey(), (uuid, identity) -> identity.withAdmin(isAdmin));
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
     /** Updates the cached aura after somebody else has written it. */
     public void recordAura(final UUID mcUuid, final int aura) {
         byPlayer.computeIfPresent(mcUuid, (uuid, identity) -> identity.withAura(aura));

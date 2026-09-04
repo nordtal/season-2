@@ -224,6 +224,41 @@ public interface HungerGamesSpec {
         return DefaultRefillTiers.LIST;
     }
 
+
+    // ---------------------------------------------------------------- admin propagation
+
+    @Order(15)
+    @Key("admin-poll-interval-seconds")
+    @Comment({
+            "How often this server re-reads who is an admin, in seconds.",
+            "",
+            "An admin is a server operator for as long as they are an admin, and the flag lives in",
+            "discord_user.admin - nowhere else. Until 2026-09-04 it was read once, at join, so a",
+            "revoked admin kept operator until they chose to disconnect. An emergency revocation is",
+            "exactly the case where waiting for somebody to log off is the wrong direction.",
+            "",
+            "THIS POLL IS THE GUARANTEE, not the LISTEN connection below. A tick on which nothing",
+            "changed costs one indexed query and writes nothing to ops.json, which is what makes it",
+            "affordable to run for the life of the server."
+    })
+    default int adminPollIntervalSeconds() {
+        return 30;
+    }
+
+    @Order(16)
+    @Key("admin-listen-enabled")
+    @Comment({
+            "Whether to also open a dedicated LISTEN nordtal_admin connection.",
+            "",
+            "It only makes a revocation feel instant instead of taking up to one poll interval; the",
+            "poll above is what is actually guaranteed. Turning this off costs latency and nothing",
+            "else, which is why it is a switch: it is one connection per backend, outside the pool,",
+            "parked in a blocking read for the life of the server."
+    })
+    default boolean adminListenEnabled() {
+        return true;
+    }
+
     @Reload
     void reload();
 

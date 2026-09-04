@@ -109,6 +109,9 @@ public final class Configs {
 
     private static void validate(final HungerGamesSpec config) {
         requirePositive("countdown-seconds", config.countdownSeconds());
+        // Zero or negative here would not disable the watcher - AdminWatch floors the timer at
+        // one second - so it would quietly become a query per second for the life of the server.
+        requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
         if (config.softMinimumParticipants() < HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS) {
             throw new IllegalArgumentException(
                     "soft-minimum-participants must be at least " + HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS

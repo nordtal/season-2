@@ -745,6 +745,42 @@ class AccessDirectoryIntegrationTest {
         }
     }
 
+    @Test
+    @DisplayName("an open purchase is readable from outside the bot, tab or no tab")
+    void theOpenPurchaseIsReadable() throws SQLException {
+        // What /smp access prints as its third line, and the reason that command exists: "has not
+        // paid" and "is halfway through paying" produce the same disconnect screen. Driven against
+        // a real database because the whole of it is SQL plus a constructor mapper - a column list
+        // that does not match the record is exactly the kind of thing that compiles, passes every
+        // unit test, and throws the first time an admin runs it.
+        directory.ensureUser(DISCORD_ID);
+        assertTrue(directory.openPayment(DISCORD_ID).isEmpty(),
+                "an account that has started nothing has no open purchase");
+
+        insertOpenRequest(DISCORD_ID, "NT-A1B2C3");
+
+        final var pending = directory.openPayment(DISCORD_ID).orElseThrow();
+        assertEquals("NT-A1B2C3", pending.reference());
+        assertEquals(30, pending.days());
+        assertEquals(300, pending.amountCents());
+        assertEquals("3.00", pending.amount());
+        assertNotNull(pending.created());
+        assertFalse(pending.hasTab(),
+                "bunq_tab_id IS NULL is the difference between 'chose 30 days' and 'asked for a"
+                        + " payment link', and it is what an admin chasing a stuck purchase needs");
+
+        execute("UPDATE payment_request SET bunq_tab_id = 4242 WHERE reference = 'NT-A1B2C3'");
+        assertTrue(directory.openPayment(DISCORD_ID).orElseThrow().hasTab());
+
+        // Only OPEN rows. A settled purchase is not something in progress, and reporting one as
+        // pending would send an admin looking for a payment that already arrived. `settled` moves
+        // with the status because payment_request_settled_iff_paid ties the two together - which is
+        // itself worth knowing here: there is no way to write a PAID row that looks unsettled.
+        execute("UPDATE payment_request SET status = 'PAID', settled = now()"
+                + " WHERE reference = 'NT-A1B2C3'");
+        assertTrue(directory.openPayment(DISCORD_ID).isEmpty());
+    }
+
     private void insertOpenRequest(final String discordId, final String reference) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              var statement = connection.prepareStatement("""

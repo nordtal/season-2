@@ -24,8 +24,8 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 
 | module | main Java | tests | what actually runs |
 |---|---|---|---|
-| `smp` | 93 files, 12 977 lines | 170 | Everything docs/smp.md describes, none of it yet seen on a running server |
-| `common` | 59 files, 6567 lines | 289 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, **the notification listener**, V1–V10 |
+| `smp` | 94 files, 13 160 lines | 170 | Everything docs/smp.md describes, none of it yet seen on a running server |
+| `common` | 60 files, 6700 lines | 293 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, **the notification listener**, V1–V10 |
 | `network-control` | 39 files, 5928 lines | 178 | Login gate, phase, play time, routing, the pack station |
 | `discord-bot` | 52 files, 7800 lines | 140 | Access end to end, the phase command, the admin mirror, the language list, hunger games registration |
 | `updater` | 38 files, 5179 lines | 136 | Resolve, report, apply, serve — and the schema every other process waits on |
@@ -35,7 +35,7 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `paper-common` | 3 files, 460 lines | — | The operator adapter, the admin watcher and the Paper sender adapter; covered from `:common` and from each plugin |
 | `resource-pack` | — | — | Four fonts, every code point allocated and drawn |
 
-1044 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-04),
+1048 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-04),
 across **eight** modules — `paper-common` and `resource-pack` have no test source set of their own.
 
 **This table was three days stale until 2026-09-04, and that is worth writing down rather than

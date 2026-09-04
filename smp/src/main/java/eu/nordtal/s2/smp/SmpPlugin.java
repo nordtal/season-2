@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp;
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Locales;
@@ -264,11 +265,19 @@ public final class SmpPlugin extends JavaPlugin {
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::refreshSurfaceData, 100L, 100L);
 
         final Boxes regions = ConfigBoxes.spawnRegions(config);
+
+        // Admins are operators for as long as they are admins. The sweep runs here, before a single
+        // join can be handled: ops.json is persistent, so anybody left in it by a crash or a
+        // SIGKILL would otherwise still be an operator on this start. AdminOperators carries the
+        // whole reasoning, including why it asks the database nothing.
+        final AdminOperators operators = new AdminOperators(bukkitOps());
+        operators.sweep();
+
         getServer().getPluginManager().registerEvents(
                 new JoinGate(identities, new FullServerAdmission(), messages, logger()), this);
         getServer().getPluginManager().registerEvents(
                 new PresenceListener(this, identities, surfaces, composition, config,
-                        messages, locales), this);
+                        messages, locales, operators), this);
         getServer().getPluginManager().registerEvents(
                 new SystemLines(identities, composition, messages, locales), this);
         getServer().getPluginManager().registerEvents(
@@ -581,4 +590,28 @@ public final class SmpPlugin extends JavaPlugin {
     private Logger logger() {
         return LoggerFactory.getLogger(getClass());
     }
+
+    /**
+     * The two Bukkit calls {@link AdminOperators} needs, which {@code :common} cannot make itself -
+     * it is compiled against no platform.
+     *
+     * <p>{@code getOfflinePlayer(UUID)} rather than {@code getPlayer}: a de-op has to work for
+     * somebody who has already left, which is exactly what the quit handler does.</p>
+     */
+    private AdminOperators.Ops bukkitOps() {
+        return new AdminOperators.Ops() {
+            @Override
+            public void setOp(final java.util.UUID player, final boolean operator) {
+                Bukkit.getOfflinePlayer(player).setOp(operator);
+            }
+
+            @Override
+            public java.util.Set<java.util.UUID> operators() {
+                return Bukkit.getOperators().stream()
+                        .map(org.bukkit.OfflinePlayer::getUniqueId)
+                        .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            }
+        };
+    }
+
 }

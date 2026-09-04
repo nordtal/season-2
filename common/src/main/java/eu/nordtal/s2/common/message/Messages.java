@@ -69,7 +69,7 @@ public final class Messages {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Messages.class);
 
-    private final String root;
+    private final List<String> roots;
     private final ClassLoader classLoader;
     private final List<Locale> locales;
 
@@ -89,9 +89,9 @@ public final class Messages {
     /** Keys already reported missing, so a hot loop logs once and not per call. */
     private final Set<String> reportedMissing = ConcurrentHashMap.newKeySet();
 
-    private Messages(final String root, final ClassLoader classLoader, final Path overrides,
+    private Messages(final List<String> roots, final ClassLoader classLoader, final Path overrides,
                      final List<Locale> locales) {
-        this.root = root;
+        this.roots = roots;
         this.classLoader = classLoader;
         this.overrides = overrides;
         this.locales = locales;
@@ -144,14 +144,48 @@ public final class Messages {
      */
     public static Messages load(final ClassLoader classLoader, final String root,
                                 final Path overrides, final Locale... locales) {
-        Objects.requireNonNull(classLoader, "classLoader");
-        Objects.requireNonNull(root, "root");
+        return load(classLoader, List.of(Objects.requireNonNull(root, "root")), overrides, locales);
+    }
 
-        final String normalisedRoot = root.endsWith("/") ? root.substring(0, root.length() - 1) : root;
-        if (overrides != null) {
-            prepare(overrides, normalisedRoot);
+    /**
+     * Loads several bundles as one, layered in the order given, and merges the operator's override
+     * directory over all of them.
+     *
+     * <h2>What this is for, and it is exactly one thing</h2>
+     * A command declared in {@code :commands} and adapted on two surfaces has to say the same
+     * sentence on both, so its keys belong to the command rather than to either process. They ship
+     * in {@code :commands}' own bundle, and a process loads that <em>plus</em> its own. Before
+     * 2026-09-04 the alternative was a copy of every shared key in every process's bundle, which is
+     * the same two-sources-of-truth this repository keeps writing findings about.
+     *
+     * <p><b>Later roots win.</b> That makes a process able to reword a shared line for its own
+     * surface without editing the shared bundle - and it is also the reason the shared root goes
+     * first in every call: a process's own key of the same name is the more specific one.</p>
+     *
+     * @param classLoader the loader to read the packaged bundles from
+     * @param roots       the resource directories, least specific first, at least one
+     * @param overrides   {@code plugins/<name>/messages}, or {@code null} for no override layer
+     * @param locales     the languages to load; English is always loaded
+     * @return the loaded bundle
+     * @throws IllegalStateException if no root supplies English
+     * @throws UncheckedIOException  if a file exists but cannot be read
+     */
+    public static Messages load(final ClassLoader classLoader, final List<String> roots,
+                                final Path overrides, final Locale... locales) {
+        Objects.requireNonNull(classLoader, "classLoader");
+        Objects.requireNonNull(roots, "roots");
+        if (roots.isEmpty()) {
+            throw new IllegalArgumentException("a Messages with no bundle would answer every key"
+                    + " with the key itself, silently");
         }
-        return new Messages(normalisedRoot, classLoader, overrides, withDefault(locales));
+
+        final List<String> normalised = roots.stream()
+                .map(root -> root.endsWith("/") ? root.substring(0, root.length() - 1) : root)
+                .toList();
+        if (overrides != null) {
+            prepare(overrides, String.join(", ", normalised));
+        }
+        return new Messages(normalised, classLoader, overrides, withDefault(locales));
     }
 
     /**
@@ -179,7 +213,20 @@ public final class Messages {
         final Map<String, Map<String, String>> packagedByLanguage = new LinkedHashMap<>();
         for (final Locale locale : locales) {
             final String language = Locales.tag(locale);
-            final Map<String, String> packaged = read(classLoader, root, language);
+            // Layered least-specific first, so a process's own key of the same name wins over
+            // the shared one it inherits from :commands.
+            Map<String, String> packaged = null;
+            for (final String root : roots) {
+                final Map<String, String> fromRoot = read(classLoader, root, language);
+                if (fromRoot == null) {
+                    continue;
+                }
+                if (packaged == null) {
+                    packaged = new HashMap<>(fromRoot);
+                } else {
+                    packaged.putAll(fromRoot);
+                }
+            }
             if (packaged != null) {
                 packagedByLanguage.put(language, packaged);
                 declaredAnywhere.addAll(packaged.keySet());
@@ -194,11 +241,11 @@ public final class Messages {
             if (packaged == null && operator == null) {
                 if (language.equals(Locales.DEFAULT.getLanguage())) {
                     throw new IllegalStateException(
-                            "Message bundle " + root + "/" + language + ".properties is missing; "
-                                    + "English is the fallback for every other language and must exist");
+                            "No " + language + ".properties in any of " + roots + "; English is the"
+                                    + " fallback for every other language and must exist");
                 }
-                LOGGER.warn("No message bundle {}/{}.properties - {} falls back to English",
-                        root, language, language);
+                LOGGER.warn("No message bundle {}.properties in any of {} - {} falls back to English",
+                        language, roots, language);
                 continue;
             }
 
@@ -448,7 +495,7 @@ public final class Messages {
     private void reportMissing(final String key) {
         // Once per key, ever. A missing key on the login path would otherwise log per join.
         if (reportedMissing.add(key)) {
-            LOGGER.warn("Missing message key '{}' in bundle {} - falling back to the key itself", key, root);
+            LOGGER.warn("Missing message key '{}' in bundle(s) {} - falling back to the key itself", key, roots);
         }
     }
 }

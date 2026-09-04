@@ -47,7 +47,17 @@ public final class Ids {
      */
     public static final String PHASE_CONFIRM = "access:phase-confirm:";
 
-    /** Backs out of a phase switch without touching the row. */
+    /**
+     * The confirm button of {@code /phase smp-start}, carrying the date that was typed.
+     *
+     * <p>Same reasoning as {@link #PHASE_CONFIRM}: the pending decision lives in the button rather
+     * than in a map, so a bot that restarts mid-confirmation has a button that does nothing instead
+     * of one that writes a date somebody has forgotten about. A component id holds 100 characters
+     * and the date is sixteen.</p>
+     */
+    public static final String PHASE_DATE_CONFIRM = "access:phase-date-confirm:";
+
+    /** Backs out of a phase switch or a date change without touching the row. */
     public static final String PHASE_CANCEL = "access:phase-cancel";
 
     /**

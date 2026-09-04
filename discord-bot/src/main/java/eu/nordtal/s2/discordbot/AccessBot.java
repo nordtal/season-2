@@ -123,8 +123,13 @@ public class AccessBot implements AutoCloseable {
             // so adding a language is an edit to access.yml plus a <tag>.properties file. A
             // language whose file is missing is logged once and reads English rather than failing.
             final Languages languages = Languages.of(accessConfig);
+            // Two roots: :commands' shared bundle underneath this module's own. Every string a
+            // command says that also exists on another surface is declared with the command rather
+            // than here - the proxy's /phase and this one say the same sentences. This module's own
+            // keys win on a collision, deliberately; see Messages.load(ClassLoader, List, ...).
             final Messages messages = Messages.load(AccessBot.class.getClassLoader(),
-                    MESSAGE_ROOT, Configs.messagesDirectory(), languages.locales());
+                    java.util.List.of("messages/commands", MESSAGE_ROOT),
+                    Configs.messagesDirectory(), languages.locales());
             messages.unknownOverrideKeys().forEach(key -> log.warn(
                     "the message override names {}, which no bundle declares - it is stored"
                             + " and never used; check the spelling", key));
@@ -169,7 +174,7 @@ public class AccessBot implements AutoCloseable {
                             new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), Clock.systemUTC()),
                             worker),
                     new AdminCommands(access, roles, requests, admin, messages, seasonStart, worker),
-                    new PhaseCommand(phases, admin, database.jdbi(), worker),
+                    new PhaseCommand(phases, admin, database.jdbi(), messages, worker),
                     new UpdateCommand(updates, admin, database.jdbi(), worker, timers),
                     new MessagesCommand(messages, database.jdbi(), worker),
                     new RegisterFlow(jda, teams, messages, worker));

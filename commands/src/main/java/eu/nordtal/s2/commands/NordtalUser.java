@@ -116,6 +116,20 @@ public interface NordtalUser {
     }
 
     /**
+     * One message key, rendered in their language, as plain text meant to go <em>inside</em> another
+     * message.
+     *
+     * <p>Not a second way to say something: nothing is sent. It exists because a few replies name a
+     * thing that is itself translated - "{what} on 2026-10-01", where {@code what} is "when the
+     * network opens" or "wann das Netzwerk öffnet". A command cannot render that itself (it holds no
+     * bundle, deliberately), and putting the key straight into the placeholder would print the key.
+     *
+     * <p>The rendering is plain: whatever markup a surface uses is stripped or never applied, because
+     * the result is substituted into another string that will be rendered again.</p>
+     */
+    String phrase(String messageKey);
+
+    /**
      * Hand back text that is already the answer, verbatim.
      *
      * <p>Only for output produced elsewhere and passed through unchanged - the updater's report is

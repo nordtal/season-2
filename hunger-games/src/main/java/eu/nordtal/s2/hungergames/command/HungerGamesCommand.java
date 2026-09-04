@@ -3,6 +3,7 @@ package eu.nordtal.s2.hungergames.command;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
@@ -97,7 +98,40 @@ public final class HungerGamesCommand {
                 .then(Commands.literal("ready-status")
                         .requires(source -> source.getSender() instanceof Player)
                         .executes(this::handleReadyStatus))
+                .then(Commands.literal("reload")
+                        .requires(source -> source.getSender() instanceof Player)
+                        .executes(this::handleReload))
                 .build();
+    }
+
+    // ---------------------------------------------------------------- /hg reload
+
+    /**
+     * Re-reads the message bundles and the operator's override on top of them.
+     *
+     * <p><b>Only the wording</b>, deliberately. {@code config.yml} holds the border schedule and
+     * the loot timings, and a game is a running clock: re-reading those mid-match would move a
+     * shrink that players are already running from. A typo in a message is worth fixing during a
+     * game; a border parameter is not.</p>
+     */
+    private int handleReload(final com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+        final Player player = (Player) context.getSource().getSender();
+        // runAsAdmin is already off the main thread, which is where the file reads belong.
+        runAsAdmin(player, () -> {
+            final Locale locale = locales.of(player.getUniqueId());
+            try {
+                messages.reload();
+                messages.unknownOverrideKeys().forEach(key -> plugin.getLogger().warning(
+                        "the message override names " + key + ", which no bundle declares - it is"
+                                + " stored and never used; check the spelling"));
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.admin.reloaded"));
+            } catch (final RuntimeException exception) {
+                plugin.getLogger().severe("the messages could not be reloaded, the running ones are "
+                        + "unchanged: " + exception.getMessage());
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.admin.reload-failed"));
+            }
+        });
+        return Command.SINGLE_SUCCESS;
     }
 
     // ---------------------------------------------------------------- /hg start
@@ -118,13 +152,13 @@ public final class HungerGamesCommand {
         final Locale locale = locales.of(player.getUniqueId());
         final UUID gameId = currentGameId.get();
         if (gameId == null) {
-            tell(player, messages.get(locale, "hg.start.no-game"));
+            tell(player, MessageRenderer.of(messages).get(locale, "hg.start.no-game"));
             return;
         }
 
         final var game = dao.game(gameId);
         if (game.isEmpty() || !"REGISTRATION".equals(game.get().state().name())) {
-            tell(player, messages.format(locale, "hg.start.wrong-state",
+            tell(player, MessageRenderer.of(messages).format(locale, "hg.start.wrong-state",
                     "state", game.map(g -> g.state().name()).orElse("NONE")));
             return;
         }
@@ -133,14 +167,14 @@ public final class HungerGamesCommand {
         final int participantCount = Demotion.resolve(roster).size();
 
         if (participantCount < HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS) {
-            tell(player, messages.format(locale, "hg.start.below-hard-minimum",
+            tell(player, MessageRenderer.of(messages).format(locale, "hg.start.below-hard-minimum",
                     "minimum", HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS, "count", participantCount));
             return;
         }
 
         if (participantCount < config.softMinimumParticipants() && !isConfirmation) {
             pendingConfirmations.put(player.getUniqueId(), Instant.now().plus(CONFIRM_WINDOW));
-            tell(player, messages.format(locale, "hg.start.below-soft-minimum",
+            tell(player, MessageRenderer.of(messages).format(locale, "hg.start.below-soft-minimum",
                     "count", participantCount, "minimum", config.softMinimumParticipants(),
                     "seconds", CONFIRM_WINDOW.toSeconds()));
             return;
@@ -149,12 +183,12 @@ public final class HungerGamesCommand {
         if (isConfirmation) {
             final Instant deadline = pendingConfirmations.remove(player.getUniqueId());
             if (deadline == null || Instant.now().isAfter(deadline)) {
-                tell(player, messages.get(locale, "hg.start.confirm-expired"));
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.start.confirm-expired"));
                 return;
             }
         }
 
-        tell(player, messages.format(locale, "hg.start.started", "count", participantCount));
+        tell(player, MessageRenderer.of(messages).format(locale, "hg.start.started", "count", participantCount));
         // The one command that decides the whole event, and until now nothing in the container log
         // said it had been run. Who, which game, and how many participants the arithmetic saw.
         LOGGER.info("hunger-games game {} started by {} with {} resolvable participants{}",
@@ -176,13 +210,13 @@ public final class HungerGamesCommand {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (gameId == null) {
                 Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(
-                        Component.text(messages.get(locale, "hg.lobby.not-registered"))));
+                        MessageRenderer.of(messages).get(locale, "hg.lobby.not-registered")));
                 return;
             }
             final var discordId = dao.discordIdOf(player.getUniqueId());
             final boolean marked = discordId.isPresent() && lobby.markReady(gameId, discordId.get());
-            Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(Component.text(messages.get(
-                    locale, marked ? "hg.lobby.ready-set" : "hg.lobby.not-registered"))));
+            Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(MessageRenderer.of(messages).get(
+                    locale, marked ? "hg.lobby.ready-set" : "hg.lobby.not-registered")));
         });
         return Command.SINGLE_SUCCESS;
     }
@@ -197,7 +231,7 @@ public final class HungerGamesCommand {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (gameId == null) {
                 Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(
-                        Component.text(messages.get(locale, "hg.start.no-game"))));
+                        MessageRenderer.of(messages).get(locale, "hg.start.no-game")));
                 return;
             }
             final List<RosterEntry> roster = lobby.readyStatus(gameId);
@@ -207,10 +241,10 @@ public final class HungerGamesCommand {
             }
 
             Bukkit.getScheduler().runTask(plugin, () -> {
-                player.sendMessage(Component.text(messages.get(locale, "hg.ready-status.header")));
-                readyByTeam.forEach((team, ready) -> player.sendMessage(Component.text(messages.format(
+                player.sendMessage(MessageRenderer.of(messages).get(locale, "hg.ready-status.header"));
+                readyByTeam.forEach((team, ready) -> player.sendMessage(MessageRenderer.of(messages).format(
                         locale, "hg.ready-status.line", "team", team,
-                        "status", messages.get(locale, ready ? "hg.ready-status.ready" : "hg.ready-status.not-ready")))));
+                        "status", messages.get(locale, ready ? "hg.ready-status.ready" : "hg.ready-status.not-ready"))));
             });
         });
         return Command.SINGLE_SUCCESS;
@@ -239,7 +273,7 @@ public final class HungerGamesCommand {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final boolean admin = dao.isAdmin(player.getUniqueId()).orElse(Boolean.FALSE);
             if (!admin) {
-                tell(player, messages.get(locale, "hg.start.not-admin"));
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.start.not-admin"));
                 return;
             }
             action.run();
@@ -247,7 +281,8 @@ public final class HungerGamesCommand {
     }
 
     /** Sends one message on the main thread, from wherever it is called. */
-    private void tell(final Player player, final String message) {
-        Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(Component.text(message)));
+    /** Sends one already-rendered message on the main thread, from wherever it is called. */
+    private void tell(final Player player, final Component message) {
+        Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(message));
     }
 }

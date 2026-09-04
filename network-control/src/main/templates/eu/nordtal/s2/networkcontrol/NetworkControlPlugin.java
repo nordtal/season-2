@@ -34,6 +34,7 @@ import eu.nordtal.s2.networkcontrol.pack.PackMessages;
 import eu.nordtal.s2.networkcontrol.pack.PackOffer;
 import eu.nordtal.s2.networkcontrol.pack.PackStation;
 import eu.nordtal.s2.networkcontrol.pack.WaitingBook;
+import eu.nordtal.s2.networkcontrol.command.NetworkCommand;
 import eu.nordtal.s2.networkcontrol.phase.PhaseCommand;
 import eu.nordtal.s2.networkcontrol.phase.PhaseListener;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
@@ -126,7 +127,12 @@ public final class NetworkControlPlugin {
 
         // Loaded before anything else and off the config path entirely: it is a classpath bundle,
         // so it is the one thing still available when the configuration is what is broken.
-        final Messages messages = Messages.load("messages/network-control", Locale.ENGLISH, Locale.GERMAN);
+        final Messages messages = Messages.load(getClass().getClassLoader(),
+                "messages/network-control", dataDirectory.resolve("messages"),
+                Locale.ENGLISH, Locale.GERMAN);
+        messages.unknownOverrideKeys().forEach(key -> logger.warn(
+                "the message override names {}, which no bundle declares - it is stored and never"
+                        + " used; check the spelling", key));
 
         try {
             start(Configs.database(dataDirectory, logger).get(),
@@ -300,6 +306,11 @@ public final class NetworkControlPlugin {
         final CommandManager commands = proxy.getCommandManager();
         commands.register(commands.metaBuilder(PhaseCommand.alias()).plugin(this).build(),
                 phaseCommand.build());
+
+        // Messages only, and console-usable - see NetworkCommand for what it deliberately leaves
+        // alone and why every other config file here is read exactly once.
+        commands.register(commands.metaBuilder(NetworkCommand.alias()).plugin(this).build(),
+                new NetworkCommand(this, proxy, logger, roster, messages).build());
 
         logger.info("Access login gate is up in phase {} (query timeout {}s, fallback cache window "
                         + "{}m, expiry check every {}s, phase poll every {}s, play time flushed every "

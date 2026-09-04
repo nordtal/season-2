@@ -6,8 +6,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,22 +48,54 @@ import java.util.concurrent.ConcurrentHashMap;
  * Language match, then English, then the key itself. The key is returned rather than an empty
  * string or an exception so that a missing translation shows up on screen as
  * {@code disconnect.expired} - visible, reportable, and harmless.
+ *
+ * <h2>The operator's override</h2>
+ * The bundle in the jar is the default and the place a wording change belongs - it is in the
+ * repository, it is reviewable, and it ships to every deployment at once. On top of it a module may
+ * name a directory on disk, {@code plugins/<name>/messages/}, whose {@code <lang>.properties} files
+ * are merged <b>key by key</b>.
+ *
+ * <p><b>Key by key, not file by file</b>, and that is the whole design. A whole-file override
+ * freezes the wording at the day it was copied: every key added by a later release is missing from
+ * it, and what the player sees is the literal key. Merging per key means an override file holds
+ * only the lines somebody actually wanted to change, and everything else keeps following the jar.
+ * The cost is that a typo'd key in an override does nothing at all rather than failing - so
+ * {@link #unknownOverrideKeys()} reports the ones no bundle declares, and each module logs them.</p>
+ *
+ * <p>{@link #reload()} re-reads both layers in place, so a reload command does not have to rewire
+ * every holder of this object. The map is replaced wholesale, never mutated.</p>
  */
 public final class Messages {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Messages.class);
 
     private final String root;
+    private final ClassLoader classLoader;
+    private final List<Locale> locales;
 
-    /** language tag -> key -> template. Immutable after construction. */
-    private final Map<String, Map<String, String>> byLanguage;
+    /** The operator's override directory, or {@code null} when this bundle has none. */
+    private final Path overrides;
+
+    /**
+     * language tag -> key -> template. Replaced wholesale by {@link #reload()}, never mutated -
+     * volatile because a reload runs on whatever thread the command came in on and every other
+     * thread reading a message has to see the new map or the old one, not half of each.
+     */
+    private volatile Map<String, Map<String, String>> byLanguage;
+
+    /** Override keys no bundle declares. Replaced with the map above. */
+    private volatile Set<String> unknownOverrideKeys;
 
     /** Keys already reported missing, so a hot loop logs once and not per call. */
     private final Set<String> reportedMissing = ConcurrentHashMap.newKeySet();
 
-    private Messages(final String root, final Map<String, Map<String, String>> byLanguage) {
+    private Messages(final String root, final ClassLoader classLoader, final Path overrides,
+                     final List<Locale> locales) {
         this.root = root;
-        this.byLanguage = byLanguage;
+        this.classLoader = classLoader;
+        this.overrides = overrides;
+        this.locales = locales;
+        reload();
     }
 
     /**
@@ -89,29 +124,153 @@ public final class Messages {
      * @throws UncheckedIOException  if a file exists but cannot be read
      */
     public static Messages load(final ClassLoader classLoader, final String root, final Locale... locales) {
+        return load(classLoader, root, null, locales);
+    }
+
+    /**
+     * Loads a bundle from a class loader and merges an operator's override directory over it.
+     *
+     * <p>The directory is created if it is not there, together with a {@code README.txt} that says
+     * what belongs in it - an empty folder in a data directory teaches nobody anything, and this is
+     * the only place an operator would look for the mechanism.</p>
+     *
+     * @param classLoader the loader to read the packaged bundle from
+     * @param root        the resource directory, e.g. {@code messages/smp}
+     * @param overrides   {@code plugins/<name>/messages}, or {@code null} for no override layer
+     * @param locales     the languages to load; English is always loaded
+     * @return the loaded bundle
+     * @throws IllegalStateException if English is in neither layer
+     * @throws UncheckedIOException  if a file exists but cannot be read
+     */
+    public static Messages load(final ClassLoader classLoader, final String root,
+                                final Path overrides, final Locale... locales) {
         Objects.requireNonNull(classLoader, "classLoader");
         Objects.requireNonNull(root, "root");
 
         final String normalisedRoot = root.endsWith("/") ? root.substring(0, root.length() - 1) : root;
+        if (overrides != null) {
+            prepare(overrides, normalisedRoot);
+        }
+        return new Messages(normalisedRoot, classLoader, overrides, withDefault(locales));
+    }
 
+    /**
+     * Re-reads the packaged bundle and the override directory, and swaps the result in.
+     *
+     * <p>Every holder of this object keeps working against the same reference, which is the point:
+     * a {@code Messages} is handed to listeners, HUD renderers and commands at startup, and a
+     * reload that produced a new instance would reach none of them.</p>
+     *
+     * @throws IllegalStateException if English is in neither layer
+     * @throws UncheckedIOException  if a file exists but cannot be read
+     */
+    public void reload() {
         final Map<String, Map<String, String>> loaded = new LinkedHashMap<>();
-        for (final Locale locale : withDefault(locales)) {
+        final Set<String> unknown = new java.util.TreeSet<>();
+
+        for (final Locale locale : locales) {
             final String language = Locales.tag(locale);
-            final Map<String, String> entries = read(classLoader, normalisedRoot, language);
-            if (entries == null) {
+            final Map<String, String> packaged = read(classLoader, root, language);
+            final Map<String, String> operator = readOverride(overrides, language);
+
+            if (packaged == null && operator == null) {
                 if (language.equals(Locales.DEFAULT.getLanguage())) {
                     throw new IllegalStateException(
-                            "Message bundle " + normalisedRoot + "/" + language + ".properties is missing; "
+                            "Message bundle " + root + "/" + language + ".properties is missing; "
                                     + "English is the fallback for every other language and must exist");
                 }
                 LOGGER.warn("No message bundle {}/{}.properties - {} falls back to English",
-                        normalisedRoot, language, language);
+                        root, language, language);
                 continue;
             }
-            loaded.put(language, Map.copyOf(entries));
+
+            final Map<String, String> merged =
+                    new HashMap<>(packaged == null ? Map.of() : packaged);
+            if (operator != null) {
+                operator.forEach((key, value) -> {
+                    // An override for a key nothing declares is a typo, and a silent one: the entry
+                    // is stored and never looked up. Collected here so the module can log it.
+                    if (merged.put(key, value) == null) {
+                        unknown.add(language + "/" + key);
+                    }
+                });
+            }
+            loaded.put(language, Map.copyOf(merged));
         }
 
-        return new Messages(normalisedRoot, Map.copyOf(loaded));
+        byLanguage = Map.copyOf(loaded);
+        unknownOverrideKeys = Set.copyOf(unknown);
+        // A key that was missing before a reload may exist after one; keep reporting honest.
+        reportedMissing.clear();
+    }
+
+    /**
+     * @return {@code <language>/<key>} for every override entry that overrode nothing - a typo, an
+     *         obsolete key, or a language file for a key only another language has
+     */
+    public Set<String> unknownOverrideKeys() {
+        return unknownOverrideKeys;
+    }
+
+    /** @return the override directory this bundle merges, if it has one */
+    public java.util.Optional<Path> overrideDirectory() {
+        return java.util.Optional.ofNullable(overrides);
+    }
+
+    /** Creates the override directory and, once, the note that says what it is for. */
+    private static void prepare(final Path directory, final String root) {
+        try {
+            Files.createDirectories(directory);
+            final Path readme = directory.resolve("README.txt");
+            if (!Files.exists(readme)) {
+                Files.writeString(readme, """
+                        This folder overrides individual message lines, key by key.
+
+                        The messages this server ships with live in the jar, under %s.
+                        Anything you put here wins over them - but only the keys you actually
+                        write down. Every other line keeps following the jar, so an update that
+                        adds or rewords a message still reaches players.
+
+                        One file per language, named after the language:
+
+                            en.properties
+                            de.properties
+
+                        UTF-8, and umlauts are written as umlauts - not as \\u00e4.
+
+                        A key that no message bundle declares is stored and never used. The
+                        server logs those at startup and after a reload, by name, so a typo
+                        here shows up in the console instead of on nobody's screen.
+
+                        Reload with the module's own reload command; no restart is needed.
+                        """.formatted(root), StandardCharsets.UTF_8);
+            }
+        } catch (final IOException exception) {
+            throw new UncheckedIOException(
+                    "Cannot prepare the message override directory " + directory, exception);
+        }
+    }
+
+    /** Reads {@code <overrides>/<language>.properties}, or {@code null} if there is none. */
+    private static Map<String, String> readOverride(final Path overrides, final String language) {
+        if (overrides == null) {
+            return null;
+        }
+        final Path file = overrides.resolve(language + ".properties");
+        if (!Files.isRegularFile(file)) {
+            return null;
+        }
+        try (Reader reader = new InputStreamReader(
+                Files.newInputStream(file), StandardCharsets.UTF_8)) {
+            final Properties properties = new Properties();
+            properties.load(reader);
+            final Map<String, String> entries = new HashMap<>(properties.size());
+            properties.forEach((key, value) ->
+                    entries.put(String.valueOf(key), String.valueOf(value)));
+            return entries;
+        } catch (final IOException exception) {
+            throw new UncheckedIOException("Cannot read message override " + file, exception);
+        }
     }
 
     private static List<Locale> withDefault(final Locale... locales) {

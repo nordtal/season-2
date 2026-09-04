@@ -5,6 +5,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 
 import net.kyori.adventure.text.Component;
@@ -73,9 +74,9 @@ public final class MisconfiguredGate {
     public MisconfiguredGate(final Logger logger, final Messages messages) {
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(messages, "messages");
-        this.screen = Component.text(messages.get(Locale.ENGLISH, "gate.misconfigured"))
+        this.screen = MessageRenderer.of(messages).get(Locale.ENGLISH, "gate.misconfigured")
                 .appendNewline()
-                .append(Component.text(messages.get(Locale.GERMAN, "gate.misconfigured"))
+                .append(MessageRenderer.of(messages).get(Locale.GERMAN, "gate.misconfigured")
                         .color(NamedTextColor.GRAY)
                         .decorate(TextDecoration.ITALIC));
         // English only: a ping carries no player, so there is no language to pick - the same reason

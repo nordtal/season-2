@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.command;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.common.update.UpdateDirectory;
@@ -153,7 +154,7 @@ public final class UpdateCommands {
                 handle[0].cancel();
                 // Names the state the row is in, because PENDING here means one specific thing:
                 // nothing is listening, and the updater container is not running.
-                sayRaw(sender, messages.format(localeOf(sender), "smp.update.timeout",
+                say(sender, MessageRenderer.of(messages).format(localeOf(sender), "smp.update.timeout",
                         "id", id, "status", request.status()));
             }
         }, CHECK_TICKS, CHECK_TICKS);
@@ -167,14 +168,19 @@ public final class UpdateCommands {
             // CANCELLED is deliberately not in here: a stopped countdown is somebody using the way
             // out, and cancelRestart has already said so in its own words.
             if (request.status() == UpdateStatus.FAILED) {
-                sender.sendMessage(Component.text(messages.get(localeOf(sender), "smp.update.failed")));
+                sender.sendMessage(MessageRenderer.of(messages).get(localeOf(sender), "smp.update.failed"));
             }
             for (int line = 0; line < Math.min(lines.length, MAX_LINES); line++) {
+                // Component.text, NOT MessageRenderer, and that is the module's first rule: the
+                // updater's report is printed verbatim, here and in the Discord embed and in the
+                // table. Parsing it would make a version string or a filename containing '<' into
+                // a tag, and a second rendering is the thing that eventually disagrees with the
+                // first.
                 sender.sendMessage(Component.text(lines[line]));
             }
             if (lines.length > MAX_LINES) {
-                sender.sendMessage(Component.text(messages.format(localeOf(sender),
-                        "smp.update.truncated", "lines", lines.length - MAX_LINES)));
+                sender.sendMessage(MessageRenderer.of(messages).format(localeOf(sender),
+                        "smp.update.truncated", "lines", lines.length - MAX_LINES));
             }
         });
     }
@@ -196,7 +202,7 @@ public final class UpdateCommands {
             // Everybody else is told by network-control, which is the only process that sees every
             // player. This line is only for the person who typed it, and its job is to name the
             // way back out.
-            sayRaw(sender, messages.format(localeOf(sender), "smp.update.restart-asked",
+            say(sender, MessageRenderer.of(messages).format(localeOf(sender), "smp.update.restart-asked",
                     "seconds", UpdateDirectory.RESTART_COUNTDOWN.toSeconds()));
         });
         return Command.SINGLE_SUCCESS;
@@ -233,11 +239,11 @@ public final class UpdateCommands {
     }
 
     private void say(final CommandSender sender, final String key) {
-        sayRaw(sender, messages.get(localeOf(sender), key));
+        say(sender, MessageRenderer.of(messages).get(localeOf(sender), key));
     }
 
     /** Answers on the main thread, which is where a CommandSender may be spoken to. */
-    private void sayRaw(final CommandSender sender, final String text) {
-        Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage(Component.text(text)));
+    private void say(final CommandSender sender, final Component text) {
+        Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage(text));
     }
 }

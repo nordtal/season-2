@@ -19,6 +19,25 @@ public final class Glyphs {
     private Glyphs() {
     }
 
+    // === Font keys ===
+
+    /**
+     * The font a component has to name for the {@code nordtal:bossbar} code points below to
+     * resolve at all.
+     *
+     * <p><b>This is not decoration, and forgetting it is not a subtle bug.</b> The three fonts
+     * allocate independently - the class comment above says so - which means a bossbar code point
+     * left in {@code minecraft:default} does not fall back to nothing, it draws whatever
+     * {@code default.json} happens to have put at that code point. {@link #BOSSBAR_BG_4} is
+     * {@code U+E004} and so is {@link #TAG_ADMIN}, so a boss bar rendered in the default font
+     * draws the admin tag in the middle of its background bar. That is exactly what a real client
+     * showed on 2026-09-04, and it is why every component carrying these glyphs names its font.
+     */
+    public static final String FONT_BOSSBAR = "nordtal:bossbar";
+
+    /** The font the {@code BOARD_*} code points below resolve in - same rule as {@link #FONT_BOSSBAR}. */
+    public static final String FONT_BOARD = "nordtal:board";
+
     // === minecraft:default ===
 
     // Player badges - U+E000..U+E00F

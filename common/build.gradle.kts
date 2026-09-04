@@ -14,6 +14,39 @@ repositoryRootTestInputs {
     // EntrypointRulesTest keeps the container rules in deploy/minecraft/entrypoint.sh from being
     // quietly untaught. Every one of them came out of a drill against a running container.
     reads("deploy/minecraft/entrypoint.sh")
+
+    // BossBarFontTest reads the two boss bar renderers as text, for the reason its own comment
+    // gives: a missing font key draws the wrong glyph rather than no glyph. Without these
+    // declarations an edit to either would leave :common:test UP-TO-DATE.
+    reads("smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java")
+    reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java")
+    reads("resource-pack/src/assets/nordtal/font/bossbar.json")
+    reads("resource-pack/src/assets/nordtal/font/board.json")
+
+    // ResourcePackTest holds Glyphs, the three font files and every PNG they name against each
+    // other. The whole assets tree is the input rather than a list of eighty-odd files, because a
+    // list is the thing that goes stale the first time somebody adds a glyph.
+    readsTree("resource-pack/src/assets")
+
+    // ...and the message bundles whose text a boss bar draws, because nordtal:bossbar carries its
+    // own ascii sheet: a character the vanilla font has is not a character that one has.
+    reads("smp/src/main/resources/messages/smp/en.properties")
+    reads("smp/src/main/resources/messages/smp/de.properties")
+    reads("hunger-games/src/main/resources/messages/hunger-games/en.properties")
+    reads("hunger-games/src/main/resources/messages/hunger-games/de.properties")
+
+    // TabListTest reads the same four plus limbo's, because the tab list is one picture written by
+    // three servers and nothing else compares them.
+    reads("limbo/src/main/resources/messages/limbo/en.properties")
+    reads("limbo/src/main/resources/messages/limbo/de.properties")
+
+    // OneMessageFormatTest walks every source and every bundle of the four client-facing modules.
+    // Whole trees, because the rule it pins is "nowhere", and a list of files is a list that goes
+    // stale the first time somebody adds a class.
+    readsTree("smp/src/main")
+    readsTree("limbo/src/main")
+    readsTree("hunger-games/src/main")
+    readsTree("network-control/src/main")
 }
 
 dependencies {
@@ -21,6 +54,16 @@ dependencies {
     // so it is compile-only here and never shaded.
     compileOnly(libs.adventure.api)
     compileOnly(libs.adventure.minimessage)
+
+    // MessageRendererTest actually parses MiniMessage, so Adventure has to be on the test runtime
+    // classpath - compileOnly is not. Nothing ships with it: :common's jar is unchanged.
+    testImplementation(libs.adventure.api)
+    testImplementation(libs.adventure.minimessage)
+
+    // ResourcePackTest parses the three font JSON files. Test scope only - :common's jar is
+    // unchanged, and both platforms provide gson at runtime anyway.
+    testImplementation(libs.gson)
+
     compileOnly(libs.annotations)
 
     // The access API (eu.nordtal.s2.common.access) talks to PostgreSQL directly, because the

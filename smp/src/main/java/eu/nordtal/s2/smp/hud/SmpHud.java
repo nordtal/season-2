@@ -12,6 +12,7 @@ import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
 
 import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -113,7 +114,7 @@ public final class SmpHud {
         final Locale locale = locales.of(player.getUniqueId());
 
         final BossBar status = statusBars.computeIfAbsent(player.getUniqueId(), key -> emptyBar());
-        status.name(Component.text(BossBarWidth.compose(BACKGROUND_WIDTH) + " " + statusLine(player, locale)));
+        status.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " " + statusLine(player, locale)));
         player.showBossBar(status);
 
         final Optional<NavigationTarget> target = navigation.of(player.getUniqueId());
@@ -126,9 +127,22 @@ public final class SmpHud {
         }
 
         final BossBar navigate = navigateBars.computeIfAbsent(player.getUniqueId(), key -> emptyBar());
-        navigate.name(Component.text(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
+        navigate.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
                 + navigateLine(player, locale, target.get())));
         player.showBossBar(navigate);
+    }
+
+    /**
+     * Wraps a composed HUD line in a component that names {@link Glyphs#FONT_BOSSBAR}.
+     *
+     * <p>Without the font key the bar's own code points resolve against {@code minecraft:default},
+     * where they are either undefined or - worse - defined as something else entirely; see the
+     * note on {@link Glyphs#FONT_BOSSBAR}. The whole line goes in one component on purpose: the
+     * bossbar font carries its own {@code nordtal:font/ascii.png} provider, so the readable text
+     * beside the glyphs is drawn by that font too rather than falling out of the styling.</p>
+     */
+    private static Component bossBarText(final String line) {
+        return Component.text(line).font(Key.key(Glyphs.FONT_BOSSBAR));
     }
 
     private static BossBar emptyBar() {

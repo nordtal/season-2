@@ -22,4 +22,14 @@ abstract class RepositoryRootTestInputs @Inject constructor(private val root: Di
     fun reads(vararg names: String) {
         names.forEach { files.from(root.file(it)) }
     }
+
+    /**
+     * Declares whole directories, resolved against the repository root, as inputs of the test task.
+     *
+     * `ResourcePackTest` walks `resource-pack/src/assets` rather than naming eighty-odd PNG files,
+     * so what it depends on is the tree and not a list somebody would have to keep in step with it.
+     */
+    fun readsTree(vararg names: String) {
+        names.forEach { files.from(root.dir(it)) }
+    }
 }

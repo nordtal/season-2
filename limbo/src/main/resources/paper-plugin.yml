@@ -5,3 +5,12 @@ description: The season 2 waiting room - black, silent, and one title in the pla
 author: nordtal
 website: https://nordtal.eu
 api-version: '26.2'
+
+# The only permission node this repository owns. Every other command is gated on the admin flag
+# mirrored from Discord into the database, read from a cache - there is no LuckPerms and no second
+# admin list. `/limbo reload` is the exception on purpose: the database is exactly what a broken
+# limbo may not be able to reach, and the console holds an op-default permission unconditionally.
+permissions:
+  limbo.admin:
+    description: Reload this server's message bundles with /limbo reload.
+    default: op

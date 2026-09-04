@@ -501,7 +501,9 @@ are kept because the reasoning is what a future change has to argue with:
     partial unique index enforcing at most one non-`DECIDED` game.
   - `V6__smp.sql` (2026-09-01): `smp_player`, `smp_aura_event`, `smp_milestone`, `smp_objective`,
     `smp_contribution`, `smp_poi`, `smp_grave`, `smp_duel`, `smp_spin`. Progress only — a milestone
-    is *defined* in the plugin's reloadable YAML, never here.
+    is *defined* in the plugin's reloadable YAML, never here. **`smp_duel` is gone as of V10**; the
+    row is left in this list because the migration is still applied and its `CREATE TABLE` is still
+    what a fresh database runs first.
   - `V7__update_request.sql` (2026-09-01): the one row the updater is driven by - `/update` in
     Discord and `/smp update` in game both write here, and nothing calls that container. It was
     missing from this list until 2026-09-04, which is how a reader came to believe the numbering
@@ -515,6 +517,12 @@ are kept because the reasoning is what a future change has to argue with:
     paid access starts running, which is what a period bought weeks earlier is anchored to. Moving
     it shifts every grant that has not started yet; `PhaseDirectoryIntegrationTest` owns that
     arithmetic, including the DST trap that makes the shift seconds rather than days.
+  - `V10__drop_smp_duel.sql` (2026-09-04): drops `smp_duel`. The table was created in V6 with two
+    carefully paired constraints - one of them justified in its own comment by "the aura books
+    disagreeing with the duel history" - and **nothing ever wrote a row to it**. `Duels` books the
+    two `smp_aura_event` rows and forgets the duel, so there was no history for the constraint to
+    disagree with. Dropped rather than filled in, decided by the owner 2026-09-04
+    (`docs/state-of-play.md` finding 49). The aura side of a duel is untouched.
 - **Money is integer cents** in Java and in the database. `Money` is the only place that converts
   to and from bunq's decimal strings, and it goes through `BigDecimal`. Season 1 used
   `Float.parseFloat` and `<`.

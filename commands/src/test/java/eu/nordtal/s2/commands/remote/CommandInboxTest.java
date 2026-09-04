@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.remote;
 
 import eu.nordtal.s2.commands.Argument;
+import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -45,7 +46,16 @@ class CommandInboxTest {
             Locale.ENGLISH, Locale.GERMAN);
 
     /** What a command here does: append to a list, so a test can see whether it ran. */
-    private record Effects(List<String> ran) {
+    private record Effects(List<String> ran) implements CommandEffects {
+
+        @Override
+        public void async(final Runnable work) {
+            work.run();
+        }
+
+        @Override
+        public void warn(final String what, final Throwable failure) {
+        }
     }
 
     private static final Declaration RELOAD = new Declaration(List.of("smp", "reload"),
@@ -258,5 +268,45 @@ class CommandInboxTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> inbox.register(command(RELOAD, (user, values) -> { }), effects));
+    }
+
+    @Test
+    @DisplayName("effects that hand their work to another thread are refused at registration")
+    void theInboxRefusesScheduledEffects() {
+        // The failure this prevents is silent and only visible on the surface furthest from the
+        // logs: the row is settled when run() returns, so scheduled effects would answer "changed
+        // something and said nothing" for work that had not started, and write the real answer into
+        // a row nobody is reading any more.
+        record Scheduled(java.util.concurrent.ExecutorService pool) implements CommandEffects {
+            @Override
+            public void async(final Runnable work) {
+                pool.submit(work);
+            }
+
+            @Override
+            public void warn(final String what, final Throwable failure) {
+            }
+        }
+
+        final var pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            final var effects = new Scheduled(pool);
+            final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                    () -> new CommandInbox(Target.SMP, requests, MESSAGES, request -> true, warn)
+                            .register(new NordtalCommand<Scheduled>() {
+                                @Override
+                                public Declaration declaration() {
+                                    return RELOAD;
+                                }
+
+                                @Override
+                                public void run(final NordtalUser user, final Values values,
+                                                final Scheduled given) {
+                                }
+                            }, effects));
+            assertTrue(refused.getMessage().contains("Runnable::run"), refused.getMessage());
+        } finally {
+            pool.shutdownNow();
+        }
     }
 }

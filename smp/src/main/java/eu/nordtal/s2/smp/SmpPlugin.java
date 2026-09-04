@@ -1,9 +1,17 @@
 package eu.nordtal.s2.smp;
 
 import com.zaxxer.hikari.HikariDataSource;
+
+import java.util.concurrent.ScheduledExecutorService;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.access.AdminOperators;
+import eu.nordtal.s2.commands.Target;
+import eu.nordtal.s2.commands.remote.Outbox;
+import eu.nordtal.s2.commands.smp.SmpCommands;
+import eu.nordtal.s2.commands.smp.SmpEffects;
+import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
+import eu.nordtal.s2.smp.command.BukkitSmpEffects;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.common.access.FullServerAdmission;
@@ -31,7 +39,6 @@ import eu.nordtal.s2.smp.pregen.PreGenerator;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
-import eu.nordtal.s2.smp.command.AccessLookup;
 import eu.nordtal.s2.smp.command.SmpCommand;
 import eu.nordtal.s2.smp.command.UpdateCommands;
 import eu.nordtal.s2.smp.chat.SystemLines;
@@ -109,6 +116,20 @@ public final class SmpPlugin extends JavaPlugin {
 
     private HikariDataSource pool;
     private AdminWatch adminWatch;
+
+    /**
+     * The command layer: what this server runs itself, what it sends elsewhere, and what it is
+     * asked to run.
+     *
+     * <p>Two {@code SmpEffects} exist and the difference is the executor. {@link #chatEffects} is
+     * built with the plugin's async scheduler, because a Brigadier handler runs on the main thread.
+     * The inbox's is built with {@code Runnable::run}, because the inbox settles a request row when
+     * the command returns - {@code CommandInbox#register} refuses the wrong one at startup rather
+     * than letting it be found as an empty answer in Discord.</p>
+     */
+    private SmpEffects chatEffects;
+    private Outbox outbox;
+    private ScheduledExecutorService commandWaiter;
     private SmpDao dao;
     private Messages messages;
     private PlayerLocales locales;
@@ -312,12 +333,6 @@ public final class SmpPlugin extends JavaPlugin {
                     }
                 },
                 logger());
-        adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
-                config.adminListenEnabled()
-                        ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
-                                databaseHandle.get().username(), databaseHandle.get().password(),
-                                databaseHandle.get().queryTimeoutSeconds())
-                        : null);
 
         // ---- block 3: the activities -----------------------------------------------------
         engine = new ObjectiveEngine(this, dao, track, season, worlds, identities, messages,
@@ -377,7 +392,44 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new SurfaceListener(sounds, graves::isShowingGrave), this);
 
+        // ---- block 4: the commands ------------------------------------------------------
+        //
+        // Built after the activities because half of what /smp does goes through the objective
+        // engine, and started before the admin watch because the inbox rides on that watch's
+        // LISTEN connection - one connection carrying nordtal_admin and nordtal_command, which is
+        // what NotificationListener was built for.
+        final eu.nordtal.s2.common.access.AccessDirectory access =
+                eu.nordtal.s2.common.access.AccessDirectory.using(pool);
+        chatEffects = new BukkitSmpEffects(this, BukkitSmpEffects.async(this), dao, engine,
+                farmReset, identities, access, this::reloadTrack);
+
+        commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
+            final Thread thread = new Thread(task, getName() + "-command-waiter");
+            thread.setDaemon(true);
+            return thread;
+        });
+        final eu.nordtal.s2.common.command.CommandRequests requests =
+                eu.nordtal.s2.common.command.CommandRequests.borrowing(pool);
+        outbox = new Outbox(requests, commandWaiter,
+                (message, failure) -> getLogger()
+                        .log(java.util.logging.Level.WARNING, message, failure));
+
+        final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.SMP, requests, access);
+        // Inline, on purpose - see the field comment.
+        final SmpEffects inboxEffects = new BukkitSmpEffects(this, Runnable::run, dao, engine,
+                farmReset, identities, access, this::reloadTrack);
+        SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
+        inbox.start(this);
+
         registerCommands(sounds);
+
+        adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
+                config.adminListenEnabled()
+                        ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
+                                databaseHandle.get().username(), databaseHandle.get().password(),
+                                databaseHandle.get().queryTimeoutSeconds())
+                        : null,
+                inbox.refreshes(), inbox.channels());
 
         startHeartbeat();
 
@@ -437,6 +489,10 @@ public final class SmpPlugin extends JavaPlugin {
         if (adminWatch != null) {
             adminWatch.close();
         }
+        if (commandWaiter != null) {
+            // Before the pool: a wait in flight reads the request row through it.
+            commandWaiter.shutdownNow();
+        }
         if (pool != null) {
             pool.close();
         }
@@ -447,19 +503,18 @@ public final class SmpPlugin extends JavaPlugin {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final NavigateCommand commands =
                     new NavigateCommand(this, dao, navigation, identities, messages, locales, sounds);
+            // Not folded into :commands, deliberately: /navigate opens an inventory and /poi add
+            // reads the caller's position. Both are commands about being somewhere, and a Discord
+            // half of either would be a different command wearing the same name.
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
-            event.registrar().register(new SmpCommand(this, dao, engine, farmReset, identities,
-                    messages, locales, this::reloadTrack,
-                    // Over the pool this plugin already owns. The updater is a different container
-                    // and this is how it is reached: a row and a notification, never a call.
-                    new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales),
-                    // Over the same pool. :common's access API is read-only from here: the bot owns
-                    // every write to those tables, and /smp access is three lines an admin needs
-                    // while standing next to somebody who cannot get in.
-                    new AccessLookup(this, eu.nordtal.s2.common.access.AccessDirectory.using(pool),
-                            locales, messages, sounds),
-                    sounds).build());
+
+            SmpCommand.build(this, messages, locales, identities, sounds, outbox, chatEffects,
+                            // Over the pool this plugin already owns. The updater is a different
+                            // container and this is how it is reached: a row and a notification,
+                            // never a call.
+                            new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales))
+                    .forEach(node -> event.registrar().register(node));
         });
     }
 

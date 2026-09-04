@@ -1,4 +1,4 @@
-package eu.nordtal.s2.smp.command;
+package eu.nordtal.s2.papercommon.command;
 
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
@@ -17,7 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Who may use {@code /smp}.
+ * Who may use an admin command on a Paper server.
+ *
+ * <p>The decision moved here from {@code SmpCommand} on 2026-09-05 with the shared Brigadier adapter, and this test came with it. It had been right in one of the three plugins and nowhere else.</p>
  *
  * <h2>The bug</h2>
  * The gate was {@code if (!(sender instanceof Player)) return true;} under a comment reading "the
@@ -38,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * - and it keeps the rule in {@code nordtal.paper-plugin} intact: nothing here reaches into Bukkit
  * for anything but a plain value.
  */
-class SmpCommandAccessTest {
+class PaperCommandsAccessTest {
 
     private static final UUID SOMEBODY = UUID.fromString("00000000-0000-4000-8000-000000000001");
 
@@ -49,13 +51,13 @@ class SmpCommandAccessTest {
     @Test
     @DisplayName("the console may: it is the operator, and it is the way in when the flags are gone")
     void theConsoleMay() {
-        assertTrue(SmpCommand.mayUse(sender(ConsoleCommandSender.class), NOBODY_IS_ADMIN));
+        assertTrue(PaperCommands.mayUse(sender(ConsoleCommandSender.class), NOBODY_IS_ADMIN));
     }
 
     @Test
     @DisplayName("a command block may not - this is the one the old check let through")
     void aCommandBlockMayNot() {
-        assertFalse(SmpCommand.mayUse(sender(BlockCommandSender.class), NOBODY_IS_ADMIN),
+        assertFalse(PaperCommands.mayUse(sender(BlockCommandSender.class), NOBODY_IS_ADMIN),
                 "a command block is not a Player, which is all the old check asked. On a server"
                         + " where players build and two datapacks are required, that is a way to"
                         + " reach /smp aura and /smp update restart.");
@@ -64,7 +66,7 @@ class SmpCommandAccessTest {
     @Test
     @DisplayName("an /execute as … run … sender may not")
     void aProxiedSenderMayNot() {
-        assertFalse(SmpCommand.mayUse(sender(ProxiedCommandSender.class), NOBODY_IS_ADMIN));
+        assertFalse(PaperCommands.mayUse(sender(ProxiedCommandSender.class), NOBODY_IS_ADMIN));
     }
 
     @Test
@@ -72,14 +74,14 @@ class SmpCommandAccessTest {
     void aRemoteConsoleMayNot() {
         // RCON is not enabled anywhere in this deployment, and if it ever were, "somebody who has
         // the RCON password" is not the same authority as "somebody with a shell in the container".
-        assertFalse(SmpCommand.mayUse(sender(RemoteConsoleCommandSender.class), NOBODY_IS_ADMIN));
+        assertFalse(PaperCommands.mayUse(sender(RemoteConsoleCommandSender.class), NOBODY_IS_ADMIN));
     }
 
     @Test
     @DisplayName("a player is admitted only on the database's admin flag")
     void aPlayerIsAskedAbout() {
-        assertTrue(SmpCommand.mayUse(player(), EVERYBODY_IS_ADMIN));
-        assertFalse(SmpCommand.mayUse(player(), NOBODY_IS_ADMIN));
+        assertTrue(PaperCommands.mayUse(player(), EVERYBODY_IS_ADMIN));
+        assertFalse(PaperCommands.mayUse(player(), NOBODY_IS_ADMIN));
     }
 
     // ---------------------------------------------------------------- senders with nothing behind them

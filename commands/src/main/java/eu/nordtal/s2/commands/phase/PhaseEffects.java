@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.phase;
 
+import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.phase.DateChange;
@@ -36,7 +37,7 @@ import java.util.Optional;
  *       calling thread is one nothing may block: Brigadier's, or a JDA gateway thread.</li>
  * </ul>
  */
-public interface PhaseEffects {
+public interface PhaseEffects extends CommandEffects {
 
     /**
      * What a process already knows without asking the database.
@@ -69,15 +70,4 @@ public interface PhaseEffects {
      */
     void recordDate(NordtalUser who, boolean launch, DateChange change);
 
-    /**
-     * Run the blocking part somewhere it is allowed to block.
-     *
-     * <p>Never optional. Every caller of {@code run} is on a thread that must not wait: Brigadier's
-     * command thread on the proxy, a JDA gateway thread in the bot - where an interaction not
-     * acknowledged within three seconds is simply dead.</p>
-     */
-    void async(Runnable work);
-
-    /** Report a failure the way this process reports failures. The user is told separately. */
-    void warn(String what, Throwable failure);
 }

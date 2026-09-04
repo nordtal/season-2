@@ -105,7 +105,7 @@ class OneMessageFormatTest {
                 if (!read(source).contains("Component.text(")) {
                     continue;
                 }
-                final String relative = RepositoryRoot.path().relativize(source).toString();
+                final String relative = RepositoryRoot.relative(source);
                 if (!COMPONENT_TEXT_ALLOWED.containsKey(relative)) {
                     unlisted.add(relative);
                 }
@@ -139,7 +139,7 @@ class OneMessageFormatTest {
             for (final Path source : sources(module)) {
                 final String text = read(source);
                 if (text.contains("Component.text(messages.")) {
-                    offenders.add(RepositoryRoot.path().relativize(source).toString());
+                    offenders.add(RepositoryRoot.relative(source));
                 }
             }
         }
@@ -158,7 +158,7 @@ class OneMessageFormatTest {
             for (final Path bundle : bundles(module)) {
                 properties(bundle).forEach((key, value) -> {
                     if (String.valueOf(value).indexOf('§') >= 0) {
-                        offenders.add(RepositoryRoot.path().relativize(bundle) + " " + key);
+                        offenders.add(RepositoryRoot.relative(bundle) + " " + key);
                     }
                 });
             }

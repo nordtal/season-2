@@ -88,7 +88,7 @@ class WorldEffectVocabularyTest {
         final List<String> offenders = new ArrayList<>();
         for (final String module : MODULES) {
             for (final Path source : sources(module)) {
-                final String relative = RepositoryRoot.path().relativize(source).toString();
+                final String relative = RepositoryRoot.relative(source);
                 if (ALLOWED.containsKey(relative)) {
                     continue;
                 }

@@ -67,4 +67,21 @@ dependencies {
     // instance the plugin cannot cast. paper-plugin.yml declares it required: true, so a server
     // without it fails at start rather than at 04:00 the next morning.
     compileOnly(libs.chunky)
+
+    // SpinRefundIntegrationTest drives the two wheel-refund statements against a real PostgreSQL
+    // running the real migrations. It is the only test in this module that needs a database, and it
+    // needs one because everything that can go wrong in a refund is a property of the database and
+    // not of Java: `last_free` is a nullable date and refunding a first-ever free spin writes null
+    // into it, which is exactly where PostgreSQL answers "could not determine data type of
+    // parameter" unless the statement casts; the free refund has to be idempotent; and the earned
+    // one has to stay inside smp_spin_used_not_negative. None of the three has an in-memory
+    // stand-in. The test skips itself when no Docker daemon is reachable.
+    testImplementation(libs.flyway.core)
+    testImplementation(libs.flyway.postgresql)
+    testImplementation(libs.testcontainers.postgresql)
+
+    // The persistence stack is `implementation` above (this module uses it heavily), but the driver
+    // arrives at runtime only - and the test builds a PGSimpleDataSource by hand, so it has to ask
+    // for it by name to compile against it.
+    testImplementation(libs.postgresql.driver)
 }

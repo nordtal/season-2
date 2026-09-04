@@ -28,8 +28,42 @@ public final class SeasonState {
     private volatile Set<Unlock> unlocked = Collections.unmodifiableSet(EnumSet.noneOf(Unlock.class));
     private volatile int borderDiameter;
     private volatile List<String> completedKeys = List.of();
-    private volatile String activeKey;
-    private volatile List<ObjectiveRow> activeObjectives = List.of();
+    private volatile Active active = Active.NONE;
+
+    /**
+     * The milestone being worked on and how far its objectives have got, <b>as one value</b>.
+     *
+     * <p>They were two volatile fields until 2026-09-04, and two fields is two reads: a HUD line
+     * that took the name and then the progress could pair one milestone's name with the next one's
+     * bar, which is a line that is wrong about the only two things on it. Narrow - the pair changes
+     * about eight times in a season - and free to close, because nothing outside this class ever
+     * wanted one without the other.
+     *
+     * @param key        the active milestone's key, or null once the track has run out
+     * @param objectives its objectives with their progress, never null
+     */
+    public record Active(String key, List<ObjectiveRow> objectives) {
+
+        /** No milestone: before the first refresh, and after the last milestone is done. */
+        public static final Active NONE = new Active(null, List.of());
+
+        public Active {
+            objectives = List.copyOf(objectives);
+        }
+
+        /**
+         * How far this milestone is, as the mean of its objectives.
+         *
+         * <p>The mean and not the total: objectives have wildly different targets - "3000 stone"
+         * beside "8 players earn an advancement" - and summing the raw amounts would make the large
+         * one the only one the bar ever moves for. Each objective is worth the same fraction of the
+         * milestone, which is also how the pot is split.
+         */
+        public double progress() {
+            return objectives.isEmpty() ? 0.0
+                    : objectives.stream().mapToDouble(ObjectiveRow::ratio).average().orElse(0.0);
+        }
+    }
 
     /**
      * Recomputes from the completed milestone keys and the track that defines them.
@@ -84,32 +118,17 @@ public final class SeasonState {
      * both of which redraw far more often than the numbers change.
      */
     public void refreshActive(final String key, final List<ObjectiveRow> objectives) {
-        this.activeKey = key;
-        this.activeObjectives = List.copyOf(objectives);
-    }
-
-    /** The milestone being worked on, or empty once the track has run out. */
-    public java.util.Optional<String> activeKey() {
-        return java.util.Optional.ofNullable(activeKey);
-    }
-
-    public List<ObjectiveRow> activeObjectives() {
-        return activeObjectives;
+        this.active = new Active(key, objectives);
     }
 
     /**
-     * How far the active milestone is, as the mean of its objectives.
+     * The active milestone and its progress, in one read.
      *
-     * <p>The mean and not the total: objectives have wildly different targets - "3000 stone" beside
-     * "8 players earn an advancement" - and summing the raw amounts would make the large one the
-     * only one the bar ever moves for. Each objective is worth the same fraction of the milestone,
-     * which is also how the pot is split.
+     * <p>One accessor rather than three, deliberately: three would each take their own volatile
+     * read and the pair could still change between them, which is the whole bug this replaced. A
+     * caller that wants the name and the bar takes this once and asks the record.</p>
      */
-    public double activeProgress() {
-        final List<ObjectiveRow> objectives = activeObjectives;
-        if (objectives.isEmpty()) {
-            return 0.0;
-        }
-        return objectives.stream().mapToDouble(ObjectiveRow::ratio).average().orElse(0.0);
+    public Active active() {
+        return active;
     }
 }

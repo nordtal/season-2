@@ -177,18 +177,51 @@ public final class Duels {
         byPlayer.put(second.getUniqueId(), duel);
 
         final int radius = config.duelArenaRadius();
-        enter(first, centre.clone().add(-radius + 1.5, 1, 0), type);
-        enter(second, centre.clone().add(radius - 1.5, 1, 0), type);
+        // Short-circuit on purpose: if the first fighter did not arrive there is no reason to put
+        // the second one into an arena that is about to be torn down. enter() has already cleared
+        // the saved state of whoever it touched, so the abort below is what puts it back.
+        if (!enter(first, centre.clone().add(-radius + 1.5, 1, 0), type)
+                || !enter(second, centre.clone().add(radius - 1.5, 1, 0), type)) {
+            abort(duel);
+            return;
+        }
         countdown(duel, COUNTDOWN_SECONDS);
     }
 
-    private void enter(final Player player, final Location at, final DuelType type) {
+    /**
+     * Unwinds a duel that never started: both fighters back as they were, the arena gone, the slot
+     * free, and nothing booked.
+     *
+     * <p>Same three steps and the same message as {@link #stop()}, because it is the same event from
+     * a fighter's side - a duel that was set up and then did not happen. Nothing was staked, so
+     * nothing is refunded and no sound is played.</p>
+     */
+    private void abort(final ActiveDuel duel) {
+        byPlayer.remove(duel.first());
+        byPlayer.remove(duel.second());
+        restore(duel, duel.first(), "smp.duel.interrupted", null);
+        restore(duel, duel.second(), "smp.duel.interrupted", null);
+        teardown(duel.slot());
+        slots.release(duel.slot());
+    }
+
+    /**
+     * @return whether the player is actually standing in the arena. A false here is a fighter left
+     *         outside it in ADVENTURE mode holding a free loadout, in a duel that would still be
+     *         scored - which is why the caller aborts on it rather than carrying on
+     */
+    private boolean enter(final Player player, final Location at, final DuelType type) {
         SavedState.clear(player);
-        player.teleport(at);
+        if (!player.teleport(at)) {
+            plugin.getLogger().warning(player.getName() + " could not be moved into the duel arena; "
+                    + "the duel is called off rather than fought outside it");
+            return false;
+        }
         player.setGameMode(GameMode.ADVENTURE);
         giveLoadout(player, type);
         sounds.play(player, Feedback.TRAVEL);
         effects.arenaEntered(at);
+        return true;
     }
 
     private void giveLoadout(final Player player, final DuelType type) {

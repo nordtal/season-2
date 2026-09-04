@@ -134,8 +134,21 @@ public final class MessageRenderer {
 
     /**
      * Makes a substituted value inert for MiniMessage. Only {@code <} can begin a tag, and
-     * MiniMessage's own escape for it is a backslash - so one character has to be handled, and it is
-     * handled here rather than trusted never to appear.
+     * MiniMessage's own escape for it is a backslash - so <b>two</b> characters have to be handled,
+     * in this order, and they are handled here rather than trusted never to appear.
+     *
+     * <p><b>The backslash goes first, and getting that wrong is the whole bug.</b> Escaping only
+     * {@code <} turns a value of {@code \<click:run_command:/kill @a>} into
+     * {@code \\<click:run_command:/kill @a>} - and MiniMessage reads {@code \\} as one literal
+     * backslash, which leaves the {@code <} standing at the front of a tag it then parses. Escaping
+     * the escape character first makes that impossible: the player's own backslash is consumed as
+     * text before it can protect the angle bracket from us. Verified against Adventure 5.2.0 rather
+     * than reasoned about; {@code MessageRendererTest#aBackslashCannotUnescapeTheNextTag} is the
+     * standing proof, and it fails on the old one-replacement version.</p>
+     *
+     * <p>The reachable value today is a POI name: {@code /poi add <name>} takes a greedy string, so
+     * whatever a player types is what arrives here - and the result is read by every other player in
+     * the navigation menu.</p>
      *
      * <p>Public because {@code network-control}'s MOTD substitutes its own placeholders - dynamic
      * names such as {@code {players:smp}} that no name/value pair can express - and then needs
@@ -147,6 +160,8 @@ public final class MessageRenderer {
      * @return the same text, unable to open a tag
      */
     public static String escape(final String value) {
-        return value.indexOf('<') < 0 ? value : value.replace("<", "\\<");
+        return value.indexOf('<') < 0 && value.indexOf('\\') < 0
+                ? value
+                : value.replace("\\", "\\\\").replace("<", "\\<");
     }
 }

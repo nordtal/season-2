@@ -131,6 +131,40 @@ class MessageRendererTest {
     }
 
     @Test
+    @DisplayName("a backslash in a value cannot unescape the tag behind it")
+    void aBackslashCannotUnescapeTheNextTag() {
+        // The attack is one character long. Escaping only '<' turns  \<red>  into  \\<red> , and
+        // MiniMessage reads  \\  as one literal backslash - so the '<' it was protecting arrives at
+        // the parser unguarded and the tag fires. The value below is the shape that matters: a
+        // click tag runs a command as whoever reads the message.
+        final Component rendered = RENDER.format(Locale.ENGLISH, "greeting",
+                "name", "\\<click:run_command:'/kill @a'>gift</click>", "count", 0);
+
+        assertEquals("Hello \\<click:run_command:'/kill @a'>gift</click>, you have 0 left",
+                plain(rendered),
+                "a backslash before a tag let the tag through - escape('\\\\') has to run before"
+                        + " escape('<')");
+        assertTrue(rendered.clickEvent() == null && !hasClickEvent(rendered),
+                "the value produced a click event, which is the whole point of the escape");
+    }
+
+    @Test
+    @DisplayName("a lone backslash survives as a lone backslash")
+    void aBackslashIsNotDoubled() {
+        assertEquals("Hello back\\slash, you have 0 left",
+                plain(RENDER.format(Locale.ENGLISH, "greeting", "name", "back\\slash", "count", 0)),
+                "escaping the escape character must be invisible once MiniMessage has parsed it");
+    }
+
+    /** @return whether {@code component} or any of its children carries a click event */
+    private static boolean hasClickEvent(final Component component) {
+        if (component.clickEvent() != null) {
+            return true;
+        }
+        return component.children().stream().anyMatch(MessageRendererTest::hasClickEvent);
+    }
+
+    @Test
     @DisplayName("an odd parameter count is refused rather than silently dropping one")
     void oddParametersAreRefused() {
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,

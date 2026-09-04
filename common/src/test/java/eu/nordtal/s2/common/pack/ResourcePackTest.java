@@ -243,7 +243,7 @@ class ResourcePackTest {
         final List<String> orphans = new ArrayList<>();
         try (Stream<Path> walk = Files.walk(textures)) {
             walk.filter(path -> path.toString().endsWith(".png")).forEach(path -> {
-                final String relative = textures.relativize(path).toString();
+                final String relative = RepositoryRoot.relative(textures, path);
                 // item/ is the balloon's model textures, which hang off nordtal/models/item and
                 // not off any font. Everything else under textures/ exists for a font.
                 if (relative.startsWith("item/")) {

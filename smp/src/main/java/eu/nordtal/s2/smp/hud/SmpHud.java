@@ -205,15 +205,17 @@ public final class SmpHud {
             return dimension + " " + announcement;
         }
 
-        final Optional<String> active = season.activeKey();
-        if (active.isEmpty()) {
+        // One read: this line is a milestone's name and that milestone's percentage, and taking
+        // them separately is how it comes to be neither.
+        final SeasonState.Active active = season.active();
+        if (active.key() == null) {
             return dimension + " " + worldName(player, locale);
         }
 
-        final int percent = (int) Math.round(season.activeProgress() * 100.0);
+        final int percent = (int) Math.round(active.progress() * 100.0);
         return dimension + " " + worldName(player, locale) + "   "
                 + messages.format(locale, "smp.hud.milestone",
-                        "milestone", milestoneName(active.get(), locale), "percent", percent);
+                        "milestone", milestoneName(active.key(), locale), "percent", percent);
     }
 
     private String navigateLine(final Player player, final Locale locale, final NavigationTarget target) {

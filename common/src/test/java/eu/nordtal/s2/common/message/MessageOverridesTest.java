@@ -69,6 +69,22 @@ class MessageOverridesTest {
     }
 
     @Test
+    @DisplayName("overriding a key only English declares works, and is not reported as a typo")
+    void aGermanOverrideOfAnEnglishOnlyKeyIsNotUnknown(@TempDir final Path directory)
+            throws IOException {
+        write(directory, "de", "only-english=Diesen Schlüssel gibt es nur auf Englisch.");
+        final Messages messages = load(directory);
+
+        assertEquals("Diesen Schlüssel gibt es nur auf Englisch.", messages.get(GERMAN, "only-english"),
+                "the override is merged into the German bundle and get(GERMAN, ...) returns it");
+        assertEquals(java.util.Set.of(), messages.unknownOverrideKeys(),
+                "this override demonstrably works, so calling it a key 'no bundle declares' sends"
+                        + " the operator hunting for a spelling mistake in a line they can watch"
+                        + " taking effect - the question has to be asked of every packaged bundle,"
+                        + " not of the one language's");
+    }
+
+    @Test
     @DisplayName("reload picks up an edit without a new Messages")
     void reloadPicksUpAnEdit(@TempDir final Path directory) throws IOException {
         write(directory, "de", "plain=Erste Fassung.");

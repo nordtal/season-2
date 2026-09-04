@@ -83,6 +83,17 @@ public final class Configs {
     private Configs() {
     }
 
+    /**
+     * Where an operator's message overrides go: {@code config/messages}, beside the three YAML
+     * files rather than in a directory of its own, because that is the volume a deployment already
+     * mounts and the place somebody editing this bot's configuration is already standing.
+     *
+     * @return the override directory, which {@code Messages.load} creates if it is not there
+     */
+    public static Path messagesDirectory() {
+        return directory().resolve("messages");
+    }
+
     private static Path directory() {
         return Path.of(System.getProperty(DIRECTORY_PROPERTY, "config"));
     }

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.navigate;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.PoiRow;
@@ -53,7 +54,7 @@ public final class NavigateGui implements InventoryHolder {
 
         final int rows = Math.min(6, 2 + (targets.size() + 8) / 9);
         this.inventory = Bukkit.createInventory(this, rows * 9,
-                Component.text(messages.get(locale, "smp.navigate.title")));
+                MessageRenderer.of(messages).get(locale, "smp.navigate.title"));
         draw(locale);
     }
 
@@ -80,7 +81,7 @@ public final class NavigateGui implements InventoryHolder {
     private void draw(final Locale locale) {
         final ItemStack stop = new ItemStack(Material.BARRIER);
         stop.editMeta(meta -> meta.displayName(
-                Component.text(messages.get(locale, "smp.navigate.stop"))
+                MessageRenderer.of(messages).get(locale, "smp.navigate.stop")
                         .color(NamedTextColor.RED).decoration(TextDecoration.ITALIC, false)));
         inventory.setItem(STOP_SLOT, stop);
 
@@ -107,8 +108,8 @@ public final class NavigateGui implements InventoryHolder {
         stack.editMeta(meta -> {
             meta.displayName(Component.text(label).color(NamedTextColor.WHITE)
                     .decoration(TextDecoration.ITALIC, false));
-            meta.lore(List.of(Component.text(messages.format(locale, "smp.navigate.at",
-                            "world", target.world(), "x", target.x(), "y", target.y(), "z", target.z()))
+            meta.lore(List.of(MessageRenderer.of(messages).format(locale, "smp.navigate.at",
+                            "world", target.world(), "x", target.x(), "y", target.y(), "z", target.z())
                     .color(NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false)));
         });
         return stack;
@@ -118,7 +119,7 @@ public final class NavigateGui implements InventoryHolder {
     public boolean click(final Player player, final int slot, final Locale locale) {
         if (slot == STOP_SLOT) {
             navigation.clear(player.getUniqueId());
-            player.sendMessage(Component.text(messages.get(locale, "smp.navigate.stopped")));
+            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.navigate.stopped"));
             return true;
         }
         final int index = slot - FIRST_TARGET_SLOT;
@@ -131,7 +132,7 @@ public final class NavigateGui implements InventoryHolder {
         final String label = target.kind() == NavigationTarget.Kind.POI
                 ? target.label()
                 : messages.get(locale, target.label());
-        player.sendMessage(Component.text(messages.format(locale, "smp.navigate.started", "target", label)));
+        player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.navigate.started", "target", label));
         return true;
     }
 }

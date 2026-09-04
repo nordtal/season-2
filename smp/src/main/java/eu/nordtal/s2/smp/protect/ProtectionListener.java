@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.protect;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.player.Identities;
@@ -180,8 +181,7 @@ public final class ProtectionListener implements Listener {
         if (!inside(block.getLocation()) || identities.of(player.getUniqueId()).admin()) {
             return false;
         }
-        player.sendActionBar(Component.text(
-                messages.get(locales.of(player.getUniqueId()), "smp.protect.denied")));
+        player.sendActionBar(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.protect.denied"));
         return true;
     }
 }

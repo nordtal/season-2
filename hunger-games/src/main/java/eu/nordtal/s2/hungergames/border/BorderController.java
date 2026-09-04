@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.border;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
@@ -129,16 +130,16 @@ public final class BorderController {
 
     private void announce(final double target, final long seconds) {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(Component.text(messages.format(locales.of(player.getUniqueId()),
+            player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
                     "hg.border.shrink-started", "target", String.valueOf(Math.round(target)),
-                    "seconds", String.valueOf(seconds))));
+                    "seconds", String.valueOf(seconds)));
         }
     }
 
     private void announcePassive() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(Component.text(messages.get(locales.of(player.getUniqueId()),
-                    "hg.border.passive-shrink-started")));
+            player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()),
+                    "hg.border.passive-shrink-started"));
         }
     }
 

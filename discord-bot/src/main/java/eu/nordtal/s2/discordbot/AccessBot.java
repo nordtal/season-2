@@ -17,6 +17,7 @@ import eu.nordtal.s2.discordbot.discord.GuildState;
 import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
 import eu.nordtal.s2.discordbot.access.discord.RedemptionLimit;
 import eu.nordtal.s2.discordbot.access.discord.ManagedMessages;
+import eu.nordtal.s2.discordbot.discord.MessagesCommand;
 import eu.nordtal.s2.discordbot.discord.PhaseCommand;
 import eu.nordtal.s2.discordbot.discord.UpdateCommand;
 import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
@@ -121,7 +122,11 @@ public class AccessBot implements AutoCloseable {
             // so adding a language is an edit to access.yml plus a <tag>.properties file. A
             // language whose file is missing is logged once and reads English rather than failing.
             final Languages languages = Languages.of(accessConfig);
-            final Messages messages = Messages.load(MESSAGE_ROOT, languages.locales());
+            final Messages messages = Messages.load(AccessBot.class.getClassLoader(),
+                    MESSAGE_ROOT, Configs.messagesDirectory(), languages.locales());
+            messages.unknownOverrideKeys().forEach(key -> log.warn(
+                    "the message override names {}, which no bundle declares - it is stored"
+                            + " and never used; check the spelling", key));
             final Tiers tiers = Tiers.of(accessConfig);
             final BunqGateway bunq = new BunqGateway(botConfig);
             final PaymentRequests requests = new PaymentRequests(database.jdbi());
@@ -165,6 +170,7 @@ public class AccessBot implements AutoCloseable {
                     new AdminCommands(access, roles, requests, admin, messages, seasonStart, worker),
                     new PhaseCommand(phases, admin, database.jdbi(), worker),
                     new UpdateCommand(updates, admin, database.jdbi(), worker, timers),
+                    new MessagesCommand(messages, database.jdbi(), worker),
                     new RegisterFlow(jda, teams, messages, worker));
 
             final List<CommandData> commands = new ArrayList<>();
@@ -172,6 +178,7 @@ public class AccessBot implements AutoCloseable {
             commands.addAll(LinkFlow.commands());
             commands.addAll(PhaseCommand.commands());
             commands.addAll(UpdateCommand.commands());
+            commands.addAll(MessagesCommand.commands());
             jda.updateCommands().addCommands(commands).queue();
 
             new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();

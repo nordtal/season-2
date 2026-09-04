@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.travel;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.milestone.Milestone;
@@ -61,7 +62,7 @@ public final class BalloonGui implements InventoryHolder {
 
         final Locale locale = locales.of(viewer.getUniqueId());
         this.inventory = Bukkit.createInventory(this, BalloonMenu.ROWS * 9,
-                Component.text(messages.get(locale, "smp.balloon.title")));
+                MessageRenderer.of(messages).get(locale, "smp.balloon.title"));
         draw(locale);
     }
 
@@ -85,7 +86,7 @@ public final class BalloonGui implements InventoryHolder {
                 : material(entry.destination()));
 
         stack.editMeta(meta -> {
-            meta.displayName(Component.text(messages.get(locale, nameKey(entry.destination())))
+            meta.displayName(MessageRenderer.of(messages).get(locale, nameKey(entry.destination()))
                     .color(locked ? NamedTextColor.GRAY : NamedTextColor.WHITE)
                     .decoration(TextDecoration.ITALIC, false));
 
@@ -154,15 +155,15 @@ public final class BalloonGui implements InventoryHolder {
         final BalloonMenu.Entry entry = clicked.get();
         if (!entry.travellable()) {
             if (entry.state() == BalloonMenu.State.LOCKED) {
-                player.sendMessage(Component.text(messages.format(locale, "smp.balloon.locked",
-                        "milestone", milestoneName(entry.destination(), locale))));
+                player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.balloon.locked",
+                        "milestone", milestoneName(entry.destination(), locale)));
             }
             return false;
         }
 
         final World destination = worlds.world(entry.destination()).orElse(null);
         if (destination == null) {
-            player.sendMessage(Component.text(messages.get(locale, "smp.balloon.unavailable")));
+            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.balloon.unavailable"));
             return false;
         }
 
@@ -170,8 +171,8 @@ public final class BalloonGui implements InventoryHolder {
         // Always the world spawn. The balloon never drops anyone anywhere else, which is what makes
         // a world spawn a landmark everybody knows; portals are the only exception in the design.
         player.teleport(destination.getSpawnLocation());
-        player.sendMessage(Component.text(messages.format(locale, "smp.balloon.travelled",
-                "world", messages.get(locale, nameKey(entry.destination())))));
+        player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.balloon.travelled",
+                "world", messages.get(locale, nameKey(entry.destination()))));
         return true;
     }
 

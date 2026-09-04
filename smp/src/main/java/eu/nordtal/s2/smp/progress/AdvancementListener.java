@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.progress;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.aura.AuraReason;
@@ -84,8 +85,8 @@ public final class AdvancementListener implements Listener {
                 final Locale locale = locales.of(player.getUniqueId());
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (player.isOnline()) {
-                        player.sendMessage(Component.text(messages.format(locale,
-                                "smp.aura.advancement", "aura", award)));
+                        player.sendMessage(MessageRenderer.of(messages).format(locale,
+                                "smp.aura.advancement", "aura", award));
                     }
                 });
             }

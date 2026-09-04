@@ -1,5 +1,6 @@
 package eu.nordtal.s2.networkcontrol.ping;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.network.NetworkSnapshot;
 
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -108,11 +109,15 @@ final class Placeholders {
     }
 
     /**
-     * Makes a substituted value inert for MiniMessage. Only {@code <} can begin a tag, and
-     * MiniMessage's own escape for it is a backslash - so one character has to be handled and it is
-     * handled here rather than trusted to never appear.
+     * Makes a substituted value inert for MiniMessage.
+     *
+     * <p>Delegated to {@link MessageRenderer#escape(String)} since 2026-09-04. The rule - only
+     * {@code <} can begin a tag, and MiniMessage's escape for it is a backslash - is the same one
+     * every message in the network needs, and it was written out twice: here, and in the renderer
+     * every plugin message goes through. Two implementations of one security property is one that
+     * gets fixed and one that does not.</p>
      */
     private static String escape(final String value) {
-        return value.indexOf('<') < 0 ? value : value.replace("<", "\\<");
+        return MessageRenderer.escape(value);
     }
 }

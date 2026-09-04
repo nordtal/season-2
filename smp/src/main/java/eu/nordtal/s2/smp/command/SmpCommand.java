@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.aura.AuraReason;
@@ -216,6 +217,6 @@ public final class SmpCommand {
         final Locale locale = sender instanceof Player player
                 ? locales.of(player.getUniqueId()) : Locale.ENGLISH;
         Bukkit.getScheduler().runTask(plugin,
-                () -> sender.sendMessage(Component.text(messages.get(locale, key))));
+                () -> sender.sendMessage(MessageRenderer.of(messages).get(locale, key)));
     }
 }

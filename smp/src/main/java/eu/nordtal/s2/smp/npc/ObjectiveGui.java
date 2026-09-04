@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.npc;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.smp.board.ProgressBar;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
@@ -48,7 +49,7 @@ public final class ObjectiveGui implements InventoryHolder {
                         final List<ObjectiveRow> rows) {
         final int size = Math.min(54, Math.max(27, ((rows.size() + 8) / 9 + 2) * 9));
         this.inventory = Bukkit.createInventory(this, size,
-                Component.text(messages.get(locale, "smp.objectives.title")));
+                MessageRenderer.of(messages).get(locale, "smp.objectives.title"));
 
         int slot = FIRST_SLOT;
         for (final ObjectiveRow row : rows) {

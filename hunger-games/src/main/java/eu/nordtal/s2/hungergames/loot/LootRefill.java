@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.loot;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.border.BorderController;
@@ -113,7 +114,7 @@ public final class LootRefill {
 
     private void announce() {
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(Component.text(messages.get(locales.of(player.getUniqueId()), "hg.loot.refill")));
+            player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "hg.loot.refill"));
         }
     }
 }

@@ -11,6 +11,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 
 import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.phase.DateChange;
 import eu.nordtal.s2.common.phase.PhaseChange;
@@ -152,9 +153,11 @@ public final class PhaseCommand {
         // Answered from the watch rather than with a query: this is the command somebody runs while
         // the network is misbehaving, and it should still say something useful when the database is
         // unreachable. Whether the value is an observation or the MAINTENANCE fallback is stated.
-        player.sendMessage(Component.text(watch.everRead()
-                ? messages.format(locale, "phase.current", "phase", watch.lastKnown().name())
-                : messages.format(locale, "phase.current.unread", "phase", watch.lastKnown().name())));
+        player.sendMessage(watch.everRead()
+                ? MessageRenderer.of(messages).format(locale, "phase.current",
+                        "phase", watch.lastKnown().name())
+                : MessageRenderer.of(messages).format(locale, "phase.current.unread",
+                        "phase", watch.lastKnown().name()));
 
         // The dates come from the watch too, and only the opening is cached there - smp_start is
         // read fresh, off the calling thread, because nothing in this process needs it otherwise.
@@ -166,10 +169,10 @@ public final class PhaseCommand {
                 logger.warn("Could not read the season dates for /phase", exception);
                 return;
             }
-            player.sendMessage(Component.text(messages.format(locale, "phase.dates",
+            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.dates",
                     "launch", SeasonDates.format(watch.launch().orElse(null)),
                     "smpStart", smpStart,
-                    "zone", SeasonDates.ZONE.getId())));
+                    "zone", SeasonDates.ZONE.getId()));
         }).schedule();
         return com.mojang.brigadier.Command.SINGLE_SUCCESS;
     }
@@ -200,10 +203,10 @@ public final class PhaseCommand {
         } else {
             final var parsed = SeasonDates.parse(typed);
             if (parsed.isEmpty()) {
-                player.sendMessage(Component.text(messages.format(locale, "phase.date.invalid",
+                player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.date.invalid",
                         "pattern", SeasonDates.PATTERN,
                         "zone", SeasonDates.ZONE.getId(),
-                        "clear", SeasonDates.CLEAR)));
+                        "clear", SeasonDates.CLEAR));
                 return com.mojang.brigadier.Command.SINGLE_SUCCESS;
             }
             at = parsed.get();
@@ -227,13 +230,13 @@ public final class PhaseCommand {
                     : phases.setSmpStart(at, actor);
         } catch (final SeasonDateRefused refused) {
             // The model said no, in a sentence written for the person who typed it.
-            player.sendMessage(Component.text(messages.format(locale, "phase.date.refused",
-                    "reason", refused.getMessage())));
+            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.date.refused",
+                    "reason", refused.getMessage()));
             return;
         } catch (final RuntimeException exception) {
             logger.error("{} could not write a season date from the proxy", player.getUsername(),
                     exception);
-            player.sendMessage(Component.text(messages.get(locale, "phase.date.failed")));
+            player.sendMessage(MessageRenderer.of(messages).get(locale, "phase.date.failed"));
             return;
         }
 
@@ -246,26 +249,25 @@ public final class PhaseCommand {
 
         final String what = messages.get(locale, column.key);
         if (change.current() == null) {
-            player.sendMessage(Component.text(
-                    messages.format(locale, "phase.date.cleared", "what", what)));
+            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.date.cleared", "what", what));
             if (column == Column.SMP_START) {
-                player.sendMessage(Component.text(messages.get(locale, "phase.date.kept")));
+                player.sendMessage(MessageRenderer.of(messages).get(locale, "phase.date.kept"));
             }
             return;
         }
 
-        player.sendMessage(Component.text(change.unchanged()
-                ? messages.format(locale, "phase.date.unchanged",
+        player.sendMessage(change.unchanged()
+                ? MessageRenderer.of(messages).format(locale, "phase.date.unchanged",
                         "what", what, "current", SeasonDates.format(change.current()))
-                : messages.format(locale, "phase.date.set",
+                : MessageRenderer.of(messages).format(locale, "phase.date.set",
                         "what", what,
                         "current", SeasonDates.format(change.current()),
-                        "previous", SeasonDates.format(change.previous()))));
+                        "previous", SeasonDates.format(change.previous())));
 
         if (column == Column.SMP_START && change.movedAccess()) {
-            player.sendMessage(Component.text(messages.format(locale, "phase.date.moved",
+            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.date.moved",
                     "grants", String.valueOf(change.grants()),
-                    "accounts", String.valueOf(change.accounts()))));
+                    "accounts", String.valueOf(change.accounts())));
         }
     }
 
@@ -276,8 +278,8 @@ public final class PhaseCommand {
 
         final SeasonPhase target = parse(requested);
         if (target == null) {
-            player.sendMessage(Component.text(messages.format(locale, "phase.unknown",
-                    "value", requested, "phases", names())));
+            player.sendMessage(MessageRenderer.of(messages).format(locale, "phase.unknown",
+                    "value", requested, "phases", names()));
             return com.mojang.brigadier.Command.SINGLE_SUCCESS;
         }
 
@@ -300,7 +302,7 @@ public final class PhaseCommand {
         } catch (final RuntimeException exception) {
             logger.error("{} could not switch the season phase to {} from the proxy",
                     player.getUsername(), target, exception);
-            player.sendMessage(Component.text(messages.get(locale, "phase.failed")));
+            player.sendMessage(MessageRenderer.of(messages).get(locale, "phase.failed"));
             return;
         }
 
@@ -311,10 +313,11 @@ public final class PhaseCommand {
         // knows, and refreshing here is what makes the reply and the log agree.
         watch.refresh();
 
-        player.sendMessage(Component.text(change.unchanged()
-                ? messages.format(locale, "phase.unchanged", "phase", change.current().name())
-                : messages.format(locale, "phase.changed",
-                        "previous", change.previous().name(), "current", change.current().name())));
+        player.sendMessage(change.unchanged()
+                ? MessageRenderer.of(messages).format(locale, "phase.unchanged",
+                        "phase", change.current().name())
+                : MessageRenderer.of(messages).format(locale, "phase.changed",
+                        "previous", change.previous().name(), "current", change.current().name()));
     }
 
     // ---------------------------------------------------------------- helpers

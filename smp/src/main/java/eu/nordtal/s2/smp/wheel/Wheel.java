@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.wheel;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -57,7 +58,7 @@ public final class Wheel {
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = locales.of(player.getUniqueId());
         if (discordId.isEmpty()) {
-            player.sendMessage(Component.text(messages.get(locale, "smp.error.no-account-link")));
+            player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.error.no-account-link"));
             return;
         }
 
@@ -72,7 +73,7 @@ public final class Wheel {
                     : dao.takeEarnedSpin(discordId.get()).isPresent();
 
             if (!took) {
-                tell(player, messages.format(locale, "smp.wheel.none",
+                tell(player, MessageRenderer.of(messages).format(locale, "smp.wheel.none",
                         "extras", spins.extras()));
                 return;
             }
@@ -89,7 +90,7 @@ public final class Wheel {
         }
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
-            tell(player, messages.format(locale, "smp.wheel.available",
+            tell(player, MessageRenderer.of(messages).format(locale, "smp.wheel.available",
                     "count", spins.available(LocalDate.now())));
         });
     }
@@ -104,7 +105,7 @@ public final class Wheel {
         if (material == null) {
             plugin.getLogger().warning("wheel-prizes names '" + prize.item()
                     + "', which is not a material - the spin was spent and nothing was given");
-            tell(player, messages.get(locale, "smp.wheel.broken-prize"));
+            tell(player, MessageRenderer.of(messages).get(locale, "smp.wheel.broken-prize"));
             return;
         }
 
@@ -118,8 +119,8 @@ public final class Wheel {
             // is the kind of thing that is remembered for a season.
             player.getInventory().addItem(stack).values()
                     .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
-            player.sendMessage(Component.text(messages.format(locale, "smp.wheel.won",
-                    "amount", prize.amount(), "item", material.name())));
+            player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.wheel.won",
+                    "amount", prize.amount(), "item", material.name()));
         });
     }
 
@@ -130,10 +131,11 @@ public final class Wheel {
         return Material.matchMaterial(name.trim().toUpperCase(Locale.ROOT));
     }
 
-    private void tell(final Player player, final String message) {
+    /** Sends one already-rendered message on the main thread, from wherever it is called. */
+    private void tell(final Player player, final Component message) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) {
-                player.sendMessage(Component.text(message));
+                player.sendMessage(message);
             }
         });
     }

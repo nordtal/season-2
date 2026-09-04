@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.npc;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.smp.milestone.Objective;
 
@@ -50,15 +51,15 @@ public final class HandInGui implements InventoryHolder {
         this.wanted = new LinkedHashSet<>(objective.items() == null ? List.of() : objective.items());
 
         this.inventory = Bukkit.createInventory(this, ROWS * 9,
-                Component.text(messages.get(locale, "smp.handin.title")));
+                MessageRenderer.of(messages).get(locale, "smp.handin.title"));
 
         final ItemStack confirm = new ItemStack(Material.LIME_CONCRETE);
         confirm.editMeta(meta -> {
-            meta.displayName(Component.text(messages.get(locale, "smp.handin.confirm"))
+            meta.displayName(MessageRenderer.of(messages).get(locale, "smp.handin.confirm")
                     .color(NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
             meta.lore(List.of(
-                    Component.text(messages.format(locale, "smp.handin.needed",
-                                    "amount", stillNeeded, "items", String.join(", ", wanted)))
+                    MessageRenderer.of(messages).format(locale, "smp.handin.needed",
+                                    "amount", stillNeeded, "items", String.join(", ", wanted))
                             .color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
         });
         inventory.setItem(CONFIRM_SLOT, confirm);

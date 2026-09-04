@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.duel;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.aura.AuraReason;
@@ -217,10 +218,11 @@ public final class Duels {
         }
         forBoth(duel, player -> {
             player.setGameMode(remaining > 0 ? GameMode.ADVENTURE : GameMode.SURVIVAL);
-            player.sendMessage(Component.text(remaining > 0
-                    ? messages.format(locales.of(player.getUniqueId()), "smp.duel.countdown",
-                            "seconds", remaining)
-                    : messages.get(locales.of(player.getUniqueId()), "smp.duel.go")));
+            player.sendMessage(remaining > 0
+                    ? MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
+                            "smp.duel.countdown", "seconds", remaining)
+                    : MessageRenderer.of(messages).get(locales.of(player.getUniqueId()),
+                            "smp.duel.go"));
         });
         if (remaining > 0) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> countdown(duel, remaining - 1), 20L);
@@ -258,8 +260,8 @@ public final class Duels {
             return;
         }
         state.restore(player);
-        player.sendMessage(Component.text(messages.format(locales.of(playerId), messageKey,
-                "aura", config.duelStake())));
+        player.sendMessage(MessageRenderer.of(messages).format(locales.of(playerId), messageKey,
+                "aura", config.duelStake()));
     }
 
     /**
@@ -380,6 +382,6 @@ public final class Duels {
     }
 
     private void tell(final Player player, final String key) {
-        player.sendMessage(Component.text(messages.get(locales.of(player.getUniqueId()), key)));
+        player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), key));
     }
 }

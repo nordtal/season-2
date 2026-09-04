@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.db;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.smp.player.Identities;
 
@@ -48,7 +49,7 @@ public final class JoinGate implements Listener {
             // English: at this point there is no account link to read a language from, which is
             // itself the thing that is broken.
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
-                    Component.text(messages.get(Locale.ENGLISH, "smp.error.database-unreachable")));
+                    MessageRenderer.of(messages).get(Locale.ENGLISH, "smp.error.database-unreachable"));
         }
     }
 

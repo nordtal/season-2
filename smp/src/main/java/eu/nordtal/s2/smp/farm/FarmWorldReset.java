@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.farm;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -135,8 +136,7 @@ public final class FarmWorldReset {
     private void warn(final long minutes) {
         forEachInFarmWorld(player -> {
             final Locale locale = locales.of(player.getUniqueId());
-            player.sendMessage(Component.text(
-                    messages.format(locale, "smp.farm.warning", "minutes", minutes)));
+            player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.farm.warning", "minutes", minutes));
         });
     }
 
@@ -152,8 +152,7 @@ public final class FarmWorldReset {
                     + "postponed rather than swapping in a half-built world. If this repeats, the "
                     + "configured farm world is too big for this host and the border is the number "
                     + "to lower.");
-            forEachInFarmWorld(player -> player.sendMessage(Component.text(
-                    messages.get(locales.of(player.getUniqueId()), "smp.farm.postponed"))));
+            forEachInFarmWorld(player -> player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.farm.postponed")));
             ensureStaging();
             scheduleNext();
             return;
@@ -171,8 +170,7 @@ public final class FarmWorldReset {
             final Location spawn = nordtal.getSpawnLocation();
             forEachInFarmWorld(player -> {
                 player.teleport(spawn);
-                player.sendMessage(Component.text(
-                        messages.get(locales.of(player.getUniqueId()), "smp.farm.moved")));
+                player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.farm.moved"));
             });
 
             swap.swap().ifPresent(this::settleNewWorld);

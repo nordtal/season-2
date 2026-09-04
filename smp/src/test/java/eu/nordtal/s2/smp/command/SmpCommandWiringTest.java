@@ -97,6 +97,23 @@ class SmpCommandWiringTest {
                 "/navigate was folded into :commands, which it should not be");
     }
 
+    @Test
+    @DisplayName("the two keys nobody can remember are suggested, from memory rather than a query")
+    void theArgumentsThatNeedSuggesting() throws IOException {
+        // Brigadier asks for suggestions once per keystroke, per client with the command in its
+        // tree. A source that queried would be a database round trip per character typed.
+        final String source = read("smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java");
+
+        assertTrue(source.contains("commands.suggest(SmpCommands.UNLOCK_MILESTONE, \"key\", track::keys)"),
+                "milestone keys are not suggested, so /smp milestone unlock is a key typed from"
+                        + " memory into a command that cannot be undone");
+        assertTrue(source.contains("commands.suggest(SmpCommands.COMPLETE_OBJECTIVE, \"key\","),
+                "objective keys are not suggested");
+        assertTrue(source.contains("season.active().objectives()"),
+                "the objective suggestions do not come from the ACTIVE milestone, so they would"
+                        + " offer keys the command always refuses");
+    }
+
     private static String readOrFail() {
         try {
             return read(PLUGIN);

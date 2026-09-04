@@ -729,13 +729,13 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 963 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 964 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-04). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
-| `smp` | 161 |
+| `smp` | 162 |
 | `common` | 250 |
 | `network-control` | 189 |
 | `updater` | 136 |
@@ -852,7 +852,7 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **161**. Eight are `WheelStripTest`, new 2026-09-04 with the animation: over every pool
+`smp` has **162**. Eight are `WheelStripTest`, new 2026-09-04 with the animation: over every pool
 size and every winner, the last frame has to centre the prize the database already gave away. That is
 the property the wheel rests on - the spin is spent in SQL before a frame is drawn, so an animation
 that could stop anywhere else would be a second, disagreeing answer about one spin. `SoundDefaultsTest` (6) is the newest and the only one that can say anything

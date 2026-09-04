@@ -837,13 +837,13 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Eight modules have tests: 1048 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Eight modules have tests: 1051 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-04, after `/hg` was opened to the console). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
-| `smp` | 170 |
+| `smp` | 173 |
 | `common` | 293 |
 | `network-control` | 178 |
 | `updater` | 136 |
@@ -1064,7 +1064,16 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **169**. **Six are new on 2026-09-04**, and they are this module's first that need a
+`smp` has **173**. **The newest three are `IrreversibleCommandsTest`, added 2026-09-04** when the
+"two-step everywhere" rule reached this module: `/smp farmreset now`, `/smp objective complete` and
+`/smp milestone unlock` now have to be typed twice inside `Confirmations.WINDOW`. It is a text
+search, for the reason every wiring test in this repository is one - what it protects is *whether a
+handler calls the gate*, and building the tree needs Paper. What makes it worth having is asymmetric:
+`/smp farmreset now` deletes a world folder (it is why `deploy/minecraft/entrypoint-test.sh` exists
+at all), so a refactor that drops the guard produces a command that works perfectly and destroys the
+farm world on a typo. **Its third case asserts the opposite** - that `/smp aura` and `/smp reload`
+are still *not* guarded - because a flag on everything that writes is a flag nobody reads; `/smp
+update restart` keeps its own confirmation, a minute of countdown every player sees. **Six are new on 2026-09-04**, and they are this module's first that need a
 container: `SpinRefundIntegrationTest` drives the two wheel-refund statements against a real
 PostgreSQL running the real migrations. The wheel spends the spin in SQL before it draws a prize -
 deliberately, so the animation cannot become a second answer about one spin - and the cost of that

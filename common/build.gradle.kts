@@ -22,9 +22,11 @@ repositoryRootTestInputs {
     // quietly untaught. Every one of them came out of a drill against a running container.
     reads("deploy/minecraft/entrypoint.sh")
 
-    // BossBarFontTest reads the two boss bar renderers as text, for the reason its own comment
-    // gives: a missing font key draws the wrong glyph rather than no glyph. Without these
-    // declarations an edit to either would leave :common:test UP-TO-DATE.
+    // BossBarFontTest and GlyphShadowTest read the two boss bar renderers as text, for the reason
+    // BossBarFontTest's own comment gives: a missing font key draws the wrong glyph rather than no
+    // glyph, and a missing shadowColor draws every tile twice. Neither is visible from a component
+    // this module can build. Without these declarations an edit to either would leave
+    // :common:test UP-TO-DATE.
     reads("smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java")
     reads("resource-pack/src/assets/nordtal/font/bossbar.json")

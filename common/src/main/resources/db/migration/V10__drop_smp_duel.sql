@@ -1,0 +1,26 @@
+-- `smp_duel` goes, because nothing ever wrote to it.
+--
+-- V6 created it as the duel history: one row per duel at the spawn platforms, carrying the type,
+-- the two players, the winner, the stake and the outcome, with two constraints pairing `ended`
+-- and `winner_id` so tightly that the comment on `smp_duel_ended_has_winner` justified itself with
+-- "the aura books disagree with the duel history". They never could. `Duels` books the two
+-- `smp_aura_event` rows and forgets the duel, and no class in this repository - no DAO method, no
+-- record, no test - ever read or wrote this table. There was no duel history for the aura books to
+-- disagree with.
+--
+-- **The aura side of a duel is untouched.** `smp_aura_event` is where the ±stake was booked all
+-- along, and it is the ledger every duel outcome a player has ever seen was rendered from. This
+-- migration drops the table that recorded what a duel *was*, not what it paid.
+--
+-- The two indexes V6 created on it, `smp_duel_challenger_id_idx` and `smp_duel_opponent_id_idx`,
+-- go with the table - PostgreSQL drops a table's own indexes with it, so naming them here would
+-- only be a second thing to keep in step. Nothing references `smp_duel` by a foreign key either;
+-- V6 says so itself where `smp_grave` explains why it does not.
+--
+-- A separate migration rather than an edit to V6, for the reason V3, V8 and V9 already wrote down:
+-- V6 is committed and has been applied to real databases, and Flyway validates the checksum of an
+-- applied migration. Rewriting one in place is only safe while nothing anywhere has run it.
+--
+-- If duels are ever to be recorded, this is a new table written together with the code that fills
+-- it - which is the half that was missing, and the half a schema cannot supply on its own.
+DROP TABLE smp_duel;

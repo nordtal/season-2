@@ -73,7 +73,7 @@ before; it was committed after the implementation it failed to describe. Numbers
 | Network-wide play time counter on the proxy | **built** |
 | Hunger games, the Paper half: border, loot, HUD, lobby, bodies, colours, win and ceremony | **built** 2026-08-31 |
 | Hunger games, the Discord half: registration, team names, partner invitations | **built** 2026-08-31 |
-| Resource pack: three fonts, every code point allocated **and drawn** as placeholder or final-candidate art | **built** 2026-08-31 |
+| Resource pack: four fonts, every code point allocated **and drawn** as placeholder or final-candidate art | **built** 2026-08-31; the fourth font, `nordtal:gui`, 2026-09-04 |
 | Command surfaces: Brigadier directly, no framework | **built** where a module exists |
 | SMP schema — `smp_*` tables, V6 | **built** 2026-09-01 |
 | `limbo` waiting room and pack enforcement | **built** 2026-09-01 — and unrehearsed: three open verifications now have a written probe |

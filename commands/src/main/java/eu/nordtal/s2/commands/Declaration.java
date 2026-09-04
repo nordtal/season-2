@@ -91,6 +91,41 @@ public record Declaration(List<String> path, Target target, Set<Surface> surface
         return name(path);
     }
 
+    /**
+     * {@code /smp aura <player> <delta>} - what to type, with the arguments named.
+     *
+     * <h2>Why this is on the declaration and not written out per surface</h2>
+     * Because it is the declaration, spelled out. A usage line kept by hand next to a command is the
+     * first thing to go stale when an argument is added, and the way it goes stale is that it keeps
+     * telling people to type something that no longer parses. Deriving it means the two cannot
+     * disagree.
+     *
+     * <p>Angle brackets for required, square for optional - the convention every Minecraft server
+     * and every man page already uses, so it needs no explaining.</p>
+     */
+    public String usage() {
+        final StringBuilder text = new StringBuilder(name());
+        for (final Argument argument : arguments) {
+            text.append(argument.required() ? " <" : " [")
+                    .append(argument.name())
+                    .append(argument.required() ? '>' : ']');
+        }
+        return text.toString();
+    }
+
+    /**
+     * The message key for one sentence saying what this command is for.
+     *
+     * <p>Derived from the path, so every command has one and no command can have two.
+     * {@code CatalogueTest} asserts that every declaration's key exists in both languages - which is
+     * what makes it safe for the help output to name it without checking, and what stops a new
+     * command from shipping with the literal string {@code command.describe.smp.aura} as its own
+     * explanation.</p>
+     */
+    public String describeKey() {
+        return "command.describe." + String.join(".", path);
+    }
+
     private static String name(final List<String> path) {
         return "/" + String.join(" ", path);
     }

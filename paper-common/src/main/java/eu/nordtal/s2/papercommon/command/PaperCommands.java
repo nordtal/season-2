@@ -86,6 +86,8 @@ public final class PaperCommands {
     private final List<Entry> entries = new ArrayList<>();
     private final Map<String, List<LiteralArgumentBuilder<CommandSourceStack>>> extras =
             new LinkedHashMap<>();
+    private final Map<String, java.util.function.Supplier<java.util.Collection<String>>> suggestions =
+            new LinkedHashMap<>();
 
     /**
      * @param here        which process this is, so a command can tell its own from somebody else's
@@ -155,6 +157,31 @@ public final class PaperCommands {
     /** Every declaration that is not this process's own, in one call. */
     public PaperCommands remoteAll(final List<Declaration> declarations) {
         declarations.forEach(this::remote);
+        return this;
+    }
+
+    /**
+     * What to offer for one argument while somebody is still typing it.
+     *
+     * <h2>Why the values come from the caller and not from the declaration</h2>
+     * A {@link eu.nordtal.s2.commands.Argument.Kind#CHOICE} carries its own values because they are
+     * fixed; a milestone key is not. The list of milestones is this server's reloadable YAML, the
+     * list of objectives is whichever milestone is active right now, and neither is knowable in a
+     * module compiled against no platform. So the declaration says <em>that</em> the argument is a
+     * word and the plugin says <em>which</em> words.
+     *
+     * <p><b>Must not block and must not query.</b> Brigadier asks for suggestions while somebody is
+     * typing, once per keystroke, for every client with the command in its tree. An in-memory
+     * source is the only kind that belongs here - which is what both callers have anyway, because
+     * the track and the active milestone are already cached for the boards.</p>
+     */
+    public PaperCommands suggest(final Declaration declaration, final String argument,
+                                 final java.util.function.Supplier<java.util.Collection<String>> values) {
+        if (declaration.arguments().stream().noneMatch(a -> a.name().equals(argument))) {
+            throw new IllegalArgumentException(declaration.name() + " has no argument '" + argument
+                    + "', so nothing would ever ask for these suggestions");
+        }
+        suggestions.put(declaration.name() + " " + argument, Objects.requireNonNull(values, "values"));
         return this;
     }
 
@@ -238,46 +265,142 @@ public final class PaperCommands {
         for (final Node child : node.children.values()) {
             builder.then(materialise(child));
         }
-        if (node.command != null) {
-            arguments(builder, node.command);
+
+        final boolean runnableHere = node.command != null && arguments(builder, node.command);
+        if (!runnableHere) {
+            // Nothing can be run by typing exactly this. Brigadier's own answer here is "Unknown or
+            // incomplete command, see below for error" with a red caret, which tells somebody who
+            // mistyped an argument nothing at all about what the command wanted. So every node that
+            // is not itself a command answers with what IS one underneath it.
+            builder.executes(context -> help(context, node));
         }
         return builder;
     }
 
-    /** Hang a command's arguments off the last literal of its path, and make it executable. */
-    private void arguments(final LiteralArgumentBuilder<CommandSourceStack> parent,
-                           final Entry entry) {
+    /**
+     * Hang a command's arguments off the last literal of its path.
+     *
+     * @return whether the literal itself became runnable - which it does only when every required
+     *         argument can be left out
+     */
+    private boolean arguments(final LiteralArgumentBuilder<CommandSourceStack> parent,
+                              final Entry entry) {
         final List<eu.nordtal.s2.commands.Argument> arguments = entry.declaration().arguments();
         if (arguments.isEmpty()) {
             parent.executes(context -> run(context, entry, Map.of()));
-            return;
+            return true;
         }
 
         // Back to front, for the same reason build() is: a node has to be complete before it is
         // handed to its parent.
         RequiredArgumentBuilder<CommandSourceStack, ?> child = null;
         for (int at = arguments.size() - 1; at >= 0; at--) {
-            final RequiredArgumentBuilder<CommandSourceStack, ?> node = node(arguments.get(at));
+            final RequiredArgumentBuilder<CommandSourceStack, ?> node =
+                    node(entry.declaration(), arguments.get(at));
             final int index = at;
-            node.executes(context -> run(context, entry, read(context, arguments, index + 1)));
+            // Runnable at this depth only when nothing required is still missing. Otherwise typing
+            // half the command answers with the usage line rather than running it with a hole in
+            // it - Values would throw about a declaration disagreement, which is a sentence written
+            // for a programmer.
+            if (satisfied(arguments, index + 1)) {
+                node.executes(context -> run(context, entry, read(context, arguments, index + 1)));
+            } else {
+                node.executes(context -> usage(context, entry.declaration()));
+            }
             if (child != null) {
                 node.then(child);
             }
             child = node;
         }
 
-        // An optional first argument means the command can also be run with nothing at all, which
-        // is an `executes` on the literal itself.
-        if (!arguments.getFirst().required()) {
-            parent.executes(context -> run(context, entry, Map.of()));
-        }
         parent.then(child);
+        if (arguments.getFirst().required()) {
+            return false;
+        }
+        parent.executes(context -> run(context, entry, Map.of()));
+        return true;
     }
 
-    private static RequiredArgumentBuilder<CommandSourceStack, ?> node(
-            final eu.nordtal.s2.commands.Argument argument) {
+    /** Whether a command given its first {@code count} arguments has everything it needs. */
+    private static boolean satisfied(final List<eu.nordtal.s2.commands.Argument> arguments,
+                                     final int count) {
+        for (int at = count; at < arguments.size(); at++) {
+            if (arguments.get(at).required()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * What can be typed here, and what each one is for.
+     *
+     * <h2>Why this replaces Brigadier's own message</h2>
+     * "Unknown or incomplete command, see below for error" plus a red caret is an answer about the
+     * parser, not about the command. Somebody who typed {@code /smp aura} and got it learns that
+     * something is wrong and nothing about what - and the arguments are already declared, so the
+     * server knows exactly what was missing.
+     *
+     * <p>One line per command underneath: the usage, derived from the declaration so it cannot go
+     * stale, and one sentence saying what it does. Sorted, because a list whose order depends on
+     * registration order reads as random.</p>
+     */
+    private int help(final CommandContext<CommandSourceStack> context, final Node node) {
+        final NordtalUser user = user(context.getSource().getSender());
+        final List<Declaration> below = new ArrayList<>();
+        collect(node, below);
+
+        if (below.isEmpty()) {
+            // Only reachable for a root whose every command was skipped by remote(), which today
+            // cannot happen - a root exists because something was added under it.
+            user.reply("command.help.nothing", Map.of(), Feedback.REFUSED);
+            return Command.SINGLE_SUCCESS;
+        }
+        if (below.size() == 1) {
+            return usage(context, below.getFirst());
+        }
+
+        user.reply("command.help.header", Map.of("command", "/" + node.literal));
+        below.stream()
+                .sorted(java.util.Comparator.comparing(Declaration::name))
+                .forEach(declaration -> user.reply("command.help.line",
+                        Map.of("usage", declaration.usage(),
+                                "what", user.phrase(declaration.describeKey()))));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** The usage of one command, plus the sentence saying what it is for. */
+    private int usage(final CommandContext<CommandSourceStack> context,
+                      final Declaration declaration) {
+        final NordtalUser user = user(context.getSource().getSender());
+        user.reply("command.help.usage", Map.of("usage", declaration.usage()), Feedback.REFUSED);
+        user.reply("command.help.what", Map.of("what", user.phrase(declaration.describeKey())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static void collect(final Node node, final List<Declaration> into) {
+        if (node.command != null) {
+            into.add(node.command.declaration());
+        }
+        node.children.values().forEach(child -> collect(child, into));
+    }
+
+    private RequiredArgumentBuilder<CommandSourceStack, ?> node(final Declaration declaration,
+                                                               final eu.nordtal.s2.commands.Argument argument) {
+        final java.util.function.Supplier<java.util.Collection<String>> offered =
+                suggestions.get(declaration.name() + " " + argument.name());
         return switch (argument.kind()) {
-            case WORD -> Commands.argument(argument.name(), StringArgumentType.word());
+            case WORD -> {
+                final RequiredArgumentBuilder<CommandSourceStack, ?> word =
+                        Commands.argument(argument.name(), StringArgumentType.word());
+                if (offered != null) {
+                    word.suggests((context, builder) -> {
+                        offered.get().forEach(builder::suggest);
+                        return builder.buildFuture();
+                    });
+                }
+                yield word;
+            }
             case GREEDY_STRING ->
                     Commands.argument(argument.name(), StringArgumentType.greedyString());
             case INTEGER -> Commands.argument(argument.name(),

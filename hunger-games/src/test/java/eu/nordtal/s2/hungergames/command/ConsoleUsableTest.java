@@ -64,15 +64,37 @@ class ConsoleUsableTest {
     }
 
     @Test
-    @DisplayName("the console reaches a handler as a NordtalUser rather than being cast to a Player")
+    @DisplayName("the admin subcommands are declared, not hand-gated, so the console reaches them")
     void theSenderIsAbstracted() throws IOException {
+        // This assertion changed shape on 2026-09-05 and the rule it protects did not. The console
+        // path used to be built here, by hand, in an asAdmin() helper; it is now PaperCommands'
+        // gate, which every Paper plugin shares and which asks for a ConsoleCommandSender BY TYPE.
+        // What has to hold is that this file does not build a tree of its own for the admin
+        // commands - because a hand-built tree is where the old bug lived, in all three plugins
+        // separately.
         final String text = read();
 
-        assertTrue(text.contains("PaperUser.console("),
-                SOURCE + " no longer builds a console user, so /hg is player-only again");
-        assertTrue(text.contains("Consumer<NordtalUser> action"),
-                SOURCE + " no longer hands its handlers a NordtalUser. A handler that takes a Player"
-                        + " cannot be reached by the console, which is how this was broken before.");
+        assertTrue(text.contains("HungerGamesCommands.all()"),
+                SOURCE + " no longer registers the declared /hg commands, so it has gone back to"
+                        + " building its own tree - which is where the player-only gate lived");
+        assertTrue(text.contains("commands.local(command, effects)"),
+                SOURCE + " does not hand its commands to PaperCommands, whose admin check accepts"
+                        + " the console. A tree built here would have to repeat that check, and"
+                        + " repeating it is how it came to be wrong.");
+        assertEquals(1, occurrences(text, "commands.extra(\"hg\""),
+                "/hg ready is the one subcommand hung on by hand. A second extra subtree is a"
+                        + " command that has escaped the declaration and its console gate.");
+    }
+
+    @Test
+    @DisplayName("/hg ready keeps the exact path the lobby's click event runs")
+    void theClickableLinkStillResolves() throws IOException {
+        // Lobby#broadcast builds clickEvent(ClickEvent.runCommand("/hg ready")). A rename here does
+        // not fail anything: the button simply stops working, on the message every participant is
+        // told to read before the event starts.
+        assertTrue(read().contains("Commands.literal(\"ready\")"),
+                "/hg ready was renamed or moved, and the lobby's ready button runs that literal"
+                        + " path - it would silently do nothing");
     }
 
     private static int occurrences(final String text, final String needle) {

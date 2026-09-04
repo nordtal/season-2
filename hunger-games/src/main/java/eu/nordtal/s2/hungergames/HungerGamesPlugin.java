@@ -139,7 +139,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         hud = new HudRenderer(this, world, config, messages, locales, border, state);
         lobby = new Lobby(this, dao, config, messages, locales);
         winTracker = new WinTracker(dao, messages, locales, sounds);
-        ceremony = new Ceremony(dao, messages, locales, sounds);
+        ceremony = new Ceremony(messages, locales, sounds);
         manager = new HungerGamesManager(this, dao, config, messages, locales, bodies, state, border, sounds);
 
         refreshCurrentGame();
@@ -252,7 +252,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         }
     }
 
-    private void onGameDecided(final WinTracker.Outcome outcome, final UUID winnerMcUuid) {
+    private void onGameDecided(final Ceremony.Decision decision) {
         final HungerGamesSpec config = configHandle.get();
         final World world = resolveWorld(config);
         if (world == null) {
@@ -265,8 +265,9 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         final Location lobbyLocation = new Location(world, config.lobby().x(), config.lobby().y(),
                 config.lobby().z());
-        ceremony.run(world, lobbyLocation, state.gameId(), outcome,
-                dao.activeMembersOf(state.gameId()), winnerMcUuid);
+        // No query here, and that is the point: everything the ceremony says was read off the main
+        // thread by the caller and travels in the Decision. See Ceremony.Decision.
+        ceremony.run(world, lobbyLocation, state.gameId(), decision);
         state.clear();
         currentGameId = null;
     }

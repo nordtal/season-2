@@ -2,11 +2,13 @@ package eu.nordtal.s2.common.message;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Locale;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -53,6 +55,63 @@ class MessageRendererTest {
         assertTrue(rendered.children().stream()
                         .anyMatch(child -> NamedTextColor.RED.equals(child.color())),
                 "the <red> tag did not become a colour");
+    }
+
+    @Test
+    @DisplayName("a component value arrives as a component, not as its text")
+    void componentValuesKeepTheirStyle() {
+        final Component rendered = RENDER.format(Locale.ENGLISH, "composed",
+                Map.of("line", Component.text("mined a stone").color(NamedTextColor.GREEN)),
+                "who", "Ida");
+
+        assertEquals("Ida says mined a stone", plain(rendered));
+        assertTrue(green(rendered), "the component value lost its colour on the way in - which is"
+                + " what happens when it is flattened to a String and substituted");
+    }
+
+    /**
+     * The reason the overload exists at all: vanilla's death message and an advancement's title are
+     * {@code TranslatableComponent}s, and every reader's own client renders them in that reader's
+     * language. A trip through {@code String} would settle the language on the server, once, for
+     * everybody.
+     */
+    @Test
+    @DisplayName("a translatable value stays translatable")
+    void aTranslatableValueSurvives() {
+        final Component rendered = RENDER.format(Locale.ENGLISH, "composed",
+                Map.of("line", Component.translatable("death.attack.lava")), "who", "Ida");
+
+        assertTrue(contains(rendered, TranslatableComponent.class),
+                "the client has to be the one that translates a death message, so the component has"
+                        + " to reach it as a translatable and not as English text");
+    }
+
+    /**
+     * A component value is not escaped and must not need to be - it never meets the parser. What is
+     * still escaped is the ordinary {@code {who}} beside it, and this pins that the two kinds do not
+     * contaminate each other.
+     */
+    @Test
+    @DisplayName("a component value beside a hostile text value is still safe")
+    void theTwoKindsOfValueDoNotMix() {
+        final Component rendered = RENDER.format(Locale.ENGLISH, "composed",
+                Map.of("line", Component.text("hello")), "who", "<red>Mallory");
+
+        assertEquals("<red>Mallory says hello", plain(rendered));
+    }
+
+    private static boolean green(final Component component) {
+        if (NamedTextColor.GREEN.equals(component.color())) {
+            return true;
+        }
+        return component.children().stream().anyMatch(MessageRendererTest::green);
+    }
+
+    private static boolean contains(final Component component, final Class<?> type) {
+        if (type.isInstance(component)) {
+            return true;
+        }
+        return component.children().stream().anyMatch(child -> contains(child, type));
     }
 
     @Test

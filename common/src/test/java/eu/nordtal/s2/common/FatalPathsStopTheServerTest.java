@@ -21,8 +21,18 @@ import static org.junit.jupiter.api.Assertions.fail;
  * it protects against is invisible from everywhere else. On the first deployment {@code smp}'s
  * config threw on every start, the plugin disabled itself, and Paper carried on: the container
  * stayed up, the jars were all in {@code plugins/} so the entrypoint's guard passed, the port was
- * open so the healthcheck passed, and what was actually running was a Minecraft server with no
- * season on it. Nothing outside the JVM can tell that state from a healthy one.
+ * open so the image's TCP healthcheck passed, and what was actually running was a Minecraft server
+ * with no season on it.
+ *
+ * <p><b>"Nothing outside the JVM can tell that state from a healthy one" was the sentence here
+ * until 2026-09-04, and it is no longer true.</b> Every long-running process now writes
+ * {@code /tmp/nordtal-ready} as the last line of a successful start and refreshes it every 30
+ * seconds, and {@code compose.yml} tests the file's age - so this exact failure now goes red. See
+ * {@link eu.nordtal.s2.common.health.Readiness}.</p>
+ *
+ * <p><b>The rule is unchanged by that, and the reason is worth stating.</b> Docker restarts nothing
+ * on health alone: an unhealthy container is one that says so and keeps running. Being visible is
+ * not being safe, and the only place that can act on it is still inside the plugin.
  *
  * <p>So the rule lives inside the plugin - {@code disablePlugin} is followed by {@code shutdown} -
  * and this asserts the rule is still written down. A grep is a weak test; it is also the only one

@@ -11,6 +11,13 @@ repositoryRootTestInputs {
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
 
+    // ReadinessWiringTest reads the same three plus the two processes that are not Paper plugins,
+    // for the same reason: where the readiness heartbeat is started is the whole of what it proves,
+    // and a JVM with no server and no Discord gateway in it cannot reach that any other way.
+    // network-control's class is covered by the readsTree() below; this one is not covered by
+    // anything else.
+    reads("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java")
+
     // EntrypointRulesTest keeps the container rules in deploy/minecraft/entrypoint.sh from being
     // quietly untaught. Every one of them came out of a drill against a running container.
     reads("deploy/minecraft/entrypoint.sh")

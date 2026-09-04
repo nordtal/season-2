@@ -211,6 +211,90 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("every process that can fail silently reports a readiness marker to its container")
+    void everyLongRunningServiceHasAHealthcheck() {
+        // FINDING 55. Until 2026-09-04 only `postgres` and `updater` had a healthcheck at all, while
+        // CLAUDE.md justified the "a plugin whose config fails to load stops its whole server" rule
+        // with the words "the port is open, so the healthcheck passes" - describing a mechanism this
+        // file did not contain. The rule was right and the sentence quoted nothing.
+        //
+        // What has to hold now: the four Minecraft services and the bot each carry a check for the
+        // marker their process refreshes, and it is the marker rather than the port that decides,
+        // because an open port is exactly what a Paper server with a disabled plugin still has.
+        final List<String> named = new java.util.ArrayList<>(List.of("bot"));
+        Topology.SERVICES.forEach(service -> named.add(service.name()));
+
+        for (final String name : named) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> service = (Map<String, Object>) services.get(name);
+            assertNotNull(service, "compose.yml has no service '" + name + "'");
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> healthcheck = (Map<String, Object>) service.get("healthcheck");
+            assertNotNull(healthcheck, name + " has no healthcheck, so nothing outside its JVM"
+                    + " reports anything about it - which is the state finding 55 is about: a"
+                    + " container that is up, green by default, and running nothing useful");
+
+            final String test = String.valueOf(healthcheck.get("test"));
+            assertTrue(test.contains("/tmp/nordtal-ready"),
+                    name + "'s healthcheck does not look at the readiness marker: " + test);
+            assertNotNull(healthcheck.get("start_period"), name + " has no start_period, so a"
+                    + " perfectly healthy server reports unhealthy while it is still loading");
+        }
+    }
+
+    @Test
+    @DisplayName("the staleness window in compose.yml is still the one Readiness beats to")
+    void theStalenessWindowMatchesTheHelper() {
+        // Two copies of one number, and they cannot be one: compose.yml's test is a shell command
+        // inside a YAML file and can read nothing from Java. `-lt 90` there, STALE_AFTER here. A
+        // window shortened below the beat interval would make every healthy container flap; one
+        // widened would hide a dead process for longer than anybody reading either file expects.
+        final java.util.regex.Pattern window = java.util.regex.Pattern.compile("-lt (\\d+)");
+        final List<String> named = new java.util.ArrayList<>(List.of("bot"));
+        Topology.SERVICES.forEach(service -> named.add(service.name()));
+
+        for (final String name : named) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> service = (Map<String, Object>) services.get(name);
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> healthcheck = (Map<String, Object>) service.get("healthcheck");
+            assertNotNull(healthcheck, name + " has no healthcheck at all - see the case above");
+            final java.util.regex.Matcher matcher = window.matcher(String.valueOf(healthcheck.get("test")));
+
+            assertTrue(matcher.find(), name + "'s healthcheck no longer compares the marker's age"
+                    + " against a window: " + healthcheck.get("test"));
+            assertEquals(eu.nordtal.s2.common.health.Readiness.STALE_AFTER.toSeconds(),
+                    Long.parseLong(matcher.group(1)),
+                    name + "'s healthcheck window and Readiness.STALE_AFTER disagree");
+        }
+    }
+
+    @Test
+    @DisplayName("the Minecraft services still test the port as well as the marker")
+    void theMinecraftServicesKeepTheirPortTest() {
+        // The compose healthcheck REPLACES the one in deploy/minecraft/Dockerfile rather than adding
+        // to it, so the TCP connect that image carries is repeated in the anchor. Dropping it would
+        // trade one blind spot for another: the marker is written at the end of onEnable, which is
+        // not the same instant the server starts accepting connections, and "healthy" on these four
+        // is supposed to mean "accepts players".
+        for (final Topology.Service service : Topology.SERVICES) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> healthcheck = (Map<String, Object>) defined.get("healthcheck");
+            assertNotNull(healthcheck, service.name() + " has no healthcheck at all - see above");
+            final String test = String.valueOf(healthcheck.get("test"));
+
+            assertTrue(test.contains("/dev/tcp/"), service.name() + " no longer connects to its own"
+                    + " port, so a server that has stopped accepting players reports healthy: " + test);
+            assertTrue(test.contains("bash"), service.name() + "'s healthcheck does not run under"
+                    + " bash. /bin/sh in that image is dash, which has no /dev/tcp, so the port half"
+                    + " would fail on every check: " + test);
+        }
+    }
+
+    @Test
     @DisplayName("every service that reads the database waits for the schema")
     void everythingWaitsForTheUpdater() {
         services.forEach((name, definition) -> {

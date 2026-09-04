@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp;
 import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -102,6 +103,7 @@ public final class SmpPlugin extends JavaPlugin {
     private Graves graves;
     private Duels duels;
     private SpawnNpc npc;
+    private org.bukkit.scheduler.BukkitTask heartbeat;
 
     @Override
     public void onEnable() {
@@ -255,12 +257,37 @@ public final class SmpPlugin extends JavaPlugin {
 
         registerCommands();
 
+        startHeartbeat();
+
         getLogger().info("smp enabled - " + track.size() + " milestones, "
                 + regions.all().size() + " protected boxes, " + balloons.all().size() + " balloons");
     }
 
+    /**
+     * The container readiness marker - see {@link Readiness}, and note where this call sits.
+     *
+     * <p>It is the <b>last</b> thing {@code onEnable} does, because that is the entire rule: all
+     * four refusals above return before reaching it, so a marker on disk means this plugin got all
+     * the way through - which is precisely the state the first deployment could not tell apart from
+     * a Paper server with no season on it. Written from Bukkit's async scheduler, which is also
+     * deliberate - a repeating async task is re-queued by the main-thread heartbeat, so a server
+     * frozen mid-tick stops beating and the container goes stale rather than staying green on an
+     * open port.</p>
+     */
+    private void startHeartbeat() {
+        final Readiness readiness = Readiness.onDefaultPath(getLogger()::warning);
+        final long ticks = Readiness.BEAT.toSeconds() * 20L;
+        heartbeat = getServer().getScheduler()
+                .runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
+    }
+
     @Override
     public void onDisable() {
+        // Stops the beat, so a server that is going down stops claiming to be up. The marker is
+        // deliberately not deleted: going stale is the signal, and it costs nothing here.
+        if (heartbeat != null) {
+            heartbeat.cancel();
+        }
         if (npc != null) {
             npc.remove();
         }
@@ -439,9 +466,16 @@ public final class SmpPlugin extends JavaPlugin {
      * green, and what was left was a Minecraft server with no season on it - which nothing about
      * looks wrong until somebody joins.
      *
-     * <p>No check outside the JVM can tell that state from a healthy one. The jars are all in the
-     * folder, so the entrypoint's guard passes; the port is open, so the healthcheck passes. The
-     * only place the difference is knowable is here, which is why the answer is here.</p>
+     * <p>No check outside the JVM could tell that state from a healthy one when this rule was
+     * written. The jars are all in the folder, so the entrypoint's guard passes; the port was open,
+     * so the port check passed. The only place the difference was knowable is here, which is why the
+     * answer is here.</p>
+     *
+     * <p>Since 2026-09-04 the container does report it, because {@link #startHeartbeat()} is below
+     * every refusal and its marker is never written on this path. That does not soften the rule: an
+     * unhealthy container is a red square in Arcane and nothing else - Docker restarts nothing on
+     * health alone - so without the shutdown the server would still be up, still accepting players,
+     * and merely honest about it.</p>
      *
      * <p>{@code disablePlugin} first and then {@code shutdown}: the disable runs whatever cleanup
      * {@code onDisable} does, and if the shutdown were ever ignored the plugin is still off rather

@@ -77,12 +77,14 @@ public final class NpcListener implements Listener {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Optional<String> activeKey = dao.activeMilestoneKey();
             if (activeKey.isEmpty()) {
-                tell(player, MessageRenderer.of(messages).get(locale, "smp.objectives.none"));
+                tell(player, MessageRenderer.of(messages).get(locale, "smp.objectives.none"),
+                        Feedback.REFUSED);
                 return;
             }
             final Milestone milestone = track.milestone(activeKey.get()).orElse(null);
             if (milestone == null) {
-                tell(player, MessageRenderer.of(messages).get(locale, "smp.objectives.none"));
+                tell(player, MessageRenderer.of(messages).get(locale, "smp.objectives.none"),
+                        Feedback.REFUSED);
                 return;
             }
             final List<ObjectiveRow> rows = dao.objectivesOf(activeKey.get());
@@ -188,9 +190,22 @@ public final class NpcListener implements Listener {
 
     /** Sends one already-rendered message on the main thread, from wherever it is called. */
     private void tell(final Player player, final Component message) {
+        tell(player, message, null);
+    }
+
+    /**
+     * The same, plus a sound.
+     *
+     * <p>Both in the one hop back to the main thread: a menu that does not open is a refusal the
+     * player asked for, and the line and its sound belong to the same moment.
+     */
+    private void tell(final Player player, final Component message, final Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) {
                 player.sendMessage(message);
+                if (feedback != null) {
+                    sounds.play(player, feedback);
+                }
             }
         });
     }

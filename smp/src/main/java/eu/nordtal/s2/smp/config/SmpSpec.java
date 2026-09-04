@@ -758,99 +758,12 @@ public interface SmpSpec {
     }
 
     // ---------------------------------------------------------------- sound
-
-    @Order(41)
-    @Key("sounds")
-    @Comment({
-            "What each feedback category sounds like. Nine categories, ten entries - open and close",
-            "are the two halves of one - and a call site in the plugin can pick a category and",
-            "nothing else. That is a structural rule and not a matter of discipline: a codebase",
-            "where every call site names its own sound drifts into nine different chimes for the",
-            "same kind of event. docs/presentation.md section 4 is the concept.",
-            "",
-            "A KEY IS A NAMESPACED REGISTRY KEY, NOT A BUKKIT CONSTANT: minecraft:ui.button.click,",
-            "never UI_BUTTON_CLICK. The constant names change between Minecraft versions and the",
-            "registry keys do not - and a key can name a sound out of our own resource pack, which",
-            "is how a custom chime arrives later without a line of Java changing.",
-            "",
-            "AN EMPTY KEY SILENCES THAT CATEGORY. That is the escape hatch for a sound that turns",
-            "out to be irritating with twenty people in a tavern, and it works everywhere in this",
-            "plugin at once rather than at thirteen call sites.",
-            "",
-            "A key that is not a parseable namespaced key is reported in the console and silences",
-            "its category; it never stops the server. A key that parses but names no sound simply",
-            "plays nothing, which is exactly what a pack sound does before the pack is installed.",
-            "",
-            "Volume 1.0 is the sound's own level - above 1 does not get louder, it widens the",
-            "radius other players hear it from. Pitch is playback speed and the client clamps it to",
-            "0.5 - 2.0.",
-            "",
-            "Every key below was resolved against Bukkit's own sound list as compiled for Paper",
-            "26.2 build 121 on 2026-09-04, and SoundDefaultsTest keeps doing so on every build."
-    })
-    default SoundsSpec sounds() {
-        return DefaultSmp.SOUNDS;
-    }
-
-    /** One entry per {@code eu.nordtal.s2.common.feedback.Feedback} constant. */
-    @ConfigSpec
-    interface SoundsSpec {
-
-        @Order(1) @Key("small-success")
-        @Comment("Something small went right: an objective handed in, a POI created, aura earned.")
-        default SoundSpec smallSuccess() { return DefaultSmp.SMALL_SUCCESS; }
-
-        @Order(2) @Key("big-success")
-        @Comment("Something that took work: a milestone you finished, a duel won, a wheel prize.")
-        default SoundSpec bigSuccess() { return DefaultSmp.BIG_SUCCESS; }
-
-        @Order(3) @Key("refused")
-        @Comment("The server said no: spawn ground, not your POI, no spin left, a locked world.")
-        default SoundSpec refused() { return DefaultSmp.REFUSED; }
-
-        @Order(4) @Key("loss")
-        @Comment("Something was taken: a duel lost, aura lost to a death.")
-        default SoundSpec loss() { return DefaultSmp.LOSS; }
-
-        @Order(5) @Key("surface-open")
-        @Comment("A menu or a grave opened.")
-        default SoundSpec surfaceOpen() { return DefaultSmp.SURFACE_OPEN; }
-
-        @Order(6) @Key("surface-close")
-        @Comment("The same surface closed.")
-        default SoundSpec surfaceClose() { return DefaultSmp.SURFACE_CLOSE; }
-
-        @Order(7) @Key("select")
-        @Comment("A click inside a menu that picked something.")
-        default SoundSpec select() { return DefaultSmp.SELECT; }
-
-        @Order(8) @Key("travel")
-        @Comment("Going somewhere: the balloon, the farm reset moving you, the duel arena.")
-        default SoundSpec travel() { return DefaultSmp.TRAVEL; }
-
-        @Order(9) @Key("countdown-tick")
-        @Comment("One tick of a clock running out: a duel start, a farm reset warning.")
-        default SoundSpec countdownTick() { return DefaultSmp.COUNTDOWN_TICK; }
-
-        @Order(10) @Key("network-event")
-        @Comment("Everybody hears it: a milestone finished by somebody else.")
-        default SoundSpec networkEvent() { return DefaultSmp.NETWORK_EVENT; }
-    }
-
-    /** One sound: the key, how loud, how fast. */
-    @ConfigSpec
-    interface SoundSpec {
-
-        // No @Comment: this interface is written out ten times over, and ten copies of the same
-        // sentence is what turns a config file into something nobody reads. The block's own header
-        // says what a key is and what an empty one does.
-        @Order(1) @Key("key")
-        default String key() { return ""; }
-
-        @Order(2) @Key("volume") default float volume() { return 1.0f; }
-
-        @Order(3) @Key("pitch") default float pitch() { return 1.0f; }
-    }
+    //
+    // Not here. What each feedback category sounds like lives in sounds.yml, described by
+    // SoundsSpec, because it is the one config in this module an operator iterates on by ear with
+    // players online - and config.yml is deliberately not reloadable. It was a block here for the
+    // length of one afternoon on 2026-09-04; SoundsSpec's javadoc carries the reasoning for the
+    // move.
 
     // ---------------------------------------------------------------- admin
 

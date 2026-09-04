@@ -90,6 +90,6 @@ public final class SeasonStart {
         admin.note("Access was granted to <@" + discordId + "> while the season has no start date."
                 + " The period runs from **" + grant.validFrom() + "**, not from the SMP opening."
                 + " Expected while testing; before the season opens, set the date with"
-                + " `UPDATE season_phase SET smp_start = timestamptz '<when>' WHERE id;`");
+                + " `/phase smp-start <yyyy-MM-dd HH:mm>`.");
     }
 }

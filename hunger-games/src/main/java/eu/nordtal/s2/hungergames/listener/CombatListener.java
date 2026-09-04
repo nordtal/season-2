@@ -1,9 +1,12 @@
 package eu.nordtal.s2.hungergames.listener;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
+import eu.nordtal.s2.hungergames.db.RosterEntry;
+import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.GameState;
 import eu.nordtal.s2.hungergames.game.WinTracker;
 
@@ -26,7 +29,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 /**
  * PvP protection, friendly fire (always on - no code needed, vanilla already allows player-vs-player
@@ -50,17 +53,31 @@ public final class CombatListener implements Listener {
     private final PlayerBodies bodies;
     private final BorderController border;
     private final WinTracker winTracker;
-    private final Consumer<WinTracker.Outcome> onGameDecided;
+    private final HungerGamesSounds sounds;
+
+    /**
+     * What to run once the game is decided: the outcome, and the winner's <b>Minecraft</b> uuid.
+     *
+     * <p>The second argument exists because {@code WinTracker.Outcome} names the winner by
+     * {@code hg_member.id}, and the ceremony has to congratulate a {@code Player}. Resolving one to
+     * the other is a query, the ceremony runs on the main thread, and this repository does not query
+     * the database from there - so it is resolved here instead, on the async task that has just
+     * finished doing exactly that kind of work, and travels with the outcome. {@code null} when the
+     * game ended with no winner, or when the winner has no linked Minecraft account.
+     */
+    private final BiConsumer<WinTracker.Outcome, UUID> onGameDecided;
 
     public CombatListener(final Plugin plugin, final HungerGamesDao dao, final GameState state,
                           final PlayerBodies bodies, final BorderController border, final WinTracker winTracker,
-                          final Consumer<WinTracker.Outcome> onGameDecided) {
+                          final HungerGamesSounds sounds,
+                          final BiConsumer<WinTracker.Outcome, UUID> onGameDecided) {
         this.plugin = plugin;
         this.dao = dao;
         this.state = state;
         this.bodies = bodies;
         this.border = border;
         this.winTracker = winTracker;
+        this.sounds = sounds;
         this.onGameDecided = onGameDecided;
     }
 
@@ -111,9 +128,14 @@ public final class CombatListener implements Listener {
         final UUID gameId = state.gameId();
         state.clearProtection(victimMcUuid);
 
+        // LOSS, here rather than in the async block, and that is the whole reason it is here: both
+        // callers are main-thread event handlers, so this lands on the death itself instead of one
+        // database round trip later. The player it belongs to may be an armor-stand body whose owner
+        // is offline, which is why play(...) takes a null player - see HungerGamesSounds.
+        sounds.play(plugin.getServer().getPlayer(victimMcUuid), Feedback.LOSS);
+
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            final Optional<eu.nordtal.s2.hungergames.db.RosterEntry> victimEntry =
-                    dao.rosterEntryByMcUuid(gameId, victimMcUuid);
+            final Optional<RosterEntry> victimEntry = dao.rosterEntryByMcUuid(gameId, victimMcUuid);
             if (victimEntry.isEmpty()) {
                 return;
             }
@@ -123,11 +145,32 @@ public final class CombatListener implements Listener {
             final Optional<WinTracker.Outcome> outcome =
                     winTracker.recordDeath(gameId, victimEntry.get().memberId(), killerMemberId);
 
+            // Off the main thread on purpose - see the field's own documentation. Only queried when
+            // there is a winner to look up, which is at most once per game.
+            final UUID winnerMcUuid = outcome
+                    .map(WinTracker.Outcome::winnerMemberId)
+                    .flatMap(memberId -> dao.roster(gameId).stream()
+                            .filter(entry -> memberId.equals(entry.memberId()))
+                            .map(RosterEntry::mcUuid)
+                            // RosterEntry#mcUuid is null for a member who never linked, and
+                            // Stream#findFirst throws on a null element rather than answering empty.
+                            // Such a member can still be the last one standing, because WinTracker
+                            // is reset from activeMembersOf and not from the resolved participants.
+                            .filter(java.util.Objects::nonNull)
+                            .findFirst())
+                    .orElse(null);
+
             Bukkit.getScheduler().runTask(plugin, () -> {
                 border.onDeath(state);
                 if (outcome.isPresent()) {
-                    onGameDecided.accept(outcome.get());
+                    onGameDecided.accept(outcome.get(), winnerMcUuid);
                 } else {
+                    // SMALL_SUCCESS for the kill, and only in this branch. When the kill decided the
+                    // game the ceremony's BIG_SUCCESS lands in the same tick, and two chimes on top
+                    // of each other are one noise - the bigger of the two is the one to keep.
+                    if (killerMcUuid != null) {
+                        sounds.play(plugin.getServer().getPlayer(killerMcUuid), Feedback.SMALL_SUCCESS);
+                    }
                     final List<HgMember> activeMembers = dao.activeMembersOf(gameId);
                     winTracker.announceIfSameTeamFinalTwo(
                             plugin.getServer().getWorlds().get(0), activeMembers);

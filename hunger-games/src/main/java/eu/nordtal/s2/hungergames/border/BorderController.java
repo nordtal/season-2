@@ -1,9 +1,11 @@
 package eu.nordtal.s2.hungergames.border;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
+import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.GameState;
 
 import net.kyori.adventure.text.Component;
@@ -37,16 +39,19 @@ public final class BorderController {
     private final HungerGamesSpec config;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final HungerGamesSounds sounds;
 
     private org.bukkit.scheduler.BukkitTask quietPeriodChecker;
 
     public BorderController(final Plugin plugin, final World world, final HungerGamesSpec config,
-                            final Messages messages, final PlayerLocales locales) {
+                            final Messages messages, final PlayerLocales locales,
+                            final HungerGamesSounds sounds) {
         this.plugin = plugin;
         this.world = world;
         this.config = config;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     /** Sets the border up at game start and begins watching for the quiet period. */
@@ -128,11 +133,22 @@ public final class BorderController {
         announcePassive();
     }
 
+    /**
+     * Both announcements are {@code COUNTDOWN_TICK} rather than {@code NETWORK_EVENT}, which is the
+     * one category choice in this module worth writing down.
+     *
+     * <p>docs/presentation.md section 4 names "border" in that category's own list, and the reason
+     * holds up: a shrink is a clock running out on where a player is allowed to stand, which is what
+     * the category means. It is deliberately <em>not</em> the network event - that is reserved for
+     * things everybody hears because they happened to somebody else, and a border closing is
+     * happening to the person hearing it.
+     */
     private void announce(final double target, final long seconds) {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages).format(locales.of(player.getUniqueId()),
                     "hg.border.shrink-started", "target", String.valueOf(Math.round(target)),
                     "seconds", String.valueOf(seconds)));
+            sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }
 
@@ -140,6 +156,7 @@ public final class BorderController {
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()),
                     "hg.border.passive-shrink-started"));
+            sounds.play(player, Feedback.COUNTDOWN_TICK);
         }
     }
 

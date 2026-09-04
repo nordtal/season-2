@@ -3,12 +3,14 @@ package eu.nordtal.s2.hungergames.command;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
+import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Demotion;
 import eu.nordtal.s2.hungergames.game.HungerGamesManager;
 import eu.nordtal.s2.hungergames.lobby.Lobby;
@@ -62,6 +64,15 @@ public final class HungerGamesCommand {
     private final PlayerLocales locales;
     private final HungerGamesManager manager;
     private final Lobby lobby;
+    private final HungerGamesSounds sounds;
+
+    /**
+     * Re-reads {@code sounds.yml} and swaps it into the running adapter, answering whether that
+     * worked. It is the plugin's own method rather than a handle plus an adapter passed separately,
+     * because the console line naming what went wrong belongs next to the handle and not here.
+     */
+    private final java.util.function.BooleanSupplier reloadSounds;
+
     private final java.util.function.Supplier<UUID> currentGameId;
     private final java.util.function.BiConsumer<UUID, Player> onConfirmedStart;
 
@@ -71,6 +82,8 @@ public final class HungerGamesCommand {
     public HungerGamesCommand(final Plugin plugin, final HungerGamesDao dao, final HungerGamesSpec config,
                               final Messages messages, final PlayerLocales locales,
                               final HungerGamesManager manager, final Lobby lobby,
+                              final HungerGamesSounds sounds,
+                              final java.util.function.BooleanSupplier reloadSounds,
                               final java.util.function.Supplier<UUID> currentGameId,
                               final java.util.function.BiConsumer<UUID, Player> onConfirmedStart) {
         this.plugin = plugin;
@@ -80,6 +93,8 @@ public final class HungerGamesCommand {
         this.locales = locales;
         this.manager = manager;
         this.lobby = lobby;
+        this.sounds = sounds;
+        this.reloadSounds = reloadSounds;
         this.currentGameId = currentGameId;
         this.onConfirmedStart = onConfirmedStart;
     }
@@ -107,28 +122,50 @@ public final class HungerGamesCommand {
     // ---------------------------------------------------------------- /hg reload
 
     /**
-     * Re-reads the message bundles and the operator's override on top of them.
+     * Re-reads the message bundles, the operator's override on top of them, and {@code sounds.yml}.
      *
-     * <p><b>Only the wording</b>, deliberately. {@code config.yml} holds the border schedule and
-     * the loot timings, and a game is a running clock: re-reading those mid-match would move a
-     * shrink that players are already running from. A typo in a message is worth fixing during a
-     * game; a border parameter is not.</p>
+     * <p><b>The wording and the sounds, and nothing else</b>, deliberately. {@code config.yml} holds
+     * the border schedule and the loot timings, and a game is a running clock: re-reading those
+     * mid-match would move a shrink that players are already running from. A typo in a message is
+     * worth fixing during a game and so is a chime that turns out to be unbearable with twenty
+     * people on towers; a border parameter is not.</p>
+     *
+     * <p>Two independent try blocks and two independent console lines, matching {@code smp}'s
+     * reload: a broken {@code sounds.yml} must not stop a corrected message from arriving, and a
+     * typo'd override must not read as sounds that failed to load. The player-facing reply stays
+     * the same two messages it always was - it says whether everything came back, and the console
+     * says which half did not.</p>
      */
     private int handleReload(final com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
         // runAsAdmin is already off the main thread, which is where the file reads belong.
         runAsAdmin(player, () -> {
             final Locale locale = locales.of(player.getUniqueId());
+
+            // The sounds go first because they are the cheapest thing to get wrong and the only one
+            // an operator is expected to be iterating on while somebody waits to hear the result.
+            final boolean soundsReloaded = reloadSounds.getAsBoolean();
+
+            boolean messagesReloaded;
             try {
                 messages.reload();
                 messages.unknownOverrideKeys().forEach(key -> plugin.getLogger().warning(
                         "the message override names " + key + ", which no bundle declares - it is"
                                 + " stored and never used; check the spelling"));
-                tell(player, MessageRenderer.of(messages).get(locale, "hg.admin.reloaded"));
+                messagesReloaded = true;
             } catch (final RuntimeException exception) {
                 plugin.getLogger().severe("the messages could not be reloaded, the running ones are "
                         + "unchanged: " + exception.getMessage());
-                tell(player, MessageRenderer.of(messages).get(locale, "hg.admin.reload-failed"));
+                messagesReloaded = false;
+            }
+
+            if (soundsReloaded && messagesReloaded) {
+                // No sound: an admin's confirmation of a command they just typed and are already
+                // reading. smp's /smp reload is silent for the same reason.
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.admin.reloaded"));
+            } else {
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.admin.reload-failed"),
+                        Feedback.REFUSED);
             }
         });
         return Command.SINGLE_SUCCESS;
@@ -152,14 +189,14 @@ public final class HungerGamesCommand {
         final Locale locale = locales.of(player.getUniqueId());
         final UUID gameId = currentGameId.get();
         if (gameId == null) {
-            tell(player, MessageRenderer.of(messages).get(locale, "hg.start.no-game"));
+            tell(player, MessageRenderer.of(messages).get(locale, "hg.start.no-game"), Feedback.REFUSED);
             return;
         }
 
         final var game = dao.game(gameId);
         if (game.isEmpty() || !"REGISTRATION".equals(game.get().state().name())) {
             tell(player, MessageRenderer.of(messages).format(locale, "hg.start.wrong-state",
-                    "state", game.map(g -> g.state().name()).orElse("NONE")));
+                    "state", game.map(g -> g.state().name()).orElse("NONE")), Feedback.REFUSED);
             return;
         }
 
@@ -168,27 +205,39 @@ public final class HungerGamesCommand {
 
         if (participantCount < HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS) {
             tell(player, MessageRenderer.of(messages).format(locale, "hg.start.below-hard-minimum",
-                    "minimum", HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS, "count", participantCount));
+                    "minimum", HungerGamesSpec.HARD_MINIMUM_PARTICIPANTS, "count", participantCount),
+                    Feedback.REFUSED);
             return;
         }
 
         if (participantCount < config.softMinimumParticipants() && !isConfirmation) {
             pendingConfirmations.put(player.getUniqueId(), Instant.now().plus(CONFIRM_WINDOW));
+            // REFUSED rather than nothing: the command did not do what was asked, and this is
+            // the one place an admin about to start the season's flagship event should stop and
+            // read rather than type the next thing.
             tell(player, MessageRenderer.of(messages).format(locale, "hg.start.below-soft-minimum",
                     "count", participantCount, "minimum", config.softMinimumParticipants(),
-                    "seconds", CONFIRM_WINDOW.toSeconds()));
+                    "seconds", CONFIRM_WINDOW.toSeconds()), Feedback.REFUSED);
             return;
         }
 
         if (isConfirmation) {
             final Instant deadline = pendingConfirmations.remove(player.getUniqueId());
             if (deadline == null || Instant.now().isAfter(deadline)) {
-                tell(player, MessageRenderer.of(messages).get(locale, "hg.start.confirm-expired"));
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.start.confirm-expired"),
+                        Feedback.REFUSED);
                 return;
             }
         }
 
-        tell(player, MessageRenderer.of(messages).format(locale, "hg.start.started", "count", participantCount));
+        // SMALL_SUCCESS, and this is a deliberate departure from smp, where an admin's
+        // confirmation of their own command is silent. Two things make it different: it is
+        // irreversible, and an admin who is not themselves a participant hears NOTHING else during
+        // the entire start - the TRAVEL, the countdown and the release all go to participants only.
+        // BIG_SUCCESS was rejected on the other side: the admin's private chat line must not be
+        // louder than what every participant hears.
+        tell(player, MessageRenderer.of(messages).format(locale, "hg.start.started", "count", participantCount),
+                Feedback.SMALL_SUCCESS);
         // The one command that decides the whole event, and until now nothing in the container log
         // said it had been run. Who, which game, and how many participants the arithmetic saw.
         LOGGER.info("hunger-games game {} started by {} with {} resolvable participants{}",
@@ -209,14 +258,17 @@ public final class HungerGamesCommand {
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (gameId == null) {
-                Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(
-                        MessageRenderer.of(messages).get(locale, "hg.lobby.not-registered")));
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.lobby.not-registered"),
+                        Feedback.REFUSED);
                 return;
             }
             final var discordId = dao.discordIdOf(player.getUniqueId());
             final boolean marked = discordId.isPresent() && lobby.markReady(gameId, discordId.get());
-            Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(MessageRenderer.of(messages).get(
-                    locale, marked ? "hg.lobby.ready-set" : "hg.lobby.not-registered")));
+            // Through tell(...) rather than a runTask of its own, so the message and the sound land
+            // in one hop back to the main thread instead of two.
+            tell(player, MessageRenderer.of(messages).get(
+                            locale, marked ? "hg.lobby.ready-set" : "hg.lobby.not-registered"),
+                    marked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED);
         });
         return Command.SINGLE_SUCCESS;
     }
@@ -230,8 +282,8 @@ public final class HungerGamesCommand {
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (gameId == null) {
-                Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(
-                        MessageRenderer.of(messages).get(locale, "hg.start.no-game")));
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.start.no-game"),
+                        Feedback.REFUSED);
                 return;
             }
             final List<RosterEntry> roster = lobby.readyStatus(gameId);
@@ -273,16 +325,32 @@ public final class HungerGamesCommand {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final boolean admin = dao.isAdmin(player.getUniqueId()).orElse(Boolean.FALSE);
             if (!admin) {
-                tell(player, MessageRenderer.of(messages).get(locale, "hg.start.not-admin"));
+                tell(player, MessageRenderer.of(messages).get(locale, "hg.start.not-admin"),
+                        Feedback.REFUSED);
                 return;
             }
             action.run();
         });
     }
 
-    /** Sends one message on the main thread, from wherever it is called. */
     /** Sends one already-rendered message on the main thread, from wherever it is called. */
     private void tell(final Player player, final Component message) {
-        Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(message));
+        tell(player, message, null);
+    }
+
+    /**
+     * The same, plus a sound - which goes in the very same hop back to the main thread.
+     *
+     * <p>Not a second {@code runTask}: a message and the chime that belongs to it arriving in
+     * different ticks is exactly the kind of seam that reads as lag. {@code feedback} is null for
+     * the sites that are deliberately quiet - the ready-status listing and the reload confirmation.
+     */
+    private void tell(final Player player, final Component message, final Feedback feedback) {
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            player.sendMessage(message);
+            if (feedback != null) {
+                sounds.play(player, feedback);
+            }
+        });
     }
 }

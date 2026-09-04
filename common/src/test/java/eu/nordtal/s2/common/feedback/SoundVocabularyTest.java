@@ -72,15 +72,22 @@ class SoundVocabularyTest {
     /**
      * The files that may name a sound, and why.
      *
-     * <p>One entry today. A second is expected when {@code hunger-games} gets its own adapter, and a
-     * third only if Velocity turns out to be able to play a sound at all - and each of those is a
-     * line added here on purpose, by somebody who has read this paragraph.
+     * <p>Two entries, which is what the design predicted: one adapter per Paper module that plays
+     * anything. {@code limbo} has none and is not expected to get one - a waiting room whose entire
+     * interface is one title has no event to chime at, and the module was reviewed for call sites on
+     * 2026-09-04 and found to have zero. A third would only appear if Velocity turns out to be able
+     * to play a sound at all, which needs a real client to answer (docs/presentation.md section 4).
+     * Each of those is a line added here on purpose, by somebody who has read this paragraph.
      *
      * <p>An entry that is <em>not</em> an adapter is the thing this list exists to make visible.
      */
     private static final Map<String, String> ALLOWED = Map.of(
             "smp/src/main/java/eu/nordtal/s2/smp/feedback/SmpSounds.java",
-            "smp's sound adapter - the one place in the module that turns a category into a packet");
+            "smp's sound adapter - the one place in the module that turns a category into a packet",
+            "hunger-games/src/main/java/eu/nordtal/s2/hungergames/feedback/HungerGamesSounds.java",
+            "hunger-games' sound adapter - the same twenty lines, for the same reason: a shared"
+                    + " adapter in :common would put org.bukkit.entity.Player in a jar that is"
+                    + " shaded into a Velocity plugin");
 
     @Test
     @DisplayName("only the sound adapters name a sound")

@@ -77,6 +77,12 @@ public final class Lobby {
         }
     }
 
+    /**
+     * <b>Deliberately silent.</b> This is a standing reminder on a timer, not an event: it says the
+     * same thing every {@code broadcast-interval-seconds} for as long as the lobby is open, and a
+     * chime on a repeating message is the fastest way to make people turn the sound off - at which
+     * point the countdown, the border and their own elimination go with it.
+     */
     private void broadcast(final World world, final UUID gameId) {
         final List<RosterEntry> roster = dao.roster(gameId);
         final long totalTeams = roster.stream().map(RosterEntry::teamId).distinct().count();

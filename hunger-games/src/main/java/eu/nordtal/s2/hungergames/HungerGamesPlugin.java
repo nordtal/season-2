@@ -14,9 +14,11 @@ import eu.nordtal.s2.hungergames.command.HungerGamesCommand;
 import eu.nordtal.s2.hungergames.config.Configs;
 import eu.nordtal.s2.hungergames.config.DatabaseSpec;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
+import eu.nordtal.s2.hungergames.config.SoundsSpec;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.HungerGamesPool;
+import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 import eu.nordtal.s2.hungergames.game.Ceremony;
 import eu.nordtal.s2.hungergames.game.GameState;
 import eu.nordtal.s2.hungergames.game.HungerGamesManager;
@@ -56,8 +58,21 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
     private ConfigHandle<HungerGamesSpec> configHandle;
     private ConfigHandle<DatabaseSpec> databaseHandle;
+
+    /**
+     * Its own file and its own handle, so that {@code /hg reload} can re-read it mid-game.
+     *
+     * <p>{@link #configHandle} deliberately cannot be reloaded - the border schedule, the loot
+     * timings and the spawn towers are bound once and a game is a running clock. The sounds are the
+     * one setting that has to be changeable while the event is happening, which is why they are not
+     * in {@code config.yml}; see {@code SoundsSpec}.</p>
+     */
+    private ConfigHandle<SoundsSpec> soundsHandle;
     private HikariDataSource pool;
     private HungerGamesDao dao;
+
+    /** Held so {@code /hg reload} can swap what it answers; every listener has this one instance. */
+    private HungerGamesSounds sounds;
     private Messages messages;
     private PlayerLocales locales;
 
@@ -81,6 +96,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         try {
             configHandle = Configs.load(getDataFolder().toPath(), getLogger0());
             databaseHandle = Configs.database(getDataFolder().toPath(), getLogger0());
+            soundsHandle = Configs.sounds(getDataFolder().toPath(), getLogger0());
         } catch (final ConfigException exception) {
             severe("hunger-games is not starting because its configuration could not be read: "
                     + exception.getMessage());
@@ -88,6 +104,9 @@ public final class HungerGamesPlugin extends JavaPlugin {
         }
 
         final HungerGamesSpec config = configHandle.get();
+        // Built before anything that plays one. A bad key in here never reaches this line - it is
+        // reported and the category silenced - so this cannot be a reason the server does not start.
+        sounds = HungerGamesSounds.of(soundsHandle.get(), getLogger()::warning);
 
         pool = HungerGamesPool.open(databaseHandle.get());
         final Jdbi jdbi = Jdbi.create(pool).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
@@ -111,13 +130,17 @@ public final class HungerGamesPlugin extends JavaPlugin {
             return;
         }
 
-        border = new BorderController(this, world, config, messages, locales);
-        loot = new LootRefill(this, world, config, border, messages, locales);
+        border = new BorderController(this, world, config, messages, locales, sounds);
+        loot = new LootRefill(this, world, config, border, messages, locales, sounds);
+        // No sounds: the HUD redraws four times a second, and the lobby broadcast is a standing
+        // reminder on a timer rather than an event. A chime on either would be the most irritating
+        // thing on this server, which is the same argument smp's SurfaceListener makes for not
+        // chiming at every barrel.
         hud = new HudRenderer(this, world, config, messages, locales, border, state);
         lobby = new Lobby(this, dao, config, messages, locales);
-        winTracker = new WinTracker(dao, messages, locales);
-        ceremony = new Ceremony(dao, messages, locales);
-        manager = new HungerGamesManager(this, dao, config, messages, locales, bodies, state, border);
+        winTracker = new WinTracker(dao, messages, locales, sounds);
+        ceremony = new Ceremony(dao, messages, locales, sounds);
+        manager = new HungerGamesManager(this, dao, config, messages, locales, bodies, state, border, sounds);
 
         refreshCurrentGame();
 
@@ -129,7 +152,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new FreezeListener(manager), this);
         getServer().getPluginManager().registerEvents(new PresenceListener(this, locales, bodies, state, messages), this);
         getServer().getPluginManager().registerEvents(
-                new CombatListener(this, dao, state, bodies, border, winTracker, this::onGameDecided), this);
+                new CombatListener(this, dao, state, bodies, border, winTracker, sounds,
+                        this::onGameDecided), this);
 
         registerCommands(config, world);
 
@@ -182,7 +206,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private void registerCommands(final HungerGamesSpec config, final World world) {
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final HungerGamesCommand command = new HungerGamesCommand(this, dao, config, messages, locales,
-                    manager, lobby, () -> currentGameId, (gameId, admin) -> startGame(gameId, world));
+                    manager, lobby, sounds, this::reloadSounds,
+                    () -> currentGameId, (gameId, admin) -> startGame(gameId, world));
             event.registrar().register(command.build());
         });
     }
@@ -205,7 +230,29 @@ public final class HungerGamesPlugin extends JavaPlugin {
         });
     }
 
-    private void onGameDecided(final WinTracker.Outcome outcome) {
+    /**
+     * Re-reads {@code sounds.yml} and swaps it into the instance every listener already holds.
+     *
+     * <p>Reported here rather than in the command, because this is where the handle is and the
+     * console line has to be able to name the file. Returns whether it worked so that {@code /hg
+     * reload} can tell an admin, without this method having to know how it would say so.</p>
+     *
+     * @return true when the running sounds are now what the file says
+     */
+    private boolean reloadSounds() {
+        try {
+            soundsHandle.reload();
+            sounds.reload(soundsHandle.get());
+            getLogger().info("the sounds were reloaded");
+            return true;
+        } catch (final ConfigException | RuntimeException exception) {
+            getLogger().severe("the sounds could not be reloaded, the running ones are unchanged: "
+                    + exception.getMessage());
+            return false;
+        }
+    }
+
+    private void onGameDecided(final WinTracker.Outcome outcome, final UUID winnerMcUuid) {
         final HungerGamesSpec config = configHandle.get();
         final World world = resolveWorld(config);
         if (world == null) {
@@ -218,7 +265,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         final Location lobbyLocation = new Location(world, config.lobby().x(), config.lobby().y(),
                 config.lobby().z());
-        ceremony.run(world, lobbyLocation, state.gameId(), outcome, dao.activeMembersOf(state.gameId()));
+        ceremony.run(world, lobbyLocation, state.gameId(), outcome,
+                dao.activeMembersOf(state.gameId()), winnerMcUuid);
         state.clear();
         currentGameId = null;
     }

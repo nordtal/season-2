@@ -168,7 +168,10 @@ public final class NavigateCommand {
             }
             dao.deletePoi(poi.id());
             Bukkit.getScheduler().runTask(plugin, () -> navigation.clearWorld(poi.world()));
-            tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.removed", "name", name));
+            // The counterpart of smp.poi.added, and it gets the counterpart's sound: a small
+            // thing the player asked for that worked.
+            tell(player, MessageRenderer.of(messages).format(locale, "smp.poi.removed", "name", name),
+                    Feedback.SMALL_SUCCESS);
         });
         return Command.SINGLE_SUCCESS;
     }

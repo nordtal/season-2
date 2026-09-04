@@ -121,7 +121,10 @@ public final class Duels {
         final UUID other = waiting.get(type);
         if (other == null || other.equals(player.getUniqueId())) {
             waiting.put(type, player.getUniqueId());
-            tell(player, "smp.duel.waiting");
+            // SELECT: they picked a platform. It is not a menu, but it is the same thing a menu
+            // click is - "the server noticed which one you chose" - and giving it its own sound
+            // would be an eleventh category for one call site.
+            tell(player, "smp.duel.waiting", Feedback.SELECT);
             return;
         }
         final Player opponent = Bukkit.getPlayer(other);
@@ -142,6 +145,10 @@ public final class Duels {
         final Optional<Integer> slot = slots.claim();
         if (slot.isEmpty()) {
             queue.add(new Queued(first.getUniqueId(), second.getUniqueId(), type));
+            // Silent on purpose. Whoever stepped on second heard SELECT in this same tick, and a
+            // second sound one line later is the menu-transition stack in miniature. The queue is
+            // a chat line; the arena opening is where a sound belongs, and that is the TRAVEL in
+            // enter().
             tell(first, "smp.duel.queued");
             tell(second, "smp.duel.queued");
             return;
@@ -229,9 +236,10 @@ public final class Duels {
                             "smp.duel.countdown", "seconds", remaining)
                     : MessageRenderer.of(messages).get(locales.of(player.getUniqueId()),
                             "smp.duel.go"));
-            if (remaining > 0) {
-                sounds.play(player, Feedback.COUNTDOWN_TICK);
-            }
+            // Four evenly spaced ticks, 3-2-1-Go, rather than three and a silence. The last one
+            // lands on the moment the fight starts; a distinguishable accent there would need a
+            // category of its own, and the enum not growing is the whole design.
+            sounds.play(player, Feedback.COUNTDOWN_TICK);
         });
         if (remaining > 0) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> countdown(duel, remaining - 1), 20L);
@@ -398,6 +406,19 @@ public final class Duels {
     }
 
     private void tell(final Player player, final String key) {
+        tell(player, key, null);
+    }
+
+    /**
+     * The same, plus a sound. Main thread, like every other path in this class.
+     *
+     * <p>{@code null} is the ordinary case rather than an oversight: most of what a duel says is a
+     * line in the chat, and only the moments that change what the player can do get a sound.
+     */
+    private void tell(final Player player, final String key, final Feedback feedback) {
         player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), key));
+        if (feedback != null) {
+            sounds.play(player, feedback);
+        }
     }
 }

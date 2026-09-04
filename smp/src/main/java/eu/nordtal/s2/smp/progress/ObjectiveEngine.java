@@ -240,6 +240,15 @@ public final class ObjectiveEngine {
 
     // ------------------------------------------------------------------ announcements
 
+    /**
+     * One objective of the active milestone is finished, said to everybody - and said silently.
+     *
+     * <p>The silence is the middle rung of a ladder, not an omission. Handing something in is
+     * {@code SMALL_SUCCESS} for the one player who did it; a milestone is {@code BIG_SUCCESS} for
+     * whoever closed it and {@code NETWORK_EVENT} for the rest of the server. An objective sits
+     * between those two and there are several of them per milestone, so a network-wide sound here
+     * would be heard often enough to make the milestone's own sound mean less.
+     */
     private void announceObjective(final String milestoneKey, final String objectiveKey) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {

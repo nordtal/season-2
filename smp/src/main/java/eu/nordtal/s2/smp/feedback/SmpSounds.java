@@ -3,7 +3,7 @@ package eu.nordtal.s2.smp.feedback;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.feedback.FeedbackSound;
 import eu.nordtal.s2.common.feedback.FeedbackSounds;
-import eu.nordtal.s2.smp.config.SmpSpec;
+import eu.nordtal.s2.smp.config.SoundsSpec;
 
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
@@ -40,7 +40,15 @@ import java.util.function.Consumer;
  */
 public final class SmpSounds {
 
-    private final FeedbackSounds sounds;
+    /**
+     * Volatile because {@code /smp reload} replaces it while players are clicking.
+     *
+     * <p>One reference swap rather than a mutable map: a reload has to be all-or-nothing, and every
+     * listener in this plugin holds the same {@code SmpSounds} instance from enable to disable. A
+     * click that lands mid-reload therefore hears either the whole old file or the whole new one.
+     */
+    private volatile FeedbackSounds sounds;
+
     private final Consumer<String> problems;
 
     public SmpSounds(final FeedbackSounds sounds, final Consumer<String> problems) {
@@ -48,15 +56,35 @@ public final class SmpSounds {
         this.problems = problems;
     }
 
-    /** Reads {@code config.yml}'s {@code sounds:} block. */
-    public static SmpSounds of(final SmpSpec.SoundsSpec spec, final Consumer<String> problems) {
+    /** Reads {@code sounds.yml}. */
+    public static SmpSounds of(final SoundsSpec spec, final Consumer<String> problems) {
+        return new SmpSounds(parse(spec, problems), problems);
+    }
+
+    /**
+     * Re-reads an already-reloaded {@code sounds.yml}, after {@code /smp reload}.
+     *
+     * <p>This is what the whole file being separate from {@code config.yml} buys: blanking a key to
+     * silence a category is the documented escape hatch for a sound that turns out to be irritating
+     * with twenty people in a tavern, and an escape hatch that costs a restart of the season is
+     * worth very little.
+     *
+     * <p>A category that had been switched off by {@link FeedbackSounds#failed} comes back, which is
+     * correct: the operator has just said what they want the sound to be, and if it still throws it
+     * will switch itself off again on the first play.
+     */
+    public void reload(final SoundsSpec spec) {
+        this.sounds = parse(spec, problems);
+    }
+
+    private static FeedbackSounds parse(final SoundsSpec spec, final Consumer<String> problems) {
         final Map<Feedback, FeedbackSound> declared = new EnumMap<>(Feedback.class);
         for (final Feedback category : Feedback.values()) {
-            final SmpSpec.SoundSpec entry = specOf(category, spec);
+            final SoundsSpec.SoundSpec entry = specOf(category, spec);
             declared.put(category, new FeedbackSound(
                     entry.key() == null ? "" : entry.key(), entry.volume(), entry.pitch()));
         }
-        return new SmpSounds(FeedbackSounds.parse(declared, problems), problems);
+        return FeedbackSounds.parse(declared, problems);
     }
 
     /**
@@ -66,7 +94,7 @@ public final class SmpSounds {
      * {@link Feedback} stops this module compiling until somebody says what it sounds like, which is
      * the only mechanism that keeps the enum and the config file from drifting apart.
      */
-    private static SmpSpec.SoundSpec specOf(final Feedback category, final SmpSpec.SoundsSpec spec) {
+    private static SoundsSpec.SoundSpec specOf(final Feedback category, final SoundsSpec spec) {
         return switch (category) {
             case SMALL_SUCCESS -> spec.smallSuccess();
             case BIG_SUCCESS -> spec.bigSuccess();

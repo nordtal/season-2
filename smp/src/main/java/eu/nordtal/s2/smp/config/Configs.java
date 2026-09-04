@@ -14,16 +14,18 @@ import java.nio.file.Path;
 /**
  * Where {@code smp}'s config files live, and every rule about what a valid value is.
  *
- * <p>Three files, each with its own environment namespace, in the shape every other module in this
+ * <p>Four files, each with its own environment namespace, in the shape every other module in this
  * repository uses: {@code config.yml} for the settings, {@code database.yml} for the connection,
- * and {@code milestones.yml} for the track.
+ * {@code milestones.yml} for the track and {@code sounds.yml} for the feedback sounds.
  *
- * <h2>Why the track is its own file</h2>
- * It is edited on a completely different rhythm from everything else - a milestone is appended
- * mid-season, in response to a track finishing early, and reloaded with a command while players are
- * online. Keeping it out of {@code config.yml} means that reload cannot accidentally re-read a
- * duel loadout or a database password, and it means the diff of a track change is a diff of the
- * track.
+ * <h2>Why the track and the sounds are their own files</h2>
+ * Both are edited on a completely different rhythm from everything else, and both are edited
+ * <em>while players are online</em>: a milestone is appended mid-season in response to a track
+ * finishing early, and a sound is retuned the first evening somebody says it is irritating. Keeping
+ * them out of {@code config.yml} means {@code /smp reload} can re-read either without also
+ * re-reading a duel loadout, a world name or a database password - none of which the plugin would
+ * notice changing, because it binds them once at enable. It also means the diff of a track change
+ * is a diff of the track.
  */
 public final class Configs {
 
@@ -72,6 +74,20 @@ public final class Configs {
                                 "the milestone track is not usable:\n" + result.describe());
                     }
                 });
+    }
+
+    /**
+     * Loads the sounds.
+     *
+     * <p><b>No validator.</b> Every rule about a sound is enforced where it is parsed, in
+     * {@code FeedbackSounds}, and every one of them corrects or silences rather than refusing: a
+     * typo in a chime must not be the reason a season is offline. Refusing here would put that
+     * decision in the one place that can only answer by stopping the server.
+     */
+    public static @NotNull ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger)
+            throws ConfigException {
+        return load(dataFolder, logger, "sounds", SoundsSpec.class, "NORDTAL_SMP_SOUNDS",
+                config -> { });
     }
 
     private static void validate(final SmpSpec config) {

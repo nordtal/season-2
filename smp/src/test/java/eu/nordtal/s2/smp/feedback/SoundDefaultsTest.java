@@ -1,8 +1,9 @@
 package eu.nordtal.s2.smp.feedback;
 
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.s2.smp.config.Configs;
-import eu.nordtal.s2.smp.config.SmpSpec;
+import eu.nordtal.s2.smp.config.SoundsSpec;
 
 import net.kyori.adventure.key.Key;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * That the ten sounds a fresh {@code config.yml} ships actually exist.
+ * That the ten sounds a fresh {@code sounds.yml} ships actually exist.
  *
  * <h2>Why this is worth a test rather than a careful afternoon</h2>
  * The keys were resolved by hand once, against paper-api 26.2.build.121-stable on 2026-09-04. That
@@ -53,13 +54,13 @@ class SoundDefaultsTest {
     @Test
     @DisplayName("every category has a default, and every default is a real vanilla sound")
     void everyDefaultKeyResolvesAgainstBukkitsSoundList() throws Exception {
-        final SmpSpec.SoundsSpec spec = Configs.load(directory, LOGGER).get().sounds();
+        final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
         final List<String> problems = new ArrayList<>();
 
         for (final Feedback category : Feedback.values()) {
-            final SmpSpec.SoundSpec sound = entryOf(category, spec);
+            final SoundsSpec.SoundSpec sound = entryOf(category, spec);
             if (sound.key() == null || sound.key().isBlank()) {
-                problems.add(category + " ships without a sound - a fresh config.yml should carry a"
+                problems.add(category + " ships without a sound - a fresh sounds.yml should carry a"
                         + " working vocabulary, and blanking a key is the operator's escape hatch"
                         + " rather than a default");
                 continue;
@@ -88,14 +89,14 @@ class SoundDefaultsTest {
 
     /** The values survive being written to a file and read back, nesting and floats included. */
     @Test
-    @DisplayName("the sounds block round-trips through config.yml")
+    @DisplayName("the sounds round-trip through sounds.yml")
     void theSoundsBlockSurvivesTheRoundTrip() throws Exception {
-        final SmpSpec.SoundsSpec written = Configs.load(directory, LOGGER).get().sounds();
-        final SmpSpec.SoundsSpec reread = Configs.load(directory, LOGGER).get().sounds();
+        final SoundsSpec written = Configs.sounds(directory, LOGGER).get();
+        final SoundsSpec reread = Configs.sounds(directory, LOGGER).get();
 
         for (final Feedback category : Feedback.values()) {
-            final SmpSpec.SoundSpec before = entryOf(category, written);
-            final SmpSpec.SoundSpec after = entryOf(category, reread);
+            final SoundsSpec.SoundSpec before = entryOf(category, written);
+            final SoundsSpec.SoundSpec after = entryOf(category, reread);
             assertEquals(before.key(), after.key(), category.name());
             assertEquals(before.volume(), after.volume(), category.name());
             assertEquals(before.pitch(), after.pitch(), category.name());
@@ -107,7 +108,7 @@ class SoundDefaultsTest {
     @DisplayName("the parsed vocabulary has no silent category by default")
     void nothingIsSilentByDefault() throws Exception {
         final List<String> problems = new ArrayList<>();
-        final SmpSounds sounds = SmpSounds.of(Configs.load(directory, LOGGER).get().sounds(),
+        final SmpSounds sounds = SmpSounds.of(Configs.sounds(directory, LOGGER).get(),
                 problems::add);
 
         assertEquals(List.of(), problems,
@@ -130,13 +131,13 @@ class SoundDefaultsTest {
     @Test
     @DisplayName("blanking a key in the file really does silence that category")
     void blankingAKeyInTheFileSilencesTheCategory() throws Exception {
-        Configs.load(directory, LOGGER);
-        final Path file = directory.resolve("config.yml");
+        Configs.sounds(directory, LOGGER);
+        final Path file = directory.resolve("sounds.yml");
         Files.writeString(file, Files.readString(file)
                 .replace("key: minecraft:ui.button.click", "key: ''"));
 
         final List<String> problems = new ArrayList<>();
-        final SmpSpec.SoundsSpec spec = Configs.load(directory, LOGGER).get().sounds();
+        final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
         assertEquals("", spec.select().key(),
                 "jcore handed back something other than the empty string the operator wrote");
 
@@ -147,11 +148,44 @@ class SoundDefaultsTest {
                 "silencing a category on purpose must not read as a misconfiguration");
     }
 
+    /**
+     * And a reload picks the blanking up, on the instance every listener is already holding.
+     *
+     * <p>This is the whole reason {@code sounds.yml} is a file of its own rather than a block in
+     * {@code config.yml}. The escape hatch documented on {@link SoundsSpec} - blank the key when a
+     * sound turns out to be irritating - is worth very little if using it costs a restart of the
+     * season, and {@code config.yml} is deliberately not reloadable.
+     *
+     * <p>The assertion that matters is the last one: the plugin hands <em>one</em> {@code SmpSounds}
+     * to fifteen listeners at enable and never hands out another, so a reload that returned a new
+     * object would change nothing a player can hear.
+     */
+    @Test
+    @DisplayName("a reload silences a category on the instance the listeners already hold")
+    void aReloadIsPickedUpByTheRunningInstance() throws Exception {
+        final ConfigHandle<SoundsSpec> handle = Configs.sounds(directory, LOGGER);
+        final SmpSounds running = SmpSounds.of(handle.get(), problem -> { });
+        assertFalse(running.isSilent(Feedback.SELECT), "it has to start audible for this to prove"
+                + " anything");
+
+        final Path file = directory.resolve("sounds.yml");
+        Files.writeString(file, Files.readString(file)
+                .replace("key: minecraft:ui.button.click", "key: ''"));
+
+        handle.reload();
+        running.reload(handle.get());
+
+        assertTrue(running.isSilent(Feedback.SELECT),
+                "the operator blanked a key and ran /smp reload; the same object every listener"
+                        + " holds has to answer silent from the next click on");
+        assertFalse(running.isSilent(Feedback.TRAVEL), "only the blanked category goes quiet");
+    }
+
     /** The pitches are what makes two categories in one sound family tell apart. */
     @Test
     @DisplayName("the two note-block categories do not ship on the same pitch")
     void theTwoNoteBlockCategoriesDiffer() throws Exception {
-        final SmpSpec.SoundsSpec spec = Configs.load(directory, LOGGER).get().sounds();
+        final SoundsSpec spec = Configs.sounds(directory, LOGGER).get();
         assertTrue(spec.refused().pitch() != spec.countdownTick().pitch()
                         || !spec.refused().key().equals(spec.countdownTick().key()),
                 "REFUSED and COUNTDOWN_TICK are both note blocks by default; identical key and"
@@ -163,7 +197,7 @@ class SoundDefaultsTest {
      * Same exhaustive switch as the adapter's, and here for the same reason: a category added to
      * {@link Feedback} has to stop this test compiling until somebody has given it a default.
      */
-    private static SmpSpec.SoundSpec entryOf(final Feedback category, final SmpSpec.SoundsSpec spec) {
+    private static SoundsSpec.SoundSpec entryOf(final Feedback category, final SoundsSpec spec) {
         return switch (category) {
             case SMALL_SUCCESS -> spec.smallSuccess();
             case BIG_SUCCESS -> spec.bigSuccess();

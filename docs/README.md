@@ -44,6 +44,7 @@ a projection of it; LuckPerms is not involved anywhere.
 | [i18n.md](i18n.md) | How German and English work everywhere, and how a third language is added without a release |
 | [hunger-games.md](hunger-games.md) | The start event in full: registration, teams, border, loot, HUD, winning |
 | [smp.md](smp.md) | The SMP in full: worlds, travel, milestones, aura, prestige, duels, graves, POIs |
+| [presentation.md](presentation.md) | **What Nordtal looks like**, written 2026-09-04 because the decision behind it had never been written down: how a menu panel is built and with which measured numbers, where a glyph can and cannot appear, the nine sound categories, and what stays vanilla on purpose |
 | [updater.md](updater.md) | **Designed 2026-09-01; all six steps built the same day.** How versions and the schema stop being hand edits: what the updater owns, where it reads versions from, the order a run happens in, and the two surfaces it is driven from — `/update` in Discord and `/smp update` in game, both reaching it through a row in the database |
 | [../deploy/README.md](../deploy/README.md) | Everything about production: the runbook, why the stack has this shape, what was measured on it, and the third-party plugins the SMP server needs |
 | [access-system.md](access-system.md) | The paid access concept: product, rules, payment matching, linking |

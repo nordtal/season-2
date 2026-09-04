@@ -1014,7 +1014,6 @@ erDiagram
     smp_milestone ||--|{ smp_objective : requires
     smp_objective ||--o{ smp_contribution : "credited to"
     discord_user ||--o{ smp_contribution : contributed
-    smp_duel }o--|| discord_user : "fought by"
 
     smp_player {
         bigint discord_user_id PK
@@ -1066,17 +1065,6 @@ erDiagram
         bigint created_by FK
         timestamptz created
     }
-    smp_duel {
-        bigint id PK
-        text type
-        bigint challenger_id FK
-        bigint opponent_id FK
-        bigint winner_id FK
-        int stake
-        text outcome
-        timestamptz started
-        timestamptz ended
-    }
     smp_grave {
         bigint id PK
         bigint owner_id FK
@@ -1096,6 +1084,13 @@ erDiagram
         date last_free
     }
 ```
+
+> **`smp_duel` was here and is gone (V10, 2026-09-04).** V6 created it with two carefully
+> paired constraints — one justified in its own comment by "the aura books disagreeing with
+> the duel history" — and nothing ever wrote a row to it. There was no history for the
+> constraint to disagree with. A duel's *aura* is booked as two `smp_aura_event` rows and is
+> unaffected; what is gone is the ability to answer "who won how often", which nothing asked.
+
 
 `smp_milestone` and `smp_objective` hold *progress*; the *definition* is the YAML file. A milestone
 key that the config no longer declares is what the loader's validation exists to catch.

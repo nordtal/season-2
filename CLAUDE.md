@@ -837,7 +837,7 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Eight modules have tests: 1041 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Eight modules have tests: 1044 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-04, after `/hg` was opened to the console). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
@@ -849,7 +849,7 @@ daemon present, 2026-09-04, after `/hg` was opened to the console). The counts b
 | `updater` | 136 |
 | `discord-bot` | 140 |
 | `hunger-games` | 64 |
-| `commands` | 53 |
+| `commands` | 56 |
 | `limbo` | 11 |
 
 This said "537 in six modules" until 2026-09-02 and was wrong twice over: the number was stale, and
@@ -1029,16 +1029,21 @@ fails on the old semantics — checked by putting the bug back — and it is the
 rule that replaced them: **no single plugin message may be able to strand a player.** See
 `docs/state-of-play.md` finding 38.
 
-`commands` has **53**, and it went from 16 on the day it was scaffolded to this on the day the first
+`commands` has **56**, and it went from 16 on the day it was scaffolded to this on the day the first
 command was folded into it - which is the whole difference between a module and a shape. Twenty-two
 are `PhaseCommandsTest`, and every case in it was previously answerable only by running the command
 on a real proxy or in a real guild: what `/phase` says when the phase is already the one asked for,
 what it says when the database refuses the write, whether an unknown phase name reaches the database
-at all, and whether moving `smp-start` reports the access it moved. Nine are `ConfirmationsTest`,
+at all, and whether moving `smp-start` reports the access it moved. Twelve are `ConfirmationsTest`,
 driven by a settable clock: a confirmation must not be inherited by a *different* command
 (`/phase set MAINTENANCE` followed by `/phase set SMP` is the case that matters), must not be
 inherited by a different person, must be consumed rather than leaving the command unguarded for the
-rest of the window, and must expire. Six are `MessageBundlesTest`, which is where the two bundle
+rest of the window, and must expire. **Three of those twelve came from a bug in the first version,
+found by re-reading it rather than by a failure:** `confirm` arms on a miss, which is right when the
+confirmation is the same command typed again and wrong when it is a *different* one - so a bare
+`/hg start confirm` typed twice would have armed itself and started a game below the recommended
+minimum having never shown the warning. `arm` and `consume` are the two halves that flow needs, and
+`consume` never arms. Six are `MessageBundlesTest`, which is where the two bundle
 rules live: no markup on either surface, and no command may name a key that does not exist - the
 latter walks the module's own sources, because a command holds no bundle and a typo in a key is
 invisible until somebody hits that branch, which for the interesting ones is a failure branch.

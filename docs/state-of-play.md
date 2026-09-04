@@ -30,12 +30,12 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `discord-bot` | 52 files, 7800 lines | 140 | Access end to end, the phase command, the admin mirror, the language list, hunger games registration |
 | `updater` | 38 files, 5179 lines | 136 | Resolve, report, apply, serve — and the schema every other process waits on |
 | `hunger-games` | 43 files, 4921 lines | 64 | The start event, essentially in full |
-| `commands` | 13 files, 1212 lines | 53 | Declarations, the confirmation window, and `/phase` - the first command folded into it |
+| `commands` | 13 files, 1253 lines | 56 | Declarations, the confirmation window, and `/phase` - the first command folded into it |
 | `limbo` | 12 files, 1545 lines | 11 | The waiting room, in full |
 | `paper-common` | 3 files, 460 lines | — | The operator adapter, the admin watcher and the Paper sender adapter; covered from `:common` and from each plugin |
 | `resource-pack` | — | — | Four fonts, every code point allocated and drawn |
 
-1041 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-04),
+1044 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-04),
 across **eight** modules — `paper-common` and `resource-pack` have no test source set of their own.
 
 **This table was three days stale until 2026-09-04, and that is worth writing down rather than

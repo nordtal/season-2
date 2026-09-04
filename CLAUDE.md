@@ -342,8 +342,22 @@ block plus its own dependencies.
 | `nordtal.java-base` | everything | Java 25 toolchain, UTF-8, JUnit 6, group, `repositoryRootTestInputs`, `checkSourcesTracked` |
 | `nordtal.shaded` | every deployable | shadow; thin jar moved to the `thin` classifier so `shadowJar` takes the plain name |
 | `nordtal.paper-plugin` | the three Paper modules | paper-api, `:common`, `runServer` on 26.2, `${version}` expansion |
+| `nordtal.paper-library` | `paper-common` | paper-api as compileOnly, `:common` on the API. **Not** a plugin: no run-paper, no descriptor expansion, no shadowJar |
 | `nordtal.velocity-plugin` | `network-control` | velocity-api as compileOnly + annotationProcessor, `:common` |
 | `nordtal.jvm-app` | `discord-bot`, `updater` | `application`, Main-Class in the shaded manifest |
+
+**`:paper-common` is new on 2026-09-04, and it is a layer this repository did not have.** `:common`
+is compiled against no platform at all, on purpose - that rule is what lets one shared module serve
+Paper, Velocity and two plain JVM applications at once. What it cost, silently, was that anything the
+three Paper plugins do *identically with a Paper type* had nowhere to live but each plugin's own
+source tree. The operator adapter was written three times, character for character, before that
+became visible; the Brigadier adapters that `:commands` will need are the same shape and much
+larger.
+
+The rule that comes with the module, and it is easy to erode: **code belongs in `:paper-common` only
+if it needs a Paper type.** Anything that does not goes in `:common`, where the proxy and the bot can
+reach it too. A class moved here to be "closer to where it is used" is a class two of the five
+processes have just lost.
 
 Every external version lives in `gradle/libs.versions.toml`. Nothing pins a version in a module
 build file.

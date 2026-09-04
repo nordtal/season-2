@@ -15,6 +15,7 @@ repositories {
 }
 
 dependencies {
+    implementation(project(":paper-common"))
     // eu.nordtal.jcore.config is this repo's config system (season-2/CLAUDE.md, "Configuration"),
     // and this is the first Paper module to use it. jcore 3.0.0 also exports JDBI 3, HikariCP and
     // the PostgreSQL driver as part of its own dependency block - exactly the stack this plugin

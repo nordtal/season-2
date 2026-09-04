@@ -43,5 +43,9 @@ include("updater")
 // Shared code, shaded into the plugins that use it.
 include("common")
 
+// Shared code that needs a Paper type, and therefore cannot live in `:common` - which is compiled
+// against no platform on purpose. Shaded into the three Paper plugins.
+include("paper-common")
+
 // Non-Java module: packs src/ into the resource pack zip.
 include("resource-pack")

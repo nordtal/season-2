@@ -197,6 +197,60 @@
             "chars": [
                 "\uDBB8\uDC3C"
             ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:system/separator.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uDBB8\uDC80"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:system/join.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uDBB8\uDC81"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:system/leave.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uDBB8\uDC82"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:system/death.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uDBB8\uDC83"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:system/advancement.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uDBB8\uDC84"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:system/announce.png",
+            "ascent": 7,
+            "height": 7,
+            "chars": [
+                "\uDBB8\uDC85"
+            ]
         }
     ]
 }

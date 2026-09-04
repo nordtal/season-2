@@ -44,6 +44,13 @@ BLACK = (0, 0, 0)
 BOARD_LINE = (78, 86, 104)      # PALETTE["highlight"]
 BOARD_ACCENT = (176, 138, 74)   # PALETTE["accent"]
 
+# The system-line icons are drawn WHITE, and that is the whole trick rather than a taste in
+# colours. Minecraft multiplies a glyph's texture by the component's text colour, so white art can
+# be tinted to anything a message wants and black art cannot be tinted lighter than black. Every
+# one of these six sits in a chat line whose colour the bundle decides - and the board frame spent
+# four days invisible for exactly the opposite reason (2026-09-04).
+SYSTEM_WHITE = (255, 255, 255)
+
 
 # --- Minimal PNG writer (RGBA, 8-bit, no filtering) -------------------------------
 
@@ -414,6 +421,51 @@ def lobby_maps():
     write_png(os.path.join(HG_RES, "lobby/map-de.png"), size, size, grid_image((200, 60, 60)))
 
 
+def system_icons():
+    """The six \uFE080-\uFE085 chat-line icons, in minecraft:default at the 7 x 7 / ascent 7
+    metrics every other default-font glyph in this pack uses.
+
+    Six shapes for six lines, and they have to be distinguishable at seven pixels while somebody is
+    mining, which is why none of them is a small picture of the thing it means: an arrow in, an
+    arrow out, a headstone, a spark, a horn, and a rule that is not an icon at all.
+    """
+    out = os.path.join(RP, "nordtal/textures/system")
+
+    # A separator, not a character: one hairline, 1 px of air either side.
+    c = Canvas(3, 7, ss=10)
+    c.fill_rect(1.0, 0.5, 2.0, 6.5)
+    c.save(os.path.join(out, "separator.png"), SYSTEM_WHITE)
+
+    # Joined / left: the same triangle, mirrored. Direction is the only thing carrying the meaning,
+    # so they are deliberately identical apart from it.
+    c = Canvas(7, 7, ss=10)
+    c.fill_polygon([(1.5, 0.8), (6.0, 3.5), (1.5, 6.2)])
+    c.save(os.path.join(out, "join.png"), SYSTEM_WHITE)
+
+    c = Canvas(7, 7, ss=10)
+    c.fill_polygon([(5.5, 0.8), (1.0, 3.5), (5.5, 6.2)])
+    c.save(os.path.join(out, "leave.png"), SYSTEM_WHITE)
+
+    # A headstone rather than a skull: at seven pixels a skull is three grey blobs, and the season
+    # already answers a death with a grave standing where you fell.
+    c = Canvas(7, 7, ss=10)
+    c.fill_circle(3.5, 3.1, 2.3)
+    c.fill_rect(1.2, 3.1, 5.8, 6.4)
+    c.save(os.path.join(out, "death.png"), SYSTEM_WHITE)
+
+    # Four points, not five: the donor badge is a five-point star in the same chat line.
+    c = Canvas(7, 7, ss=10)
+    c.fill_polygon(star_points(3.5, 3.5, 3.4, 0.85, points=4))
+    c.save(os.path.join(out, "advancement.png"), SYSTEM_WHITE)
+
+    # A horn, for the lines the whole server is told. Convex and asymmetric, so it cannot be
+    # confused with the sparkle beside it.
+    c = Canvas(7, 7, ss=10)
+    c.fill_polygon([(1.3, 2.1), (5.7, 0.7), (5.7, 6.3), (1.3, 4.9)])
+    c.save(os.path.join(out, "announce.png"), SYSTEM_WHITE)
+
+
+
 def main():
     donor_star()
     prestige_crests()
@@ -421,6 +473,7 @@ def main():
     dimension_icons()
     status_icons()
     bearing_arrows()
+    system_icons()
     balloon_scaffold()
     lobby_maps()
 

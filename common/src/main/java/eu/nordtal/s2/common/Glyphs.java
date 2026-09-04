@@ -155,6 +155,32 @@ public final class Glyphs {
             PRESTIGE_CREST_13,
     };
 
+    // System-line icons - U+FE080..U+FE085, height 7 / ascent 7, minecraft:default.
+    //
+    // The six markers in front of the lines a player reads all day: chat, join, leave, death,
+    // advancement, and the announcements the whole server is told (docs/presentation.md section 5).
+    // Allocated at 0xFE080 rather than at the next free slot after the crests, so that the number
+    // alone is unambiguous across all four fonts: nordtal:board already uses 0xFE040..0xFE055 and
+    // nordtal:gui reserves through 0xFE07F, and a code point that means two different pictures in
+    // two fonts is what put the admin nametag inside the SMP's boss bar for four days.
+    //
+    // THE ART IS WHITE, and that is load-bearing rather than a taste in colours: Minecraft
+    // multiplies a glyph by the component's text colour, so white can be tinted to whatever the
+    // message bundle asks for and black cannot be tinted lighter. The board frame was drawn black
+    // and was invisible on the surface it hangs on; these six sit in a chat line whose colour the
+    // operator can change without a release.
+
+    /** The rule between a player's name and what they said. Not a character - 3 px wide. */
+    public static final String SEPARATOR = cp(0xFE080);
+
+    public static final String ICON_JOIN = cp(0xFE081);
+    public static final String ICON_LEAVE = cp(0xFE082);
+    public static final String ICON_DEATH = cp(0xFE083);
+    public static final String ICON_ADVANCEMENT = cp(0xFE084);
+
+    /** In front of a line the whole server is told: a milestone, an objective, a farm reset. */
+    public static final String ICON_ANNOUNCE = cp(0xFE085);
+
     // === nordtal:board ===
     // The objective board and aura leaderboard's frame (smp.md#the-boards-and-the-npc).
     // A dedicated font, not minecraft:default - separated 2026-08-31 because, like

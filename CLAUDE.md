@@ -287,11 +287,22 @@ What this buys, and the rules that come with it:
   stopping it. It is wrong here. `smp`, `limbo` and `hunger-games` are dedicated backends that exist
   to run exactly one thing, and the first deployment showed what the old rule costs: four nested
   specs without `@ConfigSpec` made `config.yml` throw, `smp` disabled itself, Paper carried on, and
-  the container stayed up with a green healthcheck and no season on it. **Nothing outside the JVM
-  can see that state** — every jar is in `plugins/`, so the entrypoint's guard passes, and the port
-  is open, so the healthcheck passes. Inside the plugin is the only place the difference is
-  knowable, which is why the answer is there. `:common`'s `FatalPathsStopTheServerTest` asserts all
-  three still do it.
+  the container stayed up with a green healthcheck and no season on it — every jar was in
+  `plugins/`, so the entrypoint's guard passed, and the port was open, so the image's own TCP
+  `HEALTHCHECK` passed.
+
+  **The half of this that said "nothing outside the JVM can see that state" stopped being true on
+  2026-09-04.** Every one of the five long-running processes now writes `/tmp/nordtal-ready` as the
+  last line of a successful start and refreshes it every 30 seconds, and `compose.yml` checks the
+  file's *age* — so a plugin that never finished starting, and one that started and later stopped
+  ticking, both go red. See `common/…/health/Readiness.java` and the comment on the
+  `x-minecraft` anchor.
+
+  **The rule survives that unchanged, and it is worth being exact about why.** Docker restarts
+  nothing on health alone; an unhealthy container is a container that reports being unhealthy and
+  keeps running. The marker makes the state *visible*, which is a different thing from making it
+  *safe*. Inside the plugin is still the only place that can act on it, which is why the answer is
+  still there. `:common`'s `FatalPathsStopTheServerTest` asserts all three still do it.
 - **Every value can be overridden by an environment variable.** Give each config its own prefix
   (`NORDTAL_<MODULE>`); a single shared `NORDTAL` prefix makes generic keys such as `password`
   collide across files. jcore rejects a collision within one spec at load time.

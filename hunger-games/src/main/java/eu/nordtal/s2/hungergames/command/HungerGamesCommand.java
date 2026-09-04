@@ -205,8 +205,17 @@ public final class HungerGamesCommand {
             return;
         }
 
-        if (participantCount < config.softMinimumParticipants() && !isConfirmation) {
-            confirmations.confirm(user, START);
+        if (isConfirmation) {
+            // consume, not confirm: confirm() arms on a miss, which is right when the confirmation
+            // is the SAME command typed again and wrong here - a bare `/hg start confirm` typed
+            // twice would arm itself and go through on the second attempt, having never shown the
+            // warning this whole branch exists for.
+            if (!confirmations.consume(user, START)) {
+                user.reply("hg.start.confirm-expired", Map.of(), Feedback.REFUSED);
+                return;
+            }
+        } else if (participantCount < config.softMinimumParticipants()) {
+            confirmations.arm(user, START);
             // REFUSED rather than nothing: the command did not do what was asked, and this is the
             // one place an admin about to start the season's flagship event should stop and read
             // rather than type the next thing.
@@ -216,14 +225,10 @@ public final class HungerGamesCommand {
                             "seconds", Confirmations.WINDOW.toSeconds()),
                     Feedback.REFUSED);
             return;
-        }
-
-        // Consumed even when the count is above the soft minimum: leaving a pending confirmation
-        // behind would arm the next below-minimum start for whatever is left of the window.
-        final boolean confirmed = confirmations.confirm(user, START);
-        if (isConfirmation && !confirmed) {
-            user.reply("hg.start.confirm-expired", Map.of(), Feedback.REFUSED);
-            return;
+        } else {
+            // A start that needed no confirmation clears any stale one, so a warning from a minute
+            // ago cannot be spent on a later game.
+            confirmations.forget(user, START);
         }
 
         // SMALL_SUCCESS, and this is a deliberate departure from smp, where an admin's confirmation

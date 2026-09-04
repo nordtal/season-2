@@ -37,7 +37,9 @@ import eu.nordtal.s2.networkcontrol.pack.PackStation;
 import eu.nordtal.s2.networkcontrol.pack.WaitingBook;
 import eu.nordtal.s2.networkcontrol.command.NetworkCommand;
 import eu.nordtal.s2.networkcontrol.phase.PhaseCommand;
-import eu.nordtal.s2.networkcontrol.phase.PhaseListener;
+import eu.nordtal.s2.common.notify.Channels;
+import eu.nordtal.s2.common.notify.NotificationListener;
+import eu.nordtal.s2.common.notify.PostgresNotifications;
 import eu.nordtal.s2.networkcontrol.phase.PhaseWatch;
 import eu.nordtal.s2.networkcontrol.ping.NetworkPing;
 import eu.nordtal.s2.networkcontrol.ping.SnapshotStore;
@@ -65,7 +67,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <ul>
  *   <li>{@link LoginGate} - the phase-aware login decision, one database round trip carrying both
  *       the access state and the {@link SeasonPhase} (docs/season-phases.md).</li>
- *   <li>{@link PhaseWatch} + {@link PhaseListener} - the 30-second poll <b>and</b> a dedicated
+ *   <li>{@link PhaseWatch} + a {@link NotificationListener} - the 30-second poll <b>and</b> a dedicated
  *       {@code LISTEN nordtal_phase} connection outside the pool. The poll is the guarantee; the
  *       listener only makes a switch feel instant.</li>
  *   <li>{@link PhaseCommand} - the emergency {@code /phase}, authorised by
@@ -111,7 +113,7 @@ public final class NetworkControlPlugin {
 
     private HikariDataSource pool;
     private AccessDirectory access;
-    private PhaseListener phaseListener;
+    private NotificationListener phaseListener;
     private PlaytimeWriter playtime;
     private com.velocitypowered.api.scheduler.ScheduledTask heartbeat;
 
@@ -241,13 +243,27 @@ public final class NetworkControlPlugin {
                 .schedule();
 
         if (gateConfig.phaseListenEnabled()) {
-            this.phaseListener = new PhaseListener(PhaseListener.postgres(databaseConfig), phaseWatch,
-                    refreshAdmins, logger, pollInterval);
+            // One connection, two channels, both refreshes on every signal - the arrangement
+            // eu.nordtal.s2.common.notify carries the reasoning for. The loop itself moved into
+            // :common on 2026-09-04 so the three Paper backends could stop being written a fourth
+            // time; this is the same code it always was, with the channel names now next to the SQL
+            // that emits them.
+            this.phaseListener = new NotificationListener(
+                    PostgresNotifications.connector(databaseConfig.jdbcUrl(),
+                            databaseConfig.username(), databaseConfig.password(),
+                            databaseConfig.queryTimeoutSeconds(),
+                            "network-control-notification-listener",
+                            java.util.List.of(Channels.PHASE, Channels.ADMIN)),
+                    "network-control-phase-listener",
+                    java.util.List.of(
+                            new NotificationListener.Refresh("the season phase", phaseWatch::refresh),
+                            new NotificationListener.Refresh("the admin roster", refreshAdmins)),
+                    logger, pollInterval);
             phaseListener.start();
         } else {
-            logger.info("The nordtal_phase and nordtal_admin LISTEN connection is disabled; the {}s "
-                    + "poll is the only path a phase switch or an admin change travels",
-                    pollInterval.toSeconds());
+            logger.info("The {} and {} LISTEN connection is disabled; the {}s poll is the only path "
+                    + "a phase switch or an admin change travels",
+                    Channels.PHASE, Channels.ADMIN, pollInterval.toSeconds());
         }
 
         // ------------------------------------------------------------ the gate

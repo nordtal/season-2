@@ -94,6 +94,9 @@ public final class Configs {
     private static void validate(final SmpSpec config) {
         requireText("world-nordtal", config.worldNordtal());
         requireText("world-farm", config.worldFarm());
+        // Zero or negative here would not disable the watcher - AdminWatch floors the timer at
+        // one second - so it would quietly become a query per second for the life of the season.
+        requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
         requirePositive("farm-world-border-diameter", config.farmWorldBorderDiameter());
         requirePositive("nether-border-diameter", config.netherBorderDiameter());
         requirePositive("end-border-diameter", config.endBorderDiameter());

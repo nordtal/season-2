@@ -102,6 +102,24 @@ interface AccessDao {
     @SqlQuery("SELECT discord_id FROM discord_user WHERE admin")
     java.util.Set<String> adminDiscordIds();
 
+    /**
+     * The Minecraft account of every admin who has one linked.
+     *
+     * <h2>Why this is a second query and not a mapping of the first</h2>
+     * The proxy knows a session by its Discord id, because the login gate resolved it there. A Paper
+     * server knows nothing but a {@link UUID}, and the join through {@code account_link} is the only
+     * thing that connects the two. Doing it in SQL costs one query for the whole set; the
+     * alternative is one {@code minecraftAccountOf} per admin, on a timer.
+     *
+     * <p>An admin without a link simply does not appear, which is correct rather than lenient: an
+     * unlinked account cannot get past the proxy's gate, so there is no session on any backend for
+     * it to be an operator on.</p>
+     */
+    @SqlQuery("SELECT l.mc_uuid FROM discord_user u"
+            + " JOIN account_link l ON l.discord_id = u.discord_id"
+            + " WHERE u.admin")
+    java.util.Set<UUID> adminMinecraftAccounts();
+
     // ---------------------------------------------------------------- account_link
 
     @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")

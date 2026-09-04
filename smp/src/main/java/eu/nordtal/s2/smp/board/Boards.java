@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.board;
 
+import eu.nordtal.s2.common.hud.BoardFrame;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -44,6 +45,12 @@ import java.util.UUID;
  *
  * <p>The displays are spawned with {@code setPersistent(false)} so a crash cannot leave them in the
  * world, and every one belonging to this plugin is swept at start anyway.
+ *
+ * <h2>The frame</h2>
+ * Built 2026-09-04. {@code nordtal:board} had been fully drawn since 2026-08-31 - corners, edges,
+ * dividers, twenty-eight code points - and used by nothing at all; this class wrote plain text onto
+ * a Text Display and never named one of them. {@link BoardFrame} owns the composition and the
+ * reason the board's width is configuration rather than a measurement.
  */
 public final class Boards {
 
@@ -51,6 +58,15 @@ public final class Boards {
     private static final long REFRESH_TICKS = 100L;
 
     private static final int BAR_WIDTH = 20;
+
+    /**
+     * Wide enough that a board never wraps.
+     *
+     * <p>Not {@code Integer.MAX_VALUE}: Minecraft carries this to the client and a wrap width is
+     * an ordinary varint there, so a number nobody would ever reach is safer than the largest one
+     * that exists.
+     */
+    private static final int NO_WRAPPING = 10_000;
     private static final int LEADERBOARD_SIZE = 10;
 
     private final Plugin plugin;
@@ -129,7 +145,7 @@ public final class Boards {
                 .computeIfAbsent(player.getUniqueId(), key -> new EnumMap<>(BoardKind.class))
                 .computeIfAbsent(kind, key -> spawn(player, at));
 
-        display.text(text(kind, locales.of(player.getUniqueId())));
+        display.text(text(kind, locales.of(player.getUniqueId()), spec.width()));
     }
 
     private TextDisplay spawn(final Player owner, final Location at) {
@@ -138,6 +154,15 @@ public final class Boards {
             entity.setSeeThrough(false);
             entity.setPersistent(false);
             entity.setViewRange(1.0f);
+            // The frame is drawn per line and every line starts at the same x, so the display has
+            // to be left-aligned - centring would move each line by half its own width and take
+            // the vertical edges with it.
+            entity.setAlignment(TextDisplay.TextAlignment.LEFT);
+            // And nothing may wrap. A wrapped line's continuation carries no frame at all, so it
+            // lands outside the box; an over-long line running past the right edge is the same
+            // information and looks like what it is. BoardFrame says why the width cannot simply
+            // be computed from the content.
+            entity.setLineWidth(NO_WRAPPING);
         });
         // Hidden from everybody, then shown to its one owner - the order matters, because a display
         // that is visible for a tick is a display somebody sees in the wrong language.
@@ -151,23 +176,23 @@ public final class Boards {
 
     // ------------------------------------------------------------------ the text
 
-    private Component text(final BoardKind kind, final Locale locale) {
+    private Component text(final BoardKind kind, final Locale locale, final int width) {
         return switch (kind) {
-            case OBJECTIVE -> objectiveText(locale);
-            case AURA -> auraText(locale);
+            case OBJECTIVE -> objectiveText(locale, width);
+            case AURA -> auraText(locale, width);
         };
     }
 
-    private Component objectiveText(final Locale locale) {
+    private Component objectiveText(final Locale locale, final int width) {
+        final Component title = MessageRenderer.of(messages)
+                .get(locale, BoardKind.OBJECTIVE.messageKey()).color(NamedTextColor.GOLD);
         final List<Component> lines = new ArrayList<>();
-        lines.add(MessageRenderer.of(messages).get(locale, BoardKind.OBJECTIVE.messageKey())
-                .color(NamedTextColor.GOLD));
 
         final Optional<String> active = season.activeKey();
         if (active.isEmpty()) {
             lines.add(MessageRenderer.of(messages).get(locale, "smp.board.objective.finished")
                     .color(NamedTextColor.GRAY));
-            return join(lines);
+            return BoardFrame.render(width, title, lines);
         }
 
         lines.add(Component.text(milestoneName(active.get(), locale)).color(NamedTextColor.WHITE));
@@ -177,19 +202,19 @@ public final class Boards {
                             + "  " + objective.amount() + "/" + objective.target())
                     .color(objective.completed() ? NamedTextColor.GREEN : NamedTextColor.GRAY));
         }
-        return join(lines);
+        return BoardFrame.render(width, title, lines);
     }
 
-    private Component auraText(final Locale locale) {
+    private Component auraText(final Locale locale, final int width) {
+        final Component title = MessageRenderer.of(messages)
+                .get(locale, BoardKind.AURA.messageKey()).color(NamedTextColor.GOLD);
         final List<Component> lines = new ArrayList<>();
-        lines.add(MessageRenderer.of(messages).get(locale, BoardKind.AURA.messageKey())
-                .color(NamedTextColor.GOLD));
 
         final List<AuraRow> rows = leaderboard;
         if (rows.isEmpty()) {
             lines.add(MessageRenderer.of(messages).get(locale, "smp.board.aura.empty")
                     .color(NamedTextColor.GRAY));
-            return join(lines);
+            return BoardFrame.render(width, title, lines);
         }
 
         int place = 1;
@@ -198,7 +223,7 @@ public final class Boards {
                     .color(row.aura() > 0 ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY));
             place++;
         }
-        return join(lines);
+        return BoardFrame.render(width, title, lines);
     }
 
     /**
@@ -224,16 +249,5 @@ public final class Boards {
     private String objectiveName(final String milestone, final String objective, final Locale locale) {
         final String messageKey = "smp.objective." + milestone + "." + objective;
         return messages.hasTranslation(locale, messageKey) ? messages.get(locale, messageKey) : objective;
-    }
-
-    private static Component join(final List<Component> lines) {
-        Component out = Component.empty();
-        for (int index = 0; index < lines.size(); index++) {
-            if (index > 0) {
-                out = out.append(Component.newline());
-            }
-            out = out.append(lines.get(index));
-        }
-        return out;
     }
 }

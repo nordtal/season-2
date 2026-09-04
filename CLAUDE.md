@@ -729,14 +729,14 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 944 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 963 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-04). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
-| `smp` | 153 |
-| `common` | 239 |
+| `smp` | 161 |
+| `common` | 250 |
 | `network-control` | 189 |
 | `updater` | 136 |
 | `discord-bot` | 155 |
@@ -748,7 +748,14 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **239**, eleven of them the menu panel added on 2026-09-04. `MenuTitleTest` (8)
+`:common` has **250**. Eleven are `BoardFrameTest`, added 2026-09-04 with the board frame, and it
+is the one test in this repository that runs the client's own layout: it reads `board.json`, derives
+every code point's advance the way the client does - a space provider's number, or a bitmap's
+rightmost non-transparent column plus the two pixels Minecraft adds - and then *walks* the composed
+string with a cursor. So it can contradict `BoardFrame` rather than restate it. What it pins is the
+one invariant the whole class exists for: **a row hands back a cursor at the content column**, because
+the width of a line of text is the single thing nothing here can compute, so nothing may be placed
+after the content. Eleven more are the menu panel added the same day. `MenuTitleTest` (8)
 holds the panel's offset arithmetic against the pack rather than against its own constants: it
 reads `gui.json` and the six panel PNGs, derives the 177px advance from the texture's own width,
 and asserts the composition's net displacement is **zero** - `-8 + 177 - 169`, so the readable
@@ -845,7 +852,10 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **153**. `SoundDefaultsTest` (6) is the newest and the only one that can say anything
+`smp` has **161**. Eight are `WheelStripTest`, new 2026-09-04 with the animation: over every pool
+size and every winner, the last frame has to centre the prize the database already gave away. That is
+the property the wheel rests on - the spin is spent in SQL before a frame is drawn, so an animation
+that could stop anywhere else would be a second, disagreeing answer about one spin. `SoundDefaultsTest` (6) is the newest and the only one that can say anything
 about a sound without a server: every one of the ten defaults resolves against `org.bukkit.Sound` as
 compiled for this Paper version (via `getField`, which initialises no registry), blanking a key in
 the real `sounds.yml` really does silence that one category and nothing else, `refused` and

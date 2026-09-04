@@ -30,6 +30,20 @@ HG_RES = os.path.join(REPO_ROOT, "hunger-games", "src", "main", "resources")
 
 BLACK = (0, 0, 0)
 
+# The board frame's two colours, taken verbatim from generate_gui_panels.py's PALETTE so the
+# boards and the menus read as one server's furniture (2026-09-04). Two things changed here that
+# day, and only one of them was about style:
+#
+#   * the frame was drawn BLACK, which is the module's default and was never a decision. A board
+#     hangs in the world on a Text Display's dark translucent background, so a black frame is a
+#     frame nobody can see. Nothing had ever rendered one, so nothing had ever noticed.
+#   * the divider is now the accent and the border is not. The pack has allocated the two
+#     separately since 2026-08-31 precisely so an interior rule could differ from the border, and
+#     the panels already spend their one saturated colour on exactly this - a single line under the
+#     title bar and nowhere else. Same rule on both surfaces.
+BOARD_LINE = (78, 86, 104)      # PALETTE["highlight"]
+BOARD_ACCENT = (176, 138, 74)   # PALETTE["accent"]
+
 
 # --- Minimal PNG writer (RGBA, 8-bit, no filtering) -------------------------------
 
@@ -194,7 +208,7 @@ def board_frame():
         vy = 8.5 if vert_dir > 0 else 0.5
         c.stroke_line(cx, cy, hx, cy, LINE_THICKNESS)
         c.stroke_line(cx, cy, cx, vy, LINE_THICKNESS)
-        c.save(os.path.join(out, f"{name}.png"))
+        c.save(os.path.join(out, f"{name}.png"), BOARD_LINE)
 
     corner("corner_tl", +1, +1)  # continues right along the top, down along the left
     corner("corner_tr", -1, +1)  # continues left along the top, down along the right
@@ -204,17 +218,18 @@ def board_frame():
     for w in BOARD_WIDTHS:
         c = Canvas(w, 9, ss=10)
         c.stroke_line(0, LINE_Y, w, LINE_Y, LINE_THICKNESS)
-        c.save(os.path.join(out, f"edge_h_{w}.png"))
-        # Divider is allocated separately from the outer edge (2026-08-31 decision) but
-        # drawn identically in this placeholder pass - see resource-pack/README.md.
+        c.save(os.path.join(out, f"edge_h_{w}.png"), BOARD_LINE)
+        # Same geometry as the outer edge, different colour: the divider carries the accent,
+        # the way the menu panel's one accent line sits under its title bar. That is what the
+        # separate allocation of 2026-08-31 was reserved for.
         c2 = Canvas(w, 9, ss=10)
         c2.stroke_line(0, LINE_Y, w, LINE_Y, LINE_THICKNESS)
-        c2.save(os.path.join(out, f"divider_{w}.png"))
+        c2.save(os.path.join(out, f"divider_{w}.png"), BOARD_ACCENT)
 
     for name in ("edge_v_l", "edge_v_r"):
         c = Canvas(9, 9, ss=10)
         c.stroke_line(4.5, 0, 4.5, 9, LINE_THICKNESS)
-        c.save(os.path.join(out, f"{name}.png"))
+        c.save(os.path.join(out, f"{name}.png"), BOARD_LINE)
 
 
 def dimension_icons():

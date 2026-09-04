@@ -199,6 +199,16 @@ final class DefaultSmp {
         return Specs.createUnsafe(SmpSpec.BalloonSpec.class, values);
     }
 
+    /**
+     * One default board.
+     *
+     * <p><b>Every key the spec declares has to appear in this map.</b> {@code createUnsafe} builds
+     * a proxy that answers from it and nothing else - not from the interface's {@code default}
+     * method - so a key left out here comes back as {@code null} and the first thing that reads it
+     * throws. That is not theoretical: {@code width} was added on 2026-09-04 and forgotten here,
+     * and {@code smp}'s own {@code ConfigsTest} is what caught it, at exactly the moment
+     * {@code Configs.validate} first touched the new getter.</p>
+     */
     private static SmpSpec.BoardSpec board(final String kind, final String world, final double x,
                                            final double y, final double z, final float yaw) {
         final Map<String, Object> values = new LinkedHashMap<>();
@@ -208,6 +218,7 @@ final class DefaultSmp {
         values.put("y", y);
         values.put("z", z);
         values.put("yaw", yaw);
+        values.put("width", 180);
         return Specs.createUnsafe(SmpSpec.BoardSpec.class, values);
     }
 

@@ -6,6 +6,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
+import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
@@ -48,6 +49,7 @@ public final class BalloonGui implements Surface {
     private final SeasonState season;
     private final MilestoneTrack track;
     private final SmpSounds sounds;
+    private final WorldEffects effects;
 
     private final WorldRole here;
     private final List<BalloonMenu.Entry> entries;
@@ -55,13 +57,14 @@ public final class BalloonGui implements Surface {
 
     public BalloonGui(final Messages messages, final PlayerLocales locales, final Worlds worlds,
                       final SeasonState season, final MilestoneTrack track, final SmpSounds sounds,
-                      final Player viewer, final WorldRole here) {
+                      final WorldEffects effects, final Player viewer, final WorldRole here) {
         this.messages = messages;
         this.locales = locales;
         this.worlds = worlds;
         this.season = season;
         this.track = track;
         this.sounds = sounds;
+        this.effects = effects;
         this.here = here;
         this.entries = BalloonMenu.of(here, season.unlocked());
 
@@ -176,9 +179,14 @@ public final class BalloonGui implements Surface {
         }
 
         player.closeInventory();
+        // Both ends of the trip, and the departure has to be read off before the teleport: to
+        // anybody left standing at the balloon this is the whole of what they see happen.
+        final org.bukkit.Location from = player.getLocation();
         // Always the world spawn. The balloon never drops anyone anywhere else, which is what makes
         // a world spawn a landmark everybody knows; portals are the only exception in the design.
         player.teleport(destination.getSpawnLocation());
+        effects.travelled(from);
+        effects.travelled(destination.getSpawnLocation());
         player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.balloon.travelled",
                 "world", messages.get(locale, nameKey(entry.destination()))));
         sounds.play(player, Feedback.TRAVEL);

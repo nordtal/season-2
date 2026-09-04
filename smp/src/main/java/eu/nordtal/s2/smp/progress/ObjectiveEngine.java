@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.progress;
 
+import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -10,6 +11,7 @@ import eu.nordtal.s2.smp.db.ContributionRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
+import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Objective;
@@ -21,11 +23,12 @@ import eu.nordtal.s2.smp.state.SeasonState;
 import eu.nordtal.s2.smp.wheel.PrizeDraw;
 import eu.nordtal.s2.smp.world.Worlds;
 
-import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,11 +62,21 @@ public final class ObjectiveEngine {
     private final PlayerLocales locales;
     private final SmpSpec config;
     private final SmpSounds sounds;
+    private final WorldEffects effects;
+
+    /**
+     * How the milestone title sits on the screen: in fast, held long, out slowly.
+     *
+     * <p>Three seconds rather than one because it arrives unannounced - nobody pressed anything -
+     * and it has to survive being looked up at from whatever somebody was doing.
+     */
+    private static final Title.Times CEREMONY = Title.Times.times(
+            Duration.ofMillis(400), Duration.ofSeconds(3), Duration.ofSeconds(1));
 
     public ObjectiveEngine(final Plugin plugin, final SmpDao dao, final MilestoneTrack track,
                            final SeasonState season, final Worlds worlds, final Identities identities,
                            final Messages messages, final PlayerLocales locales, final SmpSpec config,
-                           final SmpSounds sounds) {
+                           final SmpSounds sounds, final WorldEffects effects) {
         this.plugin = plugin;
         this.dao = dao;
         this.track = track;
@@ -74,6 +87,7 @@ public final class ObjectiveEngine {
         this.locales = locales;
         this.config = config;
         this.sounds = sounds;
+        this.effects = effects;
     }
 
     /**
@@ -254,6 +268,7 @@ public final class ObjectiveEngine {
             for (final Player player : Bukkit.getOnlinePlayers()) {
                 final var locale = locales.of(player.getUniqueId());
                 player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.objective.completed",
+                        "icon", Glyphs.ICON_ANNOUNCE,
                         "objective", nameOf("smp.objective." + milestoneKey + "." + objectiveKey,
                                 objectiveKey, locale)));
             }
@@ -266,14 +281,34 @@ public final class ObjectiveEngine {
      * <p>Same line, two sounds: {@code BIG_SUCCESS} for whoever's contribution closed the last
      * objective and {@code NETWORK_EVENT} for the rest of the server. An admin's hand-completion
      * passes null, so everybody hears the network event and nobody is congratulated for a command.
+     *
+     * <h2>Four things happen here, and until 2026-09-04 only one of them did</h2>
+     * {@code docs/smp.md} has described a milestone as a server-wide event since the concept was
+     * written - "title and chat announcement in every player's language" - and what the code did was
+     * send a chat line. The German one said <i>Schau nach oben</i>, at a sky where nothing happened;
+     * that was finding 50 of the review. The line is unchanged and is now true: the rockets go up
+     * around every player, wherever they are standing, because the season has no one place
+     * everybody is.
+     *
+     * <p>Nothing here is scheduled or staggered. A milestone closes at most a handful of times in a
+     * season and the whole ceremony is one tick's work per online player, so a sequencer would be
+     * machinery in the path of the single moment it exists to protect.
      */
     private void announceMilestone(final String milestoneKey, final UUID completedBy) {
+        final MessageRenderer renderer = MessageRenderer.of(messages);
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = locales.of(player.getUniqueId());
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.milestone.completed",
-                    "milestone", nameOf("smp.milestone." + milestoneKey, milestoneKey, locale)));
+            final String name = nameOf("smp.milestone." + milestoneKey, milestoneKey, locale);
+
+            player.sendMessage(renderer.format(locale, "smp.milestone.completed",
+                    "icon", Glyphs.ICON_ANNOUNCE, "milestone", name));
+            player.showTitle(Title.title(
+                    renderer.format(locale, "smp.ceremony.title", "milestone", name),
+                    renderer.get(locale, "smp.ceremony.subtitle"),
+                    CEREMONY));
             sounds.play(player, player.getUniqueId().equals(completedBy)
                     ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
+            effects.celebrate(player);
         }
     }
 

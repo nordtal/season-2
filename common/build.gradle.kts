@@ -47,9 +47,11 @@ repositoryRootTestInputs {
     reads("limbo/src/main/resources/messages/limbo/en.properties")
     reads("limbo/src/main/resources/messages/limbo/de.properties")
 
-    // OneMessageFormatTest walks every source and every bundle of the four client-facing modules.
-    // Whole trees, because the rule it pins is "nowhere", and a list of files is a list that goes
-    // stale the first time somebody adds a class.
+    // Three tests walk every source and every bundle of the four client-facing modules, and all
+    // three pin a rule whose subject is "nowhere else": OneMessageFormatTest (one message format),
+    // SoundVocabularyTest (only the adapters name a sound) and WorldEffectVocabularyTest (only the
+    // adapters name a particle). Whole trees, because a list of files is a list that goes stale the
+    // first time somebody adds a class - which is exactly the class the rule is about.
     readsTree("smp/src/main")
     readsTree("limbo/src/main")
     readsTree("hunger-games/src/main")

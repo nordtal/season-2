@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.game;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -11,6 +12,7 @@ import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.db.RosterEntry;
+import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 
 import net.kyori.adventure.text.Component;
 
@@ -46,13 +48,15 @@ public final class HungerGamesManager {
     private final PlayerBodies bodies;
     private final GameState state;
     private final BorderController border;
+    private final HungerGamesSounds sounds;
 
     /** Frozen players cannot move during the countdown - {@code FreezeListener} consults this. */
     private volatile boolean frozen;
 
     public HungerGamesManager(final Plugin plugin, final HungerGamesDao dao, final HungerGamesSpec config,
                               final Messages messages, final PlayerLocales locales, final PlayerBodies bodies,
-                              final GameState state, final BorderController border) {
+                              final GameState state, final BorderController border,
+                              final HungerGamesSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
@@ -61,6 +65,7 @@ public final class HungerGamesManager {
         this.bodies = bodies;
         this.state = state;
         this.border = border;
+        this.sounds = sounds;
     }
 
     public boolean isFrozen() {
@@ -148,6 +153,11 @@ public final class HungerGamesManager {
             }
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
+                // DELIBERATELY SILENT. This lands in the same tick as the tower teleport, which has
+                // already played TRAVEL - the same reason docs/presentation.md gives for a queued
+                // duel not chiming ("whoever stepped on second already heard SELECT in the same
+                // tick"). Two sounds a tick apart are one noise, and the one that says "you have
+                // been moved" is the one worth keeping.
                 online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
                         "hg.team.demoted", "team", participant.teamName()));
             }
@@ -175,6 +185,10 @@ public final class HungerGamesManager {
                         online.sendMessage(MessageRenderer.of(messages).format(
                                 locales.of(participant.mcUuid()), "hg.start.countdown",
                                 "seconds", remaining));
+                        // The marks are not evenly spaced, so this is not a metronome - it is the
+                        // one thing that tells a frozen player on a black pillar that the server is
+                        // still running. Chat can be scrolled past; a chime cannot.
+                        sounds.play(online, Feedback.COUNTDOWN_TICK);
                     }
                 }
             }, delayTicks);
@@ -215,6 +229,11 @@ public final class HungerGamesManager {
         if (online != null) {
             online.teleportAsync(tower);
             online.setInvulnerable(true);
+            // TRAVEL, and this is the module's real "the game has started" moment: a player standing
+            // in the lobby is picked up and put on a pillar without having asked for it. The admin's
+            // /hg start confirmation is a chat line to one person; this is what every participant
+            // actually experiences.
+            sounds.play(online, Feedback.TRAVEL);
             return;
         }
 
@@ -251,6 +270,11 @@ public final class HungerGamesManager {
                 online.setInvulnerable(false);
                 online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
                         "hg.start.released", "seconds", config.pvpProtectionSeconds()));
+                // The last beat of the countdown, on the same category as the marks before it -
+                // exactly what smp's duel does for "3-2-1-Go", and for the reason stated there: a
+                // distinguishable accent on the Go would need a category of its own, and the enum
+                // not growing is the whole design.
+                sounds.play(online, Feedback.COUNTDOWN_TICK);
             }
         }
     }

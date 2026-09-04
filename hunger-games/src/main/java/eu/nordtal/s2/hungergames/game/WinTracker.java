@@ -1,10 +1,12 @@
 package eu.nordtal.s2.hungergames.game;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.db.HgMember;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
+import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 
 import net.kyori.adventure.text.Component;
 
@@ -47,16 +49,19 @@ public final class WinTracker {
     private final HungerGamesDao dao;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final HungerGamesSounds sounds;
 
     /** memberId -> alive, for the current game. Removed once dead. */
     private final java.util.Map<UUID, Instant> aliveSince = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<UUID> recentDeaths = new ConcurrentLinkedQueue<>();
     private volatile Instant lastDeathAt;
 
-    public WinTracker(final HungerGamesDao dao, final Messages messages, final PlayerLocales locales) {
+    public WinTracker(final HungerGamesDao dao, final Messages messages, final PlayerLocales locales,
+                      final HungerGamesSounds sounds) {
         this.dao = dao;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     public void reset(final List<HgMember> activeMembers) {
@@ -170,6 +175,10 @@ public final class WinTracker {
         }
         for (final Player player : world.getPlayers()) {
             player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "hg.win.same-team-final-two"));
+            // NETWORK_EVENT: it is addressed to the whole server about two other people, and it is
+            // said exactly once per game. The two it is actually about are the two least likely to
+            // be reading chat at that moment, which is the argument for a sound at all here.
+            sounds.play(player, Feedback.NETWORK_EVENT);
         }
     }
 

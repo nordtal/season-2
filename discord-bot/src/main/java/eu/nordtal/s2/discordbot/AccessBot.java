@@ -31,6 +31,7 @@ import eu.nordtal.s2.discordbot.hungergames.RegisterFlow;
 import eu.nordtal.s2.discordbot.hungergames.RegisterMessages;
 import eu.nordtal.s2.discordbot.hungergames.Teams;
 import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.network.SnapshotDirectory;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
@@ -192,6 +193,21 @@ public class AccessBot implements AutoCloseable {
                     SnapshotDirectory.using(database.dataSource()), Clock.systemUTC());
 
             schedule(accessConfig, processor, roles, status);
+
+            // The container readiness marker, and note where this line sits: after JDA is ready,
+            // after the managed messages are published and after both reconciles - so a marker on
+            // disk means this bot got all the way through its constructor. Nothing above it writes
+            // one, which is the entire rule (see Readiness).
+            //
+            // It shares the timer thread with the payment poll on purpose. That couples them: a
+            // poll wedged on bunq for longer than the staleness window turns this container red.
+            // That is the intended reading rather than a flaw - a timer thread that is stuck is a
+            // bot which has silently stopped booking payments, expiring roles and sweeping link
+            // codes, and looking healthy is exactly what it must not do then.
+            final Readiness readiness = Readiness.onDefaultPath(log::warn);
+            timers.scheduleWithFixedDelay(guarded("readiness marker", readiness::refresh),
+                    0, Readiness.BEAT.toSeconds(), TimeUnit.SECONDS);
+
             started = true;
             log.info("access-bot is up");
         } finally {
@@ -246,7 +262,12 @@ public class AccessBot implements AutoCloseable {
         };
     }
 
-    /** Stops the timers, ends the Discord session and closes the connection pool. */
+    /**
+     * Stops the timers, ends the Discord session and closes the connection pool.
+     *
+     * <p>The readiness beat is one of those timers, so this is also where the container stops being
+     * told this process is up. The marker is deliberately not deleted: going stale is the signal.</p>
+     */
     @Override
     public void close() {
         log.info("Shutting down");

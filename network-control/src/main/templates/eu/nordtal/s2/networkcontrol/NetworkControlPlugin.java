@@ -14,6 +14,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.SeasonPhase;
 import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
@@ -112,6 +113,7 @@ public final class NetworkControlPlugin {
     private AccessDirectory access;
     private PhaseListener phaseListener;
     private PlaytimeWriter playtime;
+    private com.velocitypowered.api.scheduler.ScheduledTask heartbeat;
 
     @Inject
     public NetworkControlPlugin(final ProxyServer proxy, final Logger logger,
@@ -328,6 +330,25 @@ public final class NetworkControlPlugin {
                     LaunchCountdown.render(messages, Locale.ENGLISH, phaseWatch.launch().orElse(null),
                             Clock.systemUTC().instant()));
         }
+
+        startHeartbeat();
+    }
+
+    /**
+     * The container readiness marker - see {@link Readiness}, and note where this call sits.
+     *
+     * <p>It is the last thing {@link #start} does, and {@link #failClosed} does not call it at all.
+     * That is the whole point on this service: a proxy whose configuration is broken is <em>up</em>,
+     * bound to 25565 and answering pings, while refusing every login there is. "The proxy is up and
+     * the gate is off" announced itself nowhere until this marker existed - a port check cannot see
+     * it, because the port is exactly what still works.</p>
+     */
+    private void startHeartbeat() {
+        final Readiness readiness = Readiness.onDefaultPath(logger::warn);
+        heartbeat = proxy.getScheduler().buildTask(this, readiness::refresh)
+                .delay(Duration.ZERO)
+                .repeat(Readiness.BEAT)
+                .schedule();
     }
 
     /**
@@ -358,6 +379,13 @@ public final class NetworkControlPlugin {
     }
 
     private void closeResources() {
+        // Stops the beat, so a proxy that is going down stops claiming to be up. The marker is
+        // deliberately not deleted: going stale is the signal. This runs on the fail-closed path
+        // too, where there is nothing to cancel - and nothing to claim either.
+        if (heartbeat != null) {
+            heartbeat.cancel();
+            heartbeat = null;
+        }
         if (phaseListener != null) {
             phaseListener.close();
             phaseListener = null;

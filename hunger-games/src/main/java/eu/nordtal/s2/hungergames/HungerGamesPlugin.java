@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -70,6 +71,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private WinTracker winTracker;
     private Ceremony ceremony;
     private HungerGamesManager manager;
+    private org.bukkit.scheduler.BukkitTask heartbeat;
 
     /** The one game this plugin is currently tracking, refreshed from the database at enable and after decision. */
     private volatile UUID currentGameId;
@@ -131,11 +133,34 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         registerCommands(config, world);
 
+        startHeartbeat();
+
         getLogger().info("hunger-games enabled");
+    }
+
+    /**
+     * The container readiness marker - see {@link Readiness}, and note where this call sits.
+     *
+     * <p>It is the <b>last</b> thing {@code onEnable} does, because that is the entire rule: every
+     * refusal above returns before reaching it, so a marker on disk means this plugin got all the
+     * way through. Written from Bukkit's async scheduler, which is also deliberate - a repeating
+     * async task is re-queued by the main-thread heartbeat, so a server frozen mid-tick stops
+     * beating and the container goes stale rather than staying green on an open port.</p>
+     */
+    private void startHeartbeat() {
+        final Readiness readiness = Readiness.onDefaultPath(getLogger()::warning);
+        final long ticks = Readiness.BEAT.toSeconds() * 20L;
+        heartbeat = getServer().getScheduler()
+                .runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
     }
 
     @Override
     public void onDisable() {
+        // Stops the beat, so a server that is going down stops claiming to be up. The marker is
+        // deliberately not deleted: going stale is the signal, and it costs nothing here.
+        if (heartbeat != null) {
+            heartbeat.cancel();
+        }
         if (lobby != null) {
             lobby.stop();
         }
@@ -228,9 +253,15 @@ public final class HungerGamesPlugin extends JavaPlugin {
      * start, the plugin disabled itself, Paper carried on, and the container stayed up and green
      * with no season on it.
      *
-     * <p>No check outside the JVM can tell that state from a healthy one - every jar is in the
-     * folder, so the entrypoint's guard passes, and the port is open, so the healthcheck passes.
-     * Here is the only place the difference is knowable.</p>
+     * <p>No check outside the JVM could tell that state from a healthy one when this rule was
+     * written - every jar is in the folder, so the entrypoint's guard passes, and the port was open,
+     * so the port check passed. Here is the only place the difference is knowable.</p>
+     *
+     * <p>Since 2026-09-04 the container does report it, because {@link #startHeartbeat()} is below
+     * every refusal and its marker is never written on this path. That does not soften the rule: an
+     * unhealthy container is a red square in Arcane and nothing else - Docker restarts nothing on
+     * health alone - so without the shutdown the server would still be up, still accepting players,
+     * and merely honest about it.</p>
      */
     private void severe(final String message) {
         getLogger().severe(message);

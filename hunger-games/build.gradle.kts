@@ -41,4 +41,19 @@ dependencies {
     // jdbi3-postgres `runtime` scope (verified against jcore's own POM), so this module's code has
     // to declare it too - pinned to jcore's own version via the catalog.
     implementation(libs.jdbi.postgres)
+
+    // KillCountsIntegrationTest drives HungerGamesDao#killCounts against a real PostgreSQL running
+    // the real migrations. It is the only test in this module that needs a database, and it needs
+    // one for the reason PlaytimeStoreIntegrationTest gives about its upsert: the whole of what
+    // killCounts does is SQL and JDBI column mapping, and no in-memory test can say anything about
+    // either. count(*) is bigint in PostgreSQL and the method answers Map<UUID, Integer>, which is
+    // exactly the kind of thing that compiles, passes every unit test, and throws on the busiest
+    // tick of the event.
+    testImplementation(libs.flyway.core)
+    testImplementation(libs.flyway.postgresql)
+    testImplementation(libs.testcontainers.postgresql)
+
+    // jcore puts the driver on the RUNTIME classpath only, so the test that builds a
+    // PGSimpleDataSource by hand has to ask for it by name to compile against it.
+    testImplementation(libs.postgresql.driver)
 }

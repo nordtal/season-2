@@ -3,14 +3,14 @@
         {
             "type": "space",
             "advances": {
-                "": -1,
-                "": -2,
-                "": -4,
-                "": -8,
-                "": -16,
-                "": -32,
-                "": -64,
-                "": -128
+                "\uDBBC\uDC01": -1,
+                "\uDBBC\uDC02": -2,
+                "\uDBBC\uDC04": -4,
+                "\uDBBC\uDC08": -8,
+                "\uDBBC\uDC16": -16,
+                "\uDBBC\uDC32": -32,
+                "\uDBBC\uDC64": -64,
+                "\uDBBC\uDD28": -128
             }
         },
         {
@@ -19,7 +19,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC40"
             ]
         },
         {
@@ -28,7 +28,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC41"
             ]
         },
         {
@@ -37,7 +37,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC42"
             ]
         },
         {
@@ -46,7 +46,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC43"
             ]
         },
         {
@@ -55,7 +55,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC44"
             ]
         },
         {
@@ -64,7 +64,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC45"
             ]
         },
         {
@@ -73,7 +73,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC46"
             ]
         },
         {
@@ -82,7 +82,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC47"
             ]
         },
         {
@@ -91,7 +91,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC48"
             ]
         },
         {
@@ -100,7 +100,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC49"
             ]
         },
         {
@@ -109,7 +109,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC4A"
             ]
         },
         {
@@ -118,7 +118,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC4B"
             ]
         },
         {
@@ -127,7 +127,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC4C"
             ]
         },
         {
@@ -136,7 +136,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC4D"
             ]
         },
         {
@@ -145,7 +145,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC4E"
             ]
         },
         {
@@ -154,7 +154,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC4F"
             ]
         },
         {
@@ -163,7 +163,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC50"
             ]
         },
         {
@@ -172,7 +172,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC51"
             ]
         },
         {
@@ -181,7 +181,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC52"
             ]
         },
         {
@@ -190,7 +190,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC53"
             ]
         },
         {
@@ -199,7 +199,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC54"
             ]
         },
         {
@@ -208,7 +208,7 @@
             "ascent": 8,
             "height": 9,
             "chars": [
-                ""
+                "\uDBB8\uDC55"
             ]
         }
     ]

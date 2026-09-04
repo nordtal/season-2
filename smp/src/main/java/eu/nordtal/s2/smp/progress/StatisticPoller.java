@@ -116,7 +116,7 @@ public final class StatisticPoller {
             return;
         }
         Bukkit.getScheduler().runTaskAsynchronously(plugin,
-                () -> engine.credit(discordId, objective.key(), delta));
+                () -> engine.credit(discordId, objective.key(), delta, player.getUniqueId()));
     }
 
     /**

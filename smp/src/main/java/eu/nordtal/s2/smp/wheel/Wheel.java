@@ -1,10 +1,12 @@
 package eu.nordtal.s2.smp.wheel;
 
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.db.SmpDao;
+import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.player.Identities;
 
 import net.kyori.adventure.text.Component;
@@ -41,16 +43,19 @@ public final class Wheel {
     private final Identities identities;
     private final Messages messages;
     private final PlayerLocales locales;
+    private final SmpSounds sounds;
     private final Random random = new Random();
 
     public Wheel(final Plugin plugin, final SmpDao dao, final SmpSpec config,
-                 final Identities identities, final Messages messages, final PlayerLocales locales) {
+                 final Identities identities, final Messages messages, final PlayerLocales locales,
+                 final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
         this.config = config;
         this.identities = identities;
         this.messages = messages;
         this.locales = locales;
+        this.sounds = sounds;
     }
 
     /** Spins once for a player, if they have a spin. Safe to call from the main thread. */
@@ -59,6 +64,7 @@ public final class Wheel {
         final Locale locale = locales.of(player.getUniqueId());
         if (discordId.isEmpty()) {
             player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.error.no-account-link"));
+            sounds.play(player, Feedback.REFUSED);
             return;
         }
 
@@ -74,7 +80,7 @@ public final class Wheel {
 
             if (!took) {
                 tell(player, MessageRenderer.of(messages).format(locale, "smp.wheel.none",
-                        "extras", spins.extras()));
+                        "extras", spins.extras()), Feedback.REFUSED);
                 return;
             }
             award(player, locale);
@@ -121,6 +127,7 @@ public final class Wheel {
                     .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
             player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.wheel.won",
                     "amount", prize.amount(), "item", material.name()));
+            sounds.play(player, Feedback.BIG_SUCCESS);
         });
     }
 
@@ -133,9 +140,22 @@ public final class Wheel {
 
     /** Sends one already-rendered message on the main thread, from wherever it is called. */
     private void tell(final Player player, final Component message) {
+        tell(player, message, null);
+    }
+
+    /**
+     * The same, plus a sound.
+     *
+     * <p>Both in the one hop back to the main thread: the message and its sound belong to the same
+     * moment, and scheduling them separately is how they end up a tick apart.
+     */
+    private void tell(final Player player, final Component message, final Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) {
                 player.sendMessage(message);
+                if (feedback != null) {
+                    sounds.play(player, feedback);
+                }
             }
         });
     }

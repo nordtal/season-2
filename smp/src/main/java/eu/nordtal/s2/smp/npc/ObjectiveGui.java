@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.smp.board.ProgressBar;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
+import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
@@ -14,7 +15,6 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ import java.util.Optional;
  * shown and are not, because there is nothing to click - a statistic counts itself and an
  * advancement is earned somewhere else entirely.
  */
-public final class ObjectiveGui implements InventoryHolder {
+public final class ObjectiveGui implements Surface {
 
     private static final int FIRST_SLOT = 10;
 

@@ -13,11 +13,28 @@ velocity = "4.1.1"
 # 3.0.0 replaced the JSON config loader with commented YAML (a vendored, hardened Spec) and
 # dropped jackson-databind entirely, adding gson and snakeyaml instead. Verified 2026-08-30.
 jcore = "3.0.0"
-# Our own Paper plugin, published from github.com/nordtal/papermc-display-tags via JitPack; the
-# coordinate version is the git tag. `smp` takes it compileOnly and NEVER shades it - the api module
-# is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to be
-# installed on the SMP server. Checked against the repository's own api/README.md on 2026-09-01.
-displaytags = "2.0.0"
+# Our own Paper plugin, published from github.com/nordtal/papermc-display-tags via JitPack. `smp`
+# takes it compileOnly and NEVER shades it - the api module is an interface over the running plugin,
+# so DisplayTags (and PacketEvents under it) has to be installed on the SMP server. Checked against
+# the repository's own api/README.md on 2026-09-01.
+#
+# NOT A FIXED VERSION, and that is deliberate (2026-09-04). `updater.yml` ships
+# `display-tags-release: latest`, so the jar that actually runs on the SMP is whatever the fork
+# released most recently - and a pinned compile version can only agree with that by accident. It
+# had already stopped agreeing: this line read "2.0.0" while the fork was on 2.1.1, so every method
+# added in 2.1 was invisible to this build and nothing anywhere said so.
+#
+# The trade is real and it is the smaller one. A dynamic version means a build today and a build in
+# three weeks can compile against different APIs with no commit in between, so a DisplayTags release
+# that removes something turns CI red with nothing to blame it on. Against that: this is compileOnly
+# and never shaded, so no shipped byte depends on it; the runtime version was ALREADY dynamic; and
+# a break found by a red build is a break found before a server sees it. If a release does break us,
+# pin this line to the last good version and say why - do not un-pin it silently.
+#
+# `latest.release` reads JitPack's own maven-metadata.xml, which lists only versions JitPack has
+# actually built - 1.1.5, 2.0.0 and 2.1.1 as of 2026-09-04. 2.1.0 is absent from it, which is
+# correct: that release failed twice over a lost `gradlew` executable bit and went out as 2.1.1.
+displaytags = "latest.release"
 # Chunky, the chunk pre-generator. Published by pop4959 to repo.codemc.io, NOT to Maven Central -
 # the two "chunky" artefacts on Central are unrelated projects. The version is pinned to 1.5.3
 # rather than the 1.5.4 that codemc also carries, because 1.5.3 is what Modrinth tags for `paper`

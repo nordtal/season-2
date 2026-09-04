@@ -729,18 +729,18 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 964 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 972 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-04). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
-| `smp` | 162 |
-| `common` | 250 |
+| `smp` | 163 |
+| `common` | 256 |
 | `network-control` | 189 |
 | `updater` | 136 |
 | `discord-bot` | 155 |
-| `hunger-games` | 61 |
+| `hunger-games` | 62 |
 | `limbo` | 11 |
 
 This said "537 in six modules" until 2026-09-02 and was wrong twice over: the number was stale, and
@@ -748,7 +748,7 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **250**. Eleven are `BoardFrameTest`, added 2026-09-04 with the board frame, and it
+`:common` has **256**. Eleven are `BoardFrameTest`, added 2026-09-04 with the board frame, and it
 is the one test in this repository that runs the client's own layout: it reads `board.json`, derives
 every code point's advance the way the client does - a space provider's number, or a bitmap's
 rightmost non-transparent column plus the two pixels Minecraft adds - and then *walks* the composed
@@ -765,6 +765,20 @@ non-chest inventory" from the day the style sheet was written, and no such test 
 asserts that, and that every inventory title goes through `MenuTitle` - with a named allowlist of
 the four menus still waiting for their panel, so the remaining work is in the build instead of in
 a document.
+
+Six more came with the chat format on 2026-09-04. Three are `MessageRendererTest`'s, for the
+overload that substitutes a **component** rather than text: vanilla's death message and an
+advancement's title are `TranslatableComponent`s, so every reader's own client renders them in that
+reader's language, and a trip through `String` would settle the language on the server, once, for
+everybody. They arrive as `<_name>` MiniMessage tags, and the underscore is not decoration - it is
+what lets `MessageBundlesTest` tell a slot from a style tag and hold both languages to the same set
+of them, in `smp` and in `hunger-games`. **An unresolved slot renders as nothing at all, in
+silence**, which is a worse failure than a printed `{name}` and is why it is checked. The other
+three are `WorldEffectVocabularyTest`, which makes the same rule about particles that
+`SoundVocabularyTest` makes about sound - and, like it, was written while the answer was still one
+file and four call sites. One of its three counts rather than greps: every place in the effect
+adapter that spawns a firework has to stamp it in the same method, because an unstamped rocket is
+one the damage handler will not recognise.
 
 Twenty-two more are the sound vocabulary added on 2026-09-04 -
 `SoundVocabularyTest` (3) and `FeedbackSoundsTest` (8), plus the readiness pair. The first of those
@@ -852,7 +866,9 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **162**. Eight are `WheelStripTest`, new 2026-09-04 with the animation: over every pool
+`smp` has **163**. The newest is one case in `MessageBundlesTest` holding the two languages to
+the same `<_component>` slots, added with the chat format - see `:common` above for what a slot is
+and why an unresolved one is silent. Eight are `WheelStripTest`, new 2026-09-04 with the animation: over every pool
 size and every winner, the last frame has to centre the prize the database already gave away. That is
 the property the wheel rests on - the spin is spent in SQL before a frame is drawn, so an animation
 that could stop anywhere else would be a second, disagreeing answer about one spin. `SoundDefaultsTest` (6) is the newest and the only one that can say anything
@@ -877,7 +893,9 @@ definition, and `MessageBundlesTest` (4) keeps the two language files symmetrica
 placeholders. What no test here covers is the world itself; that is what the drills and the
 rehearsals are for.
 
-`hunger-games` has **61**. Fourteen are new on 2026-09-04: `SoundDefaultsTest` (6) and
+`hunger-games` has **62**. One is the `<_component>` slot check its `MessageBundlesTest` gained
+with `smp`'s on 2026-09-04: this module has no component slot yet, and the check is here so that the
+first one is not the one that discovers the rule is missing. Fourteen more are new the same day: `SoundDefaultsTest` (6) and
 `ConfigsTest` (4) - this was **the last module with configs and no `ConfigsTest`**, the exact gap
 that once cost `smp` its whole plugin - plus `KillCountsIntegrationTest` (4), the only test in this
 module that needs a container and the one that made the ceremony's main-thread query loop safe to

@@ -203,8 +203,14 @@ public final class SmpPlugin extends JavaPlugin {
 
         final FarmWorldSwap swap = new FarmWorldSwap(this, config.worldFarm(),
                 config.farmWorldStagingSuffix(), config.farmWorldRetiredSuffix());
+        // The HUD is built before the reset and not after it: the four reset warnings take the
+        // status bar over for eight seconds each, which is the half of "chat + HUD" that reaches
+        // somebody mining with chat closed. Nothing else in this method depends on the order.
+        hud = new SmpHud(this, worlds, season, navigation, messages, locales);
+        hud.start();
+
         farmReset = new FarmWorldReset(this, config, worlds, swap, pregen, messages, locales,
-                dao, navigation, sounds);
+                dao, navigation, sounds, hud);
         farmReset.start();
 
         // One instance, registered as a listener and handed to everything that has a moment: it
@@ -218,8 +224,6 @@ public final class SmpPlugin extends JavaPlugin {
         final PlayerSurfaces surfaces =
                 new PlayerSurfaces(this, identities, composition, new MessageRenderer(messages));
 
-        hud = new SmpHud(this, worlds, season, navigation, messages, locales);
-        hud.start();
         boards = new Boards(this, config, season, messages, locales);
         boards.start();
 

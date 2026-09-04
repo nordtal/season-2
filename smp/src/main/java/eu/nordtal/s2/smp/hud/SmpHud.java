@@ -20,6 +20,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -57,6 +58,18 @@ public final class SmpHud {
     /** Four times a second: fast enough that the navigation arrow tracks a turning player. */
     private static final long REFRESH_TICKS = 5L;
 
+    /**
+     * How long a status-bar announcement stays up before the ordinary line comes back.
+     *
+     * <p>Eight seconds is the answer to the shape of the mistake this could be. The farm reset warns
+     * at 30, 10, 5 and 1 minutes, and a warning that occupied the bar between the first two would
+     * hold a player's dimension and milestone hostage for twenty minutes to say something that has
+     * not changed. What is wanted is a glance, four times - so the line takes the bar, is read, and
+     * gives it back. (docs/smp.md's reset sequence says "chat + HUD"; the HUD half is the one that
+     * reaches somebody who is not reading chat while mining, which is everybody in a farm world.)
+     */
+    private static final Duration ANNOUNCEMENT = Duration.ofSeconds(8);
+
     private final Plugin plugin;
     private final Worlds worlds;
     private final SeasonState season;
@@ -66,7 +79,22 @@ public final class SmpHud {
 
     private final Map<UUID, BossBar> statusBars = new HashMap<>();
     private final Map<UUID, BossBar> navigateBars = new HashMap<>();
+
+    /**
+     * Who is currently being told something, and until when.
+     *
+     * <p>Main thread only - written by {@link #announce} and read by the render tick, both of which
+     * are Bukkit calls, so a plain {@link HashMap} is the honest type. A stale entry is dropped by
+     * the tick that reads it rather than by a sweep: there is one entry per player at most, and the
+     * quit path already clears the bars.
+     */
+    private final Map<UUID, Announcement> announcements = new HashMap<>();
+
     private BukkitTask task;
+
+    /** One line, and the nanoTime it stops being shown. */
+    private record Announcement(String line, long until) {
+    }
 
     public SmpHud(final Plugin plugin, final Worlds worlds, final SeasonState season,
                   final Navigation navigation, final Messages messages, final PlayerLocales locales) {
@@ -91,9 +119,26 @@ public final class SmpHud {
         Bukkit.getOnlinePlayers().forEach(this::hide);
         statusBars.clear();
         navigateBars.clear();
+        announcements.clear();
+    }
+
+    /**
+     * Takes the status line over for {@link #ANNOUNCEMENT}, keeping the dimension icon. Main thread.
+     *
+     * <p>The icon stays because the line is about the world the player is standing in and the icon
+     * is what says which one that is - and because a bar that changes shape as well as text reads as
+     * a glitch rather than as a message.
+     *
+     * @param line already rendered, in the player's own language, and short enough for the bar - it
+     *             is composed rather than parsed, like every other boss bar line
+     */
+    public void announce(final Player player, final String line) {
+        announcements.put(player.getUniqueId(),
+                new Announcement(line, System.nanoTime() + ANNOUNCEMENT.toNanos()));
     }
 
     public void hide(final Player player) {
+        announcements.remove(player.getUniqueId());
         final BossBar status = statusBars.remove(player.getUniqueId());
         if (status != null) {
             player.hideBossBar(status);
@@ -155,6 +200,11 @@ public final class SmpHud {
                 .map(WorldRole::glyph)
                 .orElse(Glyphs.BOSSBAR_ICON_DIM_OVERWORLD);
 
+        final String announcement = announcementFor(player.getUniqueId());
+        if (announcement != null) {
+            return dimension + " " + announcement;
+        }
+
         final Optional<String> active = season.activeKey();
         if (active.isEmpty()) {
             return dimension + " " + worldName(player, locale);
@@ -184,6 +234,19 @@ public final class SmpHud {
 
         return Glyphs.BOSSBAR_ARROWS[arrow] + " " + label + "   "
                 + messages.format(locale, "smp.hud.distance", "blocks", distance);
+    }
+
+    /** The live announcement for a player, or null - dropping it here rather than on a timer. */
+    private String announcementFor(final UUID player) {
+        final Announcement announcement = announcements.get(player);
+        if (announcement == null) {
+            return null;
+        }
+        if (System.nanoTime() - announcement.until() >= 0) {
+            announcements.remove(player);
+            return null;
+        }
+        return announcement.line();
     }
 
     private String worldName(final Player player, final Locale locale) {

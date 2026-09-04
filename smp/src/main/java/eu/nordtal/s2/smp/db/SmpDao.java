@@ -423,6 +423,44 @@ public interface SmpDao {
             """)
     Optional<String> takeEarnedSpin(@Bind("discordId") String discordId);
 
+    /**
+     * Puts back a free spin that was taken and paid out nothing.
+     *
+     * <p>The spin is spent before the prize is drawn, on purpose - the animation shows a prize the
+     * database has already given away rather than choosing one itself. The cost of that ordering is
+     * that two paths end with a spent row and an empty hand: a player who disconnects between the
+     * commit and the next tick, and a {@code wheel-prizes} entry naming an item this server does not
+     * know. Both used to log a warning and leave the player one spin poorer for nothing.
+     *
+     * <p>{@code last_free = :today} is the same guard {@link #takeFreeSpin} uses in the other
+     * direction, and it makes this idempotent: a second call finds the row already restored and
+     * changes nothing. {@code previous} is the value the row held a millisecond earlier, and it is
+     * <b>null for a player's first ever free spin</b> - which is the case
+     * {@code SpinRefundIntegrationTest} exists for. The {@code CAST} is belt and braces, not the
+     * thing that makes it work: JDBI binds a typed null here and the statement was measured to pass
+     * without it (2026-09-04). It stays because a null date reaching PostgreSQL untyped is a
+     * "could not determine data type of parameter" away, and the cast costs nothing.
+     */
+    @SqlUpdate("""
+            UPDATE smp_spin
+            SET last_free = CAST(:previous AS date)
+            WHERE discord_id = :discordId AND last_free = :today
+            """)
+    void restoreFreeSpin(@Bind("discordId") String discordId,
+                         @Bind("previous") java.time.LocalDate previous,
+                         @Bind("today") java.time.LocalDate today);
+
+    /**
+     * Puts back an earned spin that paid out nothing. See {@link #restoreFreeSpin}.
+     *
+     * <p>{@code used > 0} keeps {@code smp_spin_used_not_negative} satisfied, but unlike the free
+     * one this is <b>not</b> idempotent - a second call for the same spin would hand back a second
+     * spin. It is safe because the two call sites are mutually exclusive and each runs at most once
+     * per spin; a third call site is a change that has to argue with this sentence first.
+     */
+    @SqlUpdate("UPDATE smp_spin SET used = used - 1 WHERE discord_id = :discordId AND used > 0")
+    void restoreEarnedSpin(@Bind("discordId") String discordId);
+
     @SqlUpdate("""
             INSERT INTO smp_spin (discord_id, granted)
             VALUES (:discordId, :count)

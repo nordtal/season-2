@@ -188,16 +188,17 @@ public final class Boards {
                 .get(locale, BoardKind.OBJECTIVE.messageKey()).color(NamedTextColor.GOLD);
         final List<Component> lines = new ArrayList<>();
 
-        final Optional<String> active = season.activeKey();
-        if (active.isEmpty()) {
+        // One read: the name and the rows under it have to be the same milestone's.
+        final SeasonState.Active active = season.active();
+        if (active.key() == null) {
             lines.add(MessageRenderer.of(messages).get(locale, "smp.board.objective.finished")
                     .color(NamedTextColor.GRAY));
             return BoardFrame.render(width, title, lines);
         }
 
-        lines.add(Component.text(milestoneName(active.get(), locale)).color(NamedTextColor.WHITE));
-        for (final ObjectiveRow objective : season.activeObjectives()) {
-            final String name = objectiveName(active.get(), objective.key(), locale);
+        lines.add(Component.text(milestoneName(active.key(), locale)).color(NamedTextColor.WHITE));
+        for (final ObjectiveRow objective : active.objectives()) {
+            final String name = objectiveName(active.key(), objective.key(), locale);
             lines.add(Component.text(name + "  " + ProgressBar.of(objective.ratio(), BAR_WIDTH)
                             + "  " + objective.amount() + "/" + objective.target())
                     .color(objective.completed() ? NamedTextColor.GREEN : NamedTextColor.GRAY));

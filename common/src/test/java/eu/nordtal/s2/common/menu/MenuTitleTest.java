@@ -6,6 +6,7 @@ import com.google.gson.JsonParser;
 
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.RepositoryRoot;
+import eu.nordtal.s2.common.pack.FontFile;
 
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
@@ -206,15 +207,15 @@ class MenuTitleTest {
     }
 
     private static BufferedImage read(final String textureId) {
-        final String relative = ASSETS + "/" + textureId.replace("nordtal:", "nordtal/textures/");
+        final java.nio.file.Path file = FontFile.texturePath(textureId);
         try {
-            final BufferedImage image = ImageIO.read(RepositoryRoot.resolve(relative).toFile());
+            final BufferedImage image = ImageIO.read(file.toFile());
             if (image == null) {
-                throw new IllegalStateException(relative + " is not an image ImageIO can read");
+                throw new IllegalStateException(file + " is not an image ImageIO can read");
             }
             return image;
         } catch (final IOException e) {
-            throw new UncheckedIOException("cannot read " + relative, e);
+            throw new UncheckedIOException("cannot read " + file, e);
         }
     }
 }

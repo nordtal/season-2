@@ -26,11 +26,38 @@ import java.util.Set;
  *
  * <p>{@code U+0000} in a {@code chars} row means "no character here" and is skipped, which is how
  * a sheet drawn for a subset of its grid is expressed.</p>
+ *
+ * <p>Public rather than package-private since 2026-09-04, for {@link #texturePath(String)} alone:
+ * {@code BoardFrameTest} and {@code MenuTitleTest} live in other packages and each had written that
+ * one line for themselves.</p>
  */
-final class FontFile {
+public final class FontFile {
 
     /** Where a texture id such as {@code nordtal:font/ascii.png} resolves against. */
     private static final String ASSETS = "resource-pack/src/assets";
+
+    /**
+     * {@code namespace:path/to.png} to {@code <assets>/namespace/textures/path/to.png}, the way the
+     * client reads it - <b>including the default namespace</b>. Minecraft resolves an id with no
+     * colon against {@code minecraft}; this used to call {@code substring(0, -1)} on one and throw
+     * a {@code StringIndexOutOfBoundsException} naming nothing, out of a static initialiser, so the
+     * whole test class died rather than the one font file. Found by review, 2026-09-04.
+     *
+     * <p>Public and on the outer class because it was written three times: here,
+     * {@code BoardFrameTest} and {@code MenuTitleTest} each had their own transliteration, and the
+     * third one did not even use a colon - it string-replaced {@code "nordtal:"} and silently
+     * produced a nonsense path for anything else. Three copies of one fact is how one of them comes
+     * to be wrong without the other two noticing.</p>
+     *
+     * @param textureId e.g. {@code nordtal:system/join.png}, or {@code font/ascii.png} for vanilla
+     * @return the file in this repository's unpacked pack
+     */
+    public static Path texturePath(final String textureId) {
+        final int colon = textureId.indexOf(':');
+        final String namespace = colon < 0 ? "minecraft" : textureId.substring(0, colon);
+        final String path = textureId.substring(colon + 1);
+        return RepositoryRoot.resolve(ASSETS).resolve(namespace).resolve("textures").resolve(path);
+    }
 
     private final String id;
     private final Path source;
@@ -113,17 +140,8 @@ final class FontFile {
                             + row.length + "); the client would place every glyph after it wrong");
                 }
             }
-            return new Bitmap(textureId, resolve(textureId), List.copyOf(grid),
+            return new Bitmap(textureId, texturePath(textureId), List.copyOf(grid),
                     grid.size(), columns);
-        }
-
-        /** {@code namespace:path/to.png} to {@code <assets>/namespace/textures/path/to.png}. */
-        private static Path resolve(final String textureId) {
-            final int colon = textureId.indexOf(':');
-            final String namespace = textureId.substring(0, colon);
-            final String path = textureId.substring(colon + 1);
-            return RepositoryRoot.resolve(ASSETS).resolve(namespace).resolve("textures")
-                    .resolve(path);
         }
 
         /** @return {@code {row, column}} of {@code codePoint} in this provider's grid */

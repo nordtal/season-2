@@ -122,8 +122,37 @@ public final class SmpPlugin extends JavaPlugin {
     private SpawnNpc npc;
     private org.bukkit.scheduler.BukkitTask heartbeat;
 
+    /**
+     * <b>One try around the whole start, and that is the point of it.</b>
+     *
+     * <p>The configuration read used to be the only guarded step, so anything that threw after it -
+     * {@code Messages.load} on an unwritable data folder, a milestone file that parses and then
+     * fails validation, a listener whose constructor disagrees with the world - escaped
+     * {@code onEnable}, Paper disabled this plugin, and <b>the server carried on running without
+     * it</b>. That is the exact state {@code severe} exists to prevent, and it was reachable by
+     * every step but the first. Found by review, 2026-09-04, in {@code network-control} first,
+     * where the same shape left the proxy accepting logins un-gated.</p>
+     *
+     * <p>The readiness marker makes that state visible - it is written as the last line of a start
+     * that finished, so a start that did not go red within thirty seconds. Visible is not the same
+     * as safe: nothing outside this JVM can act on it, Docker restarts nothing on health alone, and
+     * a backend that is up and empty is a season nobody can play. Stopping is still ours to do.</p>
+     *
+     * <p>{@code RuntimeException} only, because {@code ConfigException} is checked and
+     * {@code start()} already answers it where it is thrown - the one step that was guarded before
+     * is the one step that keeps its own guard.</p>
+     */
     @Override
     public void onEnable() {
+        try {
+            start();
+        } catch (final RuntimeException failure) {
+            severe("smp is not starting: " + failure.getMessage());
+        }
+    }
+
+    /** Everything a start consists of. Throws rather than half-starting; see {@link #onEnable()}. */
+    private void start() {
         try {
             configHandle = Configs.load(getDataFolder().toPath(), logger());
             databaseHandle = Configs.database(getDataFolder().toPath(), logger());
@@ -313,7 +342,8 @@ public final class SmpPlugin extends JavaPlugin {
     /**
      * The container readiness marker - see {@link Readiness}, and note where this call sits.
      *
-     * <p>It is the <b>last</b> thing {@code onEnable} does, because that is the entire rule: all
+     * <p>It is the <b>last</b> thing {@code start()} does, and so the last thing a successful
+     * {@code onEnable} reaches, because that is the entire rule: all
      * four refusals above return before reaching it, so a marker on disk means this plugin got all
      * the way through - which is precisely the state the first deployment could not tell apart from
      * a Paper server with no season on it. Written from Bukkit's async scheduler, which is also

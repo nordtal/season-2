@@ -80,7 +80,9 @@ public final class Wheel {
 
             // Free first: an earned spin kept is still an earned spin, but a free one not taken
             // today is gone at midnight.
-            final boolean took = spins.hasFree(today)
+            final boolean free = spins.hasFree(today);
+            final LocalDate previousFree = spins.lastFree();
+            final boolean took = free
                     ? dao.takeFreeSpin(discordId.get(), today).isPresent()
                     : dao.takeEarnedSpin(discordId.get()).isPresent();
 
@@ -89,7 +91,13 @@ public final class Wheel {
                         "extras", spins.extras()), Feedback.REFUSED);
                 return;
             }
-            award(player, locale);
+            // How to undo exactly the row this spin changed, in case nothing can be handed over.
+            // Built here because this is the only place that knows which of the two it was.
+            final String id = discordId.get();
+            final Runnable refund = free
+                    ? () -> offThread(() -> dao.restoreFreeSpin(id, previousFree, today))
+                    : () -> offThread(() -> dao.restoreEarnedSpin(id));
+            award(player, locale, refund);
         });
     }
 
@@ -107,7 +115,7 @@ public final class Wheel {
         });
     }
 
-    private void award(final Player player, final Locale locale) {
+    private void award(final Player player, final Locale locale, final Runnable refund) {
         final List<SmpSpec.WheelPrizeSpec> pool = config.wheelPrizes();
         final List<Integer> weights = new ArrayList<>(pool.size());
         pool.forEach(prize -> weights.add(prize.weight()));
@@ -117,10 +125,12 @@ public final class Wheel {
         final Material material = materialOf(prize.item());
         if (material == null) {
             plugin.getLogger().warning("wheel-prizes names '" + prize.item()
-                    + "', which is not a material - the spin was spent and nothing was given");
-            // LOSS rather than REFUSED: nothing said no to them. The spin was spent, the prize
-            // was misconfigured, and what they are actually out is the spin - which is exactly what
-            // "something was taken" is for.
+                    + "', which is not a material - the spin is being put back and nothing was given");
+            // The spin goes back. This one is an operator's typo, not bad luck: one wrong item name
+            // in config.yml costs a spin to every player whose draw lands on that weight, and they
+            // would each see a message telling them so. LOSS rather than REFUSED because nothing
+            // said no to them - what happened is that the wheel broke, and they get another go.
+            refund.run();
             tell(player, MessageRenderer.of(messages).get(locale, "smp.wheel.broken-prize"),
                     Feedback.LOSS);
             return;
@@ -134,13 +144,12 @@ public final class Wheel {
 
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!player.isOnline()) {
-                // Nobody to show it to and nobody to give it to. The spin is spent; say so where an
-                // admin will see it, because the alternative is a silently swallowed prize.
-                give(player, material, prize.amount(), locale);
+                // Nobody to show it to and nobody to give it to. give() puts the spin back.
+                give(player, material, prize.amount(), locale, refund);
                 return;
             }
             new WheelGui(messages, locale, strip, icons, sounds,
-                    winner -> give(winner, material, prize.amount(), locale))
+                    winner -> give(winner, material, prize.amount(), locale, refund))
                     .start(plugin, player);
         });
     }
@@ -151,15 +160,20 @@ public final class Wheel {
      * <p>Called from exactly one place - {@code WheelGui#finish}, which is a one-shot latch - so a
      * spin pays once however it ended: the wheel running down, the window closed early, or the
      * player logging off mid-spin. That last one is the window the animation introduced and the
-     * instant payout did not have, which is why it is logged rather than dropped: the row is spent
-     * in the database and nothing else will ever notice.
+     * instant payout did not have, and <b>it puts the spin back</b> rather than logging that it is
+     * gone: the row is spent in the database, the item was never handed over, and a warning in a
+     * console is not something a player can spend. The refund is the exact inverse of the statement
+     * this spin ran, and it is idempotent on the free path.
+     *
+     * @param refund undoes the row this spin spent; run only when nothing was handed over
      */
     private void give(final Player player, final Material material, final int amount,
-                      final Locale locale) {
+                      final Locale locale, final Runnable refund) {
         final int count = Math.max(1, amount);
         if (!player.isOnline()) {
-            plugin.getLogger().warning(player.getName() + " left mid-spin; the spin is spent and "
-                    + count + "x " + material.name() + " was not handed over");
+            plugin.getLogger().warning(player.getName() + " left mid-spin; " + count + "x "
+                    + material.name() + " could not be handed over, so the spin goes back");
+            refund.run();
             return;
         }
         final ItemStack stack = new ItemStack(material, count);
@@ -195,6 +209,29 @@ public final class Wheel {
             return null;
         }
         return Material.matchMaterial(name.trim().toUpperCase(Locale.ROOT));
+    }
+
+    /**
+     * Runs one piece of database work off the main thread, from wherever it is called.
+     *
+     * <p>A refund is asked for from both sides of the tick boundary - {@code award}'s broken-prize
+     * branch is already async, {@code give}'s offline branch is on the main thread - and this
+     * repository's hard rule is that a Paper plugin never queries the database from the main
+     * thread. Scheduling unconditionally is what makes the caller not have to know where it is.</p>
+     *
+     * <p>A shutdown in the same tick loses the refund: Bukkit refuses to schedule for a plugin that
+     * is being disabled, and it throws rather than returning. Caught and logged, because the
+     * alternative is an exception out of {@code InventoryCloseEvent} during a stop - and a spin lost
+     * to a server restart is the same size of problem as the one this whole method exists to fix,
+     * with none of the same reachability.</p>
+     */
+    private void offThread(final Runnable work) {
+        try {
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, work);
+        } catch (final IllegalStateException | IllegalArgumentException refused) {
+            plugin.getLogger().warning("could not put a wheel spin back - the server is shutting"
+                    + " down: " + refused.getMessage());
+        }
     }
 
     /** Sends one already-rendered message on the main thread, from wherever it is called. */

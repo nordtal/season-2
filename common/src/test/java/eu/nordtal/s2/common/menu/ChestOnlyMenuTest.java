@@ -132,7 +132,7 @@ class ChestOnlyMenuTest {
             final Path root = RepositoryRoot.resolve(module + "/src/main");
             try (Stream<Path> walk = Files.walk(root)) {
                 walk.filter(path -> path.toString().endsWith(".java")).forEach(path ->
-                        consumer.accept(RepositoryRoot.resolve("").relativize(path).toString(),
+                        consumer.accept(RepositoryRoot.relative(path),
                                 read(path)));
             } catch (final IOException e) {
                 throw new UncheckedIOException("cannot walk " + root, e);

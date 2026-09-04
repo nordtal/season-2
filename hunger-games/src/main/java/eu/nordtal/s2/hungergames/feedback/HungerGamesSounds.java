@@ -120,7 +120,15 @@ public final class HungerGamesSounds {
      * anything. Making every call site check would be fifteen null checks for one rule.
      */
     public void play(final Player player, final Feedback category) {
-        final FeedbackSound sound = sounds.sound(category);
+        // One read of the volatile field, used for both the lookup and the failure. A reload
+        // replaces the whole registry, and hunger-games reloads it off the main thread, so two reads
+        // could take the sound from the old configuration and stamp the failure on the new one -
+        // silencing a category in a file that never produced the bad key. Found by review,
+        // 2026-09-04; smp's copy is written the same way, where the reload happens to be on the
+        // main thread, because "correct only because of where the caller runs" is not a property
+        // worth relying on twice.
+        final FeedbackSounds current = sounds;
+        final FeedbackSound sound = current.sound(category);
         if (sound == null || player == null || !player.isOnline()) {
             return;
         }
@@ -133,7 +141,7 @@ public final class HungerGamesSounds {
             // A malformed key is refused at load, so reaching here means the platform disagreed with
             // us about something. Silence the category and say so once - a stack trace per death is
             // the only outcome worse than a missing chime.
-            sounds.failed(category, exception, problems);
+            current.failed(category, exception, problems);
         }
     }
 

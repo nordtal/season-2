@@ -168,9 +168,27 @@ public final class Messages {
         final Map<String, Map<String, String>> loaded = new LinkedHashMap<>();
         final Set<String> unknown = new java.util.TreeSet<>();
 
+        // Every packaged key of every language, read before any override is judged. An override is
+        // "unknown" when NO packaged bundle declares the key - not when the bundle of its own
+        // language does not. German is allowed to override a key English declares and German
+        // inherits: the merge below stores it, get(GERMAN, key) returns the operator's text, and it
+        // works. Seeding the question from one language reported exactly that working override as a
+        // typo, which is worse than saying nothing - the operator is told to check the spelling of
+        // a line they can see taking effect. Found by review, 2026-09-04.
+        final Set<String> declaredAnywhere = new java.util.HashSet<>();
+        final Map<String, Map<String, String>> packagedByLanguage = new LinkedHashMap<>();
         for (final Locale locale : locales) {
             final String language = Locales.tag(locale);
             final Map<String, String> packaged = read(classLoader, root, language);
+            if (packaged != null) {
+                packagedByLanguage.put(language, packaged);
+                declaredAnywhere.addAll(packaged.keySet());
+            }
+        }
+
+        for (final Locale locale : locales) {
+            final String language = Locales.tag(locale);
+            final Map<String, String> packaged = packagedByLanguage.get(language);
             final Map<String, String> operator = readOverride(overrides, language);
 
             if (packaged == null && operator == null) {
@@ -188,9 +206,10 @@ public final class Messages {
                     new HashMap<>(packaged == null ? Map.of() : packaged);
             if (operator != null) {
                 operator.forEach((key, value) -> {
-                    // An override for a key nothing declares is a typo, and a silent one: the entry
-                    // is stored and never looked up. Collected here so the module can log it.
-                    if (merged.put(key, value) == null) {
+                    merged.put(key, value);
+                    // An override for a key NO bundle declares is a typo, and a silent one: the
+                    // entry is stored and never looked up. Collected here so the module can log it.
+                    if (!declaredAnywhere.contains(key)) {
                         unknown.add(language + "/" + key);
                     }
                 });
@@ -205,8 +224,10 @@ public final class Messages {
     }
 
     /**
-     * @return {@code <language>/<key>} for every override entry that overrode nothing - a typo, an
-     *         obsolete key, or a language file for a key only another language has
+     * @return {@code <language>/<key>} for every override entry that overrode nothing - a typo or a
+     *         key that has since been retired. <b>Not</b> an override of a key only another
+     *         language's packaged bundle declares: that one works, so reporting it would send the
+     *         operator hunting for a spelling mistake in a line they can watch taking effect
      */
     public Set<String> unknownOverrideKeys() {
         return unknownOverrideKeys;

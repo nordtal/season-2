@@ -6,6 +6,7 @@ import com.google.gson.JsonParser;
 
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.RepositoryRoot;
+import eu.nordtal.s2.common.pack.FontFile;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -313,9 +314,7 @@ class BoardFrameTest {
     }
 
     private static Path texture(final String textureId) {
-        final int colon = textureId.indexOf(':');
-        return RepositoryRoot.resolve(ASSETS).resolve(textureId.substring(0, colon))
-                .resolve("textures").resolve(textureId.substring(colon + 1));
+        return FontFile.texturePath(textureId);
     }
 
     private static BufferedImage read(final Path path) {

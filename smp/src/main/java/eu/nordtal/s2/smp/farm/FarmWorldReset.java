@@ -192,7 +192,18 @@ public final class FarmWorldReset {
 
             final Location spawn = nordtal.getSpawnLocation();
             forEachInFarmWorld(player -> {
-                player.teleport(spawn);
+                // teleport() answers false for a player who is dead, asleep, mid-disconnect or
+                // carrying a passenger across worlds - and the farm world is exactly where people
+                // mine and die. One such player used to be told they had been moved, stay where
+                // they were, and then silently block the unload for everybody, with a console line
+                // pointing at the wrong cause. The swap below refuses safely either way; what this
+                // buys is a log line naming who. Found by review, 2026-09-04.
+                if (!player.teleport(spawn)) {
+                    plugin.getLogger().warning(player.getName() + " could not be moved out of the "
+                            + "farm world - dead, asleep or carrying a passenger. The reset will be "
+                            + "refused while they are still in it.");
+                    return;
+                }
                 player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.farm.moved"));
                 sounds.play(player, Feedback.TRAVEL);
             });

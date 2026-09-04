@@ -40,25 +40,36 @@ DEFAULT_OUT = os.path.join(REPO_ROOT, "resource-pack", "src", "assets",
 
 # --- The measurements. Every one of these is vanilla and none of them is ours. ------
 #
-# Measured against the extracted 26.2 assets on 2026-09-04, not taken from a tutorial.
-# RE-MEASURE AT EVERY VERSION BUMP: 1.21.9 moved the villager trading result slot by one
-# pixel, so this is not a theoretical risk.
+# READ OFF THE PIXELS of the extracted 26.2 gui/container/generic_54.png on 2026-09-04,
+# not taken from a tutorial and not from memory. What was actually done: decode the PNG,
+# find the bounding box of everything that is not the transparent palette index (176 x
+# 222), then find every row carrying the slots' dark shadow line. Those rows came back as
+# 17, 35, 53, 71, 89, 107 for the container's six rows and 139, 157, 175, 197 for the
+# player's three plus the hotbar - which is where the two FROM_BOTTOM numbers below come
+# from, at the 6-row height of 222.
+#
+# The copy that was measured lived in a scratchpad and is not kept, so this comment is the
+# record. RE-MEASURE AT EVERY VERSION BUMP: 1.21.9 moved the villager trading result slot
+# by one pixel, so this is not a theoretical risk.
 
 WIDTH = 176                  # the drawn width of every chest window
 HEIGHT_BASE = 114            # imageHeight = HEIGHT_BASE + 18 * rows
 ROW_PITCH = 18               # one slot row, and one slot's outer size
 
-SLOT_ORIGIN_X = 8            # the container grid's top-left, relative to the window
-SLOT_ORIGIN_Y = 18
+# The slot CELL's top-left - the dark shadow pixel, not the 16 x 16 the item sits in. That
+# distinction is the whole reason this was measured rather than remembered: the item area
+# is at (8, 18) and every tutorial quotes that, but the cell that has to be drawn starts
+# one pixel up and to the left.
+SLOT_ORIGIN_X = 7
+SLOT_ORIGIN_Y = 17
 SLOT_COLUMNS = 9
 
-TITLE_BAR_HEIGHT = 18        # the strip above the first slot row, where the title sits
+TITLE_BAR_HEIGHT = 17        # the strip above the first slot cell, where the title sits
 
-# The player's own inventory, which every chest screen also draws:
-#   main grid  y = imageHeight - 82, three rows
-#   hotbar     y = imageHeight - 24, one row
-PLAYER_MAIN_FROM_BOTTOM = 82
-PLAYER_HOTBAR_FROM_BOTTOM = 24
+# The player's own inventory, which every chest screen also draws, as an offset from the
+# bottom edge of the window: 222 - 139 and 222 - 197.
+PLAYER_MAIN_FROM_BOTTOM = 83
+PLAYER_HOTBAR_FROM_BOTTOM = 25
 
 # --- The palette. This is the design surface; everything else is arithmetic. --------
 #
@@ -104,7 +115,14 @@ def outline(buf, width, x0, y0, x1, y1, colour):
 
 
 def slot_recess(buf, width, x, y):
-    """One 18x18 slot, drawn as a recess: dark field, lit bottom and right."""
+    """One 18 x 18 slot cell at its shadow corner, drawn the way vanilla draws one.
+
+    Vanilla's cell is a 1 px dark shadow along the top and left, a 16 x 16 field, and a
+    1 px light edge along the bottom and right - so the lit pixels sit at x+17 and y+17,
+    outside the field the item is drawn in. Copying that geometry is what makes our panel
+    line up with the items and the hover highlight, both of which the client places from
+    its own arithmetic and not from our texture.
+    """
     rect(buf, width, x, y, x + 17, y + 17, PALETTE["slot"])
     for i in range(18):
         px(buf, width, x + 17, y + i, PALETTE["slot_edge"])

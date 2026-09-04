@@ -5,7 +5,6 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.db.HgMember;
-import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import eu.nordtal.s2.hungergames.feedback.HungerGamesSounds;
 
 import net.kyori.adventure.text.Component;
@@ -18,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -29,37 +29,54 @@ public final class Ceremony {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Ceremony.class);
 
-    private final HungerGamesDao dao;
     private final Messages messages;
     private final PlayerLocales locales;
     private final HungerGamesSounds sounds;
 
-    public Ceremony(final HungerGamesDao dao, final Messages messages, final PlayerLocales locales,
+    public Ceremony(final Messages messages, final PlayerLocales locales,
                     final HungerGamesSounds sounds) {
-        this.dao = dao;
         this.messages = messages;
         this.locales = locales;
         this.sounds = sounds;
     }
 
     /**
-     * Teleports everyone in the world back to the lobby, writes the game as decided, and prints the
-     * evaluation to every player in their own language.
+     * Everything the ceremony needs, all of it read <b>off the main thread</b> before it starts.
      *
-     * @param world        the event world everyone is currently standing in
-     * @param lobby        the lobby teleport point
-     * @param gameId       the game that just ended
-     * @param outcome      the result from {@link WinTracker}
-     * @param allMembers   every active membership of the game, for the kill tally
-     * @param winnerMcUuid the winner's Minecraft account, resolved off the main thread by
-     *                     {@code CombatListener} - {@code null} when nobody won, or when the winner
-     *                     has no linked account. It is the only thing here that can tell the one
-     *                     player who won from the ones who are being told about it
+     * <p>This record exists to make that guarantee structural rather than remembered. Until
+     * 2026-09-04 the ceremony held the DAO and used it three ways on the server thread: one write to
+     * decide the game, one read of the roster, and - the expensive one - a kill count per member
+     * <em>inside a loop over every player</em>. The tally does not depend on who is being told, so
+     * forty participants in front of forty players meant 1 600 identical blocking queries at the one
+     * moment of the event when everybody is watching. `Ceremony` now has no DAO at all, which is the
+     * only version of this rule that cannot quietly come undone.
+     *
+     * @param outcome      what {@code WinTracker} decided
+     * @param winnerMcUuid the winner's Minecraft account, or {@code null} when nobody won or the
+     *                     winner never linked one. The only thing that tells the one player who won
+     *                     from the ones being told about it
+     * @param members      every active membership, for the names on the tally
+     * @param kills        member id to kill count, from one grouped query. Members with none are
+     *                     absent
      */
-    public void run(final World world, final Location lobby, final UUID gameId, final WinTracker.Outcome outcome,
-                    final List<HgMember> allMembers, final UUID winnerMcUuid) {
-        dao.decideGame(gameId, outcome.winnerMemberId());
+    public record Decision(WinTracker.Outcome outcome, UUID winnerMcUuid,
+                           List<HgMember> members, Map<UUID, Integer> kills) {
+    }
 
+    /**
+     * Teleports everyone in the world back to the lobby and prints the evaluation to every player in
+     * their own language.
+     *
+     * <p><b>Runs on the main thread and touches no database.</b> The game was already written as
+     * decided by the caller, off the thread, along with everything in {@link Decision}.
+     *
+     * @param world    the event world everyone is currently standing in
+     * @param lobby    the lobby teleport point
+     * @param gameId   the game that just ended, for the log line
+     * @param decision every fact this needs, read before it was called
+     */
+    public void run(final World world, final Location lobby, final UUID gameId,
+                    final Decision decision) {
         // DELIBERATELY SILENT, although this is a teleport and TRAVEL exists for teleports. The
         // result lands in the same breath and is what everybody is waiting to hear; a chime for
         // being moved back to the lobby would arrive on top of it and say nothing.
@@ -68,9 +85,10 @@ public final class Ceremony {
         }
 
         for (final Player player : world.getPlayers()) {
-            announce(player, outcome, allMembers, gameId, winnerMcUuid);
+            announce(player, decision);
         }
-        LOGGER.info("hunger-games game {} decided - winner member id: {}", gameId, outcome.winnerMemberId());
+        LOGGER.info("hunger-games game {} decided - winner member id: {}", gameId,
+                decision.outcome().winnerMemberId());
     }
 
     /**
@@ -84,8 +102,9 @@ public final class Ceremony {
      * is a network event for everyone in the world, including the two who died together; they each
      * already heard {@code LOSS} at the moment it happened.
      */
-    private void announce(final Player player, final WinTracker.Outcome outcome, final List<HgMember> allMembers,
-                          final UUID gameId, final UUID winnerMcUuid) {
+    private void announce(final Player player, final Decision decision) {
+        final WinTracker.Outcome outcome = decision.outcome();
+        final List<HgMember> allMembers = decision.members();
         final Locale locale = locales.of(player.getUniqueId());
         player.sendMessage(MessageRenderer.of(messages).get(locale, "hg.ceremony.header"));
 
@@ -105,11 +124,11 @@ public final class Ceremony {
         } else {
             player.sendMessage(MessageRenderer.of(messages).get(locale, "hg.ceremony.no-winner"));
         }
-        sounds.play(player, player.getUniqueId().equals(winnerMcUuid)
+        sounds.play(player, player.getUniqueId().equals(decision.winnerMcUuid())
                 ? Feedback.BIG_SUCCESS : Feedback.NETWORK_EVENT);
 
         for (final HgMember member : allMembers) {
-            final int kills = dao.killCount(gameId, member.id());
+            final int kills = decision.kills().getOrDefault(member.id(), 0);
             if (kills > 0) {
                 player.sendMessage(MessageRenderer.of(messages).format(locale, "hg.ceremony.kills",
                         "player", member.discordId(), "kills", kills));

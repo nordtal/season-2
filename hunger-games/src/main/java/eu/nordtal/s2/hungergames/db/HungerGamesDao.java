@@ -1,11 +1,14 @@
 package eu.nordtal.s2.hungergames.db;
 
+import org.jdbi.v3.sqlobject.config.KeyColumn;
 import org.jdbi.v3.sqlobject.config.RegisterRowMapper;
+import org.jdbi.v3.sqlobject.config.ValueColumn;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -142,4 +145,25 @@ public interface HungerGamesDao {
             WHERE game_id = :gameId AND type = 'KILL' AND actor_id = :actorId
             """)
     int killCount(@Bind("gameId") UUID gameId, @Bind("actorId") UUID actorId);
+
+    /**
+     * The same tally for every member of a game, in <b>one</b> round trip.
+     *
+     * <p>{@link #killCount} answers the tiebreak, which asks about two members at most. The ceremony
+     * asks about all of them - and it used to ask with one query per member, inside a loop that ran
+     * once per <em>player</em>, on the main thread, at the single busiest moment of the event:
+     * forty participants in front of forty players is 1 600 blocking queries on the server thread.
+     * The tally does not depend on who is being told, which is what made the inner loop pure waste.
+     *
+     * <p>Members with no kills are simply absent from the map; the ceremony only prints the ones
+     * above zero anyway.
+     */
+    @SqlQuery("""
+            SELECT actor_id, count(*) AS kills FROM hg_event
+            WHERE game_id = :gameId AND type = 'KILL' AND actor_id IS NOT NULL
+            GROUP BY actor_id
+            """)
+    @KeyColumn("actor_id")
+    @ValueColumn("kills")
+    Map<UUID, Integer> killCounts(@Bind("gameId") UUID gameId);
 }

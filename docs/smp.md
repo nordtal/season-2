@@ -960,9 +960,32 @@ a session where none of those is known.
 same way language and access already are, and every process reads it with the query it makes
 anyway. One truth, no sync cycle, and one more reason the account link exists.
 
-**An admin is a server operator**, on all three Paper servers, from join to quit — through
-`eu.nordtal.s2.common.access.AdminOperators`. That settles the open question in
+**An admin is a server operator**, on all three Paper servers, for as long as they are an admin —
+through `eu.nordtal.s2.common.access.AdminOperators`. That settles the open question in
 [season-phases.md](season-phases.md#open-questions).
+
+That sentence said "from join to quit" for one day, and the difference is the point. Read once at
+join, the flag could only ever be *granted* in time; a role taken away in Discord did nothing until
+the account chose to disconnect, which is exactly backwards for the only case where the timing
+matters. `:paper-common`'s `AdminWatch` closes it: every backend re-reads the whole admin set on a
+`LISTEN nordtal_admin` notification and on a poll it runs regardless, and hands it to
+`AdminOperators#refresh`. **The poll is the guarantee** (`config.yml#admin-poll-interval-seconds`,
+30 s); the notification only makes it feel instant and can be turned off
+(`admin-listen-enabled`) without changing what is promised. The set is re-read in full rather than
+patched from the notification's payload, so a lost notification costs latency and not correctness.
+
+Three things that fall out of it and are easy to get wrong:
+
+- **The read is off the main thread and the apply is on it.** The read is a database round trip, and
+  this repository has had none of those on the main thread since 2026-09-01; the write is Bukkit's
+  op list, which is main-thread state. So the watcher reads on a scheduler thread and hops back.
+- **A tick on which nothing changed writes nothing.** `AdminOperators#refresh` only calls `setOp`
+  for an actual change, which is what keeps `ops.json` from being rewritten every thirty seconds for
+  the length of a season. `AdminOperatorsTest#repeatedRefreshIsFree` is the standing proof.
+- **On the SMP the admin *tag* moves with the flag.** `Identities` caches it for the six-element
+  composition, so without an update the nametag would go on calling somebody an admin after they had
+  stopped being one — in front of everybody. The redraw is conditional on something having changed,
+  for the same reason as the bullet above.
 
 Until **2026-09-04** this was a `PermissionAttachment` carrying a configured list of six nodes, and
 only on the SMP: `hunger-games` and `limbo` attached nothing at all, so an admin on two of the three

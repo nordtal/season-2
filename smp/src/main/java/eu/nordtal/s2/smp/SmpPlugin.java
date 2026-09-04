@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.access.AdminOperators;
+import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
@@ -106,6 +107,7 @@ public final class SmpPlugin extends JavaPlugin {
     private SmpSounds sounds;
 
     private HikariDataSource pool;
+    private AdminWatch adminWatch;
     private SmpDao dao;
     private Messages messages;
     private PlayerLocales locales;
@@ -274,8 +276,13 @@ public final class SmpPlugin extends JavaPlugin {
         final AdminOperators operators = BukkitOps.create();
         operators.sweep();
 
+        // One instance, shared with the watcher below: the gate fills the admin flag at pre-login
+        // and the watcher keeps it in step while people are online. Two instances would be two
+        // caches, and the one the fullness check reads would be the stale one.
+        final FullServerAdmission admission = new FullServerAdmission();
+
         getServer().getPluginManager().registerEvents(
-                new JoinGate(identities, new FullServerAdmission(), messages, logger()), this);
+                new JoinGate(identities, admission, messages, logger()), this);
         getServer().getPluginManager().registerEvents(
                 new PresenceListener(this, identities, surfaces, composition, config,
                         messages, locales, operators), this);
@@ -283,6 +290,29 @@ public final class SmpPlugin extends JavaPlugin {
                 new SystemLines(identities, composition, messages, locales), this);
         getServer().getPluginManager().registerEvents(
                 new NavigateListener(this, dao, navigation, identities, locales, sounds), this);
+
+        // ...and keeps being one only for as long as the database says so. Without this the flag is
+        // read once per session and a revoked admin keeps operator until they disconnect; see
+        // AdminWatch.
+        //
+        // This is the one module that passes an extra cache: Identities holds the admin flag for
+        // the six-element composition, so the admin tag on a nametag every other player can see is
+        // drawn from it. The redraw is conditional because a redraw of every surface on a
+        // thirty-second timer, for the length of a season, is work nobody would ever notice going in.
+        adminWatch = new AdminWatch(this, eu.nordtal.s2.common.access.AccessDirectory.using(pool),
+                operators, admission,
+                admins -> {
+                    if (identities.recordAdmins(admins)) {
+                        surfaces.refreshAll();
+                    }
+                },
+                logger());
+        adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
+                config.adminListenEnabled()
+                        ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
+                                databaseHandle.get().username(), databaseHandle.get().password(),
+                                databaseHandle.get().queryTimeoutSeconds())
+                        : null);
 
         // ---- block 3: the activities -----------------------------------------------------
         engine = new ObjectiveEngine(this, dao, track, season, worlds, identities, messages,
@@ -396,6 +426,11 @@ public final class SmpPlugin extends JavaPlugin {
         }
         if (farmReset != null) {
             farmReset.stop();
+        }
+        // Before the pool: the listener thread is parked on a connection of its own, but a refresh
+        // already in flight reads through the pool.
+        if (adminWatch != null) {
+            adminWatch.close();
         }
         if (pool != null) {
             pool.close();

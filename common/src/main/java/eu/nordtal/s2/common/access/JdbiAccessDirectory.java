@@ -280,4 +280,9 @@ final class JdbiAccessDirectory implements AccessDirectory {
         return dao.adminDiscordIds();
     }
 
+    @Override
+    public java.util.Set<UUID> adminMinecraftAccounts() {
+        return dao.adminMinecraftAccounts();
+    }
+
 }

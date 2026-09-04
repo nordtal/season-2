@@ -224,6 +224,34 @@ The placeholder art is a shield outline with a bottom-up fill gauge proportional
 (tier 13 nearly solid, tier 1 barely filled) — enough to order the thirteen tiers at a glance for
 testing, not an attempt at the real coat-of-arms design.
 
+### `\uFE080` – `\uFE08F` — system-line icons
+
+The markers in front of the lines a player reads all day — chat, join, leave, death, advancement,
+and the announcements the whole server is told
+([presentation.md §5](../docs/presentation.md)). Added 2026-09-04 with the chat format.
+
+**Why `\uFE080` and not `\uFE040`, the next free slot after the crests.** Fonts allocate
+independently, so `\uFE040` in `minecraft:default` would be legal — and `nordtal:board` already
+uses `\uFE040`–`\uFE055` for its frame, `nordtal:gui` reserves through `\uFE07F`, and the one
+rendering bug this pack has actually produced was two fonts giving one number two pictures. Past
+everything is worth sixty-four unused code points.
+
+**The art is white, and that is the reason there is a note here at all.** Minecraft multiplies a
+glyph's texture by the component's text colour, so white art can be tinted to whatever a message
+bundle asks for and black art cannot be tinted lighter than black. Every one of these six sits in a
+chat line whose colour an operator can change without a release — and the board frame spent four
+days invisible because it was generated in the module's default black onto a dark surface.
+
+| Char code | File | Description | Status |
+|---|---|---|---|
+| `\uFE080` | ![source](src/assets/nordtal/textures/system/separator.png) | Chat separator, 3 × 7, h7/a7 — a hairline rule, not a character | generated — final candidate |
+| `\uFE081` | ![source](src/assets/nordtal/textures/system/join.png) | Joined, 7 × 7 — a triangle pointing in | generated — placeholder |
+| `\uFE082` | ![source](src/assets/nordtal/textures/system/leave.png) | Left, 7 × 7 — the same triangle, mirrored | generated — placeholder |
+| `\uFE083` | ![source](src/assets/nordtal/textures/system/death.png) | Death, 7 × 7 — a headstone, because the season answers a death with a grave | generated — placeholder |
+| `\uFE084` | ![source](src/assets/nordtal/textures/system/advancement.png) | Advancement, 7 × 7 — a four-point spark, four so it cannot be read as the five-point donor star beside it | generated — placeholder |
+| `\uFE085` | ![source](src/assets/nordtal/textures/system/announce.png) | Server-wide announcement, 7 × 7 — a horn | generated — placeholder |
+| `\uFE086` – `\uFE08F` | — | reserved | — |
+
 ## `nordtal:board`
 
 **A dedicated font, decided 2026-08-31** — not part of `minecraft:default` as earlier drafts of

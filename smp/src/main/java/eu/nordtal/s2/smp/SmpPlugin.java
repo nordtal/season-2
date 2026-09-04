@@ -31,6 +31,7 @@ import eu.nordtal.s2.smp.pregen.PreGenerator;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
+import eu.nordtal.s2.smp.command.AccessLookup;
 import eu.nordtal.s2.smp.command.SmpCommand;
 import eu.nordtal.s2.smp.command.UpdateCommands;
 import eu.nordtal.s2.smp.chat.SystemLines;
@@ -449,6 +450,11 @@ public final class SmpPlugin extends JavaPlugin {
                     // Over the pool this plugin already owns. The updater is a different container
                     // and this is how it is reached: a row and a notification, never a call.
                     new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales),
+                    // Over the same pool. :common's access API is read-only from here: the bot owns
+                    // every write to those tables, and /smp access is three lines an admin needs
+                    // while standing next to somebody who cannot get in.
+                    new AccessLookup(this, eu.nordtal.s2.common.access.AccessDirectory.using(pool),
+                            locales, messages, sounds),
                     sounds).build());
         });
     }

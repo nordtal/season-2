@@ -837,14 +837,14 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Eight modules have tests: 1044 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Eight modules have tests: 1048 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-04, after `/hg` was opened to the console). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
 | `smp` | 170 |
-| `common` | 289 |
+| `common` | 293 |
 | `network-control` | 178 |
 | `updater` | 136 |
 | `discord-bot` | 140 |
@@ -857,7 +857,15 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **289**, and **twelve of those are new on 2026-09-04 with the admin watcher**. Nine
+`:common` has **293**. **Four are new on 2026-09-04 with `/smp access`**: one integration case for
+`openPayment` - the read of the bot's `payment_request` that lets a Paper server tell "has not paid"
+apart from "is halfway through paying", driven against a real database because the whole of it is
+SQL plus a constructor mapper - and three for `OpenPayment#amount`, which turns integer cents back
+into something a person reads. That last one looks too small to test until you notice the case it
+protects: 1205 cents formatted without padding is `12.5`, which reads as twelve fifty. Money is
+integer cents everywhere in this repository because season 1 used `Float.parseFloat` and `<`.
+
+**Twelve more are from the admin watcher, the same day.** Nine
 are `NotificationListenerTest`, which is `network-control`'s old `PhaseListenerTest` moved here with
 the loop it covers - see "The shared notification listener" below for why the loop moved and what
 the move cost (`network-control` is seven tests lighter for exactly this reason; nothing was

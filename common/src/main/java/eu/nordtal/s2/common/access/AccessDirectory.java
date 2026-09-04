@@ -187,6 +187,21 @@ public interface AccessDirectory extends AutoCloseable {
     java.util.Set<UUID> adminMinecraftAccounts();
 
     /**
+     * The purchase this Discord account has started and not finished, if any.
+     *
+     * <p>Read-only, and read from outside the bot on purpose: an admin in game asking "why can this
+     * person not get in?" needs to tell "they have not paid" apart from "they are in the middle of
+     * paying". See {@link OpenPayment}, which also carries why {@code bunq_tab_id IS NULL} matters.
+     *
+     * <p><b>Blocking.</b> Never on a main thread and never on a login path - nothing on the login
+     * path asks this, and nothing should.</p>
+     *
+     * @param discordId the Discord snowflake
+     * @return the newest {@code OPEN} request, or empty
+     */
+    java.util.Optional<OpenPayment> openPayment(String discordId);
+
+    /**
      * Writes the 1:1 link. Both halves of the 1:1 are enforced by unique constraints in the
      * database, so a losing concurrent attempt returns {@code false} rather than corrupting
      * anything.

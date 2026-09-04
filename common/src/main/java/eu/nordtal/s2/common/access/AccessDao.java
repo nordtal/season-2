@@ -120,6 +120,34 @@ interface AccessDao {
             + " WHERE u.admin")
     java.util.Set<UUID> adminMinecraftAccounts();
 
+    /**
+     * The payment this account has started and not finished, if there is one.
+     *
+     * <h2>Why a read of the bot's table lives in {@code :common}</h2>
+     * Because the question is asked from a Paper server, and the answer is the difference between
+     * "they have not paid" and "they are in the middle of paying". An admin standing next to
+     * somebody who cannot get in needs the second one, and the row that carries it is in the
+     * database rather than in the bot's memory - which is the whole reason the purchase flow's
+     * state is a row (see {@code Purchases}). This is a <b>read</b>, and nothing outside the bot may
+     * ever write here: a second writer of {@code payment_request} is a second half-finished
+     * purchase.
+     *
+     * <p>{@code bunq_tab_id IS NULL} is a real distinction and is carried through: it is exactly
+     * the difference between "chose 60 days" and "asked for a payment link", and an admin looking at
+     * a stuck purchase wants to know which of the two it is.</p>
+     *
+     * <p>At most one row can be {@code OPEN} per account in practice - the flow supersedes the
+     * previous one - so this orders by {@code created} and takes the newest rather than trusting
+     * that.</p>
+     */
+    @SqlQuery("SELECT reference, days, amount_cents, donation_cents,"
+            + " (bunq_tab_id IS NOT NULL) AS has_tab, created"
+            + " FROM payment_request"
+            + " WHERE discord_id = :discordId AND status = 'OPEN'"
+            + " ORDER BY created DESC LIMIT 1")
+    @org.jdbi.v3.sqlobject.config.RegisterConstructorMapper(OpenPayment.class)
+    Optional<OpenPayment> openPayment(@Bind("discordId") String discordId);
+
     // ---------------------------------------------------------------- account_link
 
     @SqlQuery("SELECT mc_uuid FROM account_link WHERE discord_id = :discordId")

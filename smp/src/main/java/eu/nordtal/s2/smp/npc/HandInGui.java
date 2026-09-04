@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.npc;
 
+import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.smp.feedback.Surface;
@@ -50,8 +51,8 @@ public final class HandInGui implements Surface {
         this.stillNeeded = Math.max(0L, target - amount);
         this.wanted = new LinkedHashSet<>(objective.items() == null ? List.of() : objective.items());
 
-        this.inventory = Bukkit.createInventory(this, ROWS * 9,
-                MessageRenderer.of(messages).get(locale, "smp.handin.title"));
+        this.inventory = Bukkit.createInventory(this, ROWS * 9, MenuTitle.of(ROWS,
+                MessageRenderer.of(messages).get(locale, "smp.handin.title")));
 
         final ItemStack confirm = new ItemStack(Material.LIME_CONCRETE);
         confirm.editMeta(meta -> {

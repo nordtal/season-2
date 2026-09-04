@@ -34,6 +34,12 @@ import java.util.Random;
  * of a spin, and the guard that makes it happen exactly once lives in SQL rather than in Java: two
  * clicks in the same second both see a free spin, and only the update that changes a row gets a
  * prize.
+ *
+ * <h2>The order the three halves run in</h2>
+ * Spending the spin and drawing the prize are decisions and happen off the main thread; showing it
+ * is a window and happens on it. {@link WheelGui} is the five seconds in between, added 2026-09-04 -
+ * before that a spin was a chat line, which is a lottery ticket read out to you. Nothing in the
+ * animation decides anything, and {@link WheelStrip} is where that is argued rather than assumed.
  */
 public final class Wheel {
 
@@ -106,7 +112,8 @@ public final class Wheel {
         final List<Integer> weights = new ArrayList<>(pool.size());
         pool.forEach(prize -> weights.add(prize.weight()));
 
-        final SmpSpec.WheelPrizeSpec prize = pool.get(PrizeDraw.draw(weights, random));
+        final int index = PrizeDraw.draw(weights, random);
+        final SmpSpec.WheelPrizeSpec prize = pool.get(index);
         final Material material = materialOf(prize.item());
         if (material == null) {
             plugin.getLogger().warning("wheel-prizes names '" + prize.item()
@@ -119,20 +126,68 @@ public final class Wheel {
             return;
         }
 
+        // Everything above is a decision and runs off the main thread; everything below is the
+        // window, and has to be on it. The prize is already settled here - the animation shows it
+        // arriving, it does not choose it. See WheelStrip.
+        final WheelStrip strip = WheelStrip.landingOn(pool.size(), index, random);
+        final List<ItemStack> icons = icons(pool);
+
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!player.isOnline()) {
+                // Nobody to show it to and nobody to give it to. The spin is spent; say so where an
+                // admin will see it, because the alternative is a silently swallowed prize.
+                give(player, material, prize.amount(), locale);
                 return;
             }
-            final ItemStack stack = new ItemStack(material, Math.max(1, prize.amount()));
-            // Whatever does not fit goes on the floor at their feet rather than vanishing: the
-            // wheel is the one channel that pays out real items, and losing one to a full inventory
-            // is the kind of thing that is remembered for a season.
-            player.getInventory().addItem(stack).values()
-                    .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.wheel.won",
-                    "amount", prize.amount(), "item", material.name()));
-            sounds.play(player, Feedback.BIG_SUCCESS);
+            new WheelGui(messages, locale, strip, icons, sounds,
+                    winner -> give(winner, material, prize.amount(), locale))
+                    .start(plugin, player);
         });
+    }
+
+    /**
+     * Hands over what was won, or says loudly that it could not.
+     *
+     * <p>Called from exactly one place - {@code WheelGui#finish}, which is a one-shot latch - so a
+     * spin pays once however it ended: the wheel running down, the window closed early, or the
+     * player logging off mid-spin. That last one is the window the animation introduced and the
+     * instant payout did not have, which is why it is logged rather than dropped: the row is spent
+     * in the database and nothing else will ever notice.
+     */
+    private void give(final Player player, final Material material, final int amount,
+                      final Locale locale) {
+        final int count = Math.max(1, amount);
+        if (!player.isOnline()) {
+            plugin.getLogger().warning(player.getName() + " left mid-spin; the spin is spent and "
+                    + count + "x " + material.name() + " was not handed over");
+            return;
+        }
+        final ItemStack stack = new ItemStack(material, count);
+        // Whatever does not fit goes on the floor at their feet rather than vanishing: the
+        // wheel is the one channel that pays out real items, and losing one to a full inventory
+        // is the kind of thing that is remembered for a season.
+        player.getInventory().addItem(stack).values()
+                .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+        player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.wheel.won",
+                "amount", count, "item", material.translationKey()));
+    }
+
+    /**
+     * One icon per prize, in pool order, for the strip to travel through.
+     *
+     * <p>A prize whose material does not resolve gets a barrier rather than stopping the spin: the
+     * winner has already been checked, so a broken entry here is one that is only ever passed by -
+     * and a wheel that refuses to open because of a prize nobody won would be a worse answer than a
+     * visibly wrong icon flying past.
+     */
+    private static List<ItemStack> icons(final List<SmpSpec.WheelPrizeSpec> pool) {
+        final List<ItemStack> out = new ArrayList<>(pool.size());
+        for (final SmpSpec.WheelPrizeSpec prize : pool) {
+            final Material material = materialOf(prize.item());
+            out.add(new ItemStack(material == null ? Material.BARRIER : material,
+                    Math.max(1, Math.min(64, prize.amount()))));
+        }
+        return out;
     }
 
     private static Material materialOf(final String name) {

@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.Glyphs;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.ShadowColor;
 
 /**
  * Composes a chest menu's title so the window is drawn in Nordtal's own frame.
@@ -91,6 +92,12 @@ public final class MenuTitle {
      *
      * <p>It ends where it started, so anything appended after it sits at the title anchor exactly
      * as if the panel were not there.
+     *
+     * <p><b>The panel carries no shadow</b>, for the reason {@link eu.nordtal.s2.common.hud.BoardFrame} states at length:
+     * vanilla draws every glyph a second time one pixel down and right, and on a 176-pixel opaque
+     * panel that second copy is a dark edge along the bottom and the right of the window that
+     * nothing in the pack drew. {@link #of} appends the readable title to {@code Component.empty()}
+     * rather than to this component, so the title is a sibling and keeps its own shadow.
      */
     public static Component panel(final int rows) {
         final String composed = shift(ANCHOR_X)
@@ -98,7 +105,8 @@ public final class MenuTitle {
                 + shift(PANEL_ADVANCE - ANCHOR_X);
         return Component.text(composed)
                 .font(net.kyori.adventure.key.Key.key(Glyphs.FONT_GUI))
-                .color(NamedTextColor.WHITE);
+                .color(NamedTextColor.WHITE)
+                .shadowColor(ShadowColor.none());
     }
 
     /**

@@ -43,6 +43,10 @@ include("updater")
 // Shared code, shaded into the plugins that use it.
 include("common")
 
+// Every command in the network, declared once and adapted per surface. Platform-free, like
+// `:common` and for the same reason: Brigadier on two platforms and JDA on a third all consume it.
+include("commands")
+
 // Shared code that needs a Paper type, and therefore cannot live in `:common` - which is compiled
 // against no platform on purpose. Shaded into the three Paper plugins.
 include("paper-common")

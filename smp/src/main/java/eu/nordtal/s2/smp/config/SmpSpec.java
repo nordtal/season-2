@@ -779,18 +779,15 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- admin
 
-    @Order(40)
-    @Key("admin-permissions")
-    @Comment({
-            "The Bukkit permission nodes attached to an admin at join and removed at quit, through",
-            "a PermissionAttachment. NO LUCKPERMS: the Discord admin role is mirrored into the",
-            "database by the bot, every process reads it with the query it makes anyway, and this",
-            "is only for what goes through Bukkit permissions - vanilla commands and third-party",
-            "plugins."
-    })
-    default List<String> adminPermissions() {
-        return List.of("minecraft.command.gamemode", "minecraft.command.teleport",
-                "minecraft.command.give", "minecraft.command.time", "minecraft.command.weather",
-                "bukkit.command.plugins");
-    }
+    // `admin-permissions` WAS HERE, and is retired as of 2026-09-04. It listed the Bukkit
+    // permission nodes attached to an admin at join. A list cannot answer "an admin must reliably
+    // have every permission", because a list only knows what somebody wrote down: every plugin
+    // added later brings nodes nobody adds to it. An admin is a server operator now - see
+    // eu.nordtal.s2.common.access.AdminOperators, which also explains why ops.json is swept at
+    // every enable.
+    //
+    // The key is deliberately NOT re-declared as a deprecated no-op: jcore stops a load on a key
+    // the interface does not declare, which is what makes a stale `plugins/smp/config.yml` in a
+    // deployed volume fail loudly and by name instead of silently doing nothing. ConfigsTest
+    // asserts that refusal, and the owner's checklist carries the one-line edit on the host.
 }

@@ -351,7 +351,7 @@ block plus its own dependencies.
 half of that reasoning still stands: Paper and Velocity resolve *different* Brigadier artefacts,
 neither on Maven Central, and `:common` is compiled against no platform. `:commands` does not break
 that — it shares the *decision* half of a command behind a `NordtalUser`, and touches no platform
-type at all. What did change is the rejection's tragende premise, which was "the abstraction would
+type at all. What did change is the premise the rejection rested on, which was "the abstraction would
 exist to serve **one** command on the proxy": as of 2026-09-04 it is nine admin commands on two or
 three surfaces each. The decision was not wrong; its grounds moved.
 

@@ -346,6 +346,22 @@ block plus its own dependencies.
 | `nordtal.velocity-plugin` | `network-control` | velocity-api as compileOnly + annotationProcessor, `:common` |
 | `nordtal.jvm-app` | `discord-bot`, `updater` | `application`, Main-Class in the shaded manifest |
 
+**`:commands` is new on 2026-09-04 and is a deliberate reopening of a decision.**
+`docs/architecture.md#commands` rejected "a shared Brigadier helper in `:common`" on 2026-08-31, and
+half of that reasoning still stands: Paper and Velocity resolve *different* Brigadier artefacts,
+neither on Maven Central, and `:common` is compiled against no platform. `:commands` does not break
+that — it shares the *decision* half of a command behind a `NordtalUser`, and touches no platform
+type at all. What did change is the rejection's tragende premise, which was "the abstraction would
+exist to serve **one** command on the proxy": as of 2026-09-04 it is nine admin commands on two or
+three surfaces each. The decision was not wrong; its grounds moved.
+
+The module carries `NordtalUser` (identity through `account_link`, locale, the admin flag and a
+reply channel), `Declaration` + `Argument` + `Values` (what a command is, checked once rather than in
+each adapter) and `NordtalCommand<E>`, where `E` is the effect interface the owning process
+implements. **The split it rests on is front half / back half**, not admin / player: who is asking,
+may they, in which language, what is said back — all shareable; the effect — bound to the JVM that
+owns the world, and reached through a `command_request` row when it is somewhere else.
+
 **`:paper-common` is new on 2026-09-04, and it is a layer this repository did not have.** `:common`
 is compiled against no platform at all, on purpose - that rule is what lets one shared module serve
 Paper, Velocity and two plain JVM applications at once. What it cost, silently, was that anything the
@@ -754,8 +770,8 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 999 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-04, after an admin became a server operator). The counts below are what the JUnit XML reports, not
+**Eight modules have tests: 1015 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-04, after `:commands` was scaffolded). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
@@ -766,6 +782,7 @@ daemon present, 2026-09-04, after an admin became a server operator). The counts
 | `updater` | 136 |
 | `discord-bot` | 155 |
 | `hunger-games` | 62 |
+| `commands` | 16 |
 | `limbo` | 11 |
 
 This said "537 in six modules" until 2026-09-02 and was wrong twice over: the number was stale, and

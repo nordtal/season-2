@@ -437,29 +437,32 @@ fetch_datapacks() {
 
 # The player limit, and it is ENFORCED on every start rather than seeded.
 #
-# THE BACKENDS NO LONGER LIMIT ANYTHING, since 2026-09-03. This writes a number high enough that
-# it can never be reached, so that the proxy is the only thing on the network that ever refuses a
-# player - and refuses them at the login gate, where it can say why, instead of after they have
-# passed it, downloaded the resource pack and waited in limbo.
+# ONE NUMBER, since 2026-09-04. MAX_PLAYERS is NETWORK_MAX_PLAYERS out of .env, the same value
+# network-control is given for network.yml#max-players - so what the server browser advertises,
+# what the proxy's login gate enforces and what this server's tab list shows are the same number.
 #
+# It was two numbers between 2026-09-03 and now: BACKEND_MAX_PLAYERS, set far out of reach so that
+# only the proxy ever refused a player, with the proxy carrying a copy and refusing to start if the
+# two crossed. That was safe and still wrong - the backends' number is the one every screen ON a
+# backend can reach, so the network advertised 500 while the tab list said 3/1000.
+#
+# The proxy is still the thing that refuses, and it still refuses at the login gate where it can say
+# why. What this value does is make sure a backend is never a SMALLER limit than the advertised one.
 # Paper's own default is 20, and until 2026-09-02 nothing set it: the network advertised 500 slots
-# while `limbo` - the first backend every login reaches - refused the 21st player with "Server
-# full". Setting it from the network's own limit fixed that and left the fault one step further
-# along, because whichever backend a player lands on still decided, and three backends can be
-# raised out of step with each other and with the proxy.
+# while `limbo` - the first backend every login reaches - refused the 21st player with "Server full".
 #
-# The real limit is network.yml#max-players in network-control, which the proxy enforces once. That
-# file also carries a copy of THIS number (backend-limit): the proxy refuses to start when its own
-# limit is above it, because a max-players above this value would silently make the backends the
-# network's real limit again. If you raise one, raise the other.
+# The one login this CAN refuse is an admin's, because admins are exempt from the proxy's limit and
+# a full network therefore holds max-players plus them. That exemption is rebuilt inside each Paper
+# plugin (common's FullServerAdmission), which is where the admin flag can be read at all - it is
+# discord_user.admin in the database, not ops.json, so nothing in this script can act on it.
 #
 # Enforced on every start, unlike level-name beside it, because the two failure modes are nothing
 # alike: a level-name that disagrees would swap a world, so it stops the container; a player limit
 # that disagrees just quietly caps the network below what it promises, and there is no world to
 # lose by correcting it on a restart.
 enforce_player_limit() {
-    [[ -n "${BACKEND_MAX_PLAYERS:-}" ]] || return 0
-    set_property "$DATA/server.properties" max-players "$BACKEND_MAX_PLAYERS"
+    [[ -n "${MAX_PLAYERS:-}" ]] || return 0
+    set_property "$DATA/server.properties" max-players "$MAX_PLAYERS"
 }
 
 # A Paper server that sits behind the proxy. Two things have to be true and neither of them is

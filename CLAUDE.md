@@ -669,6 +669,17 @@ Seven rules that are easy to break and expensive to break:
 - **`Topology` and `compose.yml` are two copies of one fact.** A fifth backend server is a
   change to both in the same commit; `TopologyTest` reads the real compose file and fails otherwise.
   It also fails if `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two `PACK_*` variables come back.
+- **There is exactly one player number, since 2026-09-04, and `TopologyTest` is what keeps it one.**
+  `NETWORK_MAX_PLAYERS` in `.env` reaches the proxy as `network.yml#max-players` *and* all three
+  Paper backends as `MAX_PLAYERS`, which the entrypoint writes into `server.properties`; the test
+  asserts the four are the same expression and that `BACKEND_MAX_PLAYERS` and `backend-limit` are
+  both gone. That second number was set deliberately out of reach so only the proxy ever refused a
+  player - and it was the number every screen *on* a backend could reach, so the browser advertised
+  500 while the tab list said `3/1000`. What one number costs is the proxy's admin exemption: a
+  backend on the network's own limit would refuse exactly the admins the gate lets past it, so each
+  Paper plugin answers `PlayerServerFullCheckEvent` itself, off a flag warmed on the async pre-login
+  thread. `:common`'s `FullServerAdmission` owns that rule and names the one ordering assumption in
+  it that only a running server can confirm.
 - **`compose.yml` and `.env.example` live at the repository root** (moved 2026-09-01). Arcane's
   GitOps sync pulls only the directory the compose file is in. The original second half of this
   rule — that two build contexts are above `deploy/` — expired on 2026-09-02 when the host stopped
@@ -729,15 +740,15 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 982 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-04, after the review of the pull request). The counts below are what the JUnit XML reports, not
+**Seven modules have tests: 987 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-04, after the player limit became one number). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
 | `smp` | 169 |
-| `common` | 260 |
-| `network-control` | 189 |
+| `common` | 266 |
+| `network-control` | 188 |
 | `updater` | 136 |
 | `discord-bot` | 155 |
 | `hunger-games` | 62 |
@@ -748,7 +759,14 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **260**. **Four are new on 2026-09-04, from the review of the pull request**, and two
+`:common` has **266**. **Six are `FullServerAdmissionTest`, new on 2026-09-04 with the single
+player limit** - the one place in this repository where a Paper server is allowed to refuse a login
+for fullness, and therefore the one place the proxy's admin exemption had to be rebuilt. Both of its
+decisions are things nobody can rehearse without first filling a server: when the admin flag is
+worth a query at all (never, on a server that is nowhere near its cap - and `limbo` is crossed by
+every login on the network), and that reading the answer does **not** consume it, because Paper's
+own note says the login validation runs twice and an answer that changed between the two would
+refuse the admin it had just admitted, silently. **Four are new the same day, from the review of the pull request**, and two
 of them carry a rule rather than a case. `BundleContinuationTest` (1) walks every message bundle in
 the repository and asserts that a line continued with a backslash ends with a *space* -
 `Properties.load` strips the next line's indentation, so six values had reached a reader as
@@ -852,7 +870,11 @@ that, and both are easy to undo by accident:
   that one, from the module directory, in preference to the real one. It was deleted with this
   change; the anchor is what stops the next one shadowing the root file silently.
 
-`network-control` has **189**: `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
+`network-control` has **188** - one fewer than before 2026-09-04, and the arithmetic is the point:
+two tests that pinned `max-players` against `backend-limit` were replaced by one that asserts a
+`network.yml` still carrying the retired `backend-limit` stops the proxy **with that key named**.
+There is no pair left to cross, so there is nothing left to compare; what an operator needs instead
+is to be told which line to delete. `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
 `gate.yml`, `pack.yml` and `network.yml` - all four handles it has; the `phase` and `routing`
 packages are tested as pure decisions, exhaustively over the

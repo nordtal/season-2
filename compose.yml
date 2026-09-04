@@ -351,15 +351,18 @@ services:
       # refuses the login that would exceed the limit. These are jcore environment overrides, so
       # they win over the file and are never written back into it.
       #
-      # NETWORK_MAX_PLAYERS is the ONLY number that decides who gets on the network.
-      # BACKEND_MAX_PLAYERS is what the Paper backends are set to, far above it, so that they never
-      # refuse anybody - the proxy carries a copy of it and refuses to start if the two cross.
+      # NETWORK_MAX_PLAYERS is the ONLY number that decides who gets on the network, and since
+      # 2026-09-04 it is the only one there is: the same variable sets MAX_PLAYERS on all three
+      # Paper backends below, so what the browser advertises, what the login gate enforces and what
+      # a backend's tab list shows are one value. It used to be two - a separate BACKEND_MAX_PLAYERS
+      # set far out of reach so that only the proxy refused anybody - and the second one was the one
+      # every screen ON a backend could actually reach: the browser said 500 and the tab list said
+      # 3/1000. Raising it needs the backends restarted too, not just this proxy.
       #
       # The five MOTDs are one per season phase and are only listed here so that .env can override
       # them without anybody learning the NORDTAL_ naming rule. Leaving one unset keeps the default
       # from network.yml, which is a real MOTD and not a placeholder.
       NORDTAL_NETWORK_CONTROL_NETWORK_MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
-      NORDTAL_NETWORK_CONTROL_NETWORK_BACKEND_LIMIT: ${BACKEND_MAX_PLAYERS:-1000}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_PRE_LAUNCH: ${NETWORK_MOTD_PRE_LAUNCH:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_PRE_EVENT: ${NETWORK_MOTD_PRE_EVENT:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_START_EVENT: ${NETWORK_MOTD_START_EVENT:-}
@@ -407,12 +410,15 @@ services:
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
       EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
-      # DELIBERATELY NOT A LIMIT. It is set far above anything the network will hold so that this
-      # server never refuses anybody: the proxy owns the limit (NETWORK_MAX_PLAYERS above) and
+      # THE SAME NUMBER THE PROXY IS GIVEN, out of the same .env variable - that is the whole
+      # point, and it is why this is not a second setting. The proxy still owns the decision: it
       # refuses at the login gate, where it can say why, rather than here - after the player has
-      # passed that gate, downloaded the resource pack and waited in limbo. Paper's own default is
-      # 20, which is what made that failure possible in the first place.
-      BACKEND_MAX_PLAYERS: ${BACKEND_MAX_PLAYERS:-1000}
+      # passed that gate, downloaded the resource pack and waited in limbo. What this makes sure of
+      # is that a backend never becomes a SMALLER limit than the advertised one (Paper's own default
+      # is 20, which is exactly how that failed once) and never shows a bigger one on a tab list.
+      # The admins the proxy lets past a full network are let past here too, by the plugin - see
+      # common's FullServerAdmission.
+      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${LIMBO_HEAP:-1G}
       # No LEVEL_NAME and no LEVEL_SEED, deliberately. limbo builds its own empty world at enable
       # (LimboSpec#world-name, default `limbo`) and moves every player into it before they are ever
@@ -439,7 +445,7 @@ services:
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
       EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
-      BACKEND_MAX_PLAYERS: ${BACKEND_MAX_PLAYERS:-1000}
+      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       # The hand-built event world. HungerGamesSpec#world-name defaults to `hunger_games` and the
       # plugin does NOT load a world of its own - it disables itself when that world is not there -
@@ -503,7 +509,7 @@ services:
       # assuming them, and this list does assume them. A publisher renaming a jar therefore stops
       # this container with the prefix in the message, which is the right side to fail on.
       EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit}
-      BACKEND_MAX_PLAYERS: ${BACKEND_MAX_PLAYERS:-1000}
+      MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${SMP_HEAP:-6G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
       # A Paper server given a forwarding secret is a backend: the entrypoint sets

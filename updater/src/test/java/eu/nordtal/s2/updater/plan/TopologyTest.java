@@ -90,19 +90,23 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("no Paper backend limits the network")
-    void theBackendsDoNotLimitTheNetwork() {
-        // Until 2026-09-03 this test asserted the opposite: that all three backends carried the
-        // SAME limit, because whichever one a player landed on decided and the smallest of them was
-        // the network's real limit. That was the second version of one fault. The first was setting
-        // nothing at all, so Paper's default of 20 stood while the browser advertised 500 - and the
-        // 21st player was refused with "Server full" AFTER passing the login gate, accepting the
-        // resource pack and waiting in limbo.
+    @DisplayName("one player number, on the proxy and on every Paper backend")
+    void oneNumberLimitsTheNetwork() {
+        // This test has now asserted three different things, and the two it used to assert are why
+        // it is worth reading rather than trusting. First: that all three backends carried the SAME
+        // limit - because whichever one a player landed on decided, and the smallest of them was the
+        // network's real limit. Before that, nothing set a limit at all, so Paper's default of 20
+        // stood while the browser advertised 500 and the 21st player was refused with "Server full"
+        // AFTER passing the login gate, accepting the resource pack and waiting in limbo. Then, from
+        // 2026-09-03: that the backends carried a number DELIBERATELY UNRELATED to the network's, set
+        // out of reach so only the proxy ever refused anybody.
         //
-        // The limit is network.yml#max-players now, enforced once by the proxy at the login gate.
-        // What these three carry is a number that must never be reached, and it must not be tied to
-        // the network's limit at all - a backend that tracks the network limit is a backend that can
-        // become the limit again.
+        // That last one was safe and still wrong, because the backends' number is the one every
+        // screen ON a backend can reach: Bukkit.getMaxPlayers() is what a tab list has, so the
+        // browser advertised 500 while the tab list said 3/1000. Since 2026-09-04 there is one
+        // number - NETWORK_MAX_PLAYERS - and this test exists to keep it one. The admins the proxy
+        // lets past a full network are let past the backends by the plugins themselves; see
+        // common's FullServerAdmission.
         final List<String> limits = new java.util.ArrayList<>();
         for (final Topology.Service service : Topology.SERVICES) {
             if (service.kind() != Topology.Kind.PAPER) {
@@ -113,20 +117,42 @@ class TopologyTest {
             @SuppressWarnings("unchecked")
             final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
 
-            assertNull(environment.get("MAX_PLAYERS"), service.name() + " sets MAX_PLAYERS again."
-                    + " The entrypoint no longer reads it, so this is either dead or - worse - a"
-                    + " backend limit tracking the network limit, which is how the backends became"
-                    + " the real limit in the first place.");
+            assertNull(environment.get("BACKEND_MAX_PLAYERS"), service.name() + " sets"
+                    + " BACKEND_MAX_PLAYERS again. The entrypoint no longer reads it, so this is"
+                    + " either dead or - worse - a second player number, which is what made a"
+                    + " backend advertise 3/1000 under a browser promising 500.");
 
-            final Object raw = environment.get("BACKEND_MAX_PLAYERS");
-            assertNotNull(raw, service.name() + " sets no BACKEND_MAX_PLAYERS, so it keeps Paper's"
-                    + " default of 20 and refuses the 21st player after the login gate");
-            limits.add(defaultOf(String.valueOf(raw)));
+            final Object raw = environment.get("MAX_PLAYERS");
+            assertNotNull(raw, service.name() + " sets no MAX_PLAYERS, so it keeps Paper's default"
+                    + " of 20 and refuses the 21st player after the login gate");
+            limits.add(String.valueOf(raw));
         }
         assertEquals(1, new LinkedHashSet<>(limits).size(),
-                "the Paper backends are configured for different numbers: " + limits
-                        + ". They are all supposed to be out of reach, and the smallest of them is"
-                        + " the one that would be hit first.");
+                "the Paper backends are configured from different values: " + limits
+                        + ". They are supposed to be one number, and the smallest of them is the"
+                        + " one that would be hit first.");
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> proxy = (Map<String, Object>) services.get("network-control");
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> proxyEnvironment = (Map<String, Object>) proxy.get("environment");
+        final Object advertised =
+                proxyEnvironment.get("NORDTAL_NETWORK_CONTROL_NETWORK_MAX_PLAYERS");
+        assertNotNull(advertised, "the proxy is given no max-players, so network.yml's default"
+                + " decides what the browser is told and .env cannot move it");
+        assertNull(proxyEnvironment.get("NORDTAL_NETWORK_CONTROL_NETWORK_BACKEND_LIMIT"),
+                "the proxy is still given backend-limit. NetworkSpec no longer declares that key,"
+                        + " and jcore stops a load on a key it does not declare - so this is a"
+                        + " proxy that refuses to start.");
+
+        assertEquals(String.valueOf(advertised), limits.getFirst(),
+                "the number the browser advertises and the number the backends run on come from"
+                        + " different .env variables: " + advertised + " against " + limits.getFirst()
+                        + ". One of them is what a player is promised and the other is what a tab"
+                        + " list shows them; two variables is how those came to disagree.");
+        assertTrue(String.valueOf(advertised).contains("NETWORK_MAX_PLAYERS"),
+                "the one player number is not NETWORK_MAX_PLAYERS any more: " + advertised
+                        + ". .env.example, deploy/README.md and NetworkSpec all name it.");
     }
 
     /** {@code ${SMP_EXPECTED_PLUGINS:-smp …}} - what compose uses when .env says nothing. */

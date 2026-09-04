@@ -157,6 +157,9 @@ public final class FarmWorldReset {
                     + "postponed rather than swapping in a half-built world. If this repeats, the "
                     + "configured farm world is too big for this host and the border is the number "
                     + "to lower.");
+            // No sound. The countdown ticks because the world is about to be taken away; a reset
+            // that did not happen takes nothing, and for whoever is standing in the farm world it
+            // is the good outcome. The line is there so nobody wonders why the reset passed.
             forEachInFarmWorld(player -> player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.farm.postponed")));
             ensureStaging();
             scheduleNext();

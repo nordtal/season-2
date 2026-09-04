@@ -13,6 +13,7 @@ import eu.nordtal.s2.smp.config.DatabaseSpec;
 import eu.nordtal.s2.smp.config.Milestones;
 import eu.nordtal.s2.smp.config.MilestonesSpec;
 import eu.nordtal.s2.smp.config.SmpSpec;
+import eu.nordtal.s2.smp.config.SoundsSpec;
 import eu.nordtal.s2.smp.db.JoinGate;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.common.update.UpdateDirectory;
@@ -87,6 +88,18 @@ public final class SmpPlugin extends JavaPlugin {
     private ConfigHandle<DatabaseSpec> databaseHandle;
     private ConfigHandle<MilestonesSpec> milestonesHandle;
 
+    /**
+     * Its own file, and its own handle, so that {@code /smp reload} can re-read it.
+     *
+     * <p>{@code config.yml} deliberately cannot be reloaded - the plugin binds worlds, borders and
+     * coordinates once at enable and would not notice them changing - and the sounds are the one
+     * thing in it an operator was expected to iterate on with players online.
+     */
+    private ConfigHandle<SoundsSpec> soundsHandle;
+
+    /** Held so {@code /smp reload} can swap what it answers; every listener has this one instance. */
+    private SmpSounds sounds;
+
     private HikariDataSource pool;
     private SmpDao dao;
     private Messages messages;
@@ -113,6 +126,7 @@ public final class SmpPlugin extends JavaPlugin {
             configHandle = Configs.load(getDataFolder().toPath(), logger());
             databaseHandle = Configs.database(getDataFolder().toPath(), logger());
             milestonesHandle = Configs.milestones(getDataFolder().toPath(), logger());
+            soundsHandle = Configs.sounds(getDataFolder().toPath(), logger());
         } catch (final ConfigException exception) {
             severe("smp is not starting because its configuration could not be read: "
                     + exception.getMessage());
@@ -125,7 +139,8 @@ public final class SmpPlugin extends JavaPlugin {
         // The sound vocabulary, read once. A key that is wrong is reported here and silences its
         // own category; it deliberately does not join the refusals below, because a typo in a chime
         // is not worth a season offline and the console line says exactly what was ignored.
-        final SmpSounds sounds = SmpSounds.of(config.sounds(), getLogger()::warning);
+        final SmpSounds sounds = SmpSounds.of(soundsHandle.get(), getLogger()::warning);
+        this.sounds = sounds;
 
         // ---- refusal 1: the datapacks -------------------------------------------------------
         // A world generated without them is vanilla terrain permanently, because terrain is never
@@ -377,6 +392,18 @@ public final class SmpPlugin extends JavaPlugin {
      * separate file in the first place.
      */
     private void reloadTrack() {
+        // Three files, three reports, three independent failures - see the comment below. The
+        // sounds go first because they are the cheapest thing to get wrong and the only one an
+        // operator is expected to be iterating on while somebody waits to hear the result.
+        try {
+            soundsHandle.reload();
+            sounds.reload(soundsHandle.get());
+            getLogger().info("the sounds were reloaded");
+        } catch (final ConfigException | RuntimeException exception) {
+            getLogger().severe("the sounds could not be reloaded, the running ones are unchanged: "
+                    + exception.getMessage());
+        }
+
         try {
             milestonesHandle.reload();
             track = Milestones.read(milestonesHandle.get()).track();

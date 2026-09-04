@@ -11,6 +11,7 @@ import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.game.GameState;
 
 import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 
 import org.bukkit.Bukkit;
@@ -127,14 +128,14 @@ public final class HudRenderer {
         final BossBar borderBar = borderBars.computeIfAbsent(player.getUniqueId(),
                 key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
 
-        playersBar.name(Component.text(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
+        playersBar.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
                 + Glyphs.BOSSBAR_ICON_ALIVE + " " + messages.format(locale, "hg.hud.players",
                 "alive", aliveCount, "dead", deadCount) + " " + nearestPlayerArrow(player)));
 
-        lootBar.name(Component.text(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
+        lootBar.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
                 + Glyphs.BOSSBAR_ICON_LOOT_POINT + " " + lootLine(locale) + " " + nearestLootArrow(player)));
 
-        borderBar.name(Component.text(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
+        borderBar.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
                 + Glyphs.BOSSBAR_ICON_BORDER + " " + borderLine(locale)));
 
         player.showBossBar(playersBar);
@@ -211,4 +212,17 @@ public final class HudRenderer {
         final long seconds = totalSeconds % 60;
         return String.format("%d:%02d", minutes, seconds);
     }
+
+    /**
+     * Wraps a composed HUD line in a component that names {@link Glyphs#FONT_BOSSBAR}.
+     *
+     * <p>Without it the bar's code points resolve against {@code minecraft:default}, where they are
+     * undefined or defined as something else - see the note on {@link Glyphs#FONT_BOSSBAR}. The
+     * readable text rides in the same component on purpose: the bossbar font carries its own ascii
+     * provider.</p>
+     */
+    private static Component bossBarText(final String line) {
+        return Component.text(line).font(Key.key(Glyphs.FONT_BOSSBAR));
+    }
+
 }

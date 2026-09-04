@@ -92,13 +92,26 @@ class TabListTest {
                 assertTrue(header.contains("{logo}"),
                         module + "'s tab.header has to place the logo through {logo}");
                 header.codePoints().forEach(codePoint -> assertTrue(
-                        codePoint < 0xE000 || codePoint > 0xF8FF,
+                        !isPrivateUse(codePoint),
                         module + "/" + language + ".properties has a private-use character in"
                                 + " tab.header. Those belong in Glyphs and reach a bundle as a"
                                 + " parameter - written into the file they are invisible text that"
                                 + " survives until somebody's editor normalises it"));
             });
         }
+    }
+
+    /**
+     * Both private-use areas, not just the one this pack uses.
+     *
+     * <p>The pack moved from the basic plane to Supplementary Private Use Area-A on 2026-09-04
+     * ({@code Glyphs#cp}), and checking only the new range would have quietly stopped catching the
+     * old one - which is exactly the kind of character somebody pastes out of an older file.
+     */
+    private static boolean isPrivateUse(final int codePoint) {
+        return (codePoint >= 0xE000 && codePoint <= 0xF8FF)          // basic plane, retired
+                || (codePoint >= 0xF0000 && codePoint <= 0xFFFFD)    // SPUA-A, where the pack lives
+                || (codePoint >= 0x100000 && codePoint <= 0x10FFFD); // SPUA-B, unused
     }
 
     private static String value(final String directory, final String language, final String key) {

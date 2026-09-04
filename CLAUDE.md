@@ -34,7 +34,7 @@ Everything else has behaviour: `common` (access API, messages, `PlayerLocales`, 
 `Glyphs`, the `nordtal:limbo` protocol, migrations V1–V8), `network-control` (login gate, phase,
 play time, routing **and the pack station**), `limbo` (the waiting room in full, built 2026-09-01),
 `discord-bot` (access, `/phase set`, the admin mirror, the language list, hunger games registration),
-`hunger-games` (the start event, both halves, built 2026-08-31) and `resource-pack` (three fonts,
+`hunger-games` (the start event, both halves, built 2026-08-31) and `resource-pack` (four fonts,
 every code point allocated and drawn).
 
 **The login path is complete and unrehearsed.** Every login now lands on `limbo`, is offered the
@@ -209,7 +209,8 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   `nordtal/font/bossbar.json` (the HUDs, with their own height/ascent). `:common`'s `Glyphs` and the
   two font files are mirrors of that table; a change is a change in all of them, in one commit.
   `docs/smp.md` and `docs/hunger-games.md` no longer carry code points of their own. **There are
-  three fonts, not two**: `nordtal/font/board.json` is the third, and every component carrying a
+  four fonts, not two**: `nordtal/font/board.json` is the third and `nordtal/font/gui.json`, added
+  2026-09-04 with the menu panels, the fourth; every component carrying a
   glyph from a `nordtal:` font has to name that font — see the next bullet.
 
   This paragraph used to end by calling `Glyphs` "knowingly behind the table — it still declares the
@@ -217,11 +218,11 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   were false and it is kept as a correction** (`docs/state-of-play.md` finding 57): `Glyphs` declares
   one tag and one badge, and it names the whole boss bar font — nine background segments, thirteen
   icons, sixteen arrows, fifteen space advances. `ResourcePackTest` in `:common` is what makes the
-  sentence unnecessary now: it holds `Glyphs`, the three font files and every PNG they name against
+  sentence unnecessary now: it holds `Glyphs`, the four font files and every PNG they name against
   each other on every `check`, so "is the mirror still a mirror" is answered by the build rather
   than by a paragraph somebody has to remember to update.
 - **A component carrying a `nordtal:` glyph must name its font**, and forgetting is not a subtle
-  bug. The three fonts allocate independently, so a boss bar code point left in `minecraft:default`
+  bug. The four fonts allocate independently, so a boss bar code point left in `minecraft:default`
   does not fail to draw - it draws whatever `default.json` put at that code point.
   `Glyphs.BOSSBAR_BG_4` and `Glyphs.TAG_ADMIN` are both `U+E004`, which is why a real client showed
   the admin nametag inside the SMP's boss bar background on 2026-09-04 and four days of screenshots
@@ -728,14 +729,14 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Seven modules have tests: 933 in total, none skipped, all green** (`./gradlew build` with a Docker
+**Seven modules have tests: 944 in total, none skipped, all green** (`./gradlew build` with a Docker
 daemon present, 2026-09-04). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
 | `smp` | 153 |
-| `common` | 228 |
+| `common` | 239 |
 | `network-control` | 189 |
 | `updater` | 136 |
 | `discord-bot` | 155 |
@@ -747,7 +748,18 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **228**, twenty-two of them the sound vocabulary added on 2026-09-04 -
+`:common` has **239**, eleven of them the menu panel added on 2026-09-04. `MenuTitleTest` (8)
+holds the panel's offset arithmetic against the pack rather than against its own constants: it
+reads `gui.json` and the six panel PNGs, derives the 177px advance from the texture's own width,
+and asserts the composition's net displacement is **zero** - `-8 + 177 - 169`, so the readable
+title lands exactly where an unframed one would. `ChestOnlyMenuTest` (3) is the one that exists
+because a document said it did: `docs/presentation.md` claimed "a test asserts no menu opens a
+non-chest inventory" from the day the style sheet was written, and no such test existed. It now
+asserts that, and that every inventory title goes through `MenuTitle` - with a named allowlist of
+the four menus still waiting for their panel, so the remaining work is in the build instead of in
+a document.
+
+Twenty-two more are the sound vocabulary added on 2026-09-04 -
 `SoundVocabularyTest` (3) and `FeedbackSoundsTest` (8), plus the readiness pair. The first of those
 is the one that carries a rule rather than an assertion: it walks all four client-facing modules'
 `src/main` for `playSound(`, `org.bukkit.Sound`, `net.kyori.adventure.sound.` and a bare `Sound.`

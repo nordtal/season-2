@@ -63,7 +63,7 @@ the proxy to route on; the proxy decides where by [phase](season-phases.md).
 | `smp` | Paper | The SMP: Nordtal, farm world, Nether, End, milestones, aura, prestige, duels, POIs, graves | **half built 2026-09-01** — the milestone track, the aura payout, the prestige function and the milestone engine, with no world under any of them. Renamed from `smp-farm-world` 2026-08-31; schema in V6 |
 | `discord-bot` | JVM app | Discord: access sales, account linking, HG registration, admin surface, **the schema** | **built** — access, `/phase set`, the admin mirror, the language list and HG registration (renamed from `access-bot` 2026-08-31) |
 | `common` | library | `AccessDirectory`, message system, locale resolution, `SeasonPhase`, `Glyphs` | **built in full** — access API, messages, `PlayerLocales`, the phase directory, season 2's `Glyphs`, V1–V6 |
-| `resource-pack` | assets | Glyphs, HUD sprites, vanilla overrides, the released zip | **built** — three fonts, every code point allocated and drawn as placeholder or final-candidate art |
+| `resource-pack` | assets | Glyphs, HUD sprites, menu panels, vanilla overrides, the released zip | **built** — four fonts, every code point allocated and drawn as placeholder or final-candidate art |
 
 **All four planned renames are done**, the last of them the phase enum. They were cheap only until
 something ran in production, and nothing has:

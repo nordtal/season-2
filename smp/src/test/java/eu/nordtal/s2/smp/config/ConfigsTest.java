@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.config;
 
+import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -18,6 +19,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -43,25 +45,53 @@ class ConfigsTest {
     Path directory;
 
     /**
-     * The failure B1 actually was: three handles, an empty directory, and nothing else.
+     * The failure B1 actually was: every handle, an empty directory, and nothing else.
      *
      * <p>Loading is what writes the file, and writing is what serialises every nested spec - so a
-     * missing {@code @ConfigSpec} anywhere below these three roots stops here rather than in
-     * {@code onEnable}.
+     * missing {@code @ConfigSpec} anywhere below these roots stops here rather than in
+     * {@code onEnable}. It was three files until 2026-09-04, when the sounds became the fourth.
      */
     @Test
-    void aFreshDirectoryGetsAllThreeFiles() throws Exception {
+    void aFreshDirectoryGetsAllFourFiles() throws Exception {
         final SmpSpec config = Configs.load(directory, LOGGER).get();
         final DatabaseSpec database = Configs.database(directory, LOGGER).get();
         final MilestonesSpec milestones = Configs.milestones(directory, LOGGER).get();
+        final SoundsSpec sounds = Configs.sounds(directory, LOGGER).get();
 
         assertTrue(Files.isRegularFile(directory.resolve("config.yml")));
         assertTrue(Files.isRegularFile(directory.resolve("database.yml")));
         assertTrue(Files.isRegularFile(directory.resolve("milestones.yml")));
+        assertTrue(Files.isRegularFile(directory.resolve("sounds.yml")));
 
         assertEquals("nordtal", config.worldNordtal());
         assertTrue(database.jdbcUrl().startsWith("jdbc:postgresql:"));
         assertFalse(milestones.milestones().isEmpty());
+        assertEquals("minecraft:ui.button.click", sounds.select().key());
+    }
+
+    /**
+     * {@code config.yml} does not carry the sounds, and a config that still does must not load.
+     *
+     * <p>They lived under a {@code sounds:} key there for one afternoon on 2026-09-04 before moving
+     * to their own file, for the reason {@link SoundsSpec} gives. jcore stops a load on a key the
+     * interface does not declare, so this is already true - it is asserted by name because the
+     * <em>reason</em> it has to stay true is invisible from {@code SmpSpec}: a sounds block back in
+     * {@code config.yml} would be read once at enable and never again, and the escape hatch of
+     * blanking a key would silently need a restart of the season.
+     */
+    @Test
+    void configYmlRefusesASoundsBlock() throws Exception {
+        Configs.load(directory, LOGGER);
+        final Path file = directory.resolve("config.yml");
+        Files.writeString(file, Files.readString(file) + System.lineSeparator()
+                + "sounds:" + System.lineSeparator()
+                + "  select:" + System.lineSeparator()
+                + "    key: minecraft:ui.button.click" + System.lineSeparator());
+
+        final ConfigException refused =
+                assertThrows(ConfigException.class, () -> Configs.load(directory, LOGGER));
+        assertTrue(refused.getMessage().contains("sounds"),
+                "the refusal has to name the key, or nobody can act on it: " + refused.getMessage());
     }
 
     /** Every value below the nested interfaces survives the round trip, not just the flat ones. */
@@ -90,7 +120,8 @@ class ConfigsTest {
     void everyNestedSpecInterfaceCarriesTheAnnotation() {
         final List<String> missing = new ArrayList<>();
         final Set<Class<?>> seen = new LinkedHashSet<>();
-        for (final Class<?> root : List.of(SmpSpec.class, DatabaseSpec.class, MilestonesSpec.class)) {
+        for (final Class<?> root : List.of(SmpSpec.class, DatabaseSpec.class, MilestonesSpec.class,
+                SoundsSpec.class)) {
             collectMissing(root, seen, missing);
         }
         assertTrue(missing.isEmpty(),

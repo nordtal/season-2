@@ -111,7 +111,11 @@ public final class Wheel {
         if (material == null) {
             plugin.getLogger().warning("wheel-prizes names '" + prize.item()
                     + "', which is not a material - the spin was spent and nothing was given");
-            tell(player, MessageRenderer.of(messages).get(locale, "smp.wheel.broken-prize"));
+            // LOSS rather than REFUSED: nothing said no to them. The spin was spent, the prize
+            // was misconfigured, and what they are actually out is the spin - which is exactly what
+            // "something was taken" is for.
+            tell(player, MessageRenderer.of(messages).get(locale, "smp.wheel.broken-prize"),
+                    Feedback.LOSS);
             return;
         }
 

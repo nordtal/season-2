@@ -35,5 +35,26 @@ public enum Target {
     PROXY,
 
     /** The Discord bot. Access, payments, roles - the things only it can reach. */
-    BOT
+    BOT;
+
+    /**
+     * How this process is named to somebody who is waiting for it - "the SMP server".
+     *
+     * <h2>Why a switch and not {@code "command.target." + name()}</h2>
+     * Because the concatenation was exactly that, and {@code MessageBundlesTest} could see only the
+     * prefix: a key it cannot read is a key it cannot check, and the way an unchecked key surfaces
+     * is the literal string {@code command.target.SMP} in a Discord message, at the moment somebody
+     * is being told why their command did not run. Spelling the five out makes the test able to
+     * confirm all five exist in both languages, and makes the compiler demand a sixth when a sixth
+     * process appears.
+     */
+    public String messageKey() {
+        return switch (this) {
+            case SMP -> "command.target.SMP";
+            case HUNGER_GAMES -> "command.target.HUNGER_GAMES";
+            case LIMBO -> "command.target.LIMBO";
+            case PROXY -> "command.target.PROXY";
+            case BOT -> "command.target.BOT";
+        };
+    }
 }

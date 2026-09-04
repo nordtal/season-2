@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.phase;
 
+import eu.nordtal.s2.commands.FakeUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;

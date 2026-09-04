@@ -77,8 +77,6 @@ class OneMessageFormatTest {
                     "the same boss bar line"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/player/PlayerComposition.java",
                     "glyphs and player names - the nametag, the tab entry and the chat prefix"),
-            Map.entry("smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java",
-                    "the \": \" between a chat prefix and the message"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/npc/SpawnNpc.java",
                     "the NPC's name out of config.yml, which is a name and not a message"),
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/body/PlayerBodies.java",

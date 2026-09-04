@@ -29,6 +29,7 @@ import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
 import eu.nordtal.s2.smp.command.SmpCommand;
 import eu.nordtal.s2.smp.command.UpdateCommands;
+import eu.nordtal.s2.smp.chat.SystemLines;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -225,7 +226,10 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new JoinGate(identities, messages, logger()), this);
         getServer().getPluginManager().registerEvents(
-                new PresenceListener(this, identities, surfaces, composition, config), this);
+                new PresenceListener(this, identities, surfaces, composition, config,
+                        messages, locales), this);
+        getServer().getPluginManager().registerEvents(
+                new SystemLines(identities, composition, messages, locales), this);
         getServer().getPluginManager().registerEvents(
                 new NavigateListener(this, dao, navigation, identities, locales, sounds), this);
 

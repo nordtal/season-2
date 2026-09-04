@@ -24,23 +24,35 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 
 | module | main Java | tests | what actually runs |
 |---|---|---|---|
-| `discord-bot` | 43 files, 6054 lines | 112 | Access end to end, the phase command, the admin mirror, the language list, hunger games registration |
-| `hunger-games` | 41 files, 3971 lines | 57 | The start event, essentially in full |
-| `network-control` | 29 files, 4110 lines | 120 | Login gate, phase, play time, routing, **the pack station** |
-| `common` | 26 files, 2671 lines | 98 | Access API, messages, locales, phase, glyphs, **the limbo protocol**, V1–V8 |
-| `resource-pack` | — | — | Three fonts, every code point allocated and drawn |
-| `limbo` | 10 files, 1139 lines | 11 | The waiting room, in full |
-| `smp` | 83 files, 10452 lines | 135 | Everything docs/smp.md describes, none of it yet seen on a running server |
+| `smp` | 93 files, 12 977 lines | 170 | Everything docs/smp.md describes, none of it yet seen on a running server |
+| `common` | 59 files, 6567 lines | 289 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, **the notification listener**, V1–V10 |
+| `network-control` | 37 files, 5847 lines | 181 | Login gate, phase, play time, routing, the pack station |
+| `discord-bot` | 50 files, 7641 lines | 155 | Access end to end, the phase command, the admin mirror, the language list, hunger games registration |
+| `updater` | 38 files, 5179 lines | 136 | Resolve, report, apply, serve — and the schema every other process waits on |
+| `hunger-games` | 43 files, 4941 lines | 62 | The start event, essentially in full |
+| `commands` | 7 files, 554 lines | 16 | **Declarations only so far** — no command has been refolded into it yet |
+| `limbo` | 12 files, 1545 lines | 11 | The waiting room, in full |
+| `paper-common` | 2 files, 262 lines | — | The operator adapter and the admin watcher; covered from `:common` and from each plugin |
+| `resource-pack` | — | — | Four fonts, every code point allocated and drawn |
 
-887 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-04), across **seven** modules - `:updater` was missing from this count until 2026-09-02. It was 730 on that day and 854 on 2026-09-03; the review of 2026-09-04 added the rest.
-Every number in this table is read out of the JUnit XML, never counted by eye: this line once read
-435 while the rows above it added to 438, and `season-2/CLAUDE.md` claimed 13 tests each for
-`AuraPayoutTest` and `TrackValidationTest` and 7 for `DeathPenaltyTest` where the reports say 12, 12
-and 8. Both were corrected on 2026-09-01 by re-reading the reports.
+1020 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-04),
+across **eight** modules — `paper-common` and `resource-pack` have no test source set of their own.
+
+**This table was three days stale until 2026-09-04, and that is worth writing down rather than
+quietly fixing.** It read 887 across seven modules with `:updater`, `:commands` and `:paper-common`
+missing outright and every remaining row low - `common` said 98 where the reports said 289. A
+document whose first section warns that "a document describes the state on the day somebody wrote
+it" had its own headline number describing 2026-09-01. The counts were 730 on 2026-09-02 and 854 on
+2026-09-03.
+
+Every number in this table is read out of the JUnit XML and the file tree, never counted by eye:
+this line once read 435 while the rows above it added to 438, and `season-2/CLAUDE.md` claimed 13
+tests each for `AuraPayoutTest` and `TrackValidationTest` and 7 for `DeathPenaltyTest` where the
+reports say 12, 12 and 8. Both were corrected on 2026-09-01 by re-reading the reports.
 
 **No module is a scaffold any more, and no half of one is missing either.** Every feature
 docs/smp.md describes exists in code as of 2026-09-01. What is left is not building but *watching*:
-none of `smp`'s 135 tests touches a world, a packet or a player, because none of them can, and this
+none of `smp`'s 170 tests touches a world, a packet or a player, because none of them can, and this
 document has said since it was written that "it compiles" proves nothing here.
 
 ### `common`
@@ -316,6 +328,7 @@ to record.
 | 61 | **New 2026-09-04, found and fixed the same day.** **The sounds were a `sounds:` block inside `smp`'s `config.yml`**, whose documented escape hatch is "blank the key to silence a category". `config.yml` is deliberately not reloadable — the plugin binds worlds, borders and coordinates once at enable — so using that escape hatch would have cost a **restart of the season**, and the `todo.md` item telling the owner to blank a key did not say so | **closed 2026-09-04** — `sounds.yml` is its own file with its own handle, `/smp reload` re-reads it, and `SmpSounds` holds a volatile reference so the one instance fifteen listeners were handed at enable answers the new file from the next click on. `SoundDefaultsTest` drives exactly that; `ConfigsTest` asserts by name that `config.yml` now *refuses* a `sounds:` block, because the reason it must keep refusing one is invisible from `SmpSpec` |
 | 62 | **New 2026-09-04, found while wiring `hunger-games`' sounds and fixed the same day.** **The post-game ceremony queried the database on the main thread, once per member *per player*.** `Ceremony#announce` ran a `killCount` per participant inside a loop over every online player - forty in front of forty is **1 600 blocking queries on the server thread** at the single moment the whole event ends - plus `decideGame` and `activeMembersOf`. Every one of those 1 600 returns the same answer: the tally does not depend on who is being told | **closed 2026-09-04** — `Ceremony` no longer holds the DAO at all, which is the only version of the rule that cannot quietly come undone. One grouped `killCounts(gameId)` replaces the loop, and it, `decideGame` and the roster all happen in the async block `CombatListener` already had; the ceremony receives a `Ceremony.Decision` and runs no query. `KillCountsIntegrationTest` (4) drives the new query against a real PostgreSQL - `count(*)` is `bigint` against a `Map<UUID, Integer>`, and `@KeyColumn`/`@ValueColumn` name columns as strings nothing else checks |
 | 63 | **New 2026-09-04, found while building the first menu.** **`docs/presentation.md` said "a test asserts no menu opens a non-chest inventory", and no such test existed** - the sentence was written the day the style sheet was, and read ever since as a statement about the repository. It is the same failure this document opens by warning about, and the third standing correction of its kind here. The rule itself matters: a chest window is `114 + 18*rows` and all six sizes are even, which is the whole reason one panel per row count lines up; a hopper is 133 | **closed the same day.** `ChestOnlyMenuTest` in `:common` asserts it over the four client-facing modules' sources, and asserts a second rule beside it - every inventory title goes through `MenuTitle` - with a named allowlist of the four menus still waiting for their panel, so what is left of the menu pass is in the build rather than in a document. It carries a non-vacuity anchor: the scan has to find `NavigateGui`, or it is passing on an empty set |
+| 64 | **New 2026-09-04, found the day after writing it.** **`AdminOperators#refresh` had no caller.** It was written, documented and covered by three of `AdminOperatorsTest`'s eleven cases on 2026-09-04, for the express purpose of removing operator from an admin whose Discord role was revoked while they were online — and nothing called it. So the shipped behaviour was the one it was written to replace: the flag read once at join, operator kept until the account chose to disconnect. This is the worst of the three possible states, because a mechanism that exists and is tested reads as a mechanism that works, and the question it answers ('is this person still an admin?') looks identical when nothing is answering it | **closed the same day.** `:paper-common`'s `AdminWatch` is its caller, on all three backends: a poll (`config.yml#admin-poll-interval-seconds`, the guarantee) and a `LISTEN nordtal_admin` connection (comfort, switchable off). The reconnect loop moved into `:common` as `eu.nordtal.s2.common.notify` on the way, because writing it a fourth time was the alternative. `AdminWatchWiringTest` is what stops it recurring — a text search, in the shape of `ReadinessWiringTest`, asserting all three plugins build one, start it and close it |
 | 56 | **New 2026-09-04.** `CLAUDE.md`'s list of migrations jumps **V6 → V8**, and `V7__update_request.sql` and `V9__smp_start.sql` are both on disk and both applied. This document already mentioned V7; the module guide did not | **closed the same day** by writing both in |
 | 57 | **New 2026-09-04.** `CLAUDE.md` says `Glyphs` *"is knowingly behind the table today — it still declares the four retired season-1 role tags and names nothing at all from the boss bar font."* **Both halves are false.** It declares one tag and one badge, and it names the entire boss bar font: nine background segments, thirteen icons, sixteen arrows and fifteen space advances. The sentence describes the state on the day somebody wrote it, which is the failure mode this document opens by warning about | **closed the same day** |
 | 58 | **New 2026-09-04, closed the same day.** **`nordtal:board` was fully drawn and used by nothing.** Twenty-two textures, twenty-eight code points, corners, edges, dividers and its own negative-advance space provider — and `Boards.java` wrote plain text onto a Text Display without touching one `BOARD_*` constant | **closed:** `:common`'s `BoardFrame` draws it, `Boards` calls it, `BoardFrameTest` (11) holds the arithmetic against the PNGs rather than against its own constants. The width could not be computed the way the fallback in `todo.md` assumed — the board's text renders in `minecraft:default`, whose advances live in the client — so the owner decided on 2026-09-04 that it is configuration (`boards[].width`, 32–240 px) and an over-long line draws over the edge rather than wrapping. The font gained six positive advances for it. Whether it *looks* right is a rehearsal item |

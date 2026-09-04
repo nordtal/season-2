@@ -29,4 +29,17 @@ public record Identity(Locale locale, boolean admin, boolean donor, int aura, lo
     public Identity withAura(final int newAura) {
         return new Identity(locale, admin, donor, newAura, playtimeSeconds);
     }
+
+    /**
+     * The admin flag as the roster watcher just read it.
+     *
+     * <p>Needed because the flag is the one field here that can be taken away mid-session: an admin
+     * role revoked in Discord reaches this server within a poll interval (see {@code AdminWatch}),
+     * and the composition drawn from this record includes the admin tag. Without this the tag would
+     * go on claiming somebody is an admin after they had stopped being one - and it is drawn on a
+     * nametag every other player can see.</p>
+     */
+    public Identity withAdmin(final boolean nowAdmin) {
+        return new Identity(locale, nowAdmin, donor, aura, playtimeSeconds);
+    }
 }

@@ -864,4 +864,28 @@ class AccessDirectoryIntegrationTest {
         assertEquals(java.util.Set.of("100000000000000002"), directory.admins());
     }
 
+    @Test
+    @DisplayName("the backends ask for admins by Minecraft account, and get only the linked ones")
+    void adminsAreAlsoReadableAsMinecraftAccounts() {
+        // The proxy knows a session by its Discord id because the login gate resolved it there. A
+        // Paper server knows only a UUID, and the join through account_link is the one thing that
+        // connects them - so this is a second query rather than a mapping of admins().
+        assertTrue(directory.adminMinecraftAccounts().isEmpty());
+
+        directory.setAdmin(DISCORD_ID, true);
+        assertTrue(directory.adminMinecraftAccounts().isEmpty(),
+                "an admin with no account link cannot be online anywhere, so nothing on a backend"
+                        + " should be told about them");
+
+        directory.link(DISCORD_ID, MC_UUID);
+        assertEquals(java.util.Set.of(MC_UUID), directory.adminMinecraftAccounts());
+
+        // The direction that actually matters: this is what removes operator from somebody who is
+        // online right now, without waiting for them to disconnect.
+        directory.setAdmin(DISCORD_ID, false);
+        assertTrue(directory.adminMinecraftAccounts().isEmpty(),
+                "a revoked admin has to leave this set immediately - AdminWatch hands it straight to"
+                        + " AdminOperators#refresh, and whoever is not in it loses operator");
+    }
+
 }

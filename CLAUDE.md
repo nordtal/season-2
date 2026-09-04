@@ -160,6 +160,36 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   the bot's jar ~31 MB. Nothing from JDBI or HikariCP appears on `AccessDirectory`'s signature —
   the factories take a `javax.sql.DataSource` or a JDBC URL — so a consumer never compiles against
   them.
+- **The `LISTEN`/`NOTIFY` loop is one loop, in `:common`, since 2026-09-04**
+  (`eu.nordtal.s2.common.notify`). It was `network-control`'s `PhaseListener` +
+  `PhaseNotifications` + `PostgresPhaseNotifications`, ~350 lines whose only per-caller difference
+  is a channel name and what to re-read; the three Paper backends needed the same thing for the
+  admin roster, and four copies of a reconnect loop is three too many. `Channels` carries the names
+  themselves — and it carries them **next to the SQL that emits them**, which is the half that was
+  actually wrong before: the `pg_notify(...)` literals are in `:common`'s `PhaseDao` and
+  `AccessDao`, and the `LISTEN` constants were three packages away in another module. A listener
+  quietly pointed at a channel nobody publishes on looks exactly like a listener that works, right
+  up until the moment it is needed.
+
+  Three rules come with it, and all three are inherited rather than new: **the poll is the
+  guarantee** and this is only what makes a change feel instant; **a notification is never the
+  state**, so every wake-up and every *reconnect* re-reads in full; and **the channel is never
+  inspected**, so every registered refresh runs on every signal. The last one is what makes one
+  connection carrying several channels cheaper than several connections and no worse.
+- **An admin stops being an operator without disconnecting, since 2026-09-04**
+  (`:paper-common`'s `AdminWatch`). `AdminOperators` read `discord_user.admin` exactly once per
+  session, at join, so a revoked admin kept operator on all three backends **until they chose to
+  log off** — and an emergency revocation is precisely the case where waiting for that is the wrong
+  direction. The proxy had already learned this for its own `LoginRoster` on 2026-09-02; the
+  backends, where operator actually is, had not. Each plugin's `config.yml` carries
+  `admin-poll-interval-seconds` (default 30, the guarantee, and refused at zero because
+  `AdminWatch` floors the timer at a second and it would become a query per second) and
+  `admin-listen-enabled` (default true, comfort only). The read is off the main thread and the
+  apply hops back onto it, because `ops.json` is main-thread state; `AdminOperators#refresh` writes
+  only on a change, which is what makes a poll running for the length of a season affordable.
+  `smp` is the one module that passes the watcher an extra cache — its `Identities`, because the
+  admin tag on a nametag every other player can see is drawn from it — and the redraw there is
+  conditional for the same reason.
 - **What a jar actually weighs, rebuilt and measured 2026-08-31 at version 0.1.0** (the repository
   moved to `0.2.0` on 2026-09-01; the file names below are the ones the measurements were taken on
   and are left as measured). An earlier
@@ -770,15 +800,15 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Eight modules have tests: 1015 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-04, after `:commands` was scaffolded). The counts below are what the JUnit XML reports, not
+**Eight modules have tests: 1020 in total, none skipped, all green** (`./gradlew build` with a Docker
+daemon present, 2026-09-04, after the admin watcher). The counts below are what the JUnit XML reports, not
 `@Test` counts.
 
 | module | tests |
 |---|---|
 | `smp` | 170 |
-| `common` | 277 |
-| `network-control` | 188 |
+| `common` | 289 |
+| `network-control` | 181 |
 | `updater` | 136 |
 | `discord-bot` | 155 |
 | `hunger-games` | 62 |
@@ -790,7 +820,21 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **266**. **Six are `FullServerAdmissionTest`, new on 2026-09-04 with the single
+`:common` has **289**, and **twelve of those are new on 2026-09-04 with the admin watcher**. Nine
+are `NotificationListenerTest`, which is `network-control`'s old `PhaseListenerTest` moved here with
+the loop it covers - see "The shared notification listener" below for why the loop moved and what
+the move cost (`network-control` is seven tests lighter for exactly this reason; nothing was
+dropped). Two are `AdminWatchWiringTest`, a text search over the three Paper plugins in the shape of
+`ReadinessWiringTest`, and it exists because of a specific failure: `AdminOperators#refresh` was
+written on 2026-09-04 for the live revocation and then had **no caller at all** for a day - a
+mechanism that existed, was tested, and did nothing, on the one question where doing nothing looks
+identical to working. Its second case pins that a backend builds `FullServerAdmission` exactly
+**once**: a second instance is not a duplicate but an empty cache, and the one answering the
+fullness check would be the empty one. The twelfth is an `AccessDirectoryIntegrationTest` case for
+`adminMinecraftAccounts()` - an admin *without* an account link must not appear in it, and a revoked
+admin must leave it immediately, because that set is handed straight to `AdminOperators#refresh`.
+
+**Six are `FullServerAdmissionTest`, new on 2026-09-04 with the single
 player limit** - the one place in this repository where a Paper server is allowed to refuse a login
 for fullness, and therefore the one place the proxy's admin exemption had to be rebuilt. Both of its
 decisions are things nobody can rehearse without first filling a server: when the admin flag is
@@ -912,7 +956,10 @@ that, and both are easy to undo by accident:
   that one, from the module directory, in preference to the real one. It was deleted with this
   change; the anchor is what stops the next one shadowing the root file silently.
 
-`network-control` has **188** - one fewer than before 2026-09-04, and the arithmetic is the point:
+`network-control` has **181** - eight fewer than before 2026-09-04, and both subtractions are worth
+knowing. Seven left the module with `PhaseListenerTest`, which moved into `:common` as
+`NotificationListenerTest` when the reconnect loop did; the module lost the tests and the code
+together, and `:common` gained nine. The eighth is the arithmetic that is the point:
 two tests that pinned `max-players` against `backend-limit` were replaced by one that asserts a
 `network.yml` still carrying the retired `backend-limit` stops the proxy **with that key named**.
 There is no pair left to cross, so there is nothing left to compare; what an operator needs instead

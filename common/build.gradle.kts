@@ -113,6 +113,13 @@ dependencies {
     compileOnly(libs.hikaricp)
     compileOnly(libs.slf4j.api)
 
+    // eu.nordtal.s2.common.notify unwraps org.postgresql.PGConnection to call
+    // getNotifications(timeout): docs/season-phases.md states plainly that the pgjdbc driver has no
+    // callback API, so a LISTEN loop cannot be written against java.sql alone. compileOnly for the
+    // same reason as everything above it - the four processes that open a listener all have the
+    // driver at runtime already, and a consumer that does not never touches this package.
+    compileOnly(libs.postgresql.driver)
+
     // The integration tests apply this module's own Flyway migration - src/main/resources/db/
     // migration, on the test runtime classpath - against a real PostgreSQL container (see
     // AccessSchema in src/test/java). Flyway is a test dependency only: :common never migrates

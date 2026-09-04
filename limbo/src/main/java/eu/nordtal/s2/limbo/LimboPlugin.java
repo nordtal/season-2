@@ -6,6 +6,7 @@ import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AdminOperators;
+import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
@@ -62,6 +63,7 @@ public final class LimboPlugin extends JavaPlugin {
     private ConfigHandle<DatabaseSpec> databaseHandle;
     private HikariDataSource pool;
     private AccessDirectory access;
+    private AdminWatch adminWatch;
 
     private WaitingRoom room;
     private LimboChannel channel;
@@ -155,6 +157,17 @@ public final class LimboPlugin extends JavaPlugin {
         getServer().getPluginManager()
                 .registerEvents(new FullServerGate(access, admission, slf4j()), this);
 
+        // ...and keeps being one only for as long as the database says so. Without this the flag is
+        // read once per session and a revoked admin keeps operator until they disconnect; see
+        // AdminWatch. limbo passes no extra cache because it holds none - it renders one title.
+        adminWatch = new AdminWatch(this, access, operators, admission, admins -> { }, slf4j());
+        adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
+                config.adminListenEnabled()
+                        ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
+                                databaseHandle.get().username(), databaseHandle.get().password(),
+                                databaseHandle.get().queryTimeoutSeconds())
+                        : null);
+
         getLifecycleManager().registerEventHandler(
                 io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS,
                 event -> event.registrar().register(new LimboCommand(this, messages).build()));
@@ -194,6 +207,11 @@ public final class LimboPlugin extends JavaPlugin {
         }
         if (room != null) {
             room.stop();
+        }
+        // Before the pool: the listener thread is parked on a connection of its own, but a refresh
+        // already in flight reads through the pool.
+        if (adminWatch != null) {
+            adminWatch.close();
         }
         // access.close() is a no-op - AccessDirectory.using(...) never owns the pool it is handed -
         // so this plugin closes the pool it built itself.

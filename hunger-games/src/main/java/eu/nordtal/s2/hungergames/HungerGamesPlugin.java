@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.access.AdminOperators;
+import eu.nordtal.s2.papercommon.access.AdminWatch;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
@@ -73,6 +74,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
      */
     private ConfigHandle<SoundsSpec> soundsHandle;
     private HikariDataSource pool;
+    private AdminWatch adminWatch;
     private HungerGamesDao dao;
 
     /** Held so {@code /hg reload} can swap what it answers; every listener has this one instance. */
@@ -207,6 +209,20 @@ public final class HungerGamesPlugin extends JavaPlugin {
                 new CombatListener(this, dao, state, bodies, border, winTracker, sounds,
                         this::onGameDecided), this);
 
+        // ...and keeps being one only for as long as the database says so. Without this the flag is
+        // read once per session and a revoked admin keeps operator until they disconnect; see
+        // AdminWatch. The admin set is read through :common's AccessDirectory rather than through
+        // this module's own dao, because the join onto account_link belongs next to the admin flag
+        // it filters on and there is no reason for a second copy of it here.
+        adminWatch = new AdminWatch(this, eu.nordtal.s2.common.access.AccessDirectory.using(pool),
+                operators, admission, admins -> { }, getLogger0());
+        adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
+                config.adminListenEnabled()
+                        ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
+                                databaseHandle.get().username(), databaseHandle.get().password(),
+                                databaseHandle.get().queryTimeoutSeconds())
+                        : null);
+
         registerCommands(config, world);
 
         startHeartbeat();
@@ -249,6 +265,11 @@ public final class HungerGamesPlugin extends JavaPlugin {
         }
         if (border != null) {
             border.stop();
+        }
+        // Before the pool: the listener thread is parked on a connection of its own, but a refresh
+        // already in flight reads through the pool.
+        if (adminWatch != null) {
+            adminWatch.close();
         }
         if (pool != null) {
             pool.close();

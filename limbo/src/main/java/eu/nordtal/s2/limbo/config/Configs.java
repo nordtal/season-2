@@ -30,6 +30,10 @@ public final class Configs {
         return load(dataFolder, logger, "config", LimboSpec.class, "NORDTAL_LIMBO", config -> {
             requireText("world-name", config.worldName());
             requirePositive("title-refresh-seconds", config.titleRefreshSeconds());
+            // Zero or negative here would not disable the watcher - AdminWatch floors the timer
+            // at one second - so it would quietly become a query per second for the life of the
+            // server. Refused by name instead.
+            requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
             if (config.spawnY() < -60 || config.spawnY() > 300) {
                 // Not a physics constraint - the world is empty - but a value outside the build
                 // limits would put every player somewhere the server refuses to keep them.

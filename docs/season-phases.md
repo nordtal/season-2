@@ -374,8 +374,11 @@ Rejected: a UUID list in `gate.yml` (it lives in several places and goes stale),
 access system deliberately avoids).
 
 Bukkit permissions, where a vanilla or third-party command needs them, come from **operator**: an
-admin is one on all three Paper servers from join to quit, since 2026-09-04. It was a
-`PermissionAttachment` with a configured node list until then, and only on the SMP. See
+admin is one on all three Paper servers for as long as the database says they are one, since
+2026-09-04. It was a `PermissionAttachment` with a configured node list until then, and only on the
+SMP. Revocation reaches a connected player through the same `LISTEN nordtal_admin` channel and the
+same "the poll is the guarantee" rule as everything else on this page — the backends gained their
+own listener the same day the proxy's `LoginRoster` fix was generalised. See
 [smp.md](smp.md#admins).
 
 ## The end of the season

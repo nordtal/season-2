@@ -172,6 +172,21 @@ public interface AccessDirectory extends AutoCloseable {
     java.util.Set<String> admins();
 
     /**
+     * Every admin's Minecraft account, for the three Paper servers.
+     *
+     * <p>The proxy asks {@link #admins()} because it knows its sessions by Discord id. A backend
+     * knows only a {@link UUID}, so it asks this - one query for the whole set, re-derived rather
+     * than patched, so a lost notification costs latency and not correctness. It is what
+     * {@code AdminOperators#refresh} is fed on every {@code nordtal_admin} signal and every poll
+     * tick, and therefore what makes a revoked admin stop being an operator without disconnecting.
+     *
+     * <p>Admins without an account link are absent, not null: they cannot be online anywhere.</p>
+     *
+     * @return the Minecraft accounts, possibly empty
+     */
+    java.util.Set<UUID> adminMinecraftAccounts();
+
+    /**
      * Writes the 1:1 link. Both halves of the 1:1 are enforced by unique constraints in the
      * database, so a losing concurrent attempt returns {@code false} rather than corrupting
      * anything.

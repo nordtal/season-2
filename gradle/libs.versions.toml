@@ -53,6 +53,12 @@ slf4j = "2.0.18"
 # junit-jupiter module is deliberately not used - it is built against JUnit 5 and this
 # repo is on the JUnit 6 BOM.
 testcontainers = "1.21.4"
+# Gson, and only :common's tests use it - the resource-pack consistency test parses the three
+# font JSON files, and hand-rolling a JSON reader for that is 80 lines nobody would ever review.
+# Pinned to what Paper 26.2 ships in libraries/ (CLAUDE.md, verified on a running server
+# 2026-08-30) so the parser reading the fonts is the one the client-facing platform uses. It is
+# never shaded: Paper and Velocity both provide it, and :common's jar does not change.
+gson = "2.14.0"
 junit = "6.0.0"
 shadow = "9.6.1"
 runpaper = "3.1.0"
@@ -79,6 +85,7 @@ hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikaricp" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }

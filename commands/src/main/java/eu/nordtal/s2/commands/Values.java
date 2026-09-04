@@ -60,6 +60,18 @@ public final class Values {
         return get(name, UUID.class);
     }
 
+    /**
+     * Whatever was supplied for this argument, untyped - or empty if nothing was.
+     *
+     * <p>For the one caller that has to walk a command's arguments without knowing what they are:
+     * {@link eu.nordtal.s2.commands.remote.RequestArguments}, writing them onto a request row. Every
+     * other reader knows which argument it wants and what kind it is, and should keep using the
+     * typed accessors, which fail loudly rather than handing back an {@code Object}.</p>
+     */
+    public Optional<Object> raw(final String name) {
+        return Optional.ofNullable(values.get(name));
+    }
+
     private <T> T get(final String name, final Class<T> type) {
         final Object value = values.get(name);
         if (value == null) {

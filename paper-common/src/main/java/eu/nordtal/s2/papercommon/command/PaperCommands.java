@@ -243,7 +243,12 @@ public final class PaperCommands {
                 .map(root -> {
                     final LiteralArgumentBuilder<CommandSourceStack> builder = materialise(root);
                     extras.getOrDefault(root.literal, List.of()).forEach(builder::then);
-                    return builder.requires(this::mayUse).build();
+                    // NO requires on the root, deliberately. Brigadier's requires gates a whole
+                    // subtree, and a root is shared: /hg carries `ready`, which any player may run
+                    // and which this adapter does not own. Gating the root would hide it. Every
+                    // node this adapter creates below the root carries the check instead, so what a
+                    // non-admin sees under /hg is exactly `ready`.
+                    return builder.build();
                 })
                 .toList();
     }
@@ -263,7 +268,10 @@ public final class PaperCommands {
     private LiteralArgumentBuilder<CommandSourceStack> materialise(final Node node) {
         final LiteralArgumentBuilder<CommandSourceStack> builder = Commands.literal(node.literal);
         for (final Node child : node.children.values()) {
-            builder.then(materialise(child));
+            // The check goes on the child rather than on this node, because this node may be a root
+            // that also carries somebody else's open command. Brigadier inherits requires down a
+            // subtree, so one on each first-level node covers everything below it.
+            builder.then(materialise(child).requires(this::mayUse));
         }
 
         final boolean runnableHere = node.command != null && arguments(builder, node.command);
@@ -349,6 +357,17 @@ public final class PaperCommands {
         final NordtalUser user = user(context.getSource().getSender());
         final List<Declaration> below = new ArrayList<>();
         collect(node, below);
+
+        // Only what this person could actually run. The root carries no requires (see build()), so
+        // a player who typed /hg reaches this - and a list of commands they would be refused is
+        // worse than no list.
+        if (!mayUse(context.getSource())) {
+            below.removeIf(Declaration::adminOnly);
+            if (below.isEmpty()) {
+                user.reply("command.not-admin", Map.of(), Feedback.REFUSED);
+                return Command.SINGLE_SUCCESS;
+            }
+        }
 
         if (below.isEmpty()) {
             // Only reachable for a root whose every command was skipped by remote(), which today

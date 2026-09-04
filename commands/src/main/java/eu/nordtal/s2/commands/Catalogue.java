@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 
@@ -34,7 +35,8 @@ public final class Catalogue {
         return java.util.stream.Stream.of(
                         List.of(PhaseCommands.SHOW, PhaseCommands.SET, PhaseCommands.LAUNCH,
                                 PhaseCommands.SMP_START),
-                        SmpCommands.declarations())
+                        SmpCommands.declarations(),
+                        HungerGamesCommands.declarations())
                 .flatMap(List::stream)
                 .toList();
     }

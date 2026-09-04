@@ -5,7 +5,15 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.access.AdminOperators;
+import eu.nordtal.s2.commands.Target;
+import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
+import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
+import eu.nordtal.s2.commands.remote.Outbox;
+import eu.nordtal.s2.hungergames.command.BukkitHungerGamesEffects;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
+import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
+
+import java.util.concurrent.ScheduledExecutorService;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
@@ -75,6 +83,15 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private ConfigHandle<SoundsSpec> soundsHandle;
     private HikariDataSource pool;
     private AdminWatch adminWatch;
+
+    /**
+     * The command layer. Two effects instances, and the difference is the executor: the chat one
+     * schedules, the inbox's runs inline because the inbox settles a request row when the command
+     * returns. {@code CommandInbox#register} refuses the wrong one at startup.
+     */
+    private HungerGamesEffects chatEffects;
+    private Outbox outbox;
+    private ScheduledExecutorService commandWaiter;
     private HungerGamesDao dao;
 
     /** Held so {@code /hg reload} can swap what it answers; every listener has this one instance. */
@@ -216,14 +233,42 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // it filters on and there is no reason for a second copy of it here.
         adminWatch = new AdminWatch(this, eu.nordtal.s2.common.access.AccessDirectory.using(pool),
                 operators, admission, admins -> { }, getLogger0());
+        final eu.nordtal.s2.common.access.AccessDirectory access =
+                eu.nordtal.s2.common.access.AccessDirectory.using(pool);
+        final java.util.function.BooleanSupplier reloadSounds = this::reloadSounds;
+        chatEffects = new BukkitHungerGamesEffects(this,
+                BukkitHungerGamesEffects.async(this), dao, config, lobby, () -> currentGameId,
+                gameId -> startGame(gameId, world), reloadSounds, this::reloadMessages);
+
+        commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
+            final Thread thread = new Thread(task, getName() + "-command-waiter");
+            thread.setDaemon(true);
+            return thread;
+        });
+        final eu.nordtal.s2.common.command.CommandRequests requests =
+                eu.nordtal.s2.common.command.CommandRequests.borrowing(pool);
+        outbox = new Outbox(requests, commandWaiter,
+                (message, failure) -> getLogger()
+                        .log(java.util.logging.Level.WARNING, message, failure));
+
+        final PaperCommandInbox inbox =
+                new PaperCommandInbox(this, Target.HUNGER_GAMES, requests, access);
+        // Inline, on purpose - see the field comment.
+        final HungerGamesEffects inboxEffects = new BukkitHungerGamesEffects(this, Runnable::run,
+                dao, config, lobby, () -> currentGameId, gameId -> startGame(gameId, world),
+                reloadSounds, this::reloadMessages);
+        HungerGamesCommands.all().forEach(command -> inbox.register(command, inboxEffects));
+        inbox.start(this);
+
+        registerCommands(config, world);
+
         adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
                 config.adminListenEnabled()
                         ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
                                 databaseHandle.get().username(), databaseHandle.get().password(),
                                 databaseHandle.get().queryTimeoutSeconds())
-                        : null);
-
-        registerCommands(config, world);
+                        : null,
+                inbox.refreshes(), inbox.channels());
 
         startHeartbeat();
 
@@ -271,6 +316,10 @@ public final class HungerGamesPlugin extends JavaPlugin {
         if (adminWatch != null) {
             adminWatch.close();
         }
+        if (commandWaiter != null) {
+            // Before the pool: a wait in flight reads the request row through it.
+            commandWaiter.shutdownNow();
+        }
         if (pool != null) {
             pool.close();
         }
@@ -279,10 +328,10 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
     private void registerCommands(final HungerGamesSpec config, final World world) {
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
-            final HungerGamesCommand command = new HungerGamesCommand(this, dao, config, messages, locales,
-                    lobby, sounds, this::reloadSounds,
-                    () -> currentGameId, gameId -> startGame(gameId, world));
-            event.registrar().register(command.build());
+            final HungerGamesCommand command = new HungerGamesCommand(this, dao, messages, locales,
+                    lobby, sounds, () -> currentGameId);
+            command.build(outbox, chatEffects)
+                    .forEach(node -> event.registrar().register(node));
         });
     }
 
@@ -313,6 +362,20 @@ public final class HungerGamesPlugin extends JavaPlugin {
      *
      * @return true when the running sounds are now what the file says
      */
+    /**
+     * Re-reads the message bundles and the operator's override on top of them.
+     *
+     * <p>Throws on failure rather than answering a boolean, so that the effects adapter is the one
+     * place that decides what a failed reload says - and so that whatever went wrong reaches the
+     * console with its message rather than being flattened into {@code false}.</p>
+     */
+    private void reloadMessages() {
+        messages.reload();
+        messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
+                "the message override names " + key + ", which no bundle declares - it is"
+                        + " stored and never used; check the spelling"));
+    }
+
     private boolean reloadSounds() {
         try {
             soundsHandle.reload();

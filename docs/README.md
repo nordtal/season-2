@@ -135,6 +135,7 @@ Discord ([architecture.md](architecture.md#commands)).
 | `/smp objective complete <key>` | admin | **escape hatch 1**: one objective, paid `pot × (reached ÷ target)` |
 | `/smp milestone unlock <key>` | admin | **escape hatch 2**, the blunt one: every open objective pays proportionally |
 | `/smp aura <player> <delta>` | admin | corrects a balance. Writes its reason, like every other aura change |
+| `/smp access <player>` | admin | **new 2026-09-04.** Is that account linked, does it have access, and is there a purchase halfway through? The shortened form of Discord's `/access-status`, answered to the asker only |
 | `/smp update` | admin | asks the updater what differs, and reports its answer verbatim |
 | `/smp update apply` | admin | installs what differs |
 | `/smp update restart [cancel]` | admin | the countdown, and the way out of it |

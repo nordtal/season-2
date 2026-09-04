@@ -31,10 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Holds {@link Glyphs}, the three font files and the pack's PNGs to each other.
+ * Holds {@link Glyphs}, the four font files and the pack's PNGs to each other.
  *
  * <h2>Why a test and not a look</h2>
- * The three are mirrors of one allocation - {@code resource-pack/README.md}'s code point table says
+ * The four are mirrors of one allocation - {@code resource-pack/README.md}'s code point table says
  * so - and every way they can drift is invisible until a client renders it. A constant the font
  * does not declare draws a missing-glyph box; a font entry pointing at a texture that is not there
  * draws nothing; a cell the sheet never filled in draws a blank the same width as the glyph. None
@@ -62,8 +62,11 @@ class ResourcePackTest {
             FontFile.load(Glyphs.FONT_BOARD, ASSETS + "/nordtal/font/board.json");
     private static final FontFile BOSSBAR_FONT =
             FontFile.load(Glyphs.FONT_BOSSBAR, ASSETS + "/nordtal/font/bossbar.json");
+    private static final FontFile GUI_FONT =
+            FontFile.load(Glyphs.FONT_GUI, ASSETS + "/nordtal/font/gui.json");
 
-    private static final List<FontFile> FONTS = List.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT);
+    private static final List<FontFile> FONTS =
+            List.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT);
 
     /**
      * The message keys whose text is drawn inside a boss bar, mirroring what
@@ -292,6 +295,9 @@ class ResourcePackTest {
         }
         if (constant.startsWith("BOARD_")) {
             return BOARD_FONT;
+        }
+        if (constant.startsWith("GUI_")) {
+            return GUI_FONT;
         }
         return DEFAULT_FONT;
     }

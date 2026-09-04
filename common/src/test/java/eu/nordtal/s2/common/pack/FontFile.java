@@ -16,7 +16,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * One of the resource pack's three font files, read the way the client reads it.
+ * One of the resource pack's four font files, read the way the client reads it.
  *
  * <p>A font is a list of providers. A {@code space} provider gives code points an advance and no
  * pixels; a {@code bitmap} provider names one texture and lays a grid of code points over it, the

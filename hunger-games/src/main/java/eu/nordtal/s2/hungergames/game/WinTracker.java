@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.game;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.db.HgMember;
@@ -168,8 +169,7 @@ public final class WinTracker {
             return;
         }
         for (final Player player : world.getPlayers()) {
-            player.sendMessage(Component.text(
-                    messages.get(locales.of(player.getUniqueId()), "hg.win.same-team-final-two")));
+            player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "hg.win.same-team-final-two"));
         }
     }
 

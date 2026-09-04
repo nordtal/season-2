@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.board;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.config.SmpSpec;
@@ -159,12 +160,12 @@ public final class Boards {
 
     private Component objectiveText(final Locale locale) {
         final List<Component> lines = new ArrayList<>();
-        lines.add(Component.text(messages.get(locale, BoardKind.OBJECTIVE.messageKey()))
+        lines.add(MessageRenderer.of(messages).get(locale, BoardKind.OBJECTIVE.messageKey())
                 .color(NamedTextColor.GOLD));
 
         final Optional<String> active = season.activeKey();
         if (active.isEmpty()) {
-            lines.add(Component.text(messages.get(locale, "smp.board.objective.finished"))
+            lines.add(MessageRenderer.of(messages).get(locale, "smp.board.objective.finished")
                     .color(NamedTextColor.GRAY));
             return join(lines);
         }
@@ -181,12 +182,12 @@ public final class Boards {
 
     private Component auraText(final Locale locale) {
         final List<Component> lines = new ArrayList<>();
-        lines.add(Component.text(messages.get(locale, BoardKind.AURA.messageKey()))
+        lines.add(MessageRenderer.of(messages).get(locale, BoardKind.AURA.messageKey())
                 .color(NamedTextColor.GOLD));
 
         final List<AuraRow> rows = leaderboard;
         if (rows.isEmpty()) {
-            lines.add(Component.text(messages.get(locale, "smp.board.aura.empty"))
+            lines.add(MessageRenderer.of(messages).get(locale, "smp.board.aura.empty")
                     .color(NamedTextColor.GRAY));
             return join(lines);
         }

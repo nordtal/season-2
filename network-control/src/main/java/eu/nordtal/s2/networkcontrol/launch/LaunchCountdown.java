@@ -2,6 +2,9 @@ package eu.nordtal.s2.networkcontrol.launch;
 
 import eu.nordtal.s2.common.message.Messages;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
@@ -77,5 +80,28 @@ public final class LaunchCountdown {
             return messages.get(locale, "gate.countdown.unknown");
         }
         return messages.format(locale, "gate.countdown", "countdown", render(messages, locale, launch, now));
+    }
+
+    /**
+     * The same sentence as a component, for the disconnect screens.
+     *
+     * <p><b>It composes first and parses once</b>, rather than going through
+     * {@code MessageRenderer.format}, and the difference matters here: {@code gate.countdown} wraps
+     * {@code countdown.*}, so a renderer would escape the inner message's tags on its way into the
+     * outer one and a formatted countdown could never carry any. Parsing the finished sentence lets
+     * either key carry tags - and nothing arbitrary is substituted along the way, because every
+     * value this class puts in is a number it computed itself. The MOTD keeps taking the
+     * {@link #sentence} form; {@code Placeholders} escapes it there for the same reason, since a
+     * MOTD template is edited by hand.</p>
+     *
+     * @param messages the bundle
+     * @param locale   the language
+     * @param launch   the opening instant, or {@code null}
+     * @param now      the instant to measure against
+     * @return one sentence, parsed as MiniMessage
+     */
+    public static Component component(final Messages messages, final Locale locale,
+                                      final Instant launch, final Instant now) {
+        return MiniMessage.miniMessage().deserialize(sentence(messages, locale, launch, now));
     }
 }

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.hungergames.lobby;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
@@ -87,11 +88,11 @@ public final class Lobby {
 
         for (final Player player : world.getPlayers()) {
             final Locale locale = locales.of(player.getUniqueId());
-            final Component link = Component.text(messages.get(locale, "hg.lobby.ready-link"))
+            final Component link = MessageRenderer.of(messages).get(locale, "hg.lobby.ready-link")
                     .color(NamedTextColor.GREEN)
                     .clickEvent(ClickEvent.runCommand("/hg ready"));
-            final Component message = Component.text(messages.format(locale, "hg.lobby.broadcast",
-                    "ready", readyTeams, "total", totalTeams)).append(Component.text(" ")).append(link);
+            final Component message = MessageRenderer.of(messages).format(locale, "hg.lobby.broadcast",
+                    "ready", readyTeams, "total", totalTeams).append(Component.text(" ")).append(link);
             player.sendMessage(message);
         }
     }

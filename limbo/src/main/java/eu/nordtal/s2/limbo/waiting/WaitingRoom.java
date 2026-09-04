@@ -1,6 +1,7 @@
 package eu.nordtal.s2.limbo.waiting;
 
 import eu.nordtal.s2.common.limbo.WaitReason;
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.limbo.config.LimboSpec;
@@ -124,8 +125,8 @@ public final class WaitingRoom {
                 : Title.Times.times(Duration.ZERO, stay, Duration.ZERO);
 
         player.showTitle(Title.title(
-                Component.text(messages.get(locale, reason.titleKey())),
-                Component.text(messages.get(locale, reason.subtitleKey())),
+                MessageRenderer.of(messages).get(locale, reason.titleKey()),
+                MessageRenderer.of(messages).get(locale, reason.subtitleKey()),
                 times));
     }
 

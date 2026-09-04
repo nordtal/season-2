@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.grave;
 
+import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.aura.AuraReason;
@@ -117,8 +118,8 @@ public final class GraveListener implements Listener {
                     identities.recordAura(player.getUniqueId(), now);
                 }
                 if (player.isOnline()) {
-                    player.sendMessage(Component.text(messages.format(locale, "smp.aura.death",
-                            "aura", Math.abs(delta))));
+                    player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.aura.death",
+                            "aura", Math.abs(delta)));
                 }
             });
         });

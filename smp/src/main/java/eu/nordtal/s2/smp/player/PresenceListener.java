@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.player;
 
+import eu.nordtal.displaytags.api.events.NameTagCreateEvent;
 import eu.nordtal.s2.smp.config.SmpSpec;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
@@ -59,6 +60,21 @@ public final class PresenceListener implements Listener {
 
         // Everybody else's ordering depends on who is online, and this player is new to that set.
         Bukkit.getScheduler().runTask(plugin, surfaces::refreshAll);
+    }
+
+    /**
+     * Fills in a nametag the moment DisplayTags creates one.
+     *
+     * <p>This is the only place the composition reliably reaches the tag.
+     * {@code NameTagManagerImpl#createNameTag} removes the previous tag and constructs a new one
+     * whose constructor applies DisplayTags' own configured lines, then fires this event - so a tag
+     * written at join is overwritten, and a handler on any later Bukkit event races the tick that
+     * has already rendered the stock format. Firing from inside the creation leaves no ordering to
+     * get wrong, and it covers every path that creates a tag: join, a world change, a reload.</p>
+     */
+    @EventHandler
+    public void onNameTagCreate(final NameTagCreateEvent event) {
+        surfaces.applyTo(event.getNameTag());
     }
 
     @EventHandler

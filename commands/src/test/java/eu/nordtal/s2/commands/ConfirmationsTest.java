@@ -126,6 +126,36 @@ class ConfirmationsTest {
     }
 
     @Test
+    @DisplayName("consume never arms, so the second step of a two-command flow cannot arm itself")
+    void consumeIsCheckOnly() {
+        // The bug this method exists to make impossible: /hg start warns and /hg start confirm goes
+        // through, so the second step cannot use confirm() - that arms on a miss, and a bare
+        // /hg start confirm typed twice would then start a game below the recommended minimum
+        // having never shown the warning.
+        assertFalse(confirmations.consume(TILL, "/hg start"));
+        assertFalse(confirmations.consume(TILL, "/hg start"),
+                "consume must not leave anything behind for the next call to find");
+        assertEquals(0, confirmations.size());
+    }
+
+    @Test
+    @DisplayName("arm then consume is the two-command flow, and consuming twice does not repeat")
+    void armAndConsume() {
+        confirmations.arm(TILL, "/hg start");
+        assertTrue(confirmations.consume(TILL, "/hg start"));
+        assertFalse(confirmations.consume(TILL, "/hg start"),
+                "one arming is one confirmation, not a window during which the command is open");
+    }
+
+    @Test
+    @DisplayName("an armed confirmation expires the same way a retype one does")
+    void armingExpires() {
+        confirmations.arm(TILL, "/hg start");
+        now = now.plusSeconds(31);
+        assertFalse(confirmations.consume(TILL, "/hg start"));
+    }
+
+    @Test
     @DisplayName("the console has no identity of its own and still gets its own key")
     void theConsoleIsAnIdentityToo() {
         final NordtalUser console = new StubUser(null, null, "console");

@@ -69,16 +69,40 @@ public final class Confirmations {
      *         it is the first ask and the caller should say so and stop
      */
     public boolean confirm(final NordtalUser user, final String what) {
-        final String key = key(user, what);
+        if (consume(user, what)) {
+            return true;
+        }
+        arm(user, what);
+        return false;
+    }
+
+    /**
+     * Remember that this command was asked for, without answering anything.
+     *
+     * <p>For a surface whose confirmation is a <b>different command</b> rather than the same one
+     * again - {@code /hg start} warns and {@code /hg start confirm} goes through. Those two cannot
+     * use {@link #confirm} on the second step, because it arms on a miss: a bare
+     * {@code /hg start confirm} typed twice would then arm itself and go through on the second
+     * attempt, having never shown the warning it exists for.</p>
+     */
+    public void arm(final NordtalUser user, final String what) {
+        final Instant now = clock.instant();
+        sweep(now);
+        pending.put(key(user, what), now);
+    }
+
+    /**
+     * Was this command armed, and is the window still open? <b>Consumes either way, and never
+     * arms.</b>
+     *
+     * @return {@code true} when a live confirmation was waiting - and only then
+     */
+    public boolean consume(final NordtalUser user, final String what) {
         final Instant now = clock.instant();
         sweep(now);
 
-        final Instant asked = pending.remove(key);
-        if (asked != null && !asked.plus(window).isBefore(now)) {
-            return true;
-        }
-        pending.put(key, now);
-        return false;
+        final Instant asked = pending.remove(key(user, what));
+        return asked != null && !asked.plus(window).isBefore(now);
     }
 
     /** Forget a pending confirmation - for a cancel, or a surface that abandons the flow. */

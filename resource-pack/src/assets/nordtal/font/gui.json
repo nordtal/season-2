@@ -1,0 +1,71 @@
+{
+    "providers": [
+        {
+            "type": "space",
+            "advances": {
+                "\uDBBC\uDC01": -1,
+                "\uDBBC\uDC02": -2,
+                "\uDBBC\uDC04": -4,
+                "\uDBBC\uDC08": -8,
+                "\uDBBC\uDC16": -16,
+                "\uDBBC\uDC32": -32,
+                "\uDBBC\uDC64": -64,
+                "\uDBBC\uDD28": -128
+            }
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_1.png",
+            "ascent": 13,
+            "height": 132,
+            "chars": [
+                "\uDBB8\uDC60"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_2.png",
+            "ascent": 13,
+            "height": 150,
+            "chars": [
+                "\uDBB8\uDC61"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_3.png",
+            "ascent": 13,
+            "height": 168,
+            "chars": [
+                "\uDBB8\uDC62"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_4.png",
+            "ascent": 13,
+            "height": 186,
+            "chars": [
+                "\uDBB8\uDC63"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_5.png",
+            "ascent": 13,
+            "height": 204,
+            "chars": [
+                "\uDBB8\uDC64"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_6.png",
+            "ascent": 13,
+            "height": 222,
+            "chars": [
+                "\uDBB8\uDC65"
+            ]
+        }
+    ]
+}

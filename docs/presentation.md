@@ -53,7 +53,12 @@ The title component is composed in this order:
 1. a negative-space glyph, to move the cursor from the title anchor to the window's left edge
 2. the panel glyph itself, in the `nordtal:gui` font, **explicitly `<white>`**
 3. a negative-space glyph, to move the cursor back
-4. the readable title, in the default font, positioned with further negative space
+4. the readable title, in the default font — and it needs **no** further shift, because the three
+   steps above sum to zero (`−8 + 177 − 169`) and leave the cursor exactly on the title anchor
+
+`eu.nordtal.s2.common.menu.MenuTitle` is the one place that arithmetic lives, and `MenuTitleTest`
+holds it against the real `gui.json` and the panel PNGs rather than against the constants — it
+derives the 177 from the texture's own width, so the test can disagree with the code.
 
 ### The numbers
 
@@ -81,8 +86,10 @@ is touched.
 **Every menu is a chest, and only a chest.** Menus may differ in row count — all six chest heights
 are even, so they centre identically and a panel drawn for one row count lands correctly for
 another. The moment a menu becomes a hopper (`imageHeight` 133, odd) or a dispenser, that stops
-being true and panels drift by a pixel against window height. A test asserts no menu opens a
-non-chest inventory.
+being true and panels drift by a pixel against window height. `ChestOnlyMenuTest` asserts no menu
+opens a non-chest inventory — **it did not exist until 2026-09-04**, when this sentence was written
+and read as if it did; it now also asserts that a menu's title goes through `MenuTitle`, with a
+named list of the four menus still waiting for their panel.
 
 **Panels are authored at 1 texture pixel = 1 GUI pixel**, with `height` equal to the texture's own
 pixel height, so nothing is resampled. Vanilla GUI scale is an integer multiple, so this stays sharp
@@ -109,7 +116,8 @@ nothing else. Board width is computed from the longest entry, and the divider be
 content is drawn.
 
 Panel art is **programmatic placeholder** for now — frame, title bar, slot recesses, in the exact
-measurements. That is deliberate and it is not a shortcut: the offsets are anchored to the
+measurements, drawn by `resource-pack/tools/generate_gui_panels.py` into six PNGs (one per chest
+size) that `nordtal:gui` declares at `\uFE060`–`\uFE065`. That is deliberate and it is not a shortcut: the offsets are anchored to the
 measurements, not to the image, so a hand-drawn panel of the same dimensions drops in without a
 line of code changing.
 

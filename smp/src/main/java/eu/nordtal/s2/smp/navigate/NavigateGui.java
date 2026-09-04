@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.navigate;
 
+import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -53,8 +54,10 @@ public final class NavigateGui implements Surface {
         this.targets = build(viewer, lastDeath, pois);
 
         final int rows = Math.min(6, 2 + (targets.size() + 8) / 9);
+        // The frame is drawn out of the title - MenuTitle explains the whole technique. The
+        // readable half comes second and lands exactly where an unframed title would.
         this.inventory = Bukkit.createInventory(this, rows * 9,
-                MessageRenderer.of(messages).get(locale, "smp.navigate.title"));
+                MenuTitle.of(rows, MessageRenderer.of(messages).get(locale, "smp.navigate.title")));
         draw(locale);
     }
 

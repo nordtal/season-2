@@ -1,5 +1,7 @@
 package eu.nordtal.s2.limbo.listener;
 
+import eu.nordtal.s2.common.access.AdminOperators;
+import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.hud.TabList;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -50,15 +52,25 @@ public final class PresenceListener implements Listener {
     private final LimboChannel channel;
     private final PlayerLocales locales;
     private final MessageRenderer messages;
+    private final AdminOperators operators;
+
+    /**
+     * The admin flag, cached at pre-login by {@link FullServerGate} on the thread that is allowed to
+     * wait. Read here, never queried: this is the main thread.
+     */
+    private final FullServerAdmission admission;
 
     public PresenceListener(final Plugin plugin, final WaitingWorld world, final WaitingRoom room,
                             final LimboChannel channel, final PlayerLocales locales,
-                            final Messages messages) {
+                            final Messages messages, final AdminOperators operators,
+                            final FullServerAdmission admission) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.world = Objects.requireNonNull(world, "world");
         this.room = Objects.requireNonNull(room, "room");
         this.channel = Objects.requireNonNull(channel, "channel");
         this.locales = Objects.requireNonNull(locales, "locales");
+        this.operators = Objects.requireNonNull(operators, "operators");
+        this.admission = Objects.requireNonNull(admission, "admission");
         this.messages = new MessageRenderer(Objects.requireNonNull(messages, "messages"));
     }
 
@@ -96,6 +108,9 @@ public final class PresenceListener implements Listener {
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
+
+        // Read, never queried - this is the main thread. FullServerGate filled it at pre-login.
+        operators.onJoin(player.getUniqueId(), admission.admits(player.getUniqueId()));
 
         // Nobody is here to read a join message, and the screen has exactly one line on it.
         event.joinMessage(null);
@@ -153,6 +168,7 @@ public final class PresenceListener implements Listener {
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
         event.quitMessage(null);
+        operators.onQuit(event.getPlayer().getUniqueId());
         room.forget(event.getPlayer().getUniqueId());
         locales.quit(event.getPlayer().getUniqueId());
     }

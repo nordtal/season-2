@@ -3,7 +3,6 @@ package eu.nordtal.s2.hungergames.listener;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
 import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -27,9 +26,14 @@ import java.util.UUID;
  * The start event is the one moment the network is deliberately all in one place: every registered
  * player is routed here at once, so this is the backend most likely to actually sit at its cap -
  * and it is the worst possible time for the admin who has to start the game to be told the server
- * is full. {@link FullServerAdmission#worthAsking} still keeps the ordinary login free of a query;
- * during that burst it is one extra round trip on the pre-login thread, which is where this module
- * already does its waiting.
+ * is full.
+ *
+ * <p>{@link FullServerAdmission#worthAsking} used to keep an ordinary login free of a query and
+ * pay for it only during that burst. <b>Since 2026-09-04 the flag is read on every login</b>,
+ * because an admin is now a server operator for the length of their session
+ * ({@link eu.nordtal.s2.common.access.AdminOperators}) and the join handler that grants it runs on
+ * the main thread and cannot query. It is one round trip on the pre-login thread, which is where
+ * this module already does its waiting.</p>
  *
  * <h2>What a failure here does, and does not, do</h2>
  * Nothing. A lookup that throws leaves the player un-warmed and Paper's own answer standing, which
@@ -61,16 +65,22 @@ public final class FullServerGate implements Listener {
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
             return;
         }
+        // Unconditionally since 2026-09-04, where this used to ask FullServerAdmission#worthAsking
+        // first. The flag is no longer only about a full server: an admin is a server operator for
+        // the length of their session (AdminOperators), and the join handler that grants it cannot
+        // query anything - it runs on the main thread. So the one place allowed to wait has to read
+        // it every time, which is the trade FullServerAdmission's own javadoc recommends taking in
+        // a module that needs the flag for other reasons.
+        //
+        // The cost is one indexed query per login on top of the language lookup that already
+        // happens. If that ever shows up, the fix is one query returning both, not this going back
+        // to being conditional.
         boolean admin = false;
-        // getOnlinePlayers() from this thread is a view of a list the main thread owns, so the count
-        // can be a tick stale. That is what HEADROOM is for.
-        if (FullServerAdmission.worthAsking(Bukkit.getOnlinePlayers().size(), Bukkit.getMaxPlayers())) {
-            try {
-                admin = dao.isAdmin(event.getUniqueId()).orElse(Boolean.FALSE);
-            } catch (final RuntimeException exception) {
-                logger.warn("could not read whether {} is an admin, so a full server will refuse them",
-                        event.getUniqueId(), exception);
-            }
+        try {
+            admin = dao.isAdmin(event.getUniqueId()).orElse(Boolean.FALSE);
+        } catch (final RuntimeException exception) {
+            logger.warn("could not read whether {} is an admin, so they get neither operator nor a"
+                    + " place on a full server", event.getUniqueId(), exception);
         }
         admission.remember(event.getUniqueId(), admin);
     }

@@ -373,8 +373,9 @@ Rejected: a UUID list in `gate.yml` (it lives in several places and goes stale),
 (a third truth between the Discord role and its effect, with a sync cycle — the same chain the
 access system deliberately avoids).
 
-Bukkit permissions, where a vanilla or third-party command needs them, come from a
-`PermissionAttachment` the SMP plugin applies at join and removes at quit. See
+Bukkit permissions, where a vanilla or third-party command needs them, come from **operator**: an
+admin is one on all three Paper servers from join to quit, since 2026-09-04. It was a
+`PermissionAttachment` with a configured node list until then, and only on the SMP. See
 [smp.md](smp.md#admins).
 
 ## The end of the season
@@ -388,7 +389,8 @@ is an admin switching the phase to `MAINTENANCE` on a day nobody has picked yet.
 **None as a design question.** The poll interval with the `NOTIFY` channel name, whether a switch
 kicks or moves, and whether `MAINTENANCE` disconnects or holds were all settled on 2026-08-31 and
 are written into the sections above. The `PermissionAttachment` question that used to live here was
-settled on the same day by [smp.md](smp.md#admins).
+settled on the same day by [smp.md](smp.md#admins) — and re-settled on 2026-09-04, when the
+attachment was replaced by operator for the reason recorded there.
 
 Two things are unanswered **as facts about the deployment**, not as decisions, and both are named
 here so nobody looks for them in prose:

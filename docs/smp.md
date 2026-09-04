@@ -960,9 +960,38 @@ a session where none of those is known.
 same way language and access already are, and every process reads it with the query it makes
 anyway. One truth, no sync cycle, and one more reason the account link exists.
 
-For anything that goes through Bukkit permissions — vanilla commands, third-party plugins — the SMP
-plugin attaches a `PermissionAttachment` with a configured node list at join and removes it at
-quit. That settles the open question in [season-phases.md](season-phases.md#open-questions).
+**An admin is a server operator**, on all three Paper servers, from join to quit — through
+`eu.nordtal.s2.common.access.AdminOperators`. That settles the open question in
+[season-phases.md](season-phases.md#open-questions).
+
+Until **2026-09-04** this was a `PermissionAttachment` carrying a configured list of six nodes, and
+only on the SMP: `hunger-games` and `limbo` attached nothing at all, so an admin on two of the three
+servers had exactly default rights. The sentence is kept rather than replaced because the reason the
+list had to go is what a future change has to argue with: **a list only ever knows what somebody
+wrote down.** Every plugin added later brings nodes nobody adds to it, and the way that surfaces is
+an admin being refused by a command in the middle of whatever they were called in to fix. Operator
+is the only thing on Paper that covers what has not been enumerated. `config.yml#admin-permissions`
+is retired, and `ConfigsTest` asserts the key is refused *by name* — the file exists in a production
+volume, so the choice was between failing loudly at the next start and leaving a block that reads
+like a working setting and does nothing.
+
+Two consequences, both deliberate:
+
+- **`ops.json` is emptied at every plugin enable, unconditionally and without a database query.**
+  `setOp` is persistent, so a crash or a `SIGKILL` between a join and a quit would otherwise leave
+  an operator on disk that nothing ever removes. Asking the database instead would need an answer
+  for the case where the database is down, and both available answers are bad.
+- **A hand-set emergency operator does not survive a restart.** `discord_user.admin` is the only
+  admin list in this repository, and a second one persisting quietly on disk is what this design
+  exists to prevent. It is in the owner's checklist so it surprises nobody during an incident.
+
+The admin flag itself is read at `AsyncPlayerPreLoginEvent` — the one place allowed to wait — and
+read back on the main thread at join. On `hunger-games` and `limbo` that made
+`FullServerAdmission#worthAsking` obsolete: the flag is now read on *every* login rather than only
+when the server is near its cap, which costs one indexed query per login on top of the language
+lookup that already happens. If that ever shows up, the fix is one query returning both, not a
+conditional operator — an operator that is missing exactly when the network is busy is worse than
+the query.
 
 ### `/smp update` — the network's updater, from in game
 

@@ -186,8 +186,9 @@ season's design ([smp.md](smp.md)). The only fast travel that is given is the ba
 ### Permissions
 
 The admin flag is **the Discord admin role mirrored into the database**, read from a cache; there is
-no LuckPerms and no second admin list. `smp` attaches the configured permission nodes to an admin at
-join and removes them at quit. `/limbo reload` is the one command gated on a Paper permission
+no LuckPerms and no second admin list. **An admin is a server operator** on all three Paper servers,
+granted at join and removed at quit, and `ops.json` is emptied at every plugin enable so that an
+operator is a property of the session rather than of the disk ([smp.md](smp.md#admins)). `/limbo reload` is the one command gated on a Paper permission
 (`limbo.admin`) rather than on that flag, because the database is exactly what a broken `limbo` may
 not be able to reach — the console holds it unconditionally.
 
@@ -224,7 +225,7 @@ reason is in the linked document — that is what stops it from being reopened b
 | Graves everywhere but the duel arena; they stand forever and anyone may open them | [smp.md](smp.md#death-and-graves) |
 | No navigation to players; `/navigate` knows world spawns, the last death and public POIs | [smp.md](smp.md#navigate) |
 | Spawn protection is a list of regions in our own plugin, not WorldGuard | [smp.md](smp.md#spawns) |
-| No LuckPerms: the admin flag comes from the database, Bukkit permissions from a `PermissionAttachment` | [smp.md](smp.md#admins) |
+| No LuckPerms: the admin flag comes from the database, and Bukkit permissions from operator — a node list was replaced by it 2026-09-04, because a list only knows what somebody wrote down | [smp.md](smp.md#admins) |
 | Chat is per Paper server; `limbo` has none, shows nothing and nobody, only a title | [smp.md](smp.md#chat) |
 | Play time is counted by the proxy into `player_playtime`; the prestige tier is derived, never stored | [smp.md](smp.md#prestige--a-crest-earned-by-time) |
 | No web map and no Discord map render | [smp.md](smp.md#discord) |

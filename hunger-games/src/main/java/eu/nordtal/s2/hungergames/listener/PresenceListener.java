@@ -1,5 +1,7 @@
 package eu.nordtal.s2.hungergames.listener;
 
+import eu.nordtal.s2.common.access.AdminOperators;
+import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.hud.TabList;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
@@ -36,14 +38,24 @@ public final class PresenceListener implements Listener {
     private final PlayerBodies bodies;
     private final GameState state;
     private final MessageRenderer messages;
+    private final AdminOperators operators;
+
+    /**
+     * The admin flag, cached at pre-login by {@link FullServerGate} on the thread that is allowed to
+     * wait. Read here, never queried: this is the main thread.
+     */
+    private final FullServerAdmission admission;
 
     public PresenceListener(final Plugin plugin, final PlayerLocales locales, final PlayerBodies bodies,
-                            final GameState state, final Messages messages) {
+                            final GameState state, final Messages messages,
+                            final AdminOperators operators, final FullServerAdmission admission) {
         this.plugin = plugin;
         this.locales = locales;
         this.bodies = bodies;
         this.state = state;
         this.messages = new MessageRenderer(messages);
+        this.operators = operators;
+        this.admission = admission;
     }
 
     /**
@@ -67,6 +79,7 @@ public final class PresenceListener implements Listener {
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
+        operators.onJoin(player.getUniqueId(), admission.admits(player.getUniqueId()));
 
         // Off the main thread, settled 2026-09-01. This used to be a blocking PlayerLocales#join
         // right here, which on a healthy database is a millisecond and on a database that has
@@ -102,6 +115,7 @@ public final class PresenceListener implements Listener {
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
         final Player player = event.getPlayer();
+        operators.onQuit(player.getUniqueId());
         locales.quit(player.getUniqueId());
 
         // A tick later: during PlayerQuitEvent the leaver is still in getOnlinePlayers(), so

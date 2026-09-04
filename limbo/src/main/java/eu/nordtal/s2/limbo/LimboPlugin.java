@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
@@ -24,6 +25,7 @@ import eu.nordtal.s2.limbo.world.WaitingWorld;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Locale;
+import org.bukkit.Bukkit;
 
 /**
  * The season 2 waiting room. Every login lands here first, whatever the phase, and leaves when the
@@ -126,6 +128,18 @@ public final class LimboPlugin extends JavaPlugin {
                 "the message override names " + key + ", which no bundle declares - it is stored"
                         + " and never used; check the spelling"));
 
+        // Admins are operators for as long as they are admins. The sweep runs before a single join
+        // can be handled: ops.json is persistent, so anybody left in it by a crash or a SIGKILL
+        // would otherwise still be an operator on this start. AdminOperators carries the whole
+        // reasoning, including why it asks the database nothing.
+        final AdminOperators operators = new AdminOperators(bukkitOps());
+        operators.sweep();
+
+        // One instance, shared: the gate fills the admin flag at pre-login and both the fullness
+        // answer and the operator grant read it back. Two instances would be two caches, one of
+        // them always empty.
+        final FullServerAdmission admission = new FullServerAdmission();
+
         room = new WaitingRoom(this, config, messages, locales, world);
         room.start();
 
@@ -133,12 +147,13 @@ public final class LimboPlugin extends JavaPlugin {
         channel.register();
 
         getServer().getPluginManager()
-                .registerEvents(new PresenceListener(this, world, room, channel, locales, messages), this);
+                .registerEvents(new PresenceListener(this, world, room, channel, locales, messages,
+                        operators, admission), this);
         // The player cap on this server is the network's own now, so Paper can refuse a login for
         // fullness - and the only login it would ever refuse is an admin's, because admins are the
         // only players the proxy lets past a full network. See FullServerAdmission.
         getServer().getPluginManager()
-                .registerEvents(new FullServerGate(access, new FullServerAdmission(), slf4j()), this);
+                .registerEvents(new FullServerGate(access, admission, slf4j()), this);
 
         getLifecycleManager().registerEventHandler(
                 io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS,
@@ -219,6 +234,30 @@ public final class LimboPlugin extends JavaPlugin {
         getLogger().severe(message);
         getServer().getPluginManager().disablePlugin(this);
         getServer().shutdown();
+    }
+
+
+    /**
+     * The two Bukkit calls {@link AdminOperators} needs, which {@code :common} cannot make itself -
+     * it is compiled against no platform.
+     *
+     * <p>{@code getOfflinePlayer(UUID)} rather than {@code getPlayer}: a de-op has to work for
+     * somebody who has already left, which is exactly what the quit handler does.</p>
+     */
+    private AdminOperators.Ops bukkitOps() {
+        return new AdminOperators.Ops() {
+            @Override
+            public void setOp(final java.util.UUID player, final boolean operator) {
+                Bukkit.getOfflinePlayer(player).setOp(operator);
+            }
+
+            @Override
+            public java.util.Set<java.util.UUID> operators() {
+                return Bukkit.getOperators().stream()
+                        .map(org.bukkit.OfflinePlayer::getUniqueId)
+                        .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            }
+        };
     }
 
 }

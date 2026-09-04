@@ -1,5 +1,6 @@
 package eu.nordtal.s2.networkcontrol.config;
 
+import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.s2.common.SeasonPhase;
 
@@ -297,7 +298,6 @@ class ConfigsTest {
         final NetworkSpec config = Configs.network(directory, LOGGER).get();
 
         assertEquals(500, config.maxPlayers());
-        assertEquals(1000, config.backendLimit());
         assertTrue(Files.isRegularFile(directory.resolve("network.yml")),
                 "a fresh load must write the defaults out - and this file is also the only place the"
                         + " placeholder list is documented");
@@ -325,13 +325,19 @@ class ConfigsTest {
     }
 
     @Test
-    void aLimitAboveTheBackendsIsRejectedBecauseTheBackendsWouldBecomeTheLimit() throws Exception {
-        // The whole reason backend-limit is repeated in this file. A max-players above it means the
-        // Paper servers refuse players before the proxy does - with "Server full", after the login
-        // gate, the resource pack and the wait in limbo - which is the fault this arrangement was
-        // built to remove. Loudly, at startup, rather than at some busy moment.
+    void aNetworkConfigStillCarryingBackendLimitStopsTheProxyWithThatKeyNamed() throws Exception {
+        // The two tests this replaces asserted that max-players had to stay strictly below
+        // backend-limit - a copy, in this file, of what the entrypoint wrote into another
+        // container's server.properties. Both numbers are gone as of 2026-09-04: the backends are
+        // written from NETWORK_MAX_PLAYERS, the same variable that overrides max-players here, so
+        // there is no pair left that can cross.
+        //
+        // What replaces them is this. network.yml lives in a volume, and a deployed one still
+        // carries `backend-limit: 1000` - jcore's strict load is what turns that from a setting
+        // silently doing nothing into a proxy that refuses to start and says which key. The
+        // operator's move is to delete the line; that is written down in deploy/README.md.
         Files.writeString(directory.resolve("network.yml"), """
-                max-players: 2000
+                max-players: 500
                 backend-limit: 1000
                 snapshot-refresh-seconds: 10
                 motd:
@@ -342,39 +348,17 @@ class ConfigsTest {
                   maintenance: 'e'
                 """);
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+        final ConfigException error = assertThrows(ConfigException.class,
                 () -> Configs.network(directory, LOGGER));
-        assertTrue(error.getMessage().contains("backend-limit"), error.getMessage());
-    }
-
-    @Test
-    void aLimitEqualToTheBackendsIsRejectedTooBecauseAdminsAreExemptFromIt() throws Exception {
-        // Equal looks safe and is not. LoginGate lets an admin past a full network on purpose -
-        // they are the person who has to come and fix it - so a network at its limit holds
-        // max-players plus however many admins joined, and the backend they are then routed to
-        // would answer "Server full". The buffer exists precisely for those players.
-        Files.writeString(directory.resolve("network.yml"), """
-                max-players: 1000
-                backend-limit: 1000
-                snapshot-refresh-seconds: 10
-                motd:
-                  pre-launch: 'a'
-                  pre-event: 'b'
-                  start-event: 'c'
-                  smp: 'd'
-                  maintenance: 'e'
-                """);
-
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
-                () -> Configs.network(directory, LOGGER));
-        assertTrue(error.getMessage().contains("backend-limit"), error.getMessage());
+        assertTrue(error.getMessage().contains("backend-limit"),
+                "the retired key was refused without being named, so nobody can act on it: "
+                        + error.getMessage());
     }
 
     @Test
     void anEmptyMotdIsRejectedRatherThanShownAsAnEmptyServerBrowserEntry() throws Exception {
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500
-                backend-limit: 1000
                 snapshot-refresh-seconds: 10
                 motd:
                   pre-launch: ''

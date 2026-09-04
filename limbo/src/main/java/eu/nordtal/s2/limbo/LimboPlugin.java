@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.access.FullServerAdmission;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
 import eu.nordtal.s2.common.message.Messages;
@@ -14,6 +15,7 @@ import eu.nordtal.s2.limbo.config.Configs;
 import eu.nordtal.s2.limbo.config.DatabaseSpec;
 import eu.nordtal.s2.limbo.config.LimboSpec;
 import eu.nordtal.s2.limbo.db.LimboPool;
+import eu.nordtal.s2.limbo.listener.FullServerGate;
 import eu.nordtal.s2.limbo.listener.PresenceListener;
 import eu.nordtal.s2.limbo.net.LimboChannel;
 import eu.nordtal.s2.limbo.waiting.WaitingRoom;
@@ -132,6 +134,11 @@ public final class LimboPlugin extends JavaPlugin {
 
         getServer().getPluginManager()
                 .registerEvents(new PresenceListener(this, world, room, channel, locales, messages), this);
+        // The player cap on this server is the network's own now, so Paper can refuse a login for
+        // fullness - and the only login it would ever refuse is an admin's, because admins are the
+        // only players the proxy lets past a full network. See FullServerAdmission.
+        getServer().getPluginManager()
+                .registerEvents(new FullServerGate(access, new FullServerAdmission(), slf4j()), this);
 
         getLifecycleManager().registerEventHandler(
                 io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS,

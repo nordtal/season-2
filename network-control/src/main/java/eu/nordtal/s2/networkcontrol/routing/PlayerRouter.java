@@ -175,7 +175,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             // A backend that is registered and down is a player held with the BACKEND title, not a
             // player disconnected with the "no server" screen - see WaitingBook#releaseFailed.
             case CONNECT -> connect(player, decision.server(), roster.localeOf(player.getUniqueId()),
-                    () -> packs.releaseFailed(player));
+                    cause -> packs.releaseFailed(player, cause));
             // Unreachable in practice: the station only releases a player once it has established
             // that the destination is registered, and decideRelease never answers STAY - a player
             // being released is standing in limbo, and "stay" there is the black screen of finding
@@ -288,17 +288,22 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
      * </p>
      */
     private boolean connect(final Player player, final String server, final Locale locale) {
-        return connect(player, server, locale, () -> player.disconnect(messages.noServer(locale)));
+        return connect(player, server, locale, cause -> {
+            logger.error("Re-routing {} to '{}' failed: {}", player.getUsername(), server, cause);
+            player.disconnect(messages.noServer(locale));
+        });
     }
 
     /**
-     * @param onFailure what to do when the connection does not go through: a phase change
-     *                  disconnects, because the player is standing on a server the phase no longer
-     *                  admits them to; a release from limbo holds, because they are standing in the
-     *                  one place built for waiting
+     * @param onFailure what to do when the connection does not go through, given the reason as one
+     *                  line: a phase change disconnects, because the player is standing on a server
+     *                  the phase no longer admits them to; a release from limbo holds, because they
+     *                  are standing in the one place built for waiting. The caller logs, because a
+     *                  backend restarting for thirty seconds fails one release per waiting player
+     *                  every ten seconds, and a stack trace per attempt is a log nobody reads
      */
     private boolean connect(final Player player, final String server, final Locale locale,
-                            final Runnable onFailure) {
+                            final java.util.function.Consumer<String> onFailure) {
         final Optional<String> currently = player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName());
         if (currently.isPresent() && currently.get().equals(server)) {
@@ -316,15 +321,15 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
         player.createConnectionRequest(target).connect().whenComplete((result, error) -> {
             if (error != null) {
-                logger.error("Re-routing {} to '{}' failed", player.getUsername(), server, error);
-                onFailure.run();
+                onFailure.accept(error.toString());
                 return;
             }
             if (result.getStatus() != ConnectionRequestBuilder.Status.SUCCESS
                     && result.getStatus() != ConnectionRequestBuilder.Status.ALREADY_CONNECTED) {
-                logger.error("Re-routing {} to '{}' ended as {}", player.getUsername(), server,
-                        result.getStatus());
-                onFailure.run();
+                onFailure.accept(result.getStatus() + (result.getReasonComponent()
+                        .map(reason -> ": " + net.kyori.adventure.text.serializer.plain
+                                .PlainTextComponentSerializer.plainText().serialize(reason))
+                        .orElse("")));
             }
         });
         return true;

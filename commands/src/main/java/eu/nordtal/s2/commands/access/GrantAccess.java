@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * {@code /access grant <player> <days>} - days on top of whatever is already running.
+ * {@code /access grant <member> <days>} - days on top of whatever is already running.
  *
  * <h2>Appended, never replaced</h2>
  * The same rule a purchase follows: periods stack rather than being summed or reset, and a lapse
@@ -35,21 +35,15 @@ public final class GrantAccess implements NordtalCommand<AccessEffects> {
 
     @Override
     public void run(final NordtalUser user, final Values values, final AccessEffects effects) {
-        final UUID player = values.player("player");
+        final String discordId = values.account("member");
         final int days = values.integer("days");
 
         effects.async(() -> {
-            final Optional<String> discordId = effects.discordIdOf(player);
-            if (discordId.isEmpty()) {
-                user.reply("access.not-linked", Map.of("player", player.toString()),
-                        Feedback.REFUSED);
-                return;
-            }
             final Instant until;
             try {
-                until = effects.grant(discordId.get(), days, user);
+                until = effects.grant(discordId, days, user);
             } catch (final RuntimeException failure) {
-                effects.warn("/access grant " + days + " days to " + discordId.get(), failure);
+                effects.warn("/access grant " + days + " days to " + discordId, failure);
                 user.reply("access.failed", Map.of(), Feedback.REFUSED);
                 return;
             }

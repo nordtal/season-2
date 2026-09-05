@@ -135,6 +135,18 @@ public final class RequestArguments {
                                 final String token) {
         return switch (argument.kind()) {
             case WORD, GREEDY_STRING -> token;
+            case ACCOUNT -> {
+                // A Discord snowflake: digits, and nothing else. Checked because the far side hands
+                // it straight to a query and to a mention - a malformed one would look like a
+                // member who simply does not exist.
+                if (!token.chars().allMatch(Character::isDigit)) {
+                    throw new IllegalArgumentException(declaration.name() + ": argument '"
+                            + argument.name() + "' is a Discord account and was sent \"" + token
+                            + "\", which is not an id - the asking adapter is meant to resolve it"
+                            + " before the request is written");
+                }
+                yield token;
+            }
             case CHOICE -> {
                 if (!argument.choices().contains(token)) {
                     throw new IllegalArgumentException(declaration.name() + ": '" + token

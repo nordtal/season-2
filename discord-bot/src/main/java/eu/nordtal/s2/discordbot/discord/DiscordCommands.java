@@ -241,7 +241,11 @@ public final class DiscordCommands extends ListenerAdapter {
                 // A member picked from Discord's own list, resolved through account_link. That is
                 // the half of Argument.PLAYER only this surface can do, and it is why a command sees
                 // a UUID either way.
-                case PLAYER -> new OptionData(OptionType.USER, argument.name(),
+                // Both are a member picked from Discord's own list. They differ in what comes out:
+                // a PLAYER is followed through account_link to a UUID, an ACCOUNT is taken as the
+                // Discord id itself - which is what lets /access grant work for somebody who has
+                // not linked a Minecraft account at all, and is exactly who it exists for.
+                case PLAYER, ACCOUNT -> new OptionData(OptionType.USER, argument.name(),
                         argumentDescription(argument), argument.required());
             };
             option.setDescriptionLocalization(DiscordLocale.GERMAN,
@@ -296,6 +300,7 @@ public final class DiscordCommands extends ListenerAdapter {
             }
             switch (argument.kind()) {
                 case INTEGER -> values.put(argument.name(), (int) option.getAsLong());
+                case ACCOUNT -> values.put(argument.name(), option.getAsUser().getId());
                 case PLAYER -> {
                     final Optional<UUID> linked =
                             access.linkedMinecraftAccount(option.getAsUser().getId());

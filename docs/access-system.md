@@ -42,7 +42,7 @@ release.
 - The **donor role is permanent**. The bot grants it and never takes it away — which is also what
   makes it safe to hand out by hand through Discord's role UI without fighting the bot.
 - The **access role is strictly bot-owned**. Granting it manually holds only until the next
-  reconcile; `/grant-access` is the supported path.
+  reconcile; `/access grant` is the supported path.
 - A Discord ban does not pause anything: the paid period keeps running down. Unbanned before it
   expires, the rest is still usable; otherwise it is gone.
 - Expiry is announced: the bot DMs the user **three days before** access ends and again when it
@@ -220,9 +220,16 @@ resolution, EN fallback) that the plugins use for their own text.
 
 One admin channel; entries that need a human mention an admin role, routine audit entries do not.
 
-- `/grant-access <user> <days>` — replaces `/manual-con`
-- `/revoke-access <user>`
-- `/access-status <user>` — valid-until, history, open requests
+- `/access grant <member> <days>` — replaces `/manual-con`
+- `/access revoke <member>`
+- `/access status <member>` — valid-until, history, open requests
+
+  **Renamed and grouped on 2026-09-05**, from `/grant-access`, `/revoke-access` and
+  `/access-status`. They are declarations in `:commands` now, which means three things at once: they
+  are the same commands in game, they answer in the asker's language rather than in hardcoded
+  English, and they check `discord_user.admin` - which none of them did. Their only gate was
+  Discord's own permission system, so the set of people who could grant paid access was whoever a
+  server administrator had given the right Discord permission to.
 - `/settle <ref>` — book a request by hand, with autocompletion over open references
 - `/phase set <phase>` — the season phase, with a confirmation naming what happens to whoever is
   online ([season-phases.md](season-phases.md#who-may-switch-it))

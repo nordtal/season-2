@@ -1042,7 +1042,7 @@ would produce a command that works perfectly and destroys the farm world on a ty
 ### `/smp access <player>` — why can this person not get in?
 
 Added 2026-09-04, and it is the one command the survey of that day moved *into* the game rather than
-out of it. Discord's `/access-status` is the full picture and stays there: it names roles, channels
+out of it. `/access status` is the full picture: it names roles, channels
 and a purchase history, none of which mean anything in chat. What an admin standing next to somebody
 who cannot get in needs is three lines.
 

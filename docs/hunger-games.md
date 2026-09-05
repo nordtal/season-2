@@ -208,6 +208,11 @@ season 1 already ships: `minecraft/textures/gui/sprites/boss_bar/white_backgroun
 `white_progress.png` are overridden, and `nordtal/textures/ui/bossbar/bg/` holds background
 segments in powers of two, so any width is composed from a handful of glyphs.
 
+**Since 2026-09-05 each line is one rounded pill, sized to what it holds** — the icon, the text,
+and on the two lines that have one the bearing arrow at the end of the same pill — rather than a
+fixed 182 px bar. `:common`'s `BossBarLine` composes it for both this HUD and the SMP's, and
+[presentation.md](presentation.md#the-hud-pill) is where the shape is decided.
+
 | line | shows |
 |---|---|
 | players | how many are alive, how many have died, and an arrow to the nearest living player |

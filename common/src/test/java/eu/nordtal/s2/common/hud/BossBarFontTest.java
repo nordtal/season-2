@@ -11,8 +11,8 @@ import java.nio.file.Files;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Asserts that every class composing a boss bar names {@link Glyphs#FONT_BOSSBAR} on the component
- * it produces.
+ * Asserts that every class composing a boss bar hands its name to {@link BossBarLine}, the one
+ * place that names {@link Glyphs#FONT_BOSSBAR} on the component it produces.
  *
  * <p><b>Why this is a text test rather than a component test.</b> The classes it guards are
  * Bukkit-facing - they take a {@code Player} and hand a {@code BossBar} to a running server - so
@@ -36,25 +36,37 @@ class BossBarFontTest {
     };
 
     @Test
-    @DisplayName("the two boss bar renderers name the bossbar font")
-    void renderersNameTheFont() {
+    @DisplayName("every boss bar name the two renderers set comes from BossBarLine")
+    void renderersSetNamesThroughBossBarLine() {
         for (final String source : BOSS_BAR_SOURCES) {
             final String text = read(source);
-            assertTrue(text.contains("Glyphs.FONT_BOSSBAR"),
-                    source + " composes a boss bar but never names Glyphs.FONT_BOSSBAR, so its"
-                            + " code points resolve against minecraft:default - where U+E004 is the"
-                            + " admin tag, not a background segment");
+            // ".name(" with an argument: a boss bar's name being set, as opposed to an enum's
+            // name() being read, which the same two files also do.
+            final java.util.regex.Matcher calls = java.util.regex.Pattern.compile("\\.name\\((?!\\))").matcher(text);
+            int seen = 0;
+            while (calls.find()) {
+                final int at = calls.start();
+                seen++;
+                assertTrue(text.startsWith(".name(BossBarLine.render(", at),
+                        source + " sets a boss bar name with something other than"
+                                + " BossBarLine.render(...) - which is the one place the bossbar"
+                                + " font is named and the shadow is turned off. A bare"
+                                + " Component.text resolves the segments against minecraft:default,"
+                                + " where U+E004 is the admin tag and not a background tile");
+            }
+            assertTrue(seen > 0, source + " sets no boss bar name at all - either the renderer"
+                    + " moved or this test is scanning the wrong file");
         }
     }
 
     @Test
-    @DisplayName("no boss bar renderer sets a name with a bare Component.text")
-    void noBareComponentText() {
+    @DisplayName("no boss bar renderer composes a background of its own")
+    void renderersComposeNoBackground() {
         for (final String source : BOSS_BAR_SOURCES) {
             final String text = read(source);
-            assertTrue(!text.contains(".name(Component.text("),
-                    source + " sets a boss bar name with a bare Component.text(...), which carries"
-                            + " no font - wrap it in the module's bossBarText(...) helper instead");
+            assertTrue(!text.contains("BOSSBAR_BG_") && !text.contains("BossBarWidth"),
+                    source + " reaches for the background tiles itself; the pill is BossBarLine's"
+                            + " and a second composition is the one that drifts");
         }
     }
 

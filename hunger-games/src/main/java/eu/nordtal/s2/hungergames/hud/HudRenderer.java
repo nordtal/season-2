@@ -1,7 +1,8 @@
 package eu.nordtal.s2.hungergames.hud;
 
 import eu.nordtal.s2.common.hud.Bearing;
-import eu.nordtal.s2.common.hud.BossBarWidth;
+import eu.nordtal.s2.common.hud.BossBarLine;
+import eu.nordtal.s2.common.hud.BossBarLine.Pill;
 
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.message.Messages;
@@ -11,9 +12,7 @@ import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.game.GameState;
 
 import net.kyori.adventure.bossbar.BossBar;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.ShadowColor;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -25,6 +24,7 @@ import org.bukkit.scheduler.BukkitTask;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,15 +34,14 @@ import java.util.UUID;
  * three {@link BossBar} instances shown simultaneously per player, updated a few times a second.
  * <p>
  * The vanilla bar itself is made invisible by the resource pack (white_background.png /
- * white_progress.png overridden - docs/hunger-games.md#the-hud); this class only has to compose the
- * text, using {@code Glyphs.BOSSBAR_BG_*}/{@code BOSSBAR_SPACE_*} for the background per
- * {@link BossBarWidth}.
+ * white_progress.png overridden - docs/hunger-games.md#the-hud); this class only has to decide what
+ * each line says. Each line is one pill ({@link BossBarLine}): the icon, the text, and - on the two
+ * lines that have one - the bearing arrow riding at the end of the same pill.
  * </p>
  */
 public final class HudRenderer {
 
     private static final int UPDATES_PER_SECOND = 4;
-    private static final int BACKGROUND_WIDTH = 182;
 
     private final Plugin plugin;
     private final World world;
@@ -129,19 +128,23 @@ public final class HudRenderer {
         final BossBar borderBar = borderBars.computeIfAbsent(player.getUniqueId(),
                 key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
 
-        playersBar.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
-                + Glyphs.BOSSBAR_ICON_ALIVE + " " + messages.format(locale, "hg.hud.players",
-                "alive", aliveCount, "dead", deadCount) + " " + nearestPlayerArrow(player)));
+        playersBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_ALIVE,
+                withArrow(messages.format(locale, "hg.hud.players", "alive", aliveCount, "dead", deadCount),
+                        nearestPlayerArrow(player))))));
 
-        lootBar.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
-                + Glyphs.BOSSBAR_ICON_LOOT_POINT + " " + lootLine(locale) + " " + nearestLootArrow(player)));
+        lootBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_LOOT_POINT,
+                withArrow(lootLine(locale), nearestLootArrow(player))))));
 
-        borderBar.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
-                + Glyphs.BOSSBAR_ICON_BORDER + " " + borderLine(locale)));
+        borderBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, borderLine(locale)))));
 
         player.showBossBar(playersBar);
         player.showBossBar(lootBar);
         player.showBossBar(borderBar);
+    }
+
+    /** The arrow rides at the end of its text's pill - or nothing does, when there is no target. */
+    private static String withArrow(final String text, final String arrow) {
+        return arrow.isEmpty() ? text : text + BossBarLine.ICON_GAP + arrow;
     }
 
     private String lootLine(final java.util.Locale locale) {
@@ -213,28 +216,4 @@ public final class HudRenderer {
         final long seconds = totalSeconds % 60;
         return String.format("%d:%02d", minutes, seconds);
     }
-
-    /**
-     * Wraps a composed HUD line in a component that names {@link Glyphs#FONT_BOSSBAR}.
-     *
-     * <p>Without it the bar's code points resolve against {@code minecraft:default}, where they are
-     * undefined or defined as something else - see the note on {@link Glyphs#FONT_BOSSBAR}. The
-     * readable text rides in the same component on purpose: the bossbar font carries its own ascii
-     * provider.</p>
-     *
-     * <p><b>And it carries no shadow.</b> Vanilla draws every glyph a second time, one pixel down
-     * and right; on a background composed of power-of-two tiles butted against each other that
-     * second copy bleeds out of each tile into the next, so the bar the pack draws as one surface
-     * arrives with a dark seam at every segment boundary. The shadow costs no advance, so
-     * {@link BossBarWidth}'s arithmetic is untouched and nothing moves - the bar only looks wrong,
-     * which is why reading the composition never finds it. The whole line is one component, so the
-     * readable text loses its shadow too; that is the deliberate trade for keeping the line
-     * un-split (owner's call, 2026-09-05).</p>
-     */
-    private static Component bossBarText(final String line) {
-        return Component.text(line)
-                .font(Key.key(Glyphs.FONT_BOSSBAR))
-                .shadowColor(ShadowColor.none());
-    }
-
 }

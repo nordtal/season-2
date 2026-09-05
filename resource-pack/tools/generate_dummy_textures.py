@@ -22,6 +22,7 @@ Usage:
 import math
 import os
 import struct
+import sys
 import zlib
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -30,9 +31,13 @@ HG_RES = os.path.join(REPO_ROOT, "hunger-games", "src", "main", "resources")
 
 BLACK = (0, 0, 0)
 
-# The board frame's two colours, taken verbatim from generate_gui_panels.py's PALETTE so the
-# boards and the menus read as one server's furniture (2026-09-04). Two things changed here that
-# day, and only one of them was about style:
+# The board frame's two colours. They were taken verbatim from generate_gui_panels.py's PALETTE
+# on 2026-09-04 so the boards and the menus read as one server's furniture; on 2026-09-05 the
+# menus went light (owner's call, in the manner of Origin Realms) and the boards deliberately did
+# not - a board hangs in the world on a Text Display's dark translucent ground, where a light
+# frame would glare. So these are the boards' own now, the old slate values, and the two surfaces
+# share a shape rather than a palette. Two things changed here on the 4th, and only one of them
+# was about style:
 #
 #   * the frame was drawn BLACK, which is the module's default and was never a decision. A board
 #     hangs in the world on a Text Display's dark translucent background, so a black frame is a
@@ -52,29 +57,14 @@ BOARD_ACCENT = (176, 138, 74)   # PALETTE["accent"]
 SYSTEM_WHITE = (255, 255, 255)
 
 
-# --- Minimal PNG writer (RGBA, 8-bit, no filtering) -------------------------------
+# --- The PNG writer lives in pngio.py since 2026-09-05; the name stays importable. ----
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pngio import write_png as _write_png  # noqa: E402
+
 
 def write_png(path, width, height, rgba_bytes):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-
-    def chunk(tag, data):
-        c = tag + data
-        return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
-
-    sig = b"\x89PNG\r\n\x1a\n"
-    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)  # color type 6 = RGBA
-    stride = width * 4
-    raw = bytearray()
-    for y in range(height):
-        raw.append(0)  # filter type 0 (none) per scanline
-        raw.extend(rgba_bytes[y * stride:(y + 1) * stride])
-    idat = zlib.compress(bytes(raw), 9)
-    with open(path, "wb") as f:
-        f.write(sig)
-        f.write(chunk(b"IHDR", ihdr))
-        f.write(chunk(b"IDAT", idat))
-        f.write(chunk(b"IEND", b""))
-    print(f"wrote {os.path.relpath(path, REPO_ROOT)} ({width}x{height})")
+    _write_png(path, width, height, rgba_bytes, REPO_ROOT)
 
 
 # --- Supersampled rasterizer -------------------------------------------------------
@@ -470,8 +460,9 @@ def main():
     donor_star()
     prestige_crests()
     board_frame()
-    dimension_icons()
-    status_icons()
+    # dimension_icons() and status_icons() left for generate_hud.py on 2026-09-05, which
+    # draws the real icons; the placeholder shapes below are kept only as the record of
+    # what the HUD was tested against before it had art.
     bearing_arrows()
     system_icons()
     balloon_scaffold()

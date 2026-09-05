@@ -1,6 +1,7 @@
 package eu.nordtal.s2.common;
 
 import eu.nordtal.s2.common.hud.BoardFrame;
+import eu.nordtal.s2.common.hud.BossBarLine;
 import eu.nordtal.s2.common.menu.MenuTitle;
 
 import net.kyori.adventure.text.Component;
@@ -90,17 +91,27 @@ class GlyphShadowTest {
     }
 
     @Test
-    @DisplayName("both boss bar renderers turn the shadow off")
-    void bossBarRenderersTurnTheShadowOff() {
+    @DisplayName("a boss bar line carries no shadow, and the renderers build nothing else")
+    void bossBarLineTurnsTheShadowOff() {
+        assertNoShadowOnFont(BossBarLine.render(List.of(BossBarLine.Pill.of("x"))),
+                Glyphs.FONT_BOSSBAR, "BossBarLine.render");
         for (final String source : BOSS_BAR_SOURCES) {
             final String text = RepositoryRoot.read(source);
-            assertTrue(text.contains("ShadowColor.none()"),
-                    source + " composes a boss bar background out of tiled glyphs but never calls"
-                            + " shadowColor(ShadowColor.none()), so every segment boundary draws a"
-                            + " dark seam - the arithmetic stays right, only the bar looks broken."
-                            + " This is a text test for the reason BossBarFontTest is one: the class"
-                            + " is Bukkit-facing and no JVM in this module can build one.");
+            assertTrue(!text.contains("ShadowColor") && !text.contains("Component.text("),
+                    source + " styles a boss bar component itself; since 2026-09-05 the one place"
+                            + " that happens is BossBarLine, so the shadow is off everywhere or"
+                            + " nowhere. BossBarFontTest pins that every name goes through it.");
         }
+    }
+
+    @Test
+    @DisplayName("a menu canvas with overlays carries no shadow either")
+    void menuCanvasCarriesNoShadow() {
+        final Component surface = MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL)
+                .overlay(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM, 99, 68)
+                .overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 9, 68)
+                .build(Component.text("title"));
+        assertNoShadowOnFont(surface, Glyphs.FONT_GUI, "MenuTitle.Canvas.build");
     }
 
     /**

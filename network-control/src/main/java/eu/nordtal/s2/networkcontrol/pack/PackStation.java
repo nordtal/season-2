@@ -361,6 +361,21 @@ public final class PackStation {
         });
     }
 
+    /**
+     * Called by the router when the connection a release asked for failed: the backend is registered
+     * and not answering. The player is still on limbo, so they go back on the books with the
+     * {@code BACKEND} title and the release is tried again in {@link WaitingBook#RELEASE_RETRY}.
+     *
+     * @param player the player the release could not move
+     */
+    public void releaseFailed(final Player player) {
+        book.releaseFailed(player.getUniqueId());
+        logger.warn("'{}' did not take {}; holding them in the waiting room and trying again in {}s",
+                routing.servers().forAdmitted(phases.lastKnown(), roster.isAdmin(player.getUniqueId())),
+                player.getUsername(), WaitingBook.RELEASE_RETRY.toSeconds());
+        evaluate(player);
+    }
+
     // ------------------------------------------------------------------ housekeeping
 
     @Subscribe

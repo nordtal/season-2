@@ -95,6 +95,8 @@ public final class DiscordCommands extends ListenerAdapter {
     private final Outbox outbox;
     private final ExecutorService worker;
     private final Map<String, Entry> byPath = new LinkedHashMap<>();
+    private final Map<String, java.util.function.Supplier<java.util.Collection<String>>> suggestions =
+            new LinkedHashMap<>();
 
     /**
      * @param jdbi where the admin flag and the asker's language are read from. A {@code Jdbi} rather
@@ -136,6 +138,24 @@ public final class DiscordCommands extends ListenerAdapter {
                 // Asked on the far side, where the command is: this process holds the declaration
                 // and not the implementation.
                 values -> Optional.empty());
+        return this;
+    }
+
+    /**
+     * What to offer for one argument while somebody is still typing it.
+     *
+     * <p>The mirror of {@code PaperCommands#suggest}, and the same rule: it must be in memory or
+     * cheap, because Discord asks per keystroke. {@code /access settle} is what this exists for -
+     * without the list of open references it is a six-character string recalled from memory, on the
+     * one command that books money.</p>
+     */
+    public DiscordCommands suggest(final Declaration declaration, final String argument,
+                                   final java.util.function.Supplier<java.util.Collection<String>> values) {
+        if (declaration.arguments().stream().noneMatch(a -> a.name().equals(argument))) {
+            throw new IllegalArgumentException(declaration.name() + " has no argument '" + argument
+                    + "', so nothing would ever ask for these suggestions");
+        }
+        suggestions.put(declaration.name() + " " + argument, Objects.requireNonNull(values, "values"));
         return this;
     }
 
@@ -226,6 +246,9 @@ public final class DiscordCommands extends ListenerAdapter {
             };
             option.setDescriptionLocalization(DiscordLocale.GERMAN,
                     german("command.argument." + argument.name()));
+            if (suggestions.containsKey(entry.declaration().name() + " " + argument.name())) {
+                option.setAutoComplete(true);
+            }
             if (argument.kind() == Argument.Kind.CHOICE) {
                 argument.choices().forEach(choice -> option.addChoice(choice, choice));
             }
@@ -364,6 +387,41 @@ public final class DiscordCommands extends ListenerAdapter {
                 user.reply("command.confirm.stale");
             }
         });
+    }
+
+    @Override
+    public void onCommandAutoCompleteInteraction(
+            final net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent event) {
+        final List<String> path = new ArrayList<>();
+        path.add(event.getName());
+        if (event.getSubcommandGroup() != null) {
+            path.add(event.getSubcommandGroup());
+        }
+        if (event.getSubcommandName() != null) {
+            path.add(event.getSubcommandName());
+        }
+        final Entry entry = byPath.get(String.join(" ", path));
+        if (entry == null) {
+            return;
+        }
+        final var offered = suggestions.get(
+                entry.declaration().name() + " " + event.getFocusedOption().getName());
+        if (offered == null) {
+            return;
+        }
+
+        // An autocomplete interaction has the same three seconds as any other, so this cannot be a
+        // database round trip - and it therefore cannot re-read the admin flag either. The values
+        // are only ever offered to somebody Discord already shows the command to, and the command
+        // itself re-checks discord_user.admin before doing anything with the answer. The bot's old
+        // /settle had neither check.
+        final String typed = event.getFocusedOption().getValue().toLowerCase(Locale.ROOT);
+        event.replyChoiceStrings(offered.get().stream()
+                        .filter(value -> value.toLowerCase(Locale.ROOT).startsWith(typed))
+                        // Discord shows at most 25 and refuses a reply with more.
+                        .limit(25)
+                        .toList())
+                .queue();
     }
 
     /**

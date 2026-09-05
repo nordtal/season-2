@@ -172,12 +172,12 @@ public final class RequestArguments {
                 yield token;
             }
             case CHOICE -> {
-                if (!argument.choices().contains(token)) {
-                    throw new IllegalArgumentException(declaration.name() + ": '" + token
-                            + "' is not one of " + argument.choices() + " for argument '"
-                            + argument.name() + "'");
-                }
-                yield token;
+                // Case-insensitively, and what comes out is the DECLARED spelling: the asking
+                // adapter may have taken `maintenance` from a chat line, and the far side compares
+                // it against its own constants.
+                yield argument.match(token).orElseThrow(() -> new IllegalArgumentException(
+                        declaration.name() + ": '" + token + "' is not one of "
+                                + argument.choices() + " for argument '" + argument.name() + "'"));
             }
             case INTEGER -> {
                 final int value;

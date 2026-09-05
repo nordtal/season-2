@@ -272,7 +272,11 @@ public final class AccessRoles {
     public Optional<Member> member(final String discordId) {
         final Guild guild = guild();
         if (guild == null) {
-            return Optional.empty();
+            // Thrown and not empty. Empty means "there is no such member", and the caller turns
+            // that into a sentence telling an admin the person has left - which a guild JDA cannot
+            // currently see is no evidence of at all. A failure gets the failure sentence.
+            throw new IllegalStateException("guild " + config.guildId() + " is not available to the"
+                    + " bot, so guild membership cannot be answered either way");
         }
         try {
             return Optional.ofNullable(guild.retrieveMemberById(discordId).complete());

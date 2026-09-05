@@ -901,7 +901,7 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Nine modules have tests: 1187 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1191 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-05, after the CodeRabbit review of the command layer was worked
 through). The counts
 below are what the JUnit XML reports, not `@Test` counts.
@@ -911,14 +911,14 @@ below are what the JUnit XML reports, not `@Test` counts.
 | `common` | 313 |
 | `network-control` | 178 |
 | `smp` | 171 |
-| `commands` | 166 |
+| `commands` | 170 |
 | `discord-bot` | 142 |
 | `updater` | 136 |
 | `hunger-games` | 65 |
 | `limbo` | 11 |
 | `paper-common` | 5 |
 
-**`:commands` went from 56 to 166 on 2026-09-05**, and `:paper-common` gained the one thing that
+**`:commands` went from 56 to 170 on 2026-09-05**, and `:paper-common` gained the one thing that
 could not be tested anywhere else. The new ones are worth naming by what they can now answer:
 `SmpCommandsTest` (23), `HungerGamesCommandsTest` (14), `AccessCommandsTest` (13) and
 `LimboCommandsTest` (3) exercise every branch of every folded command against a fake effects
@@ -1125,7 +1125,7 @@ fails on the old semantics — checked by putting the bug back — and it is the
 rule that replaced them: **no single plugin message may be able to strand a player.** See
 `docs/state-of-play.md` finding 38.
 
-`commands` has **166**, and it went from 16 on the day it was scaffolded to this on the day the first
+`commands` has **170**, and it went from 16 on the day it was scaffolded to this on the day the first
 command was folded into it - which is the whole difference between a module and a shape. Twenty-two
 are `PhaseCommandsTest`, and every case in it was previously answerable only by running the command
 on a real proxy or in a real guild: what `/phase` says when the phase is already the one asked for,

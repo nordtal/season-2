@@ -165,6 +165,21 @@ class RequestArgumentsTest {
     }
 
     @Test
+    @DisplayName("a choice sent in another case arrives in the declared spelling")
+    void aChoiceIsNormalisedOnTheWayOff() {
+        // The asking adapter may have taken `maintenance` off a chat line; the far side compares it
+        // against its own constants.
+        final Declaration declaration = new Declaration(List.of("phase", "set"), Target.PROXY,
+                Set.of(Surface.GAME), true, true,
+                List.of(Argument.choice("phase", List.of("SMP", "MAINTENANCE"))));
+
+        assertEquals("MAINTENANCE",
+                RequestArguments.decode(declaration, "maintenance").string("phase"));
+        assertThrows(IllegalArgumentException.class,
+                () -> RequestArguments.decode(declaration, "wartung"));
+    }
+
+    @Test
     @DisplayName("a greedy value that begins or ends with a space is refused, not silently trimmed")
     void greedyWhitespaceIsRefused() {
         // decode() walks past the spaces between arguments before it reads the greedy one, so

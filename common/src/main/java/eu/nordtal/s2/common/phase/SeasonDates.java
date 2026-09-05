@@ -94,6 +94,19 @@ public final class SeasonDates {
      *         missing value, so it is spelled out rather than left blank
      */
     public static @NotNull String format(final @Nullable Instant when) {
-        return when == null ? "not set" : SHOWN.format(when.atZone(ZONE));
+        return format(when, "not set");
+    }
+
+    /**
+     * The same, with the caller's own word for a date that is not there - a command answering a
+     * person renders {@code phase.date.unset} in their language rather than this class's English;
+     * the log lines and exception messages keep the default.
+     *
+     * @param when  the instant, may be {@code null}
+     * @param unset what to say for {@code null}
+     * @return the formatted date, or {@code unset}
+     */
+    public static @NotNull String format(final @Nullable Instant when, final @NotNull String unset) {
+        return when == null ? unset : SHOWN.format(when.atZone(ZONE));
     }
 }

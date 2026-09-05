@@ -323,6 +323,30 @@ class WaitingBookTest {
                 book.decide(player, SeasonPhase.MAINTENANCE, false, true));
     }
 
+    @Test
+    @DisplayName("a release the backend refused holds the player, says so, and is tried again")
+    void aFailedReleaseHoldsAndRetries() {
+        // Seen on the local stack on 2026-09-05: the SMP restarted, Velocity kicked both players
+        // to limbo, the station released them at once (the SMP is registered, and registered is
+        // what it can see) and the failed connection disconnected both with "no server". §1 step 9
+        // of the rehearsal expects the opposite - a backend that is down holds rather than kicks.
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        book.packApplied(player);
+        book.ready(player);
+        assertEquals(Action.RELEASE, decide(book));
+
+        book.releaseFailed(player);
+        assertEquals(WaitingDecision.show(WaitReason.BACKEND), book.decide(player, PLAYABLE, false, true),
+                "back on the books, and told what they are waiting for");
+        clock.advance(WaitingBook.RELEASE_RETRY.dividedBy(2));
+        assertEquals(Action.IDLE, decide(book), "not retried before the window has passed");
+        clock.advance(WaitingBook.RELEASE_RETRY);
+        assertEquals(Action.RELEASE, decide(book), "and tried again once it has");
+        assertEquals(Action.IDLE, decide(book), "a release still ends the visit, so it is not sent twice");
+    }
+
     // ------------------------------------------------------------------ housekeeping
 
     @Test

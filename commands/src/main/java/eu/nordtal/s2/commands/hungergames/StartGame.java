@@ -34,11 +34,6 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
      */
     private final Confirmations confirmations = new Confirmations();
 
-    /** The {@code confirm} half, sharing this instance's window. */
-    public NordtalCommand<HungerGamesEffects> confirm() {
-        return new Confirm(this);
-    }
-
     @Override
     public Declaration declaration() {
         return HungerGamesCommands.START;
@@ -47,7 +42,10 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
     @Override
     public void run(final NordtalUser user, final Values values,
                     final HungerGamesEffects effects) {
-        attempt(user, effects, false);
+        // The optional trailing word IS the second step. `/hg start confirm` in chat, a dropdown
+        // with one value in Discord - one command either way, which is what stops the two halves
+        // from having two confirmation maps between them.
+        attempt(user, effects, values.optionalString("confirm").isPresent());
     }
 
     private void attempt(final NordtalUser user, final HungerGamesEffects effects,
@@ -116,18 +114,4 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
     /** What the confirmation is keyed on - the command, not the exact line somebody typed. */
     private static final String KEY = "/hg start";
 
-    /** {@code /hg start confirm}, sharing its sibling's window. */
-    private record Confirm(StartGame start) implements NordtalCommand<HungerGamesEffects> {
-
-        @Override
-        public Declaration declaration() {
-            return HungerGamesCommands.START_CONFIRM;
-        }
-
-        @Override
-        public void run(final NordtalUser user, final Values values,
-                        final HungerGamesEffects effects) {
-            start.attempt(user, effects, true);
-        }
-    }
 }

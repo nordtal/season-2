@@ -52,14 +52,26 @@ public final class HungerGamesCommands {
     private static final Set<Surface> EVERYWHERE =
             Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
 
-    /** {@code /hg start} - begins the event. Its own confirmation lives in {@link StartGame}. */
+    /**
+     * {@code /hg start [confirm]} - begins the event. Its own confirmation lives in
+     * {@link StartGame}.
+     *
+     * <h2>Why {@code confirm} is an argument and not a second path</h2>
+     * It was {@code ["hg","start","confirm"]} for an afternoon, which reads better and does not
+     * work: Discord builds a two-segment path as a <b>subcommand</b> and a three-segment one as a
+     * <b>subcommand group</b>, and a command may not have both under the same name. JDA validates
+     * the whole set at registration and refuses <em>all of it</em> - so the guild would have lost
+     * every command it has, and the only symptom would be one exception at startup.
+     *
+     * <p>As an optional choice argument the chat syntax is unchanged - {@code /hg start confirm} is
+     * still exactly what a player types, because Brigadier reads a trailing optional word - and
+     * Discord gets an optional dropdown with one value in it. {@code DiscordCommandsTest} now
+     * asserts no path is both a subcommand and a group, so the next one fails the build.</p>
+     */
     public static final Declaration START = new Declaration(
-            List.of("hg", "start"), Target.HUNGER_GAMES, EVERYWHERE, true, false, List.of());
-
-    /** {@code /hg start confirm} - the second step, when the first one warned. */
-    public static final Declaration START_CONFIRM = new Declaration(
-            List.of("hg", "start", "confirm"), Target.HUNGER_GAMES, EVERYWHERE, true, false,
-            List.of());
+            List.of("hg", "start"), Target.HUNGER_GAMES, EVERYWHERE, true, false,
+            List.of(eu.nordtal.s2.commands.Argument.choice("confirm", List.of("confirm"))
+                    .optional()));
 
     /** {@code /hg ready-status} - which teams have said they are ready. */
     public static final Declaration READY_STATUS = new Declaration(
@@ -72,13 +84,12 @@ public final class HungerGamesCommands {
     /**
      * Every {@code /hg} command.
      *
-     * <p>{@link StartGame} holds the confirmation window, so the two start commands share one
-     * instance - a warning shown by {@code /hg start} has to be spendable by
-     * {@code /hg start confirm}, and two instances would be two maps.</p>
+     * <p>{@link StartGame} holds the confirmation window, and one instance is what makes a warning
+     * shown by {@code /hg start} spendable by {@code /hg start confirm} - they are one command with
+     * an optional argument, so that falls out rather than having to be arranged.</p>
      */
     public static List<NordtalCommand<HungerGamesEffects>> all() {
-        final StartGame start = new StartGame();
-        return List.of(start, start.confirm(), new ReadyStatus(), new ReloadHungerGames());
+        return List.of(new StartGame(), new ReadyStatus(), new ReloadHungerGames());
     }
 
     /** Every {@code /hg} declaration. */

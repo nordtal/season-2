@@ -140,6 +140,7 @@ Discord ([architecture.md](architecture.md#commands)).
 | `/smp objective complete <key>` | admin | **escape hatch 1**: one objective, paid `pot × (reached ÷ target)`. **Type it twice** |
 | `/smp milestone unlock <key>` | admin | **escape hatch 2**, the blunt one: every open objective pays proportionally. **Type it twice** |
 | `/smp aura <player> <delta>` | admin | corrects a balance. Writes its reason, like every other aura change. **Not** confirmed - applying the negative is an exact undo |
+| `/smp status` | anyone | **new 2026-09-06.** The season phase, the active milestone with its progress, and how many are on the SMP - three lines, read-only, in Discord as well |
 | `/smp access <player>` | admin | **new 2026-09-04.** Is that account linked, does it have access, and is there a purchase halfway through? The shortened form of `/access status`, answered to the asker only |
 | `/smp update` | admin | asks the updater what differs, and reports its answer verbatim |
 | `/smp update apply` | admin | installs what differs |
@@ -313,6 +314,11 @@ reason is in the linked document — that is what stops it from being reopened b
 | **Leaving the guild deletes the account link** — but the startup reconcile only does it when the member cache demonstrably holds the whole guild. Writing `LEFT` on a bad guess is repaired by the next run; deleting is not | [access-system.md](access-system.md#linking) |
 | **The status channel is renamed only when its text changes**, and never more than once every six minutes. Discord allows two renames per ten minutes per channel, undocumented, and blocks the route hard on abuse — which is why every line it shows is deliberately coarse | [season-phases.md](season-phases.md#the-status-channel) |
 | **The MOTD's counts moved to `:common`** rather than being copied into the bot. Two queries computing "the same" numbers is how two public surfaces end up disagreeing on a screenshot | [state-of-play.md](state-of-play.md#network-control) |
+| **2026-09-05:** an admin joining while the network is closed (`PRE_LAUNCH`, `MAINTENANCE`) goes through the waiting room like everybody and comes out onto `smp` - fixed, no config key. "Not moved" was `velocity.toml`'s `try` list, which is the waiting room | [season-phases.md](season-phases.md) |
+| **2026-09-05:** the admin flag is an access period in every phase, the way it already exempts an admin from the player limit; the switch to `SMP` no longer disconnects the admin who made it | [season-phases.md](season-phases.md), `AccessState#mayJoin` |
+| **2026-09-05:** `/phase` with nothing after it shows the phase; every other root prints its help (`Catalogue#rootDefault`) | [architecture.md](architecture.md#commands) |
+| **2026-09-06:** Discord announcements ride the existing `command_request` transport as `announce <language> <text>` on a `Surface.SYSTEM` nobody types on - no V12, no second NOTIFY channel; the SMP renders, the bot posts, a phase change is announced by the bot itself | [state-of-play.md](state-of-play.md) finding 52 |
+| **2026-09-06:** `/smp status` is the one `/smp` command a player may run | this file, the command table |
 
 ## Working rules that apply to all of it
 

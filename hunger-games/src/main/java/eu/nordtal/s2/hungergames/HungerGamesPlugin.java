@@ -164,7 +164,12 @@ public final class HungerGamesPlugin extends JavaPlugin {
         final Jdbi jdbi = Jdbi.create(pool).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         dao = jdbi.onDemand(HungerGamesDao.class);
 
-        messages = Messages.load(getClass().getClassLoader(), "messages/hunger-games",
+        // Two roots, shared first: :commands' bundle holds every string a SHARED command says, and
+        // this module's own wins where both declare a key. Loading only this module's would leave
+        // /hg start printing the literal string hg.start.started - Messages degrades to the key
+        // rather than throwing, so it fails silently and only in chat.
+        messages = Messages.load(getClass().getClassLoader(),
+                java.util.List.of("messages/commands", "messages/hunger-games"),
                 getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
                 "the message override names " + key + ", which no bundle declares - it is stored"
@@ -330,7 +335,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final HungerGamesCommand command = new HungerGamesCommand(this, dao, messages, locales,
                     lobby, sounds, () -> currentGameId);
-            command.build(outbox, chatEffects)
+            command.build(outbox, chatEffects, adminWatch::isAdmin)
                     .forEach(node -> event.registrar().register(node));
         });
     }

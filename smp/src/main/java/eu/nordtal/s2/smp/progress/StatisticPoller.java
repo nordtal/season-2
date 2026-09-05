@@ -46,7 +46,15 @@ public final class StatisticPoller {
     private static final long PERIOD_TICKS = 100L;
 
     private final Plugin plugin;
-    private final MilestoneTrack track;
+    /**
+     * The milestone track, <b>as a supplier</b>.
+     *
+     * <p>{@code /smp reload} replaces the plugin's track with a new instance - that is the whole
+     * reason {@code milestones.yml} is a separate reloadable file, because a milestone is appended
+     * and a target lowered mid-season. A reference captured at enable would go on reading the
+     * definitions the server started with, for the rest of the season, and nothing would say so.</p>
+     */
+    private final java.util.function.Supplier<MilestoneTrack> track;
     private final ObjectiveEngine engine;
     private final Identities identities;
 
@@ -54,7 +62,7 @@ public final class StatisticPoller {
     private final Map<UUID, Map<String, Long>> baselines = new HashMap<>();
     private BukkitTask task;
 
-    public StatisticPoller(final Plugin plugin, final MilestoneTrack track,
+    public StatisticPoller(final Plugin plugin, final java.util.function.Supplier<MilestoneTrack> track,
                            final ObjectiveEngine engine, final Identities identities) {
         this.plugin = plugin;
         this.track = track;
@@ -84,7 +92,7 @@ public final class StatisticPoller {
         if (activeKey.isEmpty()) {
             return;
         }
-        final Milestone milestone = track.milestone(activeKey.get()).orElse(null);
+        final Milestone milestone = track.get().milestone(activeKey.get()).orElse(null);
         if (milestone == null) {
             return;
         }

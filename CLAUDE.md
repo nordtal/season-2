@@ -901,7 +901,7 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Nine modules have tests: 1191 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1193 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-05, after the CodeRabbit review of the command layer was worked
 through). The counts
 below are what the JUnit XML reports, not `@Test` counts.
@@ -910,7 +910,7 @@ below are what the JUnit XML reports, not `@Test` counts.
 |---|---|
 | `common` | 313 |
 | `network-control` | 178 |
-| `smp` | 171 |
+| `smp` | 173 |
 | `commands` | 170 |
 | `discord-bot` | 142 |
 | `updater` | 136 |
@@ -1152,7 +1152,7 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **171**. **The "two-step everywhere" rule reached this module on 2026-09-04** - `/smp
+`smp` has **173**. **The "two-step everywhere" rule reached this module on 2026-09-04** - `/smp
 farmreset now`, `/smp objective complete` and `/smp milestone unlock` have to be typed twice inside
 `Confirmations.WINDOW` - and what asserts it is `SmpCommandsTest#whatIsIrreversible`, in
 `:commands`, as one set each: the three that are guarded and the three that deliberately are not.

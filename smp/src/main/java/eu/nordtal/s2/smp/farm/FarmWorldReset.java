@@ -58,6 +58,7 @@ public final class FarmWorldReset {
     private final Navigation navigation;
     private final SmpSounds sounds;
     private final SmpHud hud;
+    private final eu.nordtal.s2.smp.announce.Announcer announcer;
     private final DailySchedule schedule;
 
     /**
@@ -74,7 +75,8 @@ public final class FarmWorldReset {
                           final FarmWorldSwap swap, final PreGenerator pregen,
                           final Messages messages, final PlayerLocales locales,
                           final SmpDao dao, final Navigation navigation, final SmpSounds sounds,
-                          final SmpHud hud) {
+                          final SmpHud hud, final eu.nordtal.s2.smp.announce.Announcer announcer) {
+        this.announcer = java.util.Objects.requireNonNull(announcer, "announcer");
         this.plugin = plugin;
         this.config = config;
         this.worlds = worlds;
@@ -173,6 +175,9 @@ public final class FarmWorldReset {
      * the beginning. The sound is the third: it costs nothing to somebody who is looking at neither.
      */
     private void warn(final long minutes) {
+        // The same four warnings reach Discord, for whoever is planning to log on into a farm
+        // world that is about to be gone (finding 52, 2026-09-06).
+        announcer.announce("smp.announce.farm-reset", java.util.Map.of("minutes", minutes));
         forEachInFarmWorld(player -> {
             final Locale locale = locales.of(player.getUniqueId());
             player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.farm.warning", "minutes", minutes));

@@ -49,10 +49,14 @@ public final class BukkitSmpEffects implements SmpEffects {
     private final AccessDirectory access;
     private final java.util.function.Supplier<java.util.List<String>> reload;
 
+    private final java.util.function.Function<java.util.Locale, Status> status;
+
     public BukkitSmpEffects(final Plugin plugin, final Executor executor, final SmpDao dao,
                             final ObjectiveEngine engine, final FarmWorldReset farmReset,
                             final Identities identities, final AccessDirectory access,
-                            final java.util.function.Supplier<java.util.List<String>> reload) {
+                            final java.util.function.Supplier<java.util.List<String>> reload,
+                            final java.util.function.Function<java.util.Locale, Status> status) {
+        this.status = java.util.Objects.requireNonNull(status, "status");
         this.plugin = plugin;
         this.executor = executor;
         this.dao = dao;
@@ -162,6 +166,13 @@ public final class BukkitSmpEffects implements SmpEffects {
         final AccessState state = access.accessState(player);
         return Optional.of(new Access(state.discordId(), state.accessActive(),
                 state.accessValidUntil()));
+    }
+
+    @Override
+    public Status status(final java.util.Locale locale) {
+        // Built by the plugin, which holds the season state, the bundle and the pool; this class
+        // is handed a function so that the inbox's and the chat's instance answer the same way.
+        return status.apply(locale);
     }
 
     @Override

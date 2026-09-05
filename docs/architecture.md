@@ -224,6 +224,39 @@ byte counts are the sum of the jars that would actually be shaded, annotation-on
   supplies its own suggestions, so the commands that carry arguments would need a Brigadier tree
   anyway — and then the repository has two shapes. One shape, learned once.
 
+### What that became, on 2026-09-05
+
+Every admin command in the network is declared once and adapted three times. Seventeen declarations
+across five families - `/phase`, `/smp`, `/hg`, `/limbo`, `/network` and `/access` - and three
+adapters: `PaperCommands` (`:paper-common`), `VelocityCommands` (`network-control`) and
+`DiscordCommands` (`discord-bot`). `Catalogue` is the list of them, which is what turns "every admin
+command is on both platforms" into something a test asks rather than something four adapters have to
+be read to answer.
+
+**A command whose effect belongs to another process travels**, as a `command_request` row (V11):
+written by the asker, claimed atomically by the target, answered back into the same row. The asker
+gives up after thirty seconds and marks the row `EXPIRED`; the target refuses to claim one that has
+expired. Both ends guard the same boundary from opposite sides, because between them there is a
+window in which a row is still pending and nobody is listening for its answer - and running a
+command into that window is how somebody's aura gets corrected twice.
+
+**Which process registers which command is not symmetrical, and the asymmetry is Velocity's.** A
+Velocity command is answered before the packet reaches a backend, so the proxy registering `/smp`
+would shadow the SMP's own and turn a local command into a round trip on the server that owns it.
+So: the proxy registers only its own, each Paper backend registers its own plus the other backends'
+and the bot's, and the bot registers everything.
+
+**What was found by writing the second implementation next to the first** - none of it by a test:
+
+| what | where it was |
+|---|---|
+| Four admin commands checked `discord_user.admin` **nowhere**, only Discord's own permission | `/grant-access`, `/revoke-access`, `/access-status`, `/settle` |
+| `/settle`'s autocomplete had no check either, so anybody who could see it could enumerate every open payment reference | the bot |
+| Every line of all four was hardcoded English, in a bot whose message system exists so that nothing is | the bot |
+| `/smp aura` answered an unlinked target with the message written for a player about their **own** account | `smp` |
+| `/limbo reload` rendered against the Minecraft client's locale, which [i18n.md](i18n.md) forbids by name | `limbo` |
+| `/access grant` had no upper bound on days - a mistyped `3650` was a decade, one keystroke from `365` | the bot |
+
 ### The rules that follow
 
 - **Paper:** Brigadier trees through `io.papermc.paper.command.brigadier.Commands`, registered on
@@ -233,7 +266,22 @@ byte counts are the sum of the jars that would actually be shaded, annotation-on
   same way they provide Gson and SnakeYAML. Declare it `compileOnly` if a module needs it on its
   own compile classpath at all; the platform API already exports it transitively.
 - **Every string a command prints comes from `Messages`** and the player's locale. A command that
-  hardcodes English is a bug, not a shortcut.
+  hardcodes English is a bug, not a shortcut. A **shared** command's strings live in `:commands`'
+  own bundle, which carries no markup at all - MiniMessage and Discord's markdown cannot both live
+  in one string - and every process loads that bundle underneath its own, so a module can reword a
+  shared line without editing the shared file.
+- **A command that cannot be undone confirms on every surface.** The whole line typed again inside
+  thirty seconds in chat and on the proxy; a button in Discord whose id carries the command and its
+  arguments, so one minted by an older build does nothing and says so. `Declaration#irreversible()`
+  is the single list of which commands those are, and it is deliberately short: a flag on everything
+  that writes is a flag nobody reads.
+- **The admin check behind a command tree is a cache, never a query.** Brigadier evaluates
+  `requires` while building the tree it sends to a client. `AdminWatch#isAdmin` is the source that
+  is correct on every backend; `FullServerAdmission` is not, because it only fills the flag on a
+  server near its cap.
+- **Typing half a command answers with its usage line and one sentence**, not with Brigadier's
+  "Unknown or incomplete command". The usage is derived from the declaration, so it cannot drift
+  from what actually parses.
 - **The proxy's emergency `/phase` is authorised by the database admin flag**, not by console and
   not by a permission node — see [season-phases.md](season-phases.md#who-may-switch-it) for what
   that costs when the database is the thing that is down.

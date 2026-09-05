@@ -18,7 +18,10 @@ import eu.nordtal.s2.discordbot.access.discord.LinkFlow;
 import eu.nordtal.s2.discordbot.access.discord.RedemptionLimit;
 import eu.nordtal.s2.discordbot.access.discord.ManagedMessages;
 import eu.nordtal.s2.discordbot.discord.MessagesCommand;
-import eu.nordtal.s2.discordbot.discord.PhaseCommand;
+import eu.nordtal.s2.commands.Catalogue;
+import eu.nordtal.s2.commands.phase.PhaseCommands;
+import eu.nordtal.s2.discordbot.discord.BotPhaseEffects;
+import eu.nordtal.s2.discordbot.discord.DiscordCommands;
 import eu.nordtal.s2.discordbot.discord.UpdateCommand;
 import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
 import eu.nordtal.s2.discordbot.access.payment.PaymentProcessor;
@@ -174,17 +177,32 @@ public class AccessBot implements AutoCloseable {
                             new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), Clock.systemUTC()),
                             worker),
                     new AdminCommands(access, roles, requests, admin, messages, seasonStart, worker),
-                    new PhaseCommand(phases, admin, database.jdbi(), messages, worker),
                     new UpdateCommand(updates, admin, database.jdbi(), worker, timers),
                     new MessagesCommand(messages, database.jdbi(), worker),
                     new RegisterFlow(jda, teams, messages, worker));
 
+            // Every declared command, as slash commands. /phase runs here - the bot writes the row
+            // itself, because no process owns it - and everything else becomes a command_request
+            // addressed to the process that does. This is the half of "on both platforms" that did
+            // not exist before 2026-09-05.
+            final DiscordCommands declared = new DiscordCommands(messages, database.jdbi(), access,
+                    new eu.nordtal.s2.commands.remote.Outbox(
+                            eu.nordtal.s2.common.command.CommandRequests.borrowing(
+                                    database.dataSource()),
+                            timers,
+                            (message, failure) -> log.warn(message, failure)),
+                    worker);
+            final BotPhaseEffects phaseEffects = new BotPhaseEffects(phases, admin, worker);
+            PhaseCommands.all().forEach(command -> declared.local(command, phaseEffects));
+            declared.remoteAll(Catalogue.all());
+            jda.addEventListener(declared);
+
             final List<CommandData> commands = new ArrayList<>();
             commands.addAll(AdminCommands.commands());
             commands.addAll(LinkFlow.commands());
-            commands.addAll(PhaseCommand.commands());
             commands.addAll(UpdateCommand.commands());
             commands.addAll(MessagesCommand.commands());
+            commands.addAll(declared.commands());
             jda.updateCommands().addCommands(commands).queue();
 
             new ManagedMessages(jda, languages, tiers, messages, database.jdbi()).publishAll();

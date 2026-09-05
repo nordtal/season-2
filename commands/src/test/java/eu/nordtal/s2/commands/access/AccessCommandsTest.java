@@ -11,13 +11,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,15 +34,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class AccessCommandsTest {
 
-    private static final UUID PLAYER = UUID.fromString("11111111-2222-3333-4444-555555555555");
     private static final String DISCORD = "100000000000000009";
+    private static final UUID PLAYER = UUID.fromString("11111111-2222-3333-4444-555555555555");
 
     private static final class FakeBot implements AccessEffects {
 
         final List<String> did = new ArrayList<>();
         final List<String> warnings = new ArrayList<>();
 
-        String linked = DISCORD;
         Status status;
         Instant grantedUntil = Instant.parse("2026-12-01T00:00:00Z");
         int revoked = 3;
@@ -64,15 +63,10 @@ class AccessCommandsTest {
         }
 
         @Override
-        public Optional<String> discordIdOf(final UUID minecraftAccount) {
+        public Optional<Status> status(final String discordId) {
             if (failure != null) {
                 throw failure;
             }
-            return Optional.ofNullable(linked);
-        }
-
-        @Override
-        public Optional<Status> status(final String discordId) {
             return Optional.ofNullable(status);
         }
 
@@ -175,21 +169,18 @@ class AccessCommandsTest {
     // ------------------------------------------------------------------ the behaviour
 
     @Test
-    @DisplayName("an unlinked player is refused by every command that needs an account")
-    void unlinkedIsRefusedEverywhere() {
-        bot.linked = null;
-        for (final NordtalCommand<AccessEffects> command : AccessCommands.all()) {
-            if (command.declaration().arguments().isEmpty()) {
-                continue;
-            }
-            if (command.declaration() == AccessCommands.SETTLE) {
-                continue;
-            }
-            assertEquals(List.of("access.not-linked"),
-                    run(command, Map.of("player", PLAYER, "days", 30)).keys(),
-                    command.declaration().name());
+    @DisplayName("the subject is a Discord account, not a Minecraft one - which is the point")
+    void theSubjectIsADiscordAccount() {
+        // Written as a PLAYER argument for half an afternoon, which resolves through account_link on
+        // both surfaces - so /access grant could not have been used on the person it exists for: a
+        // member whose payment arrived outside the normal flow and who has never linked.
+        for (final Declaration declaration : AccessCommands.declarations()) {
+            declaration.arguments().stream()
+                    .filter(argument -> argument.name().equals("member"))
+                    .forEach(argument -> assertEquals(
+                            eu.nordtal.s2.commands.Argument.Kind.ACCOUNT, argument.kind(),
+                            declaration.name() + " resolves its subject through account_link"));
         }
-        assertEquals(List.of(), bot.did);
     }
 
     @Test
@@ -199,7 +190,7 @@ class AccessCommandsTest {
         // looking for a link that is right there.
         bot.status = null;
         assertEquals(List.of("access.no-such-member"),
-                run(new ShowStatus(), Map.of("player", PLAYER)).keys());
+                run(new ShowStatus(), Map.of("member", DISCORD)).keys());
     }
 
     @Test
@@ -215,7 +206,7 @@ class AccessCommandsTest {
         assertEquals(List.of("access.header", "access.until", "access.donor", "access.language",
                         "access.linked", "access.grants.header", "access.grants.line",
                         "access.purchases.header", "access.purchases.line"),
-                run(new ShowStatus(), Map.of("player", PLAYER)).keys());
+                run(new ShowStatus(), Map.of("member", DISCORD)).keys());
     }
 
     @Test
@@ -226,13 +217,13 @@ class AccessCommandsTest {
 
         assertEquals(List.of("access.header", "access.none", "access.donor", "access.language",
                         "access.linked", "access.grants.none", "access.purchases.none"),
-                run(new ShowStatus(), Map.of("player", PLAYER)).keys());
+                run(new ShowStatus(), Map.of("member", DISCORD)).keys());
     }
 
     @Test
     @DisplayName("granting names the days and the new end, and records who did it")
     void grant() {
-        final FakeUser user = run(new GrantAccess(), Map.of("player", PLAYER, "days", 30));
+        final FakeUser user = run(new GrantAccess(), Map.of("member", DISCORD, "days", 30));
 
         assertEquals("access.granted", user.only().key());
         assertEquals(30, user.only().of("days"));
@@ -246,10 +237,10 @@ class AccessCommandsTest {
         // wrong person should be told nothing happened.
         bot.revoked = 0;
         assertEquals(List.of("access.revoked.none"),
-                run(new RevokeAccess(), Map.of("player", PLAYER)).keys());
+                run(new RevokeAccess(), Map.of("member", DISCORD)).keys());
 
         bot.revoked = 2;
-        final FakeUser user = run(new RevokeAccess(), Map.of("player", PLAYER));
+        final FakeUser user = run(new RevokeAccess(), Map.of("member", DISCORD));
         assertEquals("access.revoked", user.only().key());
         assertEquals(2, user.only().of("count"));
     }
@@ -299,7 +290,7 @@ class AccessCommandsTest {
     void aFailureChangesNothing() {
         bot.failure = new IllegalStateException("connection refused");
         assertEquals(List.of("access.failed"),
-                run(new ShowStatus(), Map.of("player", PLAYER)).keys());
+                run(new ShowStatus(), Map.of("member", DISCORD)).keys());
         assertEquals(List.of(), bot.did);
     }
 }

@@ -69,6 +69,8 @@ public final class WaitingBook {
 
         /** Whether the proxy currently believes they are sitting in the waiting room. */
         private boolean waiting;
+        /** Whether {@link #entered} has ever been called - what makes a READY "early". */
+        private boolean visited;
 
         /** When the pack offer went out, or {@code null} if it has not. */
         private Instant offeredAt;
@@ -120,6 +122,7 @@ public final class WaitingBook {
         final Session session = session(uuid);
         synchronized (session) {
             session.waiting = true;
+            session.visited = true;
         }
     }
 
@@ -179,13 +182,16 @@ public final class WaitingBook {
      * @return {@code true} when this {@code READY} arrived <b>before</b> the proxy had processed the
      *         arrival - the race described on this class. Worth a log line: it is the only evidence
      *         that the ordering is really the way round the fix assumes, and its absence was what
-     *         made the original failure invisible
+     *         made the original failure invisible. A READY after the player has already left the
+     *         room is <em>not</em> early - {@code limbo} repeats its READY every second until the
+     *         player is moved (2026-09-05), so one arriving mid-transfer is the ordinary case and
+     *         says nothing
      */
     public boolean ready(final UUID uuid) {
         final Session session = session(uuid);
         synchronized (session) {
             session.ready = true;
-            return !session.waiting;
+            return !session.waiting && !session.visited;
         }
     }
 

@@ -432,7 +432,10 @@ public final class PaperCommands {
                     Commands.argument(argument.name(), StringArgumentType.greedyString());
             case INTEGER -> Commands.argument(argument.name(),
                     IntegerArgumentType.integer(argument.min(), argument.max()));
-            case PLAYER -> Commands.argument(argument.name(), StringArgumentType.word())
+            // Both are typed as a Minecraft name here and differ in what they resolve TO: a
+            // PLAYER becomes a UUID, an ACCOUNT becomes the Discord id behind it. In Discord they
+            // differ the other way round, which is the whole reason they are two kinds.
+            case PLAYER, ACCOUNT -> Commands.argument(argument.name(), StringArgumentType.word())
                     .suggests((context, builder) -> {
                         for (final Player online : Bukkit.getOnlinePlayers()) {
                             builder.suggest(online.getName());
@@ -448,16 +451,16 @@ public final class PaperCommands {
     }
 
     /** Everything Brigadier parsed, in the shapes {@link Values} hands out. */
-    private static Map<String, Object> read(final CommandContext<CommandSourceStack> context,
-                                            final List<eu.nordtal.s2.commands.Argument> arguments,
-                                            final int count) {
+    private Map<String, Object> read(final CommandContext<CommandSourceStack> context,
+                                     final List<eu.nordtal.s2.commands.Argument> arguments,
+                                     final int count) {
         final Map<String, Object> values = new LinkedHashMap<>();
         for (int at = 0; at < count; at++) {
             final eu.nordtal.s2.commands.Argument argument = arguments.get(at);
             switch (argument.kind()) {
                 case INTEGER -> values.put(argument.name(),
                         IntegerArgumentType.getInteger(context, argument.name()));
-                case PLAYER -> {
+                case PLAYER, ACCOUNT -> {
                     final Player target =
                             Bukkit.getPlayerExact(StringArgumentType.getString(context, argument.name()));
                     if (target == null) {
@@ -466,7 +469,19 @@ public final class PaperCommands {
                         // a missing required argument means everywhere else.
                         return values;
                     }
-                    values.put(argument.name(), target.getUniqueId());
+                    if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.PLAYER) {
+                        values.put(argument.name(), target.getUniqueId());
+                        continue;
+                    }
+                    // An ACCOUNT is a Discord id, and in game the only way to reach one is through
+                    // account_link. A player who has not linked cannot be named here at all, which
+                    // run() answers with its own sentence.
+                    final java.util.Optional<String> linked =
+                            discordIdOf.apply(target.getUniqueId());
+                    if (linked.isEmpty()) {
+                        return values;
+                    }
+                    values.put(argument.name(), linked.get());
                 }
                 default -> values.put(argument.name(),
                         StringArgumentType.getString(context, argument.name()));
@@ -495,9 +510,17 @@ public final class PaperCommands {
         // because "that name is not on this server" is a property of the surface the name was typed
         // on: in Discord the same argument is a member picked from a list and cannot miss.
         for (final eu.nordtal.s2.commands.Argument argument : entry.declaration().arguments()) {
-            if (argument.required() && !values.containsKey(argument.name())
-                    && argument.kind() == eu.nordtal.s2.commands.Argument.Kind.PLAYER) {
+            if (!argument.required() || values.containsKey(argument.name())) {
+                continue;
+            }
+            if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.PLAYER) {
                 user.reply("command.player-offline", Map.of(), Feedback.REFUSED);
+                return Command.SINGLE_SUCCESS;
+            }
+            if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.ACCOUNT) {
+                // Either not online, or online and not linked. Both mean "there is no Discord
+                // account this name reaches", which is one answer from where the admin is standing.
+                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED);
                 return Command.SINGLE_SUCCESS;
             }
         }

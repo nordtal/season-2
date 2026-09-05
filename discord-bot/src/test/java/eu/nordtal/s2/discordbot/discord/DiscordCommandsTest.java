@@ -176,6 +176,7 @@ class DiscordCommandsTest {
                 case GREEDY_STRING -> "2026-10-01 18:00";
                 case INTEGER -> argument.max();
                 case PLAYER -> UUID.fromString("11111111-2222-3333-4444-555555555555");
+                case ACCOUNT -> "100000000000000009";
                 case CHOICE -> argument.choices().getLast();
             });
         }

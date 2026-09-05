@@ -25,7 +25,7 @@ import java.util.Set;
  * <h2>{@code /unlink} is not here, and its admin twin is</h2>
  * The bot's {@code /unlink} is <b>self-service</b>: it takes no arguments, is visible to everybody,
  * and removes the caller's own link. That is not an admin command and does not belong in a catalogue
- * where everything is. {@code /access unlink <player>} is the admin version - somebody else's link,
+ * where everything is. {@code /access unlink <member>} is the admin version - somebody else's link,
  * for the case where a player has lost the account they linked - and the two stay separate because
  * folding them would either give every member the ability to unlink other people or take away a
  * self-service action that deliberately has no waiting period.
@@ -44,26 +44,32 @@ public final class AccessCommands {
     private static final Set<Surface> EVERYWHERE =
             Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
 
-    /** {@code /access status <player>} - the full picture: access, donor, language, grants, purchases. */
+    // Every one of these takes an ACCOUNT and not a PLAYER, and the difference is the whole reason
+    // the two kinds exist. Their subject is a Discord account: /access grant is exactly what an
+    // admin runs for somebody whose payment arrived outside the normal flow, and a PLAYER argument
+    // resolves through account_link on both surfaces - so it would have made the command unusable
+    // on the person it exists for. Written as PLAYER for half an afternoon; that is what it cost.
+
+    /** {@code /access status <member>} - the full picture: access, donor, language, grants, purchases. */
     public static final Declaration STATUS = new Declaration(
             List.of("access", "status"), Target.BOT, EVERYWHERE, true, false,
-            List.of(Argument.player("player")));
+            List.of(Argument.account("member")));
 
-    /** {@code /access grant <player> <days>} - days on top of whatever is already running. */
+    /** {@code /access grant <member> <days>} - days on top of whatever is already running. */
     public static final Declaration GRANT = new Declaration(
             List.of("access", "grant"), Target.BOT, EVERYWHERE, true, true,
             // Bounded, which the Discord command was not: it hand-checked "greater than zero" in the
             // handler and had no upper bound at all, so a mistyped 3650 was a decade of free access
             // and one keystroke away from 365.
-            List.of(Argument.player("player"), Argument.integer("days", 1, 365)));
+            List.of(Argument.account("member"), Argument.integer("days", 1, 365)));
 
-    /** {@code /access revoke <player>} - every running grant, at once. */
+    /** {@code /access revoke <member>} - every running grant, at once. */
     public static final Declaration REVOKE = new Declaration(
             List.of("access", "revoke"), Target.BOT, EVERYWHERE, true, true,
-            List.of(Argument.player("player")));
+            List.of(Argument.account("member")));
 
     /**
-     * {@code /access unlink <player>} - break somebody else's account link.
+     * {@code /access unlink <member>} - break somebody else's account link.
      *
      * <p>The admin twin of the bot's self-service {@code /unlink}, for a player who has lost the
      * Discord or Minecraft account they linked. Guarded because the admin who does it cannot undo
@@ -71,7 +77,7 @@ public final class AccessCommands {
      */
     public static final Declaration UNLINK = new Declaration(
             List.of("access", "unlink"), Target.BOT, EVERYWHERE, true, true,
-            List.of(Argument.player("player")));
+            List.of(Argument.account("member")));
 
     /**
      * {@code /access settle <reference>} - book a payment by hand.

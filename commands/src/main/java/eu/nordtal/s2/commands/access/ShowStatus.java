@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * {@code /access status <player>} - access, donor, language, every grant and every purchase.
+ * {@code /access status <member>} - access, donor, language, every grant and every purchase.
  *
  * <h2>The long version of {@code /smp access}</h2>
  * {@code /smp access} is three lines an admin needs while standing next to somebody who cannot get
@@ -35,36 +35,27 @@ public final class ShowStatus implements NordtalCommand<AccessEffects> {
 
     @Override
     public void run(final NordtalUser user, final Values values, final AccessEffects effects) {
-        final UUID player = values.player("player");
+        final String discordId = values.account("member");
 
         effects.async(() -> {
-            final Optional<String> discordId;
+            final Optional<AccessEffects.Status> status;
             try {
-                discordId = effects.discordIdOf(player);
+                status = effects.status(discordId);
             } catch (final RuntimeException failure) {
-                effects.warn("/access status could not read the account link for " + player,
-                        failure);
+                effects.warn("/access status could not read " + discordId, failure);
                 user.reply("access.failed", Map.of(), Feedback.REFUSED);
                 return;
             }
-            if (discordId.isEmpty()) {
-                user.reply("access.not-linked", Map.of("player", player.toString()),
-                        Feedback.REFUSED);
-                return;
-            }
-
-            final Optional<AccessEffects.Status> status = effects.status(discordId.get());
             if (status.isEmpty()) {
-                // The link points at a Discord account the guild no longer has - somebody left, or
-                // the account was deleted. Its own sentence, because the row is not wrong and the
-                // person is simply gone.
-                user.reply("access.no-such-member", Map.of("discord", discordId.get()),
+                // The id is one Discord no longer has - somebody left, or the account was deleted.
+                // Its own sentence, because the row is not wrong and the person is simply gone.
+                user.reply("access.no-such-member", Map.of("discord", discordId),
                         Feedback.REFUSED);
                 return;
             }
 
             final AccessEffects.Status account = status.get();
-            user.reply("access.header", Map.of("player", account.name(), "discord", discordId.get()));
+            user.reply("access.header", Map.of("player", account.name(), "discord", discordId));
             user.reply(account.accessUntil().isPresent() ? "access.until" : "access.none",
                     account.accessUntil()
                             .map(until -> Map.<String, Object>of("until", SeasonDates.format(until)))

@@ -216,7 +216,7 @@ public final class VelocityCommands {
             }
             case INTEGER -> BrigadierCommand.requiredArgumentBuilder(argument.name(),
                     IntegerArgumentType.integer(argument.min(), argument.max()));
-            case PLAYER -> BrigadierCommand.requiredArgumentBuilder(argument.name(),
+            case PLAYER, ACCOUNT -> BrigadierCommand.requiredArgumentBuilder(argument.name(),
                             StringArgumentType.word())
                     .suggests((context, builder) -> {
                         proxy.getAllPlayers().forEach(online -> builder.suggest(online.getUsername()));
@@ -239,13 +239,25 @@ public final class VelocityCommands {
             switch (argument.kind()) {
                 case INTEGER -> values.put(argument.name(),
                         IntegerArgumentType.getInteger(context, argument.name()));
-                case PLAYER -> {
+                case PLAYER, ACCOUNT -> {
                     final var target = proxy.getPlayer(
                             StringArgumentType.getString(context, argument.name()));
                     if (target.isEmpty()) {
                         return values;
                     }
-                    values.put(argument.name(), target.get().getUniqueId());
+                    if (argument.kind() == Argument.Kind.PLAYER) {
+                        values.put(argument.name(), target.get().getUniqueId());
+                        continue;
+                    }
+                    // The roster filled the Discord id at login, so this is a map lookup. A player
+                    // without one cannot be past the gate at all, which makes the empty case a
+                    // symptom rather than an ordinary answer - it still gets a sentence.
+                    final var linked = roster.of(target.get().getUniqueId())
+                            .map(eu.nordtal.s2.networkcontrol.gate.LoginRoster.Session::discordId);
+                    if (linked.isEmpty()) {
+                        return values;
+                    }
+                    values.put(argument.name(), linked.get());
                 }
                 default -> values.put(argument.name(),
                         StringArgumentType.getString(context, argument.name()));
@@ -268,9 +280,15 @@ public final class VelocityCommands {
         }
 
         for (final Argument argument : entry.declaration().arguments()) {
-            if (argument.required() && !values.containsKey(argument.name())
-                    && argument.kind() == Argument.Kind.PLAYER) {
+            if (!argument.required() || values.containsKey(argument.name())) {
+                continue;
+            }
+            if (argument.kind() == Argument.Kind.PLAYER) {
                 user.reply("command.player-offline", Map.of(), Feedback.REFUSED);
+                return Command.SINGLE_SUCCESS;
+            }
+            if (argument.kind() == Argument.Kind.ACCOUNT) {
+                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED);
                 return Command.SINGLE_SUCCESS;
             }
         }

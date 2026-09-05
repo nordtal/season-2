@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * {@code /access revoke <player>} - every running grant, at once.
+ * {@code /access revoke <member>} - every running grant, at once.
  *
  * <p>Zero revoked is a legitimate answer and gets its own sentence: an admin who runs this on the
  * wrong person should be told nothing happened rather than reading "revoked 0 grant(s)" and having
@@ -26,20 +26,14 @@ public final class RevokeAccess implements NordtalCommand<AccessEffects> {
 
     @Override
     public void run(final NordtalUser user, final Values values, final AccessEffects effects) {
-        final UUID player = values.player("player");
+        final String discordId = values.account("member");
 
         effects.async(() -> {
-            final Optional<String> discordId = effects.discordIdOf(player);
-            if (discordId.isEmpty()) {
-                user.reply("access.not-linked", Map.of("player", player.toString()),
-                        Feedback.REFUSED);
-                return;
-            }
             final int revoked;
             try {
-                revoked = effects.revoke(discordId.get(), user);
+                revoked = effects.revoke(discordId, user);
             } catch (final RuntimeException failure) {
-                effects.warn("/access revoke for " + discordId.get(), failure);
+                effects.warn("/access revoke for " + discordId, failure);
                 user.reply("access.failed", Map.of(), Feedback.REFUSED);
                 return;
             }

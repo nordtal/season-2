@@ -38,11 +38,17 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
         held.ifPresent(observation -> sayPhase(user, observation.phase(), observation.everRead()));
 
         effects.async(() -> {
+            // Whether a phase line has actually gone out, which is NOT the same question as whether
+            // this process had one cached: on the path with no cache the line is produced inside the
+            // try below, so currentPhase() can succeed and launch() fail, and the answer then has
+            // something above it after all.
+            boolean saidThePhase = held.isPresent();
             final Instant launch;
             final Instant smpStart;
             try {
                 if (held.isEmpty()) {
                     sayPhase(user, effects.phases().currentPhase(), true);
+                    saidThePhase = true;
                 }
                 launch = effects.phases().launch().orElse(null);
                 smpStart = effects.phases().smpStart().orElse(null);
@@ -54,7 +60,7 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                 // with no response at all and settled a request row empty. It was suppressed
                 // because phase.read.failed says "the phase above", and on that path there is
                 // nothing above; so the answer is a second key rather than no key.
-                user.reply(held.isPresent() ? "phase.read.failed" : "phase.read.failed.only");
+                user.reply(saidThePhase ? "phase.read.failed" : "phase.read.failed.only");
                 return;
             }
 

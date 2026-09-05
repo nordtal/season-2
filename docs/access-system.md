@@ -224,8 +224,8 @@ One admin channel; entries that need a human mention an admin role, routine audi
 - `/access revoke <member>`
 - `/access status <member>` — valid-until, history, open requests
 
-  **Renamed and grouped on 2026-09-05**, from `/grant-access`, `/revoke-access` and
-  `/access-status` and `/settle`. They are declarations in `:commands` now, which means three things at once: they
+  **Renamed and grouped on 2026-09-05**, from `/grant-access`, `/revoke-access`, `/access-status`
+  and `/settle`. They are declarations in `:commands` now, which means three things at once: they
   are the same commands in game, they answer in the asker's language rather than in hardcoded
   English, and they check `discord_user.admin` - which none of them did. Their only gate was
   Discord's own permission system, so the set of people who could grant paid access was whoever a

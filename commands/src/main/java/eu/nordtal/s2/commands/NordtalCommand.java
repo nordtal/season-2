@@ -95,7 +95,10 @@ public interface NordtalCommand<E> {
                 continue;
             }
             final java.util.Optional<Object> supplied = values.raw(argument.name());
-            if (supplied.isPresent() && !argument.choices().contains(String.valueOf(supplied.get()))) {
+            // Values has already put a recognised choice into its declared spelling, so this only
+            // has to answer whether it is one at all - through the same match(), so the two cannot
+            // come to disagree about what counts.
+            if (supplied.isPresent() && argument.match(String.valueOf(supplied.get())).isEmpty()) {
                 return java.util.Optional.of(java.util.Map.entry("command.not-a-choice",
                         java.util.Map.of("argument", argument.name(),
                                 "typed", String.valueOf(supplied.get()),

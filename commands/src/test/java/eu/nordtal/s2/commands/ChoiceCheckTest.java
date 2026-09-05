@@ -76,6 +76,33 @@ class ChoiceCheckTest {
     }
 
     @Test
+    @DisplayName("a choice typed in the wrong case is accepted and normalised, not refused")
+    void caseIsNotThePoint() {
+        // /phase set maintenance has worked in chat since the proxy's hand-written adapter -
+        // SetPhase#parse compares phase names case-insensitively. The generic check that replaced
+        // that adapter briefly refused it, on the one command an admin runs while the network is
+        // already misbehaving.
+        assertTrue(SET.check(new Values(PhaseCommands.SET, Map.of("phase", "maintenance"))).isEmpty(),
+                "a lowercase phase name was refused");
+
+        // And what the command reads is the DECLARED spelling, so it can compare against its own
+        // constants without every command remembering to be lenient.
+        assertEquals("MAINTENANCE",
+                new Values(PhaseCommands.SET, Map.of("phase", "MaInTeNaNcE")).string("phase"));
+    }
+
+    @Test
+    @DisplayName("a value that is no choice at all is quoted back exactly as it was typed")
+    void anUnknownValueIsNotNormalised() {
+        // The refusal names it, so it has to survive unchanged - normalising would be normalising
+        // toward something it is not.
+        final Optional<Map.Entry<String, Map<String, ?>>> problem =
+                SET.check(new Values(PhaseCommands.SET, Map.of("phase", "MaIntenanz")));
+        assertTrue(problem.isPresent());
+        assertEquals("MaIntenanz", problem.get().getValue().get("typed"));
+    }
+
+    @Test
     @DisplayName("every declaration's own sample values pass their command's checks")
     void theCatalogueAgreesWithItself() {
         // A declaration whose choices no longer match what its command expects is exactly the drift

@@ -27,6 +27,8 @@ final class FakeEffects implements PhaseEffects, PhaseDirectory {
 
     /** Set to make the next read or write throw, which is the branch nobody exercises by hand. */
     RuntimeException readFailure;
+    /** Only the two dates fail - the phase itself is readable. */
+    RuntimeException datesFailure;
     RuntimeException writeFailure;
     SeasonDateRefused dateRefusal;
 
@@ -105,6 +107,9 @@ final class FakeEffects implements PhaseEffects, PhaseDirectory {
         if (readFailure != null) {
             throw readFailure;
         }
+        if (datesFailure != null) {
+            throw datesFailure;
+        }
         return Optional.ofNullable(launch);
     }
 
@@ -112,6 +117,9 @@ final class FakeEffects implements PhaseEffects, PhaseDirectory {
     public Optional<Instant> smpStart() {
         if (readFailure != null) {
             throw readFailure;
+        }
+        if (datesFailure != null) {
+            throw datesFailure;
         }
         return Optional.ofNullable(smpStart);
     }

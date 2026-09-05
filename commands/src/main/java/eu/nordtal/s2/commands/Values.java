@@ -32,7 +32,34 @@ public final class Values {
 
     public Values(final Declaration declaration, final Map<String, Object> values) {
         this.declaration = Objects.requireNonNull(declaration, "declaration");
-        this.values = Map.copyOf(Objects.requireNonNull(values, "values"));
+        this.values = normalise(declaration, Objects.requireNonNull(values, "values"));
+    }
+
+    /**
+     * Every {@link Argument.Kind#CHOICE} in its declared spelling, whatever case it was typed in.
+     *
+     * <h2>One place, because the alternative is three</h2>
+     * Discord's dropdown only sends the declared form; both chat adapters type a choice as a plain
+     * word and hand on whatever was typed. Normalising here is what lets a command compare against
+     * its own constants without every one of them remembering to be lenient - and it is what keeps
+     * {@code /phase set maintenance}, which has worked in chat since the proxy's hand-written
+     * adapter, from being refused by the generic check that replaced it.
+     *
+     * <p>A value that is not one of the choices at all is left exactly as it was typed:
+     * {@link NordtalCommand#check} is what refuses it, and it has to be able to quote it back.</p>
+     */
+    private static Map<String, Object> normalise(final Declaration declaration,
+                                                 final Map<String, Object> values) {
+        final Map<String, Object> normalised = new java.util.LinkedHashMap<>(values);
+        for (final Argument argument : declaration.arguments()) {
+            final Object supplied = normalised.get(argument.name());
+            if (argument.kind() != Argument.Kind.CHOICE || supplied == null) {
+                continue;
+            }
+            argument.match(String.valueOf(supplied))
+                    .ifPresent(declared -> normalised.put(argument.name(), declared));
+        }
+        return Map.copyOf(normalised);
     }
 
     /** No arguments at all - {@code /smp reload}, {@code /hg start}. */

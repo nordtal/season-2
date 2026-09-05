@@ -297,6 +297,31 @@ because each fails on its own. The sounds spent one afternoon as a `sounds:` blo
 asserts by name that `config.yml` refuses such a block, because the *reason* is invisible from
 `SmpSpec`.
 
+**`config.yml#pregeneration-on-start` is new on 2026-09-05 and its default is the assertion.**
+`smp` starts pre-generating tomorrow's farm world in its `onEnable`, and Chunky takes every core it
+is given — so on a machine that is also being used for something else, every start of the stack
+spends its first minutes at full load. The switch exists for the local stack and defaults to
+**true**, which `ConfigsTest` pins by name: a setting added for a laptop is exactly the kind that
+picks up a convenient default by accident, and here that would cost the production host the
+season's first farm world reset with nobody watching the load. Turning it off is a *delay* and not
+an opt-out — the first daily reset finds no finished world, postpones itself through the path that
+already exists (`smp.farm.postponed`) and starts the pre-generation there.
+
+**And it cancels, which is the half that makes it true.** Not starting a task is not the same as
+not having one: **Chunky resumes an interrupted task by itself**, measured on a real 26.2 server on
+2026-09-05 — a restart picked the staging world back up at 12 % within a second of the server
+thread starting, before `FarmWorldReset#start` had run at all. So the switch would have worked
+exactly once, on the first start of a fresh volume, and been a lie on every start after it. It
+calls `pregen.cancel(...)` instead; Chunky remembers the progress, so the reset that eventually
+asks for that world does not begin from nothing.
+
+**A setting like this is passed through `compose.yml` or it does not exist.** `deploy/dev.env`
+carried it for one run and the local stack pre-generated anyway: an env file is used for
+*interpolation*, and only what a service's `environment:` block lists reaches the container.
+`ComposeWorldTest` asserts both the pass-through and that compose's fallback repeats `SmpSpec`'s own
+default — an environment variable set to the empty string wins over the file, so `${VAR:-}` there
+would blank the default rather than fall back to it.
+
 **A nested spec interface needs its own `@ConfigSpec`, and two levels of nesting work.** `smp`'s
 `milestones.yml` is a list of milestones each carrying a list of objectives, which is one level
 deeper than anything here had used. It works — and a nested interface *without* the annotation
@@ -600,6 +625,29 @@ the state at the moment somebody wrote it and is read as the state now.
 
 `season-2` itself produces no combined build, and does not republish jars built in other repos.
 
+## Running it locally
+
+**The runbook is [deploy/README.md#locally](deploy/README.md#locally), and this is a pointer rather
+than a second copy of it.** `deploy/dev init && deploy/dev up` brings the whole network up on your
+own machine; `deploy/dev deploy smp` rebuilds one module and restarts one container. Four rules that
+belong here because they are about the repository rather than about the runbook:
+
+- **It is the production `compose.yml`, the production Dockerfiles and the production updater.** The
+  only differences are `deploy/dev.env` and where the jars come from, and both are visible in one
+  file. A local setup that is its own arrangement stops being evidence about the real one, which is
+  the whole reason to keep the divergence this small — do not add a second compose file.
+- **Every `${X:?}` in `compose.yml` must have a value in `deploy/dev.env.example`.** Compose
+  interpolates the entire file *before* it filters by profile, so one unset variable stops the local
+  stack for a service no profile selects — all twelve of the bot's, for instance.
+  `TopologyTest#theLocalEnvFileIsComplete` fails on the next one somebody adds without a placeholder.
+- **The images are built locally, never pulled.** A locally built plugin needs the locally built
+  updater: the migrations are compiled into `:common` and shaded into that jar, so a released
+  updater migrates to the released schema and the plugin comes up against it.
+- **What it still cannot tell you is a world.** `smp` expects Nordtal and `hunger-games` expects its
+  arena; neither is in this repository, so locally you get whatever Paper generates. Spawn geometry,
+  the duel platform, the balloon and the POIs stay unverified here — exactly as on a fresh
+  production volume.
+
 ## discord-bot
 
 Season 2's Discord bot. **Stage C is implemented (2026-08-30)**; the concept is
@@ -864,6 +912,29 @@ Seven rules that are easy to break and expensive to break:
 - **`Topology` and `compose.yml` are two copies of one fact.** A fifth backend server is a
   change to both in the same commit; `TopologyTest` reads the real compose file and fails otherwise.
   It also fails if `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two `PACK_*` variables come back.
+- **`plugins/` is a directory on the host and not part of the volume, since 2026-09-05**
+  (`compose.yml`, `${SERVERS_ROOT:-./deploy/servers}/<service>/plugins`). Everything else about a
+  server — the world, the `.server/` jar cache, `logs/` — stays in `mc-<service>`, and that split is
+  the decision: Arcane's volume backup is the only thing that saves a world and a bind mount is not
+  a volume, so the worlds do not come out. Nothing makes that claim on `plugins/`, and what keeping
+  it inside cost was a `docker compose cp` in both directions for every config edit and a third for
+  every jar — which is why there was no local development stack at all until that day.
+
+  **The updater mounts the same four directories** at `/volumes/<service>/plugins`. Without them it
+  installs into the named volume while every server reads the host directory, and *nothing anywhere
+  says so*: the report is a success, the jars are on disk, and no server runs one.
+  `TopologyTest#thePluginDirectoryIsOneDirectory` asserts both halves and that the two sides name
+  the same expression.
+
+  **And the staging directory moved with it.** `Applier` staged into one `.nordtal-staging` at the
+  volume root and moved out of it into `plugins/` and `.server/`; those are now different
+  filesystems. It would still have worked — `Files.move` without `ATOMIC_MOVE` falls back to
+  copy-and-delete across devices, silently — and what would have been lost, silently, is the
+  property the class exists for. Staging is resolved **per destination directory** now
+  (`plugins/.nordtal-staging`, `.server/.nordtal-staging`); `Installation` only takes regular files,
+  so neither is ever read back as a plugin. `SERVERS_ROOT` is a variable rather than a constant
+  because its default sits inside the directory Arcane's GitOps sync pulls — if that sync ever
+  removes ignored files, it becomes an absolute path outside the checkout and nothing else changes.
 - **There is exactly one player number, since 2026-09-04, and `TopologyTest` is what keeps it one.**
   `NETWORK_MAX_PLAYERS` in `.env` reaches the proxy as `network.yml#max-players` *and* all three
   Paper backends as `MAX_PLAYERS`, which the entrypoint writes into `server.properties`; the test
@@ -909,6 +980,20 @@ Seven rules that are easy to break and expensive to break:
 - **"Skipped" is a third answer, not a quiet kind of "fine".** A run where every volume was
   unmounted did no work and had no failure, and closing it with "Nothing needed doing" is how
   somebody reads it as "the network is current". Found on a real container run, 2026-09-01.
+- **A failed restart has to say which failure it was, and that is a rule about a string.**
+  `arcane.base-url` has now been wrong twice in production, in two different ways, and both times
+  the whole of what reached the admin channel was *"Could not reach Arcane at ...:
+  java.net.ConnectException"*. That is what `failure.toString()` produces when the JDK's
+  `HttpClient` wraps a DNS failure — it gives the `ConnectException` **no message at all**, and the
+  `UnresolvedAddressException` that says what happened is one level down in `getCause()`. So a name
+  that does not exist, a refused connection and a dropped route all print the same eleven
+  characters. `Arcane#causeChain` prints the chain, and `#loopback` and `#transposedDockerHost`
+  name the two values by hand: `http://localhost:…`, which inside that container is that container
+  (finding 40), and `http://docker.host.internal:…`, which is Docker's three labels in the wrong
+  order (2026-09-05). Both checks are **string-only and static on purpose** — these values are
+  wrong *because of where the process runs*, so no connection attempt from a laptop reproduces
+  them, and `ArcaneDiagnosisTest` asserts the sentence a person reads weeks later rather than a
+  request.
 
 `updater.yml` is the one config in this repository whose defaults are the real values and where a
 freshly written file is what you want: the repositories, the two Modrinth project ids and the
@@ -925,32 +1010,53 @@ refuses the pack if they disagree — never hardcode a hash.
 
 ## Verification
 
-**The deployment's shell has a test too, and it is the only one.** `deploy/minecraft/entrypoint-test.sh`
-sources `entrypoint.sh` and drives its seeding against fixture directories — ten cases, no Docker,
-no network — and runs on `check` through the root build's `checkEntrypoint`. Everything else in
-`deploy/` is verified by running it and looking; that one function is exempt because it **deletes a
-world folder** on a container that starts by itself, and on the SMP that folder is the season. The
-guard it tests is itself the repair of a guard that stopped `smp` and `hunger-games` on every start
-from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` therefore carries a source
-guard at the line where its definitions end; do not move code across it without reading the comment
-there.
+**The deployment's shell has tests, and there are exactly two of them — one per thing in `deploy/`
+that can delete a world.** `deploy/minecraft/entrypoint-test.sh` sources `entrypoint.sh` and drives
+its seeding against fixture directories — ten cases, no Docker, no network — and runs on `check`
+through the root build's `checkEntrypoint`. Everything else in `deploy/` is verified by running it
+and looking; that one function is exempt because it **deletes a world folder** on a container that
+starts by itself, and on the SMP that folder is the season. The guard it tests is itself the repair
+of a guard that stopped `smp` and `hunger-games` on every start from v0.2.3 — see
+`deploy/README.md#first-start-seeding`. `entrypoint.sh` therefore carries a source guard at the line
+where its definitions end; do not move code across it without reading the comment there.
 
-**Nine modules have tests: 1216 in total, none skipped, all green** (`./gradlew build` with a
-Docker daemon present, 2026-09-05, after the HUD pills and the balloon's card menu landed on top of
-the CodeRabbit review of the command layer). The counts
+**`deploy/dev-test.sh` is the second, added 2026-09-05 with the local stack, and it is the same
+rule rather than a new one.** `deploy/dev reset` removes a server's volume, and on `smp` that is
+Nordtal — a hand-built world in no repository and in no release. So `deploy/dev` carries the same
+source guard, its two guard functions sit above it, and the test drives them without Docker:
+a service has to be **named** (a bare `reset` resets nothing), and the name has to be **typed
+back** — not `yes`, which is what somebody types when they have stopped reading. It runs on `check`
+through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
+running it.
+
+**Nine modules have tests: 1232 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-05, after the local development stack landed on top of the HUD pills
+and the balloon's card menu). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
 | module | tests |
 |---|---|
 | `common` | 328 |
+| `smp` | 182 |
 | `network-control` | 178 |
-| `smp` | 180 |
 | `commands` | 171 |
+| `updater` | 150 |
 | `discord-bot` | 142 |
-| `updater` | 136 |
 | `hunger-games` | 65 |
 | `limbo` | 11 |
 | `paper-common` | 5 |
+
+**Sixteen are from the local stack, 2026-09-05, and fourteen of them are in `:updater`.** Eight are
+`ArcaneDiagnosisTest`, and what they pin is a *message* rather than a behaviour — see "The restart"
+below for why that was worth eight cases. Four are `ApplierTest`'s, for a staging directory that now
+sits inside its destination; two are `TopologyTest`'s, for the plugin bind and for
+`deploy/dev.env.example` answering every `${X:?}` in `compose.yml`. The other two are `smp`'s and
+both are about the same switch. One asserts a *default*: `pregeneration-on-start` is a setting added
+for a laptop, and a setting added for a laptop is exactly the kind that acquires a convenient default
+by accident — which here would cost the production host the season's first farm world reset,
+unwatched. The other asserts that `compose.yml` passes it through at all, which it did not for the
+first run of the local stack: an env file is used for interpolation, and only what a service's
+`environment:` block lists reaches the container.
 
 **One is from the first real look at the panels, 2026-09-05, and it is a correction to a
 measurement.** `MenuTitleTest#theRecessesFollowTheClientNotTheTexture` reads every panel PNG and

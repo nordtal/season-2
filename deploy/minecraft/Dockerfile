@@ -18,8 +18,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends tmux curl jq ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# The server directory is a named volume: worlds, configs, plugins and the cached server jar.
-# Bind mounts are deliberately not used - see ../README.md#why-it-looks-like-this.
+# The server directory is a named volume: the world, the server's own configs and the cached server
+# jar. plugins/ is the exception and is bound in from the host by compose.yml (SERVERS_ROOT, since
+# 2026-09-05) - the world stays in the volume because that is what Arcane's volume backup can see,
+# and plugins/ does not need backing up. See ../README.md#why-it-looks-like-this.
 WORKDIR /data
 VOLUME ["/data"]
 

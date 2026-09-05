@@ -65,7 +65,25 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
         PLAYER,
 
         /** One of {@link #choices}. Suggested in chat, a real choice list in Discord. */
-        CHOICE
+        CHOICE,
+
+        /**
+         * A person, identified by their <b>Discord account</b>.
+         *
+         * <h2>Why this is not {@link #PLAYER}</h2>
+         * Because {@code PLAYER} resolves through {@code account_link} on both surfaces, and the
+         * commands that need this one act on people who may not have linked yet:
+         * {@code /access grant} is exactly what an admin runs for a member whose payment arrived
+         * outside the normal flow, and requiring a link would mean the command could not be used on
+         * the person it exists for. It was written as {@code PLAYER} for half an afternoon and that
+         * is what it would have cost.
+         *
+         * <p>In Discord it is a member picked from the list, taken as their id and nothing else. In
+         * chat it is a Minecraft name resolved through {@code account_link} - which is the one
+         * direction that <em>does</em> need a link, and is refused with its own sentence when there
+         * is none, because an admin in game has no other way to name a Discord account.</p>
+         */
+        ACCOUNT
     }
 
     public Argument {
@@ -107,6 +125,11 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
     /** A required player. */
     public static Argument player(final String name) {
         return new Argument(name, Kind.PLAYER, true, 0, 0, List.of());
+    }
+
+    /** A required Discord account - a person who may not have linked a Minecraft one. */
+    public static Argument account(final String name) {
+        return new Argument(name, Kind.ACCOUNT, true, 0, 0, List.of());
     }
 
     /** A required choice from a fixed set. */

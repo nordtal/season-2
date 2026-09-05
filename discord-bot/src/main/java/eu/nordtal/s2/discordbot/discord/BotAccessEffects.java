@@ -78,11 +78,6 @@ public final class BotAccessEffects implements AccessEffects {
     }
 
     @Override
-    public Optional<String> discordIdOf(final UUID minecraftAccount) {
-        return access.linkedDiscordAccount(minecraftAccount);
-    }
-
-    @Override
     public Optional<Status> status(final String discordId) {
         // The name comes from Discord and everything else from the database. A member who has left
         // the guild is why this can be empty: the link is still a row and the person is gone, which

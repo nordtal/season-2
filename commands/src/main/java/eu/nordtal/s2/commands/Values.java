@@ -61,6 +61,17 @@ public final class Values {
     }
 
     /**
+     * An {@link Argument.Kind#ACCOUNT}, as a Discord id.
+     *
+     * <p>A string and not a {@code long}: Discord ids are snowflakes that exceed what a JSON number
+     * can hold safely, they are compared and stored as text everywhere in this repository, and
+     * {@code discord_user.discord_id} is a {@code varchar}.</p>
+     */
+    public String account(final String name) {
+        return get(name, String.class);
+    }
+
+    /**
      * Whatever was supplied for this argument, untyped - or empty if nothing was.
      *
      * <p>For the one caller that has to walk a command's arguments without knowing what they are:

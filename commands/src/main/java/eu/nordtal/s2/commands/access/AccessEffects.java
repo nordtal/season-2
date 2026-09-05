@@ -41,9 +41,6 @@ public interface AccessEffects extends CommandEffects {
                   Optional<UUID> minecraftAccount, List<Grant> grants, List<Purchase> purchases) {
     }
 
-    /** The Discord account a Minecraft one belongs to. Empty when it is not linked. */
-    Optional<String> discordIdOf(UUID minecraftAccount);
-
     /** Everything worth knowing about one account. Empty when Discord does not know the id. */
     Optional<Status> status(String discordId);
 

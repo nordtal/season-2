@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * {@code /access unlink <player>} - break somebody else's account link.
+ * {@code /access unlink <member>} - break somebody else's account link.
  *
  * <p>For a player who has lost the Discord or Minecraft account they linked. Confirmed because the
  * admin who does it cannot undo it: re-linking needs a code the <em>player</em> generates in game,
@@ -26,25 +26,19 @@ public final class UnlinkAccount implements NordtalCommand<AccessEffects> {
 
     @Override
     public void run(final NordtalUser user, final Values values, final AccessEffects effects) {
-        final UUID player = values.player("player");
+        final String discordId = values.account("member");
 
         effects.async(() -> {
-            final Optional<String> discordId = effects.discordIdOf(player);
-            if (discordId.isEmpty()) {
-                user.reply("access.not-linked", Map.of("player", player.toString()),
-                        Feedback.REFUSED);
-                return;
-            }
             final boolean unlinked;
             try {
-                unlinked = effects.unlink(discordId.get(), user);
+                unlinked = effects.unlink(discordId, user);
             } catch (final RuntimeException failure) {
-                effects.warn("/access unlink for " + discordId.get(), failure);
+                effects.warn("/access unlink for " + discordId, failure);
                 user.reply("access.failed", Map.of(), Feedback.REFUSED);
                 return;
             }
             user.reply(unlinked ? "access.unlinked" : "access.not-linked",
-                    Map.of("player", player.toString()),
+                    Map.of("member", discordId),
                     unlinked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED);
         });
     }

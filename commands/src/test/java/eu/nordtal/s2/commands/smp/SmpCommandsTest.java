@@ -83,6 +83,27 @@ class SmpCommandsTest {
         assertEquals(List.of("/smp reload failed"), smp.warnings);
     }
 
+    @Test
+    @DisplayName("a refused track is its own answer, and it names what the file disagrees with")
+    void aRefusedTrackNamesTheDisagreement() {
+        // Not the same thing as a reload that threw. The file parsed; what it disagrees with is
+        // progress the season has already recorded - a renamed milestone key, an objective that
+        // changed type, a completed objective whose target moved. The running track is kept, and
+        // the person running this is editing milestones.yml on a live season, so the answer has to
+        // name the rows rather than say that something went wrong.
+        smp.trackRefused = List.of(
+                "ancient-debris: has stored progress but is not declared in the file any more.",
+                "logs/oak: changed type from STATISTIC to HAND_IN");
+
+        final var user = run(new ReloadSmp(), Map.of());
+        assertEquals(List.of("smp.admin.track-refused"), user.keys());
+        final String printed = String.valueOf(user.only().of("problems"));
+        assertTrue(printed.contains("ancient-debris") && printed.contains("logs/oak"),
+                "the answer does not name both problems: " + printed);
+        assertEquals(List.of("reload"), smp.did,
+                "the reload did not run - the sounds and the wording are re-read regardless");
+    }
+
     // ------------------------------------------------------------------ farm reset
 
     @Test

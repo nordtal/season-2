@@ -36,8 +36,18 @@ public interface SmpEffects extends CommandEffects {
     record Access(String discordId, boolean accessActive, Instant validUntil) {
     }
 
-    /** Re-read the reloadable configs and the message bundles. */
-    void reload();
+    /**
+     * Re-read the reloadable configs and the message bundles.
+     *
+     * @return what the milestone track was refused for, one readable line each - empty when the file
+     *         was taken. A reload is refused rather than applied when the file disagrees with
+     *         progress the season has already recorded (a renamed milestone key, an objective that
+     *         changed type, a completed objective whose target moved), because applying it orphans
+     *         rows and can stop progression with nothing anywhere saying why. The running track is
+     *         left exactly as it was; the sounds and the wording are re-read regardless, since they
+     *         fail independently.
+     */
+    java.util.List<String> reload();
 
     /**
      * Delete the farm world folder and regenerate it.

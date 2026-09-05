@@ -1,5 +1,7 @@
 package eu.nordtal.s2.smp.db;
 
+import eu.nordtal.s2.smp.milestone.StoredProgress;
+
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.transaction.Transaction;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -84,6 +86,36 @@ public interface SmpDao {
      */
     @SqlQuery("SELECT key FROM smp_milestone WHERE state = 'COMPLETE' ORDER BY key")
     List<String> completedMilestoneKeys();
+
+    /**
+     * Every milestone row, for {@code TrackValidation}.
+     *
+     * <h2>What this is for and why it reads everything</h2>
+     * {@code /smp reload} has to answer "may this file replace the running one", and that question
+     * is about the rows the file would <em>orphan</em>: a renamed milestone key, an objective that
+     * changed type with progress already recorded against it, a completed objective whose target
+     * moved after it paid out. None of those can be seen from the file alone, and a rename is only
+     * visible against the whole set rather than against one milestone.
+     *
+     * <p>It is a season's worth of rows, read once per reload, off the main thread.</p>
+     */
+    @SqlQuery("SELECT key, state FROM smp_milestone ORDER BY key")
+    @RegisterConstructorMapper(StoredProgress.StoredMilestone.class)
+    List<StoredProgress.StoredMilestone> storedMilestones();
+
+    /** Every objective row, with the type and target it was created under. See {@link #storedMilestones}. */
+    @SqlQuery("""
+            SELECT milestone_key              AS milestoneKey,
+                   key                        AS key,
+                   type                       AS type,
+                   amount                     AS amount,
+                   target                     AS target,
+                   (completed IS NOT NULL)    AS completed
+            FROM smp_objective
+            ORDER BY milestone_key, key
+            """)
+    @RegisterConstructorMapper(StoredProgress.StoredObjective.class)
+    List<StoredProgress.StoredObjective> storedObjectives();
 
     @SqlQuery("SELECT key FROM smp_milestone WHERE state = 'ACTIVE' LIMIT 1")
     Optional<String> activeMilestoneKey();

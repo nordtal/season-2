@@ -246,10 +246,18 @@ public final class ObjectiveEngine {
             return;
         }
 
-        track.get().after(milestoneKey).ifPresent(next -> dao.activateMilestone(next.key()));
-        season.refresh(dao.completedMilestoneKeys(), track.get());
+        // ONE snapshot for the whole transition. Three separate reads of the supplier can answer
+        // with three different tracks - /smp reload runs on another thread - and the two that
+        // matter disagree in a way nothing downstream can recover from: the successor written into
+        // the database would come from one file and the SeasonState built beside it from another,
+        // so the row would name a milestone the running state does not have as active, and
+        // progression would simply stop. Reading it once is what makes the unlock atomic with
+        // respect to the definitions it uses.
+        final MilestoneTrack now = track.get();
+        now.after(milestoneKey).ifPresent(next -> dao.activateMilestone(next.key()));
+        season.refresh(dao.completedMilestoneKeys(), now);
 
-        final Milestone milestone = track.get().milestone(milestoneKey).orElse(null);
+        final Milestone milestone = now.milestone(milestoneKey).orElse(null);
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (milestone != null && milestone.unlock() == Unlock.BORDER) {
                 // Animated, unlike the one applied at start: this one is happening now, and the wall

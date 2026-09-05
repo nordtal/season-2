@@ -262,6 +262,46 @@ class MenuTitleTest {
         }
     }
 
+    @Test
+    @DisplayName("every slot recess is where the client puts the slot, not where the vanilla texture has it")
+    void theRecessesFollowTheClientNotTheTexture() {
+        // ChestMenu's own arithmetic, which is what places the item and the hover square: a chest
+        // slot at y = 18 + 18r, the player's rows at 103 + 18k + 18*(rows - 4), the hotbar at
+        // 161 + 18*(rows - 4). The recess cell starts one pixel above the item, hence the -1.
+        // The vanilla PNG has the player's rows one pixel LOWER than that, and ChestScreen hides
+        // it by blitting its bottom part from texture row 126 onto screen row 125. A panel drawn
+        // as one glyph has no such seam - so copying the texture puts a one-pixel bar between the
+        // hover square and the recess in the player's rows and nowhere else, which is exactly
+        // what a real client showed on 2026-09-05.
+        for (int rows = 1; rows <= MenuTitle.MAX_ROWS; rows++) {
+            final List<Integer> expected = new java.util.ArrayList<>();
+            for (int r = 0; r < rows; r++) {
+                expected.add(SlotGeometry.ORIGIN_Y + 18 * r);
+            }
+            for (int k = 0; k < 3; k++) {
+                expected.add(103 + 18 * k + 18 * (rows - 4) - 1);
+            }
+            expected.add(161 + 18 * (rows - 4) - 1);
+            assertEquals(expected, recessTops(read("nordtal:ui/gui/panel_" + rows + ".png")),
+                    "panel_" + rows + ".png: the slot cells at x = 8 do not start where the client"
+                            + " draws its slots");
+        }
+        // The travel panel has cards where the chest slots would be, so only the player's rows.
+        assertEquals(List.of(138, 156, 174, 196), recessTops(read("nordtal:ui/gui/travel.png")));
+    }
+
+    /** The rows at x = 8 where a slot recess (the palette's dark slot colour) begins. */
+    private static List<Integer> recessTops(final BufferedImage image) {
+        final int slot = 0xFF000000 | (58 << 16) | (58 << 8) | 64;   // PALETTE["slot"], verbatim
+        final List<Integer> tops = new java.util.ArrayList<>();
+        for (int y = 1; y < image.getHeight(); y++) {
+            if (image.getRGB(8, y) == slot && image.getRGB(8, y - 1) != slot) {
+                tops.add(y);
+            }
+        }
+        return tops;
+    }
+
     // --- helpers ---------------------------------------------------------------------------
 
     /** What the cursor has moved, in pixels, after drawing this string in {@code nordtal:gui}. */

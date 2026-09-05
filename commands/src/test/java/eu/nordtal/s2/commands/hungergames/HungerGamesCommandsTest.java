@@ -29,12 +29,17 @@ class HungerGamesCommandsTest {
 
     private final FakeHungerGames hg = new FakeHungerGames();
 
-    /** The pair, sharing one confirmation window - which is the thing worth testing about them. */
+    /** One command with an optional trailing word, which is what the second step now is. */
     private final StartGame start = new StartGame();
-    private final NordtalCommand<HungerGamesEffects> confirm = start.confirm();
 
     private FakeUser run(final NordtalCommand<HungerGamesEffects> command, final FakeUser user) {
         command.run(user, Values.none(command.declaration()), hg);
+        return user;
+    }
+
+    /** {@code /hg start confirm} - the same command, with its optional word supplied. */
+    private FakeUser confirm(final FakeUser user) {
+        start.run(user, new Values(start.declaration(), Map.of("confirm", "confirm")), hg);
         return user;
     }
 
@@ -98,7 +103,7 @@ class HungerGamesCommandsTest {
         final FakeUser first = run(start);
         assertEquals("hg.start.below-hard-minimum", first.only().key());
 
-        final FakeUser second = run(confirm, FakeUser.inGame());
+        final FakeUser second = confirm(FakeUser.inGame());
         assertEquals("hg.start.below-hard-minimum", second.only().key(),
                 "a confirmation carried a game past the arithmetic floor");
         assertEquals(List.of(), hg.did);
@@ -135,7 +140,7 @@ class HungerGamesCommandsTest {
         final FakeUser user = FakeUser.inGame();
 
         run(start, user);
-        run(confirm, user);
+        confirm(user);
 
         assertEquals(List.of("hg.start.below-soft-minimum", "hg.start.started"), user.keys());
         assertEquals(List.of("logged tester (confirmed)", "start " + FakeHungerGames.GAME), hg.did);
@@ -150,8 +155,8 @@ class HungerGamesCommandsTest {
         hg.registration = FakeHungerGames.registered(4);
         final FakeUser user = FakeUser.inGame();
 
-        run(confirm, user);
-        run(confirm, user);
+        confirm(user);
+        confirm(user);
 
         assertEquals(List.of("hg.start.confirm-expired", "hg.start.confirm-expired"), user.keys());
         assertEquals(List.of(), hg.did);
@@ -163,7 +168,7 @@ class HungerGamesCommandsTest {
         hg.registration = FakeHungerGames.registered(4);
 
         run(start, FakeUser.inGame());
-        final FakeUser somebodyElse = run(confirm, FakeUser.inDiscord());
+        final FakeUser somebodyElse = confirm(FakeUser.inDiscord());
 
         assertEquals("hg.start.confirm-expired", somebodyElse.only().key());
         assertEquals(List.of(), hg.did);
@@ -183,7 +188,7 @@ class HungerGamesCommandsTest {
 
         // A later game, below the minimum again: the old warning must not be spendable.
         hg.registration = FakeHungerGames.registered(3);
-        final FakeUser later = run(confirm, user);
+        final FakeUser later = confirm(user);
         assertEquals("hg.start.confirm-expired", later.keys().getLast());
         assertFalse(hg.did.stream().anyMatch(what -> what.startsWith("start ")));
     }

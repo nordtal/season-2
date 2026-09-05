@@ -76,6 +76,38 @@ public final class PresenceListener implements Listener {
 
         // Everybody else's ordering depends on who is online, and this player is new to that set.
         Bukkit.getScheduler().runTask(plugin, surfaces::refreshAll);
+        loadLanguage(player);
+    }
+
+    /**
+     * Reads the player's language off the main thread and redraws their surfaces once it is known.
+     * <p>
+     * Missing until 2026-09-05: this module built a {@link PlayerLocales} and handed it to fifteen
+     * classes, and nothing ever called {@code joinAsync} - so {@code of()} answered English for
+     * every player for the whole season, and the first German account on the local stack read
+     * {@code /smp} in English while the proxy had just answered {@code /phase} in German.
+     * {@code CLAUDE.md} said this module "inherits the rule rather than rediscovering it"; a rule
+     * inherited by nobody. {@code LocaleJoinWiringTest} in {@code :common} is what makes the third
+     * backend forgetting this a red build rather than a season in the wrong language.
+     * </p>
+     * <p>
+     * Off the main thread for the reason limbo's listener spells out; the HUD and the boards render
+     * from {@code of()} on their own timers and pick the language up by themselves, the tab list
+     * header does not, which is why {@code refresh} runs again once the value has landed.
+     * </p>
+     */
+    private void loadLanguage(final Player player) {
+        locales.joinAsync(player.getUniqueId(), task -> Bukkit.getScheduler()
+                        .runTaskAsynchronously(plugin, task))
+                .thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (!player.isOnline()) {
+                        // They left while the query was in flight; onQuit has already run and the
+                        // entry this just wrote would otherwise stay for the life of the process.
+                        locales.quit(player.getUniqueId());
+                        return;
+                    }
+                    surfaces.refresh(player);
+                }));
     }
 
     /**
@@ -96,6 +128,7 @@ public final class PresenceListener implements Listener {
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
         operators.onQuit(event.getPlayer().getUniqueId());
+        locales.quit(event.getPlayer().getUniqueId());
         // Identities forgets them in JoinGate's quit handler, which owns the cache's lifetime.
     }
 

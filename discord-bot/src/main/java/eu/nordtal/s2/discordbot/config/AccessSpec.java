@@ -302,6 +302,26 @@ public interface AccessSpec {
         default String statusChannel() {
             return "";
         }
+
+        @Order(7)
+        @Key("announcement-channel")
+        @Comment({
+                "The channel this language's announcements are POSTED into, as a channel id: a",
+                "milestone the community finished, a farm-world reset that is minutes away, a",
+                "season phase that changed. Written by the bot, read by everybody.",
+                "",
+                "OPTIONAL, like status-channel: empty means this language gets no announcements",
+                "and every line the servers send for it settles as \"no channel\" in",
+                "command_request, which is the default so that a channel nobody has created yet",
+                "does not stop the bot from starting.",
+                "",
+                "The wording comes from the SERVER that had the moment (the SMP's own bundle, in",
+                "this language), not from the bot - the bot has no copy of the milestones and",
+                "must not need one. docs/state-of-play.md finding 52."
+        })
+        default String announcementChannel() {
+            return "";
+        }
     }
 
     /** Role ids the bot reads or writes. */

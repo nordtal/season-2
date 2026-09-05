@@ -71,6 +71,7 @@ public final class ObjectiveEngine {
     private final SmpSpec config;
     private final SmpSounds sounds;
     private final WorldEffects effects;
+    private final eu.nordtal.s2.smp.announce.Announcer announcer;
 
     /**
      * How the milestone title sits on the screen: in fast, held long, out slowly.
@@ -84,7 +85,9 @@ public final class ObjectiveEngine {
     public ObjectiveEngine(final Plugin plugin, final SmpDao dao, final java.util.function.Supplier<MilestoneTrack> track,
                            final SeasonState season, final Worlds worlds, final Identities identities,
                            final Messages messages, final PlayerLocales locales, final SmpSpec config,
-                           final SmpSounds sounds, final WorldEffects effects) {
+                           final SmpSounds sounds, final WorldEffects effects,
+                           final eu.nordtal.s2.smp.announce.Announcer announcer) {
+        this.announcer = java.util.Objects.requireNonNull(announcer, "announcer");
         this.plugin = plugin;
         this.dao = dao;
         this.track = track;
@@ -311,6 +314,10 @@ public final class ObjectiveEngine {
      * machinery in the path of the single moment it exists to protect.
      */
     private void announceMilestone(final String milestoneKey, final UUID completedBy) {
+        // Discord first, and off this thread: one row per language, rendered from the same
+        // bundle the chat line uses, with the name in that language (finding 52, 2026-09-06).
+        announcer.announce("smp.announce.milestone", locale -> Map.of("milestone",
+                nameOf("smp.milestone." + milestoneKey, milestoneKey, locale)));
         final MessageRenderer renderer = MessageRenderer.of(messages);
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = locales.of(player.getUniqueId());

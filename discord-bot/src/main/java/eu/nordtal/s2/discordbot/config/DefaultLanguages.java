@@ -47,6 +47,8 @@ final class DefaultLanguages {
         values.put("contribution-channel", "");
         values.put("link-channel", "");
         values.put("hunger-games-channel", "");
+        values.put("status-channel", "");
+        values.put("announcement-channel", "");
         return Specs.createUnsafe(AccessSpec.LanguageSpec.class, values);
     }
 }

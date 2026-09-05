@@ -345,6 +345,29 @@ class ConfigsTest {
     }
 
     @Test
+    @DisplayName("a language with no announcement-channel gets no announcements, and the bot starts")
+    void anAbsentAnnouncementChannelIsAllowed() throws Exception {
+        // The second optional id (2026-09-06): the servers' announce rows for this language then
+        // settle as "no channel", which is the default and not a fault.
+        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES));
+
+        final AccessSpec config = Configs.access().get();
+
+        assertEquals("", config.languages().getFirst().announcementChannel());
+        assertFalse(Languages.of(config).all().getFirst().hasAnnouncementChannel());
+    }
+
+    @Test
+    @DisplayName("an announcement-channel that is set has to be a real snowflake")
+    void aMistypedAnnouncementChannelStopsTheBot() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES
+                .replace("hunger-games-channel: '40'", "hunger-games-channel: '40'\n  announcement-channel: 'not-an-id'")));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("languages[1].announcement-channel"), error.getMessage());
+    }
+
+    @Test
     @DisplayName("a status-channel that is set has to be a real snowflake")
     void aMistypedStatusChannelStopsTheBot() throws Exception {
         // Being lenient about it being absent must not become being lenient about it being wrong:

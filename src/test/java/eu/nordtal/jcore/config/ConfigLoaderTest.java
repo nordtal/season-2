@@ -512,4 +512,127 @@ class ConfigLoaderTest {
         assertEquals(10L, config.checkIntervalSeconds(),
                 "a rejected reload must not leave the config half-applied");
     }
+
+    // ---------------------------------------------------------------- finding 2c
+
+    /*
+     * The other half of finding 2, decided 2026-09-05. A key the spec does not declare is either
+     * a slip of the keyboard or a setting the software has since removed, and until now both
+     * stopped the process. The second one has nothing an operator can fix: the line is dead, the
+     * only possible edit is to delete it, and refusing to start until they do costs a whole
+     * network for a key that already means nothing. What tells the two apart is whether a
+     * declared key is close enough to name.
+     */
+
+    @Test
+    @DisplayName("finding 2c: a setting the spec no longer declares is deleted, not refused")
+    void retiredKeyIsDropped() throws Exception {
+        ConfigLoader.builder(file(), TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        // Nothing declared is within an edit or three of this, which is what a removed setting
+        // looks like from the loader's side.
+        Files.writeString(file(), Files.readString(file()) + "legacy-contribution-tiers: 3" + System.lineSeparator());
+
+        final ConfigHandle<TestSpecs.Payments> handle = ConfigLoader
+                .builder(file(), TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        assertAll(
+                () -> assertFalse(Files.readString(file()).contains("legacy-contribution-tiers"),
+                        "the retired key must be gone from the file"),
+                () -> assertEquals(10L, handle.get().checkIntervalSeconds(),
+                        "every setting that still exists keeps its value"),
+                () -> assertTrue(Files.readString(directory.resolve("payments.yml.bak"))
+                                .contains("legacy-contribution-tiers"),
+                        "what was deleted has to be recoverable")
+        );
+    }
+
+    @Test
+    @DisplayName("finding 2c: a retired key inside a nested section is deleted too")
+    void retiredKeyInNestedSectionIsDropped() throws Exception {
+        ConfigLoader.builder(file(), TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        Files.writeString(file(), Files.readString(file())
+                .replace("  format:", "  legacy-voice-announcement: true" + System.lineSeparator() + "  format:"));
+
+        final ConfigHandle<TestSpecs.Payments> handle = ConfigLoader
+                .builder(file(), TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        assertAll(
+                () -> assertFalse(Files.readString(file()).contains("legacy-voice-announcement")),
+                () -> assertEquals("%s EUR", handle.get().balance().format())
+        );
+    }
+
+    @Test
+    @DisplayName("finding 2c: a retired key inside a list element is deleted, and the element survives")
+    void retiredKeyInsideListElementIsDropped() throws Exception {
+        final Path worlds = directory.resolve("worlds.yml");
+        Files.writeString(worlds, """
+                worlds:
+                - name: farm
+                  display-colour: '#00ff00'
+                  preserved: false
+                - name: spawn
+                  display-colour: '#ff0000'
+                  legacy-bossbar-title: 'Spawn'
+                  preserved: true
+                reset-day: monday
+                """);
+
+        final ConfigHandle<TestSpecs.Worlds> handle = ConfigLoader
+                .builder(worlds, TestSpecs.Worlds.class).withoutEnvironmentOverlay().load();
+
+        assertAll(
+                () -> assertFalse(Files.readString(worlds).contains("legacy-bossbar-title")),
+                () -> assertEquals(2, handle.get().worlds().size()),
+                () -> assertEquals("spawn", handle.get().worlds().get(1).name()),
+                () -> assertTrue(handle.get().worlds().get(1).preserved(),
+                        "the sibling settings of a deleted key are not collateral")
+        );
+    }
+
+    @Test
+    @DisplayName("finding 2c: a misspelling next to a retired key still stops the start, and neither line moves")
+    void misspellingWinsOverARetiredKey() throws Exception {
+        ConfigLoader.builder(file(), TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        final String broken = Files.readString(file())
+                .replace("check-interval-seconds:", "check-intervall-seconds:")
+                + "legacy-contribution-tiers: 3" + System.lineSeparator();
+        Files.writeString(file(), broken);
+
+        final UnknownConfigKeyException error = assertThrows(UnknownConfigKeyException.class,
+                () -> ConfigLoader.builder(file(), TestSpecs.Payments.class)
+                        .withoutEnvironmentOverlay().load());
+
+        assertAll(
+                () -> assertEquals(1, error.unknownKeys().size(),
+                        "only the key the operator can act on is named"),
+                () -> assertEquals("check-intervall-seconds", error.unknownKeys().get(0).path()),
+                // The retired key is deleted by a write, and a refused load performs none. It
+                // goes on the next start, once the typo above is fixed.
+                () -> assertEquals(broken, Files.readString(file()),
+                        "a refused load writes nothing at all, so the retired line is still there")
+        );
+    }
+
+    @Test
+    @DisplayName("finding 2c: a reload drops a retired key rather than leaving the old values in place")
+    void retiredKeyIsDroppedOnReload() throws Exception {
+        final ConfigHandle<TestSpecs.Payments> handle = ConfigLoader
+                .builder(file(), TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        Files.writeString(file(), Files.readString(file())
+                .replace("check-interval-seconds: 10", "check-interval-seconds: 25")
+                + "legacy-contribution-tiers: 3" + System.lineSeparator());
+
+        handle.reload();
+
+        assertAll(
+                () -> assertEquals(25L, handle.get().checkIntervalSeconds(),
+                        "the reload has to have gone through, not been refused"),
+                () -> assertFalse(Files.readString(file()).contains("legacy-contribution-tiers"))
+        );
+    }
 }

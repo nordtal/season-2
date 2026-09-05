@@ -72,17 +72,21 @@ check-interval-seconds: 10
 confirmation-channel-id: '1397264662545957056'
 ```
 
-**What a load does, in order.** Write a defaults file if none exists; read it; reject any key the
-interface does not declare; deserialize; if the canonical rendering differs from what is on disk —
-a new setting, a reworded comment — back the file up to `.bak` and rewrite it *atomically*; apply
-the environment overlay; validate; run the `onLoad` hook. The hook runs **every** time, whether or
-not anything changed.
+**What a load does, in order.** Write a defaults file if none exists; read it; reject any key that
+reads as a *misspelling* of a declared one; deserialize; if the canonical rendering differs from
+what is on disk — a new setting, a reworded comment, a setting the interface has dropped — back the
+file up to `.bak` and rewrite it *atomically*; apply the environment overlay; validate; run the
+`onLoad` hook. The hook runs **every** time, whether or not anything changed.
 
-**Unknown keys stop the start.** A key the interface does not declare aborts the load, names the
-key with its full path — including its index inside a list, `worlds[1].display-color` — and
-suggests the key that was probably meant. **The file is never trimmed**: a mistyped line is left
-exactly where the operator put it. The old loader deleted such keys silently, so a typo cost both
-the setting and any trace of it, and the application ran on a default until somebody noticed.
+**A misspelled key stops the start; a retired one is deleted.** Both are keys the interface does
+not declare, and the difference is whether a declared key is close enough to name. If one is, the
+load aborts with the full path — including the index inside a list, `worlds[1].display-color` — and
+the key that was probably meant, and **the file is not touched**: only the operator knows what they
+meant by that line, and deleting it would cost them the setting and the evidence at once. If
+nothing is close, that setting no longer exists in the software; there is nothing to fix and
+nothing to decide, so it is dropped by the rewrite, named in a `WARN` line, and still readable in
+the `.bak`. Stopping a process over a line that is already dead helps nobody — and the old loader's
+mistake was not deleting, it was deleting the *typo* case, silently and without a backup.
 
 **Every value can be overridden by an environment variable**, named `NORDTAL_<PATH>` with `.` and
 `-` both becoming `_` — `balance.channel-id` is `NORDTAL_BALANCE_CHANNEL_ID`. The environment wins
@@ -165,7 +169,7 @@ The version is taken from the `VERSION` environment variable JitPack sets; local
 | `postLoad()` — only ran when the file differed | `.onLoad(...)` — runs on every load |
 | `preSave()` | do it before calling `handle.save()` |
 | `config.json`, Jackson, `SNAKE_CASE` field names | `config.yml`, Gson + SnakeYAML, explicit `@Key` |
-| unknown keys deleted silently | unknown keys abort the load, file untouched |
+| unknown keys deleted silently | a misspelled key aborts the load, file untouched; a retired one is deleted with a warning and a `.bak` |
 | scattered `System.getenv` calls | `NORDTAL_<SETTING>` overlay on every value |
 | `ConfigInitializationException` | gone — there is no reflective instantiation of a config class any more |
 | `jackson-databind` on your compile classpath | declare it yourself if you need it |

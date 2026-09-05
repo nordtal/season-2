@@ -38,10 +38,11 @@ import java.util.function.Function;
  *         .load();
  * }</pre>
  *
- * The file is created with its defaults and comments if it does not exist, kept in step with the
- * interface on every load, and refused outright if it contains a setting the interface does not
- * declare. Any single setting can be overridden by an environment variable - see
- * {@link EnvOverlay}.
+ * The file is created with its defaults and comments if it does not exist and kept in step with
+ * the interface on every load. A setting the interface does not declare is refused when it reads
+ * as a mistyped declared key, and removed from the file - with a warning and a {@code .bak} - when
+ * it does not, which is what a setting the software has dropped looks like. Any single setting can
+ * be overridden by an environment variable - see {@link EnvOverlay}.
  *
  * @see ConfigHandle
  */
@@ -82,7 +83,8 @@ public final class ConfigLoader {
      * Loads a configuration with the defaults: the {@code NORDTAL} environment prefix, no
      * validation and no load hook.
      *
-     * @throws ConfigException if the file cannot be read or written, or contains an unknown key
+     * @throws ConfigException if the file cannot be read or written, or contains a mistyped
+     *                         setting
      */
     public static @NotNull <T> ConfigHandle<T> load(final @NotNull Path file,
                                                     final @NotNull Class<T> specType) throws ConfigException {
@@ -180,8 +182,8 @@ public final class ConfigLoader {
         /**
          * Creates the file if needed, loads it, and returns a handle.
          *
-         * @throws ConfigException if the file cannot be read or written, contains a setting the
-         *                         spec does not declare, or fails validation
+         * @throws ConfigException if the file cannot be read or written, contains a setting that
+         *                         reads as a mistyped declared key, or fails validation
          */
         public @NotNull ConfigHandle<T> load() throws ConfigException {
             final EnvOverlay overlay = EnvOverlay.forSpec(specType, envPrefix, environment, gson);

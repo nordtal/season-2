@@ -24,6 +24,13 @@ import java.util.Map;
  * This walks the raw YAML tree against the spec's property tree, descends into nested specs
  * <b>and into the elements of lists of specs</b>, and reports every unknown key with its full
  * path and the closest declared key at that level.
+ * <p>
+ * Whether a finding has such a closest key is what tells the two cases apart. A key that
+ * resembles a declared one is almost certainly a slip of the keyboard, and deleting it would
+ * cost the operator the setting <i>and</i> the trace of it. A key that resembles nothing is a
+ * setting the software used to have and does not any more - the operator cannot fix that by
+ * editing, only by deleting the line, so the loader does it for them. See
+ * {@link UnknownKey#probableTypo()}.
  */
 public final class UnknownKeyDetector {
 
@@ -38,6 +45,18 @@ public final class UnknownKeyDetector {
 
     /** One unknown key, with its full dotted path and the best guess at what was meant. */
     public record UnknownKey(@NotNull String path, String suggestion, @NotNull List<String> known) {
+
+        /**
+         * Whether this reads as a mistyped declared key rather than as a setting that has been
+         * removed from the spec.
+         * <p>
+         * A typo is refused, because the operator meant something by that line and only they know
+         * what. A key that resembles nothing declared has no such reading: the spec no longer has
+         * it, so it is dropped from the file on the next write.
+         */
+        public boolean probableTypo() {
+            return suggestion != null;
+        }
 
         public @NotNull String describe() {
             if (suggestion != null) {

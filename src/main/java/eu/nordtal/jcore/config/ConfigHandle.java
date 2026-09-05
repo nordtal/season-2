@@ -42,8 +42,9 @@ import java.util.function.Consumer;
  * <h2>What a load does, in order</h2>
  * <ol>
  *   <li>write a defaults file if none exists;</li>
- *   <li>read the file and reject any key the spec does not declare, <b>without touching the
- *       file</b>;</li>
+ *   <li>read the file and reject any key that reads as a <i>mistyped</i> declared setting,
+ *       <b>without touching the file</b>. A key that resembles nothing declared is a setting the
+ *       spec has since dropped; it is logged and removed by the write in step 4;</li>
  *   <li>deserialize;</li>
  *   <li>if the canonical rendering differs from what is on disk - a new setting, a reworded
  *       comment, a changed header - back the file up to {@code .bak} and rewrite it atomically;</li>
@@ -120,7 +121,7 @@ public final class ConfigHandle<T> {
     /**
      * Re-reads the file. Applies the same sequence, and the same strictness, as the first load.
      *
-     * @throws ConfigException if the file cannot be read, contains an unknown key, or fails
+     * @throws ConfigException if the file cannot be read, contains a mistyped setting, or fails
      *                         validation. On failure the previously loaded values stay in place.
      */
     public void reload() throws ConfigException {
@@ -187,13 +188,24 @@ public final class ConfigHandle<T> {
             throw new ConfigReadException("Cannot parse config file " + file + ": " + e.getMessage(), e);
         }
 
-        // Reject unknown keys before anything is written. The file is never trimmed to make it
-        // match the spec - that is the operator's decision, not ours.
+        // A key the spec does not declare is one of two things, and they want opposite answers.
+        //
+        // If it resembles a declared key, the operator meant that key and mistyped it. Only they
+        // know what they meant, so the load is refused and the file is left exactly as it is -
+        // deleting the line would cost them the setting and the evidence at once.
+        //
+        // If it resembles nothing declared, the setting has been removed from the software. There
+        // is nothing for the operator to fix and nothing for them to decide; refusing to start
+        // over a line that no longer means anything takes a whole network down for a key that is
+        // already dead. It is dropped by the write below, named in the log, and still in the .bak.
         final List<UnknownKeyDetector.UnknownKey> unknown =
                 UnknownKeyDetector.detect(specType, configuration.getData());
-        if (!unknown.isEmpty()) {
-            throw new UnknownConfigKeyException(file, unknown);
+        final List<UnknownKeyDetector.UnknownKey> mistyped =
+                unknown.stream().filter(UnknownKeyDetector.UnknownKey::probableTypo).toList();
+        if (!mistyped.isEmpty()) {
+            throw new UnknownConfigKeyException(file, mistyped);
         }
+        final List<String> retired = unknown.stream().map(UnknownKeyDetector.UnknownKey::path).toList();
 
         final T value;
         try {
@@ -217,6 +229,13 @@ public final class ConfigHandle<T> {
                     LOG.info("Created config file {} with its default values.", file);
                 } else {
                     LOG.info("Config file {} was brought up to date; the previous content is in {}.bak", file, file);
+                }
+                if (!retired.isEmpty()) {
+                    // The paths, never the values - a setting that has been retired can still
+                    // have been a password. The .bak written just above is where the values are.
+                    LOG.warn("{}: {} setting(s) no longer exist and were removed from the file: {}."
+                                    + " They are still in {}.bak if you need what they said.",
+                            file.getFileName(), retired.size(), String.join(", ", retired), file);
                 }
             }
         } catch (UncheckedIOException e) {

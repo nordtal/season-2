@@ -10,6 +10,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -72,6 +73,24 @@ class UnknownKeyDetectorTest {
                 .stream().map(UnknownKeyDetector.UnknownKey::path).toList();
 
         assertEquals(List.of("check-interval-second", "balance.chanel-id", "balance.formt"), paths);
+    }
+
+    @Test
+    @DisplayName("having something to suggest is what separates a typo from a retired setting")
+    void probableTypoTracksTheSuggestion() {
+        final Map<String, Object> data = new LinkedHashMap<>();
+        data.put("check-interval-second", 10);
+        data.put("legacy-contribution-tiers", 3);
+
+        final List<UnknownKeyDetector.UnknownKey> found =
+                UnknownKeyDetector.detect(TestSpecs.Payments.class, data);
+
+        // This is the whole decision: the first is refused and left in the file, the second is
+        // deleted by the next write.
+        assertAll(
+                () -> assertTrue(found.get(0).probableTypo(), found.get(0).describe()),
+                () -> assertFalse(found.get(1).probableTypo(), found.get(1).describe())
+        );
     }
 
     @Test

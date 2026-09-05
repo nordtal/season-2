@@ -25,17 +25,18 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | module | main Java | tests | what actually runs |
 |---|---|---|---|
 | `smp` | 94 files, 13095 lines | 171 | Everything docs/smp.md describes, none of it yet seen on a running server |
-| `common` | 66 files, 7178 lines | 311 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, the notification listener, **the command request table**, V1-V11 |
+| `common` | 66 files, 7244 lines | 313 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, the notification listener, **the command request table**, V1-V11 |
 | `network-control` | 40 files, 6177 lines | 178 | Login gate, phase, play time, routing, the pack station, **the Velocity command adapter** |
-| `discord-bot` | 51 files, 7846 lines | 141 | Access end to end, the admin mirror, the language list, hunger games registration, **every declared command as a slash command** |
+| `discord-bot` | 51 files, 7846 lines | 142 | Access end to end, the admin mirror, the language list, hunger games registration, **every declared command as a slash command** |
 | `updater` | 38 files, 5179 lines | 136 | Resolve, report, apply, serve - and the schema every other process waits on |
-| `commands` | 46 files, 3863 lines | 150 | **Every admin command in the network**, its declaration, its decisions, and both ends of the request row |
+| `commands` | 46 files, 4112 lines | 170 | **Every admin command in the network**, its declaration, its decisions, and both ends of the request row |
 | `hunger-games` | 44 files, 4944 lines | 65 | The start event, essentially in full |
 | `limbo` | 13 files, 1640 lines | 11 | The waiting room, in full |
 | `paper-common` | 5 files, 1221 lines | 5 | The operator adapter, the admin watcher, the Paper sender adapter and **the Paper command adapter** |
 | `resource-pack` | — | — | Four fonts, every code point allocated and drawn |
 
-1168 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-05),
+1191 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-05,
+after the CodeRabbit review),
 across **nine** modules — `resource-pack` has no test source set of its own, and `paper-common`
 gained one on 2026-09-05 with the command adapter.
 
@@ -357,6 +358,10 @@ to record.
 | 84 | **New 2026-09-05, same review, and it is a documentation defect with teeth.** `CLAUDE.md` and `docs/smp.md` both cited an **`IrreversibleCommandsTest` that has never existed.** The rule it claimed to assert - three `/smp` commands confirmed, three deliberately not - is asserted, by `SmpCommandsTest#whatIsIrreversible`, under a name nothing pointed at | **closed** - both documents corrected. Six more of the same kind went with it: five module test totals that disagreed with the table above them, "five families" listing six, a blockquote sitting *inside* a Markdown table and ending it, `/settle` left out of a rename, and `docs/i18n.md` still calling `smp`'s message bundle "not yet" four days after it was written |
 | 85 | **New 2026-09-05, same review, and the fix is a decision rather than a patch.** **`command_request` had no deletion path at all.** Every settled row kept `requested_by`, `discord_id`, `mc_uuid`, `arguments` and a rendered `result` for as long as the database existed - while V11's own comment calls a request "a message in flight". Volume was never the argument; a season is a few dozen admin commands | **closed** - the owner chose 30 days on 2026-09-05. The updater deletes settled rows past the window once at the start of `serve`, next to `settleOrphans` and **not** on a timer, because that process is deliberately not a scheduler. A `PENDING` or `RUNNING` row is never touched however old it looks |
 | - | **One finding was checked and rejected.** The review held that `PostgresNotifications#awaitNotification` can fail when the poll interval exceeds `socketTimeout`, leaving the listener reconnecting through every quiet period. It cannot, on the driver this build pins: `QueryExecutorImpl#processNotifies` in pgjdbc 42.7.13 saves the socket timeout, sets it to the requested notification timeout, catches `SocketTimeoutException` as "no notifications" and restores the original in a `finally` - read out of the shipped bytecode on 2026-09-05, not from memory. Left alone |
+| 86 | **New 2026-09-05, from CodeRabbit's second pass, and it is a regression finding 74 introduced.** The generic `CHOICE` check compared **case-sensitively**, so `/phase set maintenance` was refused - a spelling that has worked in chat since the proxy's hand-written adapter, because `SetPhase#parse` compares phase names case-insensitively. Discord only ever sends the declared form, so the two surfaces would have disagreed about the one command an admin runs while the network is already misbehaving | **closed** - `Argument#match` is the single comparison, `Values` normalises a recognised choice to its declared spelling on the way in, and `RequestArguments#decode` hands the far side the declared form too. A value that is no choice at all is left exactly as typed, because the refusal quotes it back |
+| 87 | **New 2026-09-05, same pass, and also from finding 77's fix.** `/phase show` chose between its two failure sentences on `held.isPresent()` - whether the process had a phase *cached*. On the path with no cache the phase line is produced **inside the same `try`** as the dates, so `currentPhase()` could succeed and `launch()` fail, and the answer then claimed there was nothing above it when there was | **closed** - it tracks whether the line actually went out, which is the question it was always asking |
+| 88 | **New 2026-09-05, same pass, and from finding 81's fix.** `AccessRoles#member` answered *empty* when the configured guild was not available to JDA, and empty means "no such member" - so a guild the bot cannot currently see would have told an admin the person had left | **closed** - that branch throws, and the command's existing failure path answers `access.failed` |
+| 89 | **New 2026-09-05, same pass, and from finding 83's fix.** `SmpPlugin.track` is written by `/smp reload` on Bukkit's async executor and read by the suggestion supplier on the server thread, with no happens-before edge between them - so the fix for the captured-instance bug could go on showing the old track for no bounded length of time, which looks identical to the bug it replaced | **closed** - the field is `volatile` |
 
 
 ## 2. What can be built today

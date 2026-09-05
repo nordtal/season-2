@@ -147,6 +147,21 @@ class PhaseCommandsTest {
     }
 
     @Test
+    @DisplayName("a phase line printed from inside the read still counts as one above")
+    void theLineMayComeFromInsideTheTry() {
+        // No cache, so the phase line is produced inside the same try as the dates: currentPhase()
+        // can succeed and launch() fail, and then there IS something above the failure sentence.
+        // The first version of this branch decided on `held`, which is a different question.
+        final FakeEffects effects = new FakeEffects();
+        effects.datesFailure = new IllegalStateException("the dates are not there");
+        final FakeUser user = FakeUser.inDiscord();
+
+        new ShowPhase().run(user, Values.none(PhaseCommands.SHOW), effects);
+
+        assertEquals(List.of("phase.current", "phase.read.failed"), user.keys());
+    }
+
+    @Test
     @DisplayName("a process that already printed the phase still owes a word about the dates")
     void theProxyStillReportsTheDateFailure() {
         final FakeEffects effects = new FakeEffects();

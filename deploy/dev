@@ -1,0 +1,302 @@
+#!/usr/bin/env bash
+#
+# The local season 2 network: the SAME compose.yml, the same Dockerfiles and the same updater that
+# the production host runs, pointed at locally built jars.
+#
+# What makes that possible is one line in compose.yml: each server's plugins/ is a directory on
+# this machine (SERVERS_ROOT) rather than part of its named volume. So installing a freshly built
+# plugin is a `cp` and a restart of one container, and reading plugins/smp/config.yml is opening a
+# file. Worlds, the .server/ jar cache and logs stay in the volumes, where Arcane's volume backup
+# can still see them on the host.
+#
+#   deploy/dev init                 write deploy/dev.env, generate the two secrets, make the dirs
+#   deploy/dev up                   build everything, then bring the stack up
+#   deploy/dev deploy [module...]   rebuild those modules and restart their servers (default: all)
+#                                   (a JAR swap. After editing deploy/dev.env, run `up` instead:
+#                                    `restart` reuses the container and its environment with it)
+#   deploy/dev pack                 build the resource pack and point the proxy at it
+#   deploy/dev logs [service]       follow the logs
+#   deploy/dev console <service>    attach to the real server console (Ctrl-b then d to detach)
+#   deploy/dev mc <service> <cmd>   send one console command
+#   deploy/dev psql                 a psql shell on the local database
+#   deploy/dev ps | stop | down     the usual
+#   deploy/dev reset <service>      throw away one server's WORLD volume - see the guard below
+#
+# Everything here runs from the repository root whatever directory it is called from.
+set -Eeuo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="deploy/dev.env"
+EXAMPLE="deploy/dev.env.example"
+
+# The four services that run one of our plugins, and the module that builds it. The service name is
+# also the directory under SERVERS_ROOT - the same identity compose.yml and :updater's Topology use.
+MODULES=(network-control limbo hunger-games smp)
+
+log()  { printf '\033[36m[dev]\033[0m %s\n' "$*"; }
+warn() { printf '\033[33m[dev]\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[31m[dev]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# --- the guard on the one destructive command ---------------------------------------------------
+# `reset` deletes a server's whole volume, and on smp that volume holds Nordtal - a hand-built world
+# that exists in no repository and in no release. deploy/minecraft/entrypoint-test.sh exists for
+# exactly this class of thing, and so does deploy/dev-test.sh, which sources this file to drive the
+# two functions below without Docker.
+#
+# Two rules, and both are here rather than at the call site so that a future subcommand cannot
+# quietly skip them:
+#   1. a service has to be NAMED. `reset` on its own resets nothing.
+#   2. the name has to be typed BACK. Not "yes", not "y" - the name, so that a person who is not
+#      reading cannot agree to something they did not pick.
+known_service() {
+    local wanted="$1"
+    local service
+    for service in "${MODULES[@]}"; do
+        [[ "$service" == "$wanted" ]] && return 0
+    done
+    return 1
+}
+
+# Whether a typed confirmation matches. Kept separate from the prompt so it can be tested; a
+# comparison that quietly accepts anything is the failure this whole guard exists to prevent.
+reset_confirmed() {
+    local wanted="$1" typed="$2"
+    [[ -n "$wanted" && "$typed" == "$wanted" ]]
+}
+
+# --- sourced rather than executed ----------------------------------------------------------------
+# Everything ABOVE this line is definitions; everything below reaches for Gradle, Docker and the
+# working tree. dev-test.sh sources this file to exercise the reset guard, the same way
+# entrypoint-test.sh sources entrypoint.sh - see the long comment there.
+[[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
+
+cd "$ROOT"
+
+version() { sed -n 's/^version=//p' gradle.properties | head -n1; }
+
+compose() {
+    [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
+    SEASON_VERSION="$(version)" BOT_VERSION="$(version)" \
+        docker compose --env-file "$ENV_FILE" "$@"
+}
+
+servers_root() {
+    # Read from the env file rather than assumed, because the whole reason it is a variable is that
+    # it can be moved out of the checkout.
+    local value
+    value="$(sed -n 's/^SERVERS_ROOT=//p' "$ENV_FILE" 2>/dev/null | tail -n1)"
+    printf '%s' "${value:-./deploy/servers}"
+}
+
+# The jar a module's shadowJar produces. Named rather than globbed so a stale jar from an older
+# version cannot be picked up silently.
+jar_of() { printf '%s/build/libs/%s-%s.jar' "$1" "$1" "$(version)"; }
+
+# --- init ----------------------------------------------------------------------------------------
+cmd_init() {
+    if [[ -f "$ENV_FILE" ]]; then
+        log "$ENV_FILE already exists; leaving it alone"
+    else
+        cp "$EXAMPLE" "$ENV_FILE"
+        local secret password
+        secret="$(openssl rand -hex 24)"
+        password="$(openssl rand -hex 16)"
+        # Two REPLACE_ME values, replaced by name. The rest of the file is deliberately readable
+        # defaults - see its own header.
+        perl -pi -e "s/^VELOCITY_FORWARDING_SECRET=REPLACE_ME\$/VELOCITY_FORWARDING_SECRET=$secret/" "$ENV_FILE"
+        perl -pi -e "s/^POSTGRES_PASSWORD=REPLACE_ME\$/POSTGRES_PASSWORD=$password/" "$ENV_FILE"
+        grep -q REPLACE_ME "$ENV_FILE" \
+            && warn "$ENV_FILE still carries a REPLACE_ME - the generator did not match a line"
+        log "wrote $ENV_FILE with a generated forwarding secret and database password"
+    fi
+
+    local root
+    root="$(servers_root)"
+    local service
+    for service in "${MODULES[@]}"; do
+        mkdir -p "$root/$service/plugins"
+    done
+    mkdir -p deploy/pack
+    log "plugin directories are under $root - this is where jars and plugin configs live now"
+    log "next: deploy/dev up"
+}
+
+# --- building and installing ---------------------------------------------------------------------
+build_modules() {
+    local modules=("$@")
+    local tasks=()
+    local module
+    for module in "${modules[@]}"; do
+        tasks+=(":$module:shadowJar")
+    done
+    log "building: ${modules[*]}"
+    sh gradlew "${tasks[@]}"
+}
+
+install_module() {
+    local module="$1"
+    local jar root target
+    jar="$(jar_of "$module")"
+    [[ -f "$jar" ]] || die "$jar was not built"
+    root="$(servers_root)"
+    target="$root/$module/plugins"
+    mkdir -p "$target"
+
+    # Remove every other jar of this plugin first. The updater splits a filename on the LAST hyphen
+    # (JarName), and so does entrypoint.sh; two jars sharing a prefix is Paper loading two versions
+    # of one plugin without complaining about it.
+    local existing
+    for existing in "$target/$module-"*.jar; do
+        [[ -e "$existing" ]] || continue
+        [[ "$(basename "$existing")" == "$(basename "$jar")" ]] && continue
+        rm -f "$existing"
+        log "removed superseded $(basename "$existing")"
+    done
+
+    cp "$jar" "$target/"
+    log "installed $(basename "$jar") into $target"
+}
+
+# --- up ------------------------------------------------------------------------------------------
+cmd_up() {
+    [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
+    build_modules "${MODULES[@]}"
+    sh gradlew :updater:shadowJar
+
+    local module
+    for module in "${MODULES[@]}"; do
+        install_module "$module"
+    done
+
+    # The images are ours and are built here, never pulled: a locally built plugin needs the locally
+    # built updater, because the migrations it applies are compiled into :common and shaded into
+    # that jar. A stale ghcr updater would migrate to the released schema and the plugin would come
+    # up against it.
+    log "building the minecraft and updater images"
+    compose build updater network-control
+
+    # Our jars are already in plugins/, so the updater's bootstrap - which installs only what is
+    # MISSING - fetches the third-party plugins, the Paper and Velocity jars and pack.yml, and
+    # leaves ours alone. That is the whole of the first start.
+    compose up -d
+    log "up. First start downloads Paper, Velocity and the third-party plugins; give it a few"
+    log "minutes and watch with: deploy/dev logs"
+}
+
+# --- deploy --------------------------------------------------------------------------------------
+cmd_deploy() {
+    local modules=("$@")
+    (( ${#modules[@]} == 0 )) && modules=("${MODULES[@]}")
+
+    local module
+    for module in "${modules[@]}"; do
+        known_service "$module" || die "unknown module '$module'. One of: ${MODULES[*]}"
+    done
+
+    build_modules "${modules[@]}"
+    for module in "${modules[@]}"; do
+        install_module "$module"
+    done
+    # restart and not `up -d`: the jar is a file the container reads at start, so restarting the
+    # existing container is enough and is the fast path this whole command exists for. The cost is
+    # that a change to deploy/dev.env does NOT reach a restarted container - compose would have to
+    # recreate it - which is why `up` is the answer after editing that file. Measured the hard way
+    # on 2026-09-05: a switch set in dev.env, a `deploy`, and a server still on the old value.
+    log "restarting: ${modules[*]}"
+    compose restart "${modules[@]}"
+}
+
+# --- pack ----------------------------------------------------------------------------------------
+cmd_pack() {
+    sh gradlew :resource-pack:packZip
+    local zip sha name pack_yml
+    zip="resource-pack/build/distributions/nordtal-resource-pack-$(version).zip"
+    [[ -f "$zip" ]] || die "$zip was not built"
+    name="$(basename "$zip")"
+    mkdir -p deploy/pack
+    cp "$zip" "deploy/pack/$name"
+    sha="$(shasum -a 1 "$zip" | cut -d' ' -f1)"
+
+    pack_yml="$(servers_root)/network-control/plugins/network-control/pack.yml"
+    [[ -f "$pack_yml" ]] || die "$pack_yml is not there yet - bring the proxy up once so it writes"
+
+    local port
+    port="$(sed -n 's/^PACK_PORT=//p' "$ENV_FILE" | tail -n1)"
+    port="${port:-8080}"
+
+    # THE SAME TWO LINES THE UPDATER'S PackWriter OWNS, and no others. It rewrites url and sha1 and
+    # has no opinion about enabled, force or apply-timeout-seconds; neither does this.
+    perl -pi -e "s|^url:.*|url: \"http://localhost:$port/$name\"|" "$pack_yml"
+    perl -pi -e "s|^sha1:.*|sha1: \"$sha\"|" "$pack_yml"
+    log "pack.yml now points at http://localhost:$port/$name ($sha)"
+
+    compose restart network-control
+}
+
+# --- the rest ------------------------------------------------------------------------------------
+cmd_logs()    { compose logs -f "$@"; }
+cmd_ps()      { compose ps; }
+cmd_stop()    { compose stop; }
+cmd_down()    { compose down; }
+cmd_console() { [[ $# -eq 1 ]] || die "usage: deploy/dev console <service>"; compose exec "$1" console; }
+cmd_mc()      { [[ $# -ge 2 ]] || die "usage: deploy/dev mc <service> <command>"; local s="$1"; shift; compose exec "$s" mc "$@"; }
+cmd_psql()    { compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; }
+
+cmd_reset() {
+    local service="${1:-}"
+    known_service "$service" \
+        || die "usage: deploy/dev reset <service>, one of: ${MODULES[*]}. A service has to be named:
+this deletes that server's volume, which on smp is Nordtal - a hand-built world that is in no
+repository and in no release."
+
+    printf 'This deletes the %s container AND its volume: world, .server cache, logs.\n' "$service"
+    printf 'plugins/ is a directory on the host and survives.\n'
+    printf 'Type the service name to confirm: '
+    local typed
+    read -r typed
+    reset_confirmed "$service" "$typed" || die "not confirmed; nothing was deleted"
+
+    # `compose rm -v` only removes ANONYMOUS volumes, so it would take the container and leave the
+    # world exactly where it was - a reset that reports success and resets nothing. The volume is
+    # found by Docker's own compose labels rather than by guessing "<project>_mc-<service>", and an
+    # ambiguous answer stops here: deleting the wrong project's world is the one mistake this
+    # command must not be able to make.
+    compose rm -sf "$service"
+    local volume
+    volume="$(docker volume ls -q --filter "label=com.docker.compose.volume=mc-${service}")"
+    if [[ -z "$volume" ]]; then
+        log "no mc-${service} volume was there; the container is gone"
+    elif [[ "$(printf '%s\n' "$volume" | wc -l | tr -d ' ')" != "1" ]]; then
+        die "more than one mc-${service} volume exists on this machine, so this cannot tell which
+one belongs to this project. Delete it by name with docker volume rm:
+${volume}"
+    else
+        docker volume rm "$volume" >/dev/null
+        log "removed volume $volume"
+    fi
+    log "$service is reset. The next 'deploy/dev up' recreates it from an empty volume."
+}
+
+# --- dispatch ------------------------------------------------------------------------------------
+command="${1:-}"
+shift || true
+case "$command" in
+    init)    cmd_init "$@" ;;
+    up)      cmd_up "$@" ;;
+    deploy)  cmd_deploy "$@" ;;
+    pack)    cmd_pack "$@" ;;
+    logs)    cmd_logs "$@" ;;
+    ps)      cmd_ps "$@" ;;
+    stop)    cmd_stop "$@" ;;
+    down)    cmd_down "$@" ;;
+    console) cmd_console "$@" ;;
+    mc)      cmd_mc "$@" ;;
+    psql)    cmd_psql "$@" ;;
+    reset)   cmd_reset "$@" ;;
+    ""|help|-h|--help)
+        sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        ;;
+    *)
+        die "unknown command '$command'. Try: deploy/dev help"
+        ;;
+esac

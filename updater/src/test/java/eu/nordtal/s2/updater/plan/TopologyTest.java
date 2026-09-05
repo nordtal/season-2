@@ -208,6 +208,93 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("every server's plugins/ is the same directory for the server and for the updater")
+    void thePluginDirectoryIsOneDirectory() {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
+        final List<String> updaterMounts = mountsOf(updater);
+
+        for (final Topology.Service service : Topology.SERVICES) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> definition = (Map<String, Object>) services.get(service.name());
+            assertNotNull(definition, "compose.yml has no " + service.name() + " service");
+
+            final String onTheServer = mountsOf(definition).stream()
+                    .filter(mount -> mount.endsWith(":/data/plugins"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError(service.name() + " does not bind a host"
+                            + " directory onto /data/plugins. Since 2026-09-05 plugins/ is a"
+                            + " directory next to compose.yml and not part of the named volume;"
+                            + " without this line the server reads an empty folder and the"
+                            + " entrypoint stops the container."));
+
+            final String onTheUpdater = updaterMounts.stream()
+                    .filter(mount -> mount.endsWith(":/volumes/" + service.name() + "/plugins"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("the updater does not mount "
+                            + service.name() + "'s plugins/ directory. It would then install into"
+                            + " the named volume while the server reads the host directory - and"
+                            + " nothing would say so: `apply` reports success, the jars are on"
+                            + " disk, and no server runs a single one of them."));
+
+            // The two have to be the SAME source, expression for expression. A SERVERS_ROOT that
+            // is spelt differently in the two places is exactly the silent split above.
+            assertEquals(sourceOf(onTheServer), sourceOf(onTheUpdater),
+                    service.name() + ": the server and the updater are pointed at two different"
+                            + " host directories");
+            assertTrue(sourceOf(onTheServer).endsWith("/" + service.name() + "/plugins"),
+                    service.name() + " reads a plugins/ directory belonging to another service: "
+                            + sourceOf(onTheServer));
+        }
+    }
+
+    /** The host side of a compose mount - everything before the last colon-separated field pair. */
+    private static String sourceOf(final String mount) {
+        final int split = mount.lastIndexOf(':');
+        return mount.substring(0, split);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> mountsOf(final Map<String, Object> service) {
+        final Object volumes = service.get("volumes");
+        assertNotNull(volumes, "service has no volumes block");
+        return ((List<Object>) volumes).stream().map(String::valueOf).toList();
+    }
+
+    @Test
+    @DisplayName("the local env file answers every variable compose.yml requires")
+    void theLocalEnvFileIsComplete() throws IOException {
+        // COMPOSE INTERPOLATES THE WHOLE FILE BEFORE IT FILTERS BY PROFILE. So one `${X:?}` with no
+        // value stops the local stack before an image is pulled, and it does that for services the
+        // local selection never starts - every one of the bot's twelve. That is why the example
+        // carries obvious placeholders for them rather than nothing, and why this is checked here:
+        // the alternative is finding out from a `docker compose up` that refuses to parse.
+        final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8);
+        final String env = Files.readString(findUpwards("deploy/dev.env.example"), StandardCharsets.UTF_8);
+
+        final java.util.Set<String> defined = env.lines()
+                .map(String::strip)
+                .filter(line -> !line.startsWith("#"))
+                .filter(line -> line.contains("="))
+                .map(line -> line.substring(0, line.indexOf('=')))
+                .collect(java.util.stream.Collectors.toSet());
+
+        final java.util.regex.Matcher required =
+                java.util.regex.Pattern.compile("\\$\\{([A-Z0-9_]+):\\?").matcher(compose);
+        final List<String> missing = new java.util.ArrayList<>();
+        while (required.find()) {
+            if (!defined.contains(required.group(1))) {
+                missing.add(required.group(1));
+            }
+        }
+
+        assertEquals(List.of(), missing.stream().distinct().sorted().toList(),
+                "deploy/dev.env.example does not answer every required variable in compose.yml."
+                        + " `deploy/dev up` would fail on the first of them, naming one variable"
+                        + " and no others, however many are missing.");
+    }
+
+    @Test
     @DisplayName("the bot's and the updater's own volumes are mounted too, or neither could be updated")
     void theUpdaterCanSeeTheTwoStandaloneJars() {
         @SuppressWarnings("unchecked")
@@ -326,7 +413,11 @@ class TopologyTest {
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
             final Map<String, Object> service = (Map<String, Object>) definition;
-            if (name.equals("updater") || name.equals("postgres") || name.equals("postgres-backup")) {
+            // postgres is the database; postgres-backup only ever talks to it through pg_dump;
+            // pack-host is an nginx serving one zip on loopback under a development-only profile
+            // and reads nothing at all. None of the three can be out of step with a schema.
+            if (name.equals("updater") || name.equals("postgres") || name.equals("postgres-backup")
+                    || name.equals("pack-host")) {
                 return;
             }
             @SuppressWarnings("unchecked")

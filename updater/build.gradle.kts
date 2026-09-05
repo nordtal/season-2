@@ -17,6 +17,12 @@ repositoryRootTestInputs {
     reads("updater/README.md")
     reads("docs/updater.md")
     reads("deploy/README.md")
+
+    // TopologyTest holds deploy/dev.env.example against every required variable in compose.yml.
+    // Compose interpolates the whole file before it filters by profile, so ONE unset `${X:?}`
+    // stops the local stack before a single image is pulled - and it does that for a service the
+    // local selection never starts.
+    reads("deploy/dev.env.example")
 }
 
 repositories {

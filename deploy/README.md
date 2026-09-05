@@ -22,15 +22,22 @@ rather than a hard requirement, and a future change should not be argued down wi
 expired.
 
 ```
-compose.yml            six services, four profiles: db · bot · mc · backup (the updater has none)
+compose.yml            seven services, five profiles: db · bot · mc · backup · devpack
+                       (the updater has none, and devpack is local only)
 .env.example           every setting; copy to .env and fill in
 deploy/
   minecraft/
     Dockerfile         one image for all four Minecraft services
     entrypoint.sh      PID 1: resolve the jar, pull the plugins, run tmux, trap SIGTERM
+    entrypoint-test.sh the seeding half of it, against fixture directories (runs on `check`)
     scripts/console    attach to the real server console (read + write)
     scripts/mc         send one command, no TTY needed
                        (named scripts/ and not bin/ - .gitignore has a repo-wide bin/ rule)
+  dev                  the local stack: init · up · deploy · pack · reset - see Locally below
+  dev-test.sh          the guard on `dev reset`, without Docker (runs on `check`)
+  dev.env.example      every setting the local stack needs; copy to dev.env
+  servers/             NOT IN GIT. The four servers' plugins/ folders, bound in by compose.yml
+  pack/                NOT IN GIT. The locally built resource pack the devpack profile serves
 ```
 
 ## First deployment, in order
@@ -294,8 +301,9 @@ without one, and modern forwarding is what gives the backends real UUIDs.
 
 ## Getting a world into a volume
 
-The hunger games map and the Nordtal spawn are hand-built and have to be uploaded. There are no
-bind mounts by design, so this goes through the volume:
+The hunger games map and the Nordtal spawn are hand-built and have to be uploaded. A world stays in
+its named volume by design — that is the half of the "no bind mounts" rule that did not change on
+2026-09-05, and the reason is Arcane's volume backup — so this goes through the volume:
 
 ```bash
 docker compose stop hunger-games
@@ -369,8 +377,8 @@ expressed.
 
 Three properties worth knowing, because each is a decision:
 
-- **Two phases.** Everything a server needs is downloaded into `.nordtal-staging` inside that
-  server's own volume and verified there; only when all of it is present does anything move into
+- **Two phases.** Everything a server needs is downloaded into a `.nordtal-staging` directory
+  inside the folder it is going to end up in — `plugins/` or `.server/` — and verified there; only when all of it is present does anything move into
   `plugins/`. A download that fails half way leaves the server exactly as it was. Four servers on
   two versions of the season is a worse state than four servers that did not update.
 - **A server moves together or not at all.** If one of a server's plugins cannot be resolved, that
@@ -460,6 +468,99 @@ which is exactly this case, since the stack is up when the button is pressed. It
 agent at v1.15.3 and closed as *not planned*. Nothing in the updater can detect it, because the
 stream that would say so is one the redeploy kills this container part way through reading. Watch
 the containers actually cycle.
+
+## Locally
+
+The same stack on your own machine: the same `compose.yml`, the same `Dockerfile`s, the same
+updater. What differs is a second env file and the fact that the jars come out of `build/libs`
+instead of a GitHub release — and that is deliberately the whole of the difference, because a local
+setup that is its own arrangement stops being evidence about the real one.
+
+```bash
+deploy/dev init          # writes deploy/dev.env, generates the two secrets, makes the directories
+deploy/dev up            # builds the five jars and both images, then brings the stack up
+```
+
+The first `up` takes a while: the `updater` fetches Paper, Velocity, DisplayTags, PacketEvents,
+Chunky and the SMP's two world-generation datapacks. It does **not** fetch our five jars, because
+`deploy/dev up` has already put them in `plugins/` and the bootstrap installs only what is *missing*
+(`UpdatePlan#onlyMissing()`). Then join `localhost` with a real client.
+
+The loop after that is one command:
+
+```bash
+deploy/dev deploy smp    # rebuild :smp, replace the jar, restart that one container
+```
+
+`deploy/dev` also carries `logs`, `console`, `mc`, `psql`, `ps`, `stop`, `down`, `pack` and `reset`;
+`deploy/dev help` prints the list. **After editing `deploy/dev.env`, run `deploy/dev up` and not
+`deploy` —** `deploy` restarts the existing container, which reuses the environment it was created
+with, and a setting that did not take effect looks exactly like a setting that does not work. Everything it does is `docker compose` with
+`--env-file deploy/dev.env`, so any of it can be typed by hand.
+
+### What is different, in full
+
+- **`deploy/dev.env` instead of `.env`.** Its own header explains every line. Every `${X:?}` in
+  `compose.yml` has to have a value even for services no profile selects — compose interpolates
+  before it filters — so the twelve the bot needs carry obvious placeholders. `TopologyTest` fails
+  if a required variable is ever added without one.
+- **`COMPOSE_PROFILES=db,mc,devpack`.** No bot: it needs a real guild and a real bunq key, and it
+  cannot tell a test guild from the real one. Add `bot` once you have one.
+- **Images are built, never pulled** (`MC_IMAGE`, `UPDATER_IMAGE` on a `:dev` tag). A locally built
+  plugin needs the locally built updater: the migrations it applies are compiled into `:common` and
+  shaded into that jar, so a released updater would migrate to the released schema and the plugin
+  would come up against it.
+- **`SMP_PREGENERATION_ON_START=false`.** `smp` starts pre-generating tomorrow's farm world
+  in its `onEnable` and Chunky takes every core it is given, so every `up` would spend its first
+  minutes at full load. What turning it off costs is one postponed reset — the first daily reset
+  finds no finished world, says so, and builds it then. `config.yml#pregeneration-on-start` carries
+  the same paragraph; the production default is `true`.
+- **Small heaps and `NETWORK_MAX_PLAYERS=20`.**
+
+### The resource pack
+
+The pack and the plugins are one change: a glyph code point is declared in `:common`'s `Glyphs`, in
+a font file and in a PNG, and every menu panel is a texture the Java arithmetic is derived from. So
+testing the drawn half against the *previous release's* pack answers nothing.
+
+```bash
+deploy/dev pack
+```
+
+builds the zip, puts it under `PACK_ROOT`, and writes `url` and `sha1` into the proxy's `pack.yml` —
+the same two lines the updater's `PackWriter` owns and no others. The `devpack` profile serves that
+directory on `http://localhost:8080`, which is the client's `localhost` too, because the client runs
+on this machine. `pack.yml` is an ordinary file on the host now (under `SERVERS_ROOT`), which is
+what makes this two lines of `perl -pi` rather than a container round trip.
+
+A `FAILED_DOWNLOAD` on the client is almost always the hash and not the network — rerun
+`deploy/dev pack` after any change under `resource-pack/src/`.
+
+### The restart, and why it is worth setting up Arcane locally
+
+`deploy/dev deploy` restarts one container and is what you want ninety-nine times out of a hundred.
+The hundredth is the **restart path itself** — the button in Discord, `/smp update restart` in game,
+the countdown every player sees, and the Arcane redeploy at the end of it. That path cannot be
+rehearsed anywhere but against a real Arcane, and the cost of not rehearsing it is on record: the
+production `ARCANE_URL` carried `docker.host.internal` — the three labels in the wrong order — and
+the failure printed `java.net.ConnectException` and nothing else, because the JDK wraps a DNS
+failure in an exception it gives no message to.
+
+So: run Arcane as its own compose project on this machine, point it at this project, and fill in
+`ARCANE_URL`, `ARCANE_API_KEY` and `ARCANE_PROJECT` in `deploy/dev.env`. `ARCANE_URL` is
+`http://host.docker.internal:<port>` — **not** `http://localhost:...`, which inside the updater
+container is the updater container. Both wrong values are now named by the updater at startup and
+again in the sentence written into `update_request.result`.
+
+Leaving `ARCANE_URL` empty breaks nothing: every surface answers "Arcane is not configured".
+
+### What it still cannot tell you
+
+A world. `smp` expects Nordtal and `hunger-games` expects its arena, and neither is in this
+repository — locally you get whatever Paper generates. Everything about spawn geometry, the duel
+platform, the balloon and the POIs is therefore untested here, exactly as it is on a fresh
+production volume. See [Getting a world into a volume](#getting-a-world-into-a-volume); the same
+`docker compose cp` works locally.
 
 ## Stopping
 
@@ -657,8 +758,25 @@ accident. Everything here was decided on 2026-09-01.
   optional: without it `docker stop` kills a wrapper and leaves the JVM to be SIGKILLed. That is
   what `stop_grace_period: 180` is for — the compose default of 10 s does not save a border-4000
   world, and a save cut off halfway stays invisible for days.
-- **Named volumes, no bind mounts.** Arcane reaches volumes directly, and a bind-mounted world
-  folder is a uid/permission problem whose symptom is a corrupted save.
+- **Named volumes for the state, a directory for `plugins/`** (split on 2026-09-05; it read "named
+  volumes, no bind mounts" until then, and the half that is still true is the half about *worlds*).
+  Arcane reaches volumes directly and its volume backup is the only thing that saves a world, so
+  the world, the `.server/` jar cache and `logs/` stay in `mc-<service>` — a bind-mounted world
+  folder is also a uid/permission problem whose symptom is a corrupted save.
+
+  `plugins/` carries none of that. Nothing backs it up because everything in it is refetchable, and
+  keeping it inside the volume was paid for on every single edit: a `docker compose cp` out to read
+  `plugins/smp/config.yml`, another back in, and a third to put a freshly built jar somewhere a
+  server would load it. It is `${SERVERS_ROOT:-./deploy/servers}/<service>/plugins` now — a
+  directory beside `compose.yml`, in Arcane's file manager and in an editor. That is also what made
+  a local development stack possible at all; see [Locally](#locally).
+
+  **Two things came with it.** The `updater` mounts the same four directories at
+  `/volumes/<service>/plugins`, or it would install into the named volume while every server read
+  the host directory — success in the report, jars on disk, and no server running one; `TopologyTest`
+  fails if either half goes missing. And the updater's staging directory moved from the volume root
+  into each *destination* (`plugins/.nordtal-staging`, `.server/.nordtal-staging`), because a rename
+  across a mount boundary is a copy and `Files.move` falls back to one without saying so.
 - **Plugin jars are pulled from a GitHub release**, not from a dashboard. This is the job the
   SimpleCloud dashboard could not do at all: its plugin management only understands Modrinth-hosted
   jars, and every jar we deploy is either ours or a fork of ours. *(They were pulled by each

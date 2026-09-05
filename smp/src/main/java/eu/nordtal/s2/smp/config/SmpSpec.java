@@ -202,6 +202,30 @@ public interface SmpSpec {
     }
 
     @Order(16)
+    @Key("pregeneration-on-start")
+    @Comment({
+            "Whether tomorrow's farm world starts being pre-generated as soon as this plugin",
+            "enables. True is the production answer and the default: the first daily reset then",
+            "has a finished world waiting for it.",
+            "",
+            "Set it to false on a machine you also want to use. Chunky takes every core it is",
+            "given, so a stack that has just come up spends the next minutes at full load - which",
+            "is right on a server that exists for nothing else and wrong on a laptop.",
+            "",
+            "WHAT IT COSTS, exactly: the first reset of the day finds no finished world, postpones",
+            "itself (players in the farm world are told so) and starts the pre-generation there.",
+            "So it is one reset later rather than one reset lost, and nothing is deleted either",
+            "way. Every later reset behaves normally.",
+            "",
+            "This does NOT turn Chunky off. It is a required plugin and the reset still waits for",
+            "its completion event; whether Chunky itself resumes an interrupted task when the",
+            "server starts is Chunky's own setting, in plugins/Chunky/config.yml."
+    })
+    default boolean pregenerationOnStart() {
+        return true;
+    }
+
+    @Order(17)
     @Key("farm-world-staging-suffix")
     @Comment({
             "Tomorrow's farm world is generated under the live name plus this suffix, and renamed",
@@ -215,7 +239,7 @@ public interface SmpSpec {
         return "-next";
     }
 
-    @Order(17)
+    @Order(18)
     @Key("farm-world-retired-suffix")
     @Comment({
             "Yesterday's farm world is RENAMED to this suffix during the swap and deleted",
@@ -237,7 +261,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the balloons
 
-    @Order(18)
+    @Order(19)
     @Key("balloons")
     @Comment({
             "Where the balloons stand. Stepping into one of these boxes opens the travel GUI; the",
@@ -287,7 +311,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the boards
 
-    @Order(19)
+    @Order(20)
     @Key("boards")
     @Comment({
             "The two boards at the spawn: the current milestone at a glance, and the aura",
@@ -344,7 +368,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the duel platforms
 
-    @Order(20)
+    @Order(21)
     @Key("duel-platforms")
     @Comment({
             "The two 3x3 platforms at the spawn. Two players standing on the same one at the same",
@@ -386,7 +410,7 @@ public interface SmpSpec {
         @Order(8) @Key("max-z") default int maxZ() { return 0; }
     }
 
-    @Order(21)
+    @Order(22)
     @Key("duel-arena-base-y")
     @Comment({
             "The height of the lowest arena. Further concurrent duels stack above it.",
@@ -399,14 +423,14 @@ public interface SmpSpec {
         return 200;
     }
 
-    @Order(22)
+    @Order(23)
     @Key("duel-arena-spacing")
     @Comment("Vertical distance between stacked arenas. Has to exceed the arena's own height.")
     default int duelArenaSpacing() {
         return 16;
     }
 
-    @Order(23)
+    @Order(24)
     @Key("duel-arena-radius")
     @Comment({
             "Half the arena's floor, in blocks - a radius of 7 is a 15x15 floor. Big enough that a",
@@ -418,7 +442,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the wheel of fortune
 
-    @Order(24)
+    @Order(25)
     @Key("wheel-regions")
     @Comment({
             "Where the wheel of fortune stands in the tavern. Right-clicking inside one of these",
@@ -440,7 +464,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the spawn NPC
 
-    @Order(25)
+    @Order(26)
     @Key("npc")
     @Comment({
             "The figure in the tavern. Click it to open the objective list and hand items in.",
@@ -488,7 +512,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- spawn protection
 
-    @Order(26)
+    @Order(27)
     @Key("spawn-regions")
     @Comment({
             "The protected zones: no building, no breaking, no interaction with blocks you do not",
@@ -532,7 +556,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- aura
 
-    @Order(27)
+    @Order(28)
     @Key("death-penalty")
     @Comment({
             "What an ordinary death costs, as a POSITIVE number that is subtracted at the point of",
@@ -547,14 +571,14 @@ public interface SmpSpec {
         return 5;
     }
 
-    @Order(28)
+    @Order(29)
     @Key("death-penalty-listed")
     @Comment("What one of the causes below costs instead. Also a positive number.")
     default int deathPenaltyListed() {
         return 20;
     }
 
-    @Order(29)
+    @Order(30)
     @Key("death-causes-listed")
     @Comment({
             "The 'embarrassing' deaths, one of docs/smp.md#still-open's open points, PROPOSED HERE",
@@ -577,7 +601,7 @@ public interface SmpSpec {
                 "sweet_berry_bush", "hot_floor", "campfire", "stalagmite");
     }
 
-    @Order(30)
+    @Order(31)
     @Key("duel-stake")
     @Comment({
             "What a duel moves. The winner takes exactly what the loser pays, so a duel never",
@@ -588,14 +612,14 @@ public interface SmpSpec {
         return 10;
     }
 
-    @Order(31)
+    @Order(32)
     @Key("concurrent-duel-limit")
     @Comment("How many arenas may be stacked above the spawn at once. Beyond it, players queue.")
     default int concurrentDuelLimit() {
         return 3;
     }
 
-    @Order(32)
+    @Order(33)
     @Key("advancement-awards")
     @Comment({
             "The advancements that pay aura, once each per player. docs/smp.md#still-open lists",
@@ -632,7 +656,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- prestige
 
-    @Order(33)
+    @Order(34)
     @Key("prestige-threshold-hours")
     @Comment({
             "The thirteen crest tiers, in hours of NETWORK-WIDE online time - AFK included, on",
@@ -653,7 +677,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the hunger games winner
 
-    @Order(34)
+    @Order(35)
     @Key("hg-winner-aura")
     @Comment({
             "The head start the start event's winner carries into the season, paid on their FIRST",
@@ -669,7 +693,7 @@ public interface SmpSpec {
         return 150;
     }
 
-    @Order(35)
+    @Order(36)
     @Key("hg-winner-items")
     @Comment({
             "One or two special items for the winner, also PROPOSED rather than decided. Bukkit",
@@ -685,7 +709,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- the wheel
 
-    @Order(36)
+    @Order(37)
     @Key("wheel-extra-spin-percents")
     @Comment({
             "The contribution shares that earn extra spins when an objective completes: one spin at",
@@ -696,7 +720,7 @@ public interface SmpSpec {
         return List.of(2, 10, 25);
     }
 
-    @Order(37)
+    @Order(38)
     @Key("wheel-prizes")
     @Comment({
             "The wheel's pool and its weights - open in docs/smp.md#still-open, PROPOSED here.",
@@ -741,7 +765,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- duels
 
-    @Order(38)
+    @Order(39)
     @Key("duel-loadout-sword")
     @Comment({
             "What both players are given inside a sword duel - open in docs/smp.md#still-open,",
@@ -756,7 +780,7 @@ public interface SmpSpec {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
-    @Order(39)
+    @Order(40)
     @Key("duel-loadout-bow")
     @Comment({
             "The bow duel's loadout. Also PROPOSED.",
@@ -795,7 +819,7 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- admin propagation
 
-    @Order(40)
+    @Order(41)
     @Key("admin-poll-interval-seconds")
     @Comment({
             "How often this server re-reads who is an admin, in seconds.",
@@ -813,7 +837,7 @@ public interface SmpSpec {
         return 30;
     }
 
-    @Order(41)
+    @Order(42)
     @Key("admin-listen-enabled")
     @Comment({
             "Whether to also open a dedicated LISTEN nordtal_admin connection.",

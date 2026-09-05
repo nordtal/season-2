@@ -39,8 +39,18 @@ import java.util.Map;
  * artefacts across four servers in one go, and a network running four servers on two versions of
  * the season is a worse state than a network that did not update.</p>
  *
- * <p>The staging directory has to be in the same volume, not in {@code /tmp}: a rename across a
- * mount boundary is a copy, and a copy is not atomic.</p>
+ * <p><b>The staging directory has to be on the same filesystem as the destination</b>, not in
+ * {@code /tmp}: a rename across a mount boundary is a copy, and a copy is not atomic. Until
+ * 2026-09-05 that was expressed as "in the same volume", and one staging directory per service sat
+ * at the volume's root - which was the same thing right up to the day {@code plugins/} became a
+ * bind mount of its own ({@code compose.yml}, {@code SERVERS_ROOT}). It would still have worked:
+ * {@code Files.move} without {@code ATOMIC_MOVE} falls back to copy-and-delete across devices, so
+ * nothing would have failed and nothing would have said anything. What would have been lost, in
+ * silence, is the property this whole class is built on - a server reading {@code plugins/} while
+ * a jar is half-copied into it. So the staging directory is now resolved <em>per destination
+ * directory</em>: {@code plugins/.nordtal-staging} for plugin jars,
+ * {@code .server/.nordtal-staging} for the server jar. Both are dot directories nothing lists and
+ * neither is ever read as a plugin - {@code Installation} only takes regular files.</p>
  *
  * <h2>A server moves together or not at all</h2>
  * If any artefact of a service could not be resolved, that whole service is skipped. "The new SMP
@@ -70,8 +80,9 @@ import java.util.Map;
 public final class Applier {
 
     /**
-     * Where downloads land before they are moved. A dot directory inside the volume: same
-     * filesystem as the destination, and invisible to anybody listing {@code plugins/}.
+     * Where downloads land before they are moved. A dot directory inside the <em>destination</em>
+     * directory: same filesystem by construction, and invisible to anybody listing
+     * {@code plugins/}.
      */
     public static final String STAGING = ".nordtal-staging";
 
@@ -178,15 +189,23 @@ public final class Applier {
         }
 
         final Path volume = root.resolve(service);
-        final Path staging = volume.resolve(STAGING);
+
+        // One staging directory per DESTINATION directory, not one per service - see the class
+        // comment. Two at most today (plugins/ and .server/), and the set is built as the work is
+        // walked so an empty one is never created.
+        final Map<Path, Path> stagingByDestination = new LinkedHashMap<>();
 
         // --- phase one: fetch everything, place nothing -----------------------------------
         final Map<String, Path> staged = new LinkedHashMap<>();
         try {
-            deleteRecursively(staging);
-            Files.createDirectories(staging);
+            // The one place the old layout is still swept up: a volume that was applied to before
+            // 2026-09-05 carries a .nordtal-staging at its root, and nothing else would ever look
+            // at it again. Deleted rather than left as a puzzle for whoever finds it.
+            deleteRecursively(volume.resolve(STAGING));
             for (final Change change : work) {
                 final RemoteFile wanted = change.wanted();
+                final Path destination = directoryFor(volume, change.artifact());
+                final Path staging = stagingFor(stagingByDestination, destination);
                 final Path target = staging.resolve(wanted.fileName());
                 fetcher.fetch(wanted, target);
                 staged.put(change.artifact(), target);
@@ -197,7 +216,7 @@ public final class Applier {
                     + "); nothing on this server was moved";
             work.forEach(change -> outcomes.add(new ApplyResult.Outcome(
                     service, change.artifact(), ApplyResult.Status.FAILED, why)));
-            quietlyDelete(staging);
+            stagingByDestination.values().forEach(Applier::quietlyDelete);
             outcomes.addAll(applyPack(root, service, changes));
             return outcomes;
         }
@@ -222,7 +241,7 @@ public final class Applier {
             }
         }
 
-        quietlyDelete(staging);
+        stagingByDestination.values().forEach(Applier::quietlyDelete);
         outcomes.addAll(applyPack(root, service, changes));
         return outcomes;
     }
@@ -296,6 +315,26 @@ public final class Applier {
      * fail outright. This only ever runs in a container, so the trade is one comment rather than a
      * special case - but it is a real dependency and it is written down.</p>
      */
+    /**
+     * The staging directory for one destination, created on first use and emptied first.
+     * <p>
+     * Emptying matters: a previous run that died between phase one and phase two leaves files
+     * here, and re-using them would install a jar nobody verified in this run.
+     * </p>
+     */
+    private static Path stagingFor(final Map<Path, Path> known, final Path destination)
+            throws IOException {
+        final Path existing = known.get(destination);
+        if (existing != null) {
+            return existing;
+        }
+        final Path staging = destination.resolve(STAGING);
+        deleteRecursively(staging);
+        Files.createDirectories(staging);
+        known.put(destination, staging);
+        return staging;
+    }
+
     private static Path directoryFor(final Path volume, final String artifact) {
         if (Topology.isStandalone(artifact)) {
             return volume;

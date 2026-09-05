@@ -17,7 +17,7 @@ import java.util.Optional;
  * Two updaters can be alive at once, and the arrangement invites it: the daemon runs all the time,
  * and the documented bootstrap is a one-shot {@code docker compose run --rm updater apply} that an
  * operator starts by hand - most likely on exactly the day when they are also clicking the button
- * in Discord. Two processes staging into the same {@code .nordtal-staging} directory and then
+ * in Discord. Two processes staging into the same {@code .nordtal-staging} directories and then
  * renaming over each other is a server that ends up with half of one version and half of another.
  *
  * <h2>Why an advisory lock and not a row</h2>

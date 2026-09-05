@@ -50,11 +50,24 @@ release ships:
 ./gradlew releaseArtifacts
 ```
 
-Each Paper module has a local test server, and the proxy module can be run the same way:
+Each Paper module has a local test server:
 
 ```bash
 ./gradlew :hunger-games:runServer
 ```
+
+The proxy has none - `nordtal.velocity-plugin` does not apply run-velocity, and this said otherwise
+until 2026-09-05. Anything involving the proxy, the login path, the resource pack or two servers at
+once wants the whole network instead, which runs on your own machine off the same `compose.yml` the
+production host uses:
+
+```bash
+deploy/dev init && deploy/dev up
+```
+
+Then `deploy/dev deploy smp` rebuilds one module and restarts one container. The runbook, including
+what the local stack still cannot tell you, is
+[deploy/README.md#locally](deploy/README.md#locally).
 
 ## Releasing
 

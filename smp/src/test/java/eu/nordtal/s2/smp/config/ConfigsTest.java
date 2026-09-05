@@ -69,6 +69,27 @@ class ConfigsTest {
     }
 
     /**
+     * The pre-generation switch defaults to on, and that direction is the whole assertion.
+     *
+     * <p>It exists so a machine that is not a dedicated server can stop Chunky taking every core
+     * for the minutes after a start ({@code pregeneration-on-start}, 2026-09-05). A setting added
+     * for a laptop is exactly the kind that gets a convenient default by accident, and this one
+     * would then quietly cost the season's first farm world reset on the production host - where
+     * nobody is watching the load, because that host exists for nothing else.
+     */
+    @Test
+    void preGenerationOnStartDefaultsToOn() throws Exception {
+        final SmpSpec config = Configs.load(directory, LOGGER).get();
+
+        assertTrue(config.pregenerationOnStart(),
+                "pregeneration-on-start must default to true - it is a development escape hatch,"
+                        + " not the production behaviour");
+        assertTrue(Files.readString(directory.resolve("config.yml"))
+                        .contains("pregeneration-on-start:"),
+                "the key is not written into a fresh config.yml, so nobody would find it");
+    }
+
+    /**
      * {@code config.yml} does not carry the sounds, and a config that still does loses the block
      * rather than keeping something that looks like a working setting.
      *

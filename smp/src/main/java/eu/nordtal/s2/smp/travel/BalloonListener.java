@@ -40,7 +40,15 @@ public final class BalloonListener implements Listener {
     private final Boxes balloons;
     private final Worlds worlds;
     private final SeasonState season;
-    private final MilestoneTrack track;
+    /**
+     * The milestone track, <b>as a supplier</b>.
+     *
+     * <p>{@code /smp reload} replaces the plugin's track with a new instance - that is the whole
+     * reason {@code milestones.yml} is a separate reloadable file, because a milestone is appended
+     * and a target lowered mid-season. A reference captured at enable would go on reading the
+     * definitions the server started with, for the rest of the season, and nothing would say so.</p>
+     */
+    private final java.util.function.Supplier<MilestoneTrack> track;
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSounds sounds;
@@ -50,7 +58,7 @@ public final class BalloonListener implements Listener {
     private final Map<UUID, Boolean> inside = new ConcurrentHashMap<>();
 
     public BalloonListener(final Boxes balloons, final Worlds worlds, final SeasonState season,
-                           final MilestoneTrack track, final Messages messages,
+                           final java.util.function.Supplier<MilestoneTrack> track, final Messages messages,
                            final PlayerLocales locales, final SmpSounds sounds,
                            final WorldEffects effects) {
         this.balloons = balloons;
@@ -108,7 +116,7 @@ public final class BalloonListener implements Listener {
         if (role.isEmpty()) {
             return;
         }
-        player.openInventory(new BalloonGui(messages, locales, worlds, season, track, sounds,
+        player.openInventory(new BalloonGui(messages, locales, worlds, season, track.get(), sounds,
                 effects, player, role.get()).getInventory());
     }
 }

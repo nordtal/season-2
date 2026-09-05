@@ -357,9 +357,9 @@ public final class SmpPlugin extends JavaPlugin {
                 logger());
 
         // ---- block 3: the activities -----------------------------------------------------
-        engine = new ObjectiveEngine(this, dao, track, season, worlds, identities, messages,
+        engine = new ObjectiveEngine(this, dao, () -> track, season, worlds, identities, messages,
                 locales, config, sounds, effects);
-        poller = new StatisticPoller(this, track, engine, identities);
+        poller = new StatisticPoller(this, () -> track, engine, identities);
         poller.start();
 
         graves = new Graves(this, dao, messages, locales, sounds, effects);
@@ -382,7 +382,7 @@ public final class SmpPlugin extends JavaPlugin {
         npc = new SpawnNpc(this, config);
         npc.spawn();
         getServer().getPluginManager().registerEvents(
-                new NpcListener(this, dao, npc, track, engine, identities, messages, locales,
+                new NpcListener(this, dao, npc, () -> track, engine, identities, messages, locales,
                         sounds), this);
         getServer().getPluginManager().registerEvents(
                 new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
@@ -403,7 +403,7 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new ProtectionListener(regions, identities, messages, locales, sounds), this);
         getServer().getPluginManager().registerEvents(
-                new BalloonListener(balloons, worlds, season, track, messages, locales, sounds,
+                new BalloonListener(balloons, worlds, season, () -> track, messages, locales, sounds,
                         effects), this);
         getServer().getPluginManager().registerEvents(
                 new PortalGate(worlds, season, messages, locales, sounds), this);

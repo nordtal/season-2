@@ -367,12 +367,13 @@ public final class PackStation {
      * {@code BACKEND} title and the release is tried again in {@link WaitingBook#RELEASE_RETRY}.
      *
      * @param player the player the release could not move
+     * @param cause  why, in one line - a backend that is restarting says "Connection refused"
      */
-    public void releaseFailed(final Player player) {
+    public void releaseFailed(final Player player, final String cause) {
         book.releaseFailed(player.getUniqueId());
-        logger.warn("'{}' did not take {}; holding them in the waiting room and trying again in {}s",
+        logger.warn("'{}' did not take {} ({}); holding them in the waiting room and trying again in {}s",
                 routing.servers().forAdmitted(phases.lastKnown(), roster.isAdmin(player.getUniqueId())),
-                player.getUsername(), WaitingBook.RELEASE_RETRY.toSeconds());
+                player.getUsername(), cause, WaitingBook.RELEASE_RETRY.toSeconds());
         evaluate(player);
     }
 

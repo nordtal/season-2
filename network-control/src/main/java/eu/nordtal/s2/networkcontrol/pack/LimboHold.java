@@ -9,7 +9,7 @@ import java.util.Optional;
 /**
  * Whether a player in the waiting room may leave it yet, and if not, what they are waiting for.
  *
- * <p>Three facts decide it and none of them is a Velocity type, which is the point: this is the
+ * <p>Four facts decide it and none of them is a Velocity type, which is the point: this is the
  * rule docs/architecture.md#the-login-path-end-to-end draws as a sequence diagram, and it is the
  * only part of the pack station that can be asserted without a running proxy and a real client.
  * {@link PackStation} is everything else - the events, the connection, the offer - and is not
@@ -49,6 +49,9 @@ public final class LimboHold {
      *                              waiting room, it is a waiting room with one fewer thing to wait
      *                              for
      * @param phase                 the phase the network is in, from {@code PhaseWatch}
+     * @param admin                 whether the player carries {@code discord_user.admin}. Maintenance
+     *                              holds everybody else; an admin is the person it is being done by,
+     *                              so for them the only questions left are the pack and the server
      * @param destinationAvailable  whether the backend that phase points at is registered on this
      *                              proxy. A server that is registered but <em>down</em> is
      *                              indistinguishable from a healthy one here and shows up as a
@@ -57,13 +60,13 @@ public final class LimboHold {
      *         player may be connected onward
      */
     public static Optional<WaitReason> reason(final boolean packSettled, final SeasonPhase phase,
-                                              final boolean destinationAvailable) {
+                                              final boolean admin, final boolean destinationAvailable) {
         Objects.requireNonNull(phase, "phase");
 
         if (!packSettled) {
             return Optional.of(WaitReason.PACK);
         }
-        if (phase == SeasonPhase.MAINTENANCE) {
+        if (phase == SeasonPhase.MAINTENANCE && !admin) {
             return Optional.of(WaitReason.MAINTENANCE);
         }
         if (!destinationAvailable) {

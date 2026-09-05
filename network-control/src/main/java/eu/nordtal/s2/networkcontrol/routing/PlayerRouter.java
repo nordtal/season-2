@@ -124,9 +124,24 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 routing.decideInitial(phase, roster.isAdmin(uuid), registeredServerNames());
 
         switch (decision.action()) {
-            case CONNECT -> proxy.getServer(decision.server()).ifPresent(event::setInitialServer);
-            case STAY -> logger.info("{} is an admin, so the {} phase leaves their initial server "
-                    + "alone", player.getUsername(), phase);
+            case CONNECT -> {
+                proxy.getServer(decision.server()).ifPresent(event::setInitialServer);
+                if (!decision.server().equals(routing.servers().limbo())) {
+                    // Only an admin on a proxy with no waiting room gets here - see
+                    // PhaseRouting#decideInitial. Said out loud because it is the one login that
+                    // skips the pack, and a HUD full of boxes on that account is not a pack bug.
+                    logger.warn("No '{}' server is registered, so admin {} is connected straight to "
+                                    + "'{}' in phase {} - WITHOUT the resource pack",
+                            routing.servers().limbo(), player.getUsername(), decision.server(),
+                            phase);
+                }
+            }
+            // decideInitial has not answered STAY since 2026-09-05 - STAY meant velocity.toml's
+            // `try` list, which is limbo, which is the waiting room the answer claimed to skip. Kept
+            // as a no-op rather than falling into the refusal below, so that a future STAY is a
+            // log line and not a disconnect.
+            case STAY -> logger.warn("Routing answered STAY for {} at login in phase {}, which "
+                    + "leaves the choice to velocity.toml", player.getUsername(), phase);
             default -> {
                 // No waiting room. Clearing the initial server matters as much as the disconnect:
                 // without it Velocity would still try velocity.toml's own list, which is exactly
@@ -154,14 +169,15 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     public void releaseFromLimbo(final Player player) {
         final SeasonPhase phase = phases.lastKnown();
         final RouteDecision decision =
-                routing.decideAdmitted(phase, roster.isAdmin(player.getUniqueId()), registeredServerNames());
+                routing.decideRelease(phase, roster.isAdmin(player.getUniqueId()), registeredServerNames());
 
         switch (decision.action()) {
             case CONNECT -> connect(player, decision.server(), roster.localeOf(player.getUniqueId()));
             // Unreachable in practice: the station only releases a player once it has established
-            // that the destination is registered, and STAY needs an admin during MAINTENANCE, who
-            // was never put in the waiting room. Both are left as a log line rather than an
-            // exception - a player sitting in limbo is a better failure than a thrown one.
+            // that the destination is registered, and decideRelease never answers STAY - a player
+            // being released is standing in limbo, and "stay" there is the black screen of finding
+            // 93. Both are left as a log line rather than an exception - a player sitting in limbo
+            // is a better failure than a thrown one.
             case STAY -> logger.warn("The pack station released {} but routing says to leave them "
                     + "where they are, in phase {}", player.getUsername(), phase);
             default -> {
@@ -235,12 +251,15 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         roster.remember(uuid, state);
 
         final RouteDecision decision = routing.decide(state, available);
-        if (decision.action() == RouteDecision.Action.CONNECT && packs.isHeld(uuid)) {
+        if (packs.isHeld(uuid) && (decision.action() == RouteDecision.Action.CONNECT
+                || decision.action() == RouteDecision.Action.STAY)) {
             // Still in the waiting room. Their admission has just been re-checked above and stands,
             // so the phase change means their destination moved - but whether they may leave at all
             // is the pack station's question, not this one. Re-asking it here also updates the title
             // they are looking at: a switch into MAINTENANCE turns "downloading" into "maintenance"
-            // without moving anybody.
+            // without moving anybody. STAY is included since 2026-09-05: it is what an admin gets
+            // on a phase change, and an admin who happens to be in the room when the network is
+            // switched to MAINTENANCE has to be re-asked too, or they keep the old title.
             packs.evaluate(player);
             return false;
         }

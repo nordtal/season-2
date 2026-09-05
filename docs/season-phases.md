@@ -28,11 +28,11 @@ stateDiagram-v2
 
 | phase | who gets in | where they land | what it is |
 |---|---|---|---|
-| `PRE_LAUNCH` | **admins only** | not moved | Before the network has ever opened; everybody else sees a countdown |
+| `PRE_LAUNCH` | **admins only** | `limbo`, then `smp` | Before the network has ever opened; everybody else sees a countdown |
 | `PRE_EVENT` | linked Discord member, not banned | `hunger-games` lobby | Network is open, the lobby stands, teams register |
 | `START_EVENT` | linked Discord member, not banned | `hunger-games` | The event itself, from countdown to winner |
 | `SMP` | the above **plus active access** | `smp` | The season proper |
-| `MAINTENANCE` | linked Discord member, not banned | `limbo` (admins are not moved) | Planned work; everyone else waits in the waiting room |
+| `MAINTENANCE` | linked Discord member, not banned | `limbo` (an admin is let out onto `smp`; one already on a backend is not moved) | Planned work; everyone else waits in the waiting room |
 
 **`PRE_LAUNCH` is the season's initial state, added 2026-09-03.** It is not `MAINTENANCE` with
 another name: maintenance interrupts a season that is running and holds players in `limbo`, while
@@ -170,9 +170,24 @@ see [access-system.md](access-system.md) for the append rule.
 used to say "disconnect **or** hold in limbo" while the table above already said non-admins land in
 `limbo`; the owner settled it on holding them. Admission during maintenance is therefore exactly the
 admission rule of the two event phases, and `discord_user.admin` no longer decides *whether* a
-player gets in — only *where* they go, which is "not moved". Implemented 2026-08-31 in
+player gets in — only *where* they go. Implemented 2026-08-31 in
 `AccessState#mayJoin`, `GateOutcome` (whose `MAINTENANCE_CLOSED` value was deleted) and
 `network-control`'s `routing` package.
+
+**"Where an admin goes" was "not moved" until 2026-09-05, and that was a black screen.** Not moved
+meant `STAY` at login — leave the initial server to Velocity — and `velocity.toml`'s `try` list is
+`limbo`. So the admin landed in the waiting room after all, was offered the pack, applied it, and
+was then released onto "the phase's backend", which for `MAINTENANCE` and `PRE_LAUNCH` is `limbo`
+itself: the room they were standing in, under the title it had last drawn, with no timeout because
+the wait had officially ended. Seen three times on a real client on the production proxy
+(state-of-play finding 93), reproduced on the local stack the same day. Now an admin goes through
+the room like everybody else — pack included, which is the right way round for the one account
+whose HUD is looked at most — and comes out onto **`smp`**, fixed, no config key (owner's decision,
+2026-09-05): it is the server being built before the opening and worked on during maintenance,
+and `/server` reaches the others from there. `PhaseServers#forAdmitted` is the rule,
+`PhaseRouting#decideRelease` applies it, and `LimboHold` learned the admin flag so that maintenance
+holds everybody *but* the person doing it. On a phase change an admin already standing on a backend
+is still not moved; one standing in the room is re-asked by the pack station.
 
 An **unlinked** player is still refused with a link code during maintenance, and that half was not
 reversed: linking happens in Discord, so there is nothing for them to wait for.

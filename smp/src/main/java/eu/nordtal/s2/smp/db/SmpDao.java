@@ -84,7 +84,12 @@ public interface SmpDao {
      * here that the file no longer declares is exactly what {@code TrackValidation} exists to
      * catch.
      */
-    @SqlQuery("SELECT key FROM smp_milestone WHERE state = 'COMPLETE' ORDER BY key")
+    // 'UNLOCKED', which is what V6's CHECK and MilestoneState both say. This read 'COMPLETE' until
+    // 2026-09-05 - a value the constraint refuses - so completeMilestone() below threw on every
+    // call and this query never returned a row: escape hatch 2 had never worked, and the season's
+    // list of unlocked milestones was always empty. MilestoneStateIntegrationTest drives both
+    // against the real constraint now.
+    @SqlQuery("SELECT key FROM smp_milestone WHERE state = 'UNLOCKED' ORDER BY key")
     List<String> completedMilestoneKeys();
 
     /**
@@ -211,8 +216,8 @@ public interface SmpDao {
      */
     @SqlQuery("""
             UPDATE smp_milestone
-            SET state = 'COMPLETE', unlocked = now()
-            WHERE key = :key AND state <> 'COMPLETE'
+            SET state = 'UNLOCKED', unlocked = now()
+            WHERE key = :key AND state <> 'UNLOCKED'
             RETURNING key, pg_notify('nordtal_smp', 'milestone:' || key) AS notified
             """)
     Optional<String> completeMilestone(@Bind("key") String key);

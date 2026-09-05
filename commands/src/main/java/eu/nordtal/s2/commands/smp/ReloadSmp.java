@@ -26,11 +26,20 @@ public final class ReloadSmp implements NordtalCommand<SmpEffects> {
     @Override
     public void run(final NordtalUser user, final Values values, final SmpEffects effects) {
         effects.async(() -> {
+            final java.util.List<String> refused;
             try {
-                effects.reload();
+                refused = effects.reload();
             } catch (final RuntimeException failure) {
                 effects.warn("/smp reload failed", failure);
                 user.reply("smp.admin.reload-failed", Map.of(), Feedback.REFUSED);
+                return;
+            }
+            if (!refused.isEmpty()) {
+                // Named, not summarised. The person running this is editing milestones.yml on a
+                // running season, and "you renamed a key that has rows against it" is the only
+                // form of the answer they can act on.
+                user.reply("smp.admin.track-refused",
+                        Map.of("problems", String.join("\n", refused)), Feedback.REFUSED);
                 return;
             }
             user.reply("smp.admin.reloaded", Map.of(), Feedback.SMALL_SUCCESS);

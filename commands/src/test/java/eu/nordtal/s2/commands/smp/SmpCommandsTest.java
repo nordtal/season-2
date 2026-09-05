@@ -57,10 +57,13 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("all six are admin-only and reachable from Discord as well as in game")
-    void allSixAreOnBothPlatforms() {
+    @DisplayName("all seven are reachable from Discord as well as in game, and all but status are admin-only")
+    void allSevenAreOnBothPlatforms() {
         for (final Declaration declaration : SmpCommands.declarations()) {
-            assertTrue(declaration.adminOnly(), declaration.name() + " is not admin-only");
+            // /smp status is the one /smp command a player may run: three read-only lines about
+            // the season (2026-09-06, poliert stage 8). Everything that writes stays an admin's.
+            assertEquals(declaration != SmpCommands.STATUS, declaration.adminOnly(),
+                    declaration.name() + " has the wrong admin flag");
             assertTrue(declaration.surfaces().contains(Surface.GAME), declaration.name());
             assertTrue(declaration.surfaces().contains(Surface.DISCORD),
                     declaration.name() + " cannot be typed in Discord, which is the whole point of"
@@ -68,6 +71,30 @@ class SmpCommandsTest {
             assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
                     declaration.name() + " cannot be run from the console - the gap /hg had");
         }
+    }
+
+    // ------------------------------------------------------------------ status
+
+    @Test
+    @DisplayName("/smp status answers the phase, the milestone with its progress, and who is on")
+    void statusIsThreeLines() {
+        final FakeSmp smp = new FakeSmp();
+        final FakeUser user = FakeUser.inDiscord();
+        new ShowStatus().run(user, Values.none(SmpCommands.STATUS), smp);
+        assertEquals(List.of("phase.current", "smp.status.milestone", "smp.status.online"), user.keys());
+        assertEquals("Aufbruch", user.replies.get(1).placeholders().get("milestone"));
+        assertEquals(42, user.replies.get(1).placeholders().get("percent"));
+        assertEquals(3, user.replies.get(2).placeholders().get("online"));
+    }
+
+    @Test
+    @DisplayName("a finished season says so instead of naming a milestone")
+    void statusAfterTheLastMilestone() {
+        final FakeSmp smp = new FakeSmp();
+        smp.status = new SmpEffects.Status("SMP", java.util.Optional.empty(), 0, 12);
+        final FakeUser user = FakeUser.inGame();
+        new ShowStatus().run(user, Values.none(SmpCommands.STATUS), smp);
+        assertEquals(List.of("phase.current", "smp.status.finished", "smp.status.online"), user.keys());
     }
 
     // ------------------------------------------------------------------ reload

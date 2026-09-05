@@ -44,6 +44,13 @@ public final class SmpCommands {
             List.of("smp", "reload"), Target.SMP, EVERYWHERE, true, false, List.of());
 
     /**
+     * {@code /smp status} - the one {@code /smp} command that is not an admin's: the phase, the
+     * active milestone with its progress, and who is on. Read-only, from Discord as a row.
+     */
+    public static final Declaration STATUS = new Declaration(
+            List.of("smp", "status"), Target.SMP, EVERYWHERE, false, false, List.of());
+
+    /**
      * {@code /smp farmreset now} - deletes the farm world folder and regenerates it.
      *
      * <p>The literal {@code now} is kept from the chat command it was. It reads as a deliberate act
@@ -83,7 +90,7 @@ public final class SmpCommands {
     /** Every {@code /smp} command, for an adapter to register and for the catalogue. */
     public static List<NordtalCommand<SmpEffects>> all() {
         return List.of(new ReloadSmp(), new ResetFarmWorld(), new CompleteObjective(),
-                new UnlockMilestone(), new ChangeAura(), new ShowAccess());
+                new UnlockMilestone(), new ChangeAura(), new ShowAccess(), new ShowStatus());
     }
 
     /** Every {@code /smp} declaration. */

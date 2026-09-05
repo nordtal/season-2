@@ -466,7 +466,7 @@ class AccessDirectoryIntegrationTest {
     }
 
     @Test
-    void anAdminWithoutAccessStillGetsIntoMaintenanceButNotIntoTheSmp() {
+    void anAdminWithoutAccessGetsIntoMaintenanceAndIntoTheSmp() {
         directory.link(DISCORD_ID, MC_UUID);
         directory.setAdmin(DISCORD_ID, true);
 
@@ -474,10 +474,16 @@ class AccessDirectoryIntegrationTest {
         assertTrue(directory.accessState(MC_UUID).mayJoin(),
                 "an admin gets in during maintenance - as does everybody else, since 2026-08-31");
 
+        // Reversed 2026-09-05. This asserted the opposite - "the admin flag is not a free access
+        // period" - until the first local rehearsal, where the admin who typed /phase set SMP was
+        // disconnected by the switch they had just confirmed. The owner decided the flag is a free
+        // pass; the same query, read against the real row, is what has to say so.
         phase(SeasonPhase.SMP);
+        assertTrue(directory.accessState(MC_UUID).mayJoin(),
+                "the admin flag is an access period since 2026-09-05");
+        directory.setAdmin(DISCORD_ID, false);
         assertFalse(directory.accessState(MC_UUID).mayJoin(),
-                "the admin flag is not a free access period: SMP is the one phase that asks every "
-                        + "linked member for access, admin or not");
+                "and losing the role loses the pass, with nothing bought underneath it");
     }
 
     @Test
@@ -575,9 +581,9 @@ class AccessDirectoryIntegrationTest {
 
         assertTrue(state.admin(),
                 "this is what MAINTENANCE and the proxy's emergency /phase command are authorised by");
-        assertFalse(state.mayJoin(),
-                "being an admin is not access: in SMP an admin without a running grant is refused "
-                        + "like anybody else. MAINTENANCE is the only phase the flag lets somebody in");
+        assertTrue(state.mayJoin(),
+                "and since 2026-09-05 it is also an access period: the seeded phase is PRE_LAUNCH, "
+                        + "where the flag is the admission rule, and in SMP it stands in for a grant");
     }
 
     @Test

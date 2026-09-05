@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <tr><th>{@code START_EVENT}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>ALLOW</td>
  *       <td>ALLOW</td><td>ALLOW</td></tr>
  *   <tr><th>{@code SMP}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>NO_ACCESS</td>
- *       <td>ALLOW</td><td>NO_ACCESS</td></tr>
+ *       <td>ALLOW</td><td>ALLOW</td></tr>
  *   <tr><th>{@code MAINTENANCE}</th><td>NOT_LINKED</td><td>NOT_MEMBER</td><td>ALLOW</td>
  *       <td>ALLOW</td><td>ALLOW</td></tr>
  * </table>
@@ -117,12 +117,16 @@ class GateOutcomeTest {
     }
 
     @Test
-    void theAdminFlagIsNotAFreeAccessPeriod() {
+    void theAdminFlagIsAFreeAccessPeriod() {
+        // Reversed 2026-09-05. This used to assert NO_ACCESS - "the flag decides where a player
+        // goes during maintenance, never whether they may join" - and the first local rehearsal
+        // showed what that costs: the admin who typed /phase set SMP was disconnected by the switch
+        // they had just confirmed, with "no active access". The owner decided the flag is a free
+        // pass, the same way it already exempts an admin from the player limit.
         final AccessState adminWithoutAccess = state(SeasonPhase.SMP, MemberState.MEMBER, false, true);
 
-        assertEquals(GateOutcome.NO_ACCESS, GateOutcome.of(adminWithoutAccess),
-                "SMP asks every linked member for access, admin flag included - the flag decides "
-                        + "where a player goes during maintenance, never whether they may join");
+        assertEquals(GateOutcome.ALLOW, GateOutcome.of(adminWithoutAccess),
+                "an admin is on the network to run it, not to play a bought period");
     }
 
     // ---------------------------------------------------------------- the whole table at once
@@ -135,7 +139,7 @@ class GateOutcomeTest {
                 GateOutcome.ALLOW);
         assertRow(SeasonPhase.PRE_EVENT, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
         assertRow(SeasonPhase.START_EVENT, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
-        assertRow(SeasonPhase.SMP, GateOutcome.NO_ACCESS, GateOutcome.ALLOW, GateOutcome.NO_ACCESS);
+        assertRow(SeasonPhase.SMP, GateOutcome.NO_ACCESS, GateOutcome.ALLOW, GateOutcome.ALLOW);
         assertRow(SeasonPhase.MAINTENANCE, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
     }
 
@@ -182,12 +186,13 @@ class GateOutcomeTest {
     }
 
     @Test
-    void theAdminFlagChangesTheGateDecisionInPreLaunchAndNowhereElse() {
-        // In every other phase it decides where a player goes during maintenance (PhaseRouting),
-        // not whether they get in. PRE_LAUNCH is the exception and the only one: before the network
-        // has ever opened, being an admin IS the admission rule.
+    void theAdminFlagChangesTheGateDecisionInPreLaunchAndSmpAndNowhereElse() {
+        // PRE_LAUNCH: before the network has ever opened, being an admin IS the admission rule.
+        // SMP, since 2026-09-05: the flag stands in for an access period. In the three remaining
+        // phases it decides where a player goes (PhaseRouting), not whether they get in - and this
+        // loop is what keeps a third exception from arriving quietly.
         for (final SeasonPhase phase : SeasonPhase.values()) {
-            if (phase == SeasonPhase.PRE_LAUNCH) {
+            if (phase == SeasonPhase.PRE_LAUNCH || phase == SeasonPhase.SMP) {
                 continue;
             }
             for (final boolean accessActive : new boolean[]{false, true}) {

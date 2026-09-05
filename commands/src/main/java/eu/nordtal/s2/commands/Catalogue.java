@@ -41,7 +41,8 @@ public final class Catalogue {
                         HungerGamesCommands.declarations(),
                         LimboCommands.declarations(),
                         NetworkCommands.declarations(),
-                        AccessCommands.declarations())
+                        AccessCommands.declarations(),
+                        eu.nordtal.s2.commands.announce.AnnounceCommands.declarations())
                 .flatMap(List::stream)
                 .toList();
     }

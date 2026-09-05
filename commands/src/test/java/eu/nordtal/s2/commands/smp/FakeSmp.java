@@ -110,6 +110,14 @@ final class FakeSmp implements SmpEffects {
         return Optional.ofNullable(access);
     }
 
+    Status status = new Status("SMP", Optional.of("Aufbruch"), 42, 3);
+
+    @Override
+    public Status status(final java.util.Locale locale) {
+        throwIfAsked();
+        return status;
+    }
+
     @Override
     public Optional<OpenPayment> openPayment(final String discordId) {
         if (paymentFailure != null) {

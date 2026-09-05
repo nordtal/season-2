@@ -129,11 +129,25 @@ class CatalogueTest {
     @DisplayName("every command is admin-only, which is the whole of the authorisation model")
     void thereIsOneAdminList() {
         // discord_user.admin, mirrored from the Discord role, and the console. No LuckPerms, no
-        // permission nodes, no second list. A command that is not admin-only would be the first
-        // exception and should not arrive by accident.
-        assertEquals(List.of(), Catalogue.all().stream()
+        // permission nodes, no second list. The two exceptions are named here so that a third does
+        // not arrive by accident: /smp status is the one thing a player may ask the SMP (read-only,
+        // 2026-09-06), and announce is typed by nobody at all - its surface is SYSTEM, so no adapter
+        // registers it and the only thing that can run it is a request row from a server.
+        assertEquals(List.of("/smp status", "/announce"), Catalogue.all().stream()
                 .filter(declaration -> !declaration.adminOnly())
                 .map(Declaration::name)
                 .toList());
+    }
+
+    @Test
+    @DisplayName("a SYSTEM command is typed on no surface a person has")
+    void systemIsAloneOnItsSurface() {
+        // The adapters filter by GAME, DISCORD and CONSOLE; a declaration that carried SYSTEM next
+        // to one of those would be registered as a real command with a name a server also sends.
+        for (final Declaration declaration : Catalogue.all()) {
+            if (declaration.surfaces().contains(Surface.SYSTEM)) {
+                assertEquals(java.util.Set.of(Surface.SYSTEM), declaration.surfaces(), declaration.name());
+            }
+        }
     }
 }

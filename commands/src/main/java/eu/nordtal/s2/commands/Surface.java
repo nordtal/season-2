@@ -26,5 +26,14 @@ public enum Surface {
     DISCORD,
 
     /** The server console, or the container's {@code mc} wrapper. */
-    CONSOLE
+    CONSOLE,
+
+    /**
+     * Typed by no one: a command one process sends to another as a {@code command_request} row,
+     * with nobody waiting for the answer beyond the row itself. No adapter registers a SYSTEM
+     * command anywhere a person could type it, and the catalogue does not ask it for a description
+     * a person would read. Added 2026-09-06 for {@code announce}, the SMP's line into the Discord
+     * announcement channels - the transport was there since V11, this is the surface it lacked.
+     */
+    SYSTEM
 }

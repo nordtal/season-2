@@ -45,11 +45,21 @@ public final class CompleteObjective implements NordtalCommand<SmpEffects> {
                 user.reply("smp.admin.no-active-milestone", Map.of(), Feedback.REFUSED);
                 return;
             }
-            if (!effects.hasObjective(active.get(), key)) {
-                user.reply("smp.admin.no-such-objective", Map.of(), Feedback.REFUSED);
+            // Guarded like the read above it. These two are the same kind of call and were the
+            // only two in this class without a catch: a throw escaped the async runnable, so the
+            // admin got no reply at all and nothing was logged, on a command that may or may not
+            // have closed the objective.
+            try {
+                if (!effects.hasObjective(active.get(), key)) {
+                    user.reply("smp.admin.no-such-objective", Map.of(), Feedback.REFUSED);
+                    return;
+                }
+                effects.completeObjective(active.get(), key);
+            } catch (final RuntimeException failure) {
+                effects.warn("/smp objective complete could not close '" + key + "'", failure);
+                user.reply("smp.admin.read-failed", Map.of(), Feedback.REFUSED);
                 return;
             }
-            effects.completeObjective(active.get(), key);
             user.reply("smp.admin.objective-completed",
                     Map.of("key", key, "milestone", active.get()), Feedback.BIG_SUCCESS);
         });

@@ -38,7 +38,7 @@ public final class ChangeAura implements NordtalCommand<SmpEffects> {
         final int delta = values.integer("delta");
 
         effects.async(() -> {
-            final String name = effects.nameOf(player).orElse(player.toString());
+            final String name = nameOr(effects, player);
             final Optional<String> discordId;
             try {
                 discordId = effects.discordIdOf(player);
@@ -55,12 +55,31 @@ public final class ChangeAura implements NordtalCommand<SmpEffects> {
             try {
                 effects.changeAura(player, discordId.get(), delta, user.name());
             } catch (final RuntimeException failure) {
+                // Its own key, and not the read failure: changeAura books the aura row before it
+                // reads the new total back, so a throw here can be either half. "Nothing changed"
+                // would be a claim this branch cannot make.
                 effects.warn("/smp aura " + name + " " + delta + " failed", failure);
-                user.reply("smp.admin.read-failed", Map.of(), Feedback.REFUSED);
+                user.reply("smp.admin.aura-unknown", Map.of("player", name, "delta", delta),
+                        Feedback.REFUSED);
                 return;
             }
             user.reply("smp.admin.aura-changed", Map.of("player", name, "delta", delta),
                     Feedback.SMALL_SUCCESS);
         });
+    }
+
+    /**
+     * The player's name, or their UUID when the lookup itself fails.
+     *
+     * <p>The name is decoration - what the admin came for is the aura change - so a failure here
+     * must not end the task before anything has been said.</p>
+     */
+    static String nameOr(final SmpEffects effects, final UUID player) {
+        try {
+            return effects.nameOf(player).orElse(player.toString());
+        } catch (final RuntimeException failure) {
+            effects.warn("could not read the name of " + player, failure);
+            return player.toString();
+        }
     }
 }

@@ -41,6 +41,7 @@ public final class PaperCommandInbox {
     public static final Duration POLL = Duration.ofSeconds(5);
 
     private final CommandInbox inbox;
+    private Messages messages;
 
     /**
      * @param here     which process this is
@@ -50,24 +51,61 @@ public final class PaperCommandInbox {
      */
     public PaperCommandInbox(final Plugin plugin, final Target here,
                              final CommandRequests requests, final AccessDirectory access) {
+        this(plugin, here, requests, access, sharedBundle(plugin));
+    }
+
+    /** The same, with a bundle the plugin already built so that it can reload it. */
+    public PaperCommandInbox(final Plugin plugin, final Target here,
+                             final CommandRequests requests, final AccessDirectory access,
+                             final Messages shared) {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(access, "access");
-        this.inbox = new CommandInbox(here, requests, sharedBundle(plugin),
+        this.messages = Objects.requireNonNull(shared, "shared");
+        this.inbox = new CommandInbox(here, requests, shared,
                 CommandInbox.AdminCheck.of(access::admins, access::adminMinecraftAccounts),
                 (message, failure) -> plugin.getLogger()
                         .log(java.util.logging.Level.WARNING, message, failure));
     }
 
     /**
-     * The shared command bundle, alone.
+     * The shared command bundle, alone - and the operator's override on top of it.
      *
      * <p>Loaded off the plugin's own class loader because {@code :commands} is shaded into it - so
      * this is the copy that shipped with this build, and a version skew shows up as an unknown key
      * rather than as a message from another release.</p>
+     *
+     * <p><b>Alone means one root, not no overrides.</b> The layering is what has to be avoided here,
+     * because the module's own bundle is allowed MiniMessage; the override directory is the
+     * operator's single lever over wording, and until 2026-09-05 it reached the answer a command
+     * gave in chat and not the one it gave to a Discord admin - the same command, reading
+     * differently depending on where it was typed.</p>
+     *
+     * <p>The plugin should keep what this returns and reload it wherever it reloads its own, which
+     * is what {@link #reloadMessages()} is for. It should <em>not</em> report this bundle's unknown
+     * override keys: a key only the module declares is not unknown, it is simply in the other
+     * bundle, and the plugin's layered {@code Messages} already names the genuinely unknown ones.</p>
      */
-    private static Messages sharedBundle(final Plugin plugin) {
+    public static Messages sharedBundle(final Plugin plugin) {
         return Messages.load(plugin.getClass().getClassLoader(), "messages/commands",
+                plugin.getDataFolder().toPath().resolve("messages"),
                 java.util.Locale.ENGLISH, java.util.Locale.GERMAN);
+    }
+
+    /**
+     * Re-read the shared bundle and its override.
+     *
+     * <p>For the plugin's own reload command to call next to its own reload. Without it the answers
+     * this inbox writes back keep the wording the process started with, for as long as it runs.</p>
+     *
+     * @return whether the running wording is now what the files say
+     */
+    public boolean reloadMessages() {
+        try {
+            messages.reload();
+            return true;
+        } catch (final RuntimeException failure) {
+            return false;
+        }
     }
 
 

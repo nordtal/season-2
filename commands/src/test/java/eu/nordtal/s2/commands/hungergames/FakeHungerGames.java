@@ -44,9 +44,14 @@ final class FakeHungerGames implements HungerGamesEffects {
         return Optional.ofNullable(registration);
     }
 
+    RuntimeException startFailure;
+
     @Override
     public void start(final UUID gameId) {
         did.add("start " + gameId);
+        if (startFailure != null) {
+            throw startFailure;
+        }
     }
 
     @Override

@@ -18,8 +18,13 @@ public final class ReloadLimbo implements NordtalCommand<LimboEffects> {
 
     @Override
     public void run(final NordtalUser user, final Values values, final LimboEffects effects) {
-        effects.async(() -> user.reply(
-                effects.reloadMessages() ? "limbo.admin.reloaded" : "limbo.admin.reload-failed",
-                Map.of(), Feedback.SMALL_SUCCESS));
+        effects.async(() -> {
+            // The cue follows the result, not the command. Both of these answered a failed
+            // reload with the success sound until 2026-09-05, which is the one thing an
+            // operator hears without reading.
+            final boolean reloaded = effects.reloadMessages();
+            user.reply(reloaded ? "limbo.admin.reloaded" : "limbo.admin.reload-failed", Map.of(),
+                    reloaded ? Feedback.SMALL_SUCCESS : Feedback.REFUSED);
+        });
     }
 }

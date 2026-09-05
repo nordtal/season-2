@@ -13,6 +13,8 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 import net.dv8tion.jda.api.utils.TimeFormat;
 import org.jdbi.v3.core.Jdbi;
 
@@ -251,6 +253,38 @@ public final class AccessRoles {
     /** A Discord timestamp, so every reader sees the moment in their own time zone. */
     public static String timestamp(final Instant instant) {
         return TimeFormat.DATE_TIME_SHORT.format(OffsetDateTime.ofInstant(instant, ZoneOffset.UTC));
+    }
+
+    /**
+     * The guild member behind a Discord id, or empty when there is none to be had.
+     *
+     * <h2>A member, not a user, and the difference is the answer</h2>
+     * {@code JDA#retrieveUserById} resolves a <em>global</em> Discord account, so somebody who has
+     * left the guild comes back from it looking exactly like somebody who is still in it - which is
+     * what {@code /access status} answered for a departed member until 2026-09-05. Membership in the
+     * configured guild is what every other thing this class does is about, so it is what this asks.
+     *
+     * <p>Empty covers three cases that are one from the asker's side: no such member, no such
+     * account, and an id that is not a snowflake at all. Anything else - the gateway being down, a
+     * permission problem - is left to throw, because "there is no such member" would be a lie about
+     * it.</p>
+     */
+    public Optional<Member> member(final String discordId) {
+        final Guild guild = guild();
+        if (guild == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.ofNullable(guild.retrieveMemberById(discordId).complete());
+        } catch (final NumberFormatException notASnowflake) {
+            return Optional.empty();
+        } catch (final ErrorResponseException failure) {
+            if (failure.getErrorResponse() == ErrorResponse.UNKNOWN_MEMBER
+                    || failure.getErrorResponse() == ErrorResponse.UNKNOWN_USER) {
+                return Optional.empty();
+            }
+            throw failure;
+        }
     }
 
     private Guild guild() {

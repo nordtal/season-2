@@ -60,8 +60,21 @@ public final class RequestArguments {
                             + " is missing required argument '" + argument.name() + "'");
                 }
                 // Optionals are trailing - Declaration refuses a required argument after an
-                // optional one - so the first absent value ends the line and nothing after it can
-                // have been supplied.
+                // optional one - so the first absent value ends the line. Two of them, where the
+                // first is absent and the second is not, is expressible today and cannot be written
+                // back in a readable order; it used to end the line and drop the second value
+                // without a word, which is the one kind of failure this whole class exists to make
+                // impossible.
+                for (final Argument later : declaration.arguments()
+                        .subList(declaration.arguments().indexOf(argument) + 1,
+                                declaration.arguments().size())) {
+                    if (values.raw(later.name()).isPresent()) {
+                        throw new IllegalArgumentException(declaration.name() + ": argument '"
+                                + later.name() + "' was supplied after absent optional '"
+                                + argument.name() + "', and a line cannot carry the gap between"
+                                + " them");
+                    }
+                }
                 break;
             }
 
@@ -75,6 +88,15 @@ public final class RequestArguments {
                 throw new IllegalArgumentException(declaration.name() + ": argument '"
                         + argument.name() + "' is empty, which is indistinguishable from absent"
                         + " once it is a line");
+            }
+            // decode() walks past the spaces between arguments before it reads the greedy one, so a
+            // greedy value that begins or ends with one does not come back the way it went in - the
+            // far side would run the command with a different value and nothing anywhere would say
+            // so. Refused for the same reason a word carrying a space is refused.
+            if (argument.kind() == Argument.Kind.GREEDY_STRING && !text.equals(text.strip())) {
+                throw new IllegalArgumentException(declaration.name() + ": argument '"
+                        + argument.name() + "' begins or ends with whitespace (\"" + text
+                        + "\"), which a line cannot carry back unchanged");
             }
             parts.add(text);
         }
@@ -139,7 +161,9 @@ public final class RequestArguments {
                 // A Discord snowflake: digits, and nothing else. Checked because the far side hands
                 // it straight to a query and to a mention - a malformed one would look like a
                 // member who simply does not exist.
-                if (!token.chars().allMatch(Character::isDigit)) {
+                // '0' through '9' and nothing else. Character.isDigit is true for Devanagari and
+                // Arabic-Indic digits too, and a snowflake is ASCII.
+                if (!token.chars().allMatch(digit -> digit >= '0' && digit <= '9')) {
                     throw new IllegalArgumentException(declaration.name() + ": argument '"
                             + argument.name() + "' is a Discord account and was sent \"" + token
                             + "\", which is not an id - the asking adapter is meant to resolve it"

@@ -59,6 +59,17 @@ CREATE TABLE command_request
     -- table that is empty almost all of the time. The target guards the same boundary from its own
     -- end by refusing to claim a row whose `expires` has passed, so a slow target and a giving-up
     -- asker cannot both act on one row.
+    --
+    -- RETENTION, decided by the owner 2026-09-05: a SETTLED row is deleted 30 days after it
+    -- finished. That is a different thing from the paragraph above and was missing entirely - the
+    -- table had no deletion path at all, so every settled row kept `requested_by`, `discord_id`,
+    -- `mc_uuid`, `arguments` and a rendered `result` for as long as the database existed, while
+    -- this file called a request "a message in flight". Volume was never the argument (a season is
+    -- a few dozen admin commands); the identifiers were. The updater does it once at the start of
+    -- `serve`, next to settleOrphans and NOT on a timer, because that process is deliberately not a
+    -- scheduler - see CommandRequests#deleteSettledOlderThan. A PENDING or RUNNING row is never
+    -- touched however old it looks: deleting one somebody is still waiting on is worse than keeping
+    -- one too long.
     status       varchar(16) NOT NULL DEFAULT 'PENDING'
         CONSTRAINT command_request_status_check
             CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'FAILED', 'EXPIRED')),

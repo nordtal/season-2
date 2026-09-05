@@ -487,6 +487,12 @@ answered an unlinked target with the message written for a player about their *o
 in as many words. None of those was found by a test; all four were found by writing the second
 implementation next to the first.
 
+**A `PaperCommands` subtree hung on with `extra()` is admin-gated; `extraOpen()` is the named
+exception.** The roots themselves carry no `requires` - gating `/hg` at the root hid `/hg ready`,
+which every participant needs - so the check sits on every node below, and a subtree this adapter did
+not build has to be told which it is. It defaults to gated because the one subtree that exists is
+`/smp update`, and the day the root check moved down it silently lost its own.
+
 **`:paper-common` is new on 2026-09-04, and it is a layer this repository did not have.** `:common`
 is compiled against no platform at all, on purpose - that rule is what lets one shared module serve
 Paper, Velocity and two plain JVM applications at once. What it cost, silently, was that anything the
@@ -895,23 +901,24 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Nine modules have tests: 1168 in total, none skipped, all green** (`./gradlew build` with a
-Docker daemon present, 2026-09-05, after every admin command was folded into `:commands`). The counts
+**Nine modules have tests: 1187 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-05, after the CodeRabbit review of the command layer was worked
+through). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
 | module | tests |
 |---|---|
-| `common` | 311 |
+| `common` | 313 |
 | `network-control` | 178 |
 | `smp` | 171 |
-| `commands` | 150 |
-| `discord-bot` | 141 |
+| `commands` | 166 |
+| `discord-bot` | 142 |
 | `updater` | 136 |
 | `hunger-games` | 65 |
 | `limbo` | 11 |
 | `paper-common` | 5 |
 
-**`:commands` went from 56 to 150 on 2026-09-05**, and `:paper-common` gained the one thing that
+**`:commands` went from 56 to 166 on 2026-09-05**, and `:paper-common` gained the one thing that
 could not be tested anywhere else. The new ones are worth naming by what they can now answer:
 `SmpCommandsTest` (23), `HungerGamesCommandsTest` (14), `AccessCommandsTest` (13) and
 `LimboCommandsTest` (3) exercise every branch of every folded command against a fake effects
@@ -931,7 +938,13 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **293**. **Four are new on 2026-09-04 with `/smp access`**: one integration case for
+`:common` has **313**. **Two are new on 2026-09-05 with the retention window**, and they are
+the only place the `DELETE` can be checked: that a settled row past 30 days goes, that one inside
+the window stays, and - the case that matters - that a `PENDING` row is never touched however old it
+looks, because deleting one somebody is still waiting on is worse than keeping one too long. Three
+more of that class's cases stopped accepting *any* `SQLException` the same day and now name the
+constraint that refused the row, which is what keeps them from staying green after the CHECK they
+are named for is gone. **Four are from 2026-09-04 with `/smp access`**: one integration case for
 `openPayment` - the read of the bot's `payment_request` that lets a Paper server tell "has not paid"
 apart from "is halfway through paying", driven against a real database because the whole of it is
 SQL plus a constructor mapper - and three for `OpenPayment#amount`, which turns integer cents back
@@ -1042,7 +1055,8 @@ run when the database is unreachable, and is also why a hand-set emergency opera
 a restart. `smp`'s ConfigsTest gained the twelfth: `admin-permissions` is retired, and a deployed
 `config.yml` that still carries it has to fail **by name** rather than quietly ignore the key.
 
-`discord-bot` has **140**, and the drop of fifteen is the point rather than a loss. `PhaseCommandTest`
+`discord-bot` has **142**, and the drop of fifteen that got it there is the point rather than a
+loss. `PhaseCommandTest`
 was twenty-one cases asserting this bot's own authorisation rule, its own phase parsing, its own
 confirmation wording, its own overview and its own date refusal - every one of which the proxy
 decided separately, and some of which it decided differently. Those live once now, in `:commands`,
@@ -1111,7 +1125,7 @@ fails on the old semantics — checked by putting the bug back — and it is the
 rule that replaced them: **no single plugin message may be able to strand a player.** See
 `docs/state-of-play.md` finding 38.
 
-`commands` has **56**, and it went from 16 on the day it was scaffolded to this on the day the first
+`commands` has **166**, and it went from 16 on the day it was scaffolded to this on the day the first
 command was folded into it - which is the whole difference between a module and a shape. Twenty-two
 are `PhaseCommandsTest`, and every case in it was previously answerable only by running the command
 on a real proxy or in a real guild: what `/phase` says when the phase is already the one asked for,
@@ -1138,16 +1152,20 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **173**. **The newest three are `IrreversibleCommandsTest`, added 2026-09-04** when the
-"two-step everywhere" rule reached this module: `/smp farmreset now`, `/smp objective complete` and
-`/smp milestone unlock` now have to be typed twice inside `Confirmations.WINDOW`. It is a text
-search, for the reason every wiring test in this repository is one - what it protects is *whether a
-handler calls the gate*, and building the tree needs Paper. What makes it worth having is asymmetric:
-`/smp farmreset now` deletes a world folder (it is why `deploy/minecraft/entrypoint-test.sh` exists
-at all), so a refactor that drops the guard produces a command that works perfectly and destroys the
-farm world on a typo. **Its third case asserts the opposite** - that `/smp aura` and `/smp reload`
-are still *not* guarded - because a flag on everything that writes is a flag nobody reads; `/smp
-update restart` keeps its own confirmation, a minute of countdown every player sees. **Six are new on 2026-09-04**, and they are this module's first that need a
+`smp` has **171**. **The "two-step everywhere" rule reached this module on 2026-09-04** - `/smp
+farmreset now`, `/smp objective complete` and `/smp milestone unlock` have to be typed twice inside
+`Confirmations.WINDOW` - and what asserts it is `SmpCommandsTest#whatIsIrreversible`, in
+`:commands`, as one set each: the three that are guarded and the three that deliberately are not.
+**This file and `docs/smp.md` both named an `IrreversibleCommandsTest` until 2026-09-05 and no such
+file has ever existed** (found by the CodeRabbit review). It was going to be a text search, the way
+every wiring test here is one; it did not need to be, because the fold moved the guard out of each
+handler and into `Declaration#irreversible`, which is a fact about the declaration and can be
+asserted directly. What makes the rule worth an assertion at all is asymmetric: `/smp farmreset now`
+deletes a world folder (it is why `deploy/minecraft/entrypoint-test.sh` exists at all), so a
+refactor that drops the guard produces a command that works perfectly and destroys the farm world on
+a typo. The other half matters as much - a flag on everything that writes is a flag nobody reads, so
+`/smp aura` and `/smp reload` are named as *unguarded*; `/smp update restart` keeps its own
+confirmation, a minute of countdown every player sees. **Six are new on 2026-09-04**, and they are this module's first that need a
 container: `SpinRefundIntegrationTest` drives the two wheel-refund statements against a real
 PostgreSQL running the real migrations. The wheel spends the spin in SQL before it draws a prize -
 deliberately, so the animation cannot become a second answer about one spin - and the cost of that
@@ -1184,7 +1202,7 @@ definition, and `MessageBundlesTest` (4) keeps the two language files symmetrica
 placeholders. What no test here covers is the world itself; that is what the drills and the
 rehearsals are for.
 
-`hunger-games` has **64**. **The newest two are `ConsoleUsableTest`, added 2026-09-04 with the fix
+`hunger-games` has **65**. **Two of them are `ConsoleUsableTest`, added 2026-09-04 with the fix
 for the defect the whole command survey turned on:** every `/hg` subcommand was gated on
 `getSender() instanceof Player` and every handler opened with a cast to `Player`, so **the console
 could run none of it** - and the start of the season's flagship event depended on one client being

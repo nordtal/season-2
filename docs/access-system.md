@@ -225,12 +225,13 @@ One admin channel; entries that need a human mention an admin role, routine audi
 - `/access status <member>` — valid-until, history, open requests
 
   **Renamed and grouped on 2026-09-05**, from `/grant-access`, `/revoke-access` and
-  `/access-status`. They are declarations in `:commands` now, which means three things at once: they
+  `/access-status` and `/settle`. They are declarations in `:commands` now, which means three things at once: they
   are the same commands in game, they answer in the asker's language rather than in hardcoded
   English, and they check `discord_user.admin` - which none of them did. Their only gate was
   Discord's own permission system, so the set of people who could grant paid access was whoever a
   server administrator had given the right Discord permission to.
-- `/settle <ref>` — book a request by hand, with autocompletion over open references
+- `/access settle <reference>` — book a request by hand, with autocompletion over open references. Since 2026-09-05 the autocompletion is gated on `discord_user.admin` too: it had no check at
+  all, so anybody Discord showed the command to could enumerate every open payment reference
 - `/phase set <phase>` — the season phase, with a confirmation naming what happens to whoever is
   online ([season-phases.md](season-phases.md#who-may-switch-it))
 - `/update` — what is newer than what the network runs, an **Install** button under the report and a

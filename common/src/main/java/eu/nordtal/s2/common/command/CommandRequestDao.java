@@ -139,6 +139,31 @@ interface CommandRequestDao {
     @RegisterConstructorMapper(OutcomeRow.class)
     Optional<OutcomeRow> outcome(@Bind("id") long id);
 
+    /**
+     * Deletes every settled request older than the retention window.
+     *
+     * <h2>Why the table needs one at all</h2>
+     * A settled row keeps the asker's name, their Discord id, their Minecraft account, the arguments
+     * they typed and the answer they were given - and V11 calls a request "a message in flight",
+     * which is a lifetime the table had no way of honouring: there was no deletion path anywhere.
+     * The volume is not the argument (a season is a few dozen admin commands), the identifiers are.
+     *
+     * <p><b>Settled only.</b> A {@code PENDING} or {@code RUNNING} row is never touched however old
+     * it looks: the one thing worse than keeping a row too long is deleting one somebody is still
+     * waiting on. Those are bounded from both ends already - the asker expires its own, and a target
+     * refuses to claim one whose {@code expires} has passed.</p>
+     *
+     * <p>{@code make_interval(days => :days)} and not {@code interval 'N days'}, which is the rule
+     * this repository has carried since the {@code make_interval} bug in stage A: a day is never a
+     * string that has a number pasted into it.</p>
+     */
+    @SqlUpdate("""
+            DELETE FROM command_request
+            WHERE status IN ('DONE', 'FAILED', 'EXPIRED')
+              AND finished < now() - make_interval(days => :days)
+            """)
+    int deleteSettledOlderThan(@Bind("days") int days);
+
     /** One row of {@link #outcome}: the status, and the answer that may not be there yet. */
     record OutcomeRow(String status, String result) {
     }

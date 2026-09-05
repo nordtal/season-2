@@ -103,14 +103,33 @@ public final class DiscordUser implements NordtalUser {
 
     /** Everything said so far, for a caller that wants to send it with components attached. */
     public String text() {
-        return String.join("\n\n", lines);
+        synchronized (lines) {
+            return String.join("\n\n", lines);
+        }
     }
 
+    /**
+     * One more line, and the whole answer resent.
+     *
+     * <h2>Why the list is locked</h2>
+     * More than one thread reaches it. This user is built on a JDA worker thread, and a command
+     * whose target is another process is then answered by {@code Outbox} - from its own scheduler,
+     * and again from the task that gives up waiting. Two of those three can overlap, and an
+     * unsynchronised {@link ArrayList} written from two threads loses a line, sends a stale one, or
+     * fails inside the list itself.
+     *
+     * <p>The join happens under the same lock, so the text sent is the text the list held at the
+     * moment this line was added rather than whatever it holds by the time the edit is built.</p>
+     */
     private void say(final String line) {
-        lines.add(line);
+        final String all;
+        synchronized (lines) {
+            lines.add(line);
+            all = String.join("\n\n", lines);
+        }
         // Components are cleared: by the time a command is replying, any confirmation buttons that
         // led here have been used and a button that still works would run it a second time.
-        hook.editOriginal(text()).setComponents(List.of()).queue();
+        hook.editOriginal(all).setComponents(List.of()).queue();
     }
 
     private String render(final String messageKey, final Map<String, ?> placeholders) {

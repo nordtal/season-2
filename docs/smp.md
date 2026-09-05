@@ -1034,7 +1034,10 @@ flag nobody reads:
 - `/smp update restart` - it has a confirmation of its own shape already, and a better one: a minute
   of countdown every player on the network sees, which an admin who mistyped can cancel.
 
-`IrreversibleCommandsTest` asserts both halves. `farmreset` is the one that justifies the rule: it
+`SmpCommandsTest#whatIsIrreversible` asserts both halves - the three that are guarded and the
+three that are not, as one set each. It was a text search called `IrreversibleCommandsTest`
+until the confirmation moved out of the handlers and into `Declaration#irreversible`, which is
+a fact about the declaration and can be asserted directly. `farmreset` is the one that justifies the rule: it
 deletes a world folder, which is why the deployment's shell has a test at all
 ([deploy/README.md](../deploy/README.md#first-start-seeding)), and a refactor that drops the guard
 would produce a command that works perfectly and destroys the farm world on a typo.

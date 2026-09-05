@@ -100,7 +100,7 @@ flowchart LR
     end
 
     JDBI["JDBI 3 + HikariCP<br/>+ PostgreSQL driver"]
-    JCORE["jcore 3.0.0<br/>config + JDBI + Flyway"]
+    JCORE["jcore 3.1.0<br/>config + JDBI + Flyway"]
 
     NC["network-control"] --> COMMON
     LB["limbo"] --> COMMON

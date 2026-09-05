@@ -1,6 +1,5 @@
 package eu.nordtal.s2.smp.config;
 
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -17,9 +16,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -70,17 +69,21 @@ class ConfigsTest {
     }
 
     /**
-     * {@code config.yml} does not carry the sounds, and a config that still does must not load.
+     * {@code config.yml} does not carry the sounds, and a config that still does loses the block
+     * rather than keeping something that looks like a working setting.
      *
      * <p>They lived under a {@code sounds:} key there for one afternoon on 2026-09-04 before moving
-     * to their own file, for the reason {@link SoundsSpec} gives. jcore stops a load on a key the
-     * interface does not declare, so this is already true - it is asserted by name because the
-     * <em>reason</em> it has to stay true is invisible from {@code SmpSpec}: a sounds block back in
-     * {@code config.yml} would be read once at enable and never again, and the escape hatch of
+     * to their own file, for the reason {@link SoundsSpec} gives. This is asserted by name because
+     * the <em>reason</em> it has to stay true is invisible from {@code SmpSpec}: a sounds block back
+     * in {@code config.yml} would be read once at enable and never again, and the escape hatch of
      * blanking a key would silently need a restart of the season.
+     *
+     * <p>Until jcore 3.1.0 the block stopped the plugin and this test asserted that. What it pins
+     * now is the half that was always the point: the key does not survive the load, so nobody can
+     * re-declare it in {@code SmpSpec} and quietly get an unreloadable second source of sounds.
      */
     @Test
-    void configYmlRefusesASoundsBlock() throws Exception {
+    void configYmlDropsASoundsBlock() throws Exception {
         Configs.load(directory, LOGGER);
         final Path file = directory.resolve("config.yml");
         Files.writeString(file, Files.readString(file) + System.lineSeparator()
@@ -88,36 +91,43 @@ class ConfigsTest {
                 + "  select:" + System.lineSeparator()
                 + "    key: minecraft:ui.button.click" + System.lineSeparator());
 
-        final ConfigException refused =
-                assertThrows(ConfigException.class, () -> Configs.load(directory, LOGGER));
-        assertTrue(refused.getMessage().contains("sounds"),
-                "the refusal has to name the key, or nobody can act on it: " + refused.getMessage());
+        Configs.load(directory, LOGGER);
+
+        assertFalse(Files.readAllLines(file).contains("sounds:"),
+                "a sounds block in config.yml has to be gone after one load, not merely ignored");
     }
 
     /**
      * {@code admin-permissions} is retired, and a deployed {@code config.yml} that still carries it
-     * must stop the plugin rather than quietly ignore it.
+     * loses the block instead of keeping one that reads like a working setting.
      *
      * <p>Retired 2026-09-04, when an admin became a server operator instead
-     * ({@link eu.nordtal.s2.common.access.AdminOperators}). The refusal is the <em>point</em>: this
-     * key is in a file that already exists in a production volume, so the choice was between
-     * failing by name at the next start and leaving a block that reads like a working setting and
-     * does nothing. jcore gives the first for free - what this test pins is that nobody
-     * re-declares the key as a deprecated no-op to make an upgrade quieter.</p>
+     * ({@link eu.nordtal.s2.common.access.AdminOperators}). This key is in a file that already
+     * exists in a production volume, and the only thing an operator could ever do about it is
+     * delete the line - so as of jcore 3.1.0 the loader deletes it, names it in a warning and
+     * leaves the old file in {@code config.yml.bak}. This test used to assert the plugin stopped
+     * instead. What it pins either way is that nobody re-declares the key as a deprecated no-op to
+     * make an upgrade quieter.</p>
      */
     @Test
-    void configYmlRefusesRetiredAdminPermissions() throws Exception {
+    void configYmlDropsRetiredAdminPermissions() throws Exception {
         Configs.load(directory, LOGGER);
         final Path file = directory.resolve("config.yml");
         Files.writeString(file, Files.readString(file) + System.lineSeparator()
                 + "admin-permissions:" + System.lineSeparator()
                 + "  - minecraft.command.gamemode" + System.lineSeparator());
 
-        final ConfigException refused =
-                assertThrows(ConfigException.class, () -> Configs.load(directory, LOGGER));
-        assertTrue(refused.getMessage().contains("admin-permissions"),
-                "the refusal has to name the key, or the operator cannot act on it: "
-                        + refused.getMessage());
+        final SmpSpec config = Configs.load(directory, LOGGER).get();
+
+        assertAll(
+                () -> assertFalse(Files.readString(file).contains("admin-permissions"),
+                        "the retired key has to be gone from the file"),
+                () -> assertTrue(Files.readString(directory.resolve("config.yml.bak"))
+                                .contains("admin-permissions"),
+                        "and readable in the backup, because it is what the operator had configured"),
+                () -> assertEquals("nordtal", config.worldNordtal(),
+                        "everything the file still declares survives the deletion")
+        );
     }
 
     /** Every value below the nested interfaces survives the round trip, not just the flat ones. */

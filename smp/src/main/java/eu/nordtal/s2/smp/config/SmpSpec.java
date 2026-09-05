@@ -786,10 +786,12 @@ public interface SmpSpec {
     // eu.nordtal.s2.common.access.AdminOperators, which also explains why ops.json is swept at
     // every enable.
     //
-    // The key is deliberately NOT re-declared as a deprecated no-op: jcore stops a load on a key
-    // the interface does not declare, which is what makes a stale `plugins/smp/config.yml` in a
-    // deployed volume fail loudly and by name instead of silently doing nothing. ConfigsTest
-    // asserts that refusal, and the owner's checklist carries the one-line edit on the host.
+    // The key is deliberately NOT re-declared as a deprecated no-op: jcore deletes a key the
+    // interface does not declare and names it in a warning, so a stale `plugins/smp/config.yml`
+    // in a deployed volume loses the block instead of keeping one that reads like a working
+    // setting. ConfigsTest asserts it is gone from the file after one load. This said the load
+    // was *refused* until jcore 3.1.0 on 2026-09-05; the reason for the deletion is unchanged,
+    // only who does it - there was never anything for the operator to decide here.
 
     // ---------------------------------------------------------------- admin propagation
 

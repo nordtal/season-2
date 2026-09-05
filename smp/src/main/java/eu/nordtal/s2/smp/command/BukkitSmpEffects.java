@@ -129,10 +129,16 @@ public final class BukkitSmpEffects implements SmpEffects {
 
     @Override
     public Optional<String> nameOf(final UUID player) {
-        final Player online = Bukkit.getPlayer(player);
-        return online != null
-                ? Optional.of(online.getName())
-                : Optional.ofNullable(Bukkit.getOfflinePlayer(player).getName());
+        // On the server thread, because both lookups read state the server owns and every caller of
+        // this reaches it from CommandEffects#async. Paper's own note on Bukkit is that an
+        // asynchronous task must not touch the API; getOfflinePlayer additionally consults the user
+        // cache. The wait is the price of a name, and a name is what this returns.
+        return onMainThread(() -> {
+            final Player online = Bukkit.getPlayer(player);
+            return online != null
+                    ? Optional.of(online.getName())
+                    : Optional.ofNullable(Bukkit.getOfflinePlayer(player).getName());
+        });
     }
 
     @Override

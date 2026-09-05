@@ -26,6 +26,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.IllegalPluginAccessException;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
@@ -133,7 +134,7 @@ public final class PaperCommands {
         }
         entries.add(new Entry(declaration,
                 (user, values) -> command.run(user, values, effects),
-                command::problem));
+                command::check));
         return this;
     }
 
@@ -187,9 +188,20 @@ public final class PaperCommands {
      */
     public PaperCommands suggest(final Declaration declaration, final String argument,
                                  final java.util.function.Supplier<java.util.Collection<String>> values) {
-        if (declaration.arguments().stream().noneMatch(a -> a.name().equals(argument))) {
-            throw new IllegalArgumentException(declaration.name() + " has no argument '" + argument
-                    + "', so nothing would ever ask for these suggestions");
+        final eu.nordtal.s2.commands.Argument declared = declaration.arguments().stream()
+                .filter(a -> a.name().equals(argument))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(declaration.name()
+                        + " has no argument '" + argument
+                        + "', so nothing would ever ask for these suggestions"));
+        // node() applies these in the WORD branch and only there - every other kind brings its own
+        // suggestions, which is the point of being that kind. Registering them for one of those
+        // used to be accepted and then silently ignored, which is the worst of the three possible
+        // behaviours: nothing offered, and nothing said.
+        if (declared.kind() != eu.nordtal.s2.commands.Argument.Kind.WORD) {
+            throw new IllegalArgumentException(declaration.name() + ": argument '" + argument
+                    + "' is a " + declared.kind() + ", which carries its own suggestions - these"
+                    + " would never be offered");
         }
         suggestions.put(declaration.name() + " " + argument, Objects.requireNonNull(values, "values"));
         return this;
@@ -330,7 +342,7 @@ public final class PaperCommands {
                               final Entry entry) {
         final List<eu.nordtal.s2.commands.Argument> arguments = entry.declaration().arguments();
         if (arguments.isEmpty()) {
-            parent.executes(context -> run(context, entry, Map.of()));
+            parent.executes(context -> dispatch(context, entry, new Parsed(Map.of(), Map.of())));
             return true;
         }
 
@@ -346,7 +358,7 @@ public final class PaperCommands {
             // it - Values would throw about a declaration disagreement, which is a sentence written
             // for a programmer.
             if (satisfied(arguments, index + 1)) {
-                node.executes(context -> run(context, entry, read(context, arguments, index + 1)));
+                node.executes(context -> dispatch(context, entry, read(context, arguments, index + 1)));
             } else {
                 node.executes(context -> usage(context, entry.declaration()));
             }
@@ -360,7 +372,7 @@ public final class PaperCommands {
         if (arguments.getFirst().required()) {
             return false;
         }
-        parent.executes(context -> run(context, entry, Map.of()));
+        parent.executes(context -> dispatch(context, entry, new Parsed(Map.of(), Map.of())));
         return true;
     }
 
@@ -477,11 +489,22 @@ public final class PaperCommands {
         };
     }
 
+    /**
+     * Everything Brigadier parsed, in the shapes {@link Values} hands out - and, separately, the
+     * accounts that still have to be looked up.
+     *
+     * @param values   what is already known, on the main thread, without touching a database
+     * @param accounts argument name to the UUID whose {@code account_link} row has to be read
+     */
+    private record Parsed(Map<String, Object> values, Map<String, UUID> accounts) {
+    }
+
     /** Everything Brigadier parsed, in the shapes {@link Values} hands out. */
-    private Map<String, Object> read(final CommandContext<CommandSourceStack> context,
-                                     final List<eu.nordtal.s2.commands.Argument> arguments,
-                                     final int count) {
+    private Parsed read(final CommandContext<CommandSourceStack> context,
+                        final List<eu.nordtal.s2.commands.Argument> arguments,
+                        final int count) {
         final Map<String, Object> values = new LinkedHashMap<>();
+        final Map<String, UUID> accounts = new LinkedHashMap<>();
         for (int at = 0; at < count; at++) {
             final eu.nordtal.s2.commands.Argument argument = arguments.get(at);
             switch (argument.kind()) {
@@ -494,32 +517,84 @@ public final class PaperCommands {
                         // Left absent. run() turns that into "that player is not online" rather
                         // than letting Values throw about a declaration disagreement, which is what
                         // a missing required argument means everywhere else.
-                        return values;
+                        return new Parsed(values, accounts);
                     }
                     if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.PLAYER) {
                         values.put(argument.name(), target.getUniqueId());
                         continue;
                     }
                     // An ACCOUNT is a Discord id, and in game the only way to reach one is through
-                    // account_link. A player who has not linked cannot be named here at all, which
-                    // run() answers with its own sentence.
-                    final java.util.Optional<String> linked =
-                            discordIdOf.apply(target.getUniqueId());
-                    if (linked.isEmpty()) {
-                        return values;
-                    }
-                    values.put(argument.name(), linked.get());
+                    // account_link. Noted here and read somewhere else: this method runs inside a
+                    // Brigadier handler, which is the main thread, and the rule this repository has
+                    // held since 2026-09-01 is that a Paper plugin never queries from it. The read
+                    // used to happen right here.
+                    accounts.put(argument.name(), target.getUniqueId());
                 }
                 default -> values.put(argument.name(),
                         StringArgumentType.getString(context, argument.name()));
             }
         }
-        return values;
+        return new Parsed(values, accounts);
     }
 
-    private int run(final CommandContext<CommandSourceStack> context, final Entry entry,
+    /**
+     * The step between Brigadier and {@link #run}: read the account links, if there are any.
+     *
+     * <h2>Off the main thread, then back onto it</h2>
+     * {@code account_link} is a database read, and the one thing every command path here must not do
+     * is wait on a database while the server is stopped behind it. So the lookup hops off, and the
+     * command itself hops back - because everything after it is main-thread work: a chime, an
+     * inventory, a world. A command with no {@code ACCOUNT} argument, which is fifteen of the
+     * seventeen, never leaves the thread it was typed on.
+     *
+     * <p>An account that does not resolve is simply left out of the values, which is what makes
+     * {@code command.account-unreachable} in {@link #run} the one answer for "not online" and "not
+     * linked" alike.</p>
+     */
+    private int dispatch(final CommandContext<CommandSourceStack> context, final Entry entry,
+                         final Parsed parsed) {
+        final CommandSender sender = context.getSource().getSender();
+        final String input = context.getInput();
+        if (parsed.accounts().isEmpty()) {
+            return run(sender, input, entry, parsed.values());
+        }
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            final Map<String, Object> resolved = new LinkedHashMap<>(parsed.values());
+            for (final Map.Entry<String, UUID> account : parsed.accounts().entrySet()) {
+                final java.util.Optional<String> linked;
+                try {
+                    linked = discordIdOf.apply(account.getValue());
+                } catch (final RuntimeException failure) {
+                    plugin.getLogger().log(java.util.logging.Level.WARNING,
+                            "Could not read the account link for " + account.getValue(), failure);
+                    back(() -> user(sender).reply("command.account-unreachable", Map.of(),
+                            Feedback.REFUSED));
+                    return;
+                }
+                if (linked.isEmpty()) {
+                    break;
+                }
+                resolved.put(account.getKey(), linked.get());
+            }
+            back(() -> run(sender, input, entry, resolved));
+        });
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Back onto the server thread, or nowhere at all if the plugin went away while we were off it. */
+    private void back(final Runnable work) {
+        try {
+            Bukkit.getScheduler().runTask(plugin, work);
+        } catch (final IllegalPluginAccessException disabled) {
+            plugin.getLogger().fine("Dropped a command answer because the plugin is no longer"
+                    + " enabled");
+        }
+    }
+
+    private int run(final CommandSender sender, final String input, final Entry entry,
                     final Map<String, Object> values) {
-        final NordtalUser user = user(context.getSource().getSender());
+        final NordtalUser user = user(sender);
 
         // A command the console may not run. Declared per command as a Surface, so the rule is
         // visible next to the command rather than repeated in each adapter: /phase is refused here
@@ -561,7 +636,7 @@ public final class PaperCommands {
             return Command.SINGLE_SUCCESS;
         }
 
-        if (entry.declaration().irreversible() && !confirmed(user, context.getInput())) {
+        if (entry.declaration().irreversible() && !confirmed(user, input)) {
             return Command.SINGLE_SUCCESS;
         }
         entry.run().accept(user, new Values(entry.declaration(), values));

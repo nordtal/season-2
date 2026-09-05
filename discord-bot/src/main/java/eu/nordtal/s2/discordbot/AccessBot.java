@@ -136,6 +136,15 @@ public class AccessBot implements AutoCloseable {
             messages.unknownOverrideKeys().forEach(key -> log.warn(
                     "the message override names {}, which no bundle declares - it is stored"
                             + " and never used; check the spelling", key));
+            // The same files again, as ONE root, for the command inbox to render remote answers
+            // with: the layered bundle above lets this module's keys win and those are allowed
+            // Discord markdown, which a player would read literally in chat. Alone does not mean
+            // without overrides - that directory is the operator's one lever over wording, and
+            // /access reload moves this instance alongside `messages`. Its own unknown keys are
+            // deliberately not reported: a key only this module declares is not unknown.
+            final Messages sharedMessages = Messages.load(
+                    AccessBot.class.getClassLoader(), "messages/commands",
+                    Configs.messagesDirectory(), languages.locales());
             final Tiers tiers = Tiers.of(accessConfig);
             final BunqGateway bunq = new BunqGateway(botConfig);
             final PaymentRequests requests = new PaymentRequests(database.jdbi());
@@ -197,7 +206,7 @@ public class AccessBot implements AutoCloseable {
             // discord_user.admin read anywhere - so the network's admin list and the list of people
             // who could grant paid access were two different lists.
             final BotAccessEffects accessEffects = new BotAccessEffects(worker, jda, access, roles,
-                    requests, admin, seasonStart, messages, log);
+                    requests, admin, seasonStart, messages, sharedMessages, log);
             AccessCommands.all().forEach(command -> declared.local(command, accessEffects));
             // The one argument nobody can be expected to type from memory, on the one command that
             // books money.
@@ -211,14 +220,12 @@ public class AccessBot implements AutoCloseable {
             final eu.nordtal.s2.commands.remote.CommandInbox inbox =
                     new eu.nordtal.s2.commands.remote.CommandInbox(
                             eu.nordtal.s2.commands.Target.BOT, commandRequests,
-                            eu.nordtal.s2.common.message.Messages.load(
-                                    AccessBot.class.getClassLoader(), "messages/commands",
-                                    java.util.Locale.ENGLISH, java.util.Locale.GERMAN),
+                            sharedMessages,
                             eu.nordtal.s2.commands.remote.CommandInbox.AdminCheck.of(
                                     access::admins, access::adminMinecraftAccounts),
                             (message, failure) -> log.warn(message, failure));
             final BotAccessEffects inboxEffects = new BotAccessEffects(Runnable::run, jda, access,
-                    roles, requests, admin, seasonStart, messages, log);
+                    roles, requests, admin, seasonStart, messages, sharedMessages, log);
             AccessCommands.all().forEach(command -> inbox.register(command, inboxEffects));
             // Scheduled on `timers` and RUN on `worker`. `timers` is a single thread that already
             // carries the payment poll, the role reconcile, the expiry sweep, the status channels

@@ -50,12 +50,20 @@ public final class BotAccessEffects implements AccessEffects {
     private final AdminLog admin;
     private final SeasonStart seasonStart;
     private final Messages messages;
+    private final Messages shared;
     private final org.slf4j.Logger log;
 
+    /**
+     * @param messages this bot's layered bundle - what it says on its own surface
+     * @param shared   {@code :commands}' bundle as the command inbox renders it. Two views of the
+     *                 same files, so a reload that moved only one of them would leave a command
+     *                 answering differently in Discord and in game
+     */
     public BotAccessEffects(final Executor executor, final JDA jda, final AccessDirectory access,
                             final AccessRoles roles, final PaymentRequests requests,
                             final AdminLog admin, final SeasonStart seasonStart,
-                            final Messages messages, final org.slf4j.Logger log) {
+                            final Messages messages, final Messages shared,
+                            final org.slf4j.Logger log) {
         this.executor = executor;
         this.jda = jda;
         this.access = access;
@@ -64,6 +72,7 @@ public final class BotAccessEffects implements AccessEffects {
         this.admin = admin;
         this.seasonStart = seasonStart;
         this.messages = messages;
+        this.shared = shared;
         this.log = log;
     }
 
@@ -82,8 +91,13 @@ public final class BotAccessEffects implements AccessEffects {
         // The name comes from Discord and everything else from the database. A member who has left
         // the guild is why this can be empty: the link is still a row and the person is gone, which
         // is a different answer from "not linked" and gets a different sentence.
-        final var member = jda.retrieveUserById(discordId).complete();
-        if (member == null) {
+        //
+        // Through the guild, not through JDA's global user lookup - see AccessRoles#member. The
+        // global one answers for anybody with a Discord account, so it could not tell a departed
+        // member apart from a present one, and it throws rather than returning null for an id
+        // nobody has.
+        final Optional<net.dv8tion.jda.api.entities.Member> member = roles.member(discordId);
+        if (member.isEmpty()) {
             return Optional.empty();
         }
 
@@ -96,7 +110,7 @@ public final class BotAccessEffects implements AccessEffects {
                         Money.format(request.amountCents()), request.status().name()))
                 .toList();
 
-        return Optional.of(new Status(member.getName(),
+        return Optional.of(new Status(member.get().getUser().getName(),
                 grants.stream()
                         .filter(grant -> !grant.revoked())
                         .map(Grant::validUntil)
@@ -196,6 +210,10 @@ public final class BotAccessEffects implements AccessEffects {
     public boolean reloadMessages() {
         try {
             messages.reload();
+            // The command inbox's own view of the shared bundle, in the same breath. Its unknown
+            // keys are deliberately not reported: it holds one root, so a key this module declares
+            // would be named as unknown by it and is not.
+            shared.reload();
             return true;
         } catch (final RuntimeException failure) {
             log.error("the messages could not be reloaded, the running ones are unchanged", failure);

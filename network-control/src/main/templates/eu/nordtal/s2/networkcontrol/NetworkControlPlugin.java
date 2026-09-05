@@ -132,6 +132,8 @@ public final class NetworkControlPlugin {
      * carries {@code nordtal_command} alongside the phase and admin channels, on one connection.</p>
      */
     private volatile CommandInbox commandInbox;
+    /** {@code :commands}' bundle as the inbox renders it - a second view of the same files. */
+    private Messages sharedMessages;
     private PlaytimeWriter playtime;
     private com.velocitypowered.api.scheduler.ScheduledTask heartbeat;
 
@@ -179,6 +181,12 @@ public final class NetworkControlPlugin {
     private void start(final DatabaseSpec databaseConfig, final GateSpec gateConfig,
                        final PackSpec packConfig, final NetworkSpec networkConfig,
                        final Messages messages) {
+        // :commands' bundle on its own, with the operator's override on top of it, for the command
+        // inbox to render remote answers with. One root and not two, because the layered bundle
+        // above lets THIS module's keys win and this module's keys are allowed MiniMessage, which
+        // a Discord admin would read as a literal <green>. /network reload moves both.
+        this.sharedMessages = Messages.load(getClass().getClassLoader(), "messages/commands",
+                dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         this.pool = AccessPool.open(databaseConfig);
         this.access = AccessDirectory.using(pool);
 
@@ -367,7 +375,7 @@ public final class NetworkControlPlugin {
         final PhaseEffects phaseEffects =
                 new ProxyPhaseEffects(this, proxy, logger, phases, phaseWatch);
         final NetworkEffects networkEffects = new ProxyNetworkEffects(
-                ProxyNetworkEffects.async(this, proxy), messages, logger);
+                ProxyNetworkEffects.async(this, proxy), messages, sharedMessages, logger);
 
         final VelocityCommands tree = new VelocityCommands(proxy, roster, messages);
         PhaseCommands.all().forEach(command -> tree.local(command, phaseEffects));
@@ -385,15 +393,20 @@ public final class NetworkControlPlugin {
         // writes is the state and no process owns it.
         commandInbox = new CommandInbox(Target.PROXY,
                 CommandRequests.borrowing(pool),
-                Messages.load(getClass().getClassLoader(), "messages/commands",
-                        Locale.ENGLISH, Locale.GERMAN),
+                // :commands' bundle alone - the layered `messages` would let this module's own
+                // bundle win, and that one is allowed MiniMessage, which reaches a Discord admin as
+                // a literal <green>. Alone means one root and NOT no overrides: the operator's
+                // override directory is on it, and sharedMessages is reloaded by /network reload
+                // alongside `messages`, so the same command does not read differently depending on
+                // where it was typed.
+                sharedMessages,
                 eu.nordtal.s2.commands.remote.CommandInbox.AdminCheck.of(
                         access::admins, access::adminMinecraftAccounts),
                 (message, failure) -> logger.warn(message, failure));
         NetworkCommands.all().forEach(command -> commandInbox.register(command,
                 // Inline: the inbox settles a request row when the command returns, so scheduled
                 // effects would write the answer before the command produced it.
-                new ProxyNetworkEffects(Runnable::run, messages, logger)));
+                new ProxyNetworkEffects(Runnable::run, messages, sharedMessages, logger)));
         proxy.getScheduler().buildTask(this, commandInbox::drain)
                 .delay(java.time.Duration.ofSeconds(5))
                 .repeat(java.time.Duration.ofSeconds(5))

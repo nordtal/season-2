@@ -152,7 +152,10 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   `of(uuid)`, which answers English until the value lands. Every plugin `database.yml` also carries
   `query-timeout-seconds` (default 3), which sets both HikariCP's `connectionTimeout` and the
   PostgreSQL driver's `socketTimeout` — off the main thread bounds *where* a wait happens, not how
-  long it lasts. `smp` inherits this rule rather than rediscovering it.
+  long it lasts. **`smp` did not inherit this rule: it built the `PlayerLocales` and called `joinAsync`
+  from nowhere, so every player on the SMP was English until 2026-09-05** (`docs/state-of-play.md`
+  finding 96). `:common`'s `LocaleJoinWiringTest` now asserts that all three backends call
+  `joinAsync` and `quit` from their `PresenceListener`, and that none calls the blocking `join`.
 - **`:common` carries the access system** (`eu.nordtal.s2.common.access`) and the message system
   (`eu.nordtal.s2.common.message`) since stage A, 2026-08-30. That means it now depends on JDBI 3,
   HikariCP, slf4j-api and the PostgreSQL driver — and on **nothing else**; jcore is deliberately

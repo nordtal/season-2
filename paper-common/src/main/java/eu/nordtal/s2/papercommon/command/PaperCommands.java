@@ -89,6 +89,8 @@ public final class PaperCommands {
     private final List<Entry> entries = new ArrayList<>();
     private final Map<String, List<LiteralArgumentBuilder<CommandSourceStack>>> extras =
             new LinkedHashMap<>();
+    private final Map<String, List<LiteralArgumentBuilder<CommandSourceStack>>> openExtras =
+            new LinkedHashMap<>();
     private final Map<String, java.util.function.Supplier<java.util.Collection<String>>> suggestions =
             new LinkedHashMap<>();
 
@@ -212,6 +214,26 @@ public final class PaperCommands {
     }
 
     /**
+     * The same, for a subtree that is <b>not</b> admin-only.
+     *
+     * <h2>Why the plain {@link #extra} is gated and this one has to be asked for</h2>
+     * Because the failure is asymmetric. {@code build()} deliberately puts no {@code requires} on a
+     * root - a root is shared, and gating {@code /hg} would hide {@code /hg ready} from every
+     * player - so an extra hung on one is ungated unless this adapter gates it. {@code /smp update}
+     * was hung on that way and lost its admin check entirely: any player could have run
+     * {@code /smp update restart}, which takes the whole network down after a minute's countdown.
+     *
+     * <p>So the default is closed and the exception is named. {@code /hg ready} is the only caller,
+     * and it carries its own player check anyway.</p>
+     */
+    public PaperCommands extraOpen(final String root,
+                                   final LiteralArgumentBuilder<CommandSourceStack> node) {
+        openExtras.computeIfAbsent(Objects.requireNonNull(root, "root"), name -> new ArrayList<>())
+                .add(Objects.requireNonNull(node, "node"));
+        return this;
+    }
+
+    /**
      * The trees, one per distinct first path segment.
      *
      * <h2>Assembled bottom-up, and it has to be</h2>
@@ -240,7 +262,8 @@ public final class PaperCommands {
             node.command = entry;
         }
 
-        for (final String root : extras.keySet()) {
+        for (final String root : java.util.stream.Stream.concat(
+                extras.keySet().stream(), openExtras.keySet().stream()).toList()) {
             if (!roots.containsKey(root)) {
                 throw new IllegalStateException("an extra subtree was hung under /" + root
                         + ", which no command here uses as a root - it would never be registered");
@@ -250,7 +273,11 @@ public final class PaperCommands {
         return roots.values().stream()
                 .map(root -> {
                     final LiteralArgumentBuilder<CommandSourceStack> builder = materialise(root);
-                    extras.getOrDefault(root.literal, List.of()).forEach(builder::then);
+                    // Gated, like every node this adapter builds below a root. The root itself
+                    // carries no requires, so an extra that is not gated here is not gated at all.
+                    extras.getOrDefault(root.literal, List.of())
+                            .forEach(extra -> builder.then(extra.requires(this::mayUse)));
+                    openExtras.getOrDefault(root.literal, List.of()).forEach(builder::then);
                     // NO requires on the root, deliberately. Brigadier's requires gates a whole
                     // subtree, and a root is shared: /hg carries `ready`, which any player may run
                     // and which this adapter does not own. Gating the root would hide it. Every
@@ -590,8 +617,11 @@ public final class PaperCommands {
         if (sender instanceof Player player) {
             // admin is true without a lookup: the tree is gated on mayUse before any handler runs,
             // so reaching here IS the admin check.
+            // The supplier, not the value: this runs on Brigadier's thread for every invocation
+            // and for the help output, and a plugin whose only source is account_link would make
+            // that a query. Outbox#send is the one caller that asks, on its own scheduler.
             return PaperUser.of(plugin, player, localeOf.apply(player.getUniqueId()), true,
-                    discordIdOf.apply(player.getUniqueId()).orElse(null), messages, chime);
+                    () -> discordIdOf.apply(player.getUniqueId()), messages, chime);
         }
         return PaperUser.console(plugin, sender, messages);
     }

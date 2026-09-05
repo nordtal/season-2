@@ -67,12 +67,14 @@ public final class PaperUser implements NordtalUser {
     private final CommandSender sender;
     private final Locale locale;
     private final boolean admin;
-    private final String discordId;
+    private final java.util.function.Supplier<Optional<String>> discordId;
     private final Messages messages;
     private final Chime chime;
 
     private PaperUser(final Plugin plugin, final CommandSender sender, final Locale locale,
-                      final boolean admin, final String discordId, final Messages messages,
+                      final boolean admin,
+                      final java.util.function.Supplier<Optional<String>> discordId,
+                      final Messages messages,
                       final Chime chime) {
         this.plugin = plugin;
         this.sender = sender;
@@ -94,8 +96,23 @@ public final class PaperUser implements NordtalUser {
      *                  written for it
      */
     public static PaperUser of(final Plugin plugin, final Player player, final Locale locale,
-                               final boolean admin, final String discordId, final Messages messages,
-                               final Chime chime) {
+                               final boolean admin, final String discordId,
+                               final Messages messages, final Chime chime) {
+        return of(plugin, player, locale, admin, () -> Optional.ofNullable(discordId), messages,
+                chime);
+    }
+
+    /**
+     * The same, with the Discord account resolved only if something asks - see {@link #discordId()}.
+     *
+     * <p>The overload every adapter should use when its source is anything but a cache: a
+     * {@code PaperUser} is built on the main thread, per invocation, and the eager version turns a
+     * lookup into a query there.</p>
+     */
+    public static PaperUser of(final Plugin plugin, final Player player, final Locale locale,
+                               final boolean admin,
+                               final java.util.function.Supplier<Optional<String>> discordId,
+                               final Messages messages, final Chime chime) {
         return new PaperUser(Objects.requireNonNull(plugin, "plugin"),
                 Objects.requireNonNull(player, "player"),
                 locale == null ? Locales.DEFAULT : locale,
@@ -108,7 +125,7 @@ public final class PaperUser implements NordtalUser {
                                     final Messages messages) {
         return new PaperUser(Objects.requireNonNull(plugin, "plugin"),
                 Objects.requireNonNull(sender, "sender"),
-                Locales.DEFAULT, true, null, Objects.requireNonNull(messages, "messages"),
+                Locales.DEFAULT, true, Optional::empty, Objects.requireNonNull(messages, "messages"),
                 Chime.silent());
     }
 
@@ -117,9 +134,22 @@ public final class PaperUser implements NordtalUser {
         return sender instanceof ConsoleCommandSender;
     }
 
+    /**
+     * Their Discord account - <b>resolved when asked, not when this object is built</b>.
+     *
+     * <h2>Why lazily, which is not an optimisation</h2>
+     * A {@code PaperUser} is built inside a Brigadier handler, on the server's main thread, for
+     * every invocation - and for the help output too. A plugin whose only source for this is
+     * {@code account_link} would therefore run a query there, per command, on a command any player
+     * can type. {@code hunger-games} did exactly that for an afternoon.
+     *
+     * <p>The one caller that needs the answer is {@code Outbox#send}, which reads it on its own
+     * scheduler. {@code Confirmations} asks for the Minecraft UUID first and never gets here for a
+     * player. So the query, where it is one, happens off the main thread by construction.</p>
+     */
     @Override
     public Optional<String> discordId() {
-        return Optional.ofNullable(discordId);
+        return discordId.get();
     }
 
     @Override

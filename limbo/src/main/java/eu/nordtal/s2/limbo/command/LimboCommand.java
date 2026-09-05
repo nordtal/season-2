@@ -48,14 +48,18 @@ public final class LimboCommand {
 
     public static List<LiteralCommandNode<CommandSourceStack>> build(
             final Plugin plugin, final Messages messages, final PlayerLocales locales,
-            final Predicate<UUID> isAdmin, final Outbox outbox, final LimboEffects effects) {
+            final Predicate<UUID> isAdmin,
+            final java.util.function.Function<UUID, Optional<String>> discordIdOf,
+            final Outbox outbox, final LimboEffects effects) {
 
         final PaperCommands commands = new PaperCommands(plugin, messages, Target.LIMBO, outbox,
                 locales::of, isAdmin,
-                // No account link is looked up here. Nothing limbo runs needs one, and the lookup
-                // would be a query on the login path's own server - the one place this repository
-                // has spent the most effort keeping queries out of.
-                mcUuid -> Optional.empty(),
+                // A real source, and it has to be one: /access <sub> <member> is registered here
+                // (it targets the bot) and its argument is resolved through account_link, so an
+                // always-empty answer refused all four of them permanently. PaperUser reads this
+                // lazily and Outbox#send is the only caller, so the query never lands on the login
+                // path's own main thread - which is what the empty version was protecting.
+                discordIdOf,
                 PaperUser.Chime.silent());
 
         for (final NordtalCommand<LimboEffects> command : LimboCommands.all()) {

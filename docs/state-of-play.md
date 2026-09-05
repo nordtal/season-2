@@ -24,7 +24,7 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 
 | module | main Java | tests | what actually runs |
 |---|---|---|---|
-| `smp` | 94 files, 13095 lines | 171 | Everything docs/smp.md describes, none of it yet seen on a running server |
+| `smp` | 94 files, 13173 lines | 173 | Everything docs/smp.md describes, none of it yet seen on a running server |
 | `common` | 66 files, 7244 lines | 313 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, the notification listener, **the command request table**, V1-V11 |
 | `network-control` | 40 files, 6177 lines | 178 | Login gate, phase, play time, routing, the pack station, **the Velocity command adapter** |
 | `discord-bot` | 51 files, 7846 lines | 142 | Access end to end, the admin mirror, the language list, hunger games registration, **every declared command as a slash command** |
@@ -35,7 +35,7 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `paper-common` | 5 files, 1221 lines | 5 | The operator adapter, the admin watcher, the Paper sender adapter and **the Paper command adapter** |
 | `resource-pack` | — | — | Four fonts, every code point allocated and drawn |
 
-1191 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-05,
+1193 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-05,
 after the CodeRabbit review),
 across **nine** modules — `resource-pack` has no test source set of its own, and `paper-common`
 gained one on 2026-09-05 with the command adapter.
@@ -54,7 +54,7 @@ reports say 12, 12 and 8. Both were corrected on 2026-09-01 by re-reading the re
 
 **No module is a scaffold any more, and no half of one is missing either.** Every feature
 docs/smp.md describes exists in code as of 2026-09-01. What is left is not building but *watching*:
-none of `smp`'s 171 tests touches a world, a packet or a player, because none of them can, and this
+none of `smp`'s 173 tests touches a world, a packet or a player, because none of them can, and this
 document has said since it was written that "it compiles" proves nothing here.
 
 ### `common`
@@ -362,6 +362,7 @@ to record.
 | 87 | **New 2026-09-05, same pass, and also from finding 77's fix.** `/phase show` chose between its two failure sentences on `held.isPresent()` - whether the process had a phase *cached*. On the path with no cache the phase line is produced **inside the same `try`** as the dates, so `currentPhase()` could succeed and `launch()` fail, and the answer then claimed there was nothing above it when there was | **closed** - it tracks whether the line actually went out, which is the question it was always asking |
 | 88 | **New 2026-09-05, same pass, and from finding 81's fix.** `AccessRoles#member` answered *empty* when the configured guild was not available to JDA, and empty means "no such member" - so a guild the bot cannot currently see would have told an admin the person had left | **closed** - that branch throws, and the command's existing failure path answers `access.failed` |
 | 89 | **New 2026-09-05, same pass, and from finding 83's fix.** `SmpPlugin.track` is written by `/smp reload` on Bukkit's async executor and read by the suggestion supplier on the server thread, with no happens-before edge between them - so the fix for the captured-instance bug could go on showing the old track for no bounded length of time, which looks identical to the bug it replaced | **closed** - the field is `volatile` |
+| 90 | **New 2026-09-05, from CodeRabbit's third pass, and this one is older than the whole pull request.** `/smp reload` replaced `SmpPlugin.track` and reported success, while **four consumers went on reading the instance they were handed at enable** - `ObjectiveEngine` (what an objective pays), `StatisticPoller` (when one is reached), `NpcListener` and `BalloonListener`. So the one thing `milestones.yml` is a separate reloadable file *for* - appending a milestone or lowering a target mid-season - reached the suggestions, the season state and nothing that acts on them. A reload that says "the milestone track was reloaded: 12 milestones" and changes none of the arithmetic is the worst shape this can take | **closed** - all four take a `Supplier<MilestoneTrack>`, so the parameter type stops the instance being passed at all, and `ReloadReachesTheTrackTest` catches the next step (capturing a local and handing on `() -> captured`) |
 
 
 ## 2. What can be built today

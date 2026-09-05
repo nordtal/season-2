@@ -54,7 +54,15 @@ public final class ObjectiveEngine {
 
     private final Plugin plugin;
     private final SmpDao dao;
-    private final MilestoneTrack track;
+    /**
+     * The milestone track, <b>as a supplier</b>.
+     *
+     * <p>{@code /smp reload} replaces the plugin's track with a new instance - that is the whole
+     * reason {@code milestones.yml} is a separate reloadable file, because a milestone is appended
+     * and a target lowered mid-season. A reference captured at enable would go on reading the
+     * definitions the server started with, for the rest of the season, and nothing would say so.</p>
+     */
+    private final java.util.function.Supplier<MilestoneTrack> track;
     private final SeasonState season;
     private final Worlds worlds;
     private final Identities identities;
@@ -73,7 +81,7 @@ public final class ObjectiveEngine {
     private static final Title.Times CEREMONY = Title.Times.times(
             Duration.ofMillis(400), Duration.ofSeconds(3), Duration.ofSeconds(1));
 
-    public ObjectiveEngine(final Plugin plugin, final SmpDao dao, final MilestoneTrack track,
+    public ObjectiveEngine(final Plugin plugin, final SmpDao dao, final java.util.function.Supplier<MilestoneTrack> track,
                            final SeasonState season, final Worlds worlds, final Identities identities,
                            final Messages messages, final PlayerLocales locales, final SmpSpec config,
                            final SmpSounds sounds, final WorldEffects effects) {
@@ -151,7 +159,7 @@ public final class ObjectiveEngine {
             return;
         }
 
-        final Milestone milestone = track.milestone(milestoneKey).orElse(null);
+        final Milestone milestone = track.get().milestone(milestoneKey).orElse(null);
         if (milestone == null) {
             plugin.getLogger().warning("objective '" + objective.key() + "' completed under milestone '"
                     + milestoneKey + "', which the track no longer declares - no aura was paid");
@@ -238,10 +246,10 @@ public final class ObjectiveEngine {
             return;
         }
 
-        track.after(milestoneKey).ifPresent(next -> dao.activateMilestone(next.key()));
-        season.refresh(dao.completedMilestoneKeys(), track);
+        track.get().after(milestoneKey).ifPresent(next -> dao.activateMilestone(next.key()));
+        season.refresh(dao.completedMilestoneKeys(), track.get());
 
-        final Milestone milestone = track.milestone(milestoneKey).orElse(null);
+        final Milestone milestone = track.get().milestone(milestoneKey).orElse(null);
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (milestone != null && milestone.unlock() == Unlock.BORDER) {
                 // Animated, unlike the one applied at start: this one is happening now, and the wall

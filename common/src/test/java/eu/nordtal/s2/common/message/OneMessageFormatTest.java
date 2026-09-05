@@ -90,6 +90,10 @@ class OneMessageFormatTest {
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityUser.java",
                     "NordtalUser#replyLiteral - text that IS already the answer and must not be"
                             + " rendered twice, which is docs/updater.md's rule about its report"),
+            Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/ConsoleUser.java",
+                    "the same NordtalUser#replyLiteral, for the proxy console - plus a plain-text"
+                            + " serialiser, because a raw <green> in a container log is a thing"
+                            + " somebody greps past"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/board/Boards.java",
                     "OUTSTANDING: board lines composed from a message plus a glyph progress bar"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java",

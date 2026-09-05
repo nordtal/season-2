@@ -48,4 +48,26 @@ public interface NordtalCommand<E> {
      * @param effects the process's own implementation of everything this command has to touch
      */
     void run(NordtalUser user, Values values, E effects);
+
+    /**
+     * Whether the arguments are wrong in a way this command can see before doing anything.
+     *
+     * <h2>Why this is separate from {@link #run}</h2>
+     * Because of the order a confirmation imposes. An irreversible command is confirmed <em>before</em>
+     * it runs, so without this hook {@code /phase set NOT_A_PHASE} answers "this cannot be undone,
+     * type it again", takes the retype, and only then says the phase does not exist. The proxy's
+     * hand-written {@code /phase} avoided that by parsing first; nothing else did, and nothing made
+     * the two agree. Now every adapter asks this before it asks for a confirmation.
+     *
+     * <p>Only for what the arguments say, never for the world: "that is not a phase name" belongs
+     * here, "no milestone is active" does not - the second is a fact about the server, it needs the
+     * effects, and it can change between the question and the answer.</p>
+     *
+     * @return a message key naming the problem, with the placeholders to render it - or empty when
+     *         the arguments are usable
+     */
+    default java.util.Optional<java.util.Map.Entry<String, java.util.Map<String, ?>>> problem(
+            final Values values) {
+        return java.util.Optional.empty();
+    }
 }

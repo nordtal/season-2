@@ -2,6 +2,7 @@ package eu.nordtal.s2.commands.phase;
 
 import eu.nordtal.s2.commands.Argument;
 import eu.nordtal.s2.commands.Declaration;
+import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.common.SeasonPhase;
@@ -98,6 +99,23 @@ public final class PhaseCommands {
     public static final Declaration SMP_START = new Declaration(
             List.of("phase", "smp-start"), TARGET, EVERYWHERE, true, true,
             List.of(whenArgument()));
+
+    /**
+     * Every {@code /phase} command, in the order they read best in a help listing.
+     *
+     * <p>New instances each call, which is what the two callers want: the proxy's tree and the
+     * bot's registry are separate surfaces and share no state. Nothing here is stateful anyway -
+     * the confirmation window belongs to the adapter.</p>
+     */
+    public static List<NordtalCommand<PhaseEffects>> all() {
+        return List.of(new ShowPhase(), new SetPhase(), SetSeasonDate.launch(),
+                SetSeasonDate.smpStart());
+    }
+
+    /** Every {@code /phase} declaration. */
+    public static List<Declaration> declarations() {
+        return all().stream().map(NordtalCommand::declaration).toList();
+    }
 
     private PhaseCommands() {
     }

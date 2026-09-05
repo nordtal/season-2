@@ -2,6 +2,7 @@ package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.limbo.LimboCommands;
+import eu.nordtal.s2.commands.network.NetworkCommands;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 
@@ -34,11 +35,11 @@ public final class Catalogue {
     /** Every declaration, in no particular order. */
     public static List<Declaration> all() {
         return java.util.stream.Stream.of(
-                        List.of(PhaseCommands.SHOW, PhaseCommands.SET, PhaseCommands.LAUNCH,
-                                PhaseCommands.SMP_START),
+                        PhaseCommands.declarations(),
                         SmpCommands.declarations(),
                         HungerGamesCommands.declarations(),
-                        LimboCommands.declarations())
+                        LimboCommands.declarations(),
+                        NetworkCommands.declarations())
                 .flatMap(List::stream)
                 .toList();
     }

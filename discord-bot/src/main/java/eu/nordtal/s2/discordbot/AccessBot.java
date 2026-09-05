@@ -214,12 +214,18 @@ public class AccessBot implements AutoCloseable {
                             eu.nordtal.s2.common.message.Messages.load(
                                     AccessBot.class.getClassLoader(), "messages/commands",
                                     java.util.Locale.ENGLISH, java.util.Locale.GERMAN),
-                            request -> request.discordId().map(access.admins()::contains).orElse(true),
+                            eu.nordtal.s2.commands.remote.CommandInbox.AdminCheck.of(
+                                    access::admins, access::adminMinecraftAccounts),
                             (message, failure) -> log.warn(message, failure));
             final BotAccessEffects inboxEffects = new BotAccessEffects(Runnable::run, jda, access,
                     roles, requests, admin, seasonStart, messages, log);
             AccessCommands.all().forEach(command -> inbox.register(command, inboxEffects));
-            timers.scheduleWithFixedDelay(inbox::drain, 5, 5, java.util.concurrent.TimeUnit.SECONDS);
+            // Scheduled on `timers` and RUN on `worker`. `timers` is a single thread that already
+            // carries the payment poll, the role reconcile, the expiry sweep, the status channels
+            // and the readiness beat; a drain blocks on JDA REST and on the database, and would
+            // stall all five.
+            timers.scheduleWithFixedDelay(() -> worker.execute(inbox::drain), 5, 5,
+                    java.util.concurrent.TimeUnit.SECONDS);
 
             final List<CommandData> commands = new ArrayList<>();
             commands.addAll(LinkFlow.commands());

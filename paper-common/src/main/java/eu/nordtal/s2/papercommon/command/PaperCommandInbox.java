@@ -53,8 +53,7 @@ public final class PaperCommandInbox {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(access, "access");
         this.inbox = new CommandInbox(here, requests, sharedBundle(plugin),
-                request -> isStillAdmin(access, request.discordId().orElse(null),
-                        request.minecraftId().orElse(null)),
+                CommandInbox.AdminCheck.of(access::admins, access::adminMinecraftAccounts),
                 (message, failure) -> plugin.getLogger()
                         .log(java.util.logging.Level.WARNING, message, failure));
     }
@@ -71,27 +70,6 @@ public final class PaperCommandInbox {
                 java.util.Locale.ENGLISH, java.util.Locale.GERMAN);
     }
 
-    /**
-     * Whether whoever wrote this row is an admin <em>now</em>.
-     *
-     * <p>By Discord id when there is one, because that is what {@code discord_user.admin} is keyed
-     * on. The Minecraft UUID is the fallback for a request written by a game surface that had no
-     * link to hand, and it goes through the same set - {@code adminMinecraftAccounts} is the join
-     * the proxy's roster already uses.</p>
-     */
-    private static boolean isStillAdmin(final AccessDirectory access, final String discordId,
-                                        final UUID minecraftId) {
-        if (discordId != null) {
-            return access.admins().contains(discordId);
-        }
-        if (minecraftId != null) {
-            final Set<UUID> admins = access.adminMinecraftAccounts();
-            return admins.contains(minecraftId);
-        }
-        // Neither identity: the console, which is the operator by definition. A row can only say
-        // CONSOLE if an adapter on a machine somebody already has a shell on wrote it.
-        return true;
-    }
 
     /** Make a command runnable here. Effects must run their work inline - the inbox checks. */
     public <E extends CommandEffects> PaperCommandInbox register(final NordtalCommand<E> command,

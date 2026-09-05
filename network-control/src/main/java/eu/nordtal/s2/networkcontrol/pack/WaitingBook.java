@@ -231,12 +231,14 @@ public final class WaitingBook {
      *
      * @param uuid                 the player
      * @param phase                the phase the network is in
+     * @param admin                whether the player carries {@code discord_user.admin} - maintenance
+     *                             does not hold an admin, see {@link LimboHold}
      * @param destinationAvailable whether the backend that phase points at is registered
      * @return what to do. A {@code RELEASE}, {@code RELEASE_UNCONFIRMED} or {@code TIMED_OUT} also
      *         ends the visit, so a second concurrent caller gets {@code IDLE} and the player is not
      *         connected onward twice
      */
-    public WaitingDecision decide(final UUID uuid, final SeasonPhase phase,
+    public WaitingDecision decide(final UUID uuid, final SeasonPhase phase, final boolean admin,
                                   final boolean destinationAvailable) {
         Objects.requireNonNull(phase, "phase");
         final Session session = sessions.get(uuid);
@@ -256,7 +258,7 @@ public final class WaitingBook {
             }
 
             final Optional<WaitReason> reason =
-                    LimboHold.reason(packSettled, phase, destinationAvailable);
+                    LimboHold.reason(packSettled, phase, admin, destinationAvailable);
             if (reason.isPresent()) {
                 // Something other than READY is still in the way, so the grace period has not
                 // started - and if it had, it starts again from here.

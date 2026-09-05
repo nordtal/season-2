@@ -108,31 +108,38 @@ public final class PhaseRouting {
      * @param phase     the phase the network is in
      * @param admin     whether the player carries {@code discord_user.admin}
      * @param available the names of the servers this proxy has registered
-     * @return {@code CONNECT limbo}, {@code STAY} for an admin during maintenance, or the refusal
-     *         that fits the phase
+     * @return {@code CONNECT limbo} whenever there is one; for an admin without one, the server the
+     *         room would have released them onto; otherwise the refusal that fits the phase
      */
     public RouteDecision decideInitial(final SeasonPhase phase, final boolean admin,
                                        final Set<String> available) {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
 
-        if ((phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH) && admin) {
-            // Unchanged from before the pack station: an admin during maintenance is the one player
-            // the phase does not move, and the login path is where that starts. The cost is that
-            // they are also the one player who is not offered the pack, which is the right way
-            // round - an admin joining a network under maintenance is there to look at the servers
-            // being worked on, and is the person best placed to fix their own pack.
-            //
-            // PRE_LAUNCH joined it on 2026-09-03 for the same reason and a stronger one: before the
-            // opening an admin is the ONLY player on the network, and putting the only player in
-            // the waiting room - whose whole purpose is holding people until a phase's backend is
-            // ready - would leave them nowhere to go. The servers they came to look at are the
-            // point.
-            return RouteDecision.of(RouteDecision.Action.STAY);
+        if (available.contains(servers.limbo())) {
+            // Everybody, admins included, and that is a reversal of 2026-09-05. Until then an admin
+            // during MAINTENANCE or PRE_LAUNCH was answered STAY - "leave their initial server
+            // alone" - on the theory that they were never put in the waiting room and so were the
+            // one player not offered the pack. STAY means Velocity picks the server, and
+            // velocity.toml's `try` list is `limbo`: the admin landed in the waiting room after
+            // all, applied the pack, and was then "released" onto the phase's backend, which for
+            // those two phases is limbo itself. A black screen with a stale title on it, no
+            // timeout, every second join of the day - seen on a real client, finding 93. Going
+            // through the room like everybody else costs an admin one pack prompt and gives them
+            // a HUD that draws; the destination is PhaseServers#forAdmitted's job.
+            return RouteDecision.connectTo(servers.limbo());
         }
 
-        if (available.contains(servers.limbo())) {
-            return RouteDecision.connectTo(servers.limbo());
+        if (admin) {
+            // No waiting room at all - unbuilt, or unregistered by a typo in gate.yml. The refusal
+            // below is right for everybody else (nobody may reach a backend without the pack), and
+            // wrong for the one person who could fix it: if a missing limbo locked admins out,
+            // nobody could register one. They go straight to where the room would have released
+            // them, without the pack, and PlayerRouter says so in the log.
+            final String destination = servers.forAdmitted(phase, true);
+            if (available.contains(destination)) {
+                return RouteDecision.connectTo(destination);
+            }
         }
 
         return RouteDecision.of(phase == SeasonPhase.MAINTENANCE
@@ -161,11 +168,14 @@ public final class PhaseRouting {
         Objects.requireNonNull(phase, "phase");
         Objects.requireNonNull(available, "available");
 
-        if (phase == SeasonPhase.MAINTENANCE && admin) {
+        if ((phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH) && admin) {
             // "Admins get in normally." Normally means the servers being worked on, so an admin is
-            // the one player maintenance does not move. Leaving them alone is also the only answer
-            // that works on a phase change: there is no "where an admin belongs during maintenance"
-            // to send them to, and picking one would evict them from whatever they were inspecting.
+            // the one player maintenance does not move. Leaving them alone is the only answer that
+            // works on a phase change: picking a server would evict them from whatever they were
+            // inspecting. PRE_LAUNCH is the same case seen from the other side - the network was
+            // switched back before opening while an admin was on it. An admin still IN the waiting
+            // room at that moment is not this method's business: PlayerRouter re-asks the pack
+            // station, and the station uses decideRelease.
             return RouteDecision.of(RouteDecision.Action.STAY);
         }
 
@@ -180,6 +190,36 @@ public final class PhaseRouting {
     }
 
     /** @return the phase-to-server table this router uses */
+    /**
+     * Where the waiting room lets a player out to.
+     * <p>
+     * Not {@link #decideAdmitted}: that one answers a phase change, where {@code STAY} is right for
+     * an admin who is already standing on a backend. A player leaving the waiting room is standing
+     * on {@code limbo}, and "stay" there is the stale-title black screen of finding 93. So this
+     * never says {@code STAY} - it names the server {@link PhaseServers#forAdmitted} gives, or the
+     * refusal for its absence, which the station has already ruled out by the time it releases.
+     * </p>
+     *
+     * @param phase     the phase the network is in
+     * @param admin     whether the player carries {@code discord_user.admin}
+     * @param available the names of the servers this proxy has registered
+     * @return {@code CONNECT} to the phase's backend - the SMP for an admin while the network is
+     *         closed - or the refusal for a backend this proxy does not have
+     */
+    public RouteDecision decideRelease(final SeasonPhase phase, final boolean admin,
+                                       final Set<String> available) {
+        Objects.requireNonNull(phase, "phase");
+        Objects.requireNonNull(available, "available");
+
+        final String destination = servers.forAdmitted(phase, admin);
+        if (available.contains(destination)) {
+            return RouteDecision.connectTo(destination);
+        }
+        return RouteDecision.of(phase == SeasonPhase.MAINTENANCE
+                ? RouteDecision.Action.REFUSE_MAINTENANCE_UNAVAILABLE
+                : RouteDecision.Action.REFUSE_NO_SERVER);
+    }
+
     public PhaseServers servers() {
         return servers;
     }

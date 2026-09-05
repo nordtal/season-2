@@ -2,6 +2,7 @@ package eu.nordtal.s2.commands;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * One argument of a command, described rather than parsed.
@@ -105,6 +106,29 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
             throw new IllegalArgumentException(
                     "argument '" + name + "' is a " + kind + " and carries choices anyway");
         }
+    }
+
+    /**
+     * The declared choice a typed value means, in the case the declaration wrote it.
+     *
+     * <h2>Why matching ignores case and the answer does not</h2>
+     * {@code /phase set maintenance} has always worked in chat - {@code SetPhase#parse} compares
+     * phase names case-insensitively, and a name typed at three in the morning is not the place to
+     * be strict. Discord's dropdown only ever sends the declared form, so the two surfaces have to
+     * agree on what a value <em>means</em> while disagreeing about how it is typed.
+     *
+     * <p>So the comparison ignores case and the answer is the declared spelling, which is what every
+     * reader downstream sees: a command comparing against {@code SeasonPhase.name()}, a request row
+     * carrying the value to another process, an audit entry recording what was asked for. Normalise
+     * once, here, or every one of those gets to be wrong on its own.</p>
+     *
+     * @return the declared choice, or empty when this is not one of them
+     */
+    public Optional<String> match(final String typed) {
+        if (kind != Kind.CHOICE || typed == null) {
+            return Optional.empty();
+        }
+        return choices.stream().filter(choice -> choice.equalsIgnoreCase(typed)).findFirst();
     }
 
     /** A required single word. */

@@ -136,7 +136,27 @@ public final class SmpPlugin extends JavaPlugin {
     private Messages sharedMessages;
     private PlayerLocales locales;
 
-    private MilestoneTrack track;
+    /**
+
+     * The milestone track, replaced by {@code /smp reload}.
+
+     *
+
+     * <p><b>volatile</b>, because the write and the reads are on different threads:
+
+     * {@code reloadTrack} runs on Bukkit's async executor behind {@code /smp reload}, and the
+
+     * suggestion supplier handed to {@code SmpCommand.build} reads it on the server thread,
+
+     * once per keystroke. Without it the supplier may go on seeing the old instance for no
+
+     * bounded length of time, which looks exactly like the captured-instance bug this supplier
+
+     * exists to fix.</p>
+
+     */
+
+    private volatile MilestoneTrack track;
     private Worlds worlds;
     private final SeasonState season = new SeasonState();
     private Identities identities;

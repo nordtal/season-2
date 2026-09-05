@@ -47,7 +47,7 @@ class WaitingBookTest {
     }
 
     private Action decide(final WaitingBook book) {
-        return book.decide(player, PLAYABLE, true).action();
+        return book.decide(player, PLAYABLE, false, true).action();
     }
 
     // ------------------------------------------------------------------ finding 38
@@ -151,7 +151,7 @@ class WaitingBookTest {
 
         clock.advance(Duration.ofSeconds(4));
         // The phase's backend goes away: the wait is no longer down to READY alone.
-        assertEquals(Action.SHOW, book.decide(player, PLAYABLE, false).action());
+        assertEquals(Action.SHOW, book.decide(player, PLAYABLE, false, false).action());
         clock.advance(Duration.ofSeconds(4));
 
         // Back up. Eight seconds have passed in total, which is more than the grace - but the wait
@@ -199,7 +199,7 @@ class WaitingBookTest {
         book.entered(player);
         book.claimOffer(player);
 
-        assertEquals(WaitingDecision.show(WaitReason.PACK), book.decide(player, PLAYABLE, true),
+        assertEquals(WaitingDecision.show(WaitReason.PACK), book.decide(player, PLAYABLE, false, true),
                 "the first look has to tell limbo what to draw");
         assertEquals(Action.IDLE, decide(book),
                 "the sweep runs every few seconds; re-sending would re-issue the title on a loop");
@@ -215,7 +215,7 @@ class WaitingBookTest {
 
         book.packApplied(player);
         assertEquals(WaitingDecision.show(WaitReason.MAINTENANCE),
-                book.decide(player, SeasonPhase.MAINTENANCE, true));
+                book.decide(player, SeasonPhase.MAINTENANCE, false, true));
     }
 
     @Test
@@ -268,8 +268,41 @@ class WaitingBookTest {
         applied.packApplied(player);
         applied.ready(player);
         second.advance(APPLY_TIMEOUT.multipliedBy(10));
-        assertEquals(Action.RELEASE, applied.decide(player, PLAYABLE, true).action(),
+        assertEquals(Action.RELEASE, applied.decide(player, PLAYABLE, false, true).action(),
                 "the clock only runs against a client that never answered at all");
+    }
+
+    @Test
+    @DisplayName("an admin is let out of the waiting room during maintenance, onto a server that exists")
+    void anAdminLeavesDuringMaintenance() {
+        // Finding 93: until 2026-09-05 an admin never reached this book during MAINTENANCE or
+        // PRE_LAUNCH on paper (routing said STAY) and always did in practice (STAY meant
+        // velocity.toml, and that says limbo) - held under "maintenance" or, worse, released back
+        // into the room they were standing in. The book now knows the flag.
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        book.packApplied(player);
+        book.ready(player);
+
+        assertEquals(WaitingDecision.show(WaitReason.BACKEND),
+                book.decide(player, SeasonPhase.MAINTENANCE, true, false),
+                "the SMP is not registered: the admin waits for it, and is told that");
+        assertEquals(Action.RELEASE, book.decide(player, SeasonPhase.MAINTENANCE, true, true).action(),
+                "the SMP is there: nothing is left to wait for");
+    }
+
+    @Test
+    @DisplayName("a non-admin in the same room at the same moment is held")
+    void aNonAdminStaysDuringMaintenance() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        book.packApplied(player);
+        book.ready(player);
+
+        assertEquals(WaitingDecision.show(WaitReason.MAINTENANCE),
+                book.decide(player, SeasonPhase.MAINTENANCE, false, true));
     }
 
     // ------------------------------------------------------------------ housekeeping

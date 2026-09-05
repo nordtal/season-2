@@ -66,6 +66,32 @@ public final class PhaseServers {
         };
     }
 
+    /**
+     * Where a player the gate has admitted goes once the waiting room lets them out.
+     * <p>
+     * The same as {@link #forPhase} for everybody except an admin while the network is closed:
+     * {@code MAINTENANCE} and {@code PRE_LAUNCH} name {@code limbo} as "the phase's backend" because
+     * for a non-admin that is where the phase ends, and for an admin it is exactly where it must
+     * not - releasing somebody from the waiting room <em>into</em> the waiting room is a black
+     * screen with a stale title on it and no timeout, which is what a real client showed on
+     * 2026-09-05 (docs/state-of-play.md finding 93). An admin during either phase is released onto
+     * the SMP, decided by the owner the same day: it is the server being built or worked on, and
+     * {@code /server} reaches the others from there. If it is not registered the station holds the
+     * admin with the {@code BACKEND} title, which is the truth.
+     * </p>
+     *
+     * @param phase the phase the network is in
+     * @param admin whether the player carries {@code discord_user.admin}
+     * @return the server to connect them to once nothing is left to wait for
+     */
+    public String forAdmitted(final SeasonPhase phase, final boolean admin) {
+        Objects.requireNonNull(phase, "phase");
+        if (admin && (phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH)) {
+            return smp;
+        }
+        return forPhase(phase);
+    }
+
     /** @return the name of the waiting room, which is also every "not yet" destination */
     public String limbo() {
         return limbo;

@@ -313,9 +313,13 @@ public final class PackStation {
         }
 
         final SeasonPhase phase = phases.lastKnown();
-        final String destination = routing.servers().forPhase(phase);
+        // The admin flag decides two things here and both matter: maintenance does not hold an
+        // admin, and an admin released while the network is closed goes to the SMP rather than
+        // back into this very room - which is where "released to limbo" put them until 2026-09-05.
+        final boolean admin = roster.isAdmin(uuid);
+        final String destination = routing.servers().forAdmitted(phase, admin);
         final WaitingDecision decision =
-                book.decide(uuid, phase, proxy.getServer(destination).isPresent());
+                book.decide(uuid, phase, admin, proxy.getServer(destination).isPresent());
 
         switch (decision.action()) {
             case IDLE -> {

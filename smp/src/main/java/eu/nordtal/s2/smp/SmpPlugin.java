@@ -135,6 +135,8 @@ public final class SmpPlugin extends JavaPlugin {
     private ScheduledExecutorService commandWaiter;
     private SmpDao dao;
     private Messages messages;
+    private eu.nordtal.s2.common.command.CommandRequests requests;
+    private eu.nordtal.s2.smp.announce.Announcer announcer;
     /**
      * What the last {@code /smp reload} refused the file for, or empty when it took it.
      *
@@ -304,8 +306,16 @@ public final class SmpPlugin extends JavaPlugin {
         hud = new SmpHud(this, worlds, season, navigation, messages, locales);
         hud.start();
 
+        // The SMP's line into Discord: one command_request row per language, fire and forget.
+        // Built before the two things that have a moment to announce, on the same request table
+        // the outbox below uses.
+        requests = eu.nordtal.s2.common.command.CommandRequests.borrowing(pool);
+        announcer = new eu.nordtal.s2.smp.announce.Announcer(requests, messages,
+                BukkitSmpEffects.async(this),
+                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
+
         farmReset = new FarmWorldReset(this, config, worlds, swap, pregen, messages, locales,
-                dao, navigation, sounds, hud);
+                dao, navigation, sounds, hud, announcer);
         farmReset.start();
 
         // One instance, registered as a listener and handed to everything that has a moment: it
@@ -371,7 +381,7 @@ public final class SmpPlugin extends JavaPlugin {
 
         // ---- block 3: the activities -----------------------------------------------------
         engine = new ObjectiveEngine(this, dao, () -> track, season, worlds, identities, messages,
-                locales, config, sounds, effects);
+                locales, config, sounds, effects, announcer);
         poller = new StatisticPoller(this, () -> track, engine, identities);
         poller.start();
 
@@ -441,15 +451,13 @@ public final class SmpPlugin extends JavaPlugin {
         final eu.nordtal.s2.common.access.AccessDirectory access =
                 eu.nordtal.s2.common.access.AccessDirectory.using(pool);
         chatEffects = new BukkitSmpEffects(this, BukkitSmpEffects.async(this), dao, engine,
-                farmReset, identities, access, this::reloadTrack);
+                farmReset, identities, access, this::reloadTrack, this::status);
 
         commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
             final Thread thread = new Thread(task, getName() + "-command-waiter");
             thread.setDaemon(true);
             return thread;
         });
-        final eu.nordtal.s2.common.command.CommandRequests requests =
-                eu.nordtal.s2.common.command.CommandRequests.borrowing(pool);
         outbox = new Outbox(requests, commandWaiter,
                 (message, failure) -> getLogger()
                         .log(java.util.logging.Level.WARNING, message, failure));
@@ -462,7 +470,7 @@ public final class SmpPlugin extends JavaPlugin {
                 new PaperCommandInbox(this, Target.SMP, requests, access, sharedMessages);
         // Inline, on purpose - see the field comment.
         final SmpEffects inboxEffects = new BukkitSmpEffects(this, Runnable::run, dao, engine,
-                farmReset, identities, access, this::reloadTrack);
+                farmReset, identities, access, this::reloadTrack, this::status);
         SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
         inbox.start(this);
 
@@ -691,6 +699,20 @@ public final class SmpPlugin extends JavaPlugin {
      * with a border that moved before it, and animating it would show every player a wall crawling
      * outwards for something that happened last week.
      */
+    /**
+     * What {@code /smp status} says, in the asker's language. Off the main thread: the phase is a
+     * read of {@code season_phase}, and the effects only ever call this from their executor.
+     */
+    private SmpEffects.Status status(final java.util.Locale locale) {
+        final String phase = eu.nordtal.s2.common.phase.PhaseDirectory.using(pool).currentPhase().name();
+        final SeasonState.Active active = season.active();
+        final java.util.Optional<String> milestone = active.key() == null ? java.util.Optional.empty()
+                : java.util.Optional.of(messages.hasTranslation(locale, "smp.milestone." + active.key())
+                        ? messages.get(locale, "smp.milestone." + active.key()) : active.key());
+        return new SmpEffects.Status(phase, milestone, (int) Math.round(active.progress() * 100),
+                Bukkit.getOnlinePlayers().size());
+    }
+
     private void loadSeasonState() {
         for (final Milestone milestone : track.milestones()) {
             dao.ensureMilestone(milestone.key(), MilestoneState.LOCKED.name());

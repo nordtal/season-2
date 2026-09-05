@@ -286,6 +286,7 @@ public final class Configs {
             // failure mode of a typo here is silence, because a channel that cannot be resolved
             // looks exactly like a channel nobody configured.
             requireSnowflakeIfSet(path + ".status-channel", language.statusChannel());
+            requireSnowflakeIfSet(path + ".announcement-channel", language.announcementChannel());
         }
 
         if (!tags.contains(FALLBACK_LANGUAGE)) {

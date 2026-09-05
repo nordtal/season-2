@@ -66,7 +66,8 @@ public final class Languages {
                         language.contributionChannel(),
                         language.linkChannel(),
                         language.hungerGamesChannel(),
-                        language.statusChannel()))
+                        language.statusChannel(),
+                        language.announcementChannel()))
                 .toList());
     }
 
@@ -203,17 +204,34 @@ public final class Languages {
      * @param hungerGamesChannelId  where the hunger games Register message goes - a separate channel
      *                              from {@code contributionChannelId} on purpose, since registering
      *                              for the start event and buying paid access are unrelated actions
+     * @param announcementChannelId where a milestone, a farm-reset warning and a phase change are
+     *                              POSTED in this language, or {@code ""} for none - the second
+     *                              optional id, and the one the servers write through
      * @param statusChannelId       the channel whose NAME carries the countdown and then the live
      *                              status, or {@code ""} for a language that has none. The only
      *                              optional id here: the bot writes no message into it and simply
      *                              renames nothing when it is empty
      */
     public record Language(String tag, String roleId, String contributionChannelId, String linkChannelId,
-                            String hungerGamesChannelId, String statusChannelId) {
+                            String hungerGamesChannelId, String statusChannelId,
+                            String announcementChannelId) {
+
+        /** The six-id form: no announcement channel, which is the file's default too. */
+        public Language(final String tag, final String roleId, final String contributionChannelId,
+                        final String linkChannelId, final String hungerGamesChannelId,
+                        final String statusChannelId) {
+            this(tag, roleId, contributionChannelId, linkChannelId, hungerGamesChannelId,
+                    statusChannelId, "");
+        }
 
         /** @return whether this language has a status channel to rename at all */
         public boolean hasStatusChannel() {
             return statusChannelId != null && !statusChannelId.isBlank();
+        }
+
+        /** @return whether announcements for this language have a channel to be posted into */
+        public boolean hasAnnouncementChannel() {
+            return announcementChannelId != null && !announcementChannelId.isBlank();
         }
 
         /** @return the tag as a {@link Locale}, for the message bundles and {@code discord_user.locale} */

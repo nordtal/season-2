@@ -227,6 +227,13 @@ public class AccessBot implements AutoCloseable {
             final BotAccessEffects inboxEffects = new BotAccessEffects(Runnable::run, jda, access,
                     roles, requests, admin, seasonStart, messages, sharedMessages, log);
             AccessCommands.all().forEach(command -> inbox.register(command, inboxEffects));
+            // The servers' line into the announcement channels: `announce <language> <text>` rows
+            // from the SMP (a milestone, a farm-reset warning), posted here verbatim. Inline for
+            // the same reason as above.
+            final eu.nordtal.s2.discordbot.announce.Announcements announcements =
+                    new eu.nordtal.s2.discordbot.announce.Announcements(jda, languages, Runnable::run, log);
+            eu.nordtal.s2.commands.announce.AnnounceCommands.all()
+                    .forEach(command -> inbox.register(command, announcements));
             // Scheduled on `timers` and RUN on `worker`. `timers` is a single thread that already
             // carries the payment poll, the role reconcile, the expiry sweep, the status channels
             // and the readiness beat; a drain blocks on JDA REST and on the database, and would
@@ -248,7 +255,7 @@ public class AccessBot implements AutoCloseable {
             // The sidebar status channels, if any language configured one. Built after the guild
             // state is reconciled so the first tick renames against a settled picture.
             final StatusChannels status = new StatusChannels(jda, languages, messages, phases,
-                    SnapshotDirectory.using(database.dataSource()), Clock.systemUTC());
+                    SnapshotDirectory.using(database.dataSource()), Clock.systemUTC(), announcements);
 
             schedule(accessConfig, processor, roles, status);
 

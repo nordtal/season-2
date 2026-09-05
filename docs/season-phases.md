@@ -31,7 +31,7 @@ stateDiagram-v2
 | `PRE_LAUNCH` | **admins only** | `limbo`, then `smp` | Before the network has ever opened; everybody else sees a countdown |
 | `PRE_EVENT` | linked Discord member, not banned | `hunger-games` lobby | Network is open, the lobby stands, teams register |
 | `START_EVENT` | linked Discord member, not banned | `hunger-games` | The event itself, from countdown to winner |
-| `SMP` | the above **plus active access** | `smp` | The season proper |
+| `SMP` | the above **plus active access** — or the admin flag, since 2026-09-05 | `smp` | The season proper |
 | `MAINTENANCE` | linked Discord member, not banned | `limbo` (an admin is let out onto `smp`; one already on a backend is not moved) | Planned work; everyone else waits in the waiting room |
 
 **`PRE_LAUNCH` is the season's initial state, added 2026-09-03.** It is not `MAINTENANCE` with

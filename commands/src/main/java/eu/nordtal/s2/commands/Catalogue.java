@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.commands.access.AccessCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.network.NetworkCommands;
@@ -39,7 +40,8 @@ public final class Catalogue {
                         SmpCommands.declarations(),
                         HungerGamesCommands.declarations(),
                         LimboCommands.declarations(),
-                        NetworkCommands.declarations())
+                        NetworkCommands.declarations(),
+                        AccessCommands.declarations())
                 .flatMap(List::stream)
                 .toList();
     }

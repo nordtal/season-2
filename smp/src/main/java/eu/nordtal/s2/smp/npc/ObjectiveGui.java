@@ -11,7 +11,6 @@ import eu.nordtal.s2.smp.milestone.Objective;
 import eu.nordtal.s2.smp.milestone.ObjectiveType;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -86,32 +85,34 @@ public final class ObjectiveGui implements Surface {
         final String label = messages.hasTranslation(locale, nameKey)
                 ? messages.get(locale, nameKey) : definition.key();
 
+        // Colours live in the bundle and the objective's name goes in as a parameter since
+        // 2026-09-06 (finding 48); what stays in code is the italic flag, which is item metadata
+        // and not styling of the text.
+        final MessageRenderer renderer = MessageRenderer.of(messages);
         final ItemStack stack = new ItemStack(material);
         stack.editMeta(meta -> {
-            meta.displayName(Component.text(label)
-                    .color(row.completed() ? NamedTextColor.GREEN : NamedTextColor.WHITE)
-                    .decoration(TextDecoration.ITALIC, false));
+            meta.displayName(line(renderer.format(locale,
+                    row.completed() ? "smp.objectives.item-done" : "smp.objectives.item",
+                    "objective", label)));
 
             final List<Component> lore = new ArrayList<>();
-            lore.add(line(ProgressBar.of(row.ratio(), 20) + "  " + row.amount() + "/" + row.target(),
-                    NamedTextColor.GRAY));
+            lore.add(line(renderer.format(locale, "smp.objectives.progress",
+                    "bar", ProgressBar.of(row.ratio(), 20), "amount", row.amount(), "target", row.target())));
             if (row.completed()) {
-                lore.add(line(messages.get(locale, "smp.objectives.done"), NamedTextColor.GREEN));
+                lore.add(line(renderer.get(locale, "smp.objectives.done")));
             } else if (definition.type() == ObjectiveType.HAND_IN) {
-                lore.add(line(messages.get(locale, "smp.objectives.click-to-hand-in"),
-                        NamedTextColor.YELLOW));
-                lore.add(line(String.join(", ", definition.items() == null
-                        ? List.of() : definition.items()), NamedTextColor.DARK_GRAY));
+                lore.add(line(renderer.get(locale, "smp.objectives.click-to-hand-in")));
+                lore.add(line(renderer.format(locale, "smp.objectives.items", "items",
+                        String.join(", ", definition.items() == null ? List.of() : definition.items()))));
             } else {
-                lore.add(line(messages.get(locale, "smp.objectives.counts-itself"),
-                        NamedTextColor.DARK_GRAY));
+                lore.add(line(renderer.get(locale, "smp.objectives.counts-itself")));
             }
             meta.lore(lore);
         });
         return stack;
     }
 
-    private static Component line(final String text, final NamedTextColor colour) {
-        return Component.text(text).color(colour).decoration(TextDecoration.ITALIC, false);
+    private static Component line(final Component text) {
+        return text.decoration(TextDecoration.ITALIC, false);
     }
 }

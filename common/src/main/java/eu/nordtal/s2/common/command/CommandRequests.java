@@ -70,6 +70,22 @@ public interface CommandRequests extends AutoCloseable {
     /** What became of a request, or empty if there is no such row. */
     Optional<CommandOutcome> outcome(long id);
 
+    /**
+     * Deletes every settled request older than {@code days}, and answers how many.
+     *
+     * <h2>Who calls this, and when</h2>
+     * The updater, once, at the start of {@code serve} - next to {@code settleOrphans} and for the
+     * same kind of reason: it is a bounded piece of housekeeping that is safe exactly because
+     * nothing else is running yet. It is deliberately <b>not</b> on a timer. docs/updater.md's first
+     * rule for that process is that {@code serve} is not a scheduler, and a retention sweep is not a
+     * good enough reason to make it one; a container that has not restarted for thirty days keeps
+     * thirty-one days of rows, which is the trade.
+     *
+     * @param days the retention window - a settled row older than this is deleted
+     * @return how many rows went
+     */
+    int deleteSettledOlderThan(int days);
+
     @Override
     void close();
 

@@ -42,7 +42,7 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
         final UUID player = values.player("player");
 
         effects.async(() -> {
-            final String name = effects.nameOf(player).orElse(player.toString());
+            final String name = ChangeAura.nameOr(effects, player);
 
             final Optional<SmpEffects.Access> access;
             try {

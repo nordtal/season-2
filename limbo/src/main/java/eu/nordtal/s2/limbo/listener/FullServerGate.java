@@ -55,7 +55,13 @@ public final class FullServerGate implements Listener {
 
     /**
      * Reads the admin flag, on the one thread this server is allowed to wait on a database from,
-     * and only for a login close enough to the cap that the answer could change anything.
+     * for every allowed login.
+     *
+     * <p>Every login, and not only one close enough to the cap to change the answer, which is what
+     * this said until 2026-09-04. The flag stopped being only about a full server when an admin
+     * became a server operator for the length of their session; the body below and the class
+     * javadoc both say so, and this sentence was the last one left disagreeing - on an
+     * authorisation path.</p>
      *
      * <p>{@link FullServerAdmission#remember} is called either way, including with {@code false}:
      * that is what keeps an answer from an earlier connection out of this one.</p>

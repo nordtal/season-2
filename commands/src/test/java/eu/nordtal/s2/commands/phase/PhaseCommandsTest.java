@@ -130,19 +130,33 @@ class PhaseCommandsTest {
     }
 
     @Test
-    @DisplayName("a process with no cache and no database says nothing rather than half a sentence")
-    void theBotSaysNothingItCannotStandBehind() {
-        // The proxy's "the dates could not be read" line only makes sense underneath a phase line
-        // that already went out. Without one it would be the entire answer, and it does not say
-        // what the phase is.
+    @DisplayName("a process with no cache and no database answers with its own key, not the proxy's")
+    void theBotSaysSomethingItCanStandBehind() {
+        // Two keys and not one, because phase.read.failed says "the phase above" and on this path
+        // there is nothing above. It said nothing at all until 2026-09-05, which is worse than
+        // either: a Discord interaction with no response reads as a broken command rather than as
+        // a database that did not answer, and a request row claimed off the table settled empty.
         final FakeEffects effects = new FakeEffects();
         effects.readFailure = new IllegalStateException("the database is not there");
         final FakeUser user = FakeUser.inDiscord();
 
         new ShowPhase().run(user, Values.none(PhaseCommands.SHOW), effects);
 
-        assertEquals(List.of(), user.keys());
+        assertEquals(List.of("phase.read.failed.only"), user.keys());
         assertEquals(1, effects.warnings.size(), "it still has to be reported to the operator");
+    }
+
+    @Test
+    @DisplayName("a process that already printed the phase still owes a word about the dates")
+    void theProxyStillReportsTheDateFailure() {
+        final FakeEffects effects = new FakeEffects();
+        effects.observation = new PhaseEffects.Observation(SeasonPhase.SMP, true, null);
+        effects.readFailure = new IllegalStateException("the database is not there");
+        final FakeUser user = FakeUser.inGame();
+
+        new ShowPhase().run(user, Values.none(PhaseCommands.SHOW), effects);
+
+        assertEquals(List.of("phase.current", "phase.read.failed"), user.keys());
     }
 
     // ---------------------------------------------------------------- /phase set

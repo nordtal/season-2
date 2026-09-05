@@ -163,6 +163,34 @@ class HungerGamesCommandsTest {
     }
 
     @Test
+    @DisplayName("an admin who always types the second step can still start a healthy game")
+    void confirmOnAGameThatNeedsNoConfirmation() {
+        // Until 2026-09-05 this answered "that confirmation expired": the trailing word alone made
+        // it a confirmation, nothing had armed one because the count was fine, and consume() then
+        // missed. Nothing had expired, and the event did not start.
+        hg.registration = FakeHungerGames.registered(20);
+        final FakeUser user = FakeUser.inGame();
+
+        confirm(user);
+
+        assertEquals(List.of("hg.start.started"), user.keys());
+        assertEquals(List.of("logged tester (confirmed)", "start " + FakeHungerGames.GAME), hg.did);
+    }
+
+    @Test
+    @DisplayName("a start that throws is said so, and not after 'the event is starting'")
+    void aStartThatFails() {
+        // The reply used to go out before effects.start(...) and start(...) carried no catch, so a
+        // failure told the admin the event had begun and left them nothing to act on.
+        hg.registration = FakeHungerGames.registered(20);
+        hg.startFailure = new IllegalStateException("the world is not loaded");
+
+        final FakeUser user = run(start);
+        assertEquals(List.of("hg.start.failed"), user.keys());
+        assertEquals(1, hg.warnings.size(), "it still has to reach the operator");
+    }
+
+    @Test
     @DisplayName("another admin cannot spend the warning shown to the first")
     void aConfirmationBelongsToWhoeverWasWarned() {
         hg.registration = FakeHungerGames.registered(4);
@@ -241,7 +269,16 @@ class HungerGamesCommandsTest {
         hg.messagesReload = false;
         assertEquals(List.of("hg.admin.reload-failed"), run(new ReloadHungerGames()).keys());
         assertEquals(List.of("reload sounds", "reload messages"), hg.did,
-                "a broken sounds.yml must not stop a corrected message from being re-read, and the"
-                        + " other way round");
+                "a broken sounds.yml must not stop a corrected message from being re-read");
+
+        // And the other way round, which the sentence above claimed and no case checked: an early
+        // return after a failed reloadSounds() would have kept this test green while skipping the
+        // message reload entirely.
+        hg.did.clear();
+        hg.messagesReload = true;
+        hg.soundsReload = false;
+        assertEquals(List.of("hg.admin.reload-failed"), run(new ReloadHungerGames()).keys());
+        assertEquals(List.of("reload sounds", "reload messages"), hg.did,
+                "a broken sounds.yml must not stop the messages from being re-read");
     }
 }

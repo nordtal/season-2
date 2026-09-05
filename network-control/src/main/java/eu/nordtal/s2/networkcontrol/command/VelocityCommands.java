@@ -93,7 +93,7 @@ public final class VelocityCommands {
                                                              final E effects) {
         entries.add(new Entry(command.declaration(),
                 (user, values) -> command.run(user, values, effects),
-                command::problem));
+                command::check));
         return this;
     }
 

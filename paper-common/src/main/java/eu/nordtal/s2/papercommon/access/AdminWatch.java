@@ -217,20 +217,25 @@ public final class AdminWatch implements AutoCloseable {
 
     /** The main-thread half: who is online, who of them is an admin, and what changes. */
     private void apply(final Set<UUID> admins) {
-        known = admins;
+        // Copied once, and then only the copy is used or handed out. What arrives is a set the DAO
+        // built, and `known` is what isAdmin - and therefore Brigadier's requires - answers from:
+        // a caller that kept the set and mutated it would be changing who this server treats as an
+        // admin without ever calling into this class.
+        final Set<UUID> snapshot = Set.copyOf(admins);
+        known = snapshot;
         final Set<UUID> online = new HashSet<>();
         for (final Player player : Bukkit.getOnlinePlayers()) {
             online.add(player.getUniqueId());
         }
 
         final Set<UUID> before = operators.held();
-        operators.refresh(admins, online);
+        operators.refresh(snapshot, online);
         final Set<UUID> after = operators.held();
 
         for (final UUID player : online) {
-            admission.remember(player, admins.contains(player));
+            admission.remember(player, snapshot.contains(player));
         }
-        also.accept(admins);
+        also.accept(snapshot);
 
         if (!before.equals(after)) {
             final Set<UUID> gained = new HashSet<>(after);

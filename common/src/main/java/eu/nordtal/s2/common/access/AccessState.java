@@ -174,7 +174,7 @@ public record AccessState(
      *   <tr><td>{@code PRE_LAUNCH}</td><td><b>admins only</b> - the network has not opened yet</td></tr>
      *   <tr><td>{@code PRE_EVENT}</td><td>linked Discord member, not banned</td></tr>
      *   <tr><td>{@code START_EVENT}</td><td>linked Discord member, not banned</td></tr>
-     *   <tr><td>{@code SMP}</td><td>the above <b>plus active access</b></td></tr>
+     *   <tr><td>{@code SMP}</td><td>the above <b>plus active access</b> - or the admin flag</td></tr>
      *   <tr><td>{@code MAINTENANCE}</td><td>the same linked, non-banned member - see below</td></tr>
      * </table>
      *
@@ -186,13 +186,15 @@ public record AccessState(
      * now answers {@code true} for any linked, non-banned member during maintenance and the
      * <em>destination</em> is what makes maintenance different, not admission.
      * <p>
-     * That is why {@link #admin()} appears in this method for exactly one phase, {@code PRE_LAUNCH},
-     * and nowhere else - before the opening, being an admin <em>is</em> the admission rule. In every
-     * other phase the flag has not become irrelevant either: it decides <em>where</em> a player goes
-     * during maintenance
-     * ({@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting}: an admin is left where they are,
-     * everyone else is put in {@code limbo}) - but it is no longer part of "may they join". A banned
-     * admin is still banned, because {@link #linkedMember()} is still asked first.
+     * {@link #admin()} appears in this method for two phases. {@code PRE_LAUNCH}, where being an
+     * admin <em>is</em> the admission rule - before the opening nobody else gets in. And
+     * {@code SMP}, since 2026-09-05, where it stands in for an access period: this method used to
+     * say "the flag is not a free access period", and the first local rehearsal showed the cost of
+     * that - the admin who switched the network to {@code SMP} was disconnected by their own switch
+     * with "no active access". The owner decided the flag is a free pass, the way it already is for
+     * the player limit. In the remaining phases it decides <em>where</em> a player goes rather than
+     * whether ({@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting}). A banned admin is still
+     * banned, because {@link #linkedMember()} is still asked first.
      * </p>
      * <p>
      * <b>What this method deliberately does not do is pick the disconnect screen.</b> "Refused
@@ -212,7 +214,10 @@ public record AccessState(
             // Every phase admits the same linked, non-banned member; only SMP asks for more. The
             // phase decides where they land, and that is not this method's question.
             case PRE_EVENT, START_EVENT, MAINTENANCE -> true;
-            case SMP -> accessActive;
+            // ... and an admin needs none (2026-09-05): the flag is a free pass in every phase, the
+            // way it already exempts them from the player limit. A banned admin is still banned,
+            // because linkedMember() was asked first.
+            case SMP -> accessActive || admin;
             // The exception to the paragraph above, and the only one: before the network has ever
             // opened, an admin is the only person who may be on it. Everybody else is refused with
             // a countdown - see GateOutcome for which of the three screens they get.

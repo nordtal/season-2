@@ -48,11 +48,13 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                 smpStart = effects.phases().smpStart().orElse(null);
             } catch (final RuntimeException failure) {
                 effects.warn("reading the season dates for /phase show", failure);
-                // Only worth saying when the phase line already went out - which is the proxy's
-                // case, and is the whole reason it goes out first.
-                if (held.isPresent()) {
-                    user.reply("phase.read.failed");
-                }
+                // Always an answer, and which one depends on whether a phase line went out. The
+                // guard here used to suppress the sentence entirely on the path with no cache -
+                // the bot's, and a request claimed off a row - which left a Discord interaction
+                // with no response at all and settled a request row empty. It was suppressed
+                // because phase.read.failed says "the phase above", and on that path there is
+                // nothing above; so the answer is a second key rather than no key.
+                user.reply(held.isPresent() ? "phase.read.failed" : "phase.read.failed.only");
                 return;
             }
 

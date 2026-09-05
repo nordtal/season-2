@@ -164,6 +164,54 @@ class RequestArgumentsTest {
         assertEquals("duo", RequestArguments.decode(declaration, "duo").string("mode"));
     }
 
+    @Test
+    @DisplayName("a greedy value that begins or ends with a space is refused, not silently trimmed")
+    void greedyWhitespaceIsRefused() {
+        // decode() walks past the spaces between arguments before it reads the greedy one, so
+        // encode(" foo") comes back as "foo" - the far side runs the command with a different value
+        // and nothing anywhere says so. A pasted date reaches this path.
+        final Declaration declaration = new Declaration(List.of("phase", "launch"), Target.PROXY,
+                Set.of(Surface.GAME), true, false, List.of(Argument.greedy("when")));
+
+        for (final String typed : List.of(" 2026-10-01 18:00", "2026-10-01 18:00 ")) {
+            final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                    () -> RequestArguments.encode(declaration,
+                            new Values(declaration, Map.of("when", typed))),
+                    "\"" + typed + "\" would not have survived the round trip");
+            assertTrue(refused.getMessage().contains("when"), refused.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("a value supplied after an absent optional is refused rather than dropped")
+    void aGapInTheOptionalsIsRefused() {
+        // Declaration only forbids a REQUIRED argument after an optional one, so two optionals with
+        // a hole between them is expressible. The line cannot carry the hole, and encoding used to
+        // stop at the first absent value and lose everything after it in silence.
+        final Declaration declaration = new Declaration(List.of("hg", "start"),
+                Target.HUNGER_GAMES, Set.of(Surface.GAME), true, false,
+                List.of(Argument.word("mode").optional(), Argument.word("note").optional()));
+
+        final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> RequestArguments.encode(declaration,
+                        new Values(declaration, Map.of("note", "later"))));
+        assertTrue(refused.getMessage().contains("note"), refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("a Discord id is ASCII digits, and Character.isDigit is not that test")
+    void anAccountIsAsciiDigits() {
+        // Devanagari digits pass Character.isDigit. The far side hands this straight to a query and
+        // to a mention, where it would look like a member who simply does not exist.
+        final Declaration declaration = new Declaration(List.of("access", "revoke"), Target.BOT,
+                Set.of(Surface.GAME), true, true, List.of(Argument.account("member")));
+
+        assertEquals("100000000000000009",
+                RequestArguments.decode(declaration, "100000000000000009").account("member"));
+        assertThrows(IllegalArgumentException.class,
+                () -> RequestArguments.decode(declaration, "\u0967\u0968\u0969"));
+    }
+
     /** One plausible value per declared argument, chosen from the argument's own declaration. */
     private static Values sample(final Declaration declaration) {
         final Map<String, Object> values = new LinkedHashMap<>();

@@ -30,11 +30,13 @@ import java.util.Set;
  * folding them would either give every member the ability to unlink other people or take away a
  * self-service action that deliberately has no waiting period.
  *
- * <h2>Three of the five ask first</h2>
+ * <h2>Four of the six ask first</h2>
  * Granting, revoking and settling all move money or paid time and none of them has a clean undo:
  * revoking does not restore the days it took, and settling books a payment against a reference that
- * cannot be unbooked. Unlinking is guarded for a different reason - it is the one that cannot be
- * repaired by the admin who did it, because re-linking needs a code the <em>player</em> generates.
+ * cannot be unbooked. Unlinking is the fourth and is guarded for a different reason - it is the one
+ * that cannot be repaired by the admin who did it, because re-linking needs a code the
+ * <em>player</em> generates. The two that ask nothing are {@code /access status}, which reads, and
+ * {@code /access reload}, which re-reads a file.
  */
 public final class AccessCommands {
 
@@ -90,9 +92,17 @@ public final class AccessCommands {
             List.of("access", "settle"), Target.BOT, EVERYWHERE, true, true,
             List.of(Argument.word("reference")));
 
-    /** {@code /messages reload} - the bot's own wording. */
+    /**
+     * {@code /access reload} - the bot's own wording.
+     *
+     * <p>Under the {@code access} root and not a {@code /messages} one of its own, which is what it
+     * was for a day. Every other reload in the network is grouped under the root it belongs to -
+     * {@code /smp reload}, {@code /hg reload}, {@code /limbo reload}, {@code /network reload} - and
+     * this command is registered on three Paper servers, where a top-level {@code /messages} is a
+     * generic enough name to collide with something else's.</p>
+     */
     public static final Declaration RELOAD_MESSAGES = new Declaration(
-            List.of("messages", "reload"), Target.BOT, EVERYWHERE, true, false, List.of());
+            List.of("access", "reload"), Target.BOT, EVERYWHERE, true, false, List.of());
 
     /** Every {@code /access} command, plus the bot's own reload. */
     public static List<NordtalCommand<AccessEffects>> all() {

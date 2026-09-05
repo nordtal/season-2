@@ -97,6 +97,8 @@ public final class HungerGamesPlugin extends JavaPlugin {
     /** Held so {@code /hg reload} can swap what it answers; every listener has this one instance. */
     private HungerGamesSounds sounds;
     private Messages messages;
+    /** {@code :commands}' bundle as the inbox renders it - a second view of the same files. */
+    private Messages sharedMessages;
     private PlayerLocales locales;
 
     private final GameState state = new GameState();
@@ -256,8 +258,12 @@ public final class HungerGamesPlugin extends JavaPlugin {
                 (message, failure) -> getLogger()
                         .log(java.util.logging.Level.WARNING, message, failure));
 
+        // Built here rather than inside the inbox so that /hg reload can move it: it is a second
+        // view of the same message files, and one that never reloaded would answer a Discord admin
+        // with the wording this process started with.
+        sharedMessages = PaperCommandInbox.sharedBundle(this);
         final PaperCommandInbox inbox =
-                new PaperCommandInbox(this, Target.HUNGER_GAMES, requests, access);
+                new PaperCommandInbox(this, Target.HUNGER_GAMES, requests, access, sharedMessages);
         // Inline, on purpose - see the field comment.
         final HungerGamesEffects inboxEffects = new BukkitHungerGamesEffects(this, Runnable::run,
                 dao, config, lobby, () -> currentGameId, gameId -> startGame(gameId, world),
@@ -376,6 +382,12 @@ public final class HungerGamesPlugin extends JavaPlugin {
      */
     private void reloadMessages() {
         messages.reload();
+        // The command inbox's own view of the shared bundle, in the same breath. Its unknown keys
+        // are deliberately not reported: it holds one root, so a key this module declares would be
+        // named as unknown by it and is not.
+        if (sharedMessages != null) {
+            sharedMessages.reload();
+        }
         messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
                 "the message override names " + key + ", which no bundle declares - it is"
                         + " stored and never used; check the spelling"));

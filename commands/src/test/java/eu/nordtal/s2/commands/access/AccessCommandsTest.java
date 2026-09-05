@@ -175,11 +175,21 @@ class AccessCommandsTest {
         // both surfaces - so /access grant could not have been used on the person it exists for: a
         // member whose payment arrived outside the normal flow and who has never linked.
         for (final Declaration declaration : AccessCommands.declarations()) {
-            declaration.arguments().stream()
+            final long subjects = declaration.arguments().stream()
                     .filter(argument -> argument.name().equals("member"))
-                    .forEach(argument -> assertEquals(
+                    .peek(argument -> assertEquals(
                             eu.nordtal.s2.commands.Argument.Kind.ACCOUNT, argument.kind(),
-                            declaration.name() + " resolves its subject through account_link"));
+                            declaration.name() + " resolves its subject through account_link"))
+                    .count();
+            // Counted, because a filter that matches nothing passes a forEach silently: renaming
+            // the argument from `member` to `player` is the exact regression this exists to catch,
+            // and it would have left the loop body unreached and the test green.
+            if (declaration == AccessCommands.SETTLE
+                    || declaration == AccessCommands.RELOAD_MESSAGES) {
+                assertEquals(0, subjects, declaration.name() + " takes no member");
+                continue;
+            }
+            assertEquals(1, subjects, declaration.name() + " has no 'member' argument any more");
         }
     }
 

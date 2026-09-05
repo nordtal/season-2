@@ -18,7 +18,16 @@ import java.util.UUID;
 public final class FakeUser implements NordtalUser {
 
     /** Every reply, as {@code key} plus its placeholders, in the order they were sent. */
-    public final List<Reply> replies = new ArrayList<>();
+    /**
+     * Everything this user was told, in order.
+     *
+     * <p>Concurrent, because it is not always written from the thread that reads it: {@code Outbox}
+     * answers from its own scheduler and again from the task that gives up waiting, and
+     * {@code OutboxTest} then reads {@code size()} from the test thread. An {@link ArrayList} there
+     * has no happens-before edge, so the wait could spin past a reply that had already been made
+     * and fail on the timeout instead.</p>
+     */
+    public final List<Reply> replies = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     private final Origin origin;
     private final String discordId;

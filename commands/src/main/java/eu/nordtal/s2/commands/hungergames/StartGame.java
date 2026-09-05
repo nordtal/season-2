@@ -28,9 +28,9 @@ import java.util.Optional;
 public final class StartGame implements NordtalCommand<HungerGamesEffects> {
 
     /**
-     * Keyed on the command rather than on the person, so a warning shown to one admin cannot be
-     * spent by another - and shared with {@link Confirm} so that the two halves of one flow see one
-     * map.
+     * Keyed on the person <em>and</em> on {@link #KEY} - both, which is what
+     * {@link Confirmations#key} builds - so a warning shown to one admin cannot be spent by another,
+     * and so the two halves of one flow see one entry rather than two.
      */
     private final Confirmations confirmations = new Confirmations();
 
@@ -77,12 +77,18 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
                 return;
             }
 
-            if (isConfirmation) {
+            // Both halves ask the same question, and the order matters: an admin who always types
+            // the second step must not be refused on a game that never needed one. Until 2026-09-05
+            // `/hg start confirm` on a healthy registration answered "that confirmation expired" -
+            // nothing had expired, nothing had ever been armed, and the game did not start.
+            final boolean needsConfirming =
+                    game.participants() < effects.softMinimumParticipants();
+            if (isConfirmation && needsConfirming) {
                 if (!confirmations.consume(user, KEY)) {
                     user.reply("hg.start.confirm-expired", Map.of(), Feedback.REFUSED);
                     return;
                 }
-            } else if (game.participants() < effects.softMinimumParticipants()) {
+            } else if (needsConfirming) {
                 confirmations.arm(user, KEY);
                 // REFUSED rather than nothing: the command did not do what was asked, and this is
                 // the one place an admin about to start the season's flagship event should stop and
@@ -104,10 +110,18 @@ public final class StartGame implements NordtalCommand<HungerGamesEffects> {
             // irreversible, and an admin who is not themselves a participant hears NOTHING else
             // during the entire start - the TRAVEL, the countdown and the release all go to
             // participants only.
+            effects.recordStart(user, game, isConfirmation);
+            try {
+                effects.start(game.gameId());
+            } catch (final RuntimeException failure) {
+                effects.warn("/hg start could not start " + game.gameId(), failure);
+                user.reply("hg.start.failed", Map.of(), Feedback.REFUSED);
+                return;
+            }
+            // Said afterwards, and that ordering is the whole point: the reply used to go out first,
+            // so a start that threw told the admin the event had begun.
             user.reply("hg.start.started", Map.of("count", game.participants()),
                     Feedback.SMALL_SUCCESS);
-            effects.recordStart(user, game, isConfirmation);
-            effects.start(game.gameId());
         });
     }
 

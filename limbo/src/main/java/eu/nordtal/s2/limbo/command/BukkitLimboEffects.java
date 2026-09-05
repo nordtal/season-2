@@ -21,12 +21,20 @@ public final class BukkitLimboEffects implements LimboEffects {
     private final Plugin plugin;
     private final Executor executor;
     private final Messages messages;
+    private final Messages shared;
 
+    /**
+     * @param messages this plugin's layered bundle - what it says on its own surface
+     * @param shared   {@code :commands}' bundle as the command inbox renders it. Two views of the
+     *                 same files, so a reload that moved only one of them would leave a command
+     *                 answering differently in chat and in Discord
+     */
     public BukkitLimboEffects(final Plugin plugin, final Executor executor,
-                              final Messages messages) {
+                              final Messages messages, final Messages shared) {
         this.plugin = plugin;
         this.executor = executor;
         this.messages = messages;
+        this.shared = shared;
     }
 
     /** Everything {@code /limbo} does off the main thread, on the plugin's async scheduler. */
@@ -48,6 +56,10 @@ public final class BukkitLimboEffects implements LimboEffects {
     public boolean reloadMessages() {
         try {
             messages.reload();
+            // The inbox's own view of the shared bundle, in the same breath. Its unknown keys are
+            // deliberately not reported: this bundle holds one root, so a key the module declares
+            // would be named as unknown by it and is not.
+            shared.reload();
             messages.unknownOverrideKeys().forEach(unknown -> plugin.getLogger().warning(
                     "the message override names " + unknown + ", which no bundle declares - it"
                             + " is stored and never used; check the spelling"));

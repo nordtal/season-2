@@ -227,7 +227,7 @@ byte counts are the sum of the jars that would actually be shaded, annotation-on
 ### What that became, on 2026-09-05
 
 Every admin command in the network is declared once and adapted three times. Seventeen declarations
-across five families - `/phase`, `/smp`, `/hg`, `/limbo`, `/network` and `/access` - and three
+across six families - `/phase`, `/smp`, `/hg`, `/limbo`, `/network` and `/access` - and three
 adapters: `PaperCommands` (`:paper-common`), `VelocityCommands` (`network-control`) and
 `DiscordCommands` (`discord-bot`). `Catalogue` is the list of them, which is what turns "every admin
 command is on both platforms" into something a test asks rather than something four adapters have to

@@ -61,6 +61,15 @@ final class JdbiCommandRequests implements CommandRequests {
     }
 
     @Override
+    public int deleteSettledOlderThan(final int days) {
+        if (days < 1) {
+            throw new IllegalArgumentException("a retention window of " + days + " days would reach"
+                    + " requests that were answered moments ago");
+        }
+        return dao.deleteSettledOlderThan(days);
+    }
+
+    @Override
     public void close() {
         // Nothing to close: the pool belongs to whoever handed it over. The method is on the
         // interface anyway so that a future implementation which owns one can be dropped in without

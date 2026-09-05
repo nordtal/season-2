@@ -220,21 +220,21 @@ class CommandRequestIntegrationTest {
         // NewCommandRequest refuses this as well, so the CHECK is the second line rather than the
         // first - which is what makes it worth asserting: a future adapter that builds its row with
         // raw SQL still cannot get past it.
-        assertThrows(SQLException.class, () -> insertRaw("SMP", "smp reload", "CONSOLE",
-                DISCORD_ID, null));
+        refusedBy("command_request_console_is_anonymous",
+                () -> insertRaw("SMP", "smp reload", "CONSOLE", DISCORD_ID, null));
     }
 
     @Test
     @DisplayName("a request from Discord without an id is refused, because it could not be re-checked")
     void discordAlwaysKnowsWho() throws SQLException {
-        assertThrows(SQLException.class,
+        refusedBy("command_request_discord_knows_who",
                 () -> insertRaw("SMP", "smp reload", "DISCORD", null, null));
     }
 
     @Test
     @DisplayName("an unknown target is refused by the CHECK")
     void theTargetIsPinned() throws SQLException {
-        assertThrows(SQLException.class,
+        refusedBy("command_request_target_check",
                 () -> insertRaw("UPDATER", "update apply", "GAME", null, MC_UUID));
     }
 
@@ -247,8 +247,65 @@ class CommandRequestIntegrationTest {
                 request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");
 
-        assertThrows(SQLException.class, () -> update(
+        refusedBy("command_request_expired_never_started", () -> update(
                 "UPDATE command_request SET status = 'EXPIRED', finished = now() WHERE id = " + id));
+    }
+
+    @Test
+    @DisplayName("retention deletes settled rows past the window and never an unsettled one")
+    void retention() throws SQLException {
+        // The table had no deletion path at all until 2026-09-05, and a settled row carries the
+        // asker's name, their Discord id, their Minecraft account, what they typed and what they
+        // were told. Thirty days, swept by the updater at the start of serve.
+        final long old = requests.submit(
+                request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
+        requests.claim("SMP");
+        requests.finish(old, true, "reloaded");
+        // requested and started move with it: command_request_finished_after_started would refuse
+        // a row that finished a month before it began, which is the schema doing its job.
+        update("UPDATE command_request SET requested = now() - interval '31 days',"
+                + " started = now() - interval '31 days',"
+                + " finished = now() - interval '31 days' WHERE id = " + old);
+
+        final long recent = requests.submit(
+                request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
+        requests.claim("SMP");
+        requests.finish(recent, true, "reloaded");
+
+        // Never claimed, never settled, and older than the window by its `requested` - the sweep
+        // must not see it at all. Deleting a row somebody is still waiting on is the one outcome
+        // worse than keeping a row too long.
+        final long waiting = requests.submit(
+                request("HUNGER_GAMES", "hg reload", "", Instant.now().plusSeconds(30)));
+        update("UPDATE command_request SET requested = now() - interval '90 days' WHERE id = "
+                + waiting);
+
+        assertEquals(1, requests.deleteSettledOlderThan(30));
+        assertTrue(requests.outcome(old).isEmpty(), "the old settled row is still there");
+        assertTrue(requests.outcome(recent).isPresent(), "a row inside the window was deleted");
+        assertTrue(requests.outcome(waiting).isPresent(),
+                "a PENDING row was deleted, which is a command somebody may still be waiting on");
+    }
+
+    @Test
+    @DisplayName("a window of zero days is refused rather than emptying the table")
+    void aZeroWindowIsRefused() {
+        assertThrows(IllegalArgumentException.class, () -> requests.deleteSettledOlderThan(0));
+    }
+
+    /**
+     * That the row was refused, and by <em>which</em> constraint.
+     *
+     * <p>Any {@code SQLException} would also be thrown by a column rename, a wrong type or an
+     * unrelated {@code NOT NULL} - so a test that only asks for one stays green while the CHECK it
+     * is named after no longer exists. {@code AccessDirectoryIntegrationTest} already names its
+     * constraints; this is the same rule.</p>
+     */
+    private static void refusedBy(final String constraint,
+                                  final org.junit.jupiter.api.function.Executable insert) {
+        final SQLException refused = assertThrows(SQLException.class, insert);
+        assertTrue(refused.getMessage().contains(constraint),
+                "expected " + constraint + " to refuse the row, got: " + refused.getMessage());
     }
 
     private void insertRaw(final String target, final String command, final String source,

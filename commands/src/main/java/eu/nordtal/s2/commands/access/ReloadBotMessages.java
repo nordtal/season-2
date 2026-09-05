@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * {@code /messages reload} - the bot's own wording.
+ * {@code /access reload} - the bot's own wording.
  *
  * <p>The one place in the network where a reload reports what it found rather than only whether it
  * worked: an override key no bundle declares is stored and never used, which looks exactly like an

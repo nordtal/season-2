@@ -132,6 +132,8 @@ public final class SmpPlugin extends JavaPlugin {
     private ScheduledExecutorService commandWaiter;
     private SmpDao dao;
     private Messages messages;
+    /** {@code :commands}' bundle as the inbox renders it - a second view of the same files. */
+    private Messages sharedMessages;
     private PlayerLocales locales;
 
     private MilestoneTrack track;
@@ -414,7 +416,12 @@ public final class SmpPlugin extends JavaPlugin {
                 (message, failure) -> getLogger()
                         .log(java.util.logging.Level.WARNING, message, failure));
 
-        final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.SMP, requests, access);
+        // Built here rather than inside the inbox so that /smp reload can move it: it is a second
+        // view of the same message files, and one that never reloaded would answer a Discord admin
+        // with the wording this process started with.
+        sharedMessages = PaperCommandInbox.sharedBundle(this);
+        final PaperCommandInbox inbox =
+                new PaperCommandInbox(this, Target.SMP, requests, access, sharedMessages);
         // Inline, on purpose - see the field comment.
         final SmpEffects inboxEffects = new BukkitSmpEffects(this, Runnable::run, dao, engine,
                 farmReset, identities, access, this::reloadTrack);
@@ -514,7 +521,8 @@ public final class SmpPlugin extends JavaPlugin {
                             // container and this is how it is reached: a row and a notification,
                             // never a call.
                             new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales),
-                            track, season)
+                            // A supplier and not the field: /smp reload replaces it.
+                            () -> track, season)
                     .forEach(node -> event.registrar().register(node));
         });
     }
@@ -578,6 +586,12 @@ public final class SmpPlugin extends JavaPlugin {
         // and a typo'd override must not read as a track that failed to load.
         try {
             messages.reload();
+            // The command inbox's own view of the shared bundle, in the same breath. Its unknown
+            // keys are deliberately not reported: it holds one root, so a key this module declares
+            // would be named as unknown by it and is not.
+            if (sharedMessages != null) {
+                sharedMessages.reload();
+            }
             reportUnknownOverrides();
             getLogger().info("the message bundles were reloaded");
         } catch (final RuntimeException exception) {

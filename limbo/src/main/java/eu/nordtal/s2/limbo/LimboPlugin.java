@@ -178,8 +178,13 @@ public final class LimboPlugin extends JavaPlugin {
         // The command layer. Built before the admin watch is started, because the inbox rides on
         // that watch's LISTEN connection: one connection carrying nordtal_admin and nordtal_command,
         // which is what NotificationListener was built for.
+        //
+        // The shared bundle is built here and not inside the inbox, so that /limbo reload can move
+        // it: it is a second view of the same files, and one that never reloaded would answer a
+        // Discord admin with the wording this process started with.
+        final eu.nordtal.s2.common.message.Messages shared = PaperCommandInbox.sharedBundle(this);
         final LimboEffects chatEffects =
-                new BukkitLimboEffects(this, BukkitLimboEffects.async(this), messages);
+                new BukkitLimboEffects(this, BukkitLimboEffects.async(this), messages, shared);
         commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
             final Thread thread = new Thread(task, getName() + "-command-waiter");
             thread.setDaemon(true);
@@ -191,11 +196,13 @@ public final class LimboPlugin extends JavaPlugin {
                 (message, failure) -> getLogger()
                         .log(java.util.logging.Level.WARNING, message, failure));
 
-        final PaperCommandInbox inbox = new PaperCommandInbox(this, Target.LIMBO, requests, access);
+        final PaperCommandInbox inbox =
+                new PaperCommandInbox(this, Target.LIMBO, requests, access, shared);
         // Inline: the inbox settles a request row when the command returns, so scheduled effects
         // would write the answer before the command produced it. CommandInbox#register refuses them.
         LimboCommands.all().forEach(command ->
-                inbox.register(command, new BukkitLimboEffects(this, Runnable::run, messages)));
+                inbox.register(command, new BukkitLimboEffects(this, Runnable::run, messages,
+                        shared)));
         inbox.start(this);
 
         adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),

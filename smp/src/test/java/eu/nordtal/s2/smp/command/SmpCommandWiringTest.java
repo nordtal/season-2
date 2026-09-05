@@ -104,9 +104,15 @@ class SmpCommandWiringTest {
         // tree. A source that queried would be a database round trip per character typed.
         final String source = read("smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java");
 
-        assertTrue(source.contains("commands.suggest(SmpCommands.UNLOCK_MILESTONE, \"key\", track::keys)"),
+        assertTrue(source.contains("commands.suggest(SmpCommands.UNLOCK_MILESTONE, \"key\","),
                 "milestone keys are not suggested, so /smp milestone unlock is a key typed from"
                         + " memory into a command that cannot be undone");
+        // Through the supplier, not a captured track. The tree is built once at enable and
+        // /smp reload replaces the plugin's track with a new instance, so a captured one would go
+        // on offering the keys that were in milestones.yml at startup for the rest of the season.
+        assertTrue(source.contains("() -> track.get().keys()"),
+                "the milestone suggestions read a track captured at enable, so /smp reload would"
+                        + " not reach them");
         assertTrue(source.contains("commands.suggest(SmpCommands.COMPLETE_OBJECTIVE, \"key\","),
                 "objective keys are not suggested");
         assertTrue(source.contains("season.active().objectives()"),

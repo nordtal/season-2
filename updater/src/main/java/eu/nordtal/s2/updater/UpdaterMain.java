@@ -2,6 +2,7 @@ package eu.nordtal.s2.updater;
 
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
+import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.updater.apply.ApplyResult;
 import eu.nordtal.s2.updater.arcane.Arcane;
@@ -89,6 +90,16 @@ import java.util.Optional;
  */
 @Slf4j
 public final class UpdaterMain {
+
+    /**
+     * How long a settled {@code command_request} row is kept.
+     *
+     * <p>Thirty days: long enough to look back at an incident from the last few weeks, short enough
+     * that "a message in flight" is an honest description of the row. Chosen by the owner,
+     * 2026-09-05. Not configurable, because a retention window nobody has decided is one every
+     * deployment answers differently.</p>
+     */
+    private static final int COMMAND_REQUEST_RETENTION_DAYS = 30;
 
     /** Mirrors the bot's layout: WORKDIR /app, config in a volume at /app/config. */
     private static final String DEFAULT_CONFIG_DIR = "config";
@@ -274,6 +285,31 @@ public final class UpdaterMain {
                     log.error("The database schema could not be applied, so this container will not"
                             + " become ready. Nothing else in the stack starts until it does.", failure);
                     return 1;
+                }
+
+                // Once, here, next to settleOrphans and for the same reason: bounded housekeeping
+                // that is safe precisely because nothing else has started yet. NOT on a timer -
+                // this module's first rule is that `serve` is not a scheduler - so a container that
+                // has not restarted in a month keeps a month and a day of rows, which is the trade.
+                //
+                // command_request had no deletion path at all until 2026-09-05, and a settled row
+                // carries the asker's name, their Discord id, their Minecraft account, what they
+                // typed and what they were told. V11 calls a request "a message in flight"; this is
+                // what makes that true. Volume was never the argument - a season is a few dozen
+                // admin commands - the identifiers were.
+                try (CommandRequests requests =
+                             CommandRequests.borrowing(database.dataSource())) {
+                    final int gone = requests.deleteSettledOlderThan(COMMAND_REQUEST_RETENTION_DAYS);
+                    if (gone > 0) {
+                        log.info("Removed {} settled command requests older than {} days.",
+                                gone, COMMAND_REQUEST_RETENTION_DAYS);
+                    }
+                } catch (final RuntimeException failure) {
+                    // Not fatal, and deliberately so: this container is what every other service in
+                    // the stack waits for, and a network that will not come up because some old
+                    // rows could not be deleted is a far worse outcome than the rows staying.
+                    log.warn("Could not clear out old command requests; they stay where they are.",
+                            failure);
                 }
 
                 // Fill empty volumes before anything is told this container is ready. See below for

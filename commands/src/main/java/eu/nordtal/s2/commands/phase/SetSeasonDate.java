@@ -68,7 +68,7 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
     public java.util.Optional<java.util.Map.Entry<String, Map<String, ?>>> problem(
             final Values values) {
         final String typed = values.string("when");
-        if (SeasonDates.CLEAR.equalsIgnoreCase(typed) || SeasonDates.parse(typed).isPresent()) {
+        if (SeasonDates.isClear(typed) || SeasonDates.parse(typed).isPresent()) {
             return java.util.Optional.empty();
         }
         return java.util.Optional.of(java.util.Map.entry("phase.date.invalid",

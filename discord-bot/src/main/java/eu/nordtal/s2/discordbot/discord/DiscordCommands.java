@@ -118,7 +118,7 @@ public final class DiscordCommands extends ListenerAdapter {
     public <E extends CommandEffects> DiscordCommands local(final NordtalCommand<E> command,
                                                             final E effects) {
         add(command.declaration(), (user, values) -> command.run(user, values, effects),
-                command::problem);
+                command::check);
         return this;
     }
 
@@ -359,16 +359,33 @@ public final class DiscordCommands extends ListenerAdapter {
                 .queue();
     }
 
+    /**
+     * Confirmation messages whose button has already been pressed.
+     *
+     * <p>Keyed on the message, because that is what a confirmation is: one message, one press. The
+     * ids accumulate for as long as the bot runs, which is a few dozen strings a season on the
+     * admin path and not worth a sweeper.</p>
+     */
+    private final java.util.Set<String> spent = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     @Override
     public void onButtonInteraction(final ButtonInteractionEvent event) {
         final String id = event.getComponentId();
         if (!id.startsWith(BUTTON)) {
             return;
         }
-        // The components go NOW, not when the command's first reply lands. deferEdit only
-        // acknowledges the interaction; until the message is actually edited the button is still
-        // there and still live, and the work is on another thread - so the same button could be
-        // pressed twice. On /smp farmreset now that is two world deletions.
+        // Claimed here, in memory, before anything else. Removing the components is a REST call:
+        // `queue()` returns immediately and the button stays live until Discord has applied the
+        // edit, so a second press inside that round trip arrives as a second event and both reach
+        // the command. On /smp farmreset now that is two world deletions.
+        //
+        // A restart empties this, which is the deliberate trade: a button that survives a restart
+        // is the whole reason the id carries the command, and the window this guards is one REST
+        // round trip rather than the button's lifetime.
+        if (!id.equals(BUTTON + "cancel") && !spent.add(event.getMessageId())) {
+            event.deferEdit().queue();
+            return;
+        }
         event.editComponents().queue();
         worker.execute(() -> {
             final DiscordUser user = resolve(event);
@@ -424,17 +441,58 @@ public final class DiscordCommands extends ListenerAdapter {
         // which is a SELECT. Three seconds is the budget either way, and a gateway thread waiting
         // on the database stalls the whole guild.
         //
-        // The admin flag is deliberately NOT re-read: it would be a second query per keystroke, and
-        // these values are only offered to somebody Discord already shows the command to. The
-        // command itself re-checks discord_user.admin before doing anything with the answer, which
-        // the bot's old /settle did in neither place.
+        // The admin flag IS checked, through a short-lived cache. Discord's own permission system
+        // decides who sees the command, and this whole change exists because that is a different
+        // list from discord_user.admin - so leaving autocomplete ungated would hand every open
+        // payment reference to whoever a server administrator had given the right Discord
+        // permission to. The cache is what makes it affordable: a keystroke is not a query.
         final String typed = event.getFocusedOption().getValue().toLowerCase(Locale.ROOT);
-        worker.execute(() -> event.replyChoiceStrings(offered.get().stream()
-                        .filter(value -> value.toLowerCase(Locale.ROOT).startsWith(typed))
-                        // Discord shows at most 25 and refuses a reply with more.
-                        .limit(25)
-                        .toList())
-                .queue());
+        final String asker = event.getUser().getId();
+        worker.execute(() -> {
+            if (entry.declaration().adminOnly() && !admitted(asker)) {
+                event.replyChoiceStrings(List.of()).queue();
+                return;
+            }
+            event.replyChoiceStrings(offered.get().stream()
+                            .filter(value -> value.toLowerCase(Locale.ROOT).startsWith(typed))
+                            // Discord shows at most 25 and refuses a reply with more.
+                            .limit(25)
+                            .toList())
+                    .queue();
+        });
+    }
+
+    /** How long an admin answer stands before autocomplete asks the database again. */
+    private static final java.time.Duration ADMIN_CACHED = java.time.Duration.ofSeconds(10);
+
+    private record Admitted(boolean admin, java.time.Instant until) {
+    }
+
+    private final java.util.Map<String, Admitted> adminCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Whether this Discord account is an admin, answered from a ten-second cache.
+     *
+     * <p>Only for autocomplete. Every other path re-reads the flag, because every other path is
+     * about to do something; this one runs once per keystroke and is about to show a list. Ten
+     * seconds is short enough that a revoked admin stops seeing open references while they are
+     * still typing, and long enough that typing a six-character reference is one query rather than
+     * six.</p>
+     */
+    private boolean admitted(final String discordId) {
+        final java.time.Instant now = java.time.Instant.now();
+        final Admitted held = adminCache.get(discordId);
+        if (held != null && held.until().isAfter(now)) {
+            return held.admin();
+        }
+        final boolean admin = AdminFlagDao.admits(admins.isAdmin(discordId));
+        if (adminCache.size() > 256) {
+            // Nothing here is worth a sweeper; the map only grows with people who typed into an
+            // autocompleting option, and the answer is cheap to fetch again.
+            adminCache.clear();
+        }
+        adminCache.put(discordId, new Admitted(admin, now.plus(ADMIN_CACHED)));
+        return admin;
     }
 
     /**

@@ -70,4 +70,38 @@ public interface NordtalCommand<E> {
             final Values values) {
         return java.util.Optional.empty();
     }
+
+    /**
+     * Everything wrong with the arguments: the checks every command gets, then {@link #problem}.
+     *
+     * <h2>Why a {@link Argument.Kind#CHOICE} is checked here and not in the adapter</h2>
+     * Because two of the three adapters cannot check it. Discord builds a dropdown, so its own
+     * client refuses a value that is not on the list, and {@code RequestArguments#decode} refuses one
+     * on the way off a request row - but Brigadier has no enum type, so both chat adapters type a
+     * choice as a plain word and take whatever was typed. That gap had a specific cost:
+     * {@code /hg start} treats <em>any</em> present {@code confirm} value as the second step, so
+     * {@code /hg start yes} would have spent an armed confirmation and started the season's flagship
+     * event below the recommended minimum, having answered nothing about the word it did not
+     * understand.
+     *
+     * <p>One place rather than three, for the reason this module exists at all: a check written per
+     * adapter is a check two adapters can disagree about, and the two that would have disagreed here
+     * are the two nobody tests by typing.</p>
+     */
+    default java.util.Optional<java.util.Map.Entry<String, java.util.Map<String, ?>>> check(
+            final Values values) {
+        for (final Argument argument : declaration().arguments()) {
+            if (argument.kind() != Argument.Kind.CHOICE) {
+                continue;
+            }
+            final java.util.Optional<Object> supplied = values.raw(argument.name());
+            if (supplied.isPresent() && !argument.choices().contains(String.valueOf(supplied.get()))) {
+                return java.util.Optional.of(java.util.Map.entry("command.not-a-choice",
+                        java.util.Map.of("argument", argument.name(),
+                                "typed", String.valueOf(supplied.get()),
+                                "choices", String.join(", ", argument.choices()))));
+            }
+        }
+        return problem(values);
+    }
 }

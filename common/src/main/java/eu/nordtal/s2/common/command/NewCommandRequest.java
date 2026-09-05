@@ -54,6 +54,15 @@ public record NewCommandRequest(String target, String command, String arguments,
         // constraint violation from the database into a sentence naming the adapter that built the
         // row. The console genuinely has neither identity; anything else claiming to be the console
         // is a bug in an adapter.
+        //
+        // The source is checked FIRST, and that order is the point: the two rules below both read
+        // it, so a value that is not one of the three - "console", say - passes both of them by
+        // matching neither, and the row then fails on command_request_source_check with a message
+        // about a constraint rather than about the adapter that wrote it.
+        if (!SOURCES.contains(source)) {
+            throw new IllegalArgumentException("a command request comes from " + SOURCES + ", got: "
+                    + source);
+        }
         if ("CONSOLE".equals(source) && (discordId.isPresent() || minecraftId.isPresent())) {
             throw new IllegalArgumentException(
                     "a console request carries no identity, got discordId=" + discordId
@@ -65,4 +74,8 @@ public record NewCommandRequest(String target, String command, String arguments,
                             + " cannot re-check the admin flag after it claims the row");
         }
     }
+
+    /** The three the {@code command_request_source_check} CHECK in V11 allows. */
+    private static final java.util.Set<String> SOURCES =
+            java.util.Set.of("DISCORD", "GAME", "CONSOLE");
 }

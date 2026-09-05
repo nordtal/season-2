@@ -98,6 +98,12 @@ final class FakeRequests implements CommandRequests {
     }
 
     @Override
+    public int deleteSettledOlderThan(final int days) {
+        // Retention is the updater's, not this module's. Nothing in :commands calls it.
+        throw new UnsupportedOperationException("not part of what the inbox or the outbox does");
+    }
+
+    @Override
     public void close() {
     }
 

@@ -125,13 +125,13 @@ Discord ([architecture.md](architecture.md#commands)).
 
 ### In game — `smp`
 
-| command | who | what |
-|---|---|---|
 > **Every admin command below is available in Discord as well, and every Discord admin command in
 > game** — since 2026-09-05. A command whose effect belongs to another process travels as a row in
 > `command_request`; the two that do not are `/navigate` and `/poi add`, which are about being
 > somewhere. See [architecture.md](architecture.md#commands).
 
+| command | who | what |
+|---|---|---|
 | `/navigate` | anyone | opens the navigation menu; the second boss bar line then tracks the target |
 | `/poi add <name>` | anyone | a public point of interest at your position. Farm-world POIs die with the daily reset |
 | `/poi remove <name>` | its creator, or an admin | admins may remove any POI, which is what `smp.md` means by "admins can manage and delete any of them" |
@@ -192,7 +192,7 @@ the one path that still works when the database holds no admin at all.
 | `/access settle <reference>` | admin | books a request by hand, autocompleting over open references - **in game too**, where the suggestions matter most. Renamed from `/settle` |
 | `/phase set\|show\|launch\|smp-start` | admin | the same four as on the proxy - literally the same declarations since 2026-09-04, with a confirmation naming who it moves |
 | `/update` | admin | the updater, from Discord |
-| `/messages reload` | admin | the bot's own bundles and the override in `config/messages/`. Available in game as well |
+| `/access reload` | admin | the bot's own bundles and the override in `config/messages/`. Available in game as well. Under the `access` root and not a `/messages` one of its own, because every other reload in the network is grouped under the root it belongs to and this command is registered on three Paper servers, where a top-level `/messages` is generic enough to collide |
 | `/unlink` | anyone | self-service, no waiting period, always written to the admin channel. **Not** the same command as `/access unlink <member>`, which is an admin unlinking somebody else |
 
 **There is no `/home`, `/tpa`, `/back` or `/spawn`, and there never will be** — distance is the
@@ -204,9 +204,9 @@ The admin flag is **the Discord admin role mirrored into the database**, read fr
 no LuckPerms and no second admin list. **An admin is a server operator** on all three Paper servers,
 granted at join and removed at quit, and `ops.json` is emptied at every plugin enable so that an
 operator is a property of the session rather than of the disk, and — since 2026-09-04 — of the
-*current* admin flag rather than of the one read at join ([smp.md](smp.md#admins)). `/limbo reload` is the one command gated on a Paper permission
-(`limbo.admin`) rather than on that flag, because the database is exactly what a broken `limbo` may
-not be able to reach — the console holds it unconditionally.
+*current* admin flag rather than of the one read at join ([smp.md](smp.md#admins)). There is no
+exception left: `/limbo reload` was gated on a `limbo.admin` Paper permission node until 2026-09-05
+and now goes through the same flag as everything else, with the console holding it unconditionally.
 
 ## Decisions, and when they were taken
 

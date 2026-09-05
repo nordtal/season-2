@@ -62,15 +62,16 @@ public final class PhaseCommands {
      * the event therefore hung on one client being able to connect. Two commands, two answers; the
      * set is per declaration so that both can be true.</p>
      */
-    private static final Set<Surface> EVERYWHERE = Set.of(Surface.GAME, Surface.DISCORD);
+    private static final Set<Surface> GAME_AND_DISCORD =
+            Set.of(Surface.GAME, Surface.DISCORD);
 
     /** {@code /phase show} - and the bare {@code /phase} on the proxy. Reads, changes nothing. */
     public static final Declaration SHOW = new Declaration(
-            List.of("phase", "show"), TARGET, EVERYWHERE, true, false, List.of());
+            List.of("phase", "show"), TARGET, GAME_AND_DISCORD, true, false, List.of());
 
     /** {@code /phase set <phase>} - irreversible, and the one that disconnects people. */
     public static final Declaration SET = new Declaration(
-            List.of("phase", "set"), TARGET, EVERYWHERE, true, true,
+            List.of("phase", "set"), TARGET, GAME_AND_DISCORD, true, true,
             List.of(Argument.choice("phase", phaseNames())));
 
     /**
@@ -84,7 +85,7 @@ public final class PhaseCommands {
      * confirmation stops being read.</p>
      */
     public static final Declaration LAUNCH = new Declaration(
-            List.of("phase", "launch"), TARGET, EVERYWHERE, true, false,
+            List.of("phase", "launch"), TARGET, GAME_AND_DISCORD, true, false,
             List.of(whenArgument()));
 
     /**
@@ -97,7 +98,7 @@ public final class PhaseCommands {
      * that arithmetic, and it is other people's paid time.</p>
      */
     public static final Declaration SMP_START = new Declaration(
-            List.of("phase", "smp-start"), TARGET, EVERYWHERE, true, true,
+            List.of("phase", "smp-start"), TARGET, GAME_AND_DISCORD, true, true,
             List.of(whenArgument()));
 
     /**

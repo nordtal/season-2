@@ -35,6 +35,8 @@ import eu.nordtal.s2.smp.farm.FarmWorldSwap;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneState;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
+import eu.nordtal.s2.smp.milestone.StoredProgress;
+import eu.nordtal.s2.smp.milestone.TrackValidation;
 import eu.nordtal.s2.smp.pregen.PreGenerator;
 import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
@@ -132,6 +134,15 @@ public final class SmpPlugin extends JavaPlugin {
     private ScheduledExecutorService commandWaiter;
     private SmpDao dao;
     private Messages messages;
+    /**
+     * What the last {@code /smp reload} refused the file for, or empty when it took it.
+     *
+     * <p>Read by the reload command so the answer names the disagreement rather than only saying
+     * that something went wrong - an operator editing {@code milestones.yml} mid-season is the one
+     * person who can act on "you renamed a key that has rows against it".</p>
+     */
+    private volatile List<String> trackProblems = List.of();
+
     /** {@code :commands}' bundle as the inbox renders it - a second view of the same files. */
     private Messages sharedMessages;
     private PlayerLocales locales;
@@ -578,7 +589,7 @@ public final class SmpPlugin extends JavaPlugin {
      * track is re-read - never the duel loadouts or the database password - which is why it is a
      * separate file in the first place.
      */
-    private void reloadTrack() {
+    private List<String> reloadTrack() {
         // Three files, three reports, three independent failures - see the comment below. The
         // sounds go first because they are the cheapest thing to get wrong and the only one an
         // operator is expected to be iterating on while somebody waits to hear the result.
@@ -593,9 +604,37 @@ public final class SmpPlugin extends JavaPlugin {
 
         try {
             milestonesHandle.reload();
-            track = Milestones.read(milestonesHandle.get()).track();
-            Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
-            getLogger().info("the milestone track was reloaded: " + track.size() + " milestones");
+            final MilestoneTrack candidate = Milestones.read(milestonesHandle.get()).track();
+
+            // "May this file replace the running one?" - asked against the rows, which is the only
+            // place the answer lives. A renamed milestone key orphans everything recorded against
+            // it, an objective that changes type carries progress that means something else now,
+            // and a completed objective whose target moved rewrites arithmetic that is already in
+            // the aura ledger. None of that is visible from the file.
+            //
+            // TrackValidation has answered this since the module was built and NOTHING CALLED IT:
+            // twelve tests, two javadoc references, and no caller. So a reload that removed the
+            // active milestone was applied, reported success, and stopped progression with nothing
+            // anywhere saying why. Found through a review finding about something else, 2026-09-05;
+            // the owner chose to refuse rather than warn on the same day.
+            final List<TrackValidation.Problem> problems = TrackValidation.validate(candidate,
+                    new StoredProgress(dao.storedMilestones(), dao.storedObjectives()));
+            if (!problems.isEmpty()) {
+                getLogger().severe("the milestone track was NOT reloaded - the file disagrees with"
+                        + " progress this season has already recorded, and the running track is"
+                        + " unchanged:");
+                problems.forEach(problem -> getLogger().severe("  " + problem));
+                trackProblems = problems.stream().map(TrackValidation.Problem::toString).toList();
+                // No early return: the wording below is re-read regardless, for the reason the
+                // comment there gives - the three fail independently, and a milestones.yml somebody
+                // is still fixing must not hold back a corrected message.
+            } else {
+                trackProblems = List.of();
+                track = candidate;
+                Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
+                getLogger().info("the milestone track was reloaded: " + track.size()
+                        + " milestones");
+            }
         } catch (final ConfigException | RuntimeException exception) {
             getLogger().severe("the milestone track could not be reloaded, the running one is "
                     + "unchanged: " + exception.getMessage());
@@ -618,6 +657,8 @@ public final class SmpPlugin extends JavaPlugin {
             getLogger().severe("the messages could not be reloaded, the running ones are "
                     + "unchanged: " + exception.getMessage());
         }
+
+        return trackProblems;
     }
 
     /**

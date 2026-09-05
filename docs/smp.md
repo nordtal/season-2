@@ -356,6 +356,21 @@ fair scaling, and a player cannot check it against the board. The answer to an e
 **append another milestone** — which is precisely why milestones live in a reloadable file and are
 not compiled in.
 
+**A reload is refused when the file disagrees with what the season already recorded, and the running
+track is kept** (decided 2026-09-05). `TrackValidation` names three such disagreements: a milestone
+key that has rows against it and is no longer declared — which is what a *rename* looks like from
+here — an objective that changed type while progress is recorded against it, and a completed
+objective whose target moved after it paid aura out. Each is named individually, in the console and
+in the command's answer, because the person running `/smp reload` is editing the file on a live
+season and "you renamed a key that has rows against it" is the only form of the answer they can act
+on. The sounds and the message bundles are re-read either way; the three fail independently.
+
+That check had existed since the module was built and **nothing called it** until the same day, so a
+reload that removed the active milestone was applied, reported success, and stopped progression
+silently (`docs/state-of-play.md` finding 92). **A lowered target is still not a disagreement**, in
+either direction — that is the first escape hatch below and the whole reason the validation takes the
+file rather than refusing every difference.
+
 ### What was decided, and what protects it
 
 - **Only objectives unlock a milestone.** There is no timer anywhere in the track. The "pause

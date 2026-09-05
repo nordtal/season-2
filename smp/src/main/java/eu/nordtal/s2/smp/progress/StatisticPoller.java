@@ -60,6 +60,20 @@ public final class StatisticPoller {
 
     /** player -> objective key -> the value at the last read. */
     private final Map<UUID, Map<String, Long>> baselines = new HashMap<>();
+
+    /**
+     * The track the baselines in {@link #baselines} were sampled under.
+     *
+     * <p>A baseline is a raw statistic value paired with an objective <em>key</em>, and a reload can
+     * change what that key means: an objective counting coal that starts counting coal and iron
+     * reads far higher on the next poll, and the whole difference would be credited as progress
+     * somebody just made. Nothing about the stored number says which definition produced it, so the
+     * only honest answer when the track changes is to start again.</p>
+     *
+     * <p>It costs one tick of progress per player, which is exactly what the first read of a session
+     * already costs and for the same reason - see {@link #sample}.</p>
+     */
+    private MilestoneTrack sampledUnder;
     private BukkitTask task;
 
     public StatisticPoller(final Plugin plugin, final java.util.function.Supplier<MilestoneTrack> track,
@@ -88,11 +102,17 @@ public final class StatisticPoller {
     }
 
     private void poll() {
+        final MilestoneTrack now = track.get();
+        if (now != sampledUnder) {
+            baselines.clear();
+            sampledUnder = now;
+        }
+
         final Optional<String> activeKey = activeMilestone;
         if (activeKey.isEmpty()) {
             return;
         }
-        final Milestone milestone = track.get().milestone(activeKey.get()).orElse(null);
+        final Milestone milestone = now.milestone(activeKey.get()).orElse(null);
         if (milestone == null) {
             return;
         }

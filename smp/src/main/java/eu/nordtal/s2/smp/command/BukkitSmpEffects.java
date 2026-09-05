@@ -47,12 +47,12 @@ public final class BukkitSmpEffects implements SmpEffects {
     private final FarmWorldReset farmReset;
     private final Identities identities;
     private final AccessDirectory access;
-    private final Runnable reload;
+    private final java.util.function.Supplier<java.util.List<String>> reload;
 
     public BukkitSmpEffects(final Plugin plugin, final Executor executor, final SmpDao dao,
                             final ObjectiveEngine engine, final FarmWorldReset farmReset,
                             final Identities identities, final AccessDirectory access,
-                            final Runnable reload) {
+                            final java.util.function.Supplier<java.util.List<String>> reload) {
         this.plugin = plugin;
         this.executor = executor;
         this.dao = dao;
@@ -79,8 +79,8 @@ public final class BukkitSmpEffects implements SmpEffects {
     }
 
     @Override
-    public void reload() {
-        reload.run();
+    public java.util.List<String> reload() {
+        return reload.get();
     }
 
     @Override

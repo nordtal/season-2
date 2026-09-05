@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -61,6 +62,75 @@ class ReloadReachesTheTrackTest {
         // instance for no bounded length of time, which looks identical to the bug it replaced.
         assertTrue(read(PLUGIN).contains("private volatile MilestoneTrack track;"),
                 "SmpPlugin.track is not volatile");
+    }
+
+    @Test
+    @DisplayName("one unlock reads the track once, so its two halves cannot come from two files")
+    void anUnlockUsesOneSnapshot() throws IOException {
+        // Three separate reads of the supplier can answer with three different tracks, because
+        // /smp reload runs on another thread. The successor written into the database would then
+        // come from one file and the SeasonState built beside it from another - the row names a
+        // milestone the running state does not hold as active, and progression stops.
+        final String source =
+                read("smp/src/main/java/eu/nordtal/s2/smp/progress/ObjectiveEngine.java");
+        final int inUnlock = source.indexOf("public void unlockMilestone(");
+        assertTrue(inUnlock > 0, "unlockMilestone is gone");
+        final String body = source.substring(inUnlock, source.indexOf("announceMilestone(", inUnlock));
+
+        assertTrue(body.contains("final MilestoneTrack now = track.get();"),
+                "unlockMilestone does not take one snapshot of the track");
+        assertEquals(1, count(body, "track.get()"),
+                "unlockMilestone reads the track more than once, so one unlock can be built from"
+                        + " two different files");
+    }
+
+    @Test
+    @DisplayName("the statistic baselines are dropped when the track changes under them")
+    void baselinesBelongToTheDefinitionsTheyWereReadUnder() throws IOException {
+        // A baseline is a raw statistic value paired with an objective KEY, and a reload can change
+        // what that key counts. An objective counting coal that starts counting coal and iron reads
+        // far higher on the next poll, and the whole difference would be credited as progress
+        // somebody just made. Nothing in the stored number says which definition produced it.
+        final String source =
+                read("smp/src/main/java/eu/nordtal/s2/smp/progress/StatisticPoller.java");
+        assertTrue(source.contains("if (now != sampledUnder) {") && source.contains("baselines.clear();"),
+                "the poller keeps baselines across a track change, so a widened objective credits"
+                        + " everything that was already there");
+    }
+
+    @Test
+    @DisplayName("the reload asks TrackValidation, which nothing in production used to ask")
+    void theReloadValidatesAgainstTheRows() throws IOException {
+        // TrackValidation answers "may this file replace the running one" - a renamed milestone key,
+        // an objective that changed type with progress against it, a completed objective whose
+        // target moved. It had twelve tests, two javadoc references and NO CALLER, so a reload that
+        // removed the active milestone was applied, reported success and stopped progression with
+        // nothing anywhere saying why.
+        final String source = read(PLUGIN);
+
+        assertTrue(source.contains("TrackValidation.validate(candidate,"),
+                "the reload does not validate the file against recorded progress");
+        assertTrue(source.contains("new StoredProgress(dao.storedMilestones(), dao.storedObjectives())"),
+                "the validation is asked without the rows, which is the only place the answer lives");
+
+        // And the refusal keeps the running track. `track = candidate` must sit on the branch the
+        // problems did not take.
+        final int validated = source.indexOf("TrackValidation.validate(candidate,");
+        final int assigned = source.indexOf("track = candidate;", validated);
+        final int refused = source.indexOf("if (!problems.isEmpty())", validated);
+        assertTrue(refused > 0 && assigned > refused,
+                "the track is assigned before the refusal is decided, so a refused file would be"
+                        + " applied anyway");
+    }
+
+    private static int count(final String text, final String needle) {
+        int at = 0;
+        int found = 0;
+        while ((at = text.indexOf(needle, at)) >= 0) {
+            found++;
+            at += needle.length();
+        }
+        return found;
     }
 
     private static String read(final String relative) throws IOException {

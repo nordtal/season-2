@@ -48,10 +48,14 @@ final class FakeSmp implements SmpEffects {
         warnings.add(what);
     }
 
+    /** What the milestone track was refused for, if anything. */
+    java.util.List<String> trackRefused = java.util.List.of();
+
     @Override
-    public void reload() {
+    public java.util.List<String> reload() {
         throwIfAsked();
         did.add("reload");
+        return trackRefused;
     }
 
     @Override

@@ -429,6 +429,64 @@ still cannot use it (rejected 2026-08-31, and re-stated in `PhaseCommands` rathe
 reversed), and `switchPhase` is still the one statement that writes the row, the `audit_log` entry
 and the `NOTIFY` together.
 
+**On 2026-09-05 the module stopped being a shape with one command in it.** Every admin command in
+the network is declared there now - `/phase`, `/smp` (six), `/hg` (four), `/limbo reload`,
+`/network reload` and `/access` (six, the bot's) - and three adapters render them: `PaperCommands`
+in `:paper-common`, `VelocityCommands` in `network-control`, `DiscordCommands` in `discord-bot`.
+`Catalogue` is the list, and it is what makes "every admin command is on both platforms" a claim a
+test can check rather than four adapters somebody has to read.
+
+**The transport is `command_request`, migration V11.** A command whose `Target` is not the asking
+process becomes a row, a `pg_notify('nordtal_command', target)` and an answer written back into the
+same row - the shape `update_request` has used since 2026-09-01, generalised. The two tables are
+deliberately separate and V11 says why at length: an update request is an operational event worth
+keeping and read back weeks later, a command request is a message in flight. `:common` owns the SQL
+(`eu.nordtal.s2.common.command`), `:commands` owns the codec, the inbox and the outbox
+(`eu.nordtal.s2.commands.remote`), and neither knows anything about the other's half.
+
+Six rules came out of it, and each cost something to learn:
+
+- **The inbox settles a request row when `run` returns**, so effects registered on one must run
+  their work *inline*. Every process therefore builds two instances of its effects - one with a
+  scheduler for the local surface, one with `Runnable::run` for the inbox - and
+  `CommandInbox#register` **refuses the wrong one at startup** by submitting a no-op through
+  `async` and checking it ran. Without that check the failure is an empty answer in Discord for
+  work that was about to happen, on the surface furthest from the logs.
+- **A shared command's answer is rendered on the far side**, in the language the row carries, and
+  printed verbatim by the asker. That is only sound because `:commands`' bundle carries no markup at
+  all - which is why every folded command's keys *moved into it* rather than being duplicated, and
+  why `limbo`'s two lost their MiniMessage colours on the way. `SharedBundleLoadedTest` asserts
+  every process loads that bundle **underneath** its own; a process that does not answers with the
+  key itself, silently, and nothing else can see it.
+- **The admin check behind a command tree is a cache and never a query.** Brigadier evaluates
+  `requires` while building the tree it sends to a client. `AdminWatch#isAdmin` is the source that
+  is right everywhere - the same set the operator grant is applied from. `FullServerAdmission` is
+  **not**: it only fills the flag when a server is near its cap, so on `limbo` it would have
+  answered "nobody is an admin" for ever. `AdminSourceTest` pins both halves.
+- **A command that cannot be undone is confirmed on every surface**, and the shape differs: the
+  whole line typed again in chat and on the proxy, a button in Discord whose id carries the command
+  and its arguments. `/hg start` is the one exception and it is deliberate (owner, 2026-09-05): its
+  own two-step names the participant count, which the generic sentence cannot.
+- **A command rejects impossible arguments before it asks for a confirmation**
+  (`NordtalCommand#problem`). Without it `/phase set NOT_A_PHASE` answers "this cannot be undone,
+  type it again", takes the retype, and only then says the phase does not exist - which is what the
+  proxy's hand-written adapter avoided by parsing first and the bot's did not.
+- **Typing half a command answers with the usage line**, derived from the declaration so it cannot
+  drift, plus one sentence from `command.describe.<path>`. `Declaration#usage()` builds it and
+  `CatalogueTest` fails the build if a command ships without its sentence in either language. The
+  whole format is four message keys, so an operator can re-shape it through the message override
+  without a release.
+
+**What the fold found, rather than moved**, is the part worth keeping: `/grant-access`,
+`/revoke-access`, `/access-status` and `/settle` checked `discord_user.admin` **nowhere at all** -
+only Discord's own `DefaultMemberPermissions` - so the network's admin list and the list of people
+who could grant paid access were two different lists. `/settle`'s autocomplete had no check either,
+so anybody who could see the command could enumerate every open payment reference. `/smp aura`
+answered an unlinked target with the message written for a player about their *own* account.
+`/limbo reload` rendered its reply against the Minecraft client's locale, which docs/i18n.md forbids
+in as many words. None of those was found by a test; all four were found by writing the second
+implementation next to the first.
+
 **`:paper-common` is new on 2026-09-04, and it is a layer this repository did not have.** `:common`
 is compiled against no platform at all, on purpose - that rule is what lets one shared module serve
 Paper, Velocity and two plain JVM applications at once. What it cost, silently, was that anything the
@@ -837,20 +895,36 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Eight modules have tests: 1051 in total, none skipped, all green** (`./gradlew build` with a Docker
-daemon present, 2026-09-04, after `/hg` was opened to the console). The counts below are what the JUnit XML reports, not
-`@Test` counts.
+**Nine modules have tests: 1168 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-05, after every admin command was folded into `:commands`). The counts
+below are what the JUnit XML reports, not `@Test` counts.
 
 | module | tests |
 |---|---|
-| `smp` | 173 |
-| `common` | 293 |
+| `common` | 311 |
 | `network-control` | 178 |
+| `smp` | 171 |
+| `commands` | 150 |
+| `discord-bot` | 141 |
 | `updater` | 136 |
-| `discord-bot` | 140 |
-| `hunger-games` | 64 |
-| `commands` | 56 |
+| `hunger-games` | 65 |
 | `limbo` | 11 |
+| `paper-common` | 5 |
+
+**`:commands` went from 56 to 150 on 2026-09-05**, and `:paper-common` gained the one thing that
+could not be tested anywhere else. The new ones are worth naming by what they can now answer:
+`SmpCommandsTest` (23), `HungerGamesCommandsTest` (14), `AccessCommandsTest` (13) and
+`LimboCommandsTest` (3) exercise every branch of every folded command against a fake effects
+implementation - which before the fold meant a running server, a real guild or a real payment for
+each one. `CommandInboxTest` (14) and `OutboxTest` (9) drive both ends of the request row, including
+the three ways a wait can end and the one that only looks like a failure ("claimed just as the wait
+ran out" is the *good* case, and it says so). `RequestArgumentsTest` (10) round-trips **every
+declaration in the catalogue** rather than examples, which is the whole argument for a line instead
+of a JSON column. `CatalogueTest` (5), `HelpFormatTest` (4), `SharedBundleLoadedTest` (1),
+`AdminSourceTest` (2) and `TargetSchemaTest` (2) each pin a seam no single module can see.
+`:common`'s `CommandRequestIntegrationTest` (13) drives the real statements against a real
+PostgreSQL: the atomic claim under two connections, the expiry race from both ends, and every one of
+V11's six constraints.
 
 This said "537 in six modules" until 2026-09-02 and was wrong twice over: the number was stale, and
 **`:updater` was missing from the list entirely** — a module with 129 tests, including the only ones

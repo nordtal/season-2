@@ -71,7 +71,10 @@ import java.util.function.Predicate;
 public final class PaperCommands {
 
     /** One registered command: what it is, and what to do when somebody runs it. */
-    private record Entry(Declaration declaration, java.util.function.BiConsumer<NordtalUser, Values> run) {
+    private record Entry(Declaration declaration,
+                         java.util.function.BiConsumer<NordtalUser, Values> run,
+                         java.util.function.Function<Values,
+                                 java.util.Optional<Map.Entry<String, Map<String, ?>>>> problem) {
     }
 
     private final Plugin plugin;
@@ -127,7 +130,8 @@ public final class PaperCommands {
                     + declaration.target() + ", not by " + here);
         }
         entries.add(new Entry(declaration,
-                (user, values) -> command.run(user, values, effects)));
+                (user, values) -> command.run(user, values, effects),
+                command::problem));
         return this;
     }
 
@@ -150,7 +154,11 @@ public final class PaperCommands {
             throw new IllegalStateException(declaration.name() + " has to travel, and this adapter"
                     + " was built without an outbox");
         }
-        entries.add(new Entry(declaration, (user, values) -> outbox.send(declaration, user, values)));
+        // A remote command's own problem() cannot be asked here: this process holds the
+        // declaration but not the command, and the command is where the check lives. It is asked on
+        // the far side instead, which costs a round trip for a typo and keeps one implementation.
+        entries.add(new Entry(declaration, (user, values) -> outbox.send(declaration, user, values),
+                values -> java.util.Optional.empty()));
         return this;
     }
 
@@ -471,6 +479,18 @@ public final class PaperCommands {
                     final Map<String, Object> values) {
         final NordtalUser user = user(context.getSource().getSender());
 
+        // A command the console may not run. Declared per command as a Surface, so the rule is
+        // visible next to the command rather than repeated in each adapter: /phase is refused here
+        // because it takes a decision about the season and the audit row records who took it, and a
+        // console has no identity to record. Rejected for the console on 2026-08-31 and, until
+        // 2026-09-05, enforced by each adapter separately - which is how one of them came to enforce
+        // it differently.
+        if (user.origin() == NordtalUser.Origin.CONSOLE
+                && !entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.CONSOLE)) {
+            user.reply("command.not-from-console", Map.of(), Feedback.REFUSED);
+            return Command.SINGLE_SUCCESS;
+        }
+
         // A player argument that resolved to nobody. Answered here rather than by the command,
         // because "that name is not on this server" is a property of the surface the name was typed
         // on: in Discord the same argument is a member picked from a list and cannot miss.
@@ -480,6 +500,15 @@ public final class PaperCommands {
                 user.reply("command.player-offline", Map.of(), Feedback.REFUSED);
                 return Command.SINGLE_SUCCESS;
             }
+        }
+
+        // Before the confirmation, deliberately. Without this, /phase set NOT_A_PHASE answers
+        // "this cannot be undone, type it again", takes the retype, and only then says the phase
+        // does not exist.
+        final var problem = entry.problem().apply(new Values(entry.declaration(), values));
+        if (problem.isPresent()) {
+            user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED);
+            return Command.SINGLE_SUCCESS;
         }
 
         if (entry.declaration().irreversible() && !confirmed(user, context.getInput())) {

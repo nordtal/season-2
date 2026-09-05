@@ -321,6 +321,18 @@ public final class VelocityCommands {
     }
 
     private int help(final CommandContext<CommandSource> context, final Node node) {
+        // A root with a declared default runs it instead of listing itself: /phase is /phase show
+        // (Catalogue#rootDefault) - the emergency command answers with the phase, not with syntax.
+        // The child's own run applies the admin check, so nothing is skipped by taking this path.
+        final java.util.Optional<Declaration> preset = eu.nordtal.s2.commands.Catalogue.rootDefault(node.literal);
+        if (preset.isPresent()) {
+            final Node child = node.children.get(preset.get().path().get(1));
+            if (child != null && child.command != null
+                    && child.command.declaration().equals(preset.get())) {
+                return run(context, child.command, Map.of());
+            }
+        }
+
         final NordtalUser user = user(context.getSource());
         final List<Declaration> below = new ArrayList<>();
         collect(node, below);

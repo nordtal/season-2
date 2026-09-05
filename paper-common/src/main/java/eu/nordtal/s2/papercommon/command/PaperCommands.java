@@ -401,6 +401,18 @@ public final class PaperCommands {
      * registration order reads as random.</p>
      */
     private int help(final CommandContext<CommandSourceStack> context, final Node node) {
+        // A root with a declared default runs it instead of listing itself: /phase is /phase show
+        // (Catalogue#rootDefault). The child's own dispatch applies the admin check, so nothing is
+        // skipped by taking this path - the person just typed less.
+        final java.util.Optional<Declaration> preset = eu.nordtal.s2.commands.Catalogue.rootDefault(node.literal);
+        if (preset.isPresent()) {
+            final Node child = node.children.get(preset.get().path().get(1));
+            if (child != null && child.command != null
+                    && child.command.declaration().equals(preset.get())) {
+                return dispatch(context, child.command, new Parsed(Map.of(), Map.of()));
+            }
+        }
+
         final NordtalUser user = user(context.getSource().getSender());
         final List<Declaration> below = new ArrayList<>();
         collect(node, below);

@@ -84,7 +84,13 @@ public enum GateOutcome {
             // phase mechanism exists to serve - the start event costs nothing but a linked account.
             // For MAINTENANCE it is the 2026-08-31 reversal: they are let in and then held in limbo.
             case PRE_EVENT, START_EVENT, MAINTENANCE -> ALLOW;
-            case SMP -> state.accessActive() ? ALLOW : NO_ACCESS;
+            // The admin flag is a free pass here since 2026-09-05 (owner's decision, after the
+            // local stack showed what the old rule did: the admin who switched the phase to SMP was
+            // disconnected by their own switch, "no active access"). An admin is on the network to
+            // run it, not to play a bought period, and the flag already exempts them from the
+            // player limit for the same reason. A banned admin is still banned - member state is
+            // asked first, above.
+            case SMP -> state.accessActive() || state.admin() ? ALLOW : NO_ACCESS;
             // Before the opening, an admin is the only person the network is for. Everybody else
             // gets one of two waiting screens, and which one is the whole onboarding idea: the
             // difference between them is a purchase, not a permission.

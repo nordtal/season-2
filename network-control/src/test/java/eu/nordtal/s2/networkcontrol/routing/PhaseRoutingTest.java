@@ -114,11 +114,13 @@ class PhaseRoutingTest {
     }
 
     @Test
-    void theAdminExemptionIsMaintenanceOnly() {
-        // An admin in SMP without access is refused exactly like anybody else - the flag is not a
-        // free access period, and it is not a routing exemption outside maintenance either.
-        assertEquals(Action.REFUSE_NO_ACCESS,
-                routing.decide(state(SeasonPhase.SMP, MemberState.MEMBER, false, true), ALL).action());
+    void anAdminWithoutAccessIsRoutedLikeOneWithIt() {
+        // Reversed 2026-09-05: this asserted REFUSE_NO_ACCESS for an admin in SMP, which is the
+        // decision that disconnected the admin who had just switched the phase. The flag is a free
+        // access period now (GateOutcomeTest says why), so the switch to SMP moves an admin onto the
+        // SMP like any paying player - and everywhere else nothing changed.
+        assertEquals("smp",
+                routing.decide(state(SeasonPhase.SMP, MemberState.MEMBER, false, true), ALL).server());
         assertEquals("hunger-games",
                 routing.decide(state(SeasonPhase.PRE_EVENT, MemberState.MEMBER, false, true), ALL).server());
     }

@@ -547,6 +547,18 @@ answered an unlinked target with the message written for a player about their *o
 in as many words. None of those was found by a test; all four were found by writing the second
 implementation next to the first.
 
+**`Surface.SYSTEM` is the surface nobody types on, since 2026-09-06.** `announce <language> <text>`
+is a `Target.BOT` command declared on it alone: the SMP renders a milestone's completion and each
+farm-reset warning in every language it has a bundle for and submits one `command_request` row per
+language (`smp`'s `Announcer` - source `CONSOLE`, requested by `smp`, kept an hour), the bot's inbox
+posts it into `access.yml#languages[].announcement-channel`. No adapter registers a SYSTEM command
+(`CatalogueTest` holds a SYSTEM declaration to that surface alone), and the text arrives finished
+because the names it carries live in the sender's bundle. A phase change is announced by the bot
+from the status tick that already reads the phase. That closed finding 52 on the transport V11 had
+already built, which is what the owner asked to be checked before a second one was written. The
+same day `/smp status` became the one `/smp` command a player may run, and `CatalogueTest` names
+it and `announce` as the only two declarations that are not admin-only.
+
 **A `PaperCommands` subtree hung on with `extra()` is admin-gated; `extraOpen()` is the named
 exception.** The roots themselves carry no `requires` - gating `/hg` at the root hid `/hg ready`,
 which every participant needs - so the check sits on every node below, and a subtree this adapter did
@@ -1032,19 +1044,19 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1232 in total, none skipped, all green** (`./gradlew build` with a
-Docker daemon present, 2026-09-05, after the local development stack landed on top of the HUD pills
-and the balloon's card menu). The counts
+**Nine modules have tests: 1261 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-06, on `release/0.6.0` after the agent-driven rehearsal on the local
+stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
 | module | tests |
 |---|---|
-| `common` | 328 |
-| `smp` | 182 |
-| `network-control` | 178 |
-| `commands` | 171 |
+| `common` | 329 |
+| `smp` | 187 |
+| `network-control` | 191 |
+| `commands` | 178 |
 | `updater` | 150 |
-| `discord-bot` | 142 |
+| `discord-bot` | 145 |
 | `hunger-games` | 65 |
 | `limbo` | 11 |
 | `paper-common` | 5 |

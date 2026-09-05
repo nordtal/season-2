@@ -71,6 +71,16 @@ public final class AdminWatch implements AutoCloseable {
     private final Logger logger;
 
     private volatile NotificationListener listener;
+
+    /**
+     * The admin set as of the last refresh, for anything that needs the answer without waiting.
+     *
+     * <p>{@link #isAdmin} is what Brigadier's {@code requires} predicate reads, and that predicate
+     * runs on the main thread while a client's command tree is built - so it has to be a set
+     * lookup and can never be a query. It is the same set the operator grant is applied from, so a
+     * command tree and {@code ops.json} cannot disagree about who is an admin.</p>
+     */
+    private volatile Set<UUID> known = Set.of();
     private volatile boolean running = true;
 
     /**
@@ -132,7 +142,10 @@ public final class AdminWatch implements AutoCloseable {
                       final List<NotificationListener.Refresh> alsoRefresh,
                       final List<String> alsoChannels) {
         final long ticks = Math.max(20L, pollInterval.toSeconds() * 20L);
-        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::refresh, ticks, ticks);
+        // First run on the next tick rather than after a whole interval. The set starts empty, and
+        // anything reading it through isAdmin - a command tree, most of all - would answer "nobody
+        // is an admin" for the first thirty seconds of the server's life otherwise.
+        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::refresh, 1L, ticks);
 
         if (listenOn == null) {
             logger.info("The {} LISTEN connection is disabled; the {}s poll is the only path an"
@@ -157,6 +170,17 @@ public final class AdminWatch implements AutoCloseable {
                 plugin.getName() + "-admin-listener", refreshes, logger, pollInterval);
         this.listener = started;
         started.start();
+    }
+
+    /**
+     * Whether this account was an admin as of the last refresh.
+     *
+     * <p>A set lookup, never a query - see {@link #known}. It answers {@code false} for the first
+     * tick of the server's life and for as long as the database cannot be read, which is the
+     * correct direction to fail in: an unreachable database must not hand out admin.</p>
+     */
+    public boolean isAdmin(final UUID mcUuid) {
+        return known.contains(mcUuid);
     }
 
     /**
@@ -193,6 +217,7 @@ public final class AdminWatch implements AutoCloseable {
 
     /** The main-thread half: who is online, who of them is an admin, and what changes. */
     private void apply(final Set<UUID> admins) {
+        known = admins;
         final Set<UUID> online = new HashSet<>();
         for (final Player player : Bukkit.getOnlinePlayers()) {
             online.add(player.getUniqueId());

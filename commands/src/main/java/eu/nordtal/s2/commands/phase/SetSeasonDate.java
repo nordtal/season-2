@@ -135,14 +135,15 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
             return;
         }
 
+        final String unset = user.phrase("phase.date.unset");
         if (change.unchanged()) {
             user.reply("phase.date.unchanged", Map.of(
-                    "what", what, "current", SeasonDates.format(change.current())));
+                    "what", what, "current", SeasonDates.format(change.current(), unset)));
         } else {
             user.reply("phase.date.set", Map.of(
                     "what", what,
-                    "current", SeasonDates.format(change.current()),
-                    "previous", SeasonDates.format(change.previous())));
+                    "current", SeasonDates.format(change.current(), unset),
+                    "previous", SeasonDates.format(change.previous(), unset)));
         }
 
         if (launch) {

@@ -238,10 +238,14 @@ Paper server's `server.properties` by that container's own entrypoint, on every 
 on the old one. The whole change is
 `docker compose restart network-control limbo hunger-games smp`, or a redeploy.
 
-**`network.yml` in an existing volume still carries `backend-limit`, and the proxy will refuse to
-start until it is deleted.** That is jcore's strict loading working as intended — the key meant
-something, so a file still carrying it is a deployment nobody has told. The proxy names the key in
-its own error. Remove the line, or delete `network.yml` and let the plugin write a fresh one.
+**`network.yml` in an existing volume still carries `backend-limit`, and the proxy deletes the line
+on its next start.** The key meant something once and means nothing now, so there is nothing to
+decide: jcore 3.1.0 drops a setting the spec no longer declares, says which one in a `WARN` line,
+and leaves the file as it was in `network.yml.bak`. Nothing to do by hand. (Until 2026-09-05 the
+proxy *refused to start* until somebody removed the line — which is documented here because a
+deployment that has not been redeployed since then still behaves that way.) A **misspelled** key is
+a different matter and still stops the proxy with the key named: only you know what you meant by
+it.
 
 ## What the server browser shows
 
@@ -563,7 +567,7 @@ worth having here, because they are the kind that get rediscovered expensively:
 | Velocity exits at once with *"Your configuration is invalid"* | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define. |
 | A backend logs *"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"* | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login. |
 | Proxy starts but refuses every login with a "network misconfigured" screen | `network-control` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log. |
-| Proxy will not start, log names `backend-limit` as an unknown key | `network.yml` in the volume predates 2026-09-04, when that key was retired along with the second player number. Delete the line — see [Who limits the players](#who-limits-the-players). |
+| Log names `backend-limit` as a setting that no longer exists and was removed | `network.yml` in the volume predates 2026-09-04, when that key was retired along with the second player number. Nothing to do: the line is deleted for you and the old file is in `network.yml.bak`. A deployment older than 2026-09-05 refuses to start instead — delete the line by hand there, see [Who limits the players](#who-limits-the-players). |
 | A backend answers *"Server full"* | Only an admin should ever see this, and only if the exemption is not firing. Everybody else is refused by the proxy at the login gate. Check the backend's `max-players` really is `NETWORK_MAX_PLAYERS` (the container was restarted after the last change) and see [Who limits the players](#who-limits-the-players). |
 | The browser shows the old MOTD after editing `.env` | `network.yml` is read at proxy start. Restart the `network-control` service; there is no reload command. |
 | Everybody is refused with a countdown, and nobody asked for that | The phase is `PRE_LAUNCH`, which is the seeded initial state. `/phase set PRE_EVENT` opens the network. |

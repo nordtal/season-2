@@ -1,6 +1,5 @@
 package eu.nordtal.s2.hungergames.config;
 
-import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 
 import org.junit.jupiter.api.Test;
@@ -20,7 +19,6 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -86,17 +84,20 @@ class ConfigsTest {
     }
 
     /**
-     * {@code config.yml} does not carry the sounds, and a config that still does must not load.
+     * {@code config.yml} does not carry the sounds, and a config that still does loses the block.
      *
-     * <p>jcore stops a load on a key the interface does not declare, so this is already true - it is
-     * asserted by name because the <em>reason</em> it has to stay true is invisible from
-     * {@link HungerGamesSpec}: a sounds block back in {@code config.yml} would be read once at enable
-     * and never again, because {@code /hg reload} deliberately re-reads nothing out of that file.
-     * The escape hatch of blanking a key would then silently need a restart of the event server, in
-     * the middle of the one hour a year it is used.
+     * <p>This is asserted by name because the <em>reason</em> it has to stay true is invisible from
+     * {@link HungerGamesSpec}: a sounds block back in {@code config.yml} would be read once at
+     * enable and never again, because {@code /hg reload} deliberately re-reads nothing out of that
+     * file. The escape hatch of blanking a key would then silently need a restart of the event
+     * server, in the middle of the one hour a year it is used.
+     *
+     * <p>Until jcore 3.1.0 such a block stopped the plugin and this asserted that. The half that
+     * matters is unchanged: the key does not survive a load, so it cannot become a second source of
+     * sounds by somebody declaring it in {@code HungerGamesSpec}.
      */
     @Test
-    void configYmlRefusesASoundsBlock() throws Exception {
+    void configYmlDropsASoundsBlock() throws Exception {
         Configs.load(directory, LOGGER);
         final Path file = directory.resolve("config.yml");
         Files.writeString(file, Files.readString(file) + System.lineSeparator()
@@ -104,10 +105,10 @@ class ConfigsTest {
                 + "  loss:" + System.lineSeparator()
                 + "    key: minecraft:entity.villager.no" + System.lineSeparator());
 
-        final ConfigException refused =
-                assertThrows(ConfigException.class, () -> Configs.load(directory, LOGGER));
-        assertTrue(refused.getMessage().contains("sounds"),
-                "the refusal has to name the key, or nobody can act on it: " + refused.getMessage());
+        Configs.load(directory, LOGGER);
+
+        assertFalse(Files.readAllLines(file).contains("sounds:"),
+                "a sounds block in config.yml has to be gone after one load, not merely ignored");
     }
 
     /**

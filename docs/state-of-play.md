@@ -276,7 +276,7 @@ to record.
 | 3 | Two files point at a deleted document | **closed** 2026-08-31 |
 | 4 | `docs/README.md` overstates `network-control` | **closed** — four of the five things are built; only the pack station is not |
 | 5 | `app.simplecloud.api:api` is a dependency nothing imports | **closed 2026-09-01** — the dependency, its two repositories and its catalog entry were removed. Routing resolves backends by `gate.yml` name through `ProxyServer.getServer(name)`, which is exactly the fallback that had been written down for it |
-| 6 | `link-code-ttl-minutes` duplicated | **closed** — retired from `AccessSpec`, with a test asserting the key is refused |
+| 6 | `link-code-ttl-minutes` duplicated | **closed** — retired from `AccessSpec`, with a test asserting the key is dropped from a deployed file (it asserted the key was *refused* until jcore 3.1.0 on 2026-09-05) |
 | 7 | The jar-size claim was wrong | **closed** — corrected in both documents |
 | 8 | A whole font was undocumented | **closed** — the pack's README owns all three fonts |
 | 9 | The bossbar font's positive space advances sit outside the private-use area | **stands.** `！` and friends are `FULLWIDTH EXCLAMATION MARK`, not private use, while the pack states its range as ``–``. Confined to `nordtal:bossbar` and `nordtal:board`, so nothing is broken; moving them would change the HUD code that composes the bar, which now exists |

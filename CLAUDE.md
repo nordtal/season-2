@@ -58,7 +58,7 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   shaded jar is ~33 MB, which is fine for a container and not fine inside a Paper plugin. A
   plugin that only needs the config system does not need the JDBI/Flyway/PostgreSQL side of
   `jcore` on its runtime classpath; shade what you use.
-- **The config system is chosen: `eu.nordtal.jcore.config`** (jcore 3.0.0). Commented YAML
+- **The config system is chosen: `eu.nordtal.jcore.config`** (jcore 3.1.0). Commented YAML
   described by a `@ConfigSpec` interface. It is the default for every new config in this repo.
   `network-control` (`database.yml`, `gate.yml`, `pack.yml`), `hunger-games` (`config.yml`,
   `database.yml`), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`, `database.yml`,
@@ -262,7 +262,7 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
 ## Configuration
 
 Every config file in this repo is a commented YAML file described by an interface, loaded through
-`eu.nordtal.jcore.config.ConfigLoader` (jcore 3.0.0). Six modules have one:
+`eu.nordtal.jcore.config.ConfigLoader` (jcore 3.1.0). Six modules have one:
 `network-control` (`database.yml`, `gate.yml`, **`pack.yml`**), `hunger-games` (`config.yml`,
 `database.yml`, **`sounds.yml`**), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`,
 `database.yml`, **`milestones.yml`**, **`sounds.yml`**) and `discord-bot` (`access.yml`, `bot.yml`, `database.yml`).
@@ -319,11 +319,25 @@ What this buys, and the rules that come with it:
 
 - **A spec interface must be `public`** — it is served by a reflective proxy. jcore rejects a
   package-private one when the config is built rather than failing later.
-- **A setting the interface does not declare stops the load**, names the key with its full path
-  (including its index inside a list) and suggests the one that was probably meant. The file is
-  never trimmed. In a Paper plugin, catch `ConfigException` in `onLoad`/`onEnable`, call
+- **A setting the interface does not declare is a misspelling or a retirement, and jcore 3.1.0
+  answers the two differently.** If a declared key is close enough to name, it is a slip of the
+  keyboard: the load stops, the key is named with its full path (including its index inside a list)
+  along with the one that was probably meant, and **the file is not trimmed** — only the operator
+  knows what they meant by that line. If nothing declared is close, that setting no longer exists
+  in the software: the loader deletes it from the file, names it in a `WARN` line and leaves the old
+  content in `<file>.bak`. In a Paper plugin, catch `ConfigException` in `onLoad`/`onEnable`, call
   `getServer().getPluginManager().disablePlugin(this)` — **and then, in this repository's three
   Paper plugins, `getServer().shutdown()`.**
+
+  **The second half of that split is new on 2026-09-05 and reverses what this file used to say**,
+  which was that any undeclared key stops the load, full stop. Three of this repository's own
+  `ConfigsTest`s asserted exactly that, by name, for keys *we* had retired — `admin-permissions`,
+  `access.yml#link-code-ttl-minutes`, `network.yml#backend-limit` — and every one of those is a
+  file in a deployed volume where the operator's only possible move was to delete a line that means
+  nothing any more. Taking a whole network down until somebody does that by hand buys nothing; the
+  typo case, where there really is a decision only the operator can take, is untouched. Those tests
+  now assert the key is *gone from the file* after one load, which pins the half that was always
+  the point: nobody re-declares a retired key as a quiet no-op to make an upgrade smoother.
 
   **The second half is new on 2026-09-02 and reverses what this file used to say.** It said "the
   plugin goes down, the server keeps running", with `papermc-display-tags` as the worked example —
@@ -590,7 +604,7 @@ than a table nothing has ever put a row into.
 **Two things this stage left open were decided on 2026-08-31, and BOTH ARE NOW IMPLEMENTED** -
 this paragraph said "neither is implemented yet" until 2026-09-04, which is the same drift
 `docs/state-of-play.md` opens by warning about. `AccessSpec` carries a comment where the retired
-setting used to be and `ConfigsTest` asserts the key is refused by name; `MisconfiguredGate` is
+setting used to be and `ConfigsTest` asserts the key is dropped by name; `MisconfiguredGate` is
 registered by `NetworkControlPlugin` and refuses every login with a bilingual screen. Both entries
 are kept because the reasoning is what a future change has to argue with:
 
@@ -598,9 +612,11 @@ are kept because the reasoning is what a future change has to argue with:
   one.** The bot never read its own copy - `ReconcileDao#deleteExpiredLinkCodes` only compares
   `expires` to `now()` - and the proxy is the process that calls `AccessDirectory#issueLinkCode`,
   so it is the only one that can act on a TTL at all. Delete the field from `AccessSpec` rather
-  than wire it through. **Free only while nothing is deployed:** a key the interface does not
-  declare stops the load, so an `access.yml` in the wild carrying the retired key would refuse to
-  start.
+  than wire it through. **This used to say "free only while nothing is deployed", because a key the
+  interface does not declare stopped the load.** As of jcore 3.1.0 an `access.yml` in the wild
+  carrying the retired key loses the line on the next start instead — a warning, a `.bak`, no
+  refusal. Retiring a setting is now free full stop; retiring one and getting its *name* wrong in
+  the same edit is not, and never was.
 - **A bad `network-control` config must fail closed.** Today the gate is never registered and the
   proxy keeps accepting logins **un-gated**; that is to become a `LoginEvent` handler that refuses
   *everybody* with a "network misconfigured" screen. Velocity has no per-plugin disable, which is
@@ -648,7 +664,7 @@ are kept because the reasoning is what a future change has to argue with:
 
 ### Persistence
 
-- **It is the only module that depends on `jcore`** (`com.github.nordtal:jcore:3.0.0`, via
+- **It is the only module that depends on `jcore`** (`com.github.nordtal:jcore:3.1.0`, via
   JitPack), which exports jdbi3-core, jdbi3-sqlobject, slf4j-api, commons-lang3, commons-io, gson,
   snakeyaml and `org.jetbrains:annotations`, and brings HikariCP, Flyway, jdbi3-postgres and the
   PostgreSQL driver at runtime. The shaded jar is ~30 MB — fine for a container, not for a plugin.
@@ -723,7 +739,7 @@ are kept because the reasoning is what a future change has to argue with:
 
 ### Configuration
 
-Three files under `config/`, loaded through jcore 3.0.0, each with its own environment namespace —
+Three files under `config/`, loaded through jcore 3.1.0, each with its own environment namespace —
 `NORDTAL_BOT_*`, `NORDTAL_DATABASE_*`, `NORDTAL_ACCESS_*`. A shared `NORDTAL` prefix was
 deliberately not used: generic keys such as `password` would collide across files.
 
@@ -1107,9 +1123,11 @@ together, and `:common` gained nine. Three more left with `PhaseCommandTest`, wh
 parsing a phase name, and whether every reply has a translation - is now `:commands`' and is checked
 there for both surfaces at once. The eleventh is the arithmetic that is the point:
 two tests that pinned `max-players` against `backend-limit` were replaced by one that asserts a
-`network.yml` still carrying the retired `backend-limit` stops the proxy **with that key named**.
-There is no pair left to cross, so there is nothing left to compare; what an operator needs instead
-is to be told which line to delete. `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
+`network.yml` still carrying the retired `backend-limit` **loses that line and keeps the proxy**.
+There is no pair left to cross, so there is nothing left to compare; what an operator needed instead
+was to be told which line to delete — and as of jcore 3.1.0, on 2026-09-05, they are not told, the
+line is simply deleted with a `WARN` and a `.bak`, because being told was never the same thing as
+being able to do anything else about it. `FallbackCacheTest` (in memory, driven by a settable `Clock` rather
 than `Thread.sleep`) covers the four fallback rules; `ConfigsTest` covers `database.yml` and
 `gate.yml`, `pack.yml` and `network.yml` - all four handles it has; the `phase` and `routing`
 packages are tested as pure decisions, exhaustively over the

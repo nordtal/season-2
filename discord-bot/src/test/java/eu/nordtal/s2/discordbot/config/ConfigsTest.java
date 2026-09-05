@@ -383,28 +383,44 @@ class ConfigsTest {
     // ------------------------------------------------------------- the list is the only source
 
     @Test
-    @DisplayName("the retired roles.german / roles.english are not settings of this file any more")
-    void retiredLanguageRolesStopTheBot() throws Exception {
+    @DisplayName("the retired roles.german / roles.english are deleted from the file, not argued with")
+    void retiredLanguageRolesAreDropped() throws Exception {
         // The list carries each language's role. Leaving the old pair declared alongside it is what
-        // made access.yml have two sources of truth for the same ids; deleting a key is only free
-        // while nothing is deployed, because an undeclared key stops the load.
+        // made access.yml have two sources of truth for the same ids.
+        //
+        // Until jcore 3.1.0 a deployed file still carrying `german:` stopped the bot by name, and
+        // this test asserted that. It is the wrong answer for a key nobody can fix by editing it:
+        // the only possible move was to delete the line, so the loader does it. What the test still
+        // pins is that the key does not come back - re-declaring it as a quiet no-op would leave it
+        // in the file, and this fails.
         Files.writeString(directory.resolve("access.yml"),
                 access().replace("  donor: '11'", "  donor: '11'\n  german: '12'"));
 
-        final UnknownConfigKeyException error =
-                assertThrows(UnknownConfigKeyException.class, Configs::access);
-        assertEquals("roles.german", error.unknownKeys().getFirst().path());
+        final AccessSpec config = Configs.access().get();
+
+        assertAll(
+                () -> assertFalse(Files.readString(directory.resolve("access.yml")).contains("german:"),
+                        "the retired key has to be gone from the file"),
+                () -> assertTrue(Files.readString(directory.resolve("access.yml.bak")).contains("german:"),
+                        "and recoverable from the backup, because it carried an id"),
+                () -> assertEquals(2, config.languages().size(),
+                        "the list is still the only source for the language roles")
+        );
     }
 
     @Test
-    @DisplayName("the retired fixed contribution and link channels are not settings any more")
-    void retiredLanguageChannelsStopTheBot() throws Exception {
+    @DisplayName("the retired fixed contribution and link channels are deleted from the file")
+    void retiredLanguageChannelsAreDropped() throws Exception {
         Files.writeString(directory.resolve("access.yml"),
                 access().replace("  admin: '24'", "  contribution-en: '20'\n  admin: '24'"));
 
-        final UnknownConfigKeyException error =
-                assertThrows(UnknownConfigKeyException.class, Configs::access);
-        assertEquals("channels.contribution-en", error.unknownKeys().getFirst().path());
+        final AccessSpec config = Configs.access().get();
+
+        assertAll(
+                () -> assertFalse(Files.readString(directory.resolve("access.yml")).contains("contribution-en:")),
+                () -> assertEquals("24", config.channels().admin(),
+                        "the sibling ids are not collateral")
+        );
     }
 
     @Test
@@ -472,16 +488,17 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("the retired link-code-ttl-minutes is not a setting of this file any more")
-    void retiredLinkCodeTtlStopsTheBot() throws Exception {
+    @DisplayName("the retired link-code-ttl-minutes is deleted from the file, and gate.yml keeps the only one")
+    void retiredLinkCodeTtlIsDropped() throws Exception {
         // gate.yml carries the only link-code TTL (decided 2026-08-31). The bot never read its own
-        // copy, and an undeclared key stops the load - which is why the deletion was only free
-        // while nothing is deployed.
+        // copy, so a deployed access.yml that still carries the key is carrying a number that means
+        // nothing - which is exactly the case jcore 3.1.0 deletes instead of refusing.
         Files.writeString(directory.resolve("access.yml"), access() + "link-code-ttl-minutes: 10\n");
 
-        final UnknownConfigKeyException error =
-                assertThrows(UnknownConfigKeyException.class, Configs::access);
-        assertEquals("link-code-ttl-minutes", error.unknownKeys().getFirst().path());
+        Configs.access();
+
+        assertFalse(Files.readString(directory.resolve("access.yml")).contains("link-code-ttl-minutes"),
+                "the key is gone rather than sitting in the file looking like a setting");
     }
 
     @Test

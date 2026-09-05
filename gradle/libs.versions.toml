@@ -12,7 +12,12 @@ velocity = "4.1.1"
 # exports a logging backend, so consumers declare logback themselves.
 # 3.0.0 replaced the JSON config loader with commented YAML (a vendored, hardened Spec) and
 # dropped jackson-databind entirely, adding gson and snakeyaml instead. Verified 2026-08-30.
-jcore = "3.0.0"
+# 3.1.0 splits the strict load in two: a key that reads as a MISSPELLING of a declared one still
+# stops the start with the file untouched, and a key that resembles nothing declared - which is
+# what a setting we have retired looks like - is deleted from the file with a WARN and a .bak.
+# Taken 2026-09-05, because the old answer took a whole network down over a line nobody could fix
+# by editing it. See CLAUDE.md, "Configuration".
+jcore = "3.1.0"
 # Our own Paper plugin, published from github.com/nordtal/papermc-display-tags via JitPack. `smp`
 # takes it compileOnly and NEVER shades it - the api module is an interface over the running plugin,
 # so DisplayTags (and PacketEvents under it) has to be installed on the SMP server. Checked against

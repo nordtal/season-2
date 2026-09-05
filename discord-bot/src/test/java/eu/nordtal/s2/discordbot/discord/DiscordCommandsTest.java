@@ -12,11 +12,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -63,6 +65,33 @@ class DiscordCommandsTest {
                 .map(Declaration::name)
                 .toList();
         assertEquals(List.of(), tooDeep);
+    }
+
+    @Test
+    @DisplayName("no path is both a subcommand and a subcommand group")
+    void noNameIsBothASubcommandAndAGroup() {
+        // The one that cost the most to learn. Discord builds a two-segment path as a SUBCOMMAND
+        // and a three-segment one as a SUBCOMMAND GROUP, and a command may not have both under one
+        // name. JDA validates the whole set at registration and refuses ALL of it - so /hg start
+        // plus /hg start confirm would have left the guild with no commands at all, and the only
+        // symptom would be one exception at startup that nobody is watching for.
+        final Set<String> subcommands = new HashSet<>();
+        final Set<String> groups = new HashSet<>();
+        for (final Declaration declaration : inDiscord()) {
+            final List<String> path = declaration.path();
+            if (path.size() == 2) {
+                subcommands.add(path.get(0) + " " + path.get(1));
+            } else if (path.size() == 3) {
+                groups.add(path.get(0) + " " + path.get(1));
+            }
+        }
+        final Set<String> both = new HashSet<>(subcommands);
+        both.retainAll(groups);
+
+        assertEquals(Set.of(), both,
+                "a path is declared both as a runnable subcommand and as a group holding others."
+                        + " Make the deeper one an optional argument of the shallower - which is"
+                        + " what /hg start [confirm] is - or rename one of them.");
     }
 
     @Test

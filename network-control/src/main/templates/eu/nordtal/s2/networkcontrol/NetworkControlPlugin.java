@@ -131,7 +131,7 @@ public final class NetworkControlPlugin {
      * <p>A field because the notification listener is built before it and refers to it: the listener
      * carries {@code nordtal_command} alongside the phase and admin channels, on one connection.</p>
      */
-    private CommandInbox commandInbox;
+    private volatile CommandInbox commandInbox;
     private PlaytimeWriter playtime;
     private com.velocitypowered.api.scheduler.ScheduledTask heartbeat;
 
@@ -283,8 +283,16 @@ public final class NetworkControlPlugin {
                             // One connection carrying three channels. The listener never inspects
                             // which one woke it and runs every refresh on every signal, which is
                             // what makes sharing strictly cheaper than not.
-                            new NotificationListener.Refresh("the command inbox",
-                                    () -> commandInbox.drain())),
+                            new NotificationListener.Refresh("the command inbox", () -> {
+                                // Null until the command layer is built, ninety lines further down,
+                                // and the listener's own thread calls every refresh the moment it
+                                // connects - so the first one lands before this field is assigned.
+                                // The five-second poll picks up anything missed in that window.
+                                final CommandInbox inbox = commandInbox;
+                                if (inbox != null) {
+                                    inbox.drain();
+                                }
+                            })),
                     logger, pollInterval);
             phaseListener.start();
         } else {
@@ -379,7 +387,8 @@ public final class NetworkControlPlugin {
                 CommandRequests.borrowing(pool),
                 Messages.load(getClass().getClassLoader(), "messages/commands",
                         Locale.ENGLISH, Locale.GERMAN),
-                request -> request.discordId().map(access.admins()::contains).orElse(true),
+                eu.nordtal.s2.commands.remote.CommandInbox.AdminCheck.of(
+                        access::admins, access::adminMinecraftAccounts),
                 (message, failure) -> logger.warn(message, failure));
         NetworkCommands.all().forEach(command -> commandInbox.register(command,
                 // Inline: the inbox settles a request row when the command returns, so scheduled

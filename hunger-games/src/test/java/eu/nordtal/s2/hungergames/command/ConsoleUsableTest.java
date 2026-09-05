@@ -81,9 +81,16 @@ class ConsoleUsableTest {
                 SOURCE + " does not hand its commands to PaperCommands, whose admin check accepts"
                         + " the console. A tree built here would have to repeat that check, and"
                         + " repeating it is how it came to be wrong.");
-        assertEquals(1, occurrences(text, "commands.extra(\"hg\""),
-                "/hg ready is the one subcommand hung on by hand. A second extra subtree is a"
-                        + " command that has escaped the declaration and its console gate.");
+        // extraOpen and not extra: an extra subtree is admin-gated by default since 2026-09-05,
+        // because /smp update was hung on an ungated root and lost its admin check entirely. This
+        // is the one that must NOT be gated, and asking for it by name is the whole point.
+        assertEquals(1, occurrences(text, "commands.extraOpen(\"hg\""),
+                "/hg ready is the one subcommand hung on by hand, and the one that any player may"
+                        + " use. A second open extra is a command that has escaped both the"
+                        + " declaration and the admin gate.");
+        assertEquals(0, occurrences(text, "commands.extra(\"hg\""),
+                "/hg ready was hung on with the gated extra(), which would hide it from every"
+                        + " player - and the lobby's ready button runs exactly that path");
     }
 
     @Test

@@ -69,6 +69,8 @@ public final class WaitingBook {
 
         /** Whether the proxy currently believes they are sitting in the waiting room. */
         private boolean waiting;
+        /** Set by {@link #releaseFailed}: the destination is registered but did not take them. */
+        private Instant backendDownUntil;
         /** Whether {@link #entered} has ever been called - what makes a READY "early". */
         private boolean visited;
 
@@ -199,6 +201,37 @@ public final class WaitingBook {
      * @param uuid a player
      * @return whether they are being held in the waiting room right now
      */
+    /** How long a release that failed keeps a player waiting before the connection is tried again. */
+    public static final Duration RELEASE_RETRY = Duration.ofSeconds(10);
+
+    /**
+     * Records that the connection a release asked for did not succeed, and puts the player back on
+     * the books.
+     * <p>
+     * The station releases a player once the destination is <em>registered</em>; whether it is
+     * <em>up</em> only the connection attempt can say. Until 2026-09-05 a failed attempt was a
+     * disconnect with the "no server" screen - so a backend restarting for twenty seconds threw out
+     * everybody who arrived during those twenty seconds, and Velocity's own kick-to-fallback put
+     * everybody who was <em>on</em> it through the same door a moment later. docs/season-phases.md
+     * says a backend that is down holds rather than kicks; this is what makes that true. The player
+     * is shown the {@code BACKEND} title and the release is tried again after
+     * {@link #RELEASE_RETRY}, for as long as they care to wait.
+     * </p>
+     *
+     * @param uuid the player, still standing on limbo
+     */
+    public void releaseFailed(final UUID uuid) {
+        final Session session = sessions.get(uuid);
+        if (session == null) {
+            return;
+        }
+        synchronized (session) {
+            session.waiting = true;
+            session.settledAt = null;
+            session.backendDownUntil = clock.instant().plus(RELEASE_RETRY);
+        }
+    }
+
     public boolean isWaiting(final UUID uuid) {
         final Session session = uuid == null ? null : sessions.get(uuid);
         if (session == null) {
@@ -263,8 +296,13 @@ public final class WaitingBook {
                 return WaitingDecision.timedOut();
             }
 
+            // A destination that refused the last connection counts as unavailable until the retry
+            // window has passed - registered is not the same as up, and only a failed attempt can
+            // tell the two apart.
+            final boolean available = destinationAvailable && (session.backendDownUntil == null
+                    || !clock.instant().isBefore(session.backendDownUntil));
             final Optional<WaitReason> reason =
-                    LimboHold.reason(packSettled, phase, admin, destinationAvailable);
+                    LimboHold.reason(packSettled, phase, admin, available);
             if (reason.isPresent()) {
                 // Something other than READY is still in the way, so the grace period has not
                 // started - and if it had, it starts again from here.

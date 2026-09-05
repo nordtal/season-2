@@ -172,7 +172,10 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 routing.decideRelease(phase, roster.isAdmin(player.getUniqueId()), registeredServerNames());
 
         switch (decision.action()) {
-            case CONNECT -> connect(player, decision.server(), roster.localeOf(player.getUniqueId()));
+            // A backend that is registered and down is a player held with the BACKEND title, not a
+            // player disconnected with the "no server" screen - see WaitingBook#releaseFailed.
+            case CONNECT -> connect(player, decision.server(), roster.localeOf(player.getUniqueId()),
+                    () -> packs.releaseFailed(player));
             // Unreachable in practice: the station only releases a player once it has established
             // that the destination is registered, and decideRelease never answers STAY - a player
             // being released is standing in limbo, and "stay" there is the black screen of finding
@@ -285,6 +288,17 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
      * </p>
      */
     private boolean connect(final Player player, final String server, final Locale locale) {
+        return connect(player, server, locale, () -> player.disconnect(messages.noServer(locale)));
+    }
+
+    /**
+     * @param onFailure what to do when the connection does not go through: a phase change
+     *                  disconnects, because the player is standing on a server the phase no longer
+     *                  admits them to; a release from limbo holds, because they are standing in the
+     *                  one place built for waiting
+     */
+    private boolean connect(final Player player, final String server, final Locale locale,
+                            final Runnable onFailure) {
         final Optional<String> currently = player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName());
         if (currently.isPresent() && currently.get().equals(server)) {
@@ -303,14 +317,14 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         player.createConnectionRequest(target).connect().whenComplete((result, error) -> {
             if (error != null) {
                 logger.error("Re-routing {} to '{}' failed", player.getUsername(), server, error);
-                player.disconnect(messages.noServer(locale));
+                onFailure.run();
                 return;
             }
             if (result.getStatus() != ConnectionRequestBuilder.Status.SUCCESS
                     && result.getStatus() != ConnectionRequestBuilder.Status.ALREADY_CONNECTED) {
                 logger.error("Re-routing {} to '{}' ended as {}", player.getUsername(), server,
                         result.getStatus());
-                player.disconnect(messages.noServer(locale));
+                onFailure.run();
             }
         });
         return true;

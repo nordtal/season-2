@@ -56,10 +56,22 @@ public final class NetworkPing {
     private final SnapshotStore snapshots;
     private final Messages messages;
     private final Clock clock;
+    private final java.util.Optional<com.velocitypowered.api.util.Favicon> favicon;
 
     public NetworkPing(final ProxyServer proxy, final Logger logger, final NetworkSpec config,
                        final PhaseWatch phases, final SnapshotStore snapshots, final Messages messages,
                        final Clock clock) {
+        this(proxy, logger, config, phases, snapshots, messages, clock, java.util.Optional.empty());
+    }
+
+    /**
+     * @param favicon the 64 x 64 icon for the server browser, or empty for a ping without one -
+     *                see {@link ServerIcon}
+     */
+    public NetworkPing(final ProxyServer proxy, final Logger logger, final NetworkSpec config,
+                       final PhaseWatch phases, final SnapshotStore snapshots, final Messages messages,
+                       final Clock clock, final java.util.Optional<com.velocitypowered.api.util.Favicon> favicon) {
+        this.favicon = java.util.Objects.requireNonNull(favicon, "favicon");
         this.proxy = proxy;
         this.logger = logger;
         this.config = config;
@@ -71,10 +83,11 @@ public final class NetworkPing {
 
     @Subscribe
     public void onPing(final ProxyPingEvent event) {
-        event.setPing(event.getPing().asBuilder()
+        final ServerPing.Builder ping = event.getPing().asBuilder()
                 .description(description())
-                .maximumPlayers(config.maxPlayers())
-                .build());
+                .maximumPlayers(config.maxPlayers());
+        favicon.ifPresent(ping::favicon);
+        event.setPing(ping.build());
     }
 
     private Component description() {

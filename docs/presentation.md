@@ -40,6 +40,12 @@ the ping as its own PNG, and colour and formatting in the MOTD text.
 
 ---
 
+**Disconnect screens: answered on 2026-09-06, and the answer is no.** Measured on the local stack
+with a real client: a kick message carrying `U+FE020` (the logo) rendered as a box on the
+disconnect screen while the same glyph drew in chat a minute earlier - the pack is not active once
+the world is gone. So every login-gate screen, the expiry kick and the pack refusals stay text
+with colours, which is what they were built as while the question was open.
+
 ## 2. Menu panels
 
 ### The technique
@@ -395,6 +401,13 @@ Naming these is as much a decision as naming the rest, and it stops the next ses
 - **The MOTD's typography.** It cannot carry glyphs (§1), so it is colour and wording only.
 
 ---
+
+**No `permissions:` block in any `paper-plugin.yml`, decided 2026-09-06.** The polish plan of
+2026-09-04 listed adding one to the three Paper plugins so that a permissions plugin could offer
+the nodes. There are no nodes to offer: since the same day an admin is a server operator
+(`AdminOperators`), `limbo.admin` was deleted with the command fold, and no plugin here checks a
+permission string of its own. A block would declare nothing, and a declared nothing is the kind of
+file somebody later "completes".
 
 ## 8. Where the authority lives
 

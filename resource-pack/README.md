@@ -557,7 +557,7 @@ vanilla's own 198-grey body so the frame and the player inventory beneath read a
 near-black outer line, vanilla's three-pixel corner chamfer so nothing of the texture underneath
 peeks out at the corners, and dark slot recesses. The boards deliberately did not follow — they
 hang in the world on a Text Display's dark translucent ground — so the two surfaces now share a
-shape and not a palette. The slot grid in it was read off the extracted 26.2 `generic_54.png` — the drawable cell
+shape and not a palette. The slot grid in it was read off the extracted 26.2 `generic_54.png` — with one correction a real client forced on 2026-09-05: the player's rows sit one pixel *higher* than the texture has them, because `ChestScreen` blits the texture's bottom part one row up and the slots follow the client's arithmetic, not the file (see `PLAYER_MAIN_FROM_BOTTOM` in the script) — the drawable cell
 starts at **(7, 17)**, not at the (8, 18) every tutorial quotes, which is the item area inside it.
 **Re-measure at every version bump:** 1.21.9 moved the villager trading result slot by one pixel.
 

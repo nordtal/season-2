@@ -60,8 +60,8 @@ DEFAULT_OUT = os.path.join(REPO_ROOT, "resource-pack", "src", "assets",
 # find the bounding box of everything that is not the transparent palette index (176 x
 # 222), then find every row carrying the slots' dark shadow line. Those rows came back as
 # 17, 35, 53, 71, 89, 107 for the container's six rows and 139, 157, 175, 197 for the
-# player's three plus the hotbar - which is where the two FROM_BOTTOM numbers below come
-# from, at the 6-row height of 222.
+# player's three plus the hotbar. The first six are where the client draws them; the last
+# four are one pixel below where it draws them - see PLAYER_MAIN_FROM_BOTTOM.
 #
 # Re-read on 2026-09-05 for the corners: vanilla leaves a diagonal of transparent pixels
 # at each corner - three on the top row, two on the second, one on the third, mirrored -
@@ -87,9 +87,17 @@ SLOT_COLUMNS = 9
 TITLE_BAR_HEIGHT = 17        # the strip above the first slot cell, where the title sits
 
 # The player's own inventory, which every chest screen also draws, as an offset from the
-# bottom edge of the window: 222 - 139 and 222 - 197.
-PLAYER_MAIN_FROM_BOTTOM = 83
-PLAYER_HOTBAR_FROM_BOTTOM = 25
+# bottom edge of the window. NOT the texture's 139 and 197 - one pixel above them, 138 and
+# 196, so 222 - 138 and 222 - 196. Found on a real client on 2026-09-05: the hover square
+# and the item sat one pixel above our recess in the player's rows and flush in the
+# chest's. The texture is not where the client draws it. ChestScreen#renderBg blits the
+# top part 1:1 but the bottom part from TEXTURE row 126 onto SCREEN row rows*18 + 17 =
+# 125, so everything below the chest rows lands one pixel higher than it sits in the PNG
+# - and ChestMenu's own slot arithmetic (103 + 18k + 18*(rows - 4), hotbar 161 + ...) is
+# what the highlight and the item follow. A panel drawn as one glyph has no such seam, so
+# it has to be drawn where the client draws, not where the file is.
+PLAYER_MAIN_FROM_BOTTOM = 84
+PLAYER_HOTBAR_FROM_BOTTOM = 26
 
 # Vanilla's corner: how many pixels are transparent on each of the first three rows/columns,
 # counted from the corner inwards. Row 0 loses three, row 1 two, row 2 one.

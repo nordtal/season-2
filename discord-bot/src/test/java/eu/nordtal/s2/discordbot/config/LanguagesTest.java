@@ -45,6 +45,18 @@ class LanguagesTest {
     // ------------------------------------------------------------- mirroring a member's language
 
     @Test
+    void theAnnouncementChannelIsTheSecondOptionalId() {
+        // The six-id constructor is the file's default: no announcement channel. The seventh id
+        // switches it on, and the check reads the id and not the tag, so a language with a status
+        // channel and none for announcements is exactly that.
+        assertFalse(EN.hasAnnouncementChannel());
+        final Languages.Language withChannel = new Languages.Language("en", "10", "11", "12", "13", "14", "15");
+        assertTrue(withChannel.hasAnnouncementChannel());
+        assertEquals("15", withChannel.announcementChannelId());
+        assertTrue(withChannel.hasStatusChannel());
+    }
+
+    @Test
     @DisplayName("the German role is mirrored as 'de'")
     void theGermanRoleIsMirroredAsGerman() {
         assertEquals(Locale.GERMAN, today().resolve(Set.of("20")).orElseThrow().locale());

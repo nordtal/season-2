@@ -80,17 +80,35 @@ public final class StatusChannels {
     public StatusChannels(final JDA jda, final Languages languages, final Messages messages,
                           final PhaseDirectory phases, final SnapshotDirectory snapshots,
                           final Clock clock) {
+        this(jda, languages, messages, phases, snapshots, clock, null);
+    }
+
+    /**
+     * @param announcements where a phase change is posted, or {@code null} to only rename. The
+     *                      change is noticed here because this is the one timer in the bot that
+     *                      already reads the phase every minute; a second reader for the same row
+     *                      would be a second opinion on when it changed
+     */
+    public StatusChannels(final JDA jda, final Languages languages, final Messages messages,
+                          final PhaseDirectory phases, final SnapshotDirectory snapshots,
+                          final Clock clock, final eu.nordtal.s2.discordbot.announce.Announcements announcements) {
         this.jda = jda;
         this.languages = languages;
         this.messages = messages;
         this.phases = phases;
         this.snapshots = snapshots;
         this.clock = clock;
+        this.announcements = announcements;
     }
+
+    private final eu.nordtal.s2.discordbot.announce.Announcements announcements;
+    /** The phase the last tick saw; null before the first, so a restart announces nothing. */
+    private volatile SeasonPhase lastSeen;
 
     /** @return whether any language has a status channel configured at all */
     public boolean configured() {
-        return languages.all().stream().anyMatch(Languages.Language::hasStatusChannel);
+        return languages.all().stream().anyMatch(language ->
+                language.hasStatusChannel() || (announcements != null && language.hasAnnouncementChannel()));
     }
 
     /**
@@ -98,6 +116,9 @@ public final class StatusChannels {
      * bot's timer once a minute.
      */
     public void tick() {
+        final SeasonPhase phase = phases.currentPhase();
+        announceIfChanged(phase);
+
         final List<Languages.Language> configured = languages.all().stream()
                 .filter(Languages.Language::hasStatusChannel)
                 .toList();
@@ -105,7 +126,6 @@ public final class StatusChannels {
             return;
         }
 
-        final SeasonPhase phase = phases.currentPhase();
         // Only PRE_LAUNCH counts down, and only the three phases with a game running need counts.
         // Reading neither during MAINTENANCE is not an optimisation for its own sake: it is one
         // fewer query that can fail while the network is already in trouble.
@@ -116,6 +136,21 @@ public final class StatusChannels {
         for (final Languages.Language language : configured) {
             rename(language, StatusName.render(messages, language.locale(), phase, snapshot, launch, now), now);
         }
+    }
+
+    /**
+     * A phase that differs from the one the previous tick saw is posted into every announcement
+     * channel, in that channel's language (finding 52, 2026-09-06). The first tick after a start
+     * only remembers: a bot that restarts during SMP must not announce SMP.
+     */
+    private void announceIfChanged(final SeasonPhase phase) {
+        final SeasonPhase previous = lastSeen;
+        lastSeen = phase;
+        if (announcements == null || previous == null || previous == phase) {
+            return;
+        }
+        announcements.postAll(language -> messages.format(language.locale(), "announce.phase",
+                java.util.Map.of("previous", previous.name(), "phase", phase.name())));
     }
 
     private static boolean needsCounts(final SeasonPhase phase) {

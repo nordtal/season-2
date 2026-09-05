@@ -59,6 +59,18 @@ class ChestOnlyMenuTest {
      */
     private static final Map<String, String> UNFRAMED = new LinkedHashMap<>();
 
+    /**
+     * Helpers that compose a title <em>through</em> {@link MenuTitle} on a menu's behalf, keyed by
+     * the call as it appears inside {@code createInventory(...)}, valued by the helper's source.
+     *
+     * <p>The balloon is the first menu whose surface is a panel plus overlays, and the composition
+     * - which overlay on which card, at which x - is a fact about that menu and lives next to it in
+     * {@code TravelPanel}. The rule below is unchanged: the helper's source has to reach
+     * {@code MenuTitle.} itself, and {@link #everyComposerGoesThroughMenuTitle} checks that it does.
+     */
+    private static final Map<String, String> COMPOSERS = Map.of(
+            "TravelPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/travel/TravelPanel.java");
+
     @Test
     @DisplayName("no menu opens anything but a chest")
     void everyMenuIsAChest() {
@@ -84,7 +96,7 @@ class ChestOnlyMenuTest {
             int at = source.indexOf("createInventory(");
             while (at >= 0) {
                 final String call = source.substring(at, endOfCall(source, at));
-                if (call.contains("MenuTitle.")) {
+                if (call.contains("MenuTitle.") || COMPOSERS.keySet().stream().anyMatch(call::contains)) {
                     framed.add(path);
                 } else if (!UNFRAMED.containsKey(file)) {
                     offenders.add(path + " composes an inventory title without MenuTitle");
@@ -105,6 +117,17 @@ class ChestOnlyMenuTest {
                         + " fails - it is simply a vanilla window where a Nordtal one was meant."
                         + " If this menu is deliberately unframed, say so in UNFRAMED with the"
                         + " reason, the way the second menu pass did while it was running.");
+    }
+
+    @Test
+    @DisplayName("every named composer really goes through MenuTitle")
+    void everyComposerGoesThroughMenuTitle() {
+        COMPOSERS.forEach((call, source) -> {
+            final String text = read(RepositoryRoot.resolve(source));
+            assertTrue(text.contains("MenuTitle."),
+                    source + " is allowed to compose a title for a menu but never reaches"
+                            + " MenuTitle itself - which makes the exception a hole in the rule");
+        });
     }
 
     @Test

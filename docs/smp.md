@@ -200,7 +200,7 @@ The Nordtal spawn is a **tavern on a hill** and carries everything social:
 
 | structure | what it does |
 |---|---|
-| hot-air balloon | custom 3D model, barrier-block floor; stepping in opens the travel GUI |
+| hot-air balloon | custom 3D model on an `ItemDisplay` the plugin spawns in each configured balloon box (`BalloonDisplay`, since 2026-09-05 — before that the pack carried the model and nothing placed it), barrier-block floor; stepping in opens the travel GUI |
 | two 3 × 3 duel platforms | sword and bow, one each |
 | objective board | the current milestone at a glance, rendered per player in their language |
 | aura leaderboard board | likewise |
@@ -543,21 +543,30 @@ language, announced in Discord as well, and the moment the balloon's greyed-out 
 
 ## The balloon GUI
 
-**Settled 2026-09-01.** A 2 × 2 grid, and one arrangement that works at every balloon:
+**Re-settled 2026-09-05** (owner's call; it was "the other overworld, wide, above Nether | End"
+from 2026-09-01). Four equal cards in fixed places, in the manner of Origin Realms' travel menu,
+drawn into a six-row chest whose surface is painted in the inventory title
+([presentation.md](presentation.md#2-menu-panels)):
 
 ```
-+---------------------------+
-|   the OTHER overworld     |   one entry across both upper tiles
-+-------------+-------------+
-|   Nether    |     End     |   always in that order
-+-------------+-------------+
++-------------+   +-------------+
+|   Nordtal   |   |  farm world |   slot rows 0-2, columns 0-3 and 5-8
++-------------+   +-------------+
+|   Nether    |   |     End     |   slot rows 3-5, the same columns; column 4 is the gap
++-------------+   +-------------+
 ```
 
-"The other overworld" is what makes a single layout do: at Nordtal's balloon the wide entry is the
-farm world, at every other balloon it is Nordtal. Nobody has to learn a second arrangement for the
-trip home.
+Every world has the same card at every balloon, and the card of the world the player is standing in
+is **marked with a white frame rather than moved**. That is what the fixed places buy: nobody has to
+learn where "home" went, because it never goes anywhere. The four cards are baked into one panel
+glyph; a card's *state* is an overlay laid over it — a shade with a padlock for a destination whose
+milestone is not done, the frame for "you are here" — so every combination is one panel and two
+small glyphs rather than a dozen images. There is no readable title. Every slot under a card holds
+an invisible item (`nordtal:blank`, `:paper-common`'s `BlankItem`) carrying the world's name and a
+caption as its tooltip, so hovering anywhere on a card explains it and clicking anywhere on it
+travels.
 
-A destination that is not unlocked yet **keeps its place, greyed**, naming the milestone that opens
+A destination that is not unlocked yet **keeps its place, shaded**, naming the milestone that opens
 it and pointing at the objective board — rather than disappearing. Standing at the balloon is
 exactly the moment somebody wants to know why the Nether is not available, and an entry that has
 simply vanished answers nothing.
@@ -755,12 +764,14 @@ Two corrections that came out of writing that table, both of which this document
 ## The HUD
 
 Two boss bar lines, using the same technique as the hunger games — the vanilla bar made invisible
-by the resource pack, backgrounds composed from power-of-two glyph segments.
+by the resource pack, backgrounds composed from power-of-two glyph segments. **Since 2026-09-05 a
+line is a row of pills, one per piece of information, each sized to what it holds** — see
+[presentation.md](presentation.md#the-hud-pill); `:common`'s `BossBarLine` draws them.
 
 | line | when | shows |
 |---|---|---|
-| 1 | always | current dimension, and the current milestone with its progress — the dimension alone once the track has run out |
-| 2 | only while `/navigate` is active | the target, an arrow to it, and the distance |
+| 1 | always | `[world icon · world]` `[milestone · 42 %]` — the world's pill alone once the track has run out, and a farm-reset warning takes the world's pill over for eight seconds |
+| 2 | only while `/navigate` is active | `[arrow · target]` `[123 blocks]` — or `[compass · target]` `[in another world]` when the target is not in this one |
 
 There is **no season countdown**, because there is no fixed end date.
 

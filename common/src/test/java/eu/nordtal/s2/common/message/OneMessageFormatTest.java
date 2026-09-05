@@ -56,8 +56,9 @@ class OneMessageFormatTest {
      * {@code Component.text} and must keep doing so:</p>
      *
      * <ul>
-     *   <li><b>Text that is not a message at all</b> - a glyph, a composed progress bar, a boss
-     *       bar line, an entity's display name.</li>
+     *   <li><b>Text that is not a message at all</b> - a glyph, a composed progress bar, an
+     *       entity's display name. (The boss bar line was one of these until 2026-09-05; it is
+     *       composed in {@code :common}'s {@code BossBarLine} now, outside these four trees.)</li>
      *   <li><b>Text that must not be parsed</b> - the updater's report, printed verbatim by module
      *       rule, and the MOTD's own already-parsed fallback.</li>
      *   <li><b>A message composed in Java with arbitrary text</b> - a GUI item name built from a
@@ -71,10 +72,6 @@ class OneMessageFormatTest {
      * this list exists to prevent.</p>
      */
     private static final Map<String, String> COMPONENT_TEXT_ALLOWED = Map.ofEntries(
-            Map.entry("smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java",
-                    "the boss bar line, which is glyphs and needs a font key, not a parser"),
-            Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java",
-                    "the same boss bar line"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/player/PlayerComposition.java",
                     "glyphs and player names - the nametag, the tab entry and the chat prefix"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/npc/SpawnNpc.java",

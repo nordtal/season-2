@@ -66,6 +66,51 @@
             "chars": [
                 "\uDBB8\uDC65"
             ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/travel.png",
+            "ascent": 13,
+            "height": 222,
+            "chars": [
+                "\uDBB8\uDC66"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/travel_locked.png",
+            "ascent": -6,
+            "height": 50,
+            "chars": [
+                "\uDBB8\uDC67"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/travel_locked.png",
+            "ascent": -60,
+            "height": 50,
+            "chars": [
+                "\uDBB8\uDC68"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/travel_here.png",
+            "ascent": -6,
+            "height": 50,
+            "chars": [
+                "\uDBB8\uDC69"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/travel_here.png",
+            "ascent": -60,
+            "height": 50,
+            "chars": [
+                "\uDBB8\uDC6A"
+            ]
         }
     ]
 }

@@ -272,8 +272,13 @@ public final class Glyphs {
     public static final String BOSSBAR_SPACE_PLUS_16 = cp(0xFFF16);
     public static final String BOSSBAR_SPACE_PLUS_32 = cp(0xFFF32);
 
-    // Bar background segments - U+FE000..U+FE128, height 14 / ascent 6
+    // Bar background segments - U+FE000..U+FE128, height 14 / ascent 6. Since 2026-09-05 a HUD
+    // line is one rounded PILL per piece of information: START, a body composed from the
+    // power-of-two segments, END. Every segment is exactly as wide as its name and the client
+    // advances a bitmap glyph by its width plus one, so the composer (BossBarWidth) steps back a
+    // pixel after each; the START cap sits at U+FE0FF because U+FE000 was END before START existed.
     public static final String BOSSBAR_BG_END = cp(0xFE000);
+    public static final String BOSSBAR_BG_START = cp(0xFE0FF);
     public static final String BOSSBAR_BG_1 = cp(0xFE001);
     public static final String BOSSBAR_BG_2 = cp(0xFE002);
     public static final String BOSSBAR_BG_4 = cp(0xFE004);
@@ -293,15 +298,15 @@ public final class Glyphs {
     public static final String BOSSBAR_ICON_FGREEN = cp(0xFEF02);
     public static final String BOSSBAR_ICON_FRED = cp(0xFEF03);
     public static final String BOSSBAR_ICON_FWHITE = cp(0xFEF04);
-    // Dimension icons - U+FEF05..U+FEF08, one per world the SMP/hunger games HUDs name.
-    // Placeholder art from the 2026-08-31 dummy-texture pass (simple geometric silhouettes,
-    // not the real design) - see resource-pack/README.md before treating these as final.
+    // Dimension icons - U+FEF05..U+FEF08, one per world the SMP/hunger games HUDs name. Real art
+    // since 2026-09-05 (resource-pack/tools/generate_hud.py): 10 x 10, a dark outline and one
+    // leading colour each - green Nordtal, gold farm world, red Nether, violet End.
     public static final String BOSSBAR_ICON_DIM_OVERWORLD = cp(0xFEF05);
     public static final String BOSSBAR_ICON_DIM_FARM_WORLD = cp(0xFEF06);
     public static final String BOSSBAR_ICON_DIM_NETHER = cp(0xFEF07);
     public static final String BOSSBAR_ICON_DIM_END = cp(0xFEF08);
-    // The hunger games HUD's own icons - placeholder art, same caveat as the dimension icons
-    // above.
+    // The hunger games HUD's own icons - a heart, a skull, a chest, a dashed border - drawn by
+    // the same tool on the same day.
     public static final String BOSSBAR_ICON_ALIVE = cp(0xFEF09);
     public static final String BOSSBAR_ICON_DEATHS = cp(0xFEF0A);
     public static final String BOSSBAR_ICON_LOOT_POINT = cp(0xFEF0B);
@@ -366,7 +371,7 @@ public final class Glyphs {
     public static final String GUI_SPACE_MINUS_128 = cp(0xFF128);
 
     // Panels - U+FE060..U+FE065, one per chest size, ascent 13 and height = the window's own
-    // pixel height so each renders 1:1. U+FE066..U+FE07F is this font's room to grow.
+    // pixel height so each renders 1:1.
     public static final String GUI_PANEL_1 = cp(0xFE060);
     public static final String GUI_PANEL_2 = cp(0xFE061);
     public static final String GUI_PANEL_3 = cp(0xFE062);
@@ -378,4 +383,19 @@ public final class Glyphs {
     public static final String[] GUI_PANELS = {
             GUI_PANEL_1, GUI_PANEL_2, GUI_PANEL_3, GUI_PANEL_4, GUI_PANEL_5, GUI_PANEL_6,
     };
+
+    // The balloon's travel panel and its two state overlays - U+FE066..U+FE06A, 2026-09-05.
+    // The panel is a 6-row window with the four world cards baked in, because all four are always
+    // shown in fixed places; what varies is a card's STATE, and each state is one tile-sized glyph
+    // declared TWICE - once per tile row, at the ascent that lands it on that row - and drawn over
+    // the panel by walking the cursor back to the card's x. See MenuTitle.Canvas for the
+    // composition and docs/presentation.md#2-menu-panels for the technique. The tile geometry
+    // (68 x 50 at x 9/99, y 19/73) lives in resource-pack/tools/generate_gui_panels.py and is
+    // read back off the PNGs by MenuTitleTest; nothing here restates it.
+    public static final String GUI_TRAVEL_PANEL = cp(0xFE066);
+    public static final String GUI_TRAVEL_LOCKED_TOP = cp(0xFE067);
+    public static final String GUI_TRAVEL_LOCKED_BOTTOM = cp(0xFE068);
+    public static final String GUI_TRAVEL_HERE_TOP = cp(0xFE069);
+    public static final String GUI_TRAVEL_HERE_BOTTOM = cp(0xFE06A);
+    // U+FE06B..U+FE07F is this font's room to grow.
 }

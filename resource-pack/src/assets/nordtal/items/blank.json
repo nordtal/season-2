@@ -1,0 +1,6 @@
+{
+    "_comment": "An item that draws nothing. A menu whose surface is painted into the inventory title (docs/presentation.md section 2) still needs an item in each slot for the hover tooltip and the click, and a vanilla item would draw its icon over the art. Select it with an item_model component of \"nordtal:blank\" - BlankItem in :paper-common is the one place that does. minecraft:empty is the item-model type that renders nothing, available since 1.21.4.",
+    "model": {
+        "type": "minecraft:empty"
+    }
+}

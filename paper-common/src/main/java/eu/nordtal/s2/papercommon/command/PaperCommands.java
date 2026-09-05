@@ -559,6 +559,19 @@ public final class PaperCommands {
             return run(sender, input, entry, parsed.values());
         }
 
+        try {
+            offThread(sender, input, entry, parsed);
+        } catch (final IllegalPluginAccessException disabled) {
+            // The plugin is going down between the keystroke and this line. The mirror of the guard
+            // in back(): without it the exception leaves a Brigadier handler as a stack trace on
+            // the console instead of a sentence to whoever typed.
+            plugin.getLogger().fine("Dropped a command because the plugin is no longer enabled");
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private void offThread(final CommandSender sender, final String input, final Entry entry,
+                           final Parsed parsed) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Map<String, Object> resolved = new LinkedHashMap<>(parsed.values());
             for (final Map.Entry<String, UUID> account : parsed.accounts().entrySet()) {
@@ -579,7 +592,6 @@ public final class PaperCommands {
             }
             back(() -> run(sender, input, entry, resolved));
         });
-        return Command.SINGLE_SUCCESS;
     }
 
     /** Back onto the server thread, or nowhere at all if the plugin went away while we were off it. */

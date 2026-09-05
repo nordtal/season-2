@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,6 +57,17 @@ class PhaseRoutingTest {
         // PRE_LAUNCH has no backend of its own: nobody but an admin is on the network, and limbo is
         // the harmless place to name for the players who never get that far.
         assertEquals("limbo", servers.forPhase(SeasonPhase.PRE_LAUNCH));
+
+        // ... and an admin comes out of the waiting room onto the SMP in exactly those two phases,
+        // and where everybody else does in every other.
+        assertEquals("smp", servers.forAdmitted(SeasonPhase.MAINTENANCE, true));
+        assertEquals("smp", servers.forAdmitted(SeasonPhase.PRE_LAUNCH, true));
+        assertEquals("limbo", servers.forAdmitted(SeasonPhase.MAINTENANCE, false));
+        assertEquals("limbo", servers.forAdmitted(SeasonPhase.PRE_LAUNCH, false));
+        for (final SeasonPhase phase : new SeasonPhase[]{SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT,
+                SeasonPhase.SMP}) {
+            assertEquals(servers.forPhase(phase), servers.forAdmitted(phase, true), phase.toString());
+        }
     }
 
     @Test
@@ -250,12 +262,68 @@ class PhaseRoutingTest {
     }
 
     @Test
-    void anAdminIsNotSentToTheWaitingRoomWhileTheNetworkIsClosed() {
-        // The two phases where there is nothing to wait for: maintenance (the network is running,
-        // the admin is here to look at what is being worked on) and PRE_LAUNCH (the admin is the
-        // only player there is). In both, holding them in limbo would hold them nowhere.
-        assertEquals(Action.STAY, routing.decideInitial(SeasonPhase.MAINTENANCE, true, ALL).action());
-        assertEquals(Action.STAY, routing.decideInitial(SeasonPhase.PRE_LAUNCH, true, ALL).action());
+    void anAdminGoesThroughTheWaitingRoomWhileTheNetworkIsClosedToo() {
+        // Reversed 2026-09-05 (finding 93). This used to assert STAY for both phases, on the theory
+        // that an admin "was never put in the waiting room" - but STAY leaves the choice to
+        // velocity.toml, whose `try` list IS the waiting room, so the admin landed there anyway,
+        // applied the pack, and was released back into it. Everybody goes through the room; where
+        // an admin comes out is decideRelease's answer.
+        assertEquals("limbo", routing.decideInitial(SeasonPhase.MAINTENANCE, true, ALL).server());
+        assertEquals("limbo", routing.decideInitial(SeasonPhase.PRE_LAUNCH, true, ALL).server());
+    }
+
+    @Test
+    void anAdminIsReleasedOntoTheSmpWhileTheNetworkIsClosed() {
+        // The owner's choice of 2026-09-05: the SMP, fixed, no config key. It is the server being
+        // built before the opening and worked on during maintenance, and /server reaches the rest.
+        assertEquals("smp", routing.decideRelease(SeasonPhase.MAINTENANCE, true, ALL).server());
+        assertEquals("smp", routing.decideRelease(SeasonPhase.PRE_LAUNCH, true, ALL).server());
+        // Everybody else is released where the phase says - which during maintenance is the room
+        // itself, and LimboHold never lets a non-admin that far in the first place.
+        assertEquals("limbo", routing.decideRelease(SeasonPhase.MAINTENANCE, false, ALL).server());
+        assertEquals("hunger-games", routing.decideRelease(SeasonPhase.PRE_EVENT, true, ALL).server());
+        assertEquals("smp", routing.decideRelease(SeasonPhase.SMP, false, ALL).server());
+    }
+
+    @Test
+    void aReleaseNeverSaysStay() {
+        // STAY on a release is the black screen: the player is standing in limbo, and "leave them
+        // where they are" leaves them there with the last title the room drew.
+        for (final SeasonPhase phase : SeasonPhase.values()) {
+            for (final boolean admin : new boolean[]{false, true}) {
+                assertNotEquals(Action.STAY, routing.decideRelease(phase, admin, ALL).action(),
+                        phase + "/admin=" + admin);
+                assertNotEquals(Action.STAY, routing.decideRelease(phase, admin, Set.of()).action(),
+                        phase + "/admin=" + admin + "/nothing registered");
+            }
+        }
+    }
+
+    @Test
+    void anAdminWithoutAWaitingRoomGoesStraightToTheSmp() {
+        // The branch that must not regress, restated for the new shape: if a missing limbo locked
+        // admins out, nobody could register one. They skip the pack and PlayerRouter says so.
+        assertEquals("smp", routing.decideInitial(SeasonPhase.MAINTENANCE, true,
+                Set.of("smp", "hunger-games")).server());
+        assertEquals("smp", routing.decideInitial(SeasonPhase.PRE_LAUNCH, true, Set.of("smp")).server());
+        assertEquals("smp", routing.decideInitial(SeasonPhase.SMP, true, Set.of("smp")).server());
+        // A non-admin never does - "everybody joined without the pack" is the outcome this refuses.
+        assertEquals(Action.REFUSE_MAINTENANCE_UNAVAILABLE,
+                routing.decideInitial(SeasonPhase.MAINTENANCE, false, Set.of("smp")).action());
+        assertEquals(Action.REFUSE_NO_SERVER,
+                routing.decideInitial(SeasonPhase.SMP, false, Set.of("smp")).action());
+        // And an admin with neither is refused like anybody, because there is nowhere to send them.
+        assertEquals(Action.REFUSE_NO_SERVER,
+                routing.decideInitial(SeasonPhase.PRE_LAUNCH, true, Set.of("hunger-games")).action());
+    }
+
+    @Test
+    void anAdminOnABackendIsNotMovedWhenTheNetworkIsClosedUnderThem() {
+        // The phase-change half keeps STAY: an admin standing on a server when the phase goes to
+        // MAINTENANCE - or back to PRE_LAUNCH - stays on it. An admin in the waiting room at that
+        // moment is re-asked by the pack station instead, which is PlayerRouter's job.
+        assertEquals(Action.STAY, routing.decideAdmitted(SeasonPhase.MAINTENANCE, true, ALL).action());
+        assertEquals(Action.STAY, routing.decideAdmitted(SeasonPhase.PRE_LAUNCH, true, ALL).action());
     }
 
     @Test

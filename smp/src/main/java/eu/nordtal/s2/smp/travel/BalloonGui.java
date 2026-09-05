@@ -1,13 +1,13 @@
 package eu.nordtal.s2.smp.travel;
 
 import eu.nordtal.s2.common.feedback.Feedback;
-import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.papercommon.menu.BlankItem;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
-import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.feedback.Surface;
+import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.milestone.Milestone;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;
 import eu.nordtal.s2.smp.milestone.Unlock;
@@ -17,9 +17,7 @@ import eu.nordtal.s2.smp.world.Worlds;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -33,10 +31,16 @@ import java.util.Optional;
 /**
  * The travel GUI a balloon opens.
  *
- * <p>The layout is {@link BalloonMenu}'s and is tested there without a server; this class is the
- * part that needs one - items, names, colours and the teleport.
+ * <p>The layout is {@link BalloonMenu}'s and is tested there without a server; the surface is
+ * {@link TravelPanel}'s and is drawn into the inventory title; this class is the part that needs a
+ * server - the tooltips, the click and the teleport.
  *
- * <p>A destination that is not unlocked yet <b>keeps its place, greyed</b>, naming the milestone
+ * <p><b>Nothing visible sits in a slot.</b> The four cards are art in the title, and every slot a
+ * card covers holds a {@link BlankItem}: an item that draws nothing and carries the card's name and
+ * caption as its tooltip, so hovering anywhere on a card explains it and clicking anywhere on it
+ * travels. A vanilla item there would draw its icon over the art.
+ *
+ * <p>A destination that is not unlocked yet <b>keeps its place, shaded</b>, naming the milestone
  * that will open it and pointing at the objective board. Standing at the balloon is exactly when
  * somebody wants to know why the Nether is not available, and an entry that has simply vanished
  * answers nothing.
@@ -70,8 +74,7 @@ public final class BalloonGui implements Surface {
 
         final Locale locale = locales.of(viewer.getUniqueId());
         this.inventory = Bukkit.createInventory(this, BalloonMenu.ROWS * 9,
-                MenuTitle.of(BalloonMenu.ROWS,
-                        MessageRenderer.of(messages).get(locale, "smp.balloon.title")));
+                TravelPanel.title(entries));
         draw(locale);
     }
 
@@ -82,49 +85,34 @@ public final class BalloonGui implements Surface {
 
     private void draw(final Locale locale) {
         for (final BalloonMenu.Entry entry : entries) {
-            final ItemStack icon = icon(entry, locale);
+            final ItemStack tooltip = tooltip(entry, locale);
             for (final int slot : entry.slots()) {
-                inventory.setItem(slot, icon);
+                inventory.setItem(slot, tooltip);
             }
         }
     }
 
-    private ItemStack icon(final BalloonMenu.Entry entry, final Locale locale) {
+    /** The invisible item under a card: the world's name, and one or two lines on its state. */
+    private ItemStack tooltip(final BalloonMenu.Entry entry, final Locale locale) {
         final boolean locked = entry.state() == BalloonMenu.State.LOCKED;
-        final ItemStack stack = new ItemStack(locked ? Material.GRAY_STAINED_GLASS_PANE
-                : material(entry.destination()));
+        final Component name = MessageRenderer.of(messages).get(locale, nameKey(entry.destination()))
+                .color(locked ? NamedTextColor.GRAY : NamedTextColor.WHITE);
 
-        stack.editMeta(meta -> {
-            meta.displayName(MessageRenderer.of(messages).get(locale, nameKey(entry.destination()))
-                    .color(locked ? NamedTextColor.GRAY : NamedTextColor.WHITE)
-                    .decoration(TextDecoration.ITALIC, false));
-
-            final List<Component> lore = new ArrayList<>();
-            switch (entry.state()) {
-                case HERE -> lore.add(line(messages.get(locale, "smp.balloon.here"), NamedTextColor.DARK_GRAY));
-                case OPEN -> lore.add(line(messages.get(locale, "smp.balloon.open"), NamedTextColor.GREEN));
-                case LOCKED -> {
-                    lore.add(line(messages.format(locale, "smp.balloon.locked",
-                            "milestone", milestoneName(entry.destination(), locale)), NamedTextColor.RED));
-                    lore.add(line(messages.get(locale, "smp.balloon.locked-hint"), NamedTextColor.DARK_GRAY));
-                }
+        final List<Component> lore = new ArrayList<>();
+        switch (entry.state()) {
+            case HERE -> lore.add(line(messages.get(locale, "smp.balloon.here"), NamedTextColor.DARK_GRAY));
+            case OPEN -> lore.add(line(messages.get(locale, "smp.balloon.open"), NamedTextColor.GREEN));
+            case LOCKED -> {
+                lore.add(line(messages.format(locale, "smp.balloon.locked",
+                        "milestone", milestoneName(entry.destination(), locale)), NamedTextColor.RED));
+                lore.add(line(messages.get(locale, "smp.balloon.locked-hint"), NamedTextColor.DARK_GRAY));
             }
-            meta.lore(lore);
-        });
-        return stack;
+        }
+        return BlankItem.of(name, lore);
     }
 
     private static Component line(final String text, final NamedTextColor colour) {
-        return Component.text(text).color(colour).decoration(TextDecoration.ITALIC, false);
-    }
-
-    private static Material material(final WorldRole role) {
-        return switch (role) {
-            case NORDTAL -> Material.GRASS_BLOCK;
-            case FARM -> Material.WHEAT;
-            case NETHER -> Material.NETHERRACK;
-            case END -> Material.END_STONE;
-        };
+        return Component.text(text).color(colour);
     }
 
     private static String nameKey(final WorldRole role) {
@@ -132,7 +120,7 @@ public final class BalloonGui implements Surface {
     }
 
     /**
-     * The name of the milestone that opens a destination, for the greyed entry's first lore line.
+     * The name of the milestone that opens a destination, for the shaded card's first lore line.
      *
      * <p>Falls back to the raw key when the track has no name for it, which is what a milestone
      * whose translation is missing should look like: unhelpful, but not blank.
@@ -152,7 +140,7 @@ public final class BalloonGui implements Surface {
     /**
      * Handles a click on {@code slot}.
      *
-     * @return true when the player was sent somewhere, false for filler, "you are here" and locked
+     * @return true when the player was sent somewhere, false for the gap, "you are here" and locked
      */
     public boolean click(final Player player, final int slot) {
         final Locale locale = locales.of(player.getUniqueId());

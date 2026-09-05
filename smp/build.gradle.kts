@@ -7,6 +7,10 @@ plugins {
 // every source set, so without this Gradle cannot see them and an edit to either would leave
 // :smp:test UP-TO-DATE - the one check that would have caught it being the one that does not run.
 repositoryRootTestInputs {
+    // TravelPanelTest reads the travel panel's PNG and gui.json back and asserts every card is
+    // where TravelPanel says it is - the one check that keeps the generator and the Java geometry
+    // from drifting apart. The whole assets tree, for the reason common's build file gives.
+    readsTree("resource-pack/src/assets")
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
 

@@ -55,6 +55,9 @@ class MenuTitleTest {
     /** Code point to the advance a panel glyph carries, derived from its PNG and its provider. */
     private static final Map<Integer, Integer> PANELS = new LinkedHashMap<>();
 
+    /** Code point to the advance an overlay glyph carries - anything narrower than a window. */
+    private static final Map<Integer, Integer> OVERLAYS = new LinkedHashMap<>();
+
     /** Code point to the {@code ascent} its provider declares. */
     private static final Map<Integer, Integer> ASCENTS = new HashMap<>();
 
@@ -77,8 +80,12 @@ class MenuTitleTest {
             assertEquals(image.getHeight(), declaredHeight,
                     file + " has to declare its own pixel height, or the panel is scaled");
             final int codePoint = provider.getAsJsonArray("chars").get(0).getAsString().codePointAt(0);
-            PANELS.put(codePoint, image.getWidth() + 1);
             ASCENTS.put(codePoint, provider.get("ascent").getAsInt());
+            if (image.getWidth() == MenuTitle.PANEL_ADVANCE - 1) {
+                PANELS.put(codePoint, image.getWidth() + 1);
+            } else {
+                OVERLAYS.put(codePoint, image.getWidth() + 1);
+            }
         }
     }
 
@@ -125,12 +132,71 @@ class MenuTitleTest {
     @Test
     @DisplayName("every panel rises on the ascent the title anchor needs")
     void everyPanelDeclaresTheSameAscent() {
-        for (final Map.Entry<Integer, Integer> ascent : ASCENTS.entrySet()) {
-            assertEquals(13, ascent.getValue(),
+        for (final int codePoint : PANELS.keySet()) {
+            assertEquals(13, ASCENTS.get(codePoint),
                     "the title's top is at y = 6 and the default font's ascent is 7, so a glyph's"
                             + " top lands at y + 7 - ascent. 13 puts it at 0, the window's own top"
                             + " edge; anything else offsets the whole panel vertically");
         }
+        assertTrue(PANELS.size() >= MenuTitle.MAX_ROWS + 1,
+                "six chest panels and the travel panel were expected; found " + PANELS.size());
+    }
+
+    @Test
+    @DisplayName("every overlay lands on a slot row: its ascent is 13 minus a y inside the window")
+    void everyOverlayLandsInsideTheWindow() {
+        assertTrue(!OVERLAYS.isEmpty(), "the travel overlays were expected in gui.json");
+        for (final int codePoint : OVERLAYS.keySet()) {
+            final int y = 13 - ASCENTS.get(codePoint);
+            assertTrue(y >= SlotGeometry.ORIGIN_Y && y < 222,
+                    "U+%X declares ascent %d, which puts its top at y = %d - outside the slot area"
+                            .formatted(codePoint, ASCENTS.get(codePoint), y));
+        }
+    }
+
+    @Test
+    @DisplayName("a canvas draws every overlay at the x it was given, and ends on the anchor")
+    void theCanvasLandsEveryOverlay() {
+        final int width = 68;
+        final Component surface = MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL)
+                .overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 9, width)
+                .overlay(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM, 9, width)
+                .overlay(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM, 99, width)
+                .panel();
+
+        final Map<Integer, List<Integer>> landed = new HashMap<>();
+        int cursor = MenuTitle.ANCHOR_X;
+        for (final int codePoint : plain(surface).codePoints().toArray()) {
+            if (OVERLAYS.containsKey(codePoint) || PANELS.containsKey(codePoint)) {
+                landed.computeIfAbsent(codePoint, ignored -> new java.util.ArrayList<>()).add(cursor);
+            }
+            cursor += ADVANCES.getOrDefault(codePoint,
+                    PANELS.getOrDefault(codePoint, OVERLAYS.getOrDefault(codePoint, 0)));
+        }
+
+        assertEquals(List.of(0), landed.get(Glyphs.GUI_TRAVEL_PANEL.codePointAt(0)),
+                "the panel has to start on the window's left edge");
+        assertEquals(List.of(9), landed.get(Glyphs.GUI_TRAVEL_HERE_TOP.codePointAt(0)));
+        assertEquals(List.of(99, 9), landed.get(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM.codePointAt(0)),
+                "overlays are laid down right to left, whatever order they were added in - the"
+                        + " font has no positive advance, so the cursor can only ever walk back");
+        assertEquals(MenuTitle.ANCHOR_X, cursor,
+                "the surface has to end on the title anchor, or the readable title moves");
+    }
+
+    @Test
+    @DisplayName("an overlay that does not fit the window is refused")
+    void anOverlayOffTheWindowThrows() {
+        assertThrows(IllegalArgumentException.class,
+                () -> MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL).overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 120, 68));
+        assertThrows(IllegalArgumentException.class,
+                () -> MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL).overlay(Glyphs.GUI_TRAVEL_HERE_TOP, -1, 68));
+    }
+
+    @Test
+    @DisplayName("a canvas without overlays is exactly the plain panel")
+    void aBareCanvasIsThePanel() {
+        assertEquals(plain(MenuTitle.panel(6)), plain(MenuTitle.on(Glyphs.GUI_PANEL_6).panel()));
     }
 
     @Test
@@ -176,9 +242,20 @@ class MenuTitleTest {
     @Test
     @DisplayName("every glyph the composition uses is one the font actually declares")
     void nothingIsComposedOutOfACodePointTheFontDoesNotHave() {
+        final List<String> compositions = new java.util.ArrayList<>();
         for (int rows = 1; rows <= MenuTitle.MAX_ROWS; rows++) {
-            plain(MenuTitle.panel(rows)).codePoints().forEach(codePoint ->
-                    assertTrue(ADVANCES.containsKey(codePoint) || PANELS.containsKey(codePoint),
+            compositions.add(plain(MenuTitle.panel(rows)));
+        }
+        compositions.add(plain(MenuTitle.on(Glyphs.GUI_TRAVEL_PANEL)
+                .overlay(Glyphs.GUI_TRAVEL_LOCKED_TOP, 9, 68)
+                .overlay(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM, 9, 68)
+                .overlay(Glyphs.GUI_TRAVEL_HERE_TOP, 99, 68)
+                .overlay(Glyphs.GUI_TRAVEL_HERE_BOTTOM, 99, 68)
+                .panel()));
+        for (final String composition : compositions) {
+            composition.codePoints().forEach(codePoint ->
+                    assertTrue(ADVANCES.containsKey(codePoint) || PANELS.containsKey(codePoint)
+                                    || OVERLAYS.containsKey(codePoint),
                             "U+%X is composed into a menu title and nordtal:gui does not declare"
                                     .formatted(codePoint) + " it - it reaches the player as a"
                                     + " missing-glyph box in the middle of the frame"));
@@ -191,7 +268,7 @@ class MenuTitleTest {
     private static int displacement(final String composed) {
         return composed.codePoints()
                 .map(codePoint -> ADVANCES.getOrDefault(codePoint,
-                        PANELS.getOrDefault(codePoint, 0)))
+                        PANELS.getOrDefault(codePoint, OVERLAYS.getOrDefault(codePoint, 0))))
                 .sum();
     }
 

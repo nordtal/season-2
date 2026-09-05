@@ -103,6 +103,15 @@
         },
         {
             "type": "bitmap",
+            "file": "nordtal:ui/bossbar/bg/start.png",
+            "ascent": 6,
+            "height": 14,
+            "chars": [
+                "\uDBB8\uDCFF"
+            ]
+        },
+        {
+            "type": "bitmap",
             "file": "nordtal:ui/bossbar/icons/compass.png",
             "ascent": 4,
             "height": 10,

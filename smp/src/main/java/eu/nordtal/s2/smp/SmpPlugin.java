@@ -71,6 +71,7 @@ import eu.nordtal.s2.smp.region.Box;
 import eu.nordtal.s2.smp.region.Boxes;
 import eu.nordtal.s2.smp.region.ConfigBoxes;
 import eu.nordtal.s2.smp.state.SeasonState;
+import eu.nordtal.s2.smp.travel.BalloonDisplay;
 import eu.nordtal.s2.smp.travel.BalloonListener;
 import eu.nordtal.s2.smp.travel.PortalGate;
 import eu.nordtal.s2.smp.world.Datapacks;
@@ -180,6 +181,7 @@ public final class SmpPlugin extends JavaPlugin {
     private Graves graves;
     private Duels duels;
     private SpawnNpc npc;
+    private BalloonDisplay balloonDisplay;
     private org.bukkit.scheduler.BukkitTask heartbeat;
 
     /**
@@ -416,6 +418,11 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new BalloonListener(balloons, worlds, season, () -> track, messages, locales, sounds,
                         effects), this);
+        // The balloon a player sees, as opposed to the box they step into: one item display per
+        // configured box, wearing the pack's model. Until 2026-09-05 the pack carried the model
+        // and nothing placed it, so the balloon was a volume of air that opened a menu.
+        balloonDisplay = new BalloonDisplay(this, balloons);
+        balloonDisplay.spawn();
         getServer().getPluginManager().registerEvents(
                 new PortalGate(worlds, season, messages, locales, sounds), this);
 
@@ -503,6 +510,9 @@ public final class SmpPlugin extends JavaPlugin {
         }
         if (npc != null) {
             npc.remove();
+        }
+        if (balloonDisplay != null) {
+            balloonDisplay.remove();
         }
         if (duels != null) {
             duels.stop();

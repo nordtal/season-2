@@ -2,9 +2,14 @@ package eu.nordtal.s2.common.menu;
 
 import eu.nordtal.s2.common.Glyphs;
 
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.ShadowColor;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Composes a chest menu's title so the window is drawn in Nordtal's own frame.
@@ -32,6 +37,16 @@ import net.kyori.adventure.text.format.ShadowColor;
  * The net displacement is {@code -8 + 177 - 169 = 0}: the title reads exactly where it would have
  * read with no panel at all, which is the invariant {@code MenuTitleTest} pins. Getting one of
  * these wrong costs one menu here and six if each menu did its own sum.
+ *
+ * <h2>Overlays (2026-09-05)</h2>
+ * A menu whose surface varies per player - the balloon, whose cards are locked or not - does not
+ * get a panel per combination. It gets one panel and a small glyph per <em>state</em>, drawn on top
+ * of the panel at the card's own x by a {@link Canvas}: after the panel the cursor sits at the
+ * window's right edge, and every overlay is reached by walking left from wherever the cursor is,
+ * so overlays are laid down right-to-left and the title walks back to its anchor at the end. The
+ * vertical position is the glyph's own {@code ascent} in {@code gui.json}, which is why a state
+ * that can land on two rows is declared twice. A fifth menu in this style is a panel, its overlays
+ * and a slot map; nothing here changes.
  *
  * <h2>Two things that are easy to get wrong</h2>
  * <b>The panel has to be white.</b> Vanilla draws an inventory title in hardcoded dark grey
@@ -100,13 +115,17 @@ public final class MenuTitle {
      * rather than to this component, so the title is a sibling and keeps its own shadow.
      */
     public static Component panel(final int rows) {
-        final String composed = shift(ANCHOR_X)
-                + Glyphs.GUI_PANELS[rows - 1]
-                + shift(PANEL_ADVANCE - ANCHOR_X);
-        return Component.text(composed)
-                .font(net.kyori.adventure.key.Key.key(Glyphs.FONT_GUI))
-                .color(NamedTextColor.WHITE)
-                .shadowColor(ShadowColor.none());
+        return on(Glyphs.GUI_PANELS[rows - 1]).panel();
+    }
+
+    /**
+     * Starts a title on a full-window panel glyph - one of {@link Glyphs#GUI_PANELS}, or a menu's
+     * own such as {@link Glyphs#GUI_TRAVEL_PANEL} - to which overlays can be added.
+     *
+     * @param panelGlyph a 176px-wide {@code nordtal:gui} glyph on ascent 13
+     */
+    public static Canvas on(final String panelGlyph) {
+        return new Canvas(panelGlyph);
     }
 
     /**
@@ -130,5 +149,72 @@ public final class MenuTitle {
             }
         }
         return out.toString();
+    }
+
+    /** One glyph drawn on top of the panel at a window x; its {@code ascent} in the font fixes y. */
+    private record Overlay(String glyph, int x, int width) {
+    }
+
+    /**
+     * A panel with overlays, composed into one title.
+     *
+     * <p>Overlays are drawn right-to-left regardless of the order they were added in, because the
+     * font carries no positive advance: after the panel the cursor is at the window's right edge,
+     * and every overlay is reached by walking left. Two overlays at the same x - the two rows of
+     * the balloon's cards - are drawn one after the other, the second walking back over the first's
+     * advance. {@code MenuTitleTest} walks the result with the pack's own advances and asserts every
+     * overlay lands on the x it was given and the title lands back on its anchor.</p>
+     */
+    public static final class Canvas {
+
+        private final String panelGlyph;
+        private final List<Overlay> overlays = new ArrayList<>();
+
+        private Canvas(final String panelGlyph) {
+            this.panelGlyph = panelGlyph;
+        }
+
+        /**
+         * Draws {@code glyph} on top of the panel with its left edge at window {@code x}.
+         *
+         * @param glyph a {@code nordtal:gui} glyph declared at the ascent of the row it lands on
+         * @param x     the overlay's left edge in window pixels, 0 to {@code 176 - width}
+         * @param width the glyph's drawn width - its advance is one more
+         */
+        public Canvas overlay(final String glyph, final int x, final int width) {
+            if (x < 0 || width < 1 || x + width > PANEL_ADVANCE - 1) {
+                throw new IllegalArgumentException(
+                        "an overlay " + width + " wide at x = " + x + " does not fit a 176px window");
+            }
+            overlays.add(new Overlay(glyph, x, width));
+            return this;
+        }
+
+        /** The composed surface: panel and overlays, ending on the title anchor - no readable text. */
+        public Component panel() {
+            final StringBuilder composed = new StringBuilder();
+            composed.append(shift(ANCHOR_X)).append(panelGlyph);
+            int cursor = PANEL_ADVANCE;
+
+            final List<Overlay> rightToLeft = new ArrayList<>(overlays);
+            rightToLeft.sort(Comparator.comparingInt(Overlay::x).reversed());
+            for (final Overlay overlay : rightToLeft) {
+                composed.append(shift(cursor - overlay.x())).append(overlay.glyph());
+                cursor = overlay.x() + overlay.width() + 1;
+            }
+            composed.append(shift(cursor - ANCHOR_X));
+
+            return Component.text(composed.toString())
+                    .font(Key.key(Glyphs.FONT_GUI))
+                    .color(NamedTextColor.WHITE)
+                    .shadowColor(ShadowColor.none());
+        }
+
+        /** The title to hand {@code Bukkit.createInventory}: the surface, then {@code title}. */
+        public Component build(final Component title) {
+            return Component.empty()
+                    .append(panel())
+                    .append(title);
+        }
     }
 }

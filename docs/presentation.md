@@ -60,6 +60,26 @@ The title component is composed in this order:
 holds it against the real `gui.json` and the panel PNGs rather than against the constants — it
 derives the 177 from the texture's own width, so the test can disagree with the code.
 
+### Overlays, and what sits in the slots (2026-09-05)
+
+A menu whose surface varies per player — the balloon, whose cards are locked or not — does **not**
+get a panel per combination. It gets **one panel and one small glyph per state**, laid over the
+panel at the card's own x by `MenuTitle.Canvas`: after the panel the cursor sits at the window's
+right edge, and every overlay is reached by walking left, so overlays are laid down right-to-left
+and the title walks back to its anchor at the end. The vertical position is the overlay's own
+`ascent` in `gui.json` (`13 − y`, because a glyph's top sits at the title baseline minus its
+ascent), which is why a state that can land on two card rows is declared twice, once per row.
+
+The slots under a painted card hold an **invisible item** — `nordtal:blank`, an `item_model`
+pointing at a model of type `minecraft:empty` — carrying the card's name and caption as its tooltip.
+A vanilla item there would draw its icon over the art; no item there is a card nobody can hover or
+click. `:paper-common`'s `BlankItem` is the one place that builds it. `SlotGeometry` in `:common`
+turns a slot index into the pixel the panel generator drew it at, and `smp`'s `TravelPanelTest`
+reads the panel PNG back and asserts every card is exactly where the Java says.
+
+**A further menu in this style is a panel, its overlays and a slot map**, and nothing in `:common`
+changes for it. That is the shape the balloon was built to establish.
+
 ### The numbers
 
 | quantity | value | note |
@@ -107,9 +127,15 @@ surface ever genuinely needs text input.
 
 ## 3. Frame style
 
-**One visual language for menu panels and for the boards.** The GUI panels set it, because they are
-the larger surface; the 22 `nordtal:board` textures are regenerated to match. Both are produced by
-`resource-pack/tools/`, which means the style is a script change rather than 22 hand edits.
+**One visual language for menu panels and for the boards — a shape, not a palette (since
+2026-09-05).** The GUI panels are **light**, in the manner of Origin Realms: vanilla's own 198-grey
+body so the frame and the player inventory beneath read as one window, a near-black outer line,
+vanilla's three-pixel corner chamfer so nothing of the texture underneath peeks out, dark slot
+recesses, and one gold accent line under the title strip. The boards are deliberately **dark** —
+they hang in the world on a Text Display's translucent ground, where a light frame would glare.
+Both are produced by `resource-pack/tools/`, which means a style change is a script change rather
+than 22 hand edits; the two palettes live at the top of `generate_gui_panels.py` and
+`generate_dummy_textures.py` respectively.
 
 The boards themselves are Text Display entities, not inventories, so they share the *look* and
 nothing else. The divider between title and content is drawn.
@@ -125,11 +151,41 @@ trick that makes it work without measuring is that **nothing is ever placed afte
 row draws its right-hand edge first, at a position derived only from the configured width, and walks
 the cursor back to the content column.
 
-Panel art is **programmatic placeholder** for now — frame, title bar, slot recesses, in the exact
-measurements, drawn by `resource-pack/tools/generate_gui_panels.py` into six PNGs (one per chest
-size) that `nordtal:gui` declares at `\uFE060`–`\uFE065`. That is deliberate and it is not a shortcut: the offsets are anchored to the
+Panel art is **programmatic** — frame, title bar, slot recesses, in the exact measurements, drawn by
+`resource-pack/tools/generate_gui_panels.py` into six PNGs (one per chest size) that `nordtal:gui`
+declares at `\uFE060`–`\uFE065`, plus the balloon's travel panel and its two overlays at
+`\uFE066`–`\uFE06A`. That is deliberate and it is not a shortcut: the offsets are anchored to the
 measurements, not to the image, so a hand-drawn panel of the same dimensions drops in without a
 line of code changing.
+
+### The HUD pill
+
+**A boss bar line is a row of pills, one per piece of information, each sized to what it holds**
+(owner's call, 2026-09-05, after Origin Realms). A pill is a 14 px dark translucent body (about
+77 %) with a one-pixel lighter rim and rounded caps, drawn by `resource-pack/tools/generate_hud.py`;
+inside it an icon, then text, then — on a line that has one — the bearing arrow, all in one pill.
+The SMP's status line is `[world icon · Nordtal] [milestone · 42 %]`; the hunger games' players line
+is `[heart · 3 alive · 2 dead · ↗]`.
+
+Three facts make it work, and each is checked by a test rather than remembered:
+
+- **Every advance in `nordtal:bossbar` is known to the server.** The font's ascii sheet and icons
+  are ours, so the width of "Nordtal" in the HUD is a fact about a PNG in this repository.
+  `export_bossbar_advances.py` writes the table into `:common` as a resource;
+  `BossBarAdvancesTest` derives it again from the pack and fails if the resource is stale. This is
+  the same rule the boards *cannot* use — their text renders in `minecraft:default`, out of the
+  client jar — which is why board width is configuration and pill width is not.
+- **A bitmap glyph advances its width plus one**, so two tiles butted together leave a one-pixel gap
+  unless the composer steps back after each. `BossBarWidth` does; the old 182 px bar did not and
+  had a seam at every boundary, and the text beside it was drawn *after* the bar rather than over
+  it. `BossBarWidthTest` and `BossBarLineTest` walk the composition with the pack's own advances.
+- **The whole line is one component**, naming the font and carrying no shadow — `BossBarLine` is the
+  only place that builds one, and `BossBarFontTest` fails a renderer that sets a name any other way.
+
+The icons are 10 × 10 pixel art with a dark outline and one leading colour each — green Nordtal,
+gold farm world, red Nether, violet End — so a glance at the bar says where you are before the word
+beside it is read. They are drawn white-free on purpose: the client multiplies a glyph by the
+component's colour, and the line is drawn in default white so the art's own colours reach the screen.
 
 ---
 

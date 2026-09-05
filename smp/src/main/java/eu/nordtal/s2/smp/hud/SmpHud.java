@@ -2,7 +2,8 @@ package eu.nordtal.s2.smp.hud;
 
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.hud.Bearing;
-import eu.nordtal.s2.common.hud.BossBarWidth;
+import eu.nordtal.s2.common.hud.BossBarLine;
+import eu.nordtal.s2.common.hud.BossBarLine.Pill;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.navigate.Navigation;
@@ -12,9 +13,7 @@ import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
 
 import net.kyori.adventure.bossbar.BossBar;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.ShadowColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -23,6 +22,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -30,7 +30,8 @@ import java.util.UUID;
 
 /**
  * The SMP's two boss bar lines, drawn with the same technique as the hunger games': the vanilla bar
- * made invisible by the resource pack, and a background composed from power-of-two glyph segments.
+ * made invisible by the resource pack, and one rounded pill per piece of information, each sized to
+ * what it holds ({@link BossBarLine}).
  *
  * <table>
  *   <caption>the two lines</caption>
@@ -49,12 +50,6 @@ import java.util.UUID;
  * strip most of the time.
  */
 public final class SmpHud {
-
-    /**
-     * The background width in pixels. Same value as the hunger games' HUD, because it is the same
-     * bar on the same screen and two widths would look like a mistake.
-     */
-    private static final int BACKGROUND_WIDTH = 182;
 
     /** Four times a second: fast enough that the navigation arrow tracks a turning player. */
     private static final long REFRESH_TICKS = 5L;
@@ -160,7 +155,7 @@ public final class SmpHud {
         final Locale locale = locales.of(player.getUniqueId());
 
         final BossBar status = statusBars.computeIfAbsent(player.getUniqueId(), key -> emptyBar());
-        status.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " " + statusLine(player, locale)));
+        status.name(BossBarLine.render(statusLine(player, locale)));
         player.showBossBar(status);
 
         final Optional<NavigationTarget> target = navigation.of(player.getUniqueId());
@@ -173,64 +168,44 @@ public final class SmpHud {
         }
 
         final BossBar navigate = navigateBars.computeIfAbsent(player.getUniqueId(), key -> emptyBar());
-        navigate.name(bossBarText(BossBarWidth.compose(BACKGROUND_WIDTH) + " "
-                + navigateLine(player, locale, target.get())));
+        navigate.name(BossBarLine.render(navigateLine(player, locale, target.get())));
         player.showBossBar(navigate);
-    }
-
-    /**
-     * Wraps a composed HUD line in a component that names {@link Glyphs#FONT_BOSSBAR}.
-     *
-     * <p>Without the font key the bar's own code points resolve against {@code minecraft:default},
-     * where they are either undefined or - worse - defined as something else entirely; see the
-     * note on {@link Glyphs#FONT_BOSSBAR}. The whole line goes in one component on purpose: the
-     * bossbar font carries its own {@code nordtal:font/ascii.png} provider, so the readable text
-     * beside the glyphs is drawn by that font too rather than falling out of the styling.</p>
-     *
-     * <p><b>And it carries no shadow.</b> Vanilla draws every glyph a second time, one pixel down
-     * and right; on a background composed of power-of-two tiles butted against each other that
-     * second copy bleeds out of each tile into the next, so the bar the pack draws as one surface
-     * arrives with a dark seam at every segment boundary. The shadow costs no advance, so
-     * {@link BossBarWidth}'s arithmetic is untouched and nothing moves - the bar only looks wrong,
-     * which is why reading the composition never finds it. The whole line is one component, so the
-     * readable text loses its shadow too; that is the deliberate trade for keeping the line
-     * un-split (owner's call, 2026-09-05).</p>
-     */
-    private static Component bossBarText(final String line) {
-        return Component.text(line)
-                .font(Key.key(Glyphs.FONT_BOSSBAR))
-                .shadowColor(ShadowColor.none());
     }
 
     private static BossBar emptyBar() {
         return BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS);
     }
 
-    /** Dimension, then the milestone - or the dimension alone once there is no milestone left. */
-    private String statusLine(final Player player, final Locale locale) {
+    /**
+     * The world's pill, then the milestone's - or the world's alone once there is no milestone
+     * left. An announcement takes the world's pill over rather than adding a third.
+     */
+    List<Pill> statusLine(final Player player, final Locale locale) {
         final String dimension = worlds.roleOf(player.getWorld())
                 .map(WorldRole::glyph)
                 .orElse(Glyphs.BOSSBAR_ICON_DIM_OVERWORLD);
 
         final String announcement = announcementFor(player.getUniqueId());
         if (announcement != null) {
-            return dimension + " " + announcement;
+            return List.of(Pill.of(dimension, announcement));
         }
 
         // One read: this line is a milestone's name and that milestone's percentage, and taking
         // them separately is how it comes to be neither.
         final SeasonState.Active active = season.active();
         if (active.key() == null) {
-            return dimension + " " + worldName(player, locale);
+            return List.of(Pill.of(dimension, worldName(player, locale)));
         }
 
         final int percent = (int) Math.round(active.progress() * 100.0);
-        return dimension + " " + worldName(player, locale) + "   "
-                + messages.format(locale, "smp.hud.milestone",
-                        "milestone", milestoneName(active.key(), locale), "percent", percent);
+        return List.of(
+                Pill.of(dimension, worldName(player, locale)),
+                Pill.of(messages.format(locale, "smp.hud.milestone",
+                        "milestone", milestoneName(active.key(), locale), "percent", percent)));
     }
 
-    private String navigateLine(final Player player, final Locale locale, final NavigationTarget target) {
+    /** The target's pill, led by the arrow to it, then the distance's. */
+    List<Pill> navigateLine(final Player player, final Locale locale, final NavigationTarget target) {
         final String label = target.kind() == NavigationTarget.Kind.POI
                 ? target.label()
                 : messages.get(locale, target.label());
@@ -238,16 +213,18 @@ public final class SmpHud {
         // A target in another world has no bearing worth drawing: the arrow would spin, and the
         // distance would be measured between two coordinate systems that share nothing but numbers.
         if (!target.isIn(player.getWorld().getName())) {
-            return Glyphs.BOSSBAR_ICON_COMPASS + " " + label + "   "
-                    + messages.get(locale, "smp.hud.navigate-other-world");
+            return List.of(
+                    Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, label),
+                    Pill.of(messages.get(locale, "smp.hud.navigate-other-world")));
         }
 
         final Location at = player.getLocation();
         final int arrow = Bearing.arrowIndex(at.getX(), at.getZ(), at.getYaw(), target.x(), target.z());
         final long distance = Math.round(Math.hypot(target.x() - at.getX(), target.z() - at.getZ()));
 
-        return Glyphs.BOSSBAR_ARROWS[arrow] + " " + label + "   "
-                + messages.format(locale, "smp.hud.distance", "blocks", distance);
+        return List.of(
+                Pill.of(Glyphs.BOSSBAR_ARROWS[arrow], label),
+                Pill.of(messages.format(locale, "smp.hud.distance", "blocks", distance)));
     }
 
     /** The live announcement for a player, or null - dropping it here rather than on a timer. */

@@ -1,8 +1,10 @@
 package eu.nordtal.s2.smp.travel;
 
+import eu.nordtal.s2.common.menu.SlotGeometry;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.world.WorldRole;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;
@@ -15,9 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The balloon's grid as a table, which is what it is.
  *
- * <p>The layout rule that makes one arrangement work at every balloon is that the wide upper entry
- * is always <em>the overworld you are not in</em>. Nobody has to learn a second arrangement for the
- * trip home, and this is the test that says so.
+ * <p>Since 2026-09-05 the rule is that every world has the same card at every balloon and the
+ * world the player stands in is marked rather than moved. This is the test that says so, and that
+ * the twelve slots under a card are the twelve the panel draws it over.
  */
 class BalloonMenuTest {
 
@@ -25,29 +27,43 @@ class BalloonMenuTest {
     private static final Set<Unlock> BOTH = EnumSet.of(Unlock.NETHER, Unlock.END);
 
     @Test
-    void theWideEntryIsAlwaysTheOtherOverworld() {
-        assertEquals(WorldRole.FARM, BalloonMenu.of(WorldRole.NORDTAL, NOTHING).get(0).destination());
-        assertEquals(WorldRole.NORDTAL, BalloonMenu.of(WorldRole.FARM, NOTHING).get(0).destination());
-        assertEquals(WorldRole.NORDTAL, BalloonMenu.of(WorldRole.NETHER, NOTHING).get(0).destination());
+    @DisplayName("the four cards are in the same places at every balloon")
+    void theCardsNeverMove() {
+        for (final WorldRole here : List.of(WorldRole.NORDTAL, WorldRole.FARM, WorldRole.NETHER)) {
+            final List<BalloonMenu.Entry> entries = BalloonMenu.of(here, BOTH);
+            assertEquals(List.of(WorldRole.NORDTAL, WorldRole.FARM, WorldRole.NETHER, WorldRole.END),
+                    entries.stream().map(BalloonMenu.Entry::destination).toList(),
+                    "at " + here + " the cards are not Nordtal, farm world / Nether, End");
+            assertEquals(List.of(0, 1, 0, 1), entries.stream().map(BalloonMenu.Entry::column).toList());
+            assertEquals(List.of(0, 0, 1, 1), entries.stream().map(BalloonMenu.Entry::row).toList());
+        }
     }
 
     @Test
-    void theLowerTwoAreAlwaysNetherThenEnd() {
-        final List<BalloonMenu.Entry> entries = BalloonMenu.of(WorldRole.NORDTAL, BOTH);
-
-        assertEquals(WorldRole.NETHER, entries.get(1).destination());
-        assertEquals(WorldRole.END, entries.get(2).destination());
-        assertTrue(entries.get(1).slots().get(0) < entries.get(2).slots().get(0),
-                "the Nether is on the left");
+    @DisplayName("a card covers three rows of four slots, and column 4 is the gap")
+    void aCardCoversTwelveSlots() {
+        for (final BalloonMenu.Entry entry : BalloonMenu.of(WorldRole.NORDTAL, BOTH)) {
+            assertEquals(BalloonMenu.CARD_ROWS * BalloonMenu.CARD_COLUMNS, entry.slots().size());
+            for (final int slot : entry.slots()) {
+                assertTrue(SlotGeometry.column(slot) != 4, "slot " + slot + " is in the gap column");
+                assertEquals(entry.row(), SlotGeometry.row(slot) / BalloonMenu.CARD_ROWS);
+                assertEquals(entry.column(), SlotGeometry.column(slot) < 4 ? 0 : 1);
+            }
+        }
     }
 
     @Test
-    void theWideEntryOccupiesTwoSlotsAndTheOthersOne() {
-        final List<BalloonMenu.Entry> entries = BalloonMenu.of(WorldRole.NORDTAL, BOTH);
-
-        assertEquals(2, entries.get(0).slots().size());
-        assertEquals(1, entries.get(1).slots().size());
-        assertEquals(1, entries.get(2).slots().size());
+    @DisplayName("the world you are in is shown, marked, and not travellable")
+    void theWorldYouAreInIsHere() {
+        for (final WorldRole here : List.of(WorldRole.NORDTAL, WorldRole.FARM, WorldRole.NETHER)) {
+            final List<BalloonMenu.Entry> entries = BalloonMenu.of(here, BOTH);
+            final List<WorldRole> marked = entries.stream()
+                    .filter(entry -> entry.state() == BalloonMenu.State.HERE)
+                    .map(BalloonMenu.Entry::destination).toList();
+            assertEquals(List.of(here), marked, "exactly the world the balloon stands in is HERE");
+            assertTrue(entries.stream().noneMatch(
+                    entry -> entry.state() == BalloonMenu.State.HERE && entry.travellable()));
+        }
     }
 
     /** Locked destinations keep their place rather than disappearing - that is the whole point. */
@@ -55,10 +71,10 @@ class BalloonMenuTest {
     void aLockedDestinationStaysInTheGrid() {
         final List<BalloonMenu.Entry> entries = BalloonMenu.of(WorldRole.NORDTAL, NOTHING);
 
-        assertEquals(3, entries.size());
-        assertEquals(BalloonMenu.State.LOCKED, entries.get(1).state());
+        assertEquals(4, entries.size());
         assertEquals(BalloonMenu.State.LOCKED, entries.get(2).state());
-        assertEquals(BalloonMenu.State.OPEN, entries.get(0).state(),
+        assertEquals(BalloonMenu.State.LOCKED, entries.get(3).state());
+        assertEquals(BalloonMenu.State.OPEN, entries.get(1).state(),
                 "the farm world is withheld by the border, not by a lock in this menu");
     }
 
@@ -67,17 +83,20 @@ class BalloonMenuTest {
         final List<BalloonMenu.Entry> entries =
                 BalloonMenu.of(WorldRole.NORDTAL, EnumSet.of(Unlock.NETHER));
 
-        assertEquals(BalloonMenu.State.OPEN, entries.get(1).state());
-        assertEquals(BalloonMenu.State.LOCKED, entries.get(2).state());
+        assertEquals(BalloonMenu.State.OPEN, entries.get(2).state());
+        assertEquals(BalloonMenu.State.LOCKED, entries.get(3).state());
     }
 
     @Test
-    void theWorldYouAreInIsShownButNotTravellable() {
-        final List<BalloonMenu.Entry> entries = BalloonMenu.of(WorldRole.NETHER, BOTH);
-
-        assertEquals(BalloonMenu.State.HERE, entries.get(1).state());
-        assertTrue(entries.stream().noneMatch(
-                entry -> entry.state() == BalloonMenu.State.HERE && entry.travellable()));
+    void theOverworldsAreNeverLocked() {
+        for (final WorldRole here : List.of(WorldRole.NORDTAL, WorldRole.FARM, WorldRole.NETHER)) {
+            for (final BalloonMenu.Entry entry : BalloonMenu.of(here, NOTHING)) {
+                if (entry.destination() == WorldRole.NORDTAL || entry.destination() == WorldRole.FARM) {
+                    assertTrue(entry.state() != BalloonMenu.State.LOCKED,
+                            entry.destination() + " is locked at " + here);
+                }
+            }
+        }
     }
 
     @Test
@@ -88,19 +107,21 @@ class BalloonMenuTest {
                     .toList();
             assertEquals(slots.size(), Set.copyOf(slots).size(),
                     "two entries would draw over each other at " + here);
+            assertEquals(48, slots.size(), "four cards of twelve cover everything but the gap column");
         }
     }
 
     @Test
-    void aClickOnFillerHitsNothing() {
+    void aClickInTheGapHitsNothing() {
         final List<BalloonMenu.Entry> entries = BalloonMenu.of(WorldRole.NORDTAL, BOTH);
 
-        assertTrue(BalloonMenu.at(entries, 0).isEmpty());
-        assertTrue(BalloonMenu.at(entries, 26).isEmpty());
-        assertTrue(BalloonMenu.at(entries, 12).isPresent());
-        assertTrue(BalloonMenu.at(entries, 13).isPresent());
-        assertEquals(BalloonMenu.at(entries, 12).orElseThrow(),
-                BalloonMenu.at(entries, 13).orElseThrow(),
-                "both upper slots are one entry, not two");
+        for (int row = 0; row < BalloonMenu.ROWS; row++) {
+            assertTrue(BalloonMenu.at(entries, SlotGeometry.slot(4, row)).isEmpty(),
+                    "column 4 of row " + row + " belongs to no card");
+        }
+        assertEquals(WorldRole.NORDTAL, BalloonMenu.at(entries, 0).orElseThrow().destination());
+        assertEquals(WorldRole.FARM, BalloonMenu.at(entries, 8).orElseThrow().destination());
+        assertEquals(WorldRole.NETHER, BalloonMenu.at(entries, 45).orElseThrow().destination());
+        assertEquals(WorldRole.END, BalloonMenu.at(entries, 53).orElseThrow().destination());
     }
 }

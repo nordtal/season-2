@@ -3,22 +3,26 @@ package eu.nordtal.s2.common.hud;
 import eu.nordtal.s2.common.Glyphs;
 
 /**
- * Composes a boss bar background of an arbitrary width out of {@code Glyphs.BOSSBAR_BG_*} segments
- * - the technique docs/hunger-games.md#the-hud describes: "background segments in powers of two, so
- * any width is composed from a handful of glyphs."
- * <p>
- * The segment glyphs are undrawn art (see {@code Glyphs}' own note), so this class produces the
- * correct sequence of code points regardless - exactly like the HUD's icon and arrow glyphs, the
- * code is correct today and will render once the art exists.
- * </p>
+ * Composes a HUD pill's background of an arbitrary inner width out of {@code Glyphs.BOSSBAR_BG_*}:
+ * the left cap, a body of power-of-two segments, the right cap.
  *
- * <p><b>Moved into {@code :common} on 2026-09-01</b> because the SMP's HUD draws the same bar. The
- * arithmetic is one line of powers of two and would have been trivial to copy - which is exactly
- * why it was not: two copies of a glyph composition are two things that drift apart the first time
- * a segment is redrawn, and the resource pack is the one place this repository already keeps a
- * single source of truth for code points.</p>
+ * <h2>The one fact this class exists for</h2>
+ * Every segment is drawn exactly as wide as its name, and the client advances a bitmap glyph by
+ * its width <b>plus one</b>. Two segments butted together therefore leave a one-pixel gap unless
+ * the composer steps back a pixel after each - so every glyph here is followed by
+ * {@link Glyphs#BOSSBAR_SPACE_MINUS_1}, the way {@code BoardFrame} has always done for the board.
+ * The 182 px bar this class composed until 2026-09-05 did not, and had a seam at every boundary
+ * that nothing ever looked at; {@link BossBarWidthTest} now walks the composition with the pack's
+ * own advances and asserts the cursor lands exactly {@code CAP + inner + CAP} to the right.
+ *
+ * <p>Moved into {@code :common} on 2026-09-01 because the SMP's HUD draws the same bar as the hunger
+ * games'; two copies of a glyph composition are two things that drift apart the first time a
+ * segment is redrawn.</p>
  */
 public final class BossBarWidth {
+
+    /** The drawn width of {@code start.png} and {@code end.png}. */
+    public static final int CAP = 4;
 
     /** Segment widths this class can compose with, largest first - mirrors {@code Glyphs.BOSSBAR_BG_*}. */
     private static final int[] SEGMENT_WIDTHS = {128, 64, 32, 16, 8, 4, 2, 1};
@@ -27,30 +31,41 @@ public final class BossBarWidth {
     }
 
     /**
-     * Greedily composes {@code width} out of the available power-of-two background segments -
-     * standard binary decomposition, since the available segment widths are exactly the powers of
-     * two {@code Glyphs} declares.
+     * A whole pill: left cap, {@code inner} pixels of body, right cap - advancing the cursor by
+     * exactly {@code CAP + inner + CAP}.
      *
-     * @param width the desired background width in whatever unit the glyphs are drawn at; must not
-     *              be negative
-     * @return the background string, {@link Glyphs#BOSSBAR_BG_END} last
+     * @param inner the body width in pixels, zero or more
+     */
+    public static String pill(final int inner) {
+        return seamless(Glyphs.BOSSBAR_BG_START) + body(inner) + seamless(Glyphs.BOSSBAR_BG_END);
+    }
+
+    /**
+     * Just the body: {@code width} pixels of segments, largest first, each stepped back by one so
+     * they butt up - standard binary decomposition, since the segment widths are exactly the powers
+     * of two {@code Glyphs} declares.
+     *
+     * @param width the body width in pixels; must not be negative
      * @throws IllegalArgumentException if {@code width} is negative
      */
-    public static String compose(final int width) {
+    public static String body(final int width) {
         if (width < 0) {
             throw new IllegalArgumentException("width must not be negative, was " + width);
         }
-
         final StringBuilder out = new StringBuilder();
         int remaining = width;
         for (final int segment : SEGMENT_WIDTHS) {
             while (remaining >= segment) {
-                out.append(glyphFor(segment));
+                out.append(seamless(glyphFor(segment)));
                 remaining -= segment;
             }
         }
-        out.append(Glyphs.BOSSBAR_BG_END);
         return out.toString();
+    }
+
+    /** The glyph, then the one-pixel step back that cancels the client's separator. */
+    private static String seamless(final String glyph) {
+        return glyph + Glyphs.BOSSBAR_SPACE_MINUS_1;
     }
 
     private static String glyphFor(final int segment) {
@@ -63,7 +78,7 @@ public final class BossBarWidth {
             case 4 -> Glyphs.BOSSBAR_BG_4;
             case 2 -> Glyphs.BOSSBAR_BG_2;
             case 1 -> Glyphs.BOSSBAR_BG_1;
-            default -> throw new IllegalStateException("Unreachable: " + segment);
+            default -> throw new IllegalStateException("no background segment of width " + segment);
         };
     }
 }

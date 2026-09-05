@@ -251,6 +251,24 @@ a concrete need: four fixed servers lose nothing by being named instead of disco
   sentence unnecessary now: it holds `Glyphs`, the four font files and every PNG they name against
   each other on every `check`, so "is the mirror still a mirror" is answered by the build rather
   than by a paragraph somebody has to remember to update.
+- **A HUD line is a row of pills and `BossBarLine` is the only thing that builds one, since
+  2026-09-05** (`:common`, `eu.nordtal.s2.common.hud`). One pill per piece of information, each
+  sized to what it holds - possible only because every advance in `nordtal:bossbar` is a fact about
+  a PNG in this repository, exported to `common/src/main/resources/nordtal/hud/bossbar-advances.
+  properties` by `resource-pack/tools/export_bossbar_advances.py` and held against the pack by
+  `BossBarAdvancesTest`. **Re-run the export after redrawing anything in that font.** Two rules
+  ride on it: a bitmap glyph advances its width plus one, so every tile is followed by a one-pixel
+  step back (`BossBarWidth`); and a renderer never composes a background or styles a component
+  itself - `BossBarFontTest` fails a `.name(` that is not `BossBarLine.render(`.
+- **A menu whose surface varies per player is one panel plus overlays, never a panel per state,
+  since 2026-09-05** (`MenuTitle.Canvas`). The balloon is the proof: four cards baked into one
+  panel, a padlock shade and a white "here" frame laid over them at the card's x, each overlay
+  declared once per card row in `gui.json` at the ascent (`13 - y`) that lands it there. The slots
+  under a painted card hold `:paper-common`'s `BlankItem` - an `item_model` of type
+  `minecraft:empty` carrying the tooltip - because a vanilla item draws its icon over the art and no
+  item is a card nobody can click. `SlotGeometry` turns a slot into the pixel the generator drew it
+  at, and `smp`'s `TravelPanelTest` reads the PNG back. The next menu in this style is a panel, its
+  overlays and a slot map, and nothing in `:common` changes.
 - **A component carrying a `nordtal:` glyph must name its font**, and forgetting is not a subtle
   bug. The four fonts allocate independently, so a boss bar code point left in `minecraft:default`
   does not fail to draw - it draws whatever `default.json` put at that code point.
@@ -917,22 +935,36 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Nine modules have tests: 1197 in total, none skipped, all green** (`./gradlew build` with a
-Docker daemon present, 2026-09-05, after the CodeRabbit review of the command layer was worked
-through). The counts
+**Nine modules have tests: 1215 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-05, after the HUD pills and the balloon's card menu landed on top of
+the CodeRabbit review of the command layer). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
 | module | tests |
 |---|---|
-| `common` | 313 |
+| `common` | 327 |
 | `network-control` | 178 |
-| `smp` | 176 |
+| `smp` | 180 |
 | `commands` | 171 |
 | `discord-bot` | 142 |
 | `updater` | 136 |
 | `hunger-games` | 65 |
 | `limbo` | 11 |
 | `paper-common` | 5 |
+
+**Eighteen are from the HUD pills and the balloon's card menu, 2026-09-05.** `:common` gained
+fourteen: `BossBarAdvancesTest` (4) holds the generated advance table in `:common`'s resources
+against the pack it was exported from - the one way a redrawn icon makes every pill a pixel off is
+that nobody re-runs `export_bossbar_advances.py`, and this is what turns that into a red build;
+`BossBarLineTest` (4) and the rewritten `BossBarWidthTest` (5) walk a composed line with a cursor
+driven by the pack's own advances, so they can contradict the composer rather than restate it -
+which is how the old bar's seam at every tile boundary, and the text drawn *beside* the bar rather
+than over it, went unnoticed for five days; `MenuTitleTest` gained four for `MenuTitle.Canvas`
+(every overlay lands on the x it was given, the surface ends on the title anchor, an overlay off
+the window is refused) and `GlyphShadowTest` one. `smp` gained four in `TravelPanelTest`, the one
+test that reads the travel panel PNG back and asserts every card is painted exactly where the Java
+says it is - the generator and `TravelPanel` derive the geometry from the same three numbers, and
+nothing else compares them. `BalloonMenuTest` was rewritten for the four fixed cards.
 
 **`:commands` went from 56 to 171 on 2026-09-05**, and `:paper-common` gained the one thing that
 could not be tested anywhere else. The new ones are worth naming by what they can now answer:

@@ -366,15 +366,25 @@ drawn on top of itself without a second render pass.
 > in front like everything else, and nothing in the HUD had to change because nothing outside
 > `Glyphs` ever named them.
 
-### `\uFE000` – `\uFE128` — bar background segments
+### `\uFE000` – `\uFE128`, `\uFE0FF` — bar background segments
 
 Height 14, ascent 6. Each file is pre-rendered at its own named pixel width — not a 1 × 14 source
-scaled up; only `end.png` and `1.png` are actually 1 px wide (checked against the files on disk,
-2026-08-31; an earlier version of this line was wrong).
+scaled up (checked against the files on disk, 2026-08-31; an earlier version of this line was
+wrong).
+
+**Since 2026-09-05 these compose a pill, not a bar.** A HUD line is one rounded pill per piece of
+information — Origin Realms' shape, owner's call — and a pill is `START`, a body of segments, `END`,
+sized to what it holds. Two things follow that were not true of the old bar. The body is dark and
+**translucent** (about 77 %) with a one-pixel lighter rim, drawn by
+[`tools/generate_hud.py`](tools/generate_hud.py). And **every segment is exactly as wide as its
+name while the client advances a bitmap glyph by its width plus one**, so two segments butted
+together leave a one-pixel gap unless the composer steps back after each — `BossBarWidth` does now,
+and the old 182 px bar, which did not, had a seam at every boundary that nothing ever looked at.
 
 | Char code | File | Width |
 |---|---|---|
-| `\uFE000` | `ui/bossbar/bg/end.png` | end cap |
+| `\uFE0FF` | `ui/bossbar/bg/start.png` | left cap, 4 px — allocated after `END` had taken `\uFE000` |
+| `\uFE000` | `ui/bossbar/bg/end.png` | right cap, 4 px |
 | `\uFE001` | `ui/bossbar/bg/1.png` | 1 px |
 | `\uFE002` | `ui/bossbar/bg/2.png` | 2 px |
 | `\uFE004` | `ui/bossbar/bg/4.png` | 4 px |
@@ -385,6 +395,14 @@ scaled up; only `end.png` and `1.png` are actually 1 px wide (checked against th
 | `\uFE128` | `ui/bossbar/bg/128.png` | 128 px |
 
 The code points are named after the pixel width in decimal, which is why they are not contiguous.
+
+**The plugins know every advance in this font**, which is what lets them size a pill:
+[`tools/export_bossbar_advances.py`](tools/export_bossbar_advances.py) derives the table from
+`bossbar.json` and its PNGs the way the client does — a `space` provider's number, or a bitmap's
+rightmost drawn column plus two — and writes it to
+`common/src/main/resources/nordtal/hud/bossbar-advances.properties`. `BossBarAdvancesTest` derives
+it again from the same files and fails `check` if the resource is stale, so **re-run the export
+after redrawing anything in this font.**
 
 ### ` ` – `~` and above — ASCII override
 
@@ -403,19 +421,19 @@ Height 10, ascent 4.
 
 | Char code | File | Description | Status |
 |---|---|---|---|
-| `\uFEF00` | `ui/bossbar/icons/compass.png`, 10 × 10 | Compass | keep — season 1 |
+| `\uFEF00` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/compass.png) | Compass, 10 × 10 — redrawn 2026-09-05 with a red needle, in the same style as the eight below | generated — final candidate |
 | `\uFEF01` | `ui/bossbar/icons/fblue.png`, 8 × 10 | Land flag, blue — inside a player's preserved area | keep — season 1 |
 | `\uFEF02` | `ui/bossbar/icons/fgreen.png`, 8 × 10 | Land flag, green — permanent land, untouched by the reset | keep — season 1 |
 | `\uFEF03` | `ui/bossbar/icons/fred.png`, 8 × 10 | Land flag, red — reset zone | keep — season 1 |
 | `\uFEF04` | `ui/bossbar/icons/fwhite.png`, 8 × 10 | Land flag, white — server-protected spawn area | keep — season 1 |
-| `\uFEF05` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_overworld.png) | Dimension: Nordtal (overworld), 10 × 10 | generated — placeholder |
-| `\uFEF06` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_farmworld.png) | Dimension: farm world, 10 × 10 | generated — placeholder |
-| `\uFEF07` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_nether.png) | Dimension: Nether, 10 × 10 | generated — placeholder |
-| `\uFEF08` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_end.png) | Dimension: End, 10 × 10 | generated — placeholder |
-| `\uFEF09` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_alive.png) | Players alive, 10 × 10 | generated — placeholder |
-| `\uFEF0A` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_deaths.png) | Deaths, 10 × 10 | generated — placeholder |
-| `\uFEF0B` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_loot.png) | Loot point, 10 × 10 | generated — placeholder |
-| `\uFEF0C` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_border.png) | World border, 10 × 10 | generated — placeholder |
+| `\uFEF05` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_overworld.png) | Dimension: Nordtal (overworld), 10 × 10 — a mountain with a snow cap | generated — final candidate (2026-09-05) |
+| `\uFEF06` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_farmworld.png) | Dimension: farm world, 10 × 10 — an ear of wheat | generated — final candidate (2026-09-05) |
+| `\uFEF07` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_nether.png) | Dimension: Nether, 10 × 10 — a flame | generated — final candidate (2026-09-05) |
+| `\uFEF08` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/dim_end.png) | Dimension: End, 10 × 10 — an ender eye | generated — final candidate (2026-09-05) |
+| `\uFEF09` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_alive.png) | Players alive, 10 × 10 — a heart | generated — final candidate (2026-09-05) |
+| `\uFEF0A` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_deaths.png) | Deaths, 10 × 10 — a skull | generated — final candidate (2026-09-05) |
+| `\uFEF0B` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_loot.png) | Loot point, 10 × 10 — a chest | generated — final candidate (2026-09-05) |
+| `\uFEF0C` | ![source](src/assets/nordtal/textures/ui/bossbar/icons/status_border.png) | World border, 10 × 10 — a dashed square | generated — final candidate (2026-09-05) |
 | `\uFEF0D` – `\uFEF0F` | — | reserved | — |
 
 `fblue`, `fgreen`, `fred` and `fwhite` are **land-status flags**, established 2026-08-31 by decoding
@@ -438,10 +456,12 @@ them for the player's current position and paired it with a label:
 `preservedAreaIcon` and `resetAreaIcon` all defaulted to it. **Nothing in season 2 draws any of the
 five season-1 land-status icons yet**, so the meanings above are recorded rather than in force:
 they are what the sprites meant, so that whatever builds the SMP HUD inherits them instead of
-re-inventing them. The eight rows above them (`\uFEF05`–`\uFEF0C`) are different: those are drawn now,
-as simple placeholder pictograms (a disc, a sprout, a flame, a four-point sparkle for the four
-dimensions; a filled dot, an X, a diamond and a square outline for the four status icons) —
-distinguishable enough to test the HUD composition against, not the real icon design.
+re-inventing them. The eight rows above them (`\uFEF05`–`\uFEF0C`) are different: those are drawn now.
+They were placeholder pictograms (a disc, a sprout, a flame, a sparkle; a dot, an X, a diamond, a
+square) until 2026-09-05, when [`tools/generate_hud.py`](tools/generate_hud.py) replaced them with
+10 × 10 pixel art in one style — a dark outline and one leading colour per world, so a glance at
+the bar says where you are before the word beside it is read. The pixel maps in that script are
+the art; edit them there.
 
 ### `\uFEF10` – `\uFEF1F` — bearing arrows
 
@@ -503,7 +523,26 @@ that is one entry in `gui.json` and one constant in `Glyphs`.
 | `\uFE063` | `ui/gui/panel_4.png` | 4-row chest panel, 176 × 186 | generated — placeholder |
 | `\uFE064` | `ui/gui/panel_5.png` | 5-row chest panel, 176 × 204 | generated — placeholder |
 | `\uFE065` | `ui/gui/panel_6.png` | 6-row chest panel, 176 × 222 | generated — placeholder |
-| `\uFE066` – `\uFE07F` | — | reserved for this font's growth | — |
+
+### `\uFE066` – `\uFE06A` — the travel panel and its overlays
+
+| Char code | File | Ascent | Description | Status |
+|---|---|---|---|---|
+| `\uFE066` | ![source](src/assets/nordtal/textures/ui/gui/travel.png) | 13 | The balloon's panel: a 6-row window with no title strip and the four world cards baked in — Nordtal, farm world / Nether, End — each 68 × 50 at x 9 or 99, y 19 or 73, covering slot columns 0–3 and 5–8 of rows 0–2 and 3–5 | generated — final candidate (2026-09-05) |
+| `\uFE067` | ![source](src/assets/nordtal/textures/ui/gui/travel_locked.png) | −6 | Locked: a translucent shade with a padlock, the size of one card, landing on the **upper** row | generated — final candidate |
+| `\uFE068` | the same file | −60 | Locked, landing on the **lower** row | — |
+| `\uFE069` | ![source](src/assets/nordtal/textures/ui/gui/travel_here.png) | −6 | "You are here": a 2 px white frame, transparent inside, upper row | generated — final candidate |
+| `\uFE06A` | the same file | −60 | The same, lower row | — |
+| `\uFE06B` – `\uFE07F` | — | reserved for this font's growth | — |
+
+**One panel and two overlays, not a panel per state.** All four cards are always shown in fixed
+places, so the only thing that varies per player is a card's *state* — locked until its milestone
+is done, or the world the player is standing in. Each state is one tile-sized glyph, declared once
+per tile row with the ascent that lands it there (`13 − y`: a glyph's top sits at the title's
+baseline minus its ascent, and the baseline is 13), and the title walks the cursor back to the
+card's x before drawing it. `MenuTitle.Canvas` in `:common` is the composer; `MenuTitleTest` reads
+these PNGs and `gui.json` back and asserts every overlay lands on the card it names. A fifth menu
+in this style is one more panel, its overlays, and a slot map — no Java in `:common` changes.
 
 **Six panels rather than one**, because a chest window is `114 + 18 × rows` pixels tall and a panel
 drawn for six rows is 90px too tall for one. All six heights are even, which is what makes "a panel
@@ -513,7 +552,12 @@ one.
 Drawn by [`tools/generate_gui_panels.py`](tools/generate_gui_panels.py), which is anchored to the
 **measurements** rather than to an image: a hand-drawn panel of the same dimensions drops in
 without a line of Java changing, and the palette at the top of that script is the whole design
-surface. The slot grid in it was read off the extracted 26.2 `generic_54.png` — the drawable cell
+surface. **That palette went light on 2026-09-05** (owner's call, in the manner of Origin Realms):
+vanilla's own 198-grey body so the frame and the player inventory beneath read as one window, a
+near-black outer line, vanilla's three-pixel corner chamfer so nothing of the texture underneath
+peeks out at the corners, and dark slot recesses. The boards deliberately did not follow — they
+hang in the world on a Text Display's dark translucent ground — so the two surfaces now share a
+shape and not a palette. The slot grid in it was read off the extracted 26.2 `generic_54.png` — the drawable cell
 starts at **(7, 17)**, not at the (8, 18) every tutorial quotes, which is the item area inside it.
 **Re-measure at every version bump:** 1.21.9 moved the villager trading result slot by one pixel.
 

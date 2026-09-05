@@ -85,6 +85,7 @@ changes for it. That is the shape the balloon was built to establish.
 | quantity | value | note |
 |---|---|---|
 | drawn region of a 9 × 6 chest | **176 × 222 px** | measured from `generic_54.png` |
+| player-inventory recesses | **1 px above where the texture has them** | `ChestScreen` blits the texture's bottom part from row 126 onto row 125; the client's slots (`103 + 18k + 18(rows − 4)`) follow that, the PNG does not. Copy the PNG and the hover square sits 1 px off in the player's rows only — seen on a real client 2026-09-05; `MenuTitleTest` pins it |
 | chest `imageHeight` | `114 + 18 × rows` | 132, 150, 168, 186, 204, 222 — **all even** |
 | title anchor | `x = 8`, `y = 6` | relative to the window's top-left |
 | baseline | `y = 13` | anchor plus the default font's ascent of 7 |

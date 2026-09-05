@@ -127,6 +127,11 @@ Discord ([architecture.md](architecture.md#commands)).
 
 | command | who | what |
 |---|---|---|
+> **Every admin command below is available in Discord as well, and every Discord admin command in
+> game** — since 2026-09-05. A command whose effect belongs to another process travels as a row in
+> `command_request`; the two that do not are `/navigate` and `/poi add`, which are about being
+> somewhere. See [architecture.md](architecture.md#commands).
+
 | `/navigate` | anyone | opens the navigation menu; the second boss bar line then tracks the target |
 | `/poi add <name>` | anyone | a public point of interest at your position. Farm-world POIs die with the daily reset |
 | `/poi remove <name>` | its creator, or an admin | admins may remove any POI, which is what `smp.md` means by "admins can manage and delete any of them" |
@@ -135,7 +140,7 @@ Discord ([architecture.md](architecture.md#commands)).
 | `/smp objective complete <key>` | admin | **escape hatch 1**: one objective, paid `pot × (reached ÷ target)`. **Type it twice** |
 | `/smp milestone unlock <key>` | admin | **escape hatch 2**, the blunt one: every open objective pays proportionally. **Type it twice** |
 | `/smp aura <player> <delta>` | admin | corrects a balance. Writes its reason, like every other aura change. **Not** confirmed - applying the negative is an exact undo |
-| `/smp access <player>` | admin | **new 2026-09-04.** Is that account linked, does it have access, and is there a purchase halfway through? The shortened form of Discord's `/access-status`, answered to the asker only |
+| `/smp access <player>` | admin | **new 2026-09-04.** Is that account linked, does it have access, and is there a purchase halfway through? The shortened form of `/access status`, answered to the asker only |
 | `/smp update` | admin | asks the updater what differs, and reports its answer verbatim |
 | `/smp update apply` | admin | installs what differs |
 | `/smp update restart [cancel]` | admin | the countdown, and the way out of it |
@@ -164,7 +169,7 @@ the one path that still works when the database holds no admin at all.
 
 | command | who | what |
 |---|---|---|
-| `/limbo reload` | console, or `limbo.admin` | the message bundles. This server's whole interface is eight titles, and a wording fix must not need a restart while somebody is waiting in it |
+| `/limbo reload` | admin, or the console | the message bundles. This server's whole interface is eight titles, and a wording fix must not need a restart while somebody is waiting in it. **Since 2026-09-05 also a slash command and reachable from the other two backends** - nobody can type it where it runs, because a player here is mid-login and has no chat. The `limbo.admin` permission node is gone with it |
 
 ### On the proxy — `network-control`
 
@@ -180,14 +185,15 @@ the one path that still works when the database holds no admin at all.
 
 | command | who | what |
 |---|---|---|
-| `/grant-access <user> <days>` | admin | replaces season 1's `/manual-con` |
-| `/revoke-access <user>` | admin | |
-| `/access-status <user>` | admin | valid-until, history, open requests |
-| `/settle <ref>` | admin | books a request by hand, autocompleting over open references |
-| `/phase set\|show\|launch\|smp-start` | admin | the same four as on the proxy, with a confirmation naming who it moves |
+| `/access unlink <member>` | admin | breaks somebody else's account link, for a player who lost the account they linked. **Type it twice** - re-linking needs a code the *player* generates in game |
+| `/access grant <member> <days>` | admin | replaces season 1's `/manual-con`. Renamed from `/grant-access` on 2026-09-05, and available in game as well |
+| `/access revoke <member>` | admin | renamed from `/revoke-access` |
+| `/access status <member>` | admin | valid-until, history, open requests. Renamed from `/access-status` |
+| `/access settle <reference>` | admin | books a request by hand, autocompleting over open references - **in game too**, where the suggestions matter most. Renamed from `/settle` |
+| `/phase set\|show\|launch\|smp-start` | admin | the same four as on the proxy - literally the same declarations since 2026-09-04, with a confirmation naming who it moves |
 | `/update` | admin | the updater, from Discord |
-| `/messages reload` | admin | the bot's own bundles and the override in `config/messages/` |
-| `/unlink` | anyone | self-service, no waiting period, always written to the admin channel |
+| `/messages reload` | admin | the bot's own bundles and the override in `config/messages/`. Available in game as well |
+| `/unlink` | anyone | self-service, no waiting period, always written to the admin channel. **Not** the same command as `/access unlink <member>`, which is an admin unlinking somebody else |
 
 **There is no `/home`, `/tpa`, `/back` or `/spawn`, and there never will be** — distance is the
 season's design ([smp.md](smp.md)). The only fast travel that is given is the balloon.

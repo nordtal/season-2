@@ -155,7 +155,20 @@ public final class Outbox {
                 return;
             }
 
-            if (requests.expire(id)) {
+            final boolean gaveUp;
+            try {
+                gaveUp = requests.expire(id);
+            } catch (final RuntimeException failure) {
+                // The one call in this loop that used to be unguarded, and it runs exactly once per
+                // command - at the deadline, which is the moment a wobbling database is most likely
+                // to be why the deadline was reached. An exception here killed the scheduled task
+                // silently and the asker was left with no answer at all.
+                warn.accept("could not expire " + declaration.name(), failure);
+                user.reply("command.remote.failed", Map.of(), Feedback.REFUSED);
+                return;
+            }
+
+            if (gaveUp) {
                 user.reply("command.remote.no-answer",
                         Map.of("target", user.phrase(declaration.target().messageKey())),
                         Feedback.REFUSED);

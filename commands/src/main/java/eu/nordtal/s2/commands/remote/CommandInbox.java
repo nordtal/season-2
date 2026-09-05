@@ -51,6 +51,41 @@ public final class CommandInbox {
          * @return whether they may run an admin-only command right now
          */
         boolean isAdmin(CommandRequest request);
+
+        /**
+         * The check every inbox should use, written once.
+         *
+         * <h2>What it refuses to do, and why that was a hole</h2>
+         * All three inboxes started life with
+         * {@code request.discordId().map(admins::contains).orElse(true)} - the {@code orElse(true)}
+         * meaning "the console, which is the operator". But V11 only forces a Discord id for
+         * {@code source='DISCORD'}: a {@code GAME} row may legitimately have none, and
+         * {@code limbo} writes exactly those, because a waiting room holds no account links. Every
+         * one of those rows was read as the console and ran <b>unauthorised</b>.
+         *
+         * <p>So the console is identified by what it is - {@code source = 'CONSOLE'}, which the
+         * schema pins to having neither identity - and everything else has to produce an identity
+         * that is in the admin set. An absent one is refused, which is the direction to fail in.</p>
+         *
+         * @param admins           every admin's Discord id, re-read per call
+         * @param adminMinecraftIds every admin's Minecraft account, for a row written by a game
+         *                          surface that had no link to hand
+         */
+        static AdminCheck of(final java.util.function.Supplier<java.util.Set<String>> admins,
+                             final java.util.function.Supplier<java.util.Set<java.util.UUID>>
+                                     adminMinecraftIds) {
+            return request -> {
+                if ("CONSOLE".equals(request.source())) {
+                    return true;
+                }
+                if (request.discordId().isPresent()) {
+                    return admins.get().contains(request.discordId().get());
+                }
+                return request.minecraftId()
+                        .map(mcUuid -> adminMinecraftIds.get().contains(mcUuid))
+                        .orElse(false);
+            };
+        }
     }
 
     private record Entry(Declaration declaration, BiConsumer<NordtalUser, Values> run) {

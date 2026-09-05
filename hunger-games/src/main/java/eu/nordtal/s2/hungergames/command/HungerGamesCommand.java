@@ -86,7 +86,8 @@ public final class HungerGamesCommand {
         for (final NordtalCommand<HungerGamesEffects> command : HungerGamesCommands.all()) {
             commands.local(command, effects);
         }
-        commands.extra("hg", ready());
+        // extraOpen, not extra: this is the one subtree any player may use.
+        commands.extraOpen("hg", ready());
         commands.remoteAll(Catalogue.all());
         return commands.build();
     }
@@ -105,8 +106,10 @@ public final class HungerGamesCommand {
 
     private int handleReady(final CommandContext<CommandSourceStack> context) {
         final Player player = (Player) context.getSource().getSender();
+        // Optional::empty rather than null: /hg ready needs no Discord id, it never travels, and a
+        // bare null is ambiguous between PaperUser's two factories.
         final NordtalUser user = PaperUser.of(plugin, player, locales.of(player.getUniqueId()),
-                false, null, messages, sounds::play);
+                false, java.util.Optional::<String>empty, messages, sounds::play);
         final UUID gameId = currentGameId.get();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {

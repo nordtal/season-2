@@ -365,7 +365,11 @@ public final class DiscordCommands extends ListenerAdapter {
         if (!id.startsWith(BUTTON)) {
             return;
         }
-        event.deferEdit().queue();
+        // The components go NOW, not when the command's first reply lands. deferEdit only
+        // acknowledges the interaction; until the message is actually edited the button is still
+        // there and still live, and the work is on another thread - so the same button could be
+        // pressed twice. On /smp farmreset now that is two world deletions.
+        event.editComponents().queue();
         worker.execute(() -> {
             final DiscordUser user = resolve(event);
             if (id.equals(BUTTON + "cancel")) {
@@ -415,18 +419,22 @@ public final class DiscordCommands extends ListenerAdapter {
             return;
         }
 
-        // An autocomplete interaction has the same three seconds as any other, so this cannot be a
-        // database round trip - and it therefore cannot re-read the admin flag either. The values
-        // are only ever offered to somebody Discord already shows the command to, and the command
-        // itself re-checks discord_user.admin before doing anything with the answer. The bot's old
-        // /settle had neither check.
+        // On the worker, not here. An autocomplete interaction arrives on a gateway thread, and a
+        // supplier is allowed to be a query - the only one registered today is `openReferences`,
+        // which is a SELECT. Three seconds is the budget either way, and a gateway thread waiting
+        // on the database stalls the whole guild.
+        //
+        // The admin flag is deliberately NOT re-read: it would be a second query per keystroke, and
+        // these values are only offered to somebody Discord already shows the command to. The
+        // command itself re-checks discord_user.admin before doing anything with the answer, which
+        // the bot's old /settle did in neither place.
         final String typed = event.getFocusedOption().getValue().toLowerCase(Locale.ROOT);
-        event.replyChoiceStrings(offered.get().stream()
+        worker.execute(() -> event.replyChoiceStrings(offered.get().stream()
                         .filter(value -> value.toLowerCase(Locale.ROOT).startsWith(typed))
                         // Discord shows at most 25 and refuses a reply with more.
                         .limit(25)
                         .toList())
-                .queue();
+                .queue());
     }
 
     /**

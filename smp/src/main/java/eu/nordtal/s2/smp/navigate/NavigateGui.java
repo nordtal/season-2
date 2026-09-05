@@ -7,8 +7,6 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.smp.db.PoiRow;
 import eu.nordtal.s2.smp.feedback.Surface;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -85,7 +83,7 @@ public final class NavigateGui implements Surface {
         final ItemStack stop = new ItemStack(Material.BARRIER);
         stop.editMeta(meta -> meta.displayName(
                 MessageRenderer.of(messages).get(locale, "smp.navigate.stop")
-                        .color(NamedTextColor.RED).decoration(TextDecoration.ITALIC, false)));
+                        .decoration(TextDecoration.ITALIC, false)));
         inventory.setItem(STOP_SLOT, stop);
 
         for (int index = 0; index < targets.size(); index++) {
@@ -109,11 +107,14 @@ public final class NavigateGui implements Surface {
 
         final ItemStack stack = new ItemStack(material);
         stack.editMeta(meta -> {
-            meta.displayName(Component.text(label).color(NamedTextColor.WHITE)
-                    .decoration(TextDecoration.ITALIC, false));
+            // A POI name is player-typed: it goes in as a parameter so MessageRenderer escapes it,
+            // which is the one place a `<click:...>` in a POI name could otherwise run in somebody
+            // else's menu (finding 48). The colour is the bundle's.
+            meta.displayName(MessageRenderer.of(messages).format(locale, "smp.navigate.target",
+                    "target", label).decoration(TextDecoration.ITALIC, false));
             meta.lore(List.of(MessageRenderer.of(messages).format(locale, "smp.navigate.at",
                             "world", target.world(), "x", target.x(), "y", target.y(), "z", target.z())
-                    .color(NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false)));
+                    .decoration(TextDecoration.ITALIC, false)));
         });
         return stack;
     }

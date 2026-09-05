@@ -10,7 +10,6 @@ import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.state.SeasonState;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -183,45 +182,50 @@ public final class Boards {
         };
     }
 
+    // Every line is a bundle value since 2026-09-06 (finding 48): the colour is a tag in the file,
+    // the milestone, objective and player names travel as parameters so MessageRenderer escapes
+    // them, and an operator's override of any of these keys reaches the board as styling rather
+    // than as literal text. Nothing here composes a component by hand any more.
     private Component objectiveText(final Locale locale, final int width) {
-        final Component title = MessageRenderer.of(messages)
-                .get(locale, BoardKind.OBJECTIVE.messageKey()).color(NamedTextColor.GOLD);
+        final MessageRenderer renderer = MessageRenderer.of(messages);
+        final Component title = renderer.get(locale, BoardKind.OBJECTIVE.messageKey());
         final List<Component> lines = new ArrayList<>();
 
         // One read: the name and the rows under it have to be the same milestone's.
         final SeasonState.Active active = season.active();
         if (active.key() == null) {
-            lines.add(MessageRenderer.of(messages).get(locale, "smp.board.objective.finished")
-                    .color(NamedTextColor.GRAY));
+            lines.add(renderer.get(locale, "smp.board.objective.finished"));
             return BoardFrame.render(width, title, lines);
         }
 
-        lines.add(Component.text(milestoneName(active.key(), locale)).color(NamedTextColor.WHITE));
+        lines.add(renderer.format(locale, "smp.board.objective.milestone",
+                "milestone", milestoneName(active.key(), locale)));
         for (final ObjectiveRow objective : active.objectives()) {
-            final String name = objectiveName(active.key(), objective.key(), locale);
-            lines.add(Component.text(name + "  " + ProgressBar.of(objective.ratio(), BAR_WIDTH)
-                            + "  " + objective.amount() + "/" + objective.target())
-                    .color(objective.completed() ? NamedTextColor.GREEN : NamedTextColor.GRAY));
+            lines.add(renderer.format(locale,
+                    objective.completed() ? "smp.board.objective.row-done" : "smp.board.objective.row",
+                    "objective", objectiveName(active.key(), objective.key(), locale),
+                    "bar", ProgressBar.of(objective.ratio(), BAR_WIDTH),
+                    "amount", objective.amount(), "target", objective.target()));
         }
         return BoardFrame.render(width, title, lines);
     }
 
     private Component auraText(final Locale locale, final int width) {
-        final Component title = MessageRenderer.of(messages)
-                .get(locale, BoardKind.AURA.messageKey()).color(NamedTextColor.GOLD);
+        final MessageRenderer renderer = MessageRenderer.of(messages);
+        final Component title = renderer.get(locale, BoardKind.AURA.messageKey());
         final List<Component> lines = new ArrayList<>();
 
         final List<AuraRow> rows = leaderboard;
         if (rows.isEmpty()) {
-            lines.add(MessageRenderer.of(messages).get(locale, "smp.board.aura.empty")
-                    .color(NamedTextColor.GRAY));
+            lines.add(renderer.get(locale, "smp.board.aura.empty"));
             return BoardFrame.render(width, title, lines);
         }
 
         int place = 1;
         for (final AuraRow row : rows.subList(0, Math.min(LEADERBOARD_SIZE, rows.size()))) {
-            lines.add(Component.text(place + ". " + nameOf(row.mcUuid()) + "  " + row.aura())
-                    .color(row.aura() > 0 ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY));
+            lines.add(renderer.format(locale,
+                    row.aura() > 0 ? "smp.board.aura.row" : "smp.board.aura.row-zero",
+                    "place", place, "player", nameOf(row.mcUuid()), "aura", row.aura()));
             place++;
         }
         return BoardFrame.render(width, title, lines);

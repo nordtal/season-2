@@ -16,7 +16,6 @@ import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -94,25 +93,25 @@ public final class BalloonGui implements Surface {
 
     /** The invisible item under a card: the world's name, and one or two lines on its state. */
     private ItemStack tooltip(final BalloonMenu.Entry entry, final Locale locale) {
+        // The world's name is a parameter and the colour is the bundle's (finding 48, 2026-09-06);
+        // smp.world.* itself stays tag-free because the HUD draws the same words in a font that has
+        // no `<` in it.
+        final MessageRenderer renderer = MessageRenderer.of(messages);
         final boolean locked = entry.state() == BalloonMenu.State.LOCKED;
-        final Component name = MessageRenderer.of(messages).get(locale, nameKey(entry.destination()))
-                .color(locked ? NamedTextColor.GRAY : NamedTextColor.WHITE);
+        final Component name = renderer.format(locale, locked ? "smp.balloon.card-locked" : "smp.balloon.card",
+                "world", messages.get(locale, nameKey(entry.destination())));
 
         final List<Component> lore = new ArrayList<>();
         switch (entry.state()) {
-            case HERE -> lore.add(line(messages.get(locale, "smp.balloon.here"), NamedTextColor.DARK_GRAY));
-            case OPEN -> lore.add(line(messages.get(locale, "smp.balloon.open"), NamedTextColor.GREEN));
+            case HERE -> lore.add(renderer.get(locale, "smp.balloon.here"));
+            case OPEN -> lore.add(renderer.get(locale, "smp.balloon.open"));
             case LOCKED -> {
-                lore.add(line(messages.format(locale, "smp.balloon.locked",
-                        "milestone", milestoneName(entry.destination(), locale)), NamedTextColor.RED));
-                lore.add(line(messages.get(locale, "smp.balloon.locked-hint"), NamedTextColor.DARK_GRAY));
+                lore.add(renderer.format(locale, "smp.balloon.locked",
+                        "milestone", milestoneName(entry.destination(), locale)));
+                lore.add(renderer.get(locale, "smp.balloon.locked-hint"));
             }
         }
         return BlankItem.of(name, lore);
-    }
-
-    private static Component line(final String text, final NamedTextColor colour) {
-        return Component.text(text).color(colour);
     }
 
     private static String nameKey(final WorldRole role) {

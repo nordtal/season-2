@@ -90,15 +90,7 @@ class OneMessageFormatTest {
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/ConsoleUser.java",
                     "the same NordtalUser#replyLiteral, for the proxy console - plus a plain-text"
                             + " serialiser, because a raw <green> in a container log is a thing"
-                            + " somebody greps past"),
-            Map.entry("smp/src/main/java/eu/nordtal/s2/smp/board/Boards.java",
-                    "OUTSTANDING: board lines composed from a message plus a glyph progress bar"),
-            Map.entry("smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigateGui.java",
-                    "OUTSTANDING: an item name that is a message or a player-typed POI name"),
-            Map.entry("smp/src/main/java/eu/nordtal/s2/smp/npc/ObjectiveGui.java",
-                    "OUTSTANDING: item names and lore composed in Java"),
-            Map.entry("smp/src/main/java/eu/nordtal/s2/smp/travel/BalloonGui.java",
-                    "OUTSTANDING: item lore composed in Java"));
+                            + " somebody greps past"));
 
     @Test
     @DisplayName("only the listed files compose components by hand")

@@ -15,7 +15,8 @@ import java.util.Optional;
 
 /**
  * This module's end of {@code nordtal:limbo}: it listens for the proxy's {@code WAIT} and answers
- * {@code READY} once per join.
+ * {@code READY} - once a second from one tick after the join until the player is gone, since
+ * 2026-09-05; it was once per join before that, and one message is exactly what Velocity can lose.
  *
  * <h2>What READY means, and what it does not</h2>
  * "This player has arrived and finished joining me." <b>Not</b> "send them to the SMP", and not
@@ -61,11 +62,18 @@ public final class LimboChannel implements PluginMessageListener {
      * Sent one tick after the join rather than inside it, for two reasons: the player's connection
      * is unambiguously established by then, and it puts a hard ordering between "this server has
      * the player" and "the proxy may move them" that does not depend on how Bukkit happens to order
-     * two handlers of the same event.
+     * two handlers of the same event. And then again every {@link #READY_REPEAT_TICKS}, because the
+     * first one is lost whenever Velocity decodes it in the same read batch as the join packet -
+     * the proxy then releases the player on a five-second grace period rather than on this message,
+     * and a black screen five seconds longer than necessary on most logins is the price of a
+     * message sent exactly once. The proxy records READY idempotently, so repeating it is free.
      * </p>
      *
      * @param player the player who has just arrived
      */
+    /** How often READY is repeated while the player is still here: every second. */
+    public static final long READY_REPEAT_TICKS = 20L;
+
     public void sendReady(final Player player) {
         player.sendPluginMessage(plugin, LimboProtocol.CHANNEL, LimboProtocol.ready());
     }

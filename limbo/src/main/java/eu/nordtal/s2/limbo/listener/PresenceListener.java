@@ -24,6 +24,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Objects;
@@ -119,13 +120,24 @@ public final class PresenceListener implements Listener {
         hideEverybodyFromEachOther(player);
         sendTabList(player);
 
-        // One tick later: by then the join is unambiguously complete, whatever order Bukkit ran the
-        // handlers of this event in. See LimboChannel#sendReady.
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            if (player.isOnline()) {
+        // One tick later, and then every second until the proxy has moved them on - which is the
+        // only thing that ends this task, because a player leaving limbo is a player who quit it.
+        // Repeated since 2026-09-05: a single READY is lost whenever Velocity decodes it in the same
+        // read batch as the join (state-of-play finding 38, the second path), which on the local
+        // stack was two logins out of three. The proxy's grace period caught every one of them, at
+        // five seconds of black screen apiece; a READY every second turns that into one. The book
+        // on the proxy is idempotent, so the repeats cost a plugin message and nothing else. See
+        // LimboChannel#sendReady.
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    return;
+                }
                 channel.sendReady(player);
             }
-        }, 1L);
+        }.runTaskTimer(plugin, 1L, LimboChannel.READY_REPEAT_TICKS);
 
         loadLanguage(player);
     }

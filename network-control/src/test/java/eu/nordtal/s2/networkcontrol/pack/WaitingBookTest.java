@@ -70,6 +70,24 @@ class WaitingBookTest {
     }
 
     @Test
+    @DisplayName("a repeated READY after the release is not reported as early")
+    void aLateReadyIsNotEarly() {
+        // limbo repeats READY every second until the proxy moves the player (2026-09-05), because
+        // the first one is lost whenever Velocity decodes it in the same read batch as the join -
+        // seen on two of three logins that day. A repeat that lands after the release must not
+        // print the "reported ready before the proxy had finished" line: that line is the evidence
+        // for a specific race, and a repeat is not that race.
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        book.packApplied(player);
+        assertFalse(book.ready(player), "a READY during the visit is on time");
+        assertEquals(Action.RELEASE, decide(book));
+        assertFalse(book.ready(player), "a READY after the release is late, not early");
+        assertEquals(Action.IDLE, decide(book), "and it does not re-open the visit");
+    }
+
+    @Test
     @DisplayName("every order of the three facts releases the player")
     void everyOrderReleases() {
         final Consumer<WaitingBook> arrive = b -> b.entered(player);

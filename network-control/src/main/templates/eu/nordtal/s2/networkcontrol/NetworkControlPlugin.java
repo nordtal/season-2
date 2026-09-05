@@ -339,7 +339,8 @@ public final class NetworkControlPlugin {
                 .repeat(snapshotInterval)
                 .schedule();
         proxy.getEventManager().register(this, new NetworkPing(proxy, logger, networkConfig, phaseWatch,
-                snapshots, messages, Clock.systemUTC()));
+                snapshots, messages, Clock.systemUTC(),
+                eu.nordtal.s2.networkcontrol.ping.ServerIcon.load(dataDirectory, logger)));
 
         // ------------------------------------------------------------ play time
 

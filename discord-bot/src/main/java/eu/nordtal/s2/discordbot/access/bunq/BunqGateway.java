@@ -44,6 +44,13 @@ import java.util.Objects;
  * applied to, so it is refused rather than converted at a rate nobody agreed on.
  */
 @Slf4j
+// EVERY CALL BELOW IS BOUNDED AT 30 SECONDS BY THE SDK ITSELF - measured 2026-09-06, not assumed:
+// com.bunq.sdk.http.ApiClient (sdk_java 1.28.0.6) builds its OkHttpClient with
+// connectTimeout/readTimeout/writeTimeout all set to its TIMEOUT_SECONDS = 30 (read out of the
+// shipped bytecode with javap). docs/state-of-play.md finding 59 said this class "sets no HTTP
+// timeout anywhere", which is true of this file and false of the calls: a bank that stops
+// answering costs the worker thread thirty seconds, not a week. The heartbeat sharing that thread
+// stays, because thirty seconds of a wedged poll loop is still worth seeing.
 public final class BunqGateway {
 
     private static final String CURRENCY = "EUR";

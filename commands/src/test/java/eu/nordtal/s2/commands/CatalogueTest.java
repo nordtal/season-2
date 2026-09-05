@@ -3,6 +3,7 @@ package eu.nordtal.s2.commands;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.common.message.Messages;
 
 import java.util.ArrayList;
@@ -43,6 +44,33 @@ class CatalogueTest {
         assertEquals(List.of(), missing,
                 "a command has no sentence saying what it is for, so the help output would print"
                         + " its message key at somebody who has just mistyped it");
+    }
+
+    @Test
+    @DisplayName("a root's default is one of its own commands and runs with nothing typed")
+    void aRootDefaultIsRunnableBare() {
+        // /phase alone shows the phase (owner, 2026-09-05). Whatever else is ever put in that map
+        // has to be a command the adapters can dispatch from the bare root: two segments, the first
+        // of them the root, and no argument that has to be supplied.
+        final java.util.Set<String> roots = Catalogue.all().stream()
+                .map(declaration -> declaration.path().getFirst())
+                .collect(java.util.stream.Collectors.toSet());
+        int found = 0;
+        for (final String root : roots) {
+            final java.util.Optional<Declaration> preset = Catalogue.rootDefault(root);
+            if (preset.isEmpty()) {
+                continue;
+            }
+            found++;
+            final Declaration declaration = preset.get();
+            assertTrue(Catalogue.all().contains(declaration), root + ": the default is not in the catalogue");
+            assertEquals(2, declaration.path().size(), root + ": " + declaration.name());
+            assertEquals(root, declaration.path().getFirst(), declaration.name() + " is under another root");
+            assertTrue(declaration.arguments().stream().noneMatch(Argument::required),
+                    declaration.name() + " needs an argument, so a bare root could not run it");
+        }
+        assertEquals(1, found, "exactly /phase has a default today; changing that is a decision");
+        assertEquals(java.util.Optional.of(PhaseCommands.SHOW), Catalogue.rootDefault("phase"));
     }
 
     @Test

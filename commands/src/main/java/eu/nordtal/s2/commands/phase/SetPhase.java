@@ -38,6 +38,24 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
         return PhaseCommands.SET;
     }
 
+    /**
+     * An unknown phase name, before the confirmation rather than after it.
+     *
+     * <p>Without this, {@code /phase set NOT_A_PHASE} answers "this cannot be undone, type it again",
+     * takes the retype, and only then says the phase does not exist. The proxy's hand-written
+     * adapter parsed first for exactly that reason and the bot's did not.</p>
+     */
+    @Override
+    public java.util.Optional<java.util.Map.Entry<String, Map<String, ?>>> problem(
+            final Values values) {
+        final String requested = values.string("phase");
+        if (parse(requested).isPresent()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(java.util.Map.entry("phase.unknown",
+                Map.of("value", requested, "phases", PhaseCommands.names())));
+    }
+
     @Override
     public void run(final NordtalUser user, final Values values, final PhaseEffects effects) {
         final String requested = values.string("phase");

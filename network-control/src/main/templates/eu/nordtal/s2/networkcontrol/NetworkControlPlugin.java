@@ -35,8 +35,16 @@ import eu.nordtal.s2.networkcontrol.pack.PackMessages;
 import eu.nordtal.s2.networkcontrol.pack.PackOffer;
 import eu.nordtal.s2.networkcontrol.pack.PackStation;
 import eu.nordtal.s2.networkcontrol.pack.WaitingBook;
-import eu.nordtal.s2.networkcontrol.command.NetworkCommand;
-import eu.nordtal.s2.networkcontrol.phase.PhaseCommand;
+import eu.nordtal.s2.commands.Target;
+import eu.nordtal.s2.commands.network.NetworkCommands;
+import eu.nordtal.s2.commands.network.NetworkEffects;
+import eu.nordtal.s2.commands.phase.PhaseCommands;
+import eu.nordtal.s2.commands.phase.PhaseEffects;
+import eu.nordtal.s2.commands.remote.CommandInbox;
+import eu.nordtal.s2.common.command.CommandRequests;
+import eu.nordtal.s2.common.phase.SeasonDates;
+import eu.nordtal.s2.networkcontrol.command.ProxyNetworkEffects;
+import eu.nordtal.s2.networkcontrol.command.VelocityCommands;
 import eu.nordtal.s2.networkcontrol.phase.ProxyPhaseEffects;
 import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
@@ -116,6 +124,14 @@ public final class NetworkControlPlugin {
     private HikariDataSource pool;
     private AccessDirectory access;
     private NotificationListener phaseListener;
+
+    /**
+     * Commands another process asked this one to run.
+     *
+     * <p>A field because the notification listener is built before it and refers to it: the listener
+     * carries {@code nordtal_command} alongside the phase and admin channels, on one connection.</p>
+     */
+    private CommandInbox commandInbox;
     private PlaytimeWriter playtime;
     private com.velocitypowered.api.scheduler.ScheduledTask heartbeat;
 
@@ -259,11 +275,16 @@ public final class NetworkControlPlugin {
                             databaseConfig.username(), databaseConfig.password(),
                             databaseConfig.queryTimeoutSeconds(),
                             "network-control-notification-listener",
-                            java.util.List.of(Channels.PHASE, Channels.ADMIN)),
+                            java.util.List.of(Channels.PHASE, Channels.ADMIN, Channels.COMMAND)),
                     "network-control-phase-listener",
                     java.util.List.of(
                             new NotificationListener.Refresh("the season phase", phaseWatch::refresh),
-                            new NotificationListener.Refresh("the admin roster", refreshAdmins)),
+                            new NotificationListener.Refresh("the admin roster", refreshAdmins),
+                            // One connection carrying three channels. The listener never inspects
+                            // which one woke it and runs every refresh on every signal, which is
+                            // what makes sharing strictly cheaper than not.
+                            new NotificationListener.Refresh("the command inbox",
+                                    () -> commandInbox.drain())),
                     logger, pollInterval);
             phaseListener.start();
         } else {
@@ -330,19 +351,44 @@ public final class NetworkControlPlugin {
 
         // ------------------------------------------------------------ the emergency command
 
-        // The command's decisions live in :commands and are shared with the bot's /phase; this
-        // builds the Brigadier tree, decides who the source is, and confirms. See PhaseCommand.
-        final PhaseCommand phaseCommand = new PhaseCommand(roster, messages,
-                new ProxyPhaseEffects(this, proxy, logger, phases, phaseWatch), phaseWatch,
-                new eu.nordtal.s2.commands.Confirmations());
-        final CommandManager commands = proxy.getCommandManager();
-        commands.register(commands.metaBuilder(PhaseCommand.alias()).plugin(this).build(),
-                phaseCommand.build());
+        // Every decision lives in :commands and is shared with the bot; VelocityCommands builds the
+        // Brigadier tree, resolves the source, confirms, and prints the usage line when somebody
+        // types half a command. The proxy registers only ITS OWN commands: Velocity answers a
+        // command it knows before the packet reaches a backend, so a /smp here would shadow the
+        // SMP's own and turn a local command into a round trip through a request row.
+        final PhaseEffects phaseEffects =
+                new ProxyPhaseEffects(this, proxy, logger, phases, phaseWatch);
+        final NetworkEffects networkEffects = new ProxyNetworkEffects(
+                ProxyNetworkEffects.async(this, proxy), messages, logger);
 
-        // Messages only, and console-usable - see NetworkCommand for what it deliberately leaves
-        // alone and why every other config file here is read exactly once.
-        commands.register(commands.metaBuilder(NetworkCommand.alias()).plugin(this).build(),
-                new NetworkCommand(this, proxy, logger, roster, messages).build());
+        final VelocityCommands tree = new VelocityCommands(proxy, roster, messages);
+        PhaseCommands.all().forEach(command -> tree.local(command, phaseEffects));
+        NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
+        // "clear" is not guessable and is the only value of this argument that is not a date.
+        tree.suggest(PhaseCommands.LAUNCH, "when", () -> List.of(SeasonDates.CLEAR));
+        tree.suggest(PhaseCommands.SMP_START, "when", () -> List.of(SeasonDates.CLEAR));
+
+        final CommandManager commands = proxy.getCommandManager();
+        tree.build().forEach(command -> commands.register(
+                commands.metaBuilder(command).plugin(this).build(), command));
+
+        // The proxy's own inbox: /network reload asked for in Discord arrives as a request row.
+        // /phase does not travel - the bot runs it against the database itself, because the row it
+        // writes is the state and no process owns it.
+        commandInbox = new CommandInbox(Target.PROXY,
+                CommandRequests.borrowing(pool),
+                Messages.load(getClass().getClassLoader(), "messages/commands",
+                        Locale.ENGLISH, Locale.GERMAN),
+                request -> request.discordId().map(access.admins()::contains).orElse(true),
+                (message, failure) -> logger.warn(message, failure));
+        NetworkCommands.all().forEach(command -> commandInbox.register(command,
+                // Inline: the inbox settles a request row when the command returns, so scheduled
+                // effects would write the answer before the command produced it.
+                new ProxyNetworkEffects(Runnable::run, messages, logger)));
+        proxy.getScheduler().buildTask(this, commandInbox::drain)
+                .delay(java.time.Duration.ofSeconds(5))
+                .repeat(java.time.Duration.ofSeconds(5))
+                .schedule();
 
         logger.info("Access login gate is up in phase {} (query timeout {}s, fallback cache window "
                         + "{}m, expiry check every {}s, phase poll every {}s, play time flushed every "

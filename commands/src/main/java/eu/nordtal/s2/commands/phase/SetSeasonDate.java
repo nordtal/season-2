@@ -57,6 +57,26 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
         return launch ? "phase.date.what.launch" : "phase.date.what.smp-start";
     }
 
+    /**
+     * A date that is not one, before the confirmation rather than after it.
+     *
+     * <p>{@code /phase smp-start 2026-02-30} is a typo, and a typo that has to be typed twice before
+     * being told it is a typo is the worst of both. {@code SeasonDates.parse} is the same check the
+     * command would make anyway.</p>
+     */
+    @Override
+    public java.util.Optional<java.util.Map.Entry<String, Map<String, ?>>> problem(
+            final Values values) {
+        final String typed = values.string("when");
+        if (SeasonDates.CLEAR.equalsIgnoreCase(typed) || SeasonDates.parse(typed).isPresent()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(java.util.Map.entry("phase.date.invalid",
+                Map.of("pattern", SeasonDates.PATTERN,
+                        "zone", SeasonDates.ZONE.getId(),
+                        "clear", SeasonDates.CLEAR)));
+    }
+
     @Override
     public void run(final NordtalUser user, final Values values, final PhaseEffects effects) {
         final String typed = values.string("when");

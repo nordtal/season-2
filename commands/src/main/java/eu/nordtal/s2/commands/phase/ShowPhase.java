@@ -64,9 +64,12 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                 return;
             }
 
+            // "not set" is a state and is said in the asker's language, not in SeasonDates' English
+            // - the first German /phase on the local stack read "Das Netzwerk öffnet: not set."
+            final String unset = user.phrase("phase.date.unset");
             user.reply("phase.dates", Map.of(
-                    "launch", SeasonDates.format(launch),
-                    "smpStart", SeasonDates.format(smpStart),
+                    "launch", SeasonDates.format(launch, unset),
+                    "smpStart", SeasonDates.format(smpStart, unset),
                     "zone", SeasonDates.ZONE.getId()));
         });
     }

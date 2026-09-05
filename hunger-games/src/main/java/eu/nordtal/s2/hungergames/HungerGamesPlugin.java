@@ -244,7 +244,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
                 eu.nordtal.s2.common.access.AccessDirectory.using(pool);
         final java.util.function.BooleanSupplier reloadSounds = this::reloadSounds;
         chatEffects = new BukkitHungerGamesEffects(this,
-                BukkitHungerGamesEffects.async(this), dao, config, lobby, () -> currentGameId,
+                BukkitHungerGamesEffects.async(this), dao, config, lobby, this::currentGameIdNow,
                 gameId -> startGame(gameId, world), reloadSounds, this::reloadMessages);
 
         commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
@@ -266,7 +266,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
                 new PaperCommandInbox(this, Target.HUNGER_GAMES, requests, access, sharedMessages);
         // Inline, on purpose - see the field comment.
         final HungerGamesEffects inboxEffects = new BukkitHungerGamesEffects(this, Runnable::run,
-                dao, config, lobby, () -> currentGameId, gameId -> startGame(gameId, world),
+                dao, config, lobby, this::currentGameIdNow, gameId -> startGame(gameId, world),
                 reloadSounds, this::reloadMessages);
         HungerGamesCommands.all().forEach(command -> inbox.register(command, inboxEffects));
         inbox.start(this);
@@ -428,6 +428,23 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
     private void refreshCurrentGame() {
         currentGameId = dao.currentGame().map(game -> game.id()).orElse(null);
+    }
+
+    /**
+     * The game as the database has it <em>now</em>, for the commands.
+     * <p>
+     * The cache above is filled once at enable and cleared when a game ends, and that was all the
+     * commands read until 2026-09-06 - so a game registered in Discord after this server started
+     * was invisible to {@code /hg} until a restart: "There is no hunger games event registered
+     * right now", with the row sitting in the table. One query per command is nothing; a
+     * registration that opens while the lobby is already up is the ordinary case. Runs on the
+     * effects' executor - the async task for chat, the request thread for the inbox - never the
+     * main thread, which is why the lobby's own broadcast still reads the cache.
+     * </p>
+     */
+    private UUID currentGameIdNow() {
+        refreshCurrentGame();
+        return currentGameId;
     }
 
     private World resolveWorld(final HungerGamesSpec config) {

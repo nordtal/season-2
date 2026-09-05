@@ -30,6 +30,13 @@ bunq-config.conf
 /run/
 /*/run/
 
+# The four servers' plugins/ folders, bound into the containers by compose.yml (SERVERS_ROOT).
+# Jars the updater fetched and configs an operator edited - runtime state that happens to sit next
+# to the source, which is the price of being able to open plugins/smp/config.yml in an editor.
+/deploy/servers/
+# The pack zip the devpack profile serves on localhost. Built from resource-pack/, never edited.
+/deploy/pack/
+
 ### IDE ###
 .idea/
 *.iws

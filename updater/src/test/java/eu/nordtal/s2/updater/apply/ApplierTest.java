@@ -88,7 +88,79 @@ class ApplierTest {
 
         apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
 
+        assertFalse(Files.exists(volumes.resolve("smp/plugins").resolve(Applier.STAGING)));
+        assertFalse(Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)),
+                "and not at the volume root either, which is where it used to be");
+    }
+
+    @Test
+    @DisplayName("staging happens inside the destination directory, not at the volume root")
+    void theStagingDirectoryLivesBesideItsDestination() throws IOException {
+        install("smp", "plugins/smp-0.1.0.jar");
+        install("smp", ".server/paper-26.2-121.jar");
+
+        // THE POINT OF THIS TEST. plugins/ is a bind mount in compose.yml and .server/ is not, so
+        // the two are different filesystems on a real deployment. A rename across that boundary is
+        // a copy, and a copy is not atomic - which nothing would ever have reported, because
+        // Files.move falls back to copy-and-delete without complaining. The only way that stays
+        // true is if staging is resolved per destination, so that is what is asserted.
+        final Fake fetcher = new Fake();
+        apply(fetcher, plan(
+                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
+                outdated("smp", "paper", "paper-26.2-121.jar", "paper-26.2-125.jar")));
+
+        assertEquals(volumes.resolve("smp/plugins").resolve(Applier.STAGING),
+                parentOf(fetcher, "smp-0.2.0.jar"), "a plugin stages inside plugins/");
+        assertEquals(volumes.resolve("smp/.server").resolve(Applier.STAGING),
+                parentOf(fetcher, "paper-26.2-125.jar"), "the server jar stages inside .server/");
+
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
+        assertTrue(Files.exists(volumes.resolve("smp/.server/paper-26.2-125.jar")));
+        assertFalse(Files.exists(volumes.resolve("smp/plugins").resolve(Applier.STAGING)));
+        assertFalse(Files.exists(volumes.resolve("smp/.server").resolve(Applier.STAGING)));
+    }
+
+    @Test
+    @DisplayName("a staging directory left at the volume root by an older version is swept up")
+    void theOldStagingLocationIsCleanedAway() throws IOException {
+        install("smp", "plugins/smp-0.1.0.jar");
+        install("smp", Applier.STAGING + "/smp-0.1.5.jar");
+
+        apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
+
+        // Nothing would ever look at it again, and a directory full of jars that no program reads
+        // is a puzzle for whoever finds it rather than a harmless leftover.
         assertFalse(Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)));
+    }
+
+    @Test
+    @DisplayName("a file left in staging by a run that died is not installed")
+    void staleStagedFilesAreNeverReused() throws IOException {
+        install("smp", "plugins/smp-0.1.0.jar");
+        install("smp", "plugins/" + Applier.STAGING + "/smp-0.2.0.jar");
+
+        apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
+
+        // "old" is what install() writes. A run that died between the two phases leaves exactly
+        // this, and re-using it would install a jar this run never verified.
+        assertEquals("downloaded smp-0.2.0.jar",
+                Files.readString(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
+    }
+
+    @Test
+    @DisplayName("the staging directory is never read back as an installed jar")
+    void stagingIsInvisibleToTheScan() throws IOException {
+        install("smp", "plugins/smp-0.1.0.jar");
+        install("smp", "plugins/" + Applier.STAGING + "/smp-9.9.9.jar");
+
+        // It sits inside plugins/ now, so this is the assumption everything above rests on: a
+        // Paper server loads only jars directly in plugins/, and Installation only takes regular
+        // files. If either stopped being true, the SMP would try to load a half-downloaded jar.
+        final var installed = eu.nordtal.s2.updater.plan.Installation
+                .scan("smp", volumes.resolve("smp")).plugins();
+
+        assertEquals(List.of("smp-0.1.0.jar"), installed.stream()
+                .map(eu.nordtal.s2.updater.plan.Installation.Jar::fileName).toList());
     }
 
     // ---------------------------------------------------------------- the failure cases
@@ -108,7 +180,7 @@ class ApplierTest {
         assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")), "the old jar is still there");
         assertFalse(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")), "the new jar was not placed");
         assertTrue(Files.exists(volumes.resolve("smp/plugins/Chunky-Bukkit-1.5.2.jar")));
-        assertFalse(Files.exists(volumes.resolve("smp").resolve(Applier.STAGING)));
+        assertFalse(Files.exists(volumes.resolve("smp/plugins").resolve(Applier.STAGING)));
 
         assertEquals(ApplyResult.Status.FAILED, outcome(result, "smp", "smp").status());
         assertEquals(ApplyResult.Status.FAILED, outcome(result, "smp", "chunky").status());
@@ -341,6 +413,7 @@ class ApplierTest {
     private static final class Fake implements Fetcher {
 
         private final List<String> fetched = new ArrayList<>();
+        private final List<Path> destinations = new ArrayList<>();
         private String failOn;
 
         Fake failingOn(final String fileName) {
@@ -354,6 +427,7 @@ class ApplierTest {
                 throw new IOException("pretend the CDN was down");
             }
             fetched.add(file.fileName());
+            destinations.add(destination);
             Files.createDirectories(destination.getParent());
             Files.writeString(destination, "downloaded " + file.fileName(), StandardCharsets.UTF_8);
         }
@@ -410,6 +484,15 @@ class ApplierTest {
                 sha1: 0000000000000000000000000000000000000000
                 force: true
                 """, StandardCharsets.UTF_8);
+    }
+
+    /** Where the fetcher was asked to put one file - the staging directory, by definition. */
+    private static Path parentOf(final Fake fetcher, final String fileName) {
+        return fetcher.destinations.stream()
+                .filter(candidate -> candidate.getFileName().toString().equals(fileName))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(fileName + " was never fetched"))
+                .getParent();
     }
 
     private static ApplyResult.Outcome outcome(final ApplyResult result, final String service,

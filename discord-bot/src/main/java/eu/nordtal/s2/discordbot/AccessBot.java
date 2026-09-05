@@ -19,7 +19,9 @@ import eu.nordtal.s2.discordbot.access.discord.RedemptionLimit;
 import eu.nordtal.s2.discordbot.access.discord.ManagedMessages;
 import eu.nordtal.s2.discordbot.discord.MessagesCommand;
 import eu.nordtal.s2.commands.Catalogue;
+import eu.nordtal.s2.commands.access.AccessCommands;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
+import eu.nordtal.s2.discordbot.discord.BotAccessEffects;
 import eu.nordtal.s2.discordbot.discord.BotPhaseEffects;
 import eu.nordtal.s2.discordbot.discord.DiscordCommands;
 import eu.nordtal.s2.discordbot.discord.UpdateCommand;
@@ -176,32 +178,54 @@ public class AccessBot implements AutoCloseable {
                     new LinkFlow(access, roles, messages, admin,
                             new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), Clock.systemUTC()),
                             worker),
-                    new AdminCommands(access, roles, requests, admin, messages, seasonStart, worker),
                     new UpdateCommand(updates, admin, database.jdbi(), worker, timers),
-                    new MessagesCommand(messages, database.jdbi(), worker),
                     new RegisterFlow(jda, teams, messages, worker));
 
             // Every declared command, as slash commands. /phase runs here - the bot writes the row
             // itself, because no process owns it - and everything else becomes a command_request
             // addressed to the process that does. This is the half of "on both platforms" that did
             // not exist before 2026-09-05.
+            final eu.nordtal.s2.common.command.CommandRequests commandRequests =
+                    eu.nordtal.s2.common.command.CommandRequests.borrowing(database.dataSource());
             final DiscordCommands declared = new DiscordCommands(messages, database.jdbi(), access,
-                    new eu.nordtal.s2.commands.remote.Outbox(
-                            eu.nordtal.s2.common.command.CommandRequests.borrowing(
-                                    database.dataSource()),
-                            timers,
+                    new eu.nordtal.s2.commands.remote.Outbox(commandRequests, timers,
                             (message, failure) -> log.warn(message, failure)),
                     worker);
             final BotPhaseEffects phaseEffects = new BotPhaseEffects(phases, admin, worker);
             PhaseCommands.all().forEach(command -> declared.local(command, phaseEffects));
+
+            // Access, payments and the bot's own wording. All four admin commands here ran on
+            // Discord's DefaultMemberPermissions and NOTHING else until 2026-09-05 - no
+            // discord_user.admin read anywhere - so the network's admin list and the list of people
+            // who could grant paid access were two different lists.
+            final BotAccessEffects accessEffects = new BotAccessEffects(worker, jda, access, roles,
+                    requests, admin, seasonStart, messages, log);
+            AccessCommands.all().forEach(command -> declared.local(command, accessEffects));
+            // The one argument nobody can be expected to type from memory, on the one command that
+            // books money.
+            declared.suggest(AccessCommands.SETTLE, "reference", accessEffects::openReferences);
+
             declared.remoteAll(Catalogue.all());
             jda.addEventListener(declared);
 
+            // ...and the other direction: a /access grant typed in game arrives here as a row.
+            // Inline effects, because the inbox settles the row when the command returns.
+            final eu.nordtal.s2.commands.remote.CommandInbox inbox =
+                    new eu.nordtal.s2.commands.remote.CommandInbox(
+                            eu.nordtal.s2.commands.Target.BOT, commandRequests,
+                            eu.nordtal.s2.common.message.Messages.load(
+                                    AccessBot.class.getClassLoader(), "messages/commands",
+                                    java.util.Locale.ENGLISH, java.util.Locale.GERMAN),
+                            request -> request.discordId().map(access.admins()::contains).orElse(true),
+                            (message, failure) -> log.warn(message, failure));
+            final BotAccessEffects inboxEffects = new BotAccessEffects(Runnable::run, jda, access,
+                    roles, requests, admin, seasonStart, messages, log);
+            AccessCommands.all().forEach(command -> inbox.register(command, inboxEffects));
+            timers.scheduleWithFixedDelay(inbox::drain, 5, 5, java.util.concurrent.TimeUnit.SECONDS);
+
             final List<CommandData> commands = new ArrayList<>();
-            commands.addAll(AdminCommands.commands());
             commands.addAll(LinkFlow.commands());
             commands.addAll(UpdateCommand.commands());
-            commands.addAll(MessagesCommand.commands());
             commands.addAll(declared.commands());
             jda.updateCommands().addCommands(commands).queue();
 

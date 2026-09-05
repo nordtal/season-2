@@ -5,13 +5,14 @@ package eu.nordtal.s2.discordbot.discord;
  * <p>
  * All of them are prefixed {@code access:} so a listener can tell at a glance whether an
  * interaction is its business, and so a second bot in the same guild cannot collide with these.
- * Two of them carry a value. {@link #DAYS_SELECT}'s is a number of days rather than the name of a
+ * One of them carries a value: {@link #DAYS_SELECT}'s is a number of days rather than the name of a
  * tier - the tiers come from configuration and have no stable identity, but the number of days a
- * user clicked on is exactly what has to be looked up again. {@link #PHASE_CONFIRM} is a prefix
- * with the phase appended, which is what makes the confirmation button mean one specific switch:
- * the message it sits on is the only place the chosen phase is kept between the command and the
- * click, so there is no per-user state to expire and a restart simply makes the old button do
- * nothing.
+ * user clicked on is exactly what has to be looked up again.
+ * </p><p>
+ * The ids a <em>command</em> confirmation uses are not here. They are minted by
+ * {@code DiscordCommands} from the command's own path and carry the prefix {@code nordtal:cmd:},
+ * which is deliberately not {@code access:} - the two sets are read by different listeners, and a
+ * shared prefix is how one of them would come to answer for the other.
  * </p>
  */
 public final class Ids {
@@ -40,25 +41,13 @@ public final class Ids {
     /** The text input inside {@link #LINK_MODAL} carrying the code itself. */
     public static final String LINK_CODE_INPUT = "access:link-code";
 
-    /**
-     * Prefix of the button that actually performs a phase switch. The {@link
-     * eu.nordtal.s2.common.SeasonPhase} name is appended, so nothing but this button can name a
-     * phase and no phase can be switched to without one confirmed click.
-     */
-    public static final String PHASE_CONFIRM = "access:phase-confirm:";
-
-    /**
-     * The confirm button of {@code /phase smp-start}, carrying the date that was typed.
-     *
-     * <p>Same reasoning as {@link #PHASE_CONFIRM}: the pending decision lives in the button rather
-     * than in a map, so a bot that restarts mid-confirmation has a button that does nothing instead
-     * of one that writes a date somebody has forgotten about. A component id holds 100 characters
-     * and the date is sixteen.</p>
-     */
-    public static final String PHASE_DATE_CONFIRM = "access:phase-date-confirm:";
-
-    /** Backs out of a phase switch or a date change without touching the row. */
-    public static final String PHASE_CANCEL = "access:phase-cancel";
+    // The three phase buttons that used to live here - PHASE_CONFIRM, PHASE_DATE_CONFIRM and
+    // PHASE_CANCEL - were deleted on 2026-09-05. Their reasoning was not: the pending decision lives
+    // in the button rather than in a map, so a bot that restarts mid-confirmation has a button that
+    // does nothing instead of one that writes a date somebody has forgotten about. That is now
+    // DiscordCommands' rule for EVERY irreversible command rather than a hand-built pair for one,
+    // and the ids it mints carry their own prefix (nordtal:cmd:) so nothing here can collide with
+    // them.
 
     /**
      * Asks the updater to install what {@code /update} just reported.

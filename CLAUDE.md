@@ -935,14 +935,14 @@ from v0.2.3 — see `deploy/README.md#first-start-seeding`. `entrypoint.sh` ther
 guard at the line where its definitions end; do not move code across it without reading the comment
 there.
 
-**Nine modules have tests: 1215 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1216 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-05, after the HUD pills and the balloon's card menu landed on top of
 the CodeRabbit review of the command layer). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
 | module | tests |
 |---|---|
-| `common` | 327 |
+| `common` | 328 |
 | `network-control` | 178 |
 | `smp` | 180 |
 | `commands` | 171 |
@@ -951,6 +951,13 @@ below are what the JUnit XML reports, not `@Test` counts.
 | `hunger-games` | 65 |
 | `limbo` | 11 |
 | `paper-common` | 5 |
+
+**One is from the first real look at the panels, 2026-09-05, and it is a correction to a
+measurement.** `MenuTitleTest#theRecessesFollowTheClientNotTheTexture` reads every panel PNG and
+asserts each slot recess starts where `ChestMenu`'s arithmetic puts the slot - not where
+`generic_54.png` has it. The two differ by one pixel in the player's rows, because `ChestScreen`
+blits the texture's bottom part one row up; a panel drawn as one glyph has no such seam, so copying
+the texture put a one-pixel bar between the hover square and the recess in the lower inventory only.
 
 **Eighteen are from the HUD pills and the balloon's card menu, 2026-09-05.** `:common` gained
 fourteen: `BossBarAdvancesTest` (4) holds the generated advance table in `:common`'s resources

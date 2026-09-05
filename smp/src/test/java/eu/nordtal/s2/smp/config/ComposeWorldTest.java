@@ -66,6 +66,34 @@ class ComposeWorldTest {
                 "LEVEL_SEED should default to a literal seed, not to '" + seed + "'");
     }
 
+    /**
+     * The pre-generation switch reaches the container, and compose's fallback is the spec's own.
+     *
+     * <p><b>Both halves cost something to learn, on 2026-09-05.</b> The first is that a value in an
+     * env file does not reach a container at all - compose uses it for interpolation, and only what
+     * a service's {@code environment:} block lists is passed in. {@code dev.env} carried
+     * {@code NORDTAL_SMP_PREGENERATION_ON_START=false}, the local stack came up, and Chunky started
+     * pre-generating anyway; nothing said why, because from inside the plugin the setting simply
+     * had its default.
+     *
+     * <p>The second is that the fallback has to <em>repeat</em> the spec's default rather than be
+     * empty. An environment variable set to the empty string still wins over the file in jcore's
+     * config system, so a {@code ${VAR:-}} here would blank the default rather than fall back to
+     * it - the same trap the updater's two Arcane defaults carry, and the same test.
+     */
+    @Test
+    void thePreGenerationSwitchIsPassedThroughAndDefaultsToTheSpec() throws Exception {
+        final String composed = defaultOf(
+                environmentOf("smp").get("NORDTAL_SMP_PREGENERATION_ON_START"),
+                "smp.NORDTAL_SMP_PREGENERATION_ON_START");
+
+        assertEquals(String.valueOf(Configs.load(directory, LOGGER).get().pregenerationOnStart()),
+                composed,
+                "compose.yml's fallback for pregeneration-on-start is '" + composed + "' while"
+                        + " SmpSpec defaults to something else. An empty environment variable wins"
+                        + " over the file, so this fallback is the effective production value.");
+    }
+
     /** The datapacks have to land in the world Paper actually generates, not beside it. */
     @Test
     void theDatapacksGoIntoThatSameWorld() throws Exception {

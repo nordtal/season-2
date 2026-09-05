@@ -332,7 +332,32 @@ services:
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
-  # The Velocity proxy. The only service that publishes a port.
+  # The resource pack, served off this machine. NOT PART OF PRODUCTION: `devpack` is a profile,
+  # profiles are opt-in, and nothing on the production host selects it - there the pack is fetched
+  # by the client from the GitHub release URL the updater wrote into pack.yml.
+  #
+  # It exists because the pack and the plugins are one change and not two: a glyph code point is
+  # declared in :common's Glyphs, in a font file and in a PNG, and every menu panel in this
+  # repository is a texture the Java arithmetic is derived from. Testing the drawn half of that
+  # against the PREVIOUS release's pack answers nothing at all. `deploy/dev pack` builds the zip
+  # into PACK_ROOT, computes its SHA-1 and writes exactly the two lines into the proxy's pack.yml
+  # that the updater's PackWriter owns - url and sha1 - and no others.
+  #
+  # The Minecraft client runs on the machine that runs Docker in this setup, so the URL the proxy
+  # hands out is a plain http://localhost:${PACK_PORT}/<name>.zip. Minecraft accepts http for a
+  # server pack; the bind stays on loopback because nothing outside this machine needs it.
+  pack-host:
+    profiles: ["devpack"]
+    image: ${PACK_HOST_IMAGE:-nginx:alpine}
+    restart: unless-stopped
+    ports:
+      - "${PACK_BIND:-127.0.0.1}:${PACK_PORT:-8080}:80"
+    volumes:
+      - ${PACK_ROOT:-./deploy/pack}:/usr/share/nginx/html:ro
+    logging: *logging
+
+  # -------------------------------------------------------------------------------------------
+  # The Velocity proxy. The only service that publishes a port to the network.
   network-control:
     <<: *minecraft
     environment:
@@ -399,6 +424,20 @@ services:
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
     volumes:
       - mc-network-control:/data
+      # PLUGINS/ IS A DIRECTORY ON THE HOST, not part of the volume (2026-09-05). Everything else
+      # under /data - the world, the .server/ jar cache, logs/ - stays in the named volume, and
+      # that split is the whole of the decision. Arcane's volume backup is the only thing that
+      # saves a world (../deploy/README.md#the-world-volumes-are-a-different-problem) and a bind
+      # mount is not a volume, so the worlds must not come out. Nothing makes the same claim on
+      # plugins/, and what leaving it inside cost was paid every single time: a `docker compose cp`
+      # in one direction to read plugins/<name>/config.yml, another to put it back, and a third to
+      # drop in a freshly built jar. That is why there was no local development setup at all.
+      #
+      # SERVERS_ROOT is a variable rather than a constant because its default sits inside the
+      # directory Arcane's GitOps sync pulls. If that sync ever removes ignored files, point this
+      # at an absolute path outside the checkout and nothing else changes - see ../todo.md, where
+      # the check and its fallback are written down.
+      - ${SERVERS_ROOT:-./deploy/servers}/network-control/plugins:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The waiting room. Needs the database for one thing only: the player's language.
@@ -434,6 +473,8 @@ services:
       NORDTAL_LIMBO_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-limbo:/data
+      # plugins/ on the host, the rest in the volume - see network-control above.
+      - ${SERVERS_ROOT:-./deploy/servers}/limbo/plugins:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The start event. Runs once, then the phase turns to SMP and this can be stopped.
@@ -464,6 +505,8 @@ services:
       NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-hunger-games:/data
+      # plugins/ on the host, the rest in the volume - see network-control above.
+      - ${SERVERS_ROOT:-./deploy/servers}/hunger-games/plugins:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The SMP - four worlds, and the only service with required third-party plugins.
@@ -517,11 +560,23 @@ services:
       # this variable itself, which replaces pasting it into three config files - it does
       # NOT keep it out of the volume, Paper writes it into paper-global.yml on first load.
       PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
+      # Whether smp starts pre-generating tomorrow's farm world in its onEnable. True is the
+      # production answer; a machine that is also being used for something else wants false,
+      # because Chunky takes every core it is given and the minutes after every start go with it.
+      # What that costs is one postponed reset - see smp's config.yml#pregeneration-on-start.
+      #
+      # The default is REPEATED from SmpSpec rather than left empty, for the reason the updater's
+      # two Arcane defaults are: an environment variable set to the empty string still WINS over
+      # the file in jcore's config system, so `${VAR:-}` here would blank out the spec's own
+      # default rather than fall back to it. smp's ConfigsTest asserts the two copies agree.
+      NORDTAL_SMP_PREGENERATION_ON_START: ${SMP_PREGENERATION_ON_START:-true}
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-smp:/data
+      # plugins/ on the host, the rest in the volume - see network-control above.
+      - ${SERVERS_ROOT:-./deploy/servers}/smp/plugins:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The updater. No profile, because everything else in this stack depends on it.
@@ -646,6 +701,15 @@ services:
       - mc-limbo:/volumes/limbo
       - mc-hunger-games:/volumes/hunger-games
       - mc-smp:/volumes/smp
+      # THE SAME FOUR plugins/ DIRECTORIES THE SERVERS READ, mounted where Topology expects them
+      # beneath volumes-root. Without these four lines this container installs into the named
+      # volume while every server reads the host directory - and nothing anywhere would say so:
+      # `apply` would report success, the jars would be on disk, and no server would be running
+      # a single one of them. TopologyTest holds the two halves together.
+      - ${SERVERS_ROOT:-./deploy/servers}/network-control/plugins:/volumes/network-control/plugins
+      - ${SERVERS_ROOT:-./deploy/servers}/limbo/plugins:/volumes/limbo/plugins
+      - ${SERVERS_ROOT:-./deploy/servers}/hunger-games/plugins:/volumes/hunger-games/plugins
+      - ${SERVERS_ROOT:-./deploy/servers}/smp/plugins:/volumes/smp/plugins
       # The bot's jar and this container's own. Both are the same shape as a plugins folder to the
       # code above them: a directory with one jar in it that gets replaced.
       - bot-jar:/volumes/discord-bot

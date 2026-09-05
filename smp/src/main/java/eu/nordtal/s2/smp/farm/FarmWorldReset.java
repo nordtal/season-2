@@ -95,7 +95,29 @@ public final class FarmWorldReset {
      */
     public void start() {
         swap.cleanRetired();
-        ensureStaging();
+        if (config.pregenerationOnStart()) {
+            ensureStaging();
+        } else {
+            // config.yml#pregeneration-on-start. Chunky takes every core it is given, so on a
+            // machine that is also being used for something else - a laptop running the whole
+            // stack - the minutes after every start are spent at full load. Turning it off costs
+            // one postponed reset and nothing else: performReset() finds no finished world, says
+            // so, and calls ensureStaging() itself. The daily schedule below is untouched, which
+            // is the half that matters - this is a delay, not an opt-out.
+            //
+            // AND CANCELLING IS THE OTHER HALF, without which this setting is a lie on every start
+            // after the first. CHUNKY RESUMES AN INTERRUPTED TASK BY ITSELF: measured on a real
+            // 26.2 server on 2026-09-05, a restart picked the staging world back up at 12% within
+            // a second of the server thread starting, before this method had run at all. So not
+            // starting one is not the same as not having one, and the only way to keep the promise
+            // this setting makes is to stop the one Chunky brought back. Chunky remembers the
+            // progress, so the reset that eventually asks for it does not begin from nothing.
+            pregen.cancel(swap.stagingName());
+            plugin.getLogger().info("pre-generation on start is off (config.yml#"
+                    + "pregeneration-on-start); any pre-generation Chunky resumed for '"
+                    + swap.stagingName() + "' was cancelled, and tomorrow's farm world will be"
+                    + " built from the first reset instead - which postpones that one reset");
+        }
         scheduleNext();
         plugin.getLogger().info("the farm world resets daily at " + schedule
                 + "; warnings at " + config.farmResetWarningMinutes() + " minutes");

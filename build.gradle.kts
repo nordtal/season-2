@@ -50,4 +50,23 @@ val checkEntrypoint = tasks.register<Exec>("checkEntrypoint") {
     }
 }
 
-tasks.named("check") { dependsOn(checkEntrypoint) }
+// The same arrangement for deploy/dev, and for the same reason: `deploy/dev reset` deletes a
+// server's volume, which on smp is a hand-built world that is in no repository and in no release.
+// The guard that stops it is two functions above dev's source guard, and dev-test.sh drives them.
+val devScript = layout.projectDirectory.file("deploy/dev")
+val devTest = layout.projectDirectory.file("deploy/dev-test.sh")
+
+val checkDev = tasks.register<Exec>("checkDev") {
+    group = "verification"
+    description = "Runs deploy/dev-test.sh against deploy/dev's reset guard."
+    commandLine("bash", devTest.asFile.absolutePath)
+    inputs.file(devScript).withPropertyName("dev")
+    inputs.file(devTest).withPropertyName("test")
+    val marker = layout.buildDirectory.file("checkDev/passed")
+    outputs.file(marker).withPropertyName("marker")
+    doLast {
+        marker.get().asFile.apply { parentFile.mkdirs() }.writeText("passed\n")
+    }
+}
+
+tasks.named("check") { dependsOn(checkEntrypoint, checkDev) }

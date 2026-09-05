@@ -4,6 +4,7 @@ import eu.nordtal.s2.updater.config.UpdaterSpec;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.net.URI;
@@ -12,6 +13,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * The restart: one redeploy of the whole compose project, through Arcane's REST API.
@@ -58,6 +63,20 @@ import java.time.Duration;
  * agent at v1.15.3 and closed as not planned. Nothing in this class can detect it: the stream that
  * would say so is one this container is killed part way through reading. The check is the one in
  * todo.md - watch the containers cycle the first time.
+ *
+ * <h2>And the exception says nothing, which is the other half - 2026-09-05</h2>
+ * The second restart anybody asked for failed against {@code http://docker.host.internal:3553}.
+ * The labels are transposed: Docker publishes {@code host.docker.internal}, and {@code compose.yml}
+ * maps exactly that name for this service. What made it expensive was the message and not the
+ * typo - it read
+ * <pre>Could not reach Arcane at http://docker.host.internal:3553/...: java.net.ConnectException</pre>
+ * and stopped there, because the JDK's {@code HttpClient} wraps a DNS failure in a
+ * {@code ConnectException} <b>carrying no message at all</b>; the
+ * {@code UnresolvedAddressException} that says what actually happened is one level down in
+ * {@code getCause()}. "Connection refused" and "that name does not exist" are opposite diagnoses
+ * and both printed as the same eleven characters. So the failure now carries the whole cause
+ * chain, {@link #transposedDockerHost(String)} names this particular slip outright, and both are
+ * string-only for the same reason {@link #loopback(String)} is.
  */
 @Slf4j
 public final class Arcane {
@@ -70,6 +89,12 @@ public final class Arcane {
 
     /** Replaced in {@code redeploy-path} by the configured project id. */
     private static final String PROJECT_PLACEHOLDER = "{project}";
+
+    /** The name compose.yml maps for this service, and the only spelling Docker publishes. */
+    private static final String DOCKER_GATEWAY = "host.docker.internal";
+
+    /** Its three labels as a set, so any order of them can be recognised as the same mistake. */
+    private static final Set<String> DOCKER_GATEWAY_LABELS = Set.of("host", "docker", "internal");
 
     private final UpdaterSpec.ArcaneSpec config;
     private final HttpClient client;
@@ -86,6 +111,11 @@ public final class Arcane {
                     + " own container name if it shares a network with this one, or the host's"
                     + " address on the network.", config.baseUrl(), portOf(config.baseUrl()));
         }
+        transposedDockerHost(config.baseUrl()).ifPresent(suggestion -> log.warn(
+                "arcane.base-url is {}, and that host does not exist. Docker publishes the gateway"
+                        + " as {} - the labels are transposed. Every restart will fail with a"
+                        + " connection error that names DNS only in its cause.",
+                config.baseUrl(), suggestion));
         this.client = HttpClient.newBuilder()
                 // Arcane sits behind the same reverse proxy as everything else here, so a redirect
                 // is plausible; NORMAL follows it and refuses HTTPS to HTTP, which is the one
@@ -166,14 +196,98 @@ public final class Arcane {
             // and taken this container's network with it. Reported as refused rather than
             // triggered, on purpose: the row is then left RUNNING or FAILED, and a person looks -
             // which is the right way round for "the restart may or may not be happening".
-            return RedeployResult.refused("Could not reach Arcane at " + uri + ": " + failure
-                    + (loopback(config.baseUrl())
-                    ? " -- arcane.base-url is a loopback address, and inside this container that is"
-                    + " this container rather than the host Arcane runs on. Use"
-                    + " http://host.docker.internal:" + portOf(config.baseUrl()) + ", Arcane's"
-                    + " container name if it shares a network with this one, or the host's address."
-                    : ""));
+            return RedeployResult.refused(unreachable(uri, failure, config.baseUrl()));
         }
+    }
+
+    /**
+     * The exception and everything under it, innermost last.
+     * <p>
+     * Not decoration. {@code HttpClient} answers a DNS failure with a {@code ConnectException}
+     * carrying no message, so {@code failure.toString()} on its own is the string
+     * {@code "java.net.ConnectException"} and nothing else - the same eleven characters for a
+     * refused connection, a name that does not exist and a route that goes nowhere. The cause is
+     * where the answer is.
+     * </p>
+     */
+    static @NotNull String causeChain(final @NotNull Throwable failure) {
+        final StringBuilder text = new StringBuilder(failure.toString());
+        Throwable cause = failure.getCause();
+        int depth = 0;
+        // Bounded, and self-referencing causes do exist: a loop here would hang the request that
+        // is trying to explain why something else failed.
+        while (cause != null && cause != cause.getCause() && depth++ < 5) {
+            text.append(" <- ").append(cause);
+            cause = cause.getCause();
+        }
+        return text.toString();
+    }
+
+    /**
+     * The whole sentence written into {@code update_request.result} when the call did not connect.
+     * <p>
+     * Static, and taking the base URL rather than reading the field, so that the sentence a person
+     * will read weeks later can be asserted from a test with no network and no Arcane. The two
+     * halves it can add are the two wrong values that have actually been typed into this setting.
+     * </p>
+     */
+    static @NotNull String unreachable(final @NotNull URI uri, final @NotNull Throwable failure,
+                                       final String baseUrl) {
+        final StringBuilder text = new StringBuilder("Could not reach Arcane at ")
+                .append(uri).append(": ").append(causeChain(failure));
+        final String suggestion = transposedDockerHost(baseUrl).orElse(null);
+        if (suggestion != null) {
+            text.append(" -- that host does not exist: Docker publishes the gateway as ")
+                    .append(suggestion)
+                    .append(", and arcane.base-url has the three labels in the wrong order.");
+        } else if (loopback(baseUrl)) {
+            text.append(" -- arcane.base-url is a loopback address, and inside this container that")
+                    .append(" is this container rather than the host Arcane runs on. Use")
+                    .append(" http://host.docker.internal:").append(portOf(baseUrl))
+                    .append(", Arcane's container name if it shares a network with this one, or")
+                    .append(" the host's address.");
+        }
+        return text.toString();
+    }
+
+    /**
+     * The one misspelling worth naming: Docker's three labels in the wrong order.
+     * <p>
+     * {@code docker.host.internal} is what a person types while reaching for
+     * {@code host.docker.internal}, and it is the value the first production restart actually
+     * carried. Nothing in the failure itself tells it apart from a firewall - the name simply does
+     * not resolve - so it is checked on the string, by name, without a network. A host that is
+     * already correct returns empty.
+     * </p>
+     *
+     * @param baseUrl the configured origin, may be blank
+     * @return the host to use instead, if the configured one is a permutation of Docker's own
+     */
+    public static @NotNull Optional<String> transposedDockerHost(final String baseUrl) {
+        final String host = hostOf(baseUrl);
+        if (host == null || host.equals(DOCKER_GATEWAY)) {
+            return Optional.empty();
+        }
+        final List<String> labels = List.of(host.split("\\.", -1));
+        if (labels.size() != DOCKER_GATEWAY_LABELS.size()
+                || !Set.copyOf(labels).equals(DOCKER_GATEWAY_LABELS)) {
+            return Optional.empty();
+        }
+        return Optional.of(DOCKER_GATEWAY);
+    }
+
+    /** The host of a base URL, lower-cased, or {@code null} if there is not one. */
+    private static @Nullable String hostOf(final String baseUrl) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return null;
+        }
+        final String host;
+        try {
+            host = URI.create(baseUrl.trim()).getHost();
+        } catch (final IllegalArgumentException notAUrl) {
+            return null;
+        }
+        return host == null ? null : host.toLowerCase(Locale.ROOT);
     }
 
     /**
@@ -188,19 +302,10 @@ public final class Arcane {
      * @return whether its host is a loopback name or address
      */
     public static boolean loopback(final String baseUrl) {
-        if (baseUrl == null || baseUrl.isBlank()) {
+        final String lower = hostOf(baseUrl);
+        if (lower == null) {
             return false;
         }
-        final String host;
-        try {
-            host = URI.create(baseUrl.trim()).getHost();
-        } catch (final IllegalArgumentException notAUrl) {
-            return false;
-        }
-        if (host == null) {
-            return false;
-        }
-        final String lower = host.toLowerCase(java.util.Locale.ROOT);
         return lower.equals("localhost")
                 || lower.endsWith(".localhost")
                 || lower.equals("::1")

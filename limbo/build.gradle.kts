@@ -10,7 +10,7 @@ repositories {
 dependencies {
     implementation(project(":paper-common"))
     // The same block hunger-games has, and for the same two reasons: eu.nordtal.jcore.config is
-    // this repository's config system, and jcore 3.0.0 happens to export exactly the JDBI 3 /
+    // this repository's config system, and jcore 3.1.0 happens to export exactly the JDBI 3 /
     // HikariCP / PostgreSQL stack :common's AccessDirectory needs to open a connection of its own.
     //
     // WHY A WAITING ROOM HAS A DATABASE AT ALL, since it holds nobody's state: its entire interface

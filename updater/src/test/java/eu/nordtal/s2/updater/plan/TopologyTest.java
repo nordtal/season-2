@@ -142,8 +142,8 @@ class TopologyTest {
                 + " decides what the browser is told and .env cannot move it");
         assertNull(proxyEnvironment.get("NORDTAL_NETWORK_CONTROL_NETWORK_BACKEND_LIMIT"),
                 "the proxy is still given backend-limit. NetworkSpec no longer declares that key,"
-                        + " and jcore stops a load on a key it does not declare - so this is a"
-                        + " proxy that refuses to start.");
+                        + " so the overlay never looks the variable up: it would sit in .env"
+                        + " reading like the second player limit and moving nothing at all.");
 
         assertEquals(String.valueOf(advertised), limits.getFirst(),
                 "the number the browser advertises and the number the backends run on come from"

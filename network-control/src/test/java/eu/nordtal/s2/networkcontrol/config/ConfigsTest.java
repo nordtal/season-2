@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -176,9 +177,10 @@ class ConfigsTest {
     }
 
     /**
-     * Writes a complete, valid {@code gate.yml} with one line replaced. jcore stops the load on a
-     * key the interface does not declare <em>and</em> on a missing one, so every test needs the
-     * whole file rather than the one value it cares about.
+     * Writes a complete, valid {@code gate.yml} with one line replaced. A key jcore does not
+     * recognise is either refused (a misspelling) or deleted (a retirement), and neither is what
+     * these tests are about, so every one of them needs the whole file rather than the one value
+     * it cares about.
      */
     // ------------------------------------------------------------- pack.yml
 
@@ -325,7 +327,7 @@ class ConfigsTest {
     }
 
     @Test
-    void aNetworkConfigStillCarryingBackendLimitStopsTheProxyWithThatKeyNamed() throws Exception {
+    void aNetworkConfigStillCarryingBackendLimitLosesTheLineRatherThanTheProxy() throws Exception {
         // The two tests this replaces asserted that max-players had to stay strictly below
         // backend-limit - a copy, in this file, of what the entrypoint wrote into another
         // container's server.properties. Both numbers are gone as of 2026-09-04: the backends are
@@ -333,9 +335,10 @@ class ConfigsTest {
         // there is no pair left that can cross.
         //
         // What replaces them is this. network.yml lives in a volume, and a deployed one still
-        // carries `backend-limit: 1000` - jcore's strict load is what turns that from a setting
-        // silently doing nothing into a proxy that refuses to start and says which key. The
-        // operator's move is to delete the line; that is written down in deploy/README.md.
+        // carries `backend-limit: 1000`. This test asserted the proxy refused to start and named
+        // the key, with "delete the line" written down in deploy/README.md as the operator's move.
+        // As of jcore 3.1.0 the loader makes that move itself: there was never a second thing an
+        // operator could do about it, and a proxy that will not start is how nobody can join.
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500
                 backend-limit: 1000
@@ -348,11 +351,16 @@ class ConfigsTest {
                   maintenance: 'e'
                 """);
 
-        final ConfigException error = assertThrows(ConfigException.class,
-                () -> Configs.network(directory, LOGGER));
-        assertTrue(error.getMessage().contains("backend-limit"),
-                "the retired key was refused without being named, so nobody can act on it: "
-                        + error.getMessage());
+        final NetworkSpec config = Configs.network(directory, LOGGER).get();
+
+        assertAll(
+                () -> assertEquals(500, config.maxPlayers(),
+                        "the one number there is has to survive the deletion of the retired one"),
+                () -> assertFalse(Files.readString(directory.resolve("network.yml")).contains("backend-limit"),
+                        "the retired key stays in the file, still looking like a setting"),
+                () -> assertTrue(Files.readString(directory.resolve("network.yml.bak")).contains("backend-limit"),
+                        "what was deleted has to be recoverable")
+        );
     }
 
     @Test

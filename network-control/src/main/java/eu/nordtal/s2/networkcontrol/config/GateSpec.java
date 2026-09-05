@@ -18,9 +18,10 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * TTL at all, and the bot's copy is to be deleted rather than wired through: removing a value
  * nobody reads is smaller than building a protocol for a number that never changes.
  * </p><p>
- * Deleting it from {@code AccessSpec} is free only while nothing is deployed - a key the interface
- * does not declare stops the load, so an {@code access.yml} in the wild carrying the retired key
- * would refuse to start. Nothing is deployed today.
+ * Deleting it from {@code AccessSpec} was free only while nothing was deployed, because a key the
+ * interface does not declare used to stop the load. Since jcore 3.1.0 (2026-09-05) it does not: an
+ * {@code access.yml} in the wild carrying the retired key loses the line on the next start, with a
+ * warning and a {@code .bak}. A retirement costs nothing now; a misspelling still stops the load.
  * </p>
  */
 @ConfigSpec(header = {

@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
+import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 
@@ -36,7 +37,8 @@ public final class Catalogue {
                         List.of(PhaseCommands.SHOW, PhaseCommands.SET, PhaseCommands.LAUNCH,
                                 PhaseCommands.SMP_START),
                         SmpCommands.declarations(),
-                        HungerGamesCommands.declarations())
+                        HungerGamesCommands.declarations(),
+                        LimboCommands.declarations())
                 .flatMap(List::stream)
                 .toList();
     }

@@ -57,6 +57,29 @@ class LocaleJoinWiringTest {
         }
     }
 
+    @Test
+    @DisplayName("the SMP's join line waits for the language it is about")
+    void theJoinLineIsNotSentFromAJoinHandler() throws IOException {
+        // The consequence of the rule above, and the one message it costs something. Every other
+        // surface on the SMP is redrawn on a timer and picks the language up by itself; the join
+        // line has exactly one moment, and at that moment the query is still in flight - so the
+        // German player on the local stack was told "hmtill joined." under a German HUD
+        // (finding 116). It is announced from the locale callback instead.
+        final String lines = read("smp/src/main/java/eu/nordtal/s2/smp/chat/SystemLines.java");
+        final int join = lines.indexOf("public void onJoin(");
+        assertTrue(join >= 0, "SystemLines has no onJoin");
+        final String body = lines.substring(join, lines.indexOf("\n    }\n", join));
+        assertFalse(body.contains("broadcast("),
+                "SystemLines#onJoin broadcasts the join line at join, which is one moment before"
+                        + " the joining player's language is known");
+        assertTrue(lines.contains("public void announceJoin("),
+                "SystemLines has no announceJoin for the callback to call");
+        assertTrue(read("smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java")
+                        .contains("lines.announceJoin("),
+                "nothing calls announceJoin, so the join line is never printed at all - which is"
+                        + " what makes this worth a test rather than a comment");
+    }
+
     private static String read(final String relative) throws IOException {
         final Path path = repositoryRoot().resolve(relative);
         assertTrue(Files.isRegularFile(path), relative + " no longer exists - if a module was renamed"

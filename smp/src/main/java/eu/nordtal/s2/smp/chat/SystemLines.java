@@ -65,11 +65,31 @@ public final class SystemLines implements Listener {
         this.locales = locales;
     }
 
+    /**
+     * Suppresses the vanilla line. <b>The replacement is not sent from here</b>, see
+     * {@link #announceJoin(Player)}.
+     */
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
         event.joinMessage(null);
-        final Component who = composition(event.getPlayer());
-        broadcast("smp.system.join", Glyphs.ICON_JOIN, Map.of("_player", who), viewer -> true);
+    }
+
+    /**
+     * The join line, once the joining player's language is known.
+     *
+     * <p>Called by {@code PresenceListener} from the callback that loads it, and not from a join
+     * handler, because a join handler is exactly one moment too early: the language is a database
+     * read taken off the main thread (finding 96), so a line broadcast at join renders in English
+     * for the very player it is about. Everything else on the SMP - the HUD, the boards, the tab
+     * list - is redrawn on a timer and picks the language up by itself; this is the one message
+     * with a single moment, and on the local stack it was the one German player being told
+     * <i>hmtill joined.</i> under a German HUD (finding 116).</p>
+     *
+     * @param player the player who has just arrived, and whose locale has just landed
+     */
+    public void announceJoin(final Player player) {
+        broadcast("smp.system.join", Glyphs.ICON_JOIN, Map.of("_player", composition(player)),
+                viewer -> true);
     }
 
     /**

@@ -57,6 +57,25 @@ class DuelStartIsDeferredTest {
                         + " already forgotten when GraveListener asks about it at HIGH");
     }
 
+    @Test
+    @DisplayName("a dead fighter's own inventory waits for the respawn")
+    void theLosersStateWaitsForTheRespawn() throws IOException {
+        // The worst of the four, and the one the rehearsal was told to watch for: the loser of a
+        // duel is DEAD when the duel is settled, and an inventory written onto a dead player is
+        // thrown away by the respawn, which hands back whatever they died holding - the arena's
+        // loadout. So the loser walked off with a free iron sword and a shield and their own
+        // inventory was gone. Thirteen emeralds, in the run that found it. Finding 122.
+        final String duels = read("smp/src/main/java/eu/nordtal/s2/smp/duel/Duels.java");
+        assertTrue(duels.contains("if (player.isDead()) {"),
+                "Duels#restore writes onto a dead player, and the respawn throws it away");
+        assertTrue(duels.contains("public void respawned("),
+                "nothing hands the state back on the other side of the respawn screen");
+        assertTrue(read("smp/src/main/java/eu/nordtal/s2/smp/duel/DuelListener.java")
+                        .contains("duels.respawned(event)"),
+                "DuelListener does not listen for the respawn, so the state waits for ever and the"
+                        + " loser keeps the loadout - which is worse than not saving it at all");
+    }
+
     private static String read(final String relative) throws IOException {
         Path candidate = Path.of("").toAbsolutePath();
         while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {

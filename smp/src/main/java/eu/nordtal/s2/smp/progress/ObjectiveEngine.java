@@ -267,7 +267,8 @@ public final class ObjectiveEngine {
                 // crawling outwards is the ceremony.
                 worlds.expandNordtal(milestone.borderDiameter(), true);
             }
-            announceMilestone(milestoneKey, completedBy);
+            announceMilestone(milestoneKey, completedBy,
+                    milestone == null ? Unlock.NOTHING : milestone.unlock());
         });
     }
 
@@ -313,10 +314,20 @@ public final class ObjectiveEngine {
      * season and the whole ceremony is one tick's work per online player, so a sequencer would be
      * machinery in the path of the single moment it exists to protect.
      */
-    private void announceMilestone(final String milestoneKey, final UUID completedBy) {
+    private void announceMilestone(final String milestoneKey, final UUID completedBy,
+                                   final Unlock unlock) {
         // Discord first, and off this thread: one row per language, rendered from the same
         // bundle the chat line uses, with the name in that language (finding 52, 2026-09-06).
-        announcer.announce("smp.announce.milestone", locale -> Map.of("milestone",
+        // The sentence follows the unlock rather than assuming one: the announcement said "the
+        // border grows" for every milestone, so a Nether or End one posted a growth that did not
+        // happen, into the one place nobody can check it against the world (finding 111).
+        final String announcement = switch (unlock) {
+            case BORDER -> "smp.announce.milestone.border";
+            case NETHER -> "smp.announce.milestone.nether";
+            case END -> "smp.announce.milestone.end";
+            case NOTHING -> "smp.announce.milestone";
+        };
+        announcer.announce(announcement, locale -> Map.of("milestone",
                 nameOf("smp.milestone." + milestoneKey, milestoneKey, locale)));
         final MessageRenderer renderer = MessageRenderer.of(messages);
         for (final Player player : Bukkit.getOnlinePlayers()) {

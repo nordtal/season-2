@@ -429,8 +429,19 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // thread by the caller and travels in the Decision. See Ceremony.Decision.
         ceremony.run(world, lobbyLocation, state.gameId(), decision);
         state.clear();
+        decidedGameId = currentGameId;
         currentGameId = null;
     }
+
+    /**
+     * The last game this server decided, so a command lookup cannot put it back.
+     *
+     * <p>{@link #currentGameIdNow()} runs off the main thread while this runs on it. A query that
+     * started before the decision landed still answers with that game - and writing it back into
+     * the cache the lobby broadcasts from would restart the countdown for a game that has just
+     * finished (finding 108).</p>
+     */
+    private volatile UUID decidedGameId;
 
     private void refreshCurrentGame() {
         currentGameId = dao.currentGame().map(game -> game.id()).orElse(null);
@@ -449,8 +460,19 @@ public final class HungerGamesPlugin extends JavaPlugin {
      * </p>
      */
     private UUID currentGameIdNow() {
-        refreshCurrentGame();
-        return currentGameId;
+        final UUID found = dao.currentGame().map(game -> game.id())
+                .filter(id -> !id.equals(decidedGameId))
+                .orElse(null);
+        // The answer is the local value, never the field: onGameDecided clears the field on the
+        // main thread, so a decision landing between the query and the return made this method
+        // answer "there is no game" although its own query had just found one (finding 108). The
+        // cache is still refreshed on the way past, because this is the only thing that refreshes
+        // it after enable - a registration opened in Discord while the lobby is up reaches the
+        // broadcast through here - and never with a game that has already been decided.
+        if (found != null) {
+            currentGameId = found;
+        }
+        return found;
     }
 
     private World resolveWorld(final HungerGamesSpec config) {

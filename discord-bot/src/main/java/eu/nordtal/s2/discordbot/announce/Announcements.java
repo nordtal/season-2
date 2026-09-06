@@ -8,7 +8,10 @@ import org.slf4j.Logger;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * The bot's end of {@code announce <language> <text>}: post the line into that language's
@@ -59,11 +62,33 @@ public final class Announcements implements AnnounceEffects {
                     + " it would have carried \"{}\"", channelId, languageTag, text);
             return false;
         }
-        channel.sendMessage(text).queue(
-                sent -> log.debug("Announced in '{}': {}", languageTag, text),
-                failure -> log.warn("Could not announce in '{}': {}", languageTag, failure.toString()));
-        return true;
+        // Waited for, not queued. The answer this returns is what the asking server writes into its
+        // command_request row and what an admin reads back in Discord or in chat, so "posted" has
+        // to mean Discord took it - queue() returns before the request is even sent, and its
+        // failure callback runs long after the row has been settled as a success (finding 109).
+        // Every caller is a worker: the command inbox runs its effects inline on the request
+        // thread, and postAll comes from the bot's own once-a-minute timer. Neither is a gateway
+        // thread, which is the one place this would be wrong.
+        try {
+            channel.sendMessage(text).submit().get(POST_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+            log.debug("Announced in '{}': {}", languageTag, text);
+            return true;
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while announcing in '{}'", languageTag);
+            return false;
+        } catch (final ExecutionException | TimeoutException failure) {
+            // A timeout is reported as a failure even though JDA may still deliver the message
+            // afterwards: an announcement that arrives late and was reported as failed is a puzzle,
+            // one that never arrives and was reported as posted is a silence nobody investigates.
+            log.warn("Could not announce in '{}': {} - it would have carried \"{}\"",
+                    languageTag, failure.toString(), text);
+            return false;
+        }
     }
+
+    /** How long Discord gets to accept an announcement before it counts as not posted. */
+    private static final java.time.Duration POST_TIMEOUT = java.time.Duration.ofSeconds(15);
 
     /**
      * Posts one line per language that has a channel - for a moment the bot noticed itself.

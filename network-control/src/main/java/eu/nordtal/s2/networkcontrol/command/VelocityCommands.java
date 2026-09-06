@@ -323,8 +323,12 @@ public final class VelocityCommands {
     private int help(final CommandContext<CommandSource> context, final Node node) {
         // A root with a declared default runs it instead of listing itself: /phase is /phase show
         // (Catalogue#rootDefault) - the emergency command answers with the phase, not with syntax.
-        // The child's own run applies the admin check, so nothing is skipped by taking this path.
-        final java.util.Optional<Declaration> preset = eu.nordtal.s2.commands.Catalogue.rootDefault(node.literal);
+        // The admin flag goes with it, because this path goes around the child node's requires -
+        // which is the whole admin gate. A comment here claimed the child's own run applied the
+        // check; run() has never applied one, so any player's bare /phase printed the phase and
+        // both season dates (finding 102).
+        final java.util.Optional<Declaration> preset = eu.nordtal.s2.commands.Catalogue
+                .rootDefault(node.literal, mayUse(context.getSource()));
         if (preset.isPresent()) {
             final Node child = node.children.get(preset.get().path().get(1));
             if (child != null && child.command != null

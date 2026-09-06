@@ -110,6 +110,31 @@ public final class DuelListener implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> duels.decide(player));
     }
 
+    /**
+     * The blow that would have killed a fighter ends the duel instead.
+     *
+     * <p>Decided by the owner on 2026-09-06: a duel ends with both fighters at the spawn and a
+     * title saying who won - <b>no death screen</b>. A sparring match that costs nothing should not
+     * put somebody through the same red screen as a real death, and cancelling the lethal blow is
+     * the only way to avoid it: there is no way to skip the screen once the death has happened.</p>
+     *
+     * <p>{@code HIGHEST} and {@code ignoreCancelled}, so anything that would have stopped the
+     * damage anyway still does. The wind-down runs on the next tick for the same reason the rest of
+     * this class does (finding 119) - and the death path below stays, because {@code /kill}, the
+     * void and a plugin calling {@code setHealth(0)} fire no damage event at all.</p>
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onDamage(final org.bukkit.event.entity.EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof final Player player) || !duels.isInArena(player)) {
+            return;
+        }
+        if (event.getFinalDamage() < player.getHealth()) {
+            return;
+        }
+        event.setCancelled(true);
+        Bukkit.getScheduler().runTask(plugin, () -> duels.decide(player));
+    }
+
     /** The other half of a duel death: see {@link Duels#respawned}. */
     @EventHandler
     public void onRespawn(final org.bukkit.event.player.PlayerRespawnEvent event) {

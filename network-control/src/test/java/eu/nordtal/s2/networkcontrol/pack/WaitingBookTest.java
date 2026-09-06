@@ -38,6 +38,8 @@ class WaitingBookTest {
     private static final Duration APPLY_TIMEOUT = Duration.ofSeconds(180);
     private static final Duration READY_GRACE = Duration.ofSeconds(5);
     private static final SeasonPhase PLAYABLE = SeasonPhase.PRE_EVENT;
+    /** The backend the phase points at; a retry window belongs to one of these and not to a player. */
+    private static final String DESTINATION = "hunger-games";
 
     private final MutableClock clock = new MutableClock(Instant.parse("2026-09-03T00:09:58Z"));
     private final UUID player = UUID.randomUUID();
@@ -47,7 +49,7 @@ class WaitingBookTest {
     }
 
     private Action decide(final WaitingBook book) {
-        return book.decide(player, PLAYABLE, false, true).action();
+        return book.decide(player, PLAYABLE, false, true, DESTINATION).action();
     }
 
     // ------------------------------------------------------------------ finding 38
@@ -169,7 +171,7 @@ class WaitingBookTest {
 
         clock.advance(Duration.ofSeconds(4));
         // The phase's backend goes away: the wait is no longer down to READY alone.
-        assertEquals(Action.SHOW, book.decide(player, PLAYABLE, false, false).action());
+        assertEquals(Action.SHOW, book.decide(player, PLAYABLE, false, false, DESTINATION).action());
         clock.advance(Duration.ofSeconds(4));
 
         // Back up. Eight seconds have passed in total, which is more than the grace - but the wait
@@ -217,7 +219,7 @@ class WaitingBookTest {
         book.entered(player);
         book.claimOffer(player);
 
-        assertEquals(WaitingDecision.show(WaitReason.PACK), book.decide(player, PLAYABLE, false, true),
+        assertEquals(WaitingDecision.show(WaitReason.PACK), book.decide(player, PLAYABLE, false, true, DESTINATION),
                 "the first look has to tell limbo what to draw");
         assertEquals(Action.IDLE, decide(book),
                 "the sweep runs every few seconds; re-sending would re-issue the title on a loop");
@@ -233,7 +235,7 @@ class WaitingBookTest {
 
         book.packApplied(player);
         assertEquals(WaitingDecision.show(WaitReason.MAINTENANCE),
-                book.decide(player, SeasonPhase.MAINTENANCE, false, true));
+                book.decide(player, SeasonPhase.MAINTENANCE, false, true, DESTINATION));
     }
 
     @Test
@@ -286,7 +288,7 @@ class WaitingBookTest {
         applied.packApplied(player);
         applied.ready(player);
         second.advance(APPLY_TIMEOUT.multipliedBy(10));
-        assertEquals(Action.RELEASE, applied.decide(player, PLAYABLE, false, true).action(),
+        assertEquals(Action.RELEASE, applied.decide(player, PLAYABLE, false, true, DESTINATION).action(),
                 "the clock only runs against a client that never answered at all");
     }
 
@@ -304,9 +306,9 @@ class WaitingBookTest {
         book.ready(player);
 
         assertEquals(WaitingDecision.show(WaitReason.BACKEND),
-                book.decide(player, SeasonPhase.MAINTENANCE, true, false),
+                book.decide(player, SeasonPhase.MAINTENANCE, true, false, DESTINATION),
                 "the SMP is not registered: the admin waits for it, and is told that");
-        assertEquals(Action.RELEASE, book.decide(player, SeasonPhase.MAINTENANCE, true, true).action(),
+        assertEquals(Action.RELEASE, book.decide(player, SeasonPhase.MAINTENANCE, true, true, DESTINATION).action(),
                 "the SMP is there: nothing is left to wait for");
     }
 
@@ -320,7 +322,7 @@ class WaitingBookTest {
         book.ready(player);
 
         assertEquals(WaitingDecision.show(WaitReason.MAINTENANCE),
-                book.decide(player, SeasonPhase.MAINTENANCE, false, true));
+                book.decide(player, SeasonPhase.MAINTENANCE, false, true, DESTINATION));
     }
 
     @Test
@@ -337,14 +339,36 @@ class WaitingBookTest {
         book.ready(player);
         assertEquals(Action.RELEASE, decide(book));
 
-        book.releaseFailed(player);
-        assertEquals(WaitingDecision.show(WaitReason.BACKEND), book.decide(player, PLAYABLE, false, true),
+        book.releaseFailed(player, DESTINATION);
+        assertEquals(WaitingDecision.show(WaitReason.BACKEND), book.decide(player, PLAYABLE, false, true, DESTINATION),
                 "back on the books, and told what they are waiting for");
         clock.advance(WaitingBook.RELEASE_RETRY.dividedBy(2));
         assertEquals(Action.IDLE, decide(book), "not retried before the window has passed");
         clock.advance(WaitingBook.RELEASE_RETRY);
         assertEquals(Action.RELEASE, decide(book), "and tried again once it has");
         assertEquals(Action.IDLE, decide(book), "a release still ends the visit, so it is not sent twice");
+    }
+
+    @Test
+    @DisplayName("a phase change inside the retry window releases to the new backend at once")
+    void aRetryWindowBelongsToTheBackendThatRefused() {
+        // The window says "this server did not take them", not "this player waits". A phase switch
+        // points at a different backend, and PlayerRouter#rerouteOne re-evaluates every held player
+        // on one - so an unscoped window kept them staring at the BACKEND screen for up to ten
+        // seconds for a server that had never refused anything (finding 107).
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        book.packApplied(player);
+        book.ready(player);
+        assertEquals(Action.RELEASE, decide(book));
+
+        book.releaseFailed(player, DESTINATION);
+        assertEquals(WaitingDecision.show(WaitReason.BACKEND), book.decide(player, PLAYABLE, false, true, DESTINATION),
+                "the backend that refused is still refused");
+        assertEquals(Action.RELEASE,
+                book.decide(player, SeasonPhase.SMP, false, true, "smp").action(),
+                "another backend is not held for a failure that was not its own");
     }
 
     // ------------------------------------------------------------------ housekeeping

@@ -71,6 +71,8 @@ public final class WaitingBook {
         private boolean waiting;
         /** Set by {@link #releaseFailed}: the destination is registered but did not take them. */
         private Instant backendDownUntil;
+        /** Which destination that was - the window applies to it and to no other. */
+        private String backendDown;
         /** Whether {@link #entered} has ever been called - what makes a READY "early". */
         private boolean visited;
 
@@ -218,9 +220,14 @@ public final class WaitingBook {
      * {@link #RELEASE_RETRY}, for as long as they care to wait.
      * </p>
      *
-     * @param uuid the player, still standing on limbo
+     * @param uuid        the player, still standing on limbo
+     * @param destination the backend that did not take them. The window is recorded against it and
+     *                    applies to nothing else: a phase switched during those ten seconds points
+     *                    at a different server, and holding a player away from a backend that never
+     *                    refused anything is the failure this argument exists to prevent
+     *                    (finding 107)
      */
-    public void releaseFailed(final UUID uuid) {
+    public void releaseFailed(final UUID uuid, final String destination) {
         final Session session = sessions.get(uuid);
         if (session == null) {
             return;
@@ -228,6 +235,7 @@ public final class WaitingBook {
         synchronized (session) {
             session.waiting = true;
             session.settledAt = null;
+            session.backendDown = destination;
             session.backendDownUntil = clock.instant().plus(RELEASE_RETRY);
         }
     }
@@ -273,12 +281,14 @@ public final class WaitingBook {
      * @param admin                whether the player carries {@code discord_user.admin} - maintenance
      *                             does not hold an admin, see {@link LimboHold}
      * @param destinationAvailable whether the backend that phase points at is registered
+     * @param destination          its name, so a retry window set for one backend is not applied to
+     *                             another one the phase has since moved to
      * @return what to do. A {@code RELEASE}, {@code RELEASE_UNCONFIRMED} or {@code TIMED_OUT} also
      *         ends the visit, so a second concurrent caller gets {@code IDLE} and the player is not
      *         connected onward twice
      */
     public WaitingDecision decide(final UUID uuid, final SeasonPhase phase, final boolean admin,
-                                  final boolean destinationAvailable) {
+                                  final boolean destinationAvailable, final String destination) {
         Objects.requireNonNull(phase, "phase");
         final Session session = sessions.get(uuid);
         if (session == null) {
@@ -298,9 +308,14 @@ public final class WaitingBook {
 
             // A destination that refused the last connection counts as unavailable until the retry
             // window has passed - registered is not the same as up, and only a failed attempt can
-            // tell the two apart.
-            final boolean available = destinationAvailable && (session.backendDownUntil == null
-                    || !clock.instant().isBefore(session.backendDownUntil));
+            // tell the two apart. Only that destination, though: a phase change inside those ten
+            // seconds points somewhere else, and PlayerRouter#rerouteOne re-evaluates every held
+            // player on one, so an unscoped window kept them on the BACKEND screen for a server
+            // that had never refused them (finding 107).
+            final boolean stillDown = session.backendDownUntil != null
+                    && java.util.Objects.equals(session.backendDown, destination)
+                    && clock.instant().isBefore(session.backendDownUntil);
+            final boolean available = destinationAvailable && !stillDown;
             final Optional<WaitReason> reason =
                     LimboHold.reason(packSettled, phase, admin, available);
             if (reason.isPresent()) {

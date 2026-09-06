@@ -227,8 +227,14 @@ public final class Applier {
             final Path destination = directoryFor(volume, change.artifact()).resolve(wanted.fileName());
             try {
                 Files.createDirectories(destination.getParent());
+                // ATOMIC_MOVE, and a failure if the filesystem cannot do one. Without it a move
+                // across a device boundary silently degrades to copy-and-delete, which is exactly
+                // the half-written jar in plugins/ this class exists to prevent - and it would
+                // degrade in silence, on a machine nobody is looking at (finding 110). The staging
+                // directory sits inside the destination directory precisely so this can be asked
+                // for; an AtomicMoveNotSupportedException here means that stopped being true.
                 Files.move(staged.get(change.artifact()), destination,
-                        StandardCopyOption.REPLACE_EXISTING);
+                        StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
                 final List<String> removed = removeSuperseded(destination.getParent(), wanted.fileName());
                 outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.DONE,
                         describe(change, wanted, removed)));

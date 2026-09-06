@@ -337,6 +337,9 @@ public final class SmpPlugin extends JavaPlugin {
         // drawn several times a second, which is the whole argument for reading them here and not
         // there.
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::refreshSurfaceData, 100L, 100L);
+        // The one main-thread read of the player collection, for /smp status - see the field.
+        Bukkit.getScheduler().runTaskTimer(this, () -> online = Bukkit.getOnlinePlayers().size(),
+                20L, 20L);
 
         final Boxes regions = ConfigBoxes.spawnRegions(config);
 
@@ -653,9 +656,14 @@ public final class SmpPlugin extends JavaPlugin {
                 // comment there gives - the three fail independently, and a milestones.yml somebody
                 // is still fixing must not hold back a corrected message.
             } else {
+                // The rows first, the track second, deliberately. ensureRows writes one row per
+                // milestone and one per objective; if it throws halfway, the catch below reports
+                // that the running track is unchanged - which was a lie while the assignment came
+                // first, because every command was already reading a definition whose objective
+                // rows were missing or half written (finding 103).
+                ensureRows(candidate);
                 trackProblems = List.of();
                 track = candidate;
-                ensureRows(candidate);
                 Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
                 getLogger().info("the milestone track was reloaded: " + track.size()
                         + " milestones");
@@ -717,8 +725,18 @@ public final class SmpPlugin extends JavaPlugin {
                 : java.util.Optional.of(messages.hasTranslation(locale, "smp.milestone." + active.key())
                         ? messages.get(locale, "smp.milestone." + active.key()) : active.key());
         return new SmpEffects.Status(phase, milestone, (int) Math.round(active.progress() * 100),
-                Bukkit.getOnlinePlayers().size());
+                online);
     }
+
+    /**
+     * How many people are on this server, sampled on the main thread once a second.
+     *
+     * <p>{@code status()} runs on the effects' executor - an async task for the chat surface, the
+     * request thread for the inbox - and Paper's player collection is documented as unsafe to touch
+     * from anywhere but the server thread. A number that is at most a second old is what a status
+     * line needs; reaching across for a live one is what it does not (finding 104).</p>
+     */
+    private volatile int online;
 
     /**
      * The database rows the file's definition needs: one per milestone and one per objective.

@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.farm.LandingSite;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.Unlock;
 import eu.nordtal.s2.smp.state.SeasonState;
@@ -17,10 +18,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityPortalEnterEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.plugin.Plugin;
 
 /**
  * The three portal rules from docs/smp.md#travel, each of them deliberate.
@@ -45,14 +48,22 @@ import org.bukkit.inventory.EquipmentSlot;
  */
 public final class PortalGate implements Listener {
 
+    /** How long a player stands in a portal before it takes them - vanilla's own four seconds. */
+    private static final long PORTAL_TICKS = 80L;
+
+    /** Players the farm world's exit is already counting down for, so it counts once. */
+    private final java.util.Set<java.util.UUID> leaving = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    private final Plugin plugin;
     private final Worlds worlds;
     private final SeasonState season;
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSounds sounds;
 
-    public PortalGate(final Worlds worlds, final SeasonState season, final Messages messages,
-                      final PlayerLocales locales, final SmpSounds sounds) {
+    public PortalGate(final Plugin plugin, final Worlds worlds, final SeasonState season,
+                      final Messages messages, final PlayerLocales locales, final SmpSounds sounds) {
+        this.plugin = plugin;
         this.worlds = worlds;
         this.season = season;
         this.messages = messages;
@@ -75,10 +86,36 @@ public final class PortalGate implements Listener {
         }
 
         event.setCancelled(true);
+        putOutTheFire(event);
         if (event.getEntity() instanceof Player player) {
             player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), "smp.portal.nether-locked"));
             sounds.play(player, Feedback.REFUSED);
         }
+    }
+
+    /**
+     * Clears the fire the refused ignition left standing.
+     *
+     * <p>Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and steel
+     * has already placed a fire block by the time this event is raised, and vanilla leaves it there
+     * because to vanilla the frame was simply invalid. Here the frame is valid and the <em>server</em>
+     * said no - so leaving the fire burning charges the player for an action that was refused. Seen
+     * on the local SMP on 2026-09-06 by lighting a frame from the inside: the message arrived, the
+     * portal did not, and the player stood in the flames losing hearts (finding 130). A death there
+     * would also have cost five aura.
+     *
+     * <p>Next tick, because the block is placed by the same call stack this event is raised from and
+     * setting it to air here is undone. The blocks are the ones that would have become portal, which
+     * is exactly the column the fire is in whichever face was clicked.
+     */
+    private void putOutTheFire(final PortalCreateEvent event) {
+        final World world = event.getWorld();
+        final java.util.List<org.bukkit.block.BlockState> blocks =
+                java.util.List.copyOf(event.getBlocks());
+        org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> blocks.stream()
+                .map(state -> world.getBlockAt(state.getX(), state.getY(), state.getZ()))
+                .filter(block -> block.getType() == Material.FIRE)
+                .forEach(block -> block.setType(Material.AIR, false)));
     }
 
     /** An End portal frame never takes an eye. */
@@ -98,6 +135,67 @@ public final class PortalGate implements Listener {
         sounds.play(event.getPlayer(), Feedback.REFUSED);
     }
 
+    /**
+     * Carries a player out of the farm world, because nothing else will.
+     *
+     * <p><b>The farm world is a custom dimension.</b> Vanilla's portal travel links
+     * {@code minecraft:overworld} to {@code minecraft:the_nether} and nothing else, so a lit portal
+     * in {@code minecraft:farm} has no destination the server will even look for - it never
+     * attempts a transfer and never raises {@code PlayerPortalEvent}. Measured on the local SMP,
+     * 2026-09-06: a frame in the farm world lights (correctly - the milestone gate does not apply
+     * there), the portal block forms, the screen goes purple, and the player stands in it for as
+     * long as they like. The same frame in Nordtal moved them to the Nether and back in seconds.
+     * docs/smp.md says every portal in the farm world leads to the Nordtal spawn; until this method
+     * existed, none of them led anywhere (finding 131).
+     *
+     * <p>{@code EntityPortalEnterEvent} is the hook that does arrive, because it is raised from the
+     * block the entity is standing in rather than from the travel logic. It fires every tick, hence
+     * {@link #leaving}: the countdown is armed once and the delayed task is what re-checks. Four
+     * seconds is vanilla's own dwell time, so the portal behaves the way a player already expects.
+     *
+     * <p>The arrival goes through {@link LandingSite#safeAt} for the same reason the duel's does:
+     * a world's spawn location is a coordinate, not a promise.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onEnterPortal(final EntityPortalEnterEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+        if (event.getPortalType() != org.bukkit.PortalType.NETHER) {
+            return;
+        }
+        if (worlds.roleOf(player.getWorld()).orElse(null) != WorldRole.FARM) {
+            return;
+        }
+        if (!leaving.add(player.getUniqueId())) {
+            return;
+        }
+        final java.util.UUID id = player.getUniqueId();
+        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            leaving.remove(id);
+            takeTheFarmWorldExit(org.bukkit.Bukkit.getPlayer(id));
+        }, PORTAL_TICKS);
+    }
+
+    private void takeTheFarmWorldExit(final Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        if (worlds.roleOf(player.getWorld()).orElse(null) != WorldRole.FARM) {
+            return;
+        }
+        if (player.getLocation().getBlock().getType() != Material.NETHER_PORTAL) {
+            // They stepped out during the four seconds, which is the whole point of the four
+            // seconds.
+            return;
+        }
+        final World nordtal = worlds.world(WorldRole.NORDTAL).orElse(null);
+        if (nordtal == null) {
+            return;
+        }
+        player.teleport(LandingSite.safeAt(nordtal, nordtal.getSpawnLocation()));
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onPortal(final PlayerPortalEvent event) {
         final WorldRole from = worlds.roleOf(event.getFrom().getWorld()).orElse(null);
@@ -106,7 +204,11 @@ public final class PortalGate implements Listener {
         }
 
         if (from == WorldRole.FARM) {
-            // One way out, to one place, and no linked nether of its own is ever created.
+            // Belt and braces, and on Paper 26.2 it is only that: this event never arrives for a
+            // portal in the farm world, because the farm world is a custom dimension and vanilla
+            // links only overworld to nether. See takeTheFarmWorldExit, which is what actually
+            // carries a player out (finding 131). Kept because a future Paper that did fire it
+            // must not send anybody to a nether that does not exist.
             final World nordtal = worlds.world(WorldRole.NORDTAL).orElse(null);
             if (nordtal == null) {
                 event.setCancelled(true);

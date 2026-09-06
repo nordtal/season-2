@@ -435,6 +435,22 @@ public interface SmpDao {
     Optional<UUID> markGraveLooted(@Bind("id") UUID id, @Bind("lootedBy") String lootedBy);
 
     /**
+     * Writes back what is left in a grave somebody only half emptied.
+     *
+     * <p><b>Without this a restart hands the contents out again.</b> A partial loot used to live in
+     * the plugin's own map and nowhere else, so the enable-time restore read the row's original
+     * {@code contents} and refilled the grave - while the items already taken sat in the looter's
+     * inventory. Measured on the local SMP, 2026-09-06: a grave emptied of seventeen emeralds and
+     * three golden apples came back holding seventeen emeralds and three golden apples after a
+     * restart, and the player still had theirs (finding 133).
+     *
+     * <p>{@code looted IS NULL} for the same reason {@link #markGraveLooted} carries it: a grave
+     * that somebody else finished a moment ago must not be refilled by a late close.
+     */
+    @SqlUpdate("UPDATE smp_grave SET contents = :contents WHERE id = :id AND looted IS NULL")
+    int updateGraveContents(@Bind("id") UUID id, @Bind("contents") byte[] contents);
+
+    /**
      * Drops every grave in a world.
      *
      * <p>The farm world at its daily reset. That everything there is destroyed, graves included, is

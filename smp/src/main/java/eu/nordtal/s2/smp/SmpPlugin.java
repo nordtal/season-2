@@ -360,11 +360,11 @@ public final class SmpPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(
                 new JoinGate(identities, admission, messages, logger()), this);
+        final SystemLines systemLines = new SystemLines(identities, composition, messages, locales);
         getServer().getPluginManager().registerEvents(
                 new PresenceListener(this, identities, surfaces, composition, config,
-                        messages, locales, operators), this);
-        getServer().getPluginManager().registerEvents(
-                new SystemLines(identities, composition, messages, locales), this);
+                        messages, locales, operators, systemLines), this);
+        getServer().getPluginManager().registerEvents(systemLines, this);
         getServer().getPluginManager().registerEvents(
                 new NavigateListener(this, dao, navigation, identities, locales, sounds), this);
 

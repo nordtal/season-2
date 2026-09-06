@@ -90,6 +90,23 @@ public final class Arcane {
     /** Replaced in {@code redeploy-path} by the configured project id. */
     private static final String PROJECT_PLACEHOLDER = "{project}";
 
+    /**
+     * Whether an API key would travel in the clear.
+     *
+     * <p>String-only and static, like {@link #loopback} and {@link #transposedDockerHost} beside
+     * it: this is a property of the value an operator typed, and no request from anywhere
+     * reproduces it. A URL with no key is not this - an unauthenticated Arcane is refused by Arcane
+     * itself, loudly - and a blank base URL is the supported unconfigured state.</p>
+     *
+     * @param baseUrl the configured origin
+     * @param apiKey  the configured key
+     * @return whether the two together put a credential on an unencrypted connection
+     */
+    static boolean cleartextWithKey(final String baseUrl, final String apiKey) {
+        return baseUrl != null && apiKey != null && !apiKey.isBlank()
+                && baseUrl.stripLeading().toLowerCase(java.util.Locale.ROOT).startsWith("http://");
+    }
+
     /** The name compose.yml maps for this service, and the only spelling Docker publishes. */
     private static final String DOCKER_GATEWAY = "host.docker.internal";
 
@@ -110,6 +127,18 @@ public final class Arcane {
                     + " Use http://host.docker.internal:{} (the updater service maps it), Arcane's"
                     + " own container name if it shares a network with this one, or the host's"
                     + " address on the network.", config.baseUrl(), portOf(config.baseUrl()));
+        }
+        if (configured() && cleartextWithKey(config.baseUrl(), config.apiKey())) {
+            // Warned rather than refused, for the reason the loopback check above gives, and
+            // because the one place this is defensible is the local stack: container to host over
+            // Docker's own bridge, where http://host.docker.internal is the documented value and
+            // there is no network to listen on. Anywhere the request leaves the machine, the header
+            // below is a redeploy credential in the clear (finding 114).
+            log.warn("arcane.base-url is {} - plain HTTP - and an API key is configured. The"
+                    + " {} header travels unencrypted, so anything that can see the connection can"
+                    + " redeploy every project in that Arcane. That is only acceptable while Arcane"
+                    + " is on this same host; in production use an https:// origin.",
+                    config.baseUrl(), API_KEY_HEADER);
         }
         transposedDockerHost(config.baseUrl()).ifPresent(suggestion -> log.warn(
                 "arcane.base-url is {}, and that host does not exist. Docker publishes the gateway"

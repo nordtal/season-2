@@ -552,6 +552,14 @@ So: run Arcane as its own compose project on this machine, point it at this proj
 container is the updater container. Both wrong values are now named by the updater at startup and
 again in the sentence written into `update_request.result`.
 
+`http://` is right *here* and wrong in production: the API key travels as a header on every
+redeploy, so on plain HTTP anything that can see the connection gets a key that redeploys every
+project in that Arcane. Locally the request goes from a container to this same host over Docker's
+own bridge and leaves no machine; in production `ARCANE_URL` is an `https://` origin. The updater
+warns at startup when it sees a key on an `http://` URL rather than refusing to start, for the
+reason the loopback warning next to it gives - it is the only process that migrates, and refusing
+to start would trade a working schema for an optional button.
+
 Leaving `ARCANE_URL` empty breaks nothing: every surface answers "Arcane is not configured".
 
 ### What it still cannot tell you

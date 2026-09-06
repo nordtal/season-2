@@ -88,6 +88,28 @@ servers_root() {
     printf '%s' "${value:-./deploy/servers}"
 }
 
+pack_root() {
+    # The same read, for the directory pack-host serves. Hardcoded as deploy/pack in two places
+    # until 2026-09-06: with PACK_ROOT pointed anywhere else, `deploy/dev pack` wrote a correct URL
+    # and SHA-1 into pack.yml for a zip the host does not serve, and every client then failed the
+    # download with nothing saying why (finding 112).
+    local value
+    value="$(sed -n 's/^PACK_ROOT=//p' "$ENV_FILE" 2>/dev/null | tail -n1)"
+    printf '%s' "${value:-./deploy/pack}"
+}
+
+compose_project() {
+    # What Docker labels this project's volumes with, in compose's own order of precedence:
+    # COMPOSE_PROJECT_NAME from the env file, then compose.yml's top-level name:, then the
+    # directory name. It is nordtal-s2 here and NOT season-2, which is exactly why this reads the
+    # file instead of assuming the default.
+    local value
+    value="$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "$ENV_FILE" 2>/dev/null | tail -n1)"
+    [[ -n "$value" ]] || value="$(sed -n 's/^name: *//p' "$ROOT/compose.yml" 2>/dev/null | head -n1)"
+    [[ -n "$value" ]] || value="$(basename "$ROOT" | tr '[:upper:]' '[:lower:]')"
+    printf '%s' "$value"
+}
+
 # The jar a module's shadowJar produces. Named rather than globbed so a stale jar from an older
 # version cannot be picked up silently.
 jar_of() { printf '%s/build/libs/%s-%s.jar' "$1" "$1" "$(version)"; }
@@ -116,7 +138,7 @@ cmd_init() {
     for service in "${MODULES[@]}"; do
         mkdir -p "$root/$service/plugins"
     done
-    mkdir -p deploy/pack
+    mkdir -p "$(pack_root)"
     log "plugin directories are under $root - this is where jars and plugin configs live now"
     log "next: deploy/dev up"
 }
@@ -213,8 +235,10 @@ cmd_pack() {
     zip="resource-pack/build/distributions/nordtal-resource-pack-$(version).zip"
     [[ -f "$zip" ]] || die "$zip was not built"
     name="$(basename "$zip")"
-    mkdir -p deploy/pack
-    cp "$zip" "deploy/pack/$name"
+    local pack_dir
+    pack_dir="$(pack_root)"
+    mkdir -p "$pack_dir"
+    cp "$zip" "$pack_dir/$name"
     sha="$(shasum -a 1 "$zip" | cut -d' ' -f1)"
 
     pack_yml="$(servers_root)/network-control/plugins/network-control/pack.yml"
@@ -261,9 +285,20 @@ repository and in no release."
     # found by Docker's own compose labels rather than by guessing "<project>_mc-<service>", and an
     # ambiguous answer stops here: deleting the wrong project's world is the one mistake this
     # command must not be able to make.
-    compose rm -sf "$service"
+    # The volume is read off the container while it still exists, which is exact: whatever is
+    # mounted at /data is this project's world by definition. Only if there is no container does
+    # this fall back to the labels - and then on BOTH of them. The fallback filtered on the logical
+    # name alone until 2026-09-06, so a single mc-smp volume belonging to another compose project on
+    # this machine passed the "exactly one" check and was deleted (finding 113).
     local volume
-    volume="$(docker volume ls -q --filter "label=com.docker.compose.volume=mc-${service}")"
+    volume="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' \
+        "$(compose ps -aq "$service" 2>/dev/null | head -n1)" 2>/dev/null || true)"
+    compose rm -sf "$service"
+    if [[ -z "$volume" ]]; then
+        volume="$(docker volume ls -q \
+            --filter "label=com.docker.compose.project=$(compose_project)" \
+            --filter "label=com.docker.compose.volume=mc-${service}")"
+    fi
     if [[ -z "$volume" ]]; then
         log "no mc-${service} volume was there; the container is gone"
     elif [[ "$(printf '%s\n' "$volume" | wc -l | tr -d ' ')" != "1" ]]; then

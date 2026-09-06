@@ -40,8 +40,28 @@ public record SavedState(Location location, ItemStack[] inventory, ItemStack[] a
                 new ArrayList<>(player.getActivePotionEffects()));
     }
 
+    /**
+     * Puts a player back exactly as they were, somewhere other than where they were standing.
+     *
+     * <p>The duel ends at the spawn rather than on the platform (owner, 2026-09-06), so the
+     * location is the one thing a restore does <em>not</em> put back. Everything else - inventory,
+     * armour, health, food, level, game mode, potion effects - is unchanged.</p>
+     *
+     * @param player the fighter
+     * @param where  where to put them
+     */
+    public void restore(final Player player, final Location where) {
+        restoreWithout(player);
+        player.teleport(where == null ? location : where);
+    }
+
     /** Puts a player back exactly as they were. */
     public void restore(final Player player) {
+        restoreWithout(player);
+        player.teleport(location);
+    }
+
+    private void restoreWithout(final Player player) {
         player.getActivePotionEffects().forEach(effect -> player.removePotionEffect(effect.getType()));
         player.getInventory().setContents(inventory);
         player.getInventory().setArmorContents(armour);
@@ -57,7 +77,6 @@ public record SavedState(Location location, ItemStack[] inventory, ItemStack[] a
         player.setGameMode(gameMode);
         player.setFireTicks(0);
         effects.forEach(player::addPotionEffect);
-        player.teleport(location);
     }
 
     /** Empties a player out for the arena, leaving them ready for a loadout. */

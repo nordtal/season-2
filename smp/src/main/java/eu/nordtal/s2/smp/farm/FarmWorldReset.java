@@ -223,7 +223,10 @@ public final class FarmWorldReset {
                 return;
             }
 
-            final Location spawn = nordtal.getSpawnLocation();
+            // Through LandingSite, for finding 124's reason: a world spawn is a coordinate and
+            // not a promise, and this is the one teleport in the plugin that moves EVERYBODY at
+            // once, at five in the morning, with nobody watching.
+            final Location spawn = LandingSite.safeAt(nordtal, nordtal.getSpawnLocation());
             forEachInFarmWorld(player -> {
                 // teleport() answers false for a player who is dead, asleep, mid-disconnect or
                 // carrying a passenger across worlds - and the farm world is exactly where people

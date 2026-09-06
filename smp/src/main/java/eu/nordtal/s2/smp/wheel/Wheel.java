@@ -87,8 +87,14 @@ public final class Wheel {
                     : dao.takeEarnedSpin(discordId.get()).isPresent();
 
             if (!took) {
-                tell(player, MessageRenderer.of(messages).format(locale, "smp.wheel.none",
-                        "extras", spins.extras()), Feedback.REFUSED);
+                // Three keys rather than "spin(s)": a parenthetical plural is not a sentence in
+                // either language, and the zero case does not want the second clause at all - it
+                // would read "no spins left, and you have 0 waiting", which says one thing twice.
+                final int extras = spins.extras();
+                final String key = extras == 0 ? "smp.wheel.none"
+                        : extras == 1 ? "smp.wheel.none.one" : "smp.wheel.none.many";
+                tell(player, MessageRenderer.of(messages).format(locale, key,
+                        "extras", extras), Feedback.REFUSED);
                 return;
             }
             // How to undo exactly the row this spin changed, in case nothing can be handed over.
@@ -110,8 +116,10 @@ public final class Wheel {
         }
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
-            tell(player, MessageRenderer.of(messages).format(locale, "smp.wheel.available",
-                    "count", spins.available(LocalDate.now())));
+            final int count = spins.available(LocalDate.now());
+            final String key = count == 0 ? "smp.wheel.available"
+                    : count == 1 ? "smp.wheel.available.one" : "smp.wheel.available.many";
+            tell(player, MessageRenderer.of(messages).format(locale, key, "count", count));
         });
     }
 

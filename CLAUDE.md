@@ -1044,10 +1044,19 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1274 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1276 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-06, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
+
+**Two are from the second rehearsal afternoon, 2026-09-06, and both carry a rule.**
+`SpawnNpcLabelTest` pins that the spawn NPC's configured name is the entity's *custom* name and that
+its mannequin description is explicitly emptied - vanilla draws the description as a second, smaller
+line whose default is the English word "NPC", so the choice is one label or two, and nothing outside
+a client can tell which you have (finding 127). `BundleContinuationTest` gained an absolute rule
+against a parenthetical plural in any bundle value - `spin(s)`, and in German the worse
+`Zeitraum/Zeiträume` - and, with it, the `commands` bundle as a **root it had never carried**: the
+shared bundle every surface loads was the one bundle outside the continuation check.
 
 **Three are from the CodeRabbit review of PR #8, 2026-09-06.** `CatalogueTest#theRootDefaultIsGated`
 is the one that carries a rule: **a bare root's default is gated where the default is declared, not
@@ -1061,8 +1070,8 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 332 |
-| `smp` | 193 |
+| `common` | 333 |
+| `smp` | 194 |
 | `network-control` | 192 |
 | `commands` | 180 |
 | `updater` | 151 |

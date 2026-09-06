@@ -39,13 +39,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class BundleContinuationTest {
 
-    /** Every module that ships a message bundle - the four Minecraft-facing ones, and the bot. */
+    /**
+     * Every module that ships a message bundle - the four Minecraft-facing ones, the bot, and the
+     * shared one.
+     *
+     * <p>{@code commands} was missing here until 2026-09-06, which left the continuation rule
+     * unchecked on the one bundle <em>every</em> surface loads - and it carries continued lines.
+     */
     private static final List<String> BUNDLE_ROOTS = List.of(
             "smp/src/main/resources/messages",
             "limbo/src/main/resources/messages",
             "hunger-games/src/main/resources/messages",
             "network-control/src/main/resources/messages",
-            "discord-bot/src/main/resources/messages");
+            "discord-bot/src/main/resources/messages",
+            "commands/src/main/resources/messages");
 
     @Test
     @DisplayName("a continued line ends with a space, so the two words stay two words")
@@ -71,6 +78,43 @@ class BundleContinuationTest {
                 "a continued bundle line must end with a space before the backslash - the next"
                         + " line's indentation is stripped, so without it the two words are glued"
                         + " together in what the player reads");
+    }
+
+    /**
+     * A count in a sentence picks a key; it never picks a parenthesis.
+     *
+     * <h2>Why an absolute rule</h2>
+     * "spin(s)" is not a sentence in English and its German equivalent is worse still: the two this
+     * caught on 2026-09-06 read "verdiente Dreh(s)" and "Zugangszeitraum/-raeume von {accounts}
+     * Konto/Konten", the second of which is a slash construction a reader has to unpick. Both were
+     * player- or admin-facing, and one of them - {@code smp.wheel.none} - was watched being shown to
+     * a real client, saying "You have 0 earned spin(s) waiting" underneath a refusal that had
+     * already said there were none.
+     *
+     * <p>The alternative costs one line of Java, and this repository already writes it: the
+     * farm-reset warning picks {@code smp.farm.warning.one} at one minute. So the rule is absolute
+     * rather than an allowlist - there is no value that genuinely wants a parenthetical plural, and
+     * an allowlist is where the next one would go.</p>
+     */
+    @Test
+    @DisplayName("a count picks a key rather than a parenthetical plural")
+    void noValueSpellsItsPluralWithAParenthesis() {
+        final List<String> parenthesised = new ArrayList<>();
+        for (final Path bundle : bundles()) {
+            final List<String> lines = read(bundle);
+            for (int i = 0; i < lines.size(); i++) {
+                final String line = lines.get(i);
+                for (final String shape : List.of("(s)", "(n)", "(en)", "(e)", "(er)")) {
+                    if (line.contains(shape)) {
+                        parenthesised.add(RepositoryRoot.relative(bundle) + ":" + (i + 1)
+                                + " writes \"" + shape + "\"");
+                    }
+                }
+            }
+        }
+        assertEquals(List.of(), parenthesised,
+                "a bundle value must not spell a plural with a parenthesis - pick a key on the"
+                        + " count instead, the way the farm-reset warning does at one minute");
     }
 
     /**

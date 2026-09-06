@@ -24,18 +24,18 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 
 | module | main Java | tests | what actually runs |
 |---|---|---|---|
-| `smp` | 94 files, 13274 lines | 188 | Everything docs/smp.md describes. Rehearsed on the local stack 2026-09-05/06 with two real clients, which found findings 96 to 101; what is still unseen is the *world* - Nordtal, the arena, the spawn geometry - because it is in no repository |
-| `common` | 66 files, 7244 lines | 330 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, the notification listener, **the command request table**, V1-V11 |
+| `smp` | 94 files, 13274 lines | 191 | Everything docs/smp.md describes. Rehearsed on the local stack 2026-09-05/06 with two real clients, which found findings 96 to 101; what is still unseen is the *world* - Nordtal, the arena, the spawn geometry - because it is in no repository |
+| `common` | 66 files, 7244 lines | 332 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, the notification listener, **the command request table**, V1-V11 |
 | `network-control` | 40 files, 6177 lines | 192 | Login gate, phase, play time, routing, the pack station, **the Velocity command adapter** |
 | `discord-bot` | 51 files, 7846 lines | 145 | Access end to end, the admin mirror, the language list, hunger games registration, **every declared command as a slash command** |
 | `updater` | 38 files, 5179 lines | 151 | Resolve, report, apply, serve - and the schema every other process waits on |
-| `commands` | 46 files, 4131 lines | 179 | **Every admin command in the network**, its declaration, its decisions, and both ends of the request row |
+| `commands` | 46 files, 4131 lines | 180 | **Every admin command in the network**, its declaration, its decisions, and both ends of the request row |
 | `hunger-games` | 44 files, 4944 lines | 65 | The start event, essentially in full |
 | `limbo` | 13 files, 1640 lines | 11 | The waiting room, in full |
 | `paper-common` | 5 files, 1221 lines | 5 | The operator adapter, the admin watcher, the Paper sender adapter and **the Paper command adapter** |
 | `resource-pack` | — | — | Four fonts, every code point allocated and drawn |
 
-1266 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-06,
+1272 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-06,
 on `release/0.6.0` after the local rehearsal and stage 8),
 across **nine** modules — `resource-pack` has no test source set of its own, and `paper-common`
 gained one on 2026-09-05 with the command adapter.

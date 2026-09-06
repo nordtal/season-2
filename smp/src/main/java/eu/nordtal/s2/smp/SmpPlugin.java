@@ -391,7 +391,7 @@ public final class SmpPlugin extends JavaPlugin {
         poller = new StatisticPoller(this, () -> track, engine, identities);
         poller.start();
 
-        graves = new Graves(this, dao, messages, locales, sounds, effects);
+        graves = new Graves(this, dao, identities, messages, locales, sounds, effects);
         duels = new Duels(this, dao, config, worlds, identities, messages, locales, sounds,
                 effects);
 

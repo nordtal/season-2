@@ -171,17 +171,28 @@ public final class BalloonGui implements Surface {
         final org.bukkit.Location from = player.getLocation();
         // Always the world spawn. The balloon never drops anyone anywhere else, which is what makes
         // a world spawn a landmark everybody knows; portals are the only exception in the design.
-        // Unreachable from an open chest screen today - a player clicking one is by definition
-        // alive, awake and connected - but the success path below is six unconditional statements
-        // and one of them is a message saying they arrived. Reusing the branch six lines up rather
-        // than inventing a second way to say the same thing.
-        if (!player.teleport(destination.getSpawnLocation())) {
+        //
+        // Through LandingSite#safeAt, which takes the world spawn itself whenever a player actually
+        // fits there and searches outwards from that column when they do not - so on a built world
+        // this is the world spawn and the landmark is untouched. On a GENERATED one it is the
+        // difference between arriving and dying: the Nether's world spawn is 0/66/0, which on the
+        // local server is solid netherrack, and the balloon killed the first player to take it
+        // (`DEATH_LISTED -20`, `in_wall`, finding 134). That is the third place this repository has
+        // learned that a world spawn is a coordinate and not a promise - see finding 124.
+        //
+        // The failure branch is unreachable from an open chest screen today - a player clicking one
+        // is by definition alive, awake and connected - but the success path below is six
+        // unconditional statements and one of them is a message saying they arrived. Reusing the
+        // branch six lines up rather than inventing a second way to say the same thing.
+        final org.bukkit.Location landing =
+                eu.nordtal.s2.smp.farm.LandingSite.safeAt(destination, destination.getSpawnLocation());
+        if (!player.teleport(landing)) {
             player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.balloon.unavailable"));
             sounds.play(player, Feedback.REFUSED);
             return false;
         }
         effects.travelled(from);
-        effects.travelled(destination.getSpawnLocation());
+        effects.travelled(landing);
         player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.balloon.travelled",
                 "world", messages.get(locale, nameKey(entry.destination()))));
         sounds.play(player, Feedback.TRAVEL);

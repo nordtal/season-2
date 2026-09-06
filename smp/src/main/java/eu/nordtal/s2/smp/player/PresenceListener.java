@@ -51,11 +51,13 @@ public final class PresenceListener implements Listener {
     private final Messages messages;
     private final PlayerLocales locales;
     private final AdminOperators operators;
+    private final eu.nordtal.s2.smp.chat.SystemLines lines;
 
     public PresenceListener(final Plugin plugin, final Identities identities,
                             final PlayerSurfaces surfaces, final PlayerComposition composition,
                             final SmpSpec config, final Messages messages,
-                            final PlayerLocales locales, final AdminOperators operators) {
+                            final PlayerLocales locales, final AdminOperators operators,
+                            final eu.nordtal.s2.smp.chat.SystemLines lines) {
         this.plugin = plugin;
         this.identities = identities;
         this.surfaces = surfaces;
@@ -64,6 +66,7 @@ public final class PresenceListener implements Listener {
         this.messages = messages;
         this.locales = locales;
         this.operators = operators;
+        this.lines = lines;
     }
 
     @EventHandler
@@ -99,7 +102,9 @@ public final class PresenceListener implements Listener {
     private void loadLanguage(final Player player) {
         locales.joinAsync(player.getUniqueId(), task -> Bukkit.getScheduler()
                         .runTaskAsynchronously(plugin, task))
-                .thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
+                // whenComplete rather than thenRun: a load that fails still has to let the join
+                // line through, in English, rather than swallow it.
+                .whenComplete((locale, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
                     if (!player.isOnline()) {
                         // They left while the query was in flight; onQuit has already run and the
                         // entry this just wrote would otherwise stay for the life of the process.
@@ -112,6 +117,10 @@ public final class PresenceListener implements Listener {
                         return;
                     }
                     surfaces.refresh(player);
+                    // Here, and not in a join handler: this is the first moment the line can be
+                    // rendered in the language of the player it is about. See
+                    // SystemLines#announceJoin.
+                    lines.announceJoin(player);
                 }));
     }
 

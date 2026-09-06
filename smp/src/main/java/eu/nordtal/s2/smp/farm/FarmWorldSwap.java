@@ -169,8 +169,29 @@ public final class FarmWorldSwap {
         if (loaded != null) {
             return loaded.getWorldFolder().toPath();
         }
-        final World primary = Bukkit.getWorlds().get(0);
-        return primary.getWorldFolder().toPath().resolve("dimensions").resolve("minecraft").resolve(name);
+        return folderOf(Bukkit.getWorldContainer().toPath(),
+                Bukkit.getWorlds().getFirst().getName(), name);
+    }
+
+    /**
+     * Where a world that is not loaded has its folder.
+     *
+     * <p>Taken out of {@link #folderOf(String)} so it can be asserted, because the version that
+     * could not be asserted was wrong and the way it was wrong is invisible: it built the path from
+     * {@code primary.getWorldFolder()}, and on Paper 26.2 the primary world's folder is <b>already</b>
+     * {@code <level-name>/dimensions/minecraft/overworld}. So the staging folder came out as
+     * {@code nordtal/dimensions/minecraft/overworld/dimensions/minecraft/farm-next}, which exists
+     * nowhere - and this is the ordinary case, because the staged world is unloaded a moment before
+     * it is looked for. Every daily reset would have aborted with "there is no staged farm world"
+     * and left yesterday's world in place for the whole season (finding 125).</p>
+     *
+     * @param container  Bukkit's world container - the server directory
+     * @param levelName  the primary world's name, which is {@code level-name}
+     * @param worldName  the world being looked for
+     * @return the folder it has or would have
+     */
+    static Path folderOf(final Path container, final String levelName, final String worldName) {
+        return container.resolve(levelName).resolve("dimensions").resolve("minecraft").resolve(worldName);
     }
 
     /** Unlinks a directory tree off the main thread. Gigabytes, and nobody is waiting for it. */

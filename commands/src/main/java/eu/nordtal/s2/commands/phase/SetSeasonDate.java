@@ -149,10 +149,18 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
         if (launch) {
             return;
         }
-        user.reply(change.movedAccess() ? "phase.date.moved" : "phase.date.none-moved",
-                change.movedAccess()
-                        ? Map.of("grants", String.valueOf(change.grants()),
-                                "accounts", String.valueOf(change.accounts()))
-                        : Map.of());
+        if (!change.movedAccess()) {
+            user.reply("phase.date.none-moved", Map.of());
+            return;
+        }
+        // Three keys and not four: one period belongs to one account, so "one period across several
+        // accounts" cannot happen. Selecting here rather than writing "period(s)" is the same rule
+        // the farm-reset warning follows - a parenthetical plural is not a sentence in either
+        // language, and in German it degenerates into "Zeitraum/Zeitraeume".
+        final String key = change.grants() == 1 ? "phase.date.moved.one"
+                : change.accounts() == 1 ? "phase.date.moved.one-account"
+                : "phase.date.moved";
+        user.reply(key, Map.of("grants", String.valueOf(change.grants()),
+                "accounts", String.valueOf(change.accounts())));
     }
 }

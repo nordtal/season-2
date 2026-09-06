@@ -177,10 +177,16 @@ public final class FarmWorldReset {
     private void warn(final long minutes) {
         // The same four warnings reach Discord, for whoever is planning to log on into a farm
         // world that is about to be gone (finding 52, 2026-09-06).
-        announcer.announce("smp.announce.farm-reset", java.util.Map.of("minutes", minutes));
+        // The four warnings are 30, 10, 5 and 1 minutes, so "in 1 minutes" is not an edge case -
+        // it is the last thing every player reads before every daily reset. A separate key rather
+        // than plural machinery: two languages, one number, one sentence each.
+        final boolean one = minutes == 1;
+        announcer.announce(one ? "smp.announce.farm-reset.one" : "smp.announce.farm-reset",
+                java.util.Map.of("minutes", minutes));
         forEachInFarmWorld(player -> {
             final Locale locale = locales.of(player.getUniqueId());
-            player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.farm.warning", "minutes", minutes));
+            player.sendMessage(MessageRenderer.of(messages).format(locale,
+                    one ? "smp.farm.warning.one" : "smp.farm.warning", "minutes", minutes));
             hud.announce(player, messages.format(locale, "smp.hud.farm-warning",
                     java.util.Map.of("minutes", minutes)));
             sounds.play(player, Feedback.COUNTDOWN_TICK);

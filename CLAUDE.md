@@ -1044,7 +1044,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1284 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1285 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-06, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
@@ -1061,6 +1061,16 @@ absolute rule over the six modules' sources, written the same day at the cheap m
 sites left. The fourth case in the integration test is finding 133, which the first one uncovered: a
 loot was never written back to `smp_grave.contents`, so a restart refilled the grave from the
 original blob while the looter kept what they had taken.
+
+**`LandingIsCheckedTest` is the third of that afternoon's rules and the one this module learned
+three times in a day.** A world spawn is a coordinate and not a promise: a duel ending "at the spawn"
+put both fighters in rock, then out of the world, then in lava (124); the balloon - whose design is
+"always the world spawn, so that a world spawn is a landmark everybody knows" - dropped the first
+player who took it to the Nether inside netherrack, for twenty aura (134); and two raw uses were
+still standing when that was found, one of them the farm-world reset, the single teleport here that
+moves *everybody* at five in the morning. Every arrival goes through `LandingSite#safeAt` now, which
+costs nothing where the spot is already good, and the test allows exactly one file to name a world
+spawn without it - `NavigateGui`, which prints the three numbers and moves nobody.
 
 **Five more are from the same afternoon, and each carries a rule.**
 `ReloadReachesTheTrackTest` gained the one that is the whole reason `milestones.yml` is reloadable:
@@ -1096,7 +1106,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | module | tests |
 |---|---|
 | `common` | 334 |
-| `smp` | 201 |
+| `smp` | 202 |
 | `network-control` | 192 |
 | `commands` | 180 |
 | `updater` | 151 |

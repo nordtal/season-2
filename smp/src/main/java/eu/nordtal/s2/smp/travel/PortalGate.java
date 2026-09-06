@@ -215,7 +215,7 @@ public final class PortalGate implements Listener {
                 return;
             }
             event.setCanCreatePortal(false);
-            event.setTo(nordtal.getSpawnLocation());
+            event.setTo(LandingSite.safeAt(nordtal, nordtal.getSpawnLocation()));
             return;
         }
 

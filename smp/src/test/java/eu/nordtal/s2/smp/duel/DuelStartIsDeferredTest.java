@@ -76,6 +76,26 @@ class DuelStartIsDeferredTest {
                         + " loser keeps the loadout - which is worse than not saving it at all");
     }
 
+    @Test
+    @DisplayName("a duel ends without a death screen, at the spawn, with a title")
+    void theOutcomeIsShownWithoutADeath() throws IOException {
+        // Decided by the owner on 2026-09-06 after watching one: the loser saw the ordinary red
+        // "You Died!" screen for a sparring match that costs nothing. The only way to avoid it is
+        // to cancel the blow before it lands - a death cannot be un-shown - so the arena's lethal
+        // damage ends the duel instead of killing anybody.
+        final String listener = read("smp/src/main/java/eu/nordtal/s2/smp/duel/DuelListener.java");
+        assertTrue(listener.contains("public void onDamage("),
+                "nothing catches the lethal blow, so every duel still ends on a death screen");
+        assertTrue(listener.contains("event.setCancelled(true)"),
+                "the lethal blow is not cancelled, so the death happens anyway");
+
+        final String duels = read("smp/src/main/java/eu/nordtal/s2/smp/duel/Duels.java");
+        assertTrue(duels.contains("state.restore(player, spawn())"),
+                "a fighter is put back on the platform rather than at the spawn");
+        assertTrue(duels.contains("player.showTitle("),
+                "the outcome is only a chat line, and the person who just lost is not reading chat");
+    }
+
     private static String read(final String relative) throws IOException {
         Path candidate = Path.of("").toAbsolutePath();
         while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {

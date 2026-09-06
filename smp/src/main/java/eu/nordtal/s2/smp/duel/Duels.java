@@ -14,6 +14,7 @@ import eu.nordtal.s2.smp.world.WorldRole;
 import eu.nordtal.s2.smp.world.Worlds;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -99,6 +100,29 @@ public final class Duels {
      * simply gone (finding 122). Their state waits here until {@link #respawned}.</p>
      */
     private final Map<UUID, SavedState> pending = new HashMap<>();
+
+    /**
+     * How long the outcome stands on the screen.
+     *
+     * <p>Longer than the ceremony's fade-in and shorter than its hold: this is read by somebody who
+     * has just stopped fighting and wants to get on with the evening.</p>
+     */
+    private static final Title.Times OUTCOME = Title.Times.times(
+            java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(2),
+            java.time.Duration.ofMillis(600));
+
+    /**
+     * Where a duel ends, for both fighters.
+     *
+     * <p>The spawn, not the platform they came from (owner, 2026-09-06). Standing them back on the
+     * pad is how two people who fought once used to fight for ever (finding 121), and the spawn is
+     * where everything else social is anyway.</p>
+     */
+    private Location spawn() {
+        return worlds.world(WorldRole.NORDTAL)
+                .map(world -> eu.nordtal.s2.smp.farm.LandingSite.safeAt(world, world.getSpawnLocation()))
+                .orElse(null);
+    }
 
     /** Every block this plugin placed for an arena, so a teardown removes exactly those. */
     private final Map<Integer, List<Location>> placed = new HashMap<>();
@@ -199,11 +223,14 @@ public final class Duels {
         if (state == null) {
             return;
         }
-        event.setRespawnLocation(state.location());
+        final Location where = spawn();
+        if (where != null) {
+            event.setRespawnLocation(where);
+        }
         Bukkit.getScheduler().runTask(plugin, () -> {
             final Player player = Bukkit.getPlayer(event.getPlayer().getUniqueId());
             if (player != null) {
-                state.restore(player);
+                state.restore(player, spawn());
             }
         });
     }
@@ -394,10 +421,21 @@ public final class Duels {
             // says nothing until somebody clicks a button reads as a duel that broke.
             pending.put(playerId, state);
         } else {
-            state.restore(player);
+            state.restore(player, spawn());
         }
-        player.sendMessage(MessageRenderer.of(messages).format(locales.of(playerId), messageKey,
-                "aura", config.duelStake()));
+        final MessageRenderer renderer = MessageRenderer.of(messages);
+        final java.util.Locale locale = locales.of(playerId);
+        player.sendMessage(renderer.format(locale, messageKey, "aura", config.duelStake()));
+        // A title as well as the chat line, decided by the owner on 2026-09-06. The chat line
+        // carries the number and can be scrolled back to; the title is what somebody who has just
+        // been hit reads without looking anywhere. Nothing is sent for the interrupted case - a
+        // duel that did not happen has no outcome to announce, which is what a null feedback means
+        // here and everywhere else in this class.
+        if (feedback != null) {
+            player.showTitle(Title.title(renderer.get(locale, messageKey + ".title"),
+                    renderer.format(locale, messageKey + ".subtitle", "aura", config.duelStake()),
+                    OUTCOME));
+        }
         if (feedback != null) {
             sounds.play(player, feedback);
         }

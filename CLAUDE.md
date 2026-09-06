@@ -1044,15 +1044,15 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1261 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1263 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-06, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
 | module | tests |
 |---|---|
-| `common` | 329 |
-| `smp` | 187 |
+| `common` | 330 |
+| `smp` | 188 |
 | `network-control` | 191 |
 | `commands` | 178 |
 | `updater` | 150 |

@@ -131,11 +131,22 @@ public final class VelocityCommands {
                 .toList();
     }
 
+    /** Whether everything runnable at or below this node is admin-only. See finding 117. */
+    private static boolean adminOnly(final Node node) {
+        if (node.command != null && !node.command.declaration().adminOnly()) {
+            return false;
+        }
+        return node.children.values().stream().allMatch(VelocityCommands::adminOnly);
+    }
+
     private LiteralArgumentBuilder<CommandSource> materialise(final Node node) {
         final LiteralArgumentBuilder<CommandSource> builder =
                 BrigadierCommand.literalArgumentBuilder(node.literal);
         for (final Node child : node.children.values()) {
-            builder.then(materialise(child).requires(this::mayUse));
+            // Only when everything below it is admin-only - see PaperCommands#adminOnly and
+            // finding 117.
+            final LiteralArgumentBuilder<CommandSource> sub = materialise(child);
+            builder.then(adminOnly(child) ? sub.requires(this::mayUse) : sub);
         }
         final boolean runnableHere = node.command != null && arguments(builder, node.command);
         if (!runnableHere) {

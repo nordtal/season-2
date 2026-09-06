@@ -1184,8 +1184,12 @@ title lands exactly where an unframed one would. `ChestOnlyMenuTest` (3) is the 
 because a document said it did: `docs/presentation.md` claimed "a test asserts no menu opens a
 non-chest inventory" from the day the style sheet was written, and no such test existed. It now
 asserts that, and that every inventory title goes through `MenuTitle` - with a named allowlist of
-the four menus still waiting for their panel, so the remaining work is in the build instead of in
-a document.
+the menus still waiting for their panel, so the remaining work is in the build instead of in
+a document. **That allowlist has been empty since 2026-09-04**, when the last of the four -
+`ObjectiveGui`, `HandInGui`, `BalloonGui` and the grave - was converted; the sentence above kept
+saying "the four menus still waiting" for two days after none was waiting, and on 2026-09-06 an
+agent read it, looked at a rendered panel on a real client and reported it as an unframed vanilla
+GUI. A list that empties itself is only worth having if the prose around it empties with it.
 
 Six more came with the chat format on 2026-09-04. Three are `MessageRendererTest`'s, for the
 overload that substitutes a **component** rather than text: vanilla's death message and an

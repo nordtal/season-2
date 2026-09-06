@@ -55,6 +55,31 @@ class ReloadReachesTheTrackTest {
     }
 
     @Test
+    @DisplayName("a reload finishes what its new targets already reach, in that order")
+    void aLoweredTargetTakesEffectAtOnce() throws IOException {
+        // The whole point of the escape hatch is an objective nobody can add to any more, so
+        // "it completes the next time somebody hands something in" is not a weaker version of the
+        // promise - it is the case the promise exists for, unmet (finding 129).
+        final String source = read(PLUGIN);
+
+        final int applied = source.indexOf("track = candidate;");
+        final int swept = source.indexOf("completeWhateverTheNewTargetsAlreadyReach();");
+        assertTrue(applied > 0, "the reload no longer applies the candidate track");
+        assertTrue(swept > 0,
+                "a reload does not finish objectives its new targets have already been reached by,"
+                        + " so lowering a target below the collected progress reports success and"
+                        + " leaves the row open and unpaid");
+        assertTrue(swept > applied,
+                "the sweep runs before the new track is applied, so it would decide against the"
+                        + " targets the reload was replacing");
+
+        final int rows = source.indexOf("ensureRows(candidate);");
+        assertTrue(rows > 0 && rows < swept,
+                "the sweep runs before ensureRows, so it would read the old targets out of rows"
+                        + " the reload has not written yet");
+    }
+
+    @Test
     @DisplayName("the field the supplier reads is volatile, because the writer is another thread")
     void theFieldIsPublishedSafely() throws IOException {
         // reloadTrack runs on Bukkit's async executor behind /smp reload; every consumer above

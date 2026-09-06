@@ -103,7 +103,12 @@ public final class PresenceListener implements Listener {
                     if (!player.isOnline()) {
                         // They left while the query was in flight; onQuit has already run and the
                         // entry this just wrote would otherwise stay for the life of the process.
-                        locales.quit(player.getUniqueId());
+                        // Unless they are already back: the cache is keyed by UUID, so a callback
+                        // from the session before a rejoin would drop the language the new one has
+                        // just loaded and leave that player English (finding 105).
+                        if (Bukkit.getPlayer(player.getUniqueId()) == null) {
+                            locales.quit(player.getUniqueId());
+                        }
                         return;
                     }
                     surfaces.refresh(player);

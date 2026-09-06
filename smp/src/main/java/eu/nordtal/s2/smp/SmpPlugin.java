@@ -619,6 +619,40 @@ public final class SmpPlugin extends JavaPlugin {
      * track is re-read - never the duel loadouts or the database password - which is why it is a
      * separate file in the first place.
      */
+    /**
+     * Finishes every objective the reloaded targets have already been reached by. <b>Async.</b>
+     *
+     * <p>This is the second half of the one thing {@code milestones.yml} is a reloadable file
+     * <em>for</em>. Its own header promises it in as many words: lowering a target is "the finest
+     * of the three escape hatches for an objective that turns out to be impossible, and if the
+     * collected progress is already at or above the new target the objective completes at once and
+     * pays its FULL pot". {@code TrackValidation} permits the lowering and has a test for permitting
+     * it; {@code ObjectiveEngine#payOut} names the case in its javadoc. Nothing did it.
+     *
+     * <p>What the gap cost is exactly the case the hatch exists for. Completion is decided inside
+     * {@code credit}, when progress is <em>added</em> - so a lowered target took effect the next
+     * time somebody handed something in. For an objective that has become impossible there is no
+     * next time, which is why the target was lowered. Measured on the local SMP, 2026-09-06:
+     * {@code diamonds} at 20 with its target moved to 10, reload reported success, and the row sat
+     * there unfinished with no aura paid (finding 129).
+     *
+     * <p>{@code finishObjective} guards itself in SQL - {@code completeObjective} returns zero for a
+     * row somebody else has already closed - so running this on every reload is safe, and running
+     * it on a reload that changed nothing does nothing. {@code completedBy} is null: a target moved
+     * by hand has no player standing behind it, which is the same shape the admin escape hatch
+     * already passes.
+     */
+    private void completeWhateverTheNewTargetsAlreadyReach() {
+        dao.activeMilestoneKey().ifPresent(milestoneKey -> dao.objectivesOf(milestoneKey).stream()
+                .filter(row -> !row.completed())
+                .filter(row -> row.amount() >= row.target())
+                .forEach(row -> {
+                    getLogger().info("objective '" + row.key() + "' is already at " + row.amount()
+                            + " of its new target " + row.target() + " - completing it now");
+                    engine.finishObjective(milestoneKey, row, null);
+                }));
+    }
+
     private List<String> reloadTrack() {
         // Three files, three reports, three independent failures - see the comment below. The
         // sounds go first because they are the cheapest thing to get wrong and the only one an
@@ -667,6 +701,7 @@ public final class SmpPlugin extends JavaPlugin {
                 ensureRows(candidate);
                 trackProblems = List.of();
                 track = candidate;
+                completeWhateverTheNewTargetsAlreadyReach();
                 Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
                 getLogger().info("the milestone track was reloaded: " + track.size()
                         + " milestones");

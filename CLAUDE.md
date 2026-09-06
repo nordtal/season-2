@@ -1044,18 +1044,28 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1263 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1266 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-06, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
+
+**Three are from the CodeRabbit review of PR #8, 2026-09-06.** `CatalogueTest#theRootDefaultIsGated`
+is the one that carries a rule: **a bare root's default is gated where the default is declared, not
+in the adapter.** Both Brigadier adapters reached `/phase show` by calling the child's dispatch
+straight from the root handler, which goes around the `requires` that is the *entire* admin gate for
+a command tree - so any player on the proxy could read the phase and both season dates, underneath a
+comment in each file saying the child applied the check (finding 102). `Catalogue#rootDefault` takes
+the admin flag now, so the one place that knows a root has a default is also the place that decides
+who gets it. The other two are `WaitingBookTest`'s phase change inside a failed release's retry
+window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an `http://` origin.
 
 | module | tests |
 |---|---|
 | `common` | 330 |
 | `smp` | 188 |
-| `network-control` | 191 |
-| `commands` | 178 |
-| `updater` | 150 |
+| `network-control` | 192 |
+| `commands` | 179 |
+| `updater` | 151 |
 | `discord-bot` | 145 |
 | `hunger-games` | 65 |
 | `limbo` | 11 |

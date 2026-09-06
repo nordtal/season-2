@@ -58,7 +58,9 @@ class AdminWatchWiringTest {
             assertTrue(text.contains("adminWatch.start("),
                     relative + " builds an AdminWatch and never starts it, which is the same as not"
                             + " having one and looks like having one.");
-            assertTrue(text.contains("adminWatch.close()"),
+            // Either form: the bare call, or the method reference inside Shutdown#quietly, which
+            // is what every disable step became on 2026-09-06 (finding 101).
+            assertTrue(text.contains("adminWatch.close()") || text.contains("adminWatch::close"),
                     relative + " never closes its AdminWatch. The listener owns a database connection"
                             + " outside the pool and a thread parked on it; a disable that leaves"
                             + " both running leaks one of each per reload.");

@@ -514,45 +514,51 @@ public final class SmpPlugin extends JavaPlugin {
         // Stops the beat, so a server that is going down stops claiming to be up. The marker is
         // deliberately not deleted: going stale is the signal, and it costs nothing here.
         if (heartbeat != null) {
-            heartbeat.cancel();
+            quietly("heartbeat.cancel", heartbeat::cancel);
         }
         if (npc != null) {
-            npc.remove();
+            quietly("npc.remove", npc::remove);
         }
         if (balloonDisplay != null) {
-            balloonDisplay.remove();
+            quietly("balloonDisplay.remove", balloonDisplay::remove);
         }
         if (duels != null) {
-            duels.stop();
+            quietly("duels.stop", duels::stop);
         }
         if (graves != null) {
-            graves.clearDisplays();
+            quietly("graves.clearDisplays", graves::clearDisplays);
         }
         if (poller != null) {
-            poller.stop();
+            quietly("poller.stop", poller::stop);
         }
         if (hud != null) {
-            hud.stop();
+            quietly("hud.stop", hud::stop);
         }
         if (boards != null) {
-            boards.stop();
+            quietly("boards.stop", boards::stop);
         }
         if (farmReset != null) {
-            farmReset.stop();
+            quietly("farmReset.stop", farmReset::stop);
         }
         // Before the pool: the listener thread is parked on a connection of its own, but a refresh
         // already in flight reads through the pool.
         if (adminWatch != null) {
-            adminWatch.close();
+            quietly("adminWatch.close", adminWatch::close);
         }
         if (commandWaiter != null) {
             // Before the pool: a wait in flight reads the request row through it.
-            commandWaiter.shutdownNow();
+            quietly("commandWaiter.shutdownNow", commandWaiter::shutdownNow);
         }
         if (pool != null) {
-            pool.close();
+            quietly("pool.close", pool::close);
         }
         getLogger().info("smp disabled");
+    }
+
+    /** One disable step, isolated from the next - see {@link eu.nordtal.s2.common.health.Shutdown}. */
+    private void quietly(final String what, final Runnable step) {
+        eu.nordtal.s2.common.health.Shutdown.quietly(what, step,
+                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
     }
 
     private void registerCommands(final SmpSounds sounds) {

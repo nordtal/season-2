@@ -440,7 +440,7 @@ public final class SmpPlugin extends JavaPlugin {
         balloonDisplay = new BalloonDisplay(this, balloons);
         balloonDisplay.spawn();
         getServer().getPluginManager().registerEvents(
-                new PortalGate(worlds, season, messages, locales, sounds), this);
+                new PortalGate(this, worlds, season, messages, locales, sounds), this);
 
         // One listener for SURFACE_OPEN and SURFACE_CLOSE across every menu this plugin opens - see
         // Surface. The grave inventory has a null holder and is recognised by identity, which is

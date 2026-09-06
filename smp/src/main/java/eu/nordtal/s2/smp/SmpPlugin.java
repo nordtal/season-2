@@ -515,6 +515,21 @@ public final class SmpPlugin extends JavaPlugin {
                 .runTaskTimerAsynchronously(this, readiness::refresh, 0L, ticks);
     }
 
+    /**
+     * Hands over any prize whose animation is still running. <b>Main thread, at disable.</b>
+     *
+     * <p>{@code WheelGui#finish} is a one-shot latch, so a wheel that has already paid is a no-op
+     * here, and one the player closes a tick later cannot pay twice.
+     */
+    private void payOutSpinsInFlight() {
+        for (final org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getOpenInventory().getTopInventory().getHolder()
+                    instanceof eu.nordtal.s2.smp.wheel.WheelGui wheel) {
+                wheel.finish(player, false);
+            }
+        }
+    }
+
     @Override
     public void onDisable() {
         // Stops the beat, so a server that is going down stops claiming to be up. The marker is
@@ -522,6 +537,17 @@ public final class SmpPlugin extends JavaPlugin {
         if (heartbeat != null) {
             quietly("heartbeat.cancel", heartbeat::cancel);
         }
+        // Before anything else that could throw, and long before the pool: a wheel still spinning
+        // when the server goes down pays out now or never.
+        //
+        // Paper disables plugins BEFORE it saves and disconnects players - measured on a real 26.2
+        // shutdown on 2026-09-06, `Disabling smp` and the pool's `Shutdown completed` both come
+        // several lines above `annicx lost connection`. So the InventoryCloseEvent that normally
+        // finishes a spin arrives when no listener is registered any more, and the animation's own
+        // chain simply stops at its next tick: the spin was already spent in SQL, and the player
+        // got nothing (finding 136). Here they are still online, so this hands over the prize
+        // itself - and `Saving players`, three lines later, is what writes it to disk.
+        quietly("wheel.payOutInFlight", this::payOutSpinsInFlight);
         if (npc != null) {
             quietly("npc.remove", npc::remove);
         }

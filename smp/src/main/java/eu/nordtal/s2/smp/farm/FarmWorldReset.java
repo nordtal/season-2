@@ -228,15 +228,24 @@ public final class FarmWorldReset {
             // once, at five in the morning, with nobody watching.
             final Location spawn = LandingSite.safeAt(nordtal, nordtal.getSpawnLocation());
             forEachInFarmWorld(player -> {
-                // teleport() answers false for a player who is dead, asleep, mid-disconnect or
-                // carrying a passenger across worlds - and the farm world is exactly where people
-                // mine and die. One such player used to be told they had been moved, stay where
-                // they were, and then silently block the unload for everybody, with a console line
-                // pointing at the wrong cause. The swap below refuses safely either way; what this
-                // buys is a log line naming who. Found by review, 2026-09-04.
+                // teleport() answers false for a player who is asleep, mid-disconnect or carrying
+                // a passenger across worlds. One such player used to be told they had been moved,
+                // stay where they were, and then silently block the unload for everybody, with a
+                // console line pointing at the wrong cause. The swap below refuses safely either
+                // way; what this buys is a log line naming who. Found by review, 2026-09-04.
+                //
+                // IT DOES NOT COVER A DEAD PLAYER, and the version of this comment that claimed it
+                // did was wrong. A dead player is not in World#getPlayers() until they respawn, so
+                // the loop above never sees them: no warning is logged, Bukkit.unloadWorld succeeds
+                // because Bukkit agrees the world is empty, and the swap goes through. Measured on
+                // a real 26.2 server on 2026-09-06 - somebody dead in the farm world at the moment
+                // of a reset respawned at their spawn point, alive, with nothing said anywhere
+                // (finding 135). That outcome is fine; what was not fine was a comment and a
+                // rehearsal step both describing a warning nobody can ever produce. Their grave
+                // goes with the world, which is the documented risk of the farm world.
                 if (!player.teleport(spawn)) {
                     plugin.getLogger().warning(player.getName() + " could not be moved out of the "
-                            + "farm world - dead, asleep or carrying a passenger. The reset will be "
+                            + "farm world - asleep or carrying a passenger. The reset will be "
                             + "refused while they are still in it.");
                     return;
                 }

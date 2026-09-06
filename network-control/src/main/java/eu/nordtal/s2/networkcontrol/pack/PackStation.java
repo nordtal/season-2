@@ -318,8 +318,8 @@ public final class PackStation {
         // back into this very room - which is where "released to limbo" put them until 2026-09-05.
         final boolean admin = roster.isAdmin(uuid);
         final String destination = routing.servers().forAdmitted(phase, admin);
-        final WaitingDecision decision =
-                book.decide(uuid, phase, admin, proxy.getServer(destination).isPresent());
+        final WaitingDecision decision = book.decide(uuid, phase, admin,
+                proxy.getServer(destination).isPresent(), destination);
 
         switch (decision.action()) {
             case IDLE -> {
@@ -370,10 +370,11 @@ public final class PackStation {
      * @param cause  why, in one line - a backend that is restarting says "Connection refused"
      */
     public void releaseFailed(final Player player, final String cause) {
-        book.releaseFailed(player.getUniqueId());
+        final String destination = routing.servers()
+                .forAdmitted(phases.lastKnown(), roster.isAdmin(player.getUniqueId()));
+        book.releaseFailed(player.getUniqueId(), destination);
         logger.warn("'{}' did not take {} ({}); holding them in the waiting room and trying again in {}s",
-                routing.servers().forAdmitted(phases.lastKnown(), roster.isAdmin(player.getUniqueId())),
-                player.getUsername(), cause, WaitingBook.RELEASE_RETRY.toSeconds());
+                destination, player.getUsername(), cause, WaitingBook.RELEASE_RETRY.toSeconds());
         evaluate(player);
     }
 

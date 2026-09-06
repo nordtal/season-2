@@ -402,9 +402,11 @@ public final class PaperCommands {
      */
     private int help(final CommandContext<CommandSourceStack> context, final Node node) {
         // A root with a declared default runs it instead of listing itself: /phase is /phase show
-        // (Catalogue#rootDefault). The child's own dispatch applies the admin check, so nothing is
-        // skipped by taking this path - the person just typed less.
-        final java.util.Optional<Declaration> preset = eu.nordtal.s2.commands.Catalogue.rootDefault(node.literal);
+        // (Catalogue#rootDefault). The admin flag goes with it, because this path goes around the
+        // child node's requires - which is the whole admin gate. A comment here claimed the child's
+        // own dispatch applied the check; no dispatch has ever applied one (finding 102).
+        final java.util.Optional<Declaration> preset = eu.nordtal.s2.commands.Catalogue
+                .rootDefault(node.literal, mayUse(context.getSource()));
         if (preset.isPresent()) {
             final Node child = node.children.get(preset.get().path().get(1));
             if (child != null && child.command != null

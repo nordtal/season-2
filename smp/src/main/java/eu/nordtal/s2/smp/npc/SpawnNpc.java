@@ -51,9 +51,14 @@ public final class SpawnNpc {
             return;
         }
         remove();
+        final Location at = new Location(world, spec.x(), spec.y(), spec.z(), spec.yaw(), 0f);
+        // Loaded before the sweep, not after. getNearbyEntitiesByType searches loaded chunks only,
+        // and the figure is persistent since 2026-09-06 - so on a restart the chunk it was saved in
+        // is usually still on disk, the sweep finds nothing, and this spawns a second one on top of
+        // the first (finding 106). Loading it here also makes the spawn itself deterministic.
+        at.getChunk().load();
         sweep(world);
 
-        final Location at = new Location(world, spec.x(), spec.y(), spec.z(), spec.yaw(), 0f);
         final Mannequin figure = world.spawn(at, Mannequin.class, mannequin -> {
             mannequin.setImmovable(true);
             mannequin.setInvulnerable(true);

@@ -61,11 +61,23 @@ public final class Catalogue {
      * with nothing required after it, which is what "runnable with nothing typed" means.
      * </p>
      *
-     * @param root the first segment of a path, as typed after the slash
-     * @return the declaration to run for the bare root, if that root has one
+     * <b>The admin flag is not a convenience.</b> Brigadier's {@code requires} sits on the child
+     * node, and taking this shortcut skips it - so until 2026-09-06 a bare {@code /phase} from any
+     * player on the proxy ran the admin-only {@code /phase show} and printed the phase and both
+     * season dates. Both adapters carried a comment saying the child's own dispatch applied the
+     * check; neither dispatch has ever applied one, because the whole admin gate for a command tree
+     * is the {@code requires} this path goes around. Asking here means the one place that knows a
+     * root has a default is also the place that decides who gets it (finding 102).
+     *
+     * @param root  the first segment of a path, as typed after the slash
+     * @param admin whether the person typing it is an admin, from the same cache {@code requires}
+     *              consults
+     * @return the declaration to run for the bare root, if that root has one and they may run it
      */
-    public static java.util.Optional<Declaration> rootDefault(final String root) {
-        return java.util.Optional.ofNullable(ROOT_DEFAULTS.get(root));
+    public static java.util.Optional<Declaration> rootDefault(final String root,
+                                                              final boolean admin) {
+        return java.util.Optional.ofNullable(ROOT_DEFAULTS.get(root))
+                .filter(declaration -> admin || !declaration.adminOnly());
     }
 
     private static final java.util.Map<String, Declaration> ROOT_DEFAULTS =

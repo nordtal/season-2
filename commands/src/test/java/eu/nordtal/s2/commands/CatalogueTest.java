@@ -57,7 +57,7 @@ class CatalogueTest {
                 .collect(java.util.stream.Collectors.toSet());
         int found = 0;
         for (final String root : roots) {
-            final java.util.Optional<Declaration> preset = Catalogue.rootDefault(root);
+            final java.util.Optional<Declaration> preset = Catalogue.rootDefault(root, true);
             if (preset.isEmpty()) {
                 continue;
             }
@@ -70,7 +70,29 @@ class CatalogueTest {
                     declaration.name() + " needs an argument, so a bare root could not run it");
         }
         assertEquals(1, found, "exactly /phase has a default today; changing that is a decision");
-        assertEquals(java.util.Optional.of(PhaseCommands.SHOW), Catalogue.rootDefault("phase"));
+        assertEquals(java.util.Optional.of(PhaseCommands.SHOW), Catalogue.rootDefault("phase", true));
+    }
+
+    @Test
+    @DisplayName("a bare root runs no admin-only default for somebody who is not an admin")
+    void theRootDefaultIsGated() {
+        // Both adapters reach the default by calling run/dispatch on the child directly, which goes
+        // around the requires that is the entire admin gate for a command tree. Neither adapter's
+        // dispatch has ever carried an admin check of its own, so until 2026-09-06 a bare /phase
+        // from any player on the proxy answered with the phase and both season dates (finding 102).
+        // Asked here rather than in each adapter, because this is the one place that knows a root
+        // has a default at all.
+        for (final String root : Catalogue.all().stream()
+                .map(declaration -> declaration.path().getFirst())
+                .collect(java.util.stream.Collectors.toSet())) {
+            Catalogue.rootDefault(root, true)
+                    .filter(Declaration::adminOnly)
+                    .ifPresent(declaration -> assertEquals(java.util.Optional.empty(),
+                            Catalogue.rootDefault(root, false),
+                            "/" + root + " hands " + declaration.name() + " to a non-admin"));
+        }
+        assertEquals(java.util.Optional.empty(), Catalogue.rootDefault("phase", false),
+                "/phase show is admin-only, so a bare /phase from a player must fall through to help");
     }
 
     @Test

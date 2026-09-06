@@ -80,7 +80,7 @@ class AnnouncerTest {
         final Announcer announcer = new Announcer(rows, MESSAGES, Runnable::run,
                 (message, failure) -> warnings.add(message));
 
-        announcer.announce("smp.announce.milestone",
+        announcer.announce("smp.announce.milestone.border",
                 locale -> Map.of("milestone", locale.getLanguage().equals("de") ? "Aufbruch" : "Departure"));
 
         assertEquals(List.of(), warnings);

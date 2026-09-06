@@ -1044,12 +1044,25 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1279 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1284 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-06, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
-**Five are from the second rehearsal afternoon, 2026-09-06, and each carries a rule.**
+**Ten are from the second rehearsal afternoon, 2026-09-06, and each carries a rule.** The two that
+matter most are the grave's. `GraveLootIntegrationTest` (4) drives closing a grave against the real
+schema, because the defect **was** the schema: `smp_grave.looted_by` is `varchar(32)` - every person
+in this repository's tables is a discord id - and `Graves` passed a 36-character Minecraft UUID, so
+`markGraveLooted` threw on every loot from inside the async task that also erases the grave and
+refunds the experience. No grave was ever marked, every grave was restored on every start, nobody
+ever got their levels back, and **nothing in the game showed any of it**: the window opens, the items
+come out, the window closes (finding 132). `PeopleAreDiscordIdsTest` in `:common` turns that into an
+absolute rule over the six modules' sources, written the same day at the cheap moment - zero call
+sites left. The fourth case in the integration test is finding 133, which the first one uncovered: a
+loot was never written back to `smp_grave.contents`, so a restart refilled the grave from the
+original blob while the looter kept what they had taken.
+
+**Five more are from the same afternoon, and each carries a rule.**
 `ReloadReachesTheTrackTest` gained the one that is the whole reason `milestones.yml` is reloadable:
 a reload finishes the objectives its new targets already reach, *after* `ensureRows` and after the
 track is applied. Lowering a target below the collected progress is the documented escape hatch for
@@ -1082,8 +1095,8 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 333 |
-| `smp` | 197 |
+| `common` | 334 |
+| `smp` | 201 |
 | `network-control` | 192 |
 | `commands` | 180 |
 | `updater` | 151 |

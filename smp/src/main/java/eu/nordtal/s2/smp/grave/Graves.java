@@ -62,6 +62,7 @@ public final class Graves implements InventoryHolder {
 
     private final Plugin plugin;
     private final SmpDao dao;
+    private final eu.nordtal.s2.smp.player.Identities identities;
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSounds sounds;
@@ -79,10 +80,12 @@ public final class Graves implements InventoryHolder {
     /** Open inventory -> the grave it is showing. */
     private final Map<Inventory, UUID> viewing = new HashMap<>();
 
-    public Graves(final Plugin plugin, final SmpDao dao, final Messages messages,
+    public Graves(final Plugin plugin, final SmpDao dao,
+                  final eu.nordtal.s2.smp.player.Identities identities, final Messages messages,
                   final PlayerLocales locales, final SmpSounds sounds, final WorldEffects effects) {
         this.plugin = plugin;
         this.dao = dao;
+        this.identities = identities;
         this.messages = messages;
         this.locales = locales;
         this.sounds = sounds;
@@ -265,10 +268,29 @@ public final class Graves implements InventoryHolder {
             final byte[] remaining = ItemStack.serializeItemsAsBytes(inventory.getContents());
             open.put(graveId, new GraveRow(row.id(), row.ownerId(), row.ownerUuid(), row.world(),
                     row.x(), row.y(), row.z(), remaining, row.experience()));
+            // AND IN THE DATABASE, which is the half that was missing. The map above is this
+            // process's memory; the enable-time restore reads the row. So a half-emptied grave came
+            // back full after any restart while the items already taken stayed in the looter's
+            // inventory - the same stack twice (finding 133).
+            Bukkit.getScheduler().runTaskAsynchronously(plugin,
+                    () -> dao.updateGraveContents(graveId, remaining));
             return;
         }
 
-        final String looterId = player.getUniqueId().toString();
+        // The looter's DISCORD id, and not their Minecraft UUID.
+        //
+        // `looted_by` is varchar(32), the same shape as `owner_id` beside it, because every person
+        // in this schema is a discord id - a UUID's 36 characters do not fit. Passing
+        // getUniqueId().toString() made `markGraveLooted` throw
+        // "value too long for type character varying(32)" on EVERY loot, which killed the async
+        // task that follows it: no row was ever marked, no grave was ever erased, and nobody ever
+        // got their experience back. It surfaced only by reading the table after a real loot -
+        // in the game the items come out and the window closes, which is what a player checks
+        // (finding 132).
+        //
+        // Null is a legitimate answer: an unlinked looter cannot be named, and the grave still has
+        // to close. The column is nullable for exactly that.
+        final String looterId = identities.discordIdOf(player.getUniqueId()).orElse(null);
         final int experience = row.experience();
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (dao.markGraveLooted(graveId, looterId).isEmpty()) {

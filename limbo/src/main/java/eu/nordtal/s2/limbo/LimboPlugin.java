@@ -251,29 +251,35 @@ public final class LimboPlugin extends JavaPlugin {
         // Stops the beat, so a server that is going down stops claiming to be up. The marker is
         // deliberately not deleted: going stale is the signal, and it costs nothing here.
         if (heartbeat != null) {
-            heartbeat.cancel();
+            quietly("heartbeat.cancel", heartbeat::cancel);
         }
         if (channel != null) {
-            channel.unregister();
+            quietly("channel.unregister", channel::unregister);
         }
         if (room != null) {
-            room.stop();
+            quietly("room.stop", room::stop);
         }
         // Before the pool: the listener thread is parked on a connection of its own, but a refresh
         // already in flight reads through the pool.
         if (adminWatch != null) {
-            adminWatch.close();
+            quietly("adminWatch.close", adminWatch::close);
         }
         // access.close() is a no-op - AccessDirectory.using(...) never owns the pool it is handed -
         // so this plugin closes the pool it built itself.
         if (commandWaiter != null) {
             // Before the pool: a wait in flight reads the request row through it.
-            commandWaiter.shutdownNow();
+            quietly("commandWaiter.shutdownNow", commandWaiter::shutdownNow);
         }
         if (pool != null) {
-            pool.close();
+            quietly("pool.close", pool::close);
         }
         getLogger().info("limbo disabled");
+    }
+
+    /** One disable step, isolated from the next - see {@link eu.nordtal.s2.common.health.Shutdown}. */
+    private void quietly(final String what, final Runnable step) {
+        eu.nordtal.s2.common.health.Shutdown.quietly(what, step,
+                (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
     }
 
     // JavaPlugin#getLogger() returns java.util.logging.Logger; jcore's ConfigLoader wants an

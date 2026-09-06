@@ -1044,7 +1044,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1285 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1286 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-06, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
@@ -1106,7 +1106,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | module | tests |
 |---|---|
 | `common` | 334 |
-| `smp` | 202 |
+| `smp` | 203 |
 | `network-control` | 192 |
 | `commands` | 180 |
 | `updater` | 151 |
@@ -1168,7 +1168,7 @@ This said "537 in six modules" until 2026-09-02 and was wrong twice over: the nu
 in this repository that drive a PostgreSQL advisory lock. A count that omits a whole module is worse
 than no count, because it reads as complete.
 
-`:common` has **313**. **Two are new on 2026-09-05 with the retention window**, and they are
+`:common` has **334**. **Two are new on 2026-09-05 with the retention window**, and they are
 the only place the `DELETE` can be checked: that a settled row past 30 days goes, that one inside
 the window stays, and - the case that matters - that a `PENDING` row is never touched however old it
 looks, because deleting one somebody is still waiting on is worse than keeping one too long. Three
@@ -1289,7 +1289,7 @@ run when the database is unreachable, and is also why a hand-set emergency opera
 a restart. `smp`'s ConfigsTest gained the twelfth: `admin-permissions` is retired, and a deployed
 `config.yml` that still carries it has to fail **by name** rather than quietly ignore the key.
 
-`discord-bot` has **142**, and the drop of fifteen that got it there is the point rather than a
+`discord-bot` has **145**, and the drop of fifteen that got it there is the point rather than a
 loss. `PhaseCommandTest`
 was twenty-one cases asserting this bot's own authorisation rule, its own phase parsing, its own
 confirmation wording, its own overview and its own date refusal - every one of which the proxy
@@ -1334,7 +1334,7 @@ that, and both are easy to undo by accident:
   that one, from the module directory, in preference to the real one. It was deleted with this
   change; the anchor is what stops the next one shadowing the root file silently.
 
-`network-control` has **178** - eleven fewer than before 2026-09-04, and all three subtractions are
+`network-control` has **192** - eleven fewer than before 2026-09-04, and all three subtractions are
 worth knowing. Seven left the module with `PhaseListenerTest`, which moved into `:common` as
 `NotificationListenerTest` when the reconnect loop did; the module lost the tests and the code
 together, and `:common` gained nine. Three more left with `PhaseCommandTest`, whose subject -
@@ -1361,7 +1361,7 @@ fails on the old semantics — checked by putting the bug back — and it is the
 rule that replaced them: **no single plugin message may be able to strand a player.** See
 `docs/state-of-play.md` finding 38.
 
-`commands` has **171**, and it went from 16 on the day it was scaffolded to this on the day the first
+`commands` has **180**, and it went from 16 on the day it was scaffolded to this on the day the first
 command was folded into it - which is the whole difference between a module and a shape. Twenty-two
 are `PhaseCommandsTest`, and every case in it was previously answerable only by running the command
 on a real proxy or in a real guild: what `/phase` says when the phase is already the one asked for,
@@ -1388,7 +1388,7 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **176**. **The "two-step everywhere" rule reached this module on 2026-09-04** - `/smp
+`smp` has **203**. **The "two-step everywhere" rule reached this module on 2026-09-04** - `/smp
 farmreset now`, `/smp objective complete` and `/smp milestone unlock` have to be typed twice inside
 `Confirmations.WINDOW` - and what asserts it is `SmpCommandsTest#whatIsIrreversible`, in
 `:commands`, as one set each: the three that are guarded and the three that deliberately are not.
@@ -1478,7 +1478,7 @@ two language files carry the same keys with the same placeholders — a key adde
 the other reaches a player as the literal string `hg.start.countdown`, because `Messages` degrades
 to the key rather than throwing.
 
-`updater` has **136**, and this section did not mention the module at all until 2026-09-02.
+`updater` has **151**, and this section did not mention the module at all until 2026-09-02.
 `TopologyTest` reads the real `compose.yml` and is what keeps that file and `Topology` from becoming
 two facts - it now also asserts that every plugin a service runs is one that service's entrypoint
 guard asks for, and that the Paper backends cap players at the same number. `ApplierTest` covers the

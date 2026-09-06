@@ -88,6 +88,18 @@ public final class Duels {
      */
     private final java.util.Set<UUID> settled = new java.util.HashSet<>();
 
+    /**
+     * Fighters who died in the arena, and the state waiting for them on the other side of the
+     * respawn screen.
+     *
+     * <p>A duel loser is <b>dead</b> when the duel is settled, and an inventory written onto a dead
+     * player is thrown away by the respawn: Minecraft gives them back what they were holding when
+     * they died, which is the arena's loadout. So the loser walked away with a free iron sword and
+     * a shield, and their own inventory - thirteen emeralds, in the run that found this - was
+     * simply gone (finding 122). Their state waits here until {@link #respawned}.</p>
+     */
+    private final Map<UUID, SavedState> pending = new HashMap<>();
+
     /** Every block this plugin placed for an arena, so a teardown removes exactly those. */
     private final Map<Integer, List<Location>> placed = new HashMap<>();
 
@@ -169,6 +181,29 @@ public final class Duels {
             final Player second = Bukkit.getPlayer(secondId);
             if (first != null && second != null) {
                 begin(first, second, type);
+            }
+        });
+    }
+
+    /**
+     * Gives a dead fighter their own life back, on the other side of the respawn screen.
+     *
+     * <p>The respawn location is set on the event, because Minecraft has already chosen a bed or a
+     * world spawn by then; the inventory goes on one tick later, because the respawn writes the
+     * player's contents after this event returns and would overwrite anything set inside it.</p>
+     *
+     * @param event the respawn, so its location can be redirected
+     */
+    public void respawned(final org.bukkit.event.player.PlayerRespawnEvent event) {
+        final SavedState state = pending.remove(event.getPlayer().getUniqueId());
+        if (state == null) {
+            return;
+        }
+        event.setRespawnLocation(state.location());
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            final Player player = Bukkit.getPlayer(event.getPlayer().getUniqueId());
+            if (player != null) {
+                state.restore(player);
             }
         });
     }
@@ -353,7 +388,14 @@ public final class Duels {
         // Before the restore, because the restore is the teleport that would otherwise start the
         // next duel in the same tick - see the field.
         settled.add(playerId);
-        state.restore(player);
+        if (player.isDead()) {
+            // Nothing may be written onto a dead player - see the pending map. The message and the
+            // sound still go out now: they are read after the respawn either way, and a duel that
+            // says nothing until somebody clicks a button reads as a duel that broke.
+            pending.put(playerId, state);
+        } else {
+            state.restore(player);
+        }
         player.sendMessage(MessageRenderer.of(messages).format(locales.of(playerId), messageKey,
                 "aura", config.duelStake()));
         if (feedback != null) {

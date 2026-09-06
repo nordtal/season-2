@@ -116,6 +116,22 @@ class MilestoneStateIntegrationTest {
         assertEquals(List.of("departure"), dao.completedMilestoneKeys());
     }
 
+    @Test
+    @DisplayName("an objective the file declares gets a row, once, with the file's target")
+    void objectiveRowsAreEnsured() {
+        // Finding 99: nothing inserted into smp_objective until 2026-09-06, so the whole progress
+        // machinery ran against an empty table. This is the insert, its idempotence, and the one
+        // update it is allowed - the target, which is what the first escape hatch lowers.
+        dao.ensureObjective("departure", "logs", "HAND_IN", 64);
+        dao.ensureObjective("departure", "logs", "HAND_IN", 64);
+        assertEquals(1, dao.objectivesOf("departure").size(), "one row, however often the file is read");
+        assertEquals(64, dao.objectivesOf("departure").getFirst().target());
+
+        dao.ensureObjective("departure", "logs", "HAND_IN", 32);
+        assertEquals(32, dao.objectivesOf("departure").getFirst().target(), "a lowered target reaches the row");
+        assertEquals(0, dao.objectivesOf("departure").getFirst().amount(), "and the progress is untouched");
+    }
+
     private static void execute(final String sql) {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {

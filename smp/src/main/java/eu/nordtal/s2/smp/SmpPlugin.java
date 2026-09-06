@@ -649,6 +649,7 @@ public final class SmpPlugin extends JavaPlugin {
             } else {
                 trackProblems = List.of();
                 track = candidate;
+                ensureRows(candidate);
                 Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
                 getLogger().info("the milestone track was reloaded: " + track.size()
                         + " milestones");
@@ -713,10 +714,24 @@ public final class SmpPlugin extends JavaPlugin {
                 Bukkit.getOnlinePlayers().size());
     }
 
-    private void loadSeasonState() {
-        for (final Milestone milestone : track.milestones()) {
+    /**
+     * The database rows the file's definition needs: one per milestone and one per objective.
+     * Idempotent, and run at enable and after every accepted reload - an objective appended to
+     * {@code milestones.yml} mid-season has to exist as a row before anybody can hand anything in
+     * against it. The objective half was missing until 2026-09-06 (finding 99).
+     */
+    private void ensureRows(final MilestoneTrack definition) {
+        for (final Milestone milestone : definition.milestones()) {
             dao.ensureMilestone(milestone.key(), MilestoneState.LOCKED.name());
+            for (final eu.nordtal.s2.smp.milestone.Objective objective : milestone.objectives()) {
+                dao.ensureObjective(milestone.key(), objective.key(), objective.type().name(),
+                        objective.target());
+            }
         }
+    }
+
+    private void loadSeasonState() {
+        ensureRows(track);
         final List<String> completed = dao.completedMilestoneKeys();
         season.refresh(completed, track);
 

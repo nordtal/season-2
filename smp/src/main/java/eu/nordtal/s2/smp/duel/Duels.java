@@ -77,6 +77,17 @@ public final class Duels {
     /** player -> the duel they are in. */
     private final Map<UUID, ActiveDuel> byPlayer = new HashMap<>();
 
+    /**
+     * Fighters put back on the platform they came from, who must step off before duelling again.
+     *
+     * <p>Restoring a fighter is a teleport to where they stood when the duel began - which is the
+     * platform. Since a teleport counts as a move (finding 118), the restore itself re-registered
+     * them, and two people who fought once fought for ever: the second duel started in the same
+     * tick the first one ended, with neither of them having touched a key (finding 121). Cleared by
+     * {@link #steppedOff}, which is the physical act the rule is really about.</p>
+     */
+    private final java.util.Set<UUID> settled = new java.util.HashSet<>();
+
     /** Every block this plugin placed for an arena, so a teardown removes exactly those. */
     private final Map<Integer, List<Location>> placed = new HashMap<>();
 
@@ -118,11 +129,17 @@ public final class Duels {
 
     /** A player stepped onto a platform. */
     public void steppedOn(final Player player, final DuelType type) {
-        if (isInArena(player)) {
+        if (isInArena(player) || settled.contains(player.getUniqueId())) {
             return;
         }
         final UUID other = waiting.get(type);
-        if (other == null || other.equals(player.getUniqueId())) {
+        if (other != null && other.equals(player.getUniqueId())) {
+            // Already waiting here. This is called on every block change inside the platform, and
+            // a 3x3 is three or four of them at walking pace - which printed the line three times
+            // in a row on the local stack, all in the same second (finding 118).
+            return;
+        }
+        if (other == null) {
             waiting.put(type, player.getUniqueId());
             // SELECT: they picked a platform. It is not a menu, but it is the same thing a menu
             // click is - "the server noticed which one you chose" - and giving it its own sound
@@ -136,12 +153,30 @@ public final class Duels {
             return;
         }
         waiting.remove(type);
-        begin(opponent, player, type);
+        // One tick later, and this is the whole reason the duel never worked.
+        //
+        // steppedOn is called from PlayerMoveEvent. Bukkit applies event.getTo() to the player
+        // AFTER the handlers return - so a teleport performed inside the event is silently undone,
+        // and only for the player the event is about. What that produced on the local stack was a
+        // duel where the fighter who was already waiting stood alone in the arena at y=201 while
+        // the one who had just stepped on stayed on the platform at y=68, in ADVENTURE mode,
+        // holding the loadout, in a fight that would still have been scored. Nothing logged
+        // anything: teleport() returned true, so enter()'s own check passed (finding 119).
+        final java.util.UUID firstId = opponent.getUniqueId();
+        final java.util.UUID secondId = player.getUniqueId();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            final Player first = Bukkit.getPlayer(firstId);
+            final Player second = Bukkit.getPlayer(secondId);
+            if (first != null && second != null) {
+                begin(first, second, type);
+            }
+        });
     }
 
     /** A player stepped off every platform. */
     public void steppedOff(final Player player) {
         waiting.entrySet().removeIf(entry -> entry.getValue().equals(player.getUniqueId()));
+        settled.remove(player.getUniqueId());
     }
 
     private void begin(final Player first, final Player second, final DuelType type) {
@@ -315,6 +350,9 @@ public final class Duels {
         if (player == null || state == null) {
             return;
         }
+        // Before the restore, because the restore is the teleport that would otherwise start the
+        // next duel in the same tick - see the field.
+        settled.add(playerId);
         state.restore(player);
         player.sendMessage(MessageRenderer.of(messages).format(locales.of(playerId), messageKey,
                 "aura", config.duelStake()));

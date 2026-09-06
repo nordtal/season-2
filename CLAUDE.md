@@ -1044,12 +1044,24 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1277 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1279 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-06, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
-**Two are from the second rehearsal afternoon, 2026-09-06, and both carry a rule.**
+**Five are from the second rehearsal afternoon, 2026-09-06, and each carries a rule.**
+`ReloadReachesTheTrackTest` gained the one that is the whole reason `milestones.yml` is reloadable:
+a reload finishes the objectives its new targets already reach, *after* `ensureRows` and after the
+track is applied. Lowering a target below the collected progress is the documented escape hatch for
+an objective that has become impossible, and it did nothing at all - completion was decided when
+progress was *added*, and an impossible objective gets no more (finding 129). `PortalGateWiringTest`
+pins the two things about the portal gate that only a running server could otherwise answer: the
+farm world's exit hangs off `EntityPortalEnterEvent`, because `PlayerPortalEvent` never arrives in a
+custom dimension and the branch written for it was unreachable (131); and a refused Nether portal
+puts out the fire the ignition already placed, rather than charging the player for what it just
+refused (130).
+
+**Two more are from the same afternoon, and both carry a rule.**
 `SpawnNpcLabelTest` pins that the spawn NPC's configured name is the entity's *custom* name and that
 its mannequin description is explicitly emptied - vanilla draws the description as a second, smaller
 line whose default is the English word "NPC", so the choice is one label or two, and nothing outside
@@ -1071,7 +1083,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | module | tests |
 |---|---|
 | `common` | 333 |
-| `smp` | 195 |
+| `smp` | 197 |
 | `network-control` | 192 |
 | `commands` | 180 |
 | `updater` | 151 |

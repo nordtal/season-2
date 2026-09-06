@@ -58,7 +58,13 @@ public final class SpawnNpc {
             mannequin.setImmovable(true);
             mannequin.setInvulnerable(true);
             mannequin.setSilent(true);
-            mannequin.setPersistent(false);
+            // Persistent since 2026-09-06: with false, Paper discards the figure the moment its
+            // chunk unloads - which on the local stack happened within minutes of the start (the
+            // placeholder coordinates are far from the world spawn) and left an empty spot where
+            // the NPC had been until the next restart. sweep() above removes whatever the last
+            // start left in the world before this one spawns its own, so persistence costs no
+            // duplicates.
+            mannequin.setPersistent(true);
             if (spec.name() != null && !spec.name().isBlank()) {
                 mannequin.setDescription(Component.text(spec.name()));
             }

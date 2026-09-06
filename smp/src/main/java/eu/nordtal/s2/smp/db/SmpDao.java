@@ -222,6 +222,27 @@ public interface SmpDao {
             """)
     Optional<String> completeMilestone(@Bind("key") String key);
 
+    /**
+     * Makes sure the objective the file declares has a row, and that the row's target is the
+     * file's.
+     *
+     * <p>Missing until 2026-09-06: {@code ensureMilestone} below was called for every milestone at
+     * enable, and nothing anywhere inserted an objective - so {@code smp_objective} stayed empty,
+     * every {@code objectivesOf} answered nothing, the objective board showed a milestone with no
+     * rows under it, and no hand-in, statistic or advancement could ever have booked a single unit
+     * of progress. Found on the local stack by looking at the board (finding 99). The target is
+     * updated on conflict because lowering it is the first escape hatch and {@code TrackValidation}
+     * has already said whether the file may replace the running track; {@code amount} and
+     * {@code completed} are never touched here.</p>
+     */
+    @SqlUpdate("""
+            INSERT INTO smp_objective (milestone_key, key, type, target)
+            VALUES (:milestoneKey, :key, :type, :target)
+            ON CONFLICT (milestone_key, key) DO UPDATE SET target = EXCLUDED.target, type = EXCLUDED.type
+            """)
+    void ensureObjective(@Bind("milestoneKey") String milestoneKey, @Bind("key") String key,
+                         @Bind("type") String type, @Bind("target") long target);
+
     @SqlUpdate("UPDATE smp_milestone SET state = 'ACTIVE' WHERE key = :key AND state = 'LOCKED'")
     int activateMilestone(@Bind("key") String key);
 

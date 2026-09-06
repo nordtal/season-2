@@ -3,6 +3,7 @@ package eu.nordtal.s2.smp.duel;
 import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.region.Box;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -29,8 +30,11 @@ public final class DuelListener implements Listener {
     /** The configured platforms, resolved once: a box and the loadout it hands out. */
     private final List<Map.Entry<Box, DuelType>> platforms = new ArrayList<>();
     private final Duels duels;
+    private final org.bukkit.plugin.Plugin plugin;
 
-    public DuelListener(final SmpSpec config, final Duels duels) {
+    public DuelListener(final org.bukkit.plugin.Plugin plugin, final SmpSpec config,
+                        final Duels duels) {
+        this.plugin = plugin;
         this.duels = duels;
         for (final SmpSpec.DuelPlatformSpec spec : config.duelPlatforms()) {
             final Optional<DuelType> type = DuelType.parse(spec.type());
@@ -40,6 +44,21 @@ public final class DuelListener implements Listener {
             platforms.add(Map.entry(new Box(spec.world(), spec.minX(), spec.minY(), spec.minZ(),
                     spec.maxX(), spec.maxY(), spec.maxZ()), type.get()));
         }
+    }
+
+    /**
+     * A teleport is a move, and Bukkit does not think so.
+     *
+     * <p>{@code PlayerTeleportEvent} extends {@code PlayerMoveEvent} but declares its own handler
+     * list, so a handler registered for the move never sees it. On the local stack that meant a
+     * player teleported onto a platform was not registered as waiting - and, the half that matters,
+     * a player teleported <em>away</em> from one stayed registered, so the next arrival would have
+     * been put in an arena against somebody who had taken the balloon somewhere else. Every travel
+     * path on this server is a teleport (finding 118).</p>
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onTeleport(final org.bukkit.event.player.PlayerTeleportEvent event) {
+        onMove(event);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -83,7 +102,12 @@ public final class DuelListener implements Listener {
         event.getDrops().clear();
         event.setDroppedExp(0);
         event.deathMessage(null);
-        duels.decide(player);
+        // Decided on the next tick, and that is not tidiness. GraveListener asks "is this player
+        // in an arena?" at HIGH to skip the grave and the death penalty, and this runs at LOWEST -
+        // so deciding here removed them from the arena before that question was asked, and a duel
+        // death cost the loser 10 aura for losing AND 5 for dying, in the one place the concept
+        // says a death costs nothing (finding 120).
+        Bukkit.getScheduler().runTask(plugin, () -> duels.decide(player));
     }
 
     @EventHandler

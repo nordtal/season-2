@@ -405,7 +405,7 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new GraveListener(this, dao, graves, identities, penalty, duels::isInArena,
                         messages, locales, sounds), this);
-        getServer().getPluginManager().registerEvents(new DuelListener(config, duels), this);
+        getServer().getPluginManager().registerEvents(new DuelListener(this, config, duels), this);
 
         // The figure in the tavern, and the only way a HAND_IN objective can be fulfilled.
         npc = new SpawnNpc(this, config);

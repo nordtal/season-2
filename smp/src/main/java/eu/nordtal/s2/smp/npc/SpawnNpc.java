@@ -71,8 +71,28 @@ public final class SpawnNpc {
             // duplicates.
             mannequin.setPersistent(true);
             if (spec.name() != null && !spec.name().isBlank()) {
-                mannequin.setDescription(Component.text(spec.name()));
+                // The ordinary entity label, and DELIBERATELY NOT Mannequin#setDescription, which
+                // is what this used to set and only that.
+                //
+                // Both render, one above the other - measured on a real 26.2 client on 2026-09-06
+                // by renaming the live entity: the custom name is the large top line, the
+                // description a smaller line under it. Setting both gave the figure two labels.
+                //
+                // The custom name is the one kept because it is the one that was watched working.
+                // The description was set on the figure standing in the tavern that afternoon -
+                // `data get entity` reported description: "Nordtal" - and the client drew nothing
+                // at all above it; only a figure spawned fresh after the restart showed the text
+                // (finding 127). What exactly the older figure was missing was not established,
+                // and an ordinary custom name does not depend on the answer.
+                mannequin.customName(Component.text(spec.name()));
+                mannequin.setCustomNameVisible(true);
             }
+            // Vanilla draws a mannequin's description as a second, smaller line under whatever else
+            // is above it, and Mannequin.defaultDescription() is the literal English word "NPC".
+            // Leaving it alone therefore labels the figure twice - "Nordtal" over "NPC" - with the
+            // second line in one language for every reader. Emptied rather than set to the same
+            // text, because two identical lines is not better than one.
+            mannequin.setDescription(Component.empty());
             applySkin(mannequin, spec.skinName());
         });
         spawned = figure.getUniqueId();

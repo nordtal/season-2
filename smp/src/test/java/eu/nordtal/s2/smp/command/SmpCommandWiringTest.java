@@ -77,8 +77,10 @@ class SmpCommandWiringTest {
     @DisplayName("the command waiter is shut down before the pool it reads through")
     void shutdownOrder() {
         final String source = readOrFail();
-        final int waiter = source.indexOf("commandWaiter.shutdownNow()");
-        final int pool = source.indexOf("pool.close()");
+        // The method-reference form: every disable step goes through Shutdown#quietly since
+        // 2026-09-06 (finding 101), and the order is what this test is about.
+        final int waiter = source.indexOf("commandWaiter::shutdownNow");
+        final int pool = source.indexOf("pool::close");
         assertTrue(waiter > 0 && pool > 0, "one of the two shutdowns is missing");
         assertTrue(waiter < pool,
                 "the pool is closed before the thread that is still polling a request row through"

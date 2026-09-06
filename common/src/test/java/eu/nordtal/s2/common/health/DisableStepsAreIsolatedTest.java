@@ -54,6 +54,24 @@ class DisableStepsAreIsolatedTest {
         }
     }
 
+    @Test
+    @DisplayName("every plugin loads the guard at enable, while its jar still exists")
+    void theGuardIsWarmedInOnEnable() throws IOException {
+        // The guard's own class is loaded on first use, and its only use is in onDisable - so on
+        // the first restart after a jar swap it threw ClassNotFoundException for itself and took
+        // the whole sequence down at step one, which is worse than the failure it fixes. Seen on
+        // the local stack the same day it was written (finding 115).
+        for (final String relative : PAPER_PLUGINS) {
+            final String text = read(relative);
+            final int start = text.indexOf("    public void onEnable() {");
+            assertTrue(start >= 0, relative + " has no onEnable");
+            final String body = text.substring(start, text.indexOf("\n    }\n", start));
+            assertTrue(body.contains("Shutdown.warmUp()"),
+                    relative + ": onEnable does not call Shutdown.warmUp(), so the first disable"
+                            + " step after a jar swap loads the guard from a jar that is gone");
+        }
+    }
+
     private static String read(final String relative) throws IOException {
         Path candidate = Path.of("").toAbsolutePath();
         while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {

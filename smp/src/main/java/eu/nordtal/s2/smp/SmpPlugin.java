@@ -208,6 +208,9 @@ public final class SmpPlugin extends JavaPlugin {
      */
     @Override
     public void onEnable() {
+        // Before anything else, and it has to be here: this loads the class every disable step
+        // below goes through, while the jar it lives in still exists. See Shutdown#warmUp.
+        eu.nordtal.s2.common.health.Shutdown.warmUp();
         try {
             start();
         } catch (final RuntimeException failure) {

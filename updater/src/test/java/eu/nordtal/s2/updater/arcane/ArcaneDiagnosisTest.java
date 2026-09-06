@@ -31,6 +31,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ArcaneDiagnosisTest {
 
     @Test
+    @DisplayName("plain HTTP with an API key is named; HTTPS, no key and no URL are not")
+    void aCredentialOnAnUnencryptedConnectionIsNamed() {
+        // The local stack is the one place this is defensible - container to host over Docker's own
+        // bridge - which is why it is a warning and not a refusal. Anywhere else the X-Api-Key
+        // header is a redeploy credential in the clear (finding 114).
+        assertTrue(Arcane.cleartextWithKey("http://host.docker.internal:3552", "k"));
+        assertTrue(Arcane.cleartextWithKey("HTTP://arcane.example.com", "k"),
+                "the scheme is case-insensitive, and an operator's paste is not");
+        assertFalse(Arcane.cleartextWithKey("https://arcane.example.com", "k"));
+        assertFalse(Arcane.cleartextWithKey("http://arcane.example.com", ""),
+                "no key is nothing to leak; Arcane refuses the request itself");
+        assertFalse(Arcane.cleartextWithKey("", "k"), "an unconfigured Arcane is a supported state");
+    }
+
+    @Test
     @DisplayName("the cause is printed, because the exception on its own says nothing")
     void theCauseIsWhereTheAnswerIs() {
         final ConnectException asThrown = new ConnectException();

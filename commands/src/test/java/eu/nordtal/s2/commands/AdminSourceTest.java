@@ -90,6 +90,29 @@ class AdminSourceTest {
                         + " cap and answers false everywhere else");
     }
 
+    @Test
+    @DisplayName("a subtree is gated only when everything runnable below it is admin-only")
+    void anOpenCommandIsNotGatedByItsRoot() throws IOException {
+        // Brigadier's requires gates a whole subtree, and both adapters put one on every child of
+        // a root. /smp status is declared open - CatalogueTest names it and announce as the only
+        // two - and a player who typed it got "Incorrect argument for command" with a red caret,
+        // because the node had been hidden from their tree (finding 117, seen on the local stack).
+        for (final String relative : List.of(
+                "paper-common/src/main/java/eu/nordtal/s2/papercommon/command/PaperCommands.java",
+                "network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityCommands.java")) {
+            final String source = read(relative);
+            assertTrue(source.contains("adminOnly(child) ? sub.requires(this::mayUse) : sub"),
+                    relative + " gates every child of a root, so an open command declared under an"
+                            + " admin root is invisible to the people it exists for");
+            assertTrue(source.contains("declaration().adminOnly()"),
+                    relative + " decides the gate without asking the declaration");
+        }
+        assertTrue(Catalogue.all().stream().anyMatch(declaration -> !declaration.adminOnly()
+                        && declaration.path().size() > 1),
+                "nothing in the catalogue is open under a root any more, which makes the check"
+                        + " above unfalsifiable - say so here rather than deleting it");
+    }
+
     private static String read(final String relative) throws IOException {
         Path candidate = Path.of("").toAbsolutePath();
         while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {

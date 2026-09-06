@@ -312,13 +312,33 @@ public final class PaperCommands {
         }
     }
 
+    /**
+     * Whether everything runnable at or below this node is admin-only.
+     *
+     * <p>Vacuously true for a node with neither a command nor children, which cannot be reached.
+     * One open command anywhere below opens the whole subtree's {@code requires}; the open command
+     * is then still the only thing a non-admin can run, because every admin-only node deeper down
+     * carries its own check.</p>
+     */
+    private static boolean adminOnly(final Node node) {
+        if (node.command != null && !node.command.declaration().adminOnly()) {
+            return false;
+        }
+        return node.children.values().stream().allMatch(PaperCommands::adminOnly);
+    }
+
     private LiteralArgumentBuilder<CommandSourceStack> materialise(final Node node) {
         final LiteralArgumentBuilder<CommandSourceStack> builder = Commands.literal(node.literal);
         for (final Node child : node.children.values()) {
             // The check goes on the child rather than on this node, because this node may be a root
             // that also carries somebody else's open command. Brigadier inherits requires down a
-            // subtree, so one on each first-level node covers everything below it.
-            builder.then(materialise(child).requires(this::mayUse));
+            // subtree, so one on each first-level node covers everything below it - which is also
+            // why a subtree with anything open in it may not carry one. Until 2026-09-06 every
+            // child got the check regardless of what it declared, so `/smp status`, declared as
+            // the one /smp command a player may run, answered a player with Brigadier's red caret
+            // (finding 117).
+            final LiteralArgumentBuilder<CommandSourceStack> sub = materialise(child);
+            builder.then(adminOnly(child) ? sub.requires(this::mayUse) : sub);
         }
 
         final boolean runnableHere = node.command != null && arguments(builder, node.command);

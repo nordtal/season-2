@@ -1,0 +1,72 @@
+package eu.nordtal.s2.smp.duel;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * That a duel does not begin inside the move event that started it.
+ *
+ * <p>A text search, because the failure needs two real players on a real server and there is no
+ * Bukkit here to fake. What it guards is a trap with no symptom: {@code PlayerMoveEvent} applies
+ * {@code event.getTo()} to the player <em>after</em> every handler has returned, so a teleport
+ * performed inside one is undone again - for that player only. The duel's own check does not see
+ * it, because {@code Player#teleport} returned {@code true}.</p>
+ *
+ * <p>What it produced on the local stack on 2026-09-06: the fighter who was already waiting was
+ * moved into the arena at y=201, the fighter who had just stepped onto the platform stayed at
+ * y=68 in ADVENTURE mode holding the free loadout, and the duel ran on regardless. Finding 119.</p>
+ */
+class DuelStartIsDeferredTest {
+
+    @Test
+    @DisplayName("the duel is started on the next tick, not inside the move event")
+    void theStartIsScheduled() throws IOException {
+        final String source = read("smp/src/main/java/eu/nordtal/s2/smp/duel/Duels.java");
+        final int steppedOn = source.indexOf("public void steppedOn(");
+        assertTrue(steppedOn >= 0, "Duels has no steppedOn");
+        final String body = source.substring(steppedOn, source.indexOf("\n    }\n", steppedOn));
+        assertTrue(body.contains("Bukkit.getScheduler().runTask("),
+                "steppedOn calls begin() straight from the move event, so whichever fighter is"
+                        + " standing in that event is teleported into the arena and immediately"
+                        + " put back on the platform - with the loadout, in a scored duel");
+        assertTrue(body.contains("begin(first, second, type)"),
+                "the scheduled task no longer starts the duel");
+    }
+
+    @Test
+    @DisplayName("a duel death leaves the arena on the next tick, not inside the death event")
+    void theEndIsScheduled() throws IOException {
+        // The mirror image of the case above, and it cost the loser twice. GraveListener asks
+        // "is this player in an arena?" at HIGH, to skip both the grave and the death penalty;
+        // DuelListener runs at LOWEST and used to end the duel there, so by the time the question
+        // was asked the answer was no. A duel death booked DUEL_LOSS -10 and DEATH -5 in the same
+        // millisecond, in the one place docs/smp.md says a death costs nothing. Finding 120.
+        final String source = read("smp/src/main/java/eu/nordtal/s2/smp/duel/DuelListener.java");
+        final int death = source.indexOf("public void onDeath(");
+        assertTrue(death >= 0, "DuelListener has no onDeath");
+        final String body = source.substring(death, source.indexOf("\n    }\n", death));
+        assertTrue(body.contains("runTask(plugin, () -> duels.decide("),
+                "DuelListener#onDeath decides the duel inside the death event, so the arena is"
+                        + " already forgotten when GraveListener asks about it at HIGH");
+    }
+
+    private static String read(final String relative) throws IOException {
+        Path candidate = Path.of("").toAbsolutePath();
+        while (candidate != null && !Files.isRegularFile(candidate.resolve("settings.gradle.kts"))) {
+            candidate = candidate.getParent();
+        }
+        if (candidate == null) {
+            throw new IllegalStateException("no settings.gradle.kts above " + Path.of("").toAbsolutePath());
+        }
+        final Path path = candidate.resolve(relative);
+        assertTrue(Files.isRegularFile(path), relative + " no longer exists");
+        return Files.readString(path, StandardCharsets.UTF_8);
+    }
+}

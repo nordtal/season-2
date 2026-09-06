@@ -110,6 +110,12 @@ public final class DuelListener implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> duels.decide(player));
     }
 
+    /** The other half of a duel death: see {@link Duels#respawned}. */
+    @EventHandler
+    public void onRespawn(final org.bukkit.event.player.PlayerRespawnEvent event) {
+        duels.respawned(event);
+    }
+
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
         duels.steppedOff(event.getPlayer());

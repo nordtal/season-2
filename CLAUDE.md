@@ -1044,8 +1044,8 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1286 in total, none skipped, all green** (`./gradlew build` with a
-Docker daemon present, 2026-09-06, on `release/0.6.0` after the agent-driven rehearsal on the local
+**Nine modules have tests: 1288 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-07, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1106,7 +1106,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | module | tests |
 |---|---|
 | `common` | 334 |
-| `smp` | 203 |
+| `smp` | 205 |
 | `network-control` | 192 |
 | `commands` | 180 |
 | `updater` | 151 |
@@ -1388,7 +1388,7 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **203**. **The "two-step everywhere" rule reached this module on 2026-09-04** - `/smp
+`smp` has **205**. **The "two-step everywhere" rule reached this module on 2026-09-04** - `/smp
 farmreset now`, `/smp objective complete` and `/smp milestone unlock` have to be typed twice inside
 `Confirmations.WINDOW` - and what asserts it is `SmpCommandsTest#whatIsIrreversible`, in
 `:commands`, as one set each: the three that are guarded and the three that deliberately are not.

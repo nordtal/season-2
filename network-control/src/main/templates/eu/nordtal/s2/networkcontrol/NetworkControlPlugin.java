@@ -257,10 +257,30 @@ public final class NetworkControlPlugin {
         //
         // The whole set, re-derived: a lost notification then costs latency and not correctness,
         // and the poll needs no bookkeeping to catch up on.
+        // A CHANGED FLAG RE-ROUTES, and that is the half this used to be missing. Refreshing the
+        // roster fixes who may run /phase and /smp; it does not move anybody. So an admin whose
+        // rank was revoked during MAINTENANCE kept standing on the SMP - the one phase where the
+        // flag is the entire difference between being let in and being held - until somebody
+        // happened to change the phase. Measured on the local stack 2026-09-07: the change was
+        // noticed and logged, and the player did not move for three minutes (finding 141).
+        //
+        // rerouteAll is public for exactly this ("a future admin command can force one"), and it
+        // re-reads each player's own admission row rather than trusting the phase passed in, so
+        // running it off a flag change is the same pass a phase change runs. It costs one pass over
+        // the connected players, and only when something actually changed - refreshAdmins answers
+        // zero on every ordinary tick.
+        //
+        // The decision is the owner's, 2026-09-07, and it is the same one the backends took on
+        // 2026-09-04 for the operator grant: waiting for a logout is the wrong direction on the
+        // one path that exists for emergencies.
         final Runnable refreshAdmins = () -> {
             final int changed = roster.refreshAdmins(access.admins());
             if (changed > 0) {
-                logger.info("The admin flag changed for {} connected player(s)", changed);
+                logger.info("The admin flag changed for {} connected player(s); re-routing", changed);
+                final PlayerRouter current = routerRef.get();
+                if (current != null) {
+                    current.rerouteAll(phaseWatch.lastKnown());
+                }
             }
         };
 

@@ -395,6 +395,50 @@ public interface UpdaterSpec {
         }
 
         @Order(6)
+        @Key("runtime-path")
+        @Comment({
+                "Where the updater reads the state of the project's services: one entry per",
+                "service with its container id, its status and its Docker health. This is what",
+                "turns \"and then everything came back\" from a hope into a check, and it is the",
+                "only reason an update can report which server did not.",
+                "",
+                "Read from Arcane's own source on 2026-09-07, v2.10.0 and v2.10.2 alike -",
+                "backend/internal/project/handler.go registers GET",
+                "/environments/{id}/projects/{projectId}/runtime, and each service comes back",
+                "carrying name, containerId, status and health. A setting for the same reason",
+                "redeploy-path is one: the documentation does not publish it."
+        })
+        default String runtimePath() {
+            return "/api/environments/{environment}/projects/{project}/runtime";
+        }
+
+        @Order(7)
+        @Key("container-path")
+        @Comment({
+                "Where the updater stops and starts ONE container, with {container} replaced by",
+                "the id runtime-path gave it and {action} by start or stop.",
+                "",
+                "This is the endpoint the whole update sequence rests on, and it is",
+                "container-level rather than project-level for one reason: Arcane's project-level",
+                "calls do stop AND start in a single request, and an update needs the gap between",
+                "them - that gap is where the jars are replaced. Swapping them any other way is",
+                "finding 147, which is what this design exists to end.",
+                "",
+                "It is also why the updater survives its own update: it never stops itself, so it",
+                "is still running to start the others again and to say whether they came back.",
+                "",
+                "One caveat, measured from Arcane's source on 2026-09-07: its container stop",
+                "hardcodes a 30-second timeout and does NOT honour compose.yml's",
+                "stop_grace_period of 180s. Paper was measured shutting down in 3 seconds",
+                "(deploy/README.md), so there is room - but a server that ever needs longer than",
+                "thirty seconds to save will be killed, and that would show up as a corrupt",
+                "region file rather than as an error here."
+        })
+        default String containerPath() {
+            return "/api/environments/{environment}/containers/{container}/{action}";
+        }
+
+        @Order(8)
         @Key("timeout-seconds")
         @Comment({
                 "How long to wait for the redeploy call.",

@@ -322,7 +322,7 @@ if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     if (( ${#installed[@]} == 0 )); then
         die "no plugin jars in ${PLUGINS}. This container does not fetch them any more - the updater does. Run it once against this stack:
 
-    docker compose run --rm updater apply
+    docker compose run --rm updater bootstrap
 
 Refusing to start: a Minecraft server with no plugins is a server with no season on it, and nothing about it looks wrong until somebody joins. Set ALLOW_NO_PLUGINS=true if a server with no plugins really is what you want."
     fi
@@ -357,7 +357,7 @@ Refusing to start. A folder with SOME of the plugins in it is the state that loo
 
 The likeliest cause is an updater run that could not reach a source and skipped this whole server - read its log for a line saying so, and run it again once the source answers:
 
-    docker compose run --rm updater apply
+    docker compose run --rm updater bootstrap
 
 If the plugin IS in the folder under a different filename, its publisher renamed the jar: correct EXPECTED_PLUGINS for this service rather than deleting anything."
         fi

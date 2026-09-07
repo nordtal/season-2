@@ -84,7 +84,7 @@ Gradle produces into a directory `.gitignore` excludes.
    it applies the schema and **fills every empty volume** — the four `plugins/` folders, both jar
    volumes, each server's `.server/` cache and the proxy's `pack.yml` — and only then writes the
    readiness marker that every other service waits for. That used to be
-   `docker compose run --rm updater apply`, typed by a person, which Arcane has no way to do.
+   `docker compose run --rm updater bootstrap`, typed by a person, which Arcane has no way to do.
 
    It **cannot move a version**: only artefacts with *nothing* installed are fetched, so a restart
    of a running network finds nothing missing and does nothing at all. Upgrades stay a request
@@ -107,7 +107,7 @@ docker compose up -d
 ```
 
 `docker compose run --rm updater report` prints what is installed and changes nothing;
-`updater apply` is the manual form of step 6 and is what to reach for when the bootstrap is off or
+`updater bootstrap` is the manual form of step 6 and is what to reach for when the bootstrap is off or
 you want an upgrade now rather than through Discord.
 
 **Pinning a release** is one line of environment, and it is how a rollback is expressed:
@@ -355,7 +355,7 @@ On the host it is one command, and a second one to make it take effect:
 
 ```bash
 docker compose run --rm updater report   # what would change, changes nothing
-docker compose run --rm updater apply    # migrate, then fetch and put in place
+docker compose run --rm updater bootstrap    # migrate, then fetch and put in place
 docker compose --profile mc restart      # the servers pick up what is on disk
 ```
 
@@ -702,7 +702,7 @@ Two kinds, and the distinction matters because one of them may be missing and th
 **Where all three come from changed on 2026-09-01.** They used to be three full URLs in
 `SMP_EXTRA_PLUGIN_URLS`, with three versions written into `.env` by hand. The updater resolves them
 now — DisplayTags from its own repository's releases, PacketEvents and Chunky from Modrinth filtered
-to this Minecraft version and `paper` — so a version bump is a run of `updater apply` and not an
+to this Minecraft version and `paper` — so a version bump is a run of `updater bootstrap` and not an
 edit. `required: true` is unchanged, and the container refuses to start unless **every plugin the
 service is supposed to have** is in `plugins/`.
 

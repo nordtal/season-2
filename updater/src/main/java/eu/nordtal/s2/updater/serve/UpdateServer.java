@@ -133,7 +133,13 @@ public final class UpdateServer implements AutoCloseable {
             log.info("Running request {}: {} asked for by {} from {}",
                     request.id(), request.kind(), request.requestedBy(), request.source());
 
-            final Outcome outcome = runner.run(request);
+            // The row is the progress bar. Every stage the run reaches is written back to it, so
+            // the Discord embed and the chat line watching this request redraw while it works -
+            // an update stops servers and then waits for their healthchecks, which can be minutes
+            // of a message that would otherwise never change.
+            final Outcome outcome = runner.run(request,
+                    report -> directory.progress(request.id(),
+                            eu.nordtal.s2.common.update.UpdateReports.toJson(report)));
 
             // The one place a RESTART usually does not reach: by now this container is on its way
             // down and the row stays RUNNING, which is exactly how the next start recognises that

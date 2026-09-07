@@ -866,9 +866,8 @@ commands** — the same program either way:
 
 ```
 docker compose up -d updater             # `serve`: migrate, then wait for requests. What compose runs.
-docker compose run --rm updater          # resolve and report, changes nothing
+docker compose run --rm updater report   # resolve and report, changes nothing
 docker compose run --rm updater migrate  # apply the database schema, nothing else
-docker compose run --rm updater apply    # migrate, then fetch and place the files
 ```
 
 **It has no compose profile**, so it is in every selection: it is the only process that applies the
@@ -905,9 +904,27 @@ Seven rules that are easy to break and expensive to break:
   does nothing at all until a row appears in `update_request` — no timer, no watch, no "check for
   updates on boot". A crash restart at three in the morning must not move a version. The container
   having a restart policy does not change that; adding a timer would.
-- **Nothing is rendered twice.** The Discord embed, the chat lines and the table all carry the
-  updater's own report verbatim. A second rendering somewhere is the thing that eventually
-  disagrees with the first.
+- **Nothing is *decided* twice, and that is a deliberate rewrite of an older rule.** Until
+  2026-09-07 this said **"nothing is rendered twice"**: the Discord embed, the chat lines and the
+  table all carried the updater's own report *verbatim*, because a second rendering is the thing
+  that eventually disagrees with the first. The rule was right about the danger and wrong about
+  where to stand. What must not happen twice is the **deciding** — resolving a version, comparing a
+  volume, judging an outcome — and forbidding a second *drawing* along with it bought a code fence
+  in Discord that is unreadable at a glance and says nothing at all while a run works, which now
+  takes minutes rather than seconds.
+
+  So the updater answers with an `eu.nordtal.s2.common.update.UpdateReport` — one line per service,
+  one entry per artefact moving — written into `update_request.result` as JSON by `UpdateReports`
+  (hand-rolled, so `:common` gains no dependency for it). Discord draws it as a field per service,
+  chat and the console print `UpdateReport#render()`, and **that render is the only text form in
+  the network**. Nothing anywhere composes a sentence of its own about an update. `V12` carries the
+  reasoning, including why this is JSON in the existing column rather than a table of its own.
+- **The report is written more than once, which `V7` said would never happen.** `V7__update_request
+  .sql` states that a request is never amended and that `result` is the whole of it. `V12` reverses
+  exactly that half and says why: a run stops servers and then waits up to five minutes for their
+  healthchecks, and a message that does not change for five minutes is indistinguishable from one
+  that has hung. `UpdateDirectory#progress` rewrites a `RUNNING` row's report as the run moves;
+  the `status = 'RUNNING'` guard is what stops a late progress write reopening a cancelled request.
 - **Exactly one `serve` may run, enforced by its own advisory lock (`nordtalS`) since 2026-09-02.**
   `settleOrphans` closes every row left `RUNNING` because "nothing is running those rows: the only
   process that claims one is an updater, and this one has just started" - a premise that is true of

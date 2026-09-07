@@ -38,7 +38,7 @@ import java.util.Optional;
  * <pre>
  *   updater report     resolve, compare, print, exit. Touches nothing a server reads.
  *   updater migrate    apply the database schema, and nothing else.
- *   updater apply      resolve, print, migrate, fetch the files and move them into place.
+ *   updater bootstrap  migrate, then fill EMPTY volumes. Upgrades nothing - see BOOTSTRAP.
  *   updater serve      migrate, then wait for requests from Discord and from in game.
  * </pre>
  *
@@ -55,7 +55,7 @@ import java.util.Optional;
  *
  * <p>{@code migrate} exists on its own because the schema is the one thing a deployment needs
  * before anything else can start - this container is the bootstrap, not a tool used on a running
- * one. {@code apply} does it too, before it moves a single jar, so a plugin never comes up against
+ * one. {@code bootstrap} does it too, before it moves a single jar, so a plugin never comes up against
  * a schema older than itself.</p>
  *
  * <h2>{@code serve} is the container that runs all the time, and it is not a scheduler</h2>
@@ -81,7 +81,7 @@ import java.util.Optional;
  * {@code 0} when a report was produced, whatever the report says - including one full of rows that
  * could not be checked, because that <em>is</em> the answer and it is in the text. {@code 1} when
  * no report could be produced at all, which in practice means a config this module refuses, and
- * when an {@code apply} run had a failure in it - there the non-zero is earned: something was
+ * when a {@code bootstrap} run had a failure in it - there the non-zero is earned: something was
  * attempted and did not work.
  * <p>
  * Deliberately not "non-zero when an update is available": that would make every scheduler treat a
@@ -104,8 +104,23 @@ public final class UpdaterMain {
     /** Mirrors the bot's layout: WORKDIR /app, config in a volume at /app/config. */
     private static final String DEFAULT_CONFIG_DIR = "config";
 
-    /** The one argument that makes this run write anything into a server's volume. */
-    private static final String APPLY = "apply";
+    /**
+     * The bootstrap: fill empty volumes on a deployment that has none.
+     *
+     * <h2>It was {@code apply}, and the rename is the safety</h2>
+     * {@code apply} resolved everything and installed everything, on a host where the servers were
+     * very likely running - which is finding 147 with a keyboard behind it. It was retired on
+     * 2026-09-07 along with the button that did the same thing, and what is left here is the one
+     * job that genuinely cannot be done any other way: a fresh deployment has no schema, so it has
+     * no {@code update_request} table, so it cannot ask for an update at all.
+     *
+     * <p><b>It installs only what is missing</b> ({@link UpdatePlan#onlyMissing()}), the same rule
+     * {@code serve} follows when it fills empty volumes at startup. That is what makes it
+     * structurally incapable of replacing a jar underneath a running server: there is nothing to
+     * replace, only gaps to fill. Upgrading is what {@code UPDATE} is for, and that stops the
+     * servers first.</p>
+     */
+    private static final String BOOTSTRAP = "bootstrap";
 
     /** The schema on its own - the first thing a deployment needs and the last thing to move. */
     private static final String MIGRATE = "migrate";
@@ -153,7 +168,17 @@ public final class UpdaterMain {
             // a bootstrap run works against a host that has no release published yet.
             case MIGRATE -> migrate(configDirectory) ? 0 : 1;
             case SERVE -> serve(configDirectory);
-            case APPLY -> apply(configDirectory);
+            case BOOTSTRAP -> bootstrap(configDirectory);
+            // Retired 2026-09-07, and named here rather than falling through to a report: somebody
+            // typing the old word on a running deployment is asking for exactly the thing that
+            // caused finding 147, and a silent report would look like it had worked.
+            case "apply" -> {
+                log.error("`apply` is retired. It installed jars underneath running servers, which"
+                        + " is what finding 147 cost. Use `bootstrap` to fill EMPTY volumes on a"
+                        + " fresh deployment, or ask for an update from Discord or in game - that"
+                        + " stops each server before its jars move and starts it again afterwards.");
+                yield 1;
+            }
             // REPORT is named as well as defaulted: `docker compose run --rm updater` cannot reach
             // the default - it inherits the service's `command`, or the image's CMD when the
             // service names none. Anything unrecognised still lands here, which is the safe end.
@@ -181,13 +206,17 @@ public final class UpdaterMain {
     /**
      * Resolve, migrate, install - on the host, on demand.
      *
-     * <p>This is the bootstrap command and the manual escape hatch, and it does not write a row
-     * into {@code update_request}: on a fresh deployment the table does not exist until the
-     * migration this run performs, so a request row would have to be written half way through its
-     * own run. The daemon's requests are recorded; this one is recorded in whoever's shell history
-     * it was typed into.</p>
+     * <p>This is the bootstrap command, and it does not write a row into {@code update_request}: on
+     * a fresh deployment the table does not exist until the migration this run performs, so a
+     * request row would have to be written half way through its own run. The daemon's requests are
+     * recorded; this one is recorded in whoever's shell history it was typed into.</p>
+
+     * <p><b>Only what is missing.</b> It was the manual escape hatch too until 2026-09-07, and that
+     * is what made it dangerous - the same command that fills a fresh volume would happily replace
+     * a jar under a running server. It now installs into gaps only, so the worst it can do on a
+     * live deployment is nothing.</p>
      */
-    private static int apply(final Path configDirectory) {
+    private static int bootstrap(final Path configDirectory) {
         final UpdaterSpec config = updaterConfig(configDirectory);
         final DatabaseSpec databaseConfig = databaseConfig(configDirectory);
         if (config == null || databaseConfig == null) {
@@ -215,8 +244,15 @@ public final class UpdaterMain {
             }
 
             try (RunLock held = lock.get()) {
-                final UpdatePlan plan = Runs.resolve(config);
-                System.out.println(Report.render(plan));
+                final UpdatePlan resolved = Runs.resolve(config);
+                final UpdatePlan plan = resolved.onlyMissing();
+                System.out.println(Report.render(resolved));
+                if (resolved.hasWork() && !plan.hasWork()) {
+                    System.out.println("\nNothing here is MISSING - everything listed above is an"
+                            + " upgrade, and this command does not perform upgrades. Ask for an"
+                            + " update from Discord or in game: it stops each server before its"
+                            + " jars move, which is the whole difference.");
+                }
 
                 // Before a single jar moves, and this order is the design: a plugin must never come
                 // up against a schema older than it is. A migration that fails stops the run here -

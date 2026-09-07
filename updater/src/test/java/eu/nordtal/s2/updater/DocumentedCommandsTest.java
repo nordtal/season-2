@@ -47,7 +47,12 @@ class DocumentedCommandsTest {
             "deploy/README.md");
 
     /** What {@link UpdaterMain} actually dispatches on. Anything else reads as the default. */
-    private static final List<String> SUBCOMMANDS = List.of("report", "migrate", "apply", "serve");
+    // "apply" is deliberately NOT here any more. It was retired on 2026-09-07 with the button
+    // that did the same thing (finding 147, and V12 carries the reasoning); a document still
+    // telling somebody to type it is a document telling them to swap jars under a running
+    // server, and this test is exactly the thing that should refuse it.
+    private static final List<String> SUBCOMMANDS =
+            List.of("report", "migrate", "bootstrap", "serve");
 
     private static final Pattern INVOCATION =
             Pattern.compile("docker compose run (?:--rm )?updater(?<rest>[^\\n`]*)");

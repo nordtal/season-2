@@ -1044,7 +1044,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1295 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1298 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-07, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
@@ -1107,7 +1107,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 |---|---|
 | `common` | 334 |
 | `smp` | 205 |
-| `network-control` | 192 |
+| `network-control` | 195 |
 | `commands` | 180 |
 | `updater` | 151 |
 | `discord-bot` | 145 |
@@ -1334,7 +1334,19 @@ that, and both are easy to undo by accident:
   that one, from the module directory, in preference to the real one. It was deleted with this
   change; the anchor is what stops the next one shadowing the root file silently.
 
-`network-control` has **192** - eleven fewer than before 2026-09-04, and all three subtractions are
+**Three of those 195 are `AdminChangeRoutesTest`, added 2026-09-07, and the rule they carry is one
+this repository had already taken once and applied to only half the network.** The proxy re-reads
+the admin roster on its poll and its `LISTEN`, with the right reason written beside it - an
+emergency revocation must not wait for a disconnect. What that fixed was *authorisation*: who may
+type `/phase` and `/smp`. It moved nobody. In `MAINTENANCE` the flag is the entire difference
+between standing on a backend and being held in the waiting room, so a revoked admin kept walking
+around on the SMP through a phase whose whole purpose is that nobody is on it (finding 141, measured
+on the local stack). A changed flag now forces the same pass a phase change forces, inside the
+`changed > 0` guard so an ordinary tick still costs nothing. **The decision to do it at all is the
+owner's**, 2026-09-07, and it matches the one the three backends took for the operator grant on
+2026-09-04.
+
+`network-control` has **195** - eleven fewer than before 2026-09-04, and all three subtractions are
 worth knowing. Seven left the module with `PhaseListenerTest`, which moved into `:common` as
 `NotificationListenerTest` when the reconnect loop did; the module lost the tests and the code
 together, and `:common` gained nine. Three more left with `PhaseCommandTest`, whose subject -

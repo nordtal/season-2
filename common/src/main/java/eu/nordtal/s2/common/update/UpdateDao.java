@@ -108,6 +108,21 @@ interface UpdateDao {
                                    @Bind("status") String status,
                                    @Bind("result") String result);
 
+    /**
+     * Rewrites a running request's report and leaves its status alone.
+     *
+     * <p>{@code status = 'RUNNING'} in the WHERE is the whole guard: a progress write that arrives
+     * after the request was cancelled, or after another updater settled it, changes nothing. The
+     * alternative - writing unconditionally - would let a stage that finished a moment before the
+     * cancel overwrite the cancellation with "starting the servers".</p>
+     */
+    @SqlUpdate("""
+            UPDATE update_request
+            SET result = :result
+            WHERE id = :id AND status = 'RUNNING'
+            """)
+    int progress(@Bind("id") long id, @Bind("result") String result);
+
     @SqlQuery("SELECT * FROM update_request WHERE id = :id")
     Optional<UpdateRequest> find(@Bind("id") long id);
 

@@ -135,7 +135,7 @@ class UpdateDirectoryIntegrationTest {
                 statement.execute("LISTEN " + UpdateDirectory.CHANNEL);
             }
 
-            updates.submit(UpdateKind.APPLY, UpdateSource.CONSOLE, null, Duration.ZERO);
+            updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, null, Duration.ZERO);
 
             final PGNotification[] received =
                     listener.unwrap(PGConnection.class).getNotifications(5000);
@@ -152,7 +152,7 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void claimingTakesTheOldestDueRequestAndMarksItRunning() {
         final UpdateRequest first = updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
-        final UpdateRequest second = updates.submit(UpdateKind.APPLY, UpdateSource.DISCORD, "b", Duration.ZERO);
+        final UpdateRequest second = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "b", Duration.ZERO);
 
         final UpdateRequest claimed = updates.claimNext().orElseThrow();
         assertEquals(first.id(), claimed.id(), "oldest first");
@@ -210,7 +210,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void finishingWritesTheReportIntoTheSameRow() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.APPLY, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
         updates.claimNext().orElseThrow();
 
         final UpdateRequest finished =
@@ -224,7 +224,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void onlyARunningRequestCanBeFinished() {
-        final UpdateRequest submitted = updates.submit(UpdateKind.APPLY, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest submitted = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "x").isEmpty(),
                 "it was never claimed, so there is no answer to write");
@@ -275,7 +275,7 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void aReportIsNotCancelledByTheRestartCancel() {
         // /smp update restart cancel must not quietly withdraw somebody else's apply.
-        final UpdateRequest report = updates.submit(UpdateKind.APPLY, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest report = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         assertTrue(updates.cancelPendingRestart("nope").isEmpty());
         assertEquals(UpdateStatus.PENDING, updates.find(report.id()).orElseThrow().status());
@@ -314,7 +314,7 @@ class UpdateDirectoryIntegrationTest {
     @Test
     void anOrphanedApplyIsAFailureAndSaysSo() {
         // Everything that is not a restart had no business dying, so it reads as what it was.
-        final UpdateRequest apply = updates.submit(UpdateKind.APPLY, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest apply = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
         updates.claimNext().orElseThrow();
 
         assertEquals(1, updates.settleOrphans("The redeploy happened", "Killed mid-run"));
@@ -326,7 +326,7 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void settlingOrphansLeavesPendingWorkAlone() {
-        final UpdateRequest waiting = updates.submit(UpdateKind.APPLY, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest waiting = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
 
         assertEquals(0, updates.settleOrphans("restarted", "failed"));
         assertEquals(UpdateStatus.PENDING, updates.find(waiting.id()).orElseThrow().status());

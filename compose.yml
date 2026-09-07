@@ -253,7 +253,7 @@ services:
     # entrypoint on every start and reported by `docker compose run --rm updater report`.
     #
     # BOT_VERSION therefore still pins the image, and still has to match gradle.properties for a
-    # build - but it does not decide what the bot runs, and after the first `updater apply` it
+    # build - but it does not decide what the bot runs, and after the first `updater bootstrap` it
     # never will again.
     image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${IMAGE_TAG:-latest}}
     build:
@@ -409,7 +409,7 @@ services:
       # BACK TO IT. So an updater writing a new sha1 into pack.yml while these were set would be
       # writing into a value nothing reads - a swap that reports success and changes nothing.
       #
-      # pack.yml in this volume is the place now, and `updater apply` is what writes it, taking the
+      # pack.yml in this volume is the place now, and `updater bootstrap` is what writes it, taking the
       # URL from the release asset and the hash from the .sha1 asset beside it. Nobody copies a
       # forty-character string out of a release page any more, which is what those two variables
       # were for.
@@ -595,9 +595,9 @@ services:
   #
   #   docker compose run --rm updater report     # resolve and report. Writes no file a server reads.
   #   docker compose run --rm updater migrate    # the schema, and nothing else.
-  #   docker compose run --rm updater apply      # migrate, then install. Restarts nothing.
+  #   docker compose run --rm updater bootstrap  # fill EMPTY volumes. Upgrades nothing.
   #
-  # Two of them cannot collide with the service: an apply takes a PostgreSQL advisory lock, and the
+  # Two of them cannot collide with the service: a bootstrap takes a PostgreSQL advisory lock, and the
   # second one to ask is refused rather than queued.
   updater:
     build:
@@ -639,7 +639,7 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       # --- database.yml ------------------------------------------------------------------
       # THIS IS THE PROCESS THAT MIGRATES. `serve` applies the schema at startup and then becomes
-      # healthy; `updater migrate` applies it and nothing else; `updater apply` does it before it
+      # healthy; `updater migrate` applies it and nothing else; `updater bootstrap` does it before it
       # moves a single jar, so a plugin never comes up against a schema older than itself.
       NORDTAL_UPDATER_DATABASE_JDBC_URL: *db-url
       NORDTAL_UPDATER_DATABASE_USERNAME: *db-username
@@ -660,7 +660,7 @@ services:
       NORDTAL_UPDATER_VELOCITY_BUILD: ${UPDATER_VELOCITY_BUILD:-latest}
       # Whether `serve` fills EMPTY volumes before it reports ready. This is what lets a stack come
       # up with nobody typing anything on the host: a Minecraft server refuses to start on an empty
-      # plugins folder, and Arcane cannot run `docker compose run --rm updater apply`.
+      # plugins folder, and Arcane cannot run `docker compose run --rm updater bootstrap`.
       #
       # It cannot move a version - only artefacts with nothing installed at all are fetched, so a
       # restart of a live network finds nothing missing and does nothing. Repeated from
@@ -728,7 +728,7 @@ volumes:
   updater-config:
   # The two jars that are a whole container each. Written by the updater, read by the container
   # they belong to; neither holds anything else and neither is worth backing up - a lost one is
-  # refilled by `docker compose run --rm updater apply`.
+  # refilled by `docker compose run --rm updater bootstrap`.
   bot-jar:
   updater-jar:
   bunq-context:

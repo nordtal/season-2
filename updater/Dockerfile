@@ -34,7 +34,7 @@ RUN mkdir -p config \
 #
 #   docker compose run --rm updater report     # resolve and report. Writes nothing.
 #   docker compose run --rm updater migrate    # the schema, and nothing else.
-#   docker compose run --rm updater apply      # migrate, then install. Restarts nothing.
+#   docker compose run --rm updater bootstrap      # migrate, then install. Restarts nothing.
 #   docker compose up -d updater               # `serve`, which is what the compose file passes.
 #
 # `serve` IS NOT A SCHEDULER. It applies the schema once at startup and then does nothing at all

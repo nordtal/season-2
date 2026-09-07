@@ -92,8 +92,11 @@ public final class UpdateCommands {
     public LiteralArgumentBuilder<CommandSourceStack> build() {
         return Commands.literal("update")
                 .executes(context -> ask(context, UpdateKind.REPORT))
-                .then(Commands.literal("apply")
-                        .executes(context -> ask(context, UpdateKind.APPLY)))
+                // "apply" was the retired step that swapped jars into running servers - finding
+                // 147. What sits here now is the whole run, and it takes servers down, so it is
+                // named for what it does rather than kept under the old word.
+                .then(Commands.literal("now")
+                        .executes(context -> ask(context, UpdateKind.UPDATE)))
                 .then(Commands.literal("restart")
                         .executes(this::askRestart)
                         .then(Commands.literal("cancel").executes(this::cancelRestart)));
@@ -103,12 +106,13 @@ public final class UpdateCommands {
 
     private int ask(final CommandContext<CommandSourceStack> context, final UpdateKind kind) {
         final CommandSender sender = context.getSource().getSender();
-        say(sender, kind == UpdateKind.APPLY ? "smp.update.installing" : "smp.update.checking");
+        say(sender, kind == UpdateKind.UPDATE ? "smp.update.installing" : "smp.update.checking");
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             final UpdateRequest request;
             try {
-                request = updates.submit(kind, UpdateSource.GAME, nameOf(sender), Duration.ZERO);
+                request = updates.submit(kind, UpdateSource.GAME, nameOf(sender),
+                        kind.stopsServers() ? UpdateDirectory.UPDATE_COUNTDOWN : Duration.ZERO);
             } catch (final RuntimeException failure) {
                 plugin.getLogger().warning("Could not write the " + kind + " request: " + failure);
                 say(sender, "smp.update.failed");
@@ -160,8 +164,22 @@ public final class UpdateCommands {
         }, CHECK_TICKS, CHECK_TICKS);
     }
 
+    /**
+     * Prints the updater's answer.
+     *
+     * <h2>The report is data now, and this renders it once</h2>
+     * Since 2026-09-07 the row carries an {@link eu.nordtal.s2.common.update.UpdateReport} as JSON,
+     * and its own {@code render()} is the one text form of it - the same one a console prints. That
+     * is the old rule ("nothing is rendered twice") standing exactly where it always should have:
+     * nothing here <em>decides</em> anything, and the text below is generated from the updater's
+     * object rather than typed alongside it. A row written before that change is plain text and is
+     * printed as it is, which is why the fallback exists and is not going away.
+     */
     private void report(final CommandSender sender, final UpdateRequest request) {
-        final String result = request.result() == null ? "(the updater wrote nothing)" : request.result();
+        final String stored = request.result();
+        final String result = eu.nordtal.s2.common.update.UpdateReports.parse(stored)
+                .map(eu.nordtal.s2.common.update.UpdateReport::render)
+                .orElseGet(() -> stored == null ? "(the updater wrote nothing)" : stored);
         final String[] lines = result.split("\n", -1);
 
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -192,7 +210,7 @@ public final class UpdateCommands {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 updates.submit(UpdateKind.RESTART, UpdateSource.GAME, nameOf(sender),
-                        UpdateDirectory.RESTART_COUNTDOWN);
+                        UpdateDirectory.UPDATE_COUNTDOWN);
             } catch (final RuntimeException failure) {
                 plugin.getLogger().warning("Could not write the restart request: " + failure);
                 say(sender, "smp.update.failed");
@@ -203,7 +221,7 @@ public final class UpdateCommands {
             // player. This line is only for the person who typed it, and its job is to name the
             // way back out.
             say(sender, MessageRenderer.of(messages).format(localeOf(sender), "smp.update.restart-asked",
-                    "seconds", UpdateDirectory.RESTART_COUNTDOWN.toSeconds()));
+                    "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()));
         });
         return Command.SINGLE_SUCCESS;
     }

@@ -89,17 +89,20 @@ public final class HungerGamesCommand {
         }
         // /update is declared Target.LOCAL and Surface.GAME, and Surface.GAME is four processes -
         // so every game server that can serve it, serves it. A command that exists on the SMP and
-        // not here would be exactly the per-adapter drift :commands was built to end. No watch:
-        // this server has no place to draw a running report, so the answer is read where the run
-        // happens.
+        // not here would be exactly the per-adapter drift :commands was built to end. The watcher
+        // is the other half and it is not optional: without it an admin gets the acknowledgement
+        // and never the report, the failure or the health of a single service.
+        final eu.nordtal.s2.papercommon.command.UpdateWatcher updates =
+                new eu.nordtal.s2.papercommon.command.UpdateWatcher(plugin,
+                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool));
         eu.nordtal.s2.commands.update.UpdateCommands.all().forEach(command -> commands.local(command,
                 new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool),
+                        updates.directory(),
                         eu.nordtal.s2.common.update.UpdateSource.GAME,
                         work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
                         (what, failure) -> plugin.getLogger()
                                 .warning("An update command failed while " + what + ": " + failure),
-                        (id, user) -> { })));
+                        updates::watch)));
 
         // extraOpen, not extra: this is the one subtree any player may use.
         commands.extraOpen("hg", ready());

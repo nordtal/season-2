@@ -127,15 +127,22 @@ interface UpdateDao {
     Optional<UpdateRequest> find(@Bind("id") long id);
 
     /**
-     * The restart that has been asked for and has not happened yet - what network-control counts
+     * The outage that has been asked for and has not happened yet - what network-control counts
      * down towards, and what a cancel withdraws.
      *
-     * @return the pending restart, or empty. There is normally at most one; if a second was asked
+     * <h2>Both kinds that take servers down, since 2026-09-07</h2>
+     * It was {@code kind = 'RESTART'} alone, which was complete while a restart was the only thing
+     * with a countdown on it. An {@code UPDATE} now stops servers too and carries the same
+     * {@code not_before} - so leaving this as it was would have counted down for a restart and
+     * said <b>nothing at all</b> before an update, which is the one of the two that also replaces
+     * jars. Players would have been dropped mid-sentence with no warning anywhere.
+     *
+     * @return the pending outage, or empty. There is normally at most one; if a second was asked
      *         for, the earlier one is the one that will fire and therefore the one to show
      */
     @SqlQuery("""
             SELECT * FROM update_request
-            WHERE status = 'PENDING' AND kind = 'RESTART'
+            WHERE status = 'PENDING' AND kind IN ('RESTART', 'UPDATE')
             ORDER BY not_before, id
             LIMIT 1
             """)
@@ -156,7 +163,10 @@ interface UpdateDao {
             WITH cancellable AS (
                 SELECT id
                 FROM update_request
-                WHERE status = 'PENDING' AND kind = 'RESTART'
+                -- Both kinds, for the reason pendingRestart() above gives at length: the button
+                -- says "Stop the countdown", and a countdown it could not stop would be worse than
+                -- no button.
+                WHERE status = 'PENDING' AND kind IN ('RESTART', 'UPDATE')
                 ORDER BY not_before, id
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED

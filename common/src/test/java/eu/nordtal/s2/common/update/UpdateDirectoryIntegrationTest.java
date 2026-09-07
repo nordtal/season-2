@@ -274,11 +274,30 @@ class UpdateDirectoryIntegrationTest {
 
     @Test
     void aReportIsNotCancelledByTheRestartCancel() {
-        // /smp update restart cancel must not quietly withdraw somebody else's apply.
-        final UpdateRequest report = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        // "Stop the countdown" must not quietly withdraw somebody else's report. A report has no
+        // countdown to stop - it takes nothing down - so it is not in the cancellable set at all.
+        final UpdateRequest report = updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a",
+                Duration.ZERO);
 
         assertTrue(updates.cancelPendingRestart("nope").isEmpty());
         assertEquals(UpdateStatus.PENDING, updates.find(report.id()).orElseThrow().status());
+    }
+
+    @Test
+    void anUpdateIsCountedDownAndCanBeStopped() {
+        // New on 2026-09-07, and it is the half that was missing rather than a refinement. Both
+        // pendingRestart() and cancelPendingRestart() looked for kind = 'RESTART' alone, which was
+        // complete while a restart was the only thing with a countdown on it. An UPDATE now stops
+        // servers and carries the same not_before - so the old scope would have counted down before
+        // a restart and said NOTHING before the one that also replaces jars, and the button
+        // offering to stop it could not have.
+        final UpdateRequest update = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a",
+                Duration.ofSeconds(30));
+
+        assertEquals(update.id(), updates.pendingRestart().orElseThrow().id(),
+                "the proxy counts down towards whatever is about to take servers away");
+        assertEquals(update.id(), updates.cancelPendingRestart("stop").orElseThrow().id());
+        assertEquals(UpdateStatus.CANCELLED, updates.find(update.id()).orElseThrow().status());
     }
 
     @Test

@@ -69,6 +69,33 @@ public final class FarmWorldReset {
     private java.util.function.Consumer<String> onReplaced = world -> { };
 
     private final List<BukkitTask> pending = new ArrayList<>();
+
+    /**
+     * The delayed build of tomorrow's world, kept apart from {@link #pending} on purpose.
+     *
+     * <p>{@link #scheduleNext()} clears {@code pending} every time it re-arms the clock, and it runs
+     * immediately after the swap that schedules this task. Putting it in the same list would cancel
+     * it one line after it was created - which looks exactly like a delay that works, because the
+     * next start of the server calls {@link #ensureStaging()} again and the world eventually
+     * appears.</p>
+     */
+    private BukkitTask stagingTask;
+
+    /**
+     * How long after a swap the next staging world is built.
+     *
+     * <h2>Why there is a delay at all</h2>
+     * {@code Bukkit.createWorld} runs on the server thread and there is no asynchronous world
+     * creation in the API. On a real 26.2 server on 2026-09-06 it took <b>15 seconds</b>, long
+     * enough for Paper's watchdog to dump the stack twice (finding 126). At 05:00 with nobody
+     * online that costs nothing - but {@code /smp farmreset now} can be typed at any hour, and then
+     * the server stands still for a quarter of a minute immediately after the swap.
+     *
+     * <p>Moving it a minute out does not make the stall shorter; it makes it land somewhere other
+     * than on the heels of a teleport that has just moved everybody out of a world. Decided by the
+     * owner on 2026-09-07, over "leave it as it is".</p>
+     */
+    private static final Duration STAGING_DELAY = Duration.ofMinutes(1);
     private volatile boolean swapping;
 
     public FarmWorldReset(final Plugin plugin, final SmpSpec config, final Worlds worlds,
@@ -126,6 +153,21 @@ public final class FarmWorldReset {
     }
 
     public void stop() {
+        clearSchedule();
+        if (stagingTask != null) {
+            stagingTask.cancel();
+            stagingTask = null;
+        }
+    }
+
+    /**
+     * Cancels the warnings and the reset, and nothing else.
+     *
+     * <p>Separate from {@link #stop()} because {@link #scheduleNext()} needs exactly this half: it
+     * re-arms the clock and must not touch a staging build that was deliberately put a minute into
+     * the future. {@code stop()} is the plugin going down, where both belong.</p>
+     */
+    private void clearSchedule() {
         pending.forEach(BukkitTask::cancel);
         pending.clear();
     }
@@ -142,7 +184,7 @@ public final class FarmWorldReset {
     // ------------------------------------------------------------------ the clock
 
     private void scheduleNext() {
-        stop();
+        clearSchedule();
         final Duration untilReset = schedule.until(LocalTime.now());
 
         for (final Duration ahead : DailySchedule.warningsBefore(config.farmResetWarningMinutes())) {
@@ -256,8 +298,12 @@ public final class FarmWorldReset {
             swap.swap().ifPresent(this::settleNewWorld);
         } finally {
             swapping = false;
-            ensureStaging();
             scheduleNext();
+            // Deliberately NOT ensureStaging() - see STAGING_DELAY. This is the one caller that
+            // runs with players who have just been teleported out of a world; the other two are a
+            // server start and a reset that did not happen, and neither is a moment anybody is
+            // watching.
+            scheduleStaging();
         }
     }
 
@@ -293,6 +339,23 @@ public final class FarmWorldReset {
         });
         plugin.getLogger().info("the farm world was replaced; the new arrival point is "
                 + landing.getBlockX() + "/" + landing.getBlockY() + "/" + landing.getBlockZ());
+    }
+
+    /**
+     * Builds tomorrow's world a minute from now rather than in this tick.
+     *
+     * <p>Re-entrant on purpose: a second call while one is already waiting keeps the first, because
+     * two of these would be two {@code createWorld} calls and {@link #ensureStaging()} only stops
+     * the second one after the first has finished.</p>
+     */
+    private void scheduleStaging() {
+        if (stagingTask != null) {
+            return;
+        }
+        stagingTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            stagingTask = null;
+            ensureStaging();
+        }, ticks(STAGING_DELAY));
     }
 
     /** Starts building tomorrow's world if it is not already there or already being built. */

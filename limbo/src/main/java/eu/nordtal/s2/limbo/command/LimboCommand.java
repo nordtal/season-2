@@ -50,7 +50,8 @@ public final class LimboCommand {
             final Plugin plugin, final Messages messages, final PlayerLocales locales,
             final Predicate<UUID> isAdmin,
             final java.util.function.Function<UUID, Optional<String>> discordIdOf,
-            final Outbox outbox, final LimboEffects effects) {
+            final Outbox outbox, final LimboEffects effects,
+            final javax.sql.DataSource pool) {
 
         final PaperCommands commands = new PaperCommands(plugin, messages, Target.LIMBO, outbox,
                 locales::of, isAdmin,
@@ -65,6 +66,19 @@ public final class LimboCommand {
         for (final NordtalCommand<LimboEffects> command : LimboCommands.all()) {
             commands.local(command, effects);
         }
+        // /update, on the waiting room too. Almost nothing lives here by design - but Surface.GAME
+        // is four processes, and an admin held in limbo during MAINTENANCE is exactly somebody who
+        // may want to update the network they cannot get onto. No watch: there is nothing here to
+        // draw a running report on.
+        eu.nordtal.s2.commands.update.UpdateCommands.all().forEach(command -> commands.local(command,
+                new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
+                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool),
+                        eu.nordtal.s2.common.update.UpdateSource.GAME,
+                        work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
+                        (what, failure) -> plugin.getLogger()
+                                .warning("An update command failed while " + what + ": " + failure),
+                        (id, user) -> { })));
+
         commands.remoteAll(Catalogue.all());
         return commands.build();
     }

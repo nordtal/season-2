@@ -42,6 +42,7 @@ public final class DiscordUser implements NordtalUser {
 
     private final List<String> lines = new ArrayList<>();
 
+
     public DiscordUser(final User user, final Locale locale, final boolean admin,
                        final InteractionHook hook, final Messages messages) {
         this.user = Objects.requireNonNull(user, "user");

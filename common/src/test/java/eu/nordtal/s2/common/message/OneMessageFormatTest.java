@@ -80,8 +80,6 @@ class OneMessageFormatTest {
                     "a disconnected player's name on their body"),
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/lobby/Lobby.java",
                     "one space between the broadcast and the clickable link"),
-            Map.entry("smp/src/main/java/eu/nordtal/s2/smp/command/UpdateCommands.java",
-                    "the updater's report, verbatim by module rule - see the comment there"),
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/ping/NetworkPing.java",
                     "the MOTD, which NetworkPing parses itself with its own placeholder resolver"),
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityUser.java",

@@ -223,7 +223,7 @@ public final class LimboPlugin extends JavaPlugin {
                                 // is filled at pre-login only when the server is near its cap, and
                                 // limbo never is - it would answer "nobody is an admin", for ever.
                                 adminWatch::isAdmin, access::linkedDiscordAccount,
-                                outbox, chatEffects)
+                                outbox, chatEffects, pool)
                         .forEach(node -> event.registrar().register(node)));
 
         startHeartbeat();

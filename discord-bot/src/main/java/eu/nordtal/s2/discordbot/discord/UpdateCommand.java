@@ -104,23 +104,36 @@ public final class UpdateCommand extends ListenerAdapter {
         this.timers = timers;
     }
 
-    /** What the bot registers with Discord on startup. */
-    public static List<CommandData> commands() {
-        return List.of(Commands.slash("update",
-                        "What is newer than what the network is running, and installing it.")
-                // Only hides it. The authorisation is discord_user.admin, checked on every click.
-                .setDefaultPermissions(DefaultMemberPermissions.DISABLED));
-    }
-
-    // ---------------------------------------------------------------- the command
-
-    @Override
-    public void onSlashCommandInteraction(final @NotNull SlashCommandInteractionEvent event) {
-        if (!"update".equals(event.getName())) {
+    /**
+     * <b>No {@code commands()} here any more.</b>
+     *
+     * <p>{@code /update} was declared in this class and registered from {@code AccessBot} until
+     * 2026-09-08. It is now one declaration in {@code :commands} that all three adapters render, so
+     * who may run it, in which language, and what is said back are decided once. What is left in
+     * this class is the half that is genuinely Discord's: the buttons, and the embed that follows
+     * a run and is edited in place as it works.</p>
+     */
+    /**
+     * Follow a request that a folded command has just written, and draw it.
+     *
+     * <p>The entry point from {@code :commands}: {@code ReportUpdate} and {@code RunUpdate} write
+     * the row and then ask this process to show it. Everything below - the polling, the embed, the
+     * fields per service, the buttons that follow - is this surface's business and no command's.</p>
+     *
+     * @param user the asker, which on this surface always carries the interaction to edit
+     * @param id   the request to follow
+     */
+    public void follow(final eu.nordtal.s2.commands.NordtalUser user, final long id) {
+        if (!(user instanceof DiscordUser discord)) {
+            // A NordtalUser that is not a Discord one cannot reach an interaction, and there is
+            // nothing to draw on. Reachable only if this effects object is ever handed to another
+            // adapter, which would be a wiring mistake rather than a runtime condition.
+            log.warn("An update was asked for through the Discord effects by a {}, which carries no"
+                    + " interaction to draw on. Request {} still ran.", user.getClass(), id);
             return;
         }
-        event.deferReply(true).queue();
-        worker.execute(() -> submit(event.getHook(), event.getUser().getId(), UpdateKind.REPORT));
+        updates.find(id).ifPresent(request ->
+                watch(discord.hook(), request, Instant.now().plus(PATIENCE)));
     }
 
     // ---------------------------------------------------------------- the buttons

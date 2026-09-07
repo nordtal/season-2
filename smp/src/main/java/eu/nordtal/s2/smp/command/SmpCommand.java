@@ -10,6 +10,8 @@ import eu.nordtal.s2.commands.smp.SmpCommands;
 import eu.nordtal.s2.commands.smp.SmpEffects;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.commands.update.UpdateCommands;
+import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.papercommon.command.PaperCommands;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -59,7 +61,7 @@ public final class SmpCommand {
     public static List<LiteralCommandNode<CommandSourceStack>> build(
             final Plugin plugin, final Messages messages, final PlayerLocales locales,
             final Identities identities, final SmpSounds sounds, final Outbox outbox,
-            final SmpEffects effects, final UpdateCommands updates,
+            final SmpEffects effects, final UpdateWatcher updates,
             final java.util.function.Supplier<MilestoneTrack> track,
             final SeasonState season) {
 
@@ -73,6 +75,15 @@ public final class SmpCommand {
             commands.local(command, effects);
         }
 
+        // One effects object for /update, built here because only this class knows both halves:
+        // the pool (through the watcher) and where a Paper plugin is allowed to wait.
+        final UpdateEffects updateEffects = new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
+                updates.directory(), eu.nordtal.s2.common.update.UpdateSource.GAME,
+                work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
+                (what, failure) -> plugin.getLogger()
+                        .warning("An update command failed while " + what + ": " + failure),
+                updates::watch);
+
         // The two arguments a person cannot be expected to remember. Both sources are already in
         // memory for the boards, so a keystroke costs a list walk rather than a query - which is the
         // rule a suggestion source has to meet, because Brigadier asks once per keystroke per
@@ -84,10 +95,18 @@ public final class SmpCommand {
                 // always refused.
                 () -> season.active().objectives().stream().map(ObjectiveRow::key).toList());
 
-        // /smp update is not a NordtalCommand and should not become one: it already travels,
-        // through update_request to a container that is not a command target, and its answer is the
-        // updater's own report - which docs/updater.md forbids rendering a second time.
-        commands.extra("smp", updates.build());
+        // /update, folded into :commands on 2026-09-08. It used to hang under /smp as a subtree
+        // this adapter knew nothing about, with a comment saying it should never become a
+        // NordtalCommand - because "the updater's report must not be rendered twice". That rule was
+        // deliberately rewritten the day before: what must not happen twice is the DECIDING, and
+        // the report is now data that every surface draws. So the command is declared once and
+        // this server serves it like any other.
+        //
+        // Target.LOCAL, so it never travels: the effect is a row in a table this plugin already has
+        // a pool for, and an update is what somebody asks for when the network is misbehaving.
+        for (final NordtalCommand<UpdateEffects> command : UpdateCommands.all()) {
+            commands.local(command, updateEffects);
+        }
 
         commands.remoteAll(Catalogue.all());
         return commands.build();

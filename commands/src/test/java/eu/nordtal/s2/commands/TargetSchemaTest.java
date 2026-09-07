@@ -62,6 +62,7 @@ class TargetSchemaTest {
 
         final Set<String> declared = Arrays.stream(Target.values())
                 .map(Enum::name)
+                .filter(name -> !Target.LOCAL.name().equals(name))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         assertEquals(declared, permitted,
@@ -69,6 +70,21 @@ class TargetSchemaTest {
                         + " constraint violation inside an adapter at the moment somebody types a"
                         + " command; one the database permits and the enum does not is a row"
                         + " nothing will ever claim.");
+    }
+
+    @Test
+    @DisplayName("LOCAL is deliberately NOT permitted by the CHECK")
+    void aLocalCommandCanNeverBecomeARow() throws IOException {
+        // The one target that is not an address, and the constraint is where that is enforced
+        // rather than merely intended. A LOCAL command runs in whichever process was asked, so a
+        // command_request row carrying it would be a row addressed to nobody: no inbox would ever
+        // claim it, and the asker would wait out the timeout being told that "this process" is
+        // down. Adding it to the CHECK to make the set above tidy is the exact mistake this case
+        // exists to refuse.
+        assertTrue(!sql().contains("'LOCAL'"),
+                "command_request's CHECK permits LOCAL. It must not: a LOCAL command never"
+                        + " travels, so such a row can only be a mistake, and the database is the"
+                        + " last place that can still say so.");
     }
 
     @Test

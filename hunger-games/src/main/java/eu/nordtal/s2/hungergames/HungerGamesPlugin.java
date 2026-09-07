@@ -352,7 +352,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final HungerGamesCommand command = new HungerGamesCommand(this, dao, messages, locales,
                     lobby, sounds, () -> currentGameId);
-            command.build(outbox, chatEffects, adminWatch::isAdmin)
+            command.build(outbox, chatEffects, adminWatch::isAdmin, pool)
                     .forEach(node -> event.registrar().register(node));
         });
     }

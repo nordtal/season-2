@@ -11,6 +11,10 @@ plugins {
 repositoryRootTestInputs {
     reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
     reads("smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java")
+    // UpdateIsServedEverywhereTest: /update is Target.LOCAL, so no inbox serves it and every
+    // process has to register it itself. These are the five places that can forget to.
+    reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/command/HungerGamesCommand.java")
+    reads("limbo/src/main/java/eu/nordtal/s2/limbo/command/LimboCommand.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
     reads("network-control/src/main/templates/eu/nordtal/s2/networkcontrol/NetworkControlPlugin.java")

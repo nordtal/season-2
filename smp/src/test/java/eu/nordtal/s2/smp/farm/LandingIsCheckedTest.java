@@ -62,7 +62,7 @@ class LandingIsCheckedTest {
                 if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
                     continue;
                 }
-                if (line.contains("getSpawnLocation()") && !line.contains("LandingSite.safeAt(")) {
+                if (line.contains("getSpawnLocation()") && !checked(line)) {
                     raw.add(relative + ":" + (i + 1));
                 }
             }
@@ -71,7 +71,20 @@ class LandingIsCheckedTest {
                 "a world spawn reached a player without a landing check - wrap it in"
                         + " LandingSite.safeAt(world, world.getSpawnLocation()), which is free when"
                         + " the spot is already good and is the difference between arriving and"
-                        + " suffocating when it is not");
+                        + " suffocating when it is not; a caller that may refuse the trip takes"
+                        + " findSafeAt instead and uses its own \"not available\" branch");
+    }
+
+    /**
+     * Either helper counts, and the difference between them is what the caller does with nothing.
+     *
+     * <p>{@code safeAt} ends with the preferred spot when its search comes back empty, which is
+     * right for a duel that has to end and for a farm world that is about to be deleted.
+     * {@code findSafeAt} hands the emptiness back, which is right for the balloon: it can say the
+     * destination is unavailable instead of announcing an arrival nobody survives.</p>
+     */
+    private static boolean checked(final String line) {
+        return line.contains("LandingSite.safeAt(") || line.contains("findSafeAt(");
     }
 
     private static String relative(final Path source) {

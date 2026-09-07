@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * command block's {@link BlockCommandSender}, the {@link ProxiedCommandSender} that
  * {@code /execute as … run …} builds, and a datapack function's sender. Any of those could have run
  * {@code /smp aura}, {@code /smp milestone unlock} and {@code /smp update restart} - the last of
- * which takes the whole network down after a one-minute countdown.
+ * which takes the affected servers down after a thirty-second countdown.
  *
  * <p>On this server that is a real surface rather than a theoretical one: the SMP is a place where
  * players build, so a command block is something the season hands them, and two third-party

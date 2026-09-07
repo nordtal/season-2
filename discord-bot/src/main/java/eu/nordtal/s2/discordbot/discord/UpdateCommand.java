@@ -229,8 +229,14 @@ public final class UpdateCommand extends ListenerAdapter {
                     "Cancelled in Discord by " + user.getName());
 
             if (cancelled.isPresent()) {
-                admin.note(user.getAsMention() + " stopped the restart before it happened.");
-                hook.editOriginal("Stopped. Nothing is restarting.")
+                // Named from the row, not from the button: since 2026-09-08 the same countdown and
+                // the same cancel serve an UPDATE as well as a RESTART, and saying "the restart"
+                // for an update that was about to replace jars is the wrong thing in the admin log
+                // - which is the record somebody reads weeks later to work out what happened.
+                final String what = cancelled.get().kind() == UpdateKind.UPDATE
+                        ? "update" : "restart";
+                admin.note(user.getAsMention() + " stopped the " + what + " before it happened.");
+                hook.editOriginal("Stopped. Nothing was changed.")
                         .setEmbeds(List.of()).setComponents(List.of()).queue();
             } else {
                 hook.editOriginal("Too late - the restart has already begun. Nothing was changed.")

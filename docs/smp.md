@@ -1083,7 +1083,7 @@ flag nobody reads:
 
 - `/smp aura <player> <delta>` - applying the negative is an exact undo.
 - `/smp reload` - re-reading a file changes nothing that was not already on disk.
-- `/smp update restart` - it has a confirmation of its own shape already, and a better one: a minute
+- `/update restart` - it has a confirmation of its own shape already, and a better one: half a minute
   of countdown every player on the network sees, which an admin who mistyped can cancel.
 
 `SmpCommandsTest#whatIsIrreversible` asserts both halves - the three that are guarded and the
@@ -1130,25 +1130,35 @@ Four things it does deliberately:
   names, so this server has no source for an offline name lookup — and the case the command is for
   is somebody standing in front of you.
 
-### `/smp update` — the network's updater, from in game
+### `/update` — the network's updater, from in game
 
-Added 2026-09-01, and it is the one part of `/smp` that has nothing to do with this server:
+Added 2026-09-01 under `/smp`, and **moved out of it on 2026-09-08**: it was always the one part of
+`/smp` that had nothing to do with this server, and it is now one declaration in `:commands` that
+every process registers, so the command is spelled the same in chat, on the proxy console and in
+Discord.
 
 ```
-/smp update                    what is newer than what the network is running
-/smp update apply              install it. Restarts nothing
-/smp update restart            restart the whole network, after a minute of countdown
-/smp update restart cancel     stop that countdown
+/update                what is newer than what the network is running
+/update now            the whole run: countdown, stop, install, start, wait for healthy
+/update restart        the same run with nothing installed
+/update cancel         stop the countdown, for as long as one is running
 ```
+
+`apply` is gone rather than renamed. It installed jars into servers that were still running, which
+is finding 147 — the running JVM's jar replaced underneath it — and a button that does that is the
+defect rather than a route to it.
 
 The plugin updates nothing — it cannot, the jars and the schema belong to a different container. It
-writes a row into `update_request` and reads the answer back, and what lands in chat is the
-`updater`'s own report, the same text `/update` in Discord shows
+writes a row into `update_request` and reads the answer back, and what lands in chat is rendered
+from the `updater`'s own report object, the same one the Discord embed draws as a field per service
 ([updater.md](updater.md#how-it-is-operated)).
 
-**The countdown is the confirmation.** A chat line has no button to press, so `restart` does not ask
-"are you sure": it starts a minute that everybody on the network is counted down through — by the
-proxy, because only the proxy sees players in limbo and in Hunger Games too — and `restart cancel`
+**The countdown is a second chance, not the first one.** That sentence used to read "the countdown
+*is* the confirmation", which was true while a chat line had no way to ask "are you sure"; since the
+fold, `/update now` and `/update restart` are `irreversible` declarations and are confirmed the way
+every other one is — typed again inside thirty seconds in chat, a button in Discord. Only after that
+does the countdown start: thirty seconds that everybody on the network is counted down through, by
+the proxy, because only the proxy sees players in limbo and in Hunger Games too. `/update cancel`
 stops it for as long as it runs.
 
 ## Data model

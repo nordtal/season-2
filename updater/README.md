@@ -46,7 +46,7 @@ started a second long-running daemon: it migrated, ran the bootstrap, began list
 | what is installed | six volumes under `volumes-root`: the four Minecraft ones, the bot's and its own |
 | what pack the proxy offers | `pack.yml` in the `network-control` volume |
 
-All six are mounted **writable** — `apply` is what puts the jars there. A report run still writes
+All six are mounted **writable** — an update run and `bootstrap` are what put the jars there. A report run still writes
 nothing into any of them; the two are separated by command, not by mount, so that the read-only one
 is what a container does when nobody asked for anything.
 
@@ -61,7 +61,7 @@ or — the two that matter — *unknown* and *UNRESOLVED*. Those two exist so th
   updates on boot". A crash restart at three in the morning must not move a version: the network
   comes back on exactly what it was running. The container having a restart policy does not change
   that; adding a timer would, and nothing here may.
-- **A report run puts nothing into a Minecraft volume.** Only `apply` does, and `apply` still
+- **A report run puts nothing into a Minecraft volume.** Only an update run and `bootstrap` do, and both still
   restarts nothing: it prints what it did and stops, because a person reading a half-done run
   before the network goes down on it is the entire point of the restart being a separate button.
 - **Two updaters cannot *serve* at once.** `serve` takes a second PostgreSQL advisory lock
@@ -71,10 +71,10 @@ or — the two that matter — *unknown* and *UNRESOLVED*. Those two exist so th
   one settles the first one's in-flight `APPLY` as a failure and the real report is lost. It waits
   up to 30 s first, because on a redeploy the replacement starts while its predecessor is still
   shutting down.
-- **Two updaters cannot move jars at once.** An apply takes the PostgreSQL advisory lock
+- **Two updaters cannot move jars at once.** Every run that moves or cycles anything - an update, a restart and `bootstrap` - takes the PostgreSQL advisory lock
   `nordtal1`, on a dedicated connection so a pool cannot leak it, and the second asker is **refused
   rather than queued** — a plan resolved now is stale by the time a queued run would start. The
-  daemon and a hand-run `apply` overlap on exactly the day somebody is bootstrapping.
+  daemon and a hand-run `bootstrap` overlap on exactly the day somebody is bootstrapping.
 - **"Skipped" is a third answer.** A run where every volume was unmounted did no work and had no
   failure; closing it with "Nothing needed doing" is how somebody reads it as "the network is
   current".
@@ -131,7 +131,7 @@ owner rather than two. The SQL itself did not move: it stays in
 `common/src/main/resources/db/migration/` and reaches this jar because `:common` is shaded into it,
 exactly as it reached the bot's.
 
-`apply` migrates **before** it moves a single jar, so a plugin never comes up against a schema older
+An update run and `bootstrap` both migrate **before** they move a single jar, so a plugin never comes up against a schema older
 than itself, and a migration that fails stops the run there: nothing is fetched, nothing is written. `deploy/minecraft/entrypoint.sh` fetched the plugins until
 2026-09-01 and does not any more: two owners of the same file is one owner too many, because that
 script deletes by filename prefix and would have deleted the jar the updater had just fetched. What
@@ -152,7 +152,7 @@ It does not own worlds, anything a player built, or any other file inside a volu
 ## The two surfaces
 
 Nothing calls this container: it is reached through the database. `/update` in Discord and
-`/smp update` in game write a row into `update_request` and read the answer back out of the same
+`/update` in game write a row into `update_request` and read the answer back out of the same
 row; `serve` holds a `LISTEN nordtal_update` connection outside its pool **and** polls every fifteen
 seconds. The poll is the guarantee, the notification is the speed — measured on 2026-09-01 across
 two containers: **160 ms with it, 17 s without**.
@@ -208,7 +208,7 @@ And again on 2026-09-01 for `serve`, two containers on a Docker network:
 - a `RESTART` left `RUNNING` by a killed container read as **DONE** on the next start, and an
   `APPLY` in the same state read as **FAILED** — the restart is the one request that is supposed to
   end that way;
-- a second `apply` refused while the advisory lock was held, from both directions, and going
+- a second run refused while the advisory lock was held, from both directions, and going
   through the moment it was released;
 - the Arcane call reaching an nginx with the right User-Agent, and its 404 producing the sentence
   that pointed at where the real path comes from. *That run went to `POST

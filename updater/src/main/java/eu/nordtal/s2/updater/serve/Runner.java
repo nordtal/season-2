@@ -126,8 +126,9 @@ public final class Runner implements RequestRunner {
         if (lock.isEmpty()) {
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
                     .withNote("Another updater run is in progress - nothing was done. That is"
-                            + " either the daemon or an `updater apply` somebody started on the"
-                            + " host. Wait for it to finish and ask again.")));
+                            + " either another update or a `docker compose run --rm updater"
+                            + " bootstrap` somebody started on the host. Wait for it to finish and"
+                            + " ask again.")));
         }
 
         try (RunLock held = lock.get()) {
@@ -164,7 +165,14 @@ public final class Runner implements RequestRunner {
             final ApplyResult result = Runs.apply(config, plan);
             report = report.withNote(Report.render(result));
             for (final String service : stopped.services()) {
-                report = report.with(report.line(service).at(UpdateReport.State.INSTALLED));
+                // Only where the apply actually succeeded. Marking every stopped service INSTALLED
+                // published a report claiming a failed download had installed - and it published it
+                // BEFORE start() and verify() could correct the line, so that claim is what an
+                // admin watching the embed read while the run was still going.
+                final String failure = failureFor(result, service);
+                report = report.with(failure == null
+                        ? report.line(service).at(UpdateReport.State.INSTALLED)
+                        : report.line(service).failed(failure));
             }
             progress.accept(report);
 
@@ -181,6 +189,28 @@ public final class Runner implements RequestRunner {
                     ? Outcome.failed(UpdateReports.toJson(finished))
                     : Outcome.done(UpdateReports.toJson(finished));
         }
+    }
+
+    /**
+     * Why one service's install did not happen, or {@code null} when it did.
+     *
+     * <h2>{@code SKIPPED} counts as a failure here, and that is the point of it</h2>
+     * {@link ApplyResult.Status#SKIPPED} means the whole of that server was deliberately left
+     * alone because one of its artefacts could not be resolved - a server's plugins move together
+     * or not at all. From the report's side that is not "installed": the server was stopped, the
+     * jars are the old ones, and it is about to be started again on them. Saying "updated" there
+     * would be the one line in the run that is simply untrue.
+     */
+    private static String failureFor(final ApplyResult result, final String service) {
+        return result.outcomes().stream()
+                .filter(outcome -> service.equals(outcome.service()))
+                .filter(outcome -> outcome.status() == ApplyResult.Status.FAILED
+                        || outcome.status() == ApplyResult.Status.SKIPPED)
+                .findFirst()
+                .map(outcome -> outcome.artifact() + ": " + (outcome.detail() == null
+                        ? outcome.status().name().toLowerCase(java.util.Locale.ROOT)
+                        : outcome.detail()))
+                .orElse(null);
     }
 
     // ---------------------------------------------------------------- restart
@@ -202,6 +232,30 @@ public final class Runner implements RequestRunner {
             return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
                     .withNote(runtime.message())));
         }
+
+        // The same lock an update takes, and for a reason a restart makes worse rather than
+        // better: `updater bootstrap` on the host holds it while it moves jars into empty slots,
+        // and a restart that cycles the servers underneath that would be exactly the swap-under-a-
+        // running-JVM this whole design exists to end - arriving from the other direction.
+        final Optional<RunLock> lock;
+        try {
+            lock = RunLock.tryAcquire(database.dataSource());
+        } catch (final SQLException failure) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("Could not reach the database to take the updater lock: " + failure)));
+        }
+        if (lock.isEmpty()) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("Another updater run is in progress - nothing was restarted. That is"
+                            + " either an update or a `docker compose run --rm updater bootstrap`"
+                            + " somebody started on the host. Wait for it and ask again.")));
+        }
+        try (RunLock held = lock.get()) {
+            return restartUnderLock(run, runtime);
+        }
+    }
+
+    private Outcome restartUnderLock(final UpdateRun run, final RuntimeResult runtime) {
 
         // A restart has no plan, so every Minecraft service is named as work with no changes
         // against it - which is what makes stop() take them and the report show a line each.

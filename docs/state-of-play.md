@@ -653,9 +653,10 @@ here was the backup concept, and it was built on 2026-09-01.
   Minecraft account and not a session. Three rows of the table above fall out of it.
 - ~~**The backup concept** (§3)~~ — **built 2026-09-01.** What it left behind is one restore drill
   against S3 and the host, which is an afternoon and not a session.
-- **The SMP's world half** (§2c) plus the winner's head start (§2d). §2b is built: the milestone
-  YAML, the aura payout, the prestige function and the milestone engine, 56 tests. What is left is
-  every feature that ends at a rehearsal rather than at a green build.
+- ~~**The SMP's world half** (§2c) plus the winner's head start (§2d)~~ — **both built**, the world
+  half on 2026-09-01 and the head start on 2026-09-07. **There is no implementation session left in
+  this document**: §2 is empty, and what every one of those features left behind is a rehearsal
+  rather than a build.
 - **The pre-generation measurement**, which does not need this repository at all and should happen
   before the world half is designed around a number nobody has. It is two numbers — Nordtal's
   one-off generation to border 4000, and what the farm world's daily generation does to the 95th

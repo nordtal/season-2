@@ -1044,7 +1044,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1288 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1295 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-07, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
@@ -1111,7 +1111,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | `commands` | 180 |
 | `updater` | 151 |
 | `discord-bot` | 145 |
-| `hunger-games` | 65 |
+| `hunger-games` | 72 |
 | `limbo` | 11 |
 | `paper-common` | 5 |
 
@@ -1438,7 +1438,25 @@ definition, and `MessageBundlesTest` (4) keeps the two language files symmetrica
 placeholders. What no test here covers is the world itself; that is what the drills and the
 rehearsals are for.
 
-`hunger-games` has **65**. **Two of them are `ConsoleUsableTest`, added 2026-09-04 with the fix
+**Seven of those 72 are from 2026-09-07, the first `/hg start` ever run with participants on a
+server, and both rules they carry cost a real start to find.** `FrozenPlayersAreNotKickedTest` (3):
+**a frozen participant is granted mayfly, and that is not a gameplay decision.** `FreezeListener`
+cancels every position change for the countdown, so somebody above air hovers rather than falls -
+and vanilla kicks a hovering player after about five seconds, after which the proxy puts them back
+onto the same tower and the five seconds run again. Both participants cycled through that
+indefinitely and the only way out was ending the phase from outside (finding 138). Locally the
+towers are missing because the arena is in no repository; on the real arena the freeze is what turns
+one mis-placed tower block into the same loop for everybody at once.
+`HudReadsItsNumbersTest` (4) carries the other: **`HudRenderer` may have no setter at all.** Two of
+the three HUD lines were fed by `setCounts` and `setNextRefillAt`, **neither of which had a caller
+anywhere in the repository** - so the line every participant watches read "Alive 0, Dead 0" for the
+whole of every game, and the one below it "no further refills planned" (finding 139). Both halves of
+each wire existed and nothing joined them; `WinTracker#aliveCount()` had no caller either. The
+renderer pulls from `WinTracker` and `LootRefill#nextRefillAt()` on each redraw now, and the test
+forbids the shape rather than the two instances - a push would work and break again the same way,
+because "remember to call this" is a rule with no enforcement.
+
+`hunger-games` has **72**. **Two of them are `ConsoleUsableTest`, added 2026-09-04 with the fix
 for the defect the whole command survey turned on:** every `/hg` subcommand was gated on
 `getSender() instanceof Player` and every handler opened with a cast to `Player`, so **the console
 could run none of it** - and the start of the season's flagship event depended on one client being

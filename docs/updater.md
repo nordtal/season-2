@@ -210,8 +210,9 @@ Two surfaces, and neither of them is the updater's own.
   `/update` reports as an embed, an **Install** button under it installs, and a **Restart the
   network** button under that starts the countdown. Admin-only, by `discord_user.admin`, checked
   again on every click — a role can be taken away while a message sits on screen.
-- **In game**, under `/smp` for admins: `/smp update`, `/smp update apply`,
-  `/smp update restart` and `/smp update restart cancel`.
+- **In game**, for admins: `/update`, `/update now`, `/update restart` and `/update cancel` -
+  the same four the bot registers, from one declaration in `:commands` since 2026-09-08. They used
+  to hang under `/smp` as a subtree written twice.
 
 Neither the bot nor the SMP plugin can call the updater directly — it is a separate container. They
 reach it **through the database**: a row in `update_request` plus a `pg_notify`, the updater
@@ -219,11 +220,22 @@ listening, and the answer written back into the same row. That is the machinery 
 already uses for phase switches, so it is not a new kind of wiring, and it means the request
 survives an updater that happens to be restarting.
 
-**Every surface shows the updater's own report, verbatim.** The Discord embed and the chat lines
-are the same text `updater bootstrap` prints on the host, rendered once by the process that did the
-work. A second rendering is the thing that would eventually disagree with the first.
+**Every surface shows the updater's own report — as data since 2026-09-07, not as one string.**
+The updater writes an `eu.nordtal.s2.common.update.UpdateReport` into `update_request.result` as
+JSON: one line per service, one entry per artefact moving, and the stage the run has reached. Discord
+parses it and draws a field per service, edited in place as the run works; chat and the console print
+`UpdateReport#render()`, which is the *only* text form of it.
 
-### The one-minute countdown
+This reverses a rule that used to sit here — *"the same text, rendered once; a second rendering is
+the thing that would eventually disagree with the first"*. The rule was right about the danger and
+wrong about where to stand: what must not happen twice is the **deciding**, and forbidding a second
+*drawing* along with it bought a code block in Discord that is unreadable at a glance and says
+nothing at all while a run works — which now takes minutes rather than seconds. The updater is still
+the only thing that resolves a version, compares a volume or judges an outcome. `V12` carries the
+reasoning, including why the report lives as JSON in the existing column rather than in a table of
+its own.
+
+### The thirty-second countdown
 
 A restart takes the whole stack down, so the request is written with `not_before` sixty seconds in
 the future and **network-control counts every player down towards it** — wherever they are, limbo
@@ -231,9 +243,9 @@ and Hunger Games included. That is why the proxy owns the announcement and not t
 proxy is the only process that sees everybody, and a restart asked for *in Discord* has to warn
 people too.
 
-The countdown is also the confirmation. A chat line has no button to press, so `/smp update restart`
+The countdown is a second chance rather than the first: the command itself is confirmed before it starts, by being typed again in chat and by a button in Discord. So `/update restart`
 does not ask "are you sure" — it starts a minute that everybody sees and that
-`/smp update restart cancel` (or the button in Discord) stops. The length is a constant in `:common`
+`/update cancel` (or the button in Discord) stops. The length is a constant in `:common`
 rather than a setting, because three processes submit restarts and a fourth renders the countdown:
 a value configured in four files is a counter that reaches zero while nothing happens.
 
@@ -405,8 +417,9 @@ Built piece by piece, and each piece is useful on its own:
    URL, the token, the project and **the path** are all settings, because the path is not published
    and a wrong constant would have to be a release. A 404 explains itself. An empty base URL is a
    supported state.
-6. ~~`/smp update` in game, over `NOTIFY`.~~ **Built 2026-09-01**, with the restart included and a
-   one-minute countdown that every player on the network sees — announced by the proxy, not by the
+6. ~~`/smp update` in game, over `NOTIFY`.~~ **Built 2026-09-01** (and folded to `/update` on
+   2026-09-08), with the restart included and a
+   thirty-second countdown that every player on the network sees — announced by the proxy, not by the
    SMP plugin, because a restart takes down limbo and Hunger Games too.
 
 Two things this order got right and one it did not. Step 1 was the one worth building carefully, as

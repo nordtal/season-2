@@ -68,16 +68,20 @@ public final class LimboCommand {
         }
         // /update, on the waiting room too. Almost nothing lives here by design - but Surface.GAME
         // is four processes, and an admin held in limbo during MAINTENANCE is exactly somebody who
-        // may want to update the network they cannot get onto. No watch: there is nothing here to
-        // draw a running report on.
+        // may want to update the network they cannot get onto - which is also why the watcher is
+        // wired here rather than left as a no-op: the acknowledgement without the answer is worse
+        // than no command.
+        final eu.nordtal.s2.papercommon.command.UpdateWatcher updates =
+                new eu.nordtal.s2.papercommon.command.UpdateWatcher(plugin,
+                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool));
         eu.nordtal.s2.commands.update.UpdateCommands.all().forEach(command -> commands.local(command,
                 new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool),
+                        updates.directory(),
                         eu.nordtal.s2.common.update.UpdateSource.GAME,
                         work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
                         (what, failure) -> plugin.getLogger()
                                 .warning("An update command failed while " + what + ": " + failure),
-                        (id, user) -> { })));
+                        updates::watch)));
 
         commands.remoteAll(Catalogue.all());
         return commands.build();

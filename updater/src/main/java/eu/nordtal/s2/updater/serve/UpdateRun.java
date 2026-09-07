@@ -185,9 +185,16 @@ final class UpdateRun {
                 break;
             }
             if (!clock.now().isBefore(deadline)) {
+                // The snapshot this iteration already read, not a fresh GET per pending
+                // service: that was one extra request each on the exact path where Arcane is slow
+                // or failing, and because every call is its own snapshot the descriptions could
+                // disagree with one another inside a single report.
+                final RuntimeResult last = now;
                 for (final String service : pending) {
-                    final String seen = arcane.runtime().service(service)
-                            .map(ServiceRuntime::describe).orElse("not listed by Arcane");
+                    final String seen = last.reached()
+                            ? last.service(service).map(ServiceRuntime::describe)
+                                    .orElse("not listed by Arcane")
+                            : "Arcane could not be read: " + last.message();
                     report = report.with(report.line(service).failed("did not come back within "
                             + HEALTH_PATIENCE.toMinutes() + " minutes (" + seen + ") - its own log"
                             + " is where the reason is, and the jar it was running before this"

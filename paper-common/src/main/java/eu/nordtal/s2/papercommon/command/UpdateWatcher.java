@@ -1,24 +1,12 @@
-package eu.nordtal.s2.smp.command;
+package eu.nordtal.s2.papercommon.command;
 
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
-import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.update.UpdateDirectory;
-import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
-import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
 
-import io.papermc.paper.command.brigadier.CommandSourceStack;
-import io.papermc.paper.command.brigadier.Commands;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -28,28 +16,23 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * {@code /smp update} - the second surface onto the updater, for when Discord is not where you are.
+ * Follows an update request on a Paper server and prints its answer when it lands.
  *
- * <h2>This plugin does not update anything</h2>
- * It cannot: the updater is a different container, with the volumes mounted and the schema in its
- * hands. What happens here is that a row is written into {@code update_request} and the answer is
- * read back out of it (docs/updater.md#how-it-is-operated) - the same table, the same rows and the
- * same report that {@code /update} in Discord shows. Nothing is rendered twice.
+ * <h2>Why this is in {@code :paper-common} and not in one plugin</h2>
+ * {@code /update} is {@code Target.LOCAL}, so all three Paper servers register it themselves - and
+ * each therefore needs its own way of showing the answer. This class was {@code smp}'s alone until
+ * 2026-09-08, and the other two were wired with a no-op watcher: an admin on the hunger games
+ * server or in limbo got "asking the updater..." and then <b>nothing at all</b>, for ever, for
+ * every one of the four commands. Found by review the same day.
  *
- * <h2>Four things it can do</h2>
- * <pre>
- *   /smp update                    what is newer than what the network is running
- *   /smp update apply              install it. Restarts nothing
- *   /smp update restart            restart the whole network, after a minute of countdown
- *   /smp update restart cancel     stop that countdown
- * </pre>
+ * <p>It needs a Bukkit scheduler and a chat line, which is exactly the rule for living here: code
+ * belongs in {@code :paper-common} only if it needs a Paper type.</p>
  *
- * <h2>The countdown is the confirmation</h2>
- * A chat line has no button to press and no dialog to read, so {@code restart} does not ask "are
- * you sure" - it starts a minute that everybody on the network is counted down through, by the
- * proxy, wherever they are. That minute is the confirmation: an admin who mistyped has sixty
- * seconds and a command that stops it, and everybody else finds out before it happens rather than
- * afterwards.
+ * <h2>The report is text and stays text</h2>
+ * Lines go out through {@link NordtalUser#replyLiteral}, never a message key: the updater's report
+ * carries version strings and filenames, and one containing {@code <} would become a MiniMessage
+ * tag. What changed on 2026-09-07 is only where that text comes from - it is generated from the
+ * updater's own report object rather than typed beside it.
  */
 public final class UpdateWatcher {
 
@@ -98,11 +81,11 @@ public final class UpdateWatcher {
      *             report is text and must never go through MiniMessage: a version string or a
      *             filename containing {@code <} would become a tag
      */
-    public void watch(final long id, final eu.nordtal.s2.commands.NordtalUser user) {
+    public void watch(final long id, final NordtalUser user) {
         watch(user, id, Instant.now().plus(PATIENCE));
     }
 
-    private void watch(final eu.nordtal.s2.commands.NordtalUser sender, final long id,
+    private void watch(final NordtalUser sender, final long id,
                        final Instant deadline) {
         final BukkitTask[] handle = new BukkitTask[1];
         handle[0] = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
@@ -112,13 +95,13 @@ public final class UpdateWatcher {
             } catch (final RuntimeException failure) {
                 plugin.getLogger().warning("Could not read update request " + id + ": " + failure);
                 handle[0].cancel();
-                sender.reply("smp.update.failed");
+                sender.reply("update.failed");
                 return;
             }
 
             if (row.isEmpty()) {
                 handle[0].cancel();
-                sender.reply("smp.update.gone");
+                sender.reply("update.gone");
                 return;
             }
             final UpdateRequest request = row.get();
@@ -131,7 +114,7 @@ public final class UpdateWatcher {
                 handle[0].cancel();
                 // Names the state the row is in, because PENDING here means one specific thing:
                 // nothing is listening, and the updater container is not running.
-                sender.reply("smp.update.timeout",
+                sender.reply("update.timeout",
                         java.util.Map.of("id", id, "status", request.status()));
             }
         }, CHECK_TICKS, CHECK_TICKS);
@@ -148,7 +131,7 @@ public final class UpdateWatcher {
      * object rather than typed alongside it. A row written before that change is plain text and is
      * printed as it is, which is why the fallback exists and is not going away.
      */
-    private void report(final eu.nordtal.s2.commands.NordtalUser sender, final UpdateRequest request) {
+    private void report(final NordtalUser sender, final UpdateRequest request) {
         final String stored = request.result();
         final String result = eu.nordtal.s2.common.update.UpdateReports.parse(stored)
                 .map(eu.nordtal.s2.common.update.UpdateReport::render)
@@ -159,7 +142,7 @@ public final class UpdateWatcher {
             // CANCELLED is deliberately not in here: a stopped countdown is somebody using the way
             // out, and /update cancel has already said so in its own words.
             if (request.status() == UpdateStatus.FAILED) {
-                sender.reply("smp.update.failed");
+                sender.reply("update.failed");
             }
             for (int line = 0; line < Math.min(lines.length, MAX_LINES); line++) {
                 // replyLiteral, NOT a message key: the updater's report is printed verbatim, here
@@ -170,7 +153,7 @@ public final class UpdateWatcher {
                 sender.replyLiteral(lines[line]);
             }
             if (lines.length > MAX_LINES) {
-                sender.reply("smp.update.truncated",
+                sender.reply("update.truncated",
                         java.util.Map.of("lines", lines.length - MAX_LINES));
             }
         });

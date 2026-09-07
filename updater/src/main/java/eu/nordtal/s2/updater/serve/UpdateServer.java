@@ -137,9 +137,26 @@ public final class UpdateServer implements AutoCloseable {
             // the Discord embed and the chat line watching this request redraw while it works -
             // an update stops servers and then waits for their healthchecks, which can be minutes
             // of a message that would otherwise never change.
-            final Outcome outcome = runner.run(request,
-                    report -> directory.progress(request.id(),
-                            eu.nordtal.s2.common.update.UpdateReports.toJson(report)));
+            final Outcome outcome = runner.run(request, report -> {
+                // A progress write is a redraw and must never be able to decide the run. It is a
+                // database write, and UpdateRun calls it BETWEEN stop and start: an exception here
+                // would unwind the sequence, be caught by the catch-all in Runner#run, and leave
+                // every service the run had already stopped stopped for good. A transient database
+                // error during a decorative write would turn an update into an outage.
+                try {
+                    if (!directory.progress(request.id(),
+                            eu.nordtal.s2.common.update.UpdateReports.toJson(report))) {
+                        // The row is no longer RUNNING - cancelled, or settled by somebody else.
+                        // Worth a line because the run carries on regardless and its answer will
+                        // then land nowhere.
+                        log.warn("Request {} is no longer RUNNING, so its progress was not"
+                                + " recorded; the run itself continues", request.id());
+                    }
+                } catch (final RuntimeException failure) {
+                    log.warn("Could not record progress for request {}; the run continues",
+                            request.id(), failure);
+                }
+            });
 
             // The one place a RESTART usually does not reach: by now this container is on its way
             // down and the row stays RUNNING, which is exactly how the next start recognises that

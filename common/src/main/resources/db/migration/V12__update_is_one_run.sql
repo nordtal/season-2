@@ -19,9 +19,24 @@ ALTER TABLE update_request
 -- that really was asked for, and rewriting history to match today's vocabulary would make the one
 -- run that caused this change disappear from the table that recorded it. The CHECK constrains what
 -- may be written from now on, which is all a CHECK has ever done here.
+--
+-- NOT VALID, and NOT followed by a VALIDATE anywhere.
+--
+-- Adding a CHECK normally scans the whole table under an ACCESS EXCLUSIVE lock, which blocks the
+-- writes and the report polling this very table exists for. NOT VALID skips that scan and still
+-- enforces the constraint on every INSERT and UPDATE from this moment on.
+--
+-- What makes skipping it *correct* here, rather than merely faster, is the shape of the change:
+-- the new set is a strict SUPERSET of the one the dropped constraint enforced. Every row already in
+-- the table passed 'REPORT', 'APPLY' or 'RESTART', so every row already satisfies this. There is
+-- nothing a scan could find, and a later VALIDATE CONSTRAINT would be a second migration doing
+-- provably no work.
+--
+-- That is a promise about this migration and not a general licence: NOT VALID on a constraint that
+-- NARROWS what is allowed leaves rows behind that violate it, silently, until somebody updates one.
 ALTER TABLE update_request
     ADD CONSTRAINT update_request_kind_check
-        CHECK (kind IN ('REPORT', 'APPLY', 'UPDATE', 'RESTART'));
+        CHECK (kind IN ('REPORT', 'APPLY', 'UPDATE', 'RESTART')) NOT VALID;
 
 
 -- `result` is now JSON, and it is written more than once.

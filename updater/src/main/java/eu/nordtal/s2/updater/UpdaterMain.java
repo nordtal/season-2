@@ -247,11 +247,21 @@ public final class UpdaterMain {
                 final UpdatePlan resolved = Runs.resolve(config);
                 final UpdatePlan plan = resolved.onlyMissing();
                 System.out.println(Report.render(resolved));
-                if (resolved.hasWork() && !plan.hasWork()) {
-                    System.out.println("\nNothing here is MISSING - everything listed above is an"
-                            + " upgrade, and this command does not perform upgrades. Ask for an"
-                            + " update from Discord or in game: it stops each server before its"
-                            + " jars move, which is the whole difference.");
+                // Whenever the executed plan is smaller than the resolved one, not only when it
+                // is empty. A plan with one MISSING entry and three upgrades printed the upgrades
+                // above and said nothing about them; the second report then listed only the one
+                // install, which reads as a partial failure rather than as a deliberate skip.
+                final int skipped = resolved.changes().stream()
+                        .filter(change -> change.status().isWork()).toList().size()
+                        - plan.changes().stream()
+                        .filter(change -> change.status().isWork()).toList().size();
+                if (skipped > 0) {
+                    System.out.println("\n" + skipped + " of the entries above " + (skipped == 1
+                            ? "is an upgrade" : "are upgrades") + " rather than something missing,"
+                            + " and this command does not perform upgrades - only what is absent is"
+                            + " installed below. Ask for an update from Discord or in game: it"
+                            + " stops each server before its jars move, which is the whole"
+                            + " difference.");
                 }
 
                 // Before a single jar moves, and this order is the design: a plugin must never come

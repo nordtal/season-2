@@ -29,6 +29,9 @@ final class FakeDirectory implements UpdateDirectory {
     private final Map<Long, UpdateRequest> rows = new LinkedHashMap<>();
     private final List<UpdateRequest> finished = new ArrayList<>();
 
+    /** Every progress write a run made, in order. See {@link #progress(long, String)}. */
+    final List<String> progressWrites = new ArrayList<>();
+
     private long nextId = 1L;
     private Instant now = Instant.parse("2026-09-01T12:00:00Z");
 
@@ -84,6 +87,16 @@ final class FakeDirectory implements UpdateDirectory {
         rows.put(id, done);
         finished.add(done);
         return Optional.of(done);
+    }
+
+    @Override
+    public boolean progress(final long id, final String result) {
+        // The stage-by-stage writes the real directory makes. Recorded rather than ignored so a
+        // test can assert that a run reported its progress at all - a run that only writes its
+        // answer at the end is the thing the live embed exists to stop being.
+        progressWrites.add(result);
+        final UpdateRequest row = rows.get(id);
+        return row != null && row.status() == UpdateStatus.RUNNING;
     }
 
     @Override

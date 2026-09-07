@@ -11,7 +11,7 @@ commands**, and they are the same program:
 docker compose up -d updater             # `serve`: migrate, then wait for requests. What compose runs.
 docker compose run --rm updater report   # resolve and report, changes nothing
 docker compose run --rm updater migrate  # apply the database schema, nothing else
-docker compose run --rm updater apply    # migrate, then fetch and place the files
+docker compose run --rm updater bootstrap    # migrate, then fetch and place the files
 ```
 
 It has **no compose profile**: it is in every selection, and every other service waits for it to be

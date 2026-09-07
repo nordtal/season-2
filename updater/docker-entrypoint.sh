@@ -8,7 +8,7 @@
 # `docker compose build` is no longer part of updating anything.
 #
 # The baked jar is what makes a FIRST deployment possible at all. The volume is empty before the
-# first `updater apply`, and a container that refused to start on an empty volume could never be
+# first `updater bootstrap`, and a container that refused to start on an empty volume could never be
 # the thing that fills it (the updater) or the thing an operator needs in order to run the
 # bootstrap at all. So the image still carries a jar, and it is a floor and not a version: what
 # actually runs is printed on every start, and `docker compose run --rm updater` reports it too.
@@ -44,7 +44,7 @@ if [ -n "$jar" ]; then
 elif [ -f "$BAKED" ]; then
     echo "[entrypoint] no ${JAR_PREFIX}-*.jar in $JAR_DIR, so this is the jar baked into the image."
     echo "[entrypoint] That is a first deployment, not an error. Fill the volume with:"
-    echo "[entrypoint]   docker compose run --rm updater apply"
+    echo "[entrypoint]   docker compose run --rm updater bootstrap"
     jar="$BAKED"
 else
     echo "[entrypoint] no ${JAR_PREFIX}-*.jar in $JAR_DIR and no jar baked into this image." >&2

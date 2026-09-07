@@ -51,6 +51,9 @@ public final class LootRefill {
 
     private final List<BukkitTask> scheduled = new ArrayList<>();
 
+    /** Set by {@link #scheduleAll}, cleared by {@link #cancelAll}; null while no game is running. */
+    private volatile Instant releasedAt;
+
     public LootRefill(final Plugin plugin, final World world, final HungerGamesSpec config,
                       final BorderController border, final Messages messages, final PlayerLocales locales,
                       final HungerGamesSounds sounds) {
@@ -63,8 +66,33 @@ public final class LootRefill {
         this.sounds = sounds;
     }
 
+    /**
+     * When the next refill is due, or {@code null} when none is - read by the HUD's second line.
+     *
+     * <p>Derived rather than pushed. The HUD used to carry a {@code setNextRefillAt} for somebody to
+     * call, nobody ever did, and its second line therefore said "no further refills planned" for the
+     * whole of every game (finding 139). The same wire, and the same break, as the living count on
+     * the line above it.</p>
+     */
+    public Instant nextRefillAt() {
+        final Instant released = releasedAt;
+        if (released == null) {
+            return null;
+        }
+        final Instant now = Instant.now();
+        Instant soonest = null;
+        for (final HungerGamesSpec.RefillTierSpec tier : config.refillTiers()) {
+            final Instant due = released.plusSeconds(tier.delayMinutes() * 60L);
+            if (due.isAfter(now) && (soonest == null || due.isBefore(soonest))) {
+                soonest = due;
+            }
+        }
+        return soonest;
+    }
+
     /** Schedules every configured tier's refill, relative to the moment the game was released. */
     public void scheduleAll(final Instant releasedAt) {
+        this.releasedAt = releasedAt;
         for (final HungerGamesSpec.RefillTierSpec tier : config.refillTiers()) {
             final long delayTicks = tier.delayMinutes() * 60L * 20L;
             final long elapsedTicks = java.time.Duration.between(releasedAt, Instant.now()).toSeconds() * 20L;
@@ -76,6 +104,7 @@ public final class LootRefill {
     }
 
     public void cancelAll() {
+        releasedAt = null;
         for (final BukkitTask task : scheduled) {
             task.cancel();
         }

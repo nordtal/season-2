@@ -75,7 +75,8 @@ public final class HungerGamesCommand {
     /** Every tree this server registers. */
     public List<LiteralCommandNode<CommandSourceStack>> build(final Outbox outbox,
                                                               final HungerGamesEffects effects,
-                                                              final java.util.function.Predicate<UUID> isAdmin) {
+                                                              final java.util.function.Predicate<UUID> isAdmin,
+                                                              final javax.sql.DataSource pool) {
         final PaperCommands commands = new PaperCommands(plugin, messages, Target.HUNGER_GAMES,
                 outbox,
                 mcUuid -> locales.of(mcUuid),
@@ -86,6 +87,20 @@ public final class HungerGamesCommand {
         for (final NordtalCommand<HungerGamesEffects> command : HungerGamesCommands.all()) {
             commands.local(command, effects);
         }
+        // /update is declared Target.LOCAL and Surface.GAME, and Surface.GAME is four processes -
+        // so every game server that can serve it, serves it. A command that exists on the SMP and
+        // not here would be exactly the per-adapter drift :commands was built to end. No watch:
+        // this server has no place to draw a running report, so the answer is read where the run
+        // happens.
+        eu.nordtal.s2.commands.update.UpdateCommands.all().forEach(command -> commands.local(command,
+                new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
+                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool),
+                        eu.nordtal.s2.common.update.UpdateSource.GAME,
+                        work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
+                        (what, failure) -> plugin.getLogger()
+                                .warning("An update command failed while " + what + ": " + failure),
+                        (id, user) -> { })));
+
         // extraOpen, not extra: this is the one subtree any player may use.
         commands.extraOpen("hg", ready());
         commands.remoteAll(Catalogue.all());

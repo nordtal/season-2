@@ -179,13 +179,18 @@ public class AccessBot implements AutoCloseable {
             final GuildState guildState = new GuildState(jda, accessConfig, languages, access, database.jdbi());
             final Teams teams = new Teams(database.jdbi());
 
+            // Built before the listener list because the command effects below hand it the
+            // watch: the declaration decides, this draws.
+            final UpdateCommand updateCommand =
+                    new UpdateCommand(updates, admin, database.jdbi(), worker, timers);
+
             jda.addEventListener(
                     guildState,
                     new PurchaseFlow(accessConfig, tiers, purchases, requests, messages, roles, admin, worker),
                     new LinkFlow(access, roles, messages, admin,
                             new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), Clock.systemUTC()),
                             worker),
-                    new UpdateCommand(updates, admin, database.jdbi(), worker, timers),
+                    updateCommand,
                     new RegisterFlow(jda, teams, messages, worker));
 
             // Every declared command, as slash commands. /phase runs here - the bot writes the row
@@ -211,6 +216,20 @@ public class AccessBot implements AutoCloseable {
             // The one argument nobody can be expected to type from memory, on the one command that
             // books money.
             declared.suggest(AccessCommands.SETTLE, "reference", accessEffects::openReferences);
+
+            // /update, folded 2026-09-08. Target.LOCAL, so the bot writes the update_request row
+            // itself rather than sending a command_request to somebody who would write it for us.
+            // The watch is this process's own: it edits one embed into a field per service and
+            // keeps editing while the run works, which no other surface has an equivalent for.
+            final eu.nordtal.s2.commands.update.UpdateEffects updateEffects =
+                    new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
+                            updates, eu.nordtal.s2.common.update.UpdateSource.DISCORD,
+                            worker::execute,
+                            (what, failure) -> log.warn("An update command failed while {}", what,
+                                    failure),
+                            (id, user) -> updateCommand.follow(user, id));
+            eu.nordtal.s2.commands.update.UpdateCommands.all()
+                    .forEach(command -> declared.local(command, updateEffects));
 
             declared.remoteAll(Catalogue.all());
             jda.addEventListener(declared);
@@ -243,7 +262,6 @@ public class AccessBot implements AutoCloseable {
 
             final List<CommandData> commands = new ArrayList<>();
             commands.addAll(LinkFlow.commands());
-            commands.addAll(UpdateCommand.commands());
             commands.addAll(declared.commands());
             jda.updateCommands().addCommands(commands).queue();
 

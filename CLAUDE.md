@@ -547,6 +547,35 @@ answered an unlinked target with the message written for a player about their *o
 in as many words. None of those was found by a test; all four were found by writing the second
 implementation next to the first.
 
+**`Target.LOCAL` is the target that is not an address, since 2026-09-08.** Every other command is
+served by one process and reached from the others through a `command_request` row - the effect is
+bound to a JVM and no abstraction removes that. `/update`'s is not: it writes a row into
+`update_request` and reads the answer back, and **all five processes already hold that pool**. Giving
+it a real target would have meant `BOT`, which puts two hops and a second live process in front of
+the command somebody types *because* the network is misbehaving - the same reason the proxy answers
+`/phase` from its own cache before touching the database.
+
+Three rules ride on it, and the first two are what make it safe rather than merely convenient:
+
+- **The database refuses a `LOCAL` row.** `command_request`'s CHECK does not list it, deliberately,
+  and `TargetSchemaTest` asserts the omission by name - a row addressed to "wherever it was asked"
+  is addressed to nobody, no inbox would claim it, and the asker would wait out the timeout being
+  told that *this process* is down.
+- **An adapter asks `Declaration#isRemoteOn`, never `target() != here`.** That is the one place
+  which knows `LOCAL` is never remote anywhere; `PaperCommands` compared by hand until this change
+  and would have registered `/update` as a command that travels.
+- **Each process opts in by hand, so each can forget.** That is the price of never travelling, and
+  a process that forgets simply has no `/update` - nothing fails and nothing is logged.
+  `UpdateIsServedEverywhereTest` names all five wiring sites.
+
+It is not a general escape: a command belongs here only when its effect touches nothing but the
+database. The one that does is `/update`, whose four commands were folded on 2026-09-08 - `/update`,
+`/update now`, `/update restart`, `/update cancel`. What stayed with each surface is the *drawing*:
+Discord's live embed with a field per service, `smp`'s `UpdateWatcher` (all that is left of a class
+that used to own a Brigadier tree). The comment in `SmpCommand` saying `/smp update` "should not
+become a NordtalCommand" rested on the rule that the updater's report must never be rendered twice -
+which was deliberately rewritten the day before, and is now "nothing is *decided* twice".
+
 **`Surface.SYSTEM` is the surface nobody types on, since 2026-09-06.** `announce <language> <text>`
 is a `Target.BOT` command declared on it alone: the SMP renders a milestone's completion and each
 farm-reset warning in every language it has a bundle for and submits one `command_request` row per
@@ -1061,7 +1090,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1340 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1344 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-08, on `release/0.7.0`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1137,7 +1166,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | `common` | 345 |
 | `smp` | 226 |
 | `network-control` | 195 |
-| `commands` | 180 |
+| `commands` | 187 |
 | `updater` | 161 |
 | `discord-bot` | 145 |
 | `hunger-games` | 72 |

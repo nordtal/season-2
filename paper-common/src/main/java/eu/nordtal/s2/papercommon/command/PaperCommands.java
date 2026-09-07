@@ -147,7 +147,12 @@ public final class PaperCommands {
      */
     public PaperCommands remote(final Declaration declaration) {
         Objects.requireNonNull(declaration, "declaration");
-        if (declaration.target() == here || declaration.target() == Target.PROXY) {
+        // isRemoteOn rather than a comparison here, and that distinction is not cosmetic: it is
+        // the one place that knows Target.LOCAL is never remote anywhere. A hand-written
+        // `target != here` answers "remote" for LOCAL and would register /update as a command that
+        // travels - to an inbox no process runs, since the database refuses a LOCAL row at all.
+        // The asker would wait out the timeout being told that "this process" is down.
+        if (!declaration.isRemoteOn(here) || declaration.target() == Target.PROXY) {
             return this;
         }
         if (!declaration.surfaces().contains(eu.nordtal.s2.commands.Surface.GAME)) {

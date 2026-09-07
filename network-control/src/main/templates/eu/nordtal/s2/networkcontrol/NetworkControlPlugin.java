@@ -401,6 +401,22 @@ public final class NetworkControlPlugin {
         final VelocityCommands tree = new VelocityCommands(proxy, roster, messages);
         PhaseCommands.all().forEach(command -> tree.local(command, phaseEffects));
         NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
+
+        // /update, folded 2026-09-08. Target.LOCAL, so the proxy writes the update_request row over
+        // the pool it already holds - and this is the surface where that matters most: an update is
+        // asked for when the network is misbehaving, and the proxy is what an admin can still reach
+        // when a backend cannot be joined. No watch: the proxy has no embed and its console has the
+        // log, so the answer is read where the run happens.
+        final eu.nordtal.s2.commands.update.UpdateEffects updateEffects =
+                new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
+                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool),
+                        eu.nordtal.s2.common.update.UpdateSource.CONSOLE,
+                        ProxyNetworkEffects.async(this, proxy)::execute,
+                        (what, failure) -> logger.warn("An update command failed while "
+                                + what, failure),
+                        (id, user) -> { });
+        eu.nordtal.s2.commands.update.UpdateCommands.all()
+                .forEach(command -> tree.local(command, updateEffects));
         // "clear" is not guessable and is the only value of this argument that is not a date.
         tree.suggest(PhaseCommands.LAUNCH, "when", () -> List.of(SeasonDates.CLEAR));
         tree.suggest(PhaseCommands.SMP_START, "when", () -> List.of(SeasonDates.CLEAR));

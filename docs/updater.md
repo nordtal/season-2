@@ -10,7 +10,7 @@ are the same program:
 docker compose up -d updater             # `serve`: migrate, then wait for requests. What compose runs.
 docker compose run --rm updater report   # resolve, compare, report. Changes nothing.
 docker compose run --rm updater migrate  # apply the database schema, nothing else.
-docker compose run --rm updater apply    # migrate, then fetch and place the files.
+docker compose run --rm updater bootstrap    # migrate, then fetch and place the files.
 ```
 
 The read-only report writes nothing into a Minecraft volume, so it is safe against a live
@@ -41,7 +41,7 @@ than against it. `UpdatePlan#onlyMissing()` drops everything but `MISSING`, so a
 already has a jar keeps it however old it is: a restart of a live network finds nothing missing and
 installs nothing. What it is for is the other case — a brand new stack, where every volume is empty
 and a Minecraft server refuses to start without plugins. That used to need
-`docker compose run --rm updater apply` typed on the host, and **Arcane deploys by pulling images
+`docker compose run --rm updater bootstrap` typed on the host, and **Arcane deploys by pulling images
 and has no way to type it**, so the whole stack could never reach a running state on its own. It is
 `bootstrap` in `updater.yml`, on by default.
 
@@ -220,7 +220,7 @@ already uses for phase switches, so it is not a new kind of wiring, and it means
 survives an updater that happens to be restarting.
 
 **Every surface shows the updater's own report, verbatim.** The Discord embed and the chat lines
-are the same text `updater apply` prints on the host, rendered once by the process that did the
+are the same text `updater bootstrap` prints on the host, rendered once by the process that did the
 work. A second rendering is the thing that would eventually disagree with the first.
 
 ### The one-minute countdown
@@ -343,11 +343,11 @@ depending on it cannot drag in a service nobody asked for.
 - **The startup bootstrap has never filled a real empty volume.** Built and unit-tested on
   2026-09-02: the filter is pinned by `UpdatePlanTest` (an `OUTDATED` row can never reach it, an
   unreachable source is not mistaken for an empty volume), and the whole path is the same
-  `Runs.apply` that `updater apply` uses, so it is not new code doing the installing. **What has not
+  `Runs.apply` that `updater bootstrap` uses, so it is not new code doing the installing. **What has not
   happened is one real first deployment**: four server jars and every plugin downloaded before the
   readiness marker, inside the fifteen minutes the healthcheck allows. *If it turns out too slow or
   it fails part way:* the container becomes ready anyway and the Minecraft entrypoint stops with the
-  name of the empty folder, so the failure is legible; `docker compose run --rm updater apply` is
+  name of the empty folder, so the failure is legible; `docker compose run --rm updater bootstrap` is
   the same work with a person watching, and `UPDATER_BOOTSTRAP=false` turns it off.
   [`../../todo.md`](../../todo.md) carries the check.
 - **The four GHCR packages are private until somebody makes them public.** A package under an

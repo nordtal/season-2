@@ -32,21 +32,28 @@ public interface UpdateDirectory {
     String CHANNEL = "nordtal_update";
 
     /**
-     * How long between a restart being asked for and it happening.
+     * How long between an update being asked for and the servers going down.
      *
      * <h2>Why a constant and not a setting</h2>
-     * Three processes submit restarts - the bot, the SMP plugin, and a person at a console - and a
+     * Three processes submit runs - the bot, the SMP plugin, and a person at a console - and a
      * fourth renders the countdown to every player on the network. A configurable value would have
      * to be configured in all four, in four files that are read by four containers, and the first
      * time one of them disagreed the players would see a counter reach zero and nothing happen.
      * The instant itself still travels on the row ({@code not_before}), so the updater and the
      * proxy never compute it twice - this is only the length the submitters use.
      *
-     * <p>A minute is enough to notice a mistake and not enough to be annoying. It is also the
-     * window a cancel has to fit into: {@code /smp update restart cancel} and the button in
-     * Discord both work right up until an updater claims the row.</p>
+     * <h2>Thirty seconds, and what that is long enough for</h2>
+     * It was sixty until 2026-09-07, when the run stopped being "ask Arcane to redeploy" and became
+     * stop, swap, start, verify. The owner shortened it deliberately: the countdown is now the
+     * warning before an outage rather than before a restart, and a minute of warning for a thing
+     * that then takes several minutes is mostly a minute of waiting. What has to fit inside it is
+     * the backends' own tidying up - a duel settled and both inventories handed back, open graves
+     * written, a spin paid out - all of which happen in one tick at zero.
+     *
+     * <p>It is also the cancel window, and halving it halves that. "Stop the countdown" works right
+     * up until an updater claims the row.</p>
      */
-    Duration RESTART_COUNTDOWN = Duration.ofSeconds(60);
+    Duration UPDATE_COUNTDOWN = Duration.ofSeconds(30);
 
     /**
      * @param dataSource the pool - the same one this process already reads access or the phase
@@ -96,6 +103,26 @@ public interface UpdateDirectory {
      * @throws IllegalArgumentException if {@code status} is not a terminal one
      */
     Optional<UpdateRequest> finish(long id, UpdateStatus status, String result);
+
+    /**
+     * Rewrites a running request's report without settling it.
+     *
+     * <h2>V7 said a request is never amended, and V12 says why that changed</h2>
+     * A run used to be one call to Arcane and a sentence about it. It is now a countdown, a stop
+     * per service, a migration, a swap, a start per service and up to five minutes of waiting for
+     * healthchecks - and a message that does not change for five minutes is indistinguishable from
+     * one that has hung. So the report is written as the run moves, and the surfaces watching the
+     * row redraw.
+     *
+     * <p>Only a {@code RUNNING} row is touched. A request that has been settled - or cancelled
+     * while the updater was working - keeps the answer it has, so a late progress write cannot
+     * reopen a finished request or overwrite the reason it failed.</p>
+     *
+     * @param id     the claimed request
+     * @param result the report so far, as JSON
+     * @return whether a running row was updated
+     */
+    boolean progress(long id, String result);
 
     /**
      * The restart that has been asked for and has not fired yet.

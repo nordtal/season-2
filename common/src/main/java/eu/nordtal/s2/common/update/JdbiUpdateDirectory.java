@@ -65,6 +65,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public boolean progress(final long id, final String result) {
+        return dao.progress(id, result) > 0;
+    }
+
+    @Override
     public Optional<UpdateRequest> pendingRestart() {
         return dao.pendingRestart();
     }

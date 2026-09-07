@@ -42,14 +42,14 @@ class UpdateServerTest {
 
     @Test
     void anEmptyInboxWaitsThePollInterval() {
-        assertEquals(POLL, server(request -> Outcome.done("x")).waitFor());
+        assertEquals(POLL, server((request, progress) -> Outcome.done("x")).waitFor());
     }
 
     @Test
     void workFurtherAwayThanThePollIntervalStillWaitsThePollInterval() {
         directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofMinutes(10));
 
-        assertEquals(POLL, server(request -> Outcome.done("x")).waitFor());
+        assertEquals(POLL, server((request, progress) -> Outcome.done("x")).waitFor());
     }
 
     @Test
@@ -60,7 +60,7 @@ class UpdateServerTest {
         // of everybody watching it.
         directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(4));
 
-        assertEquals(Duration.ofSeconds(4), server(request -> Outcome.done("x")).waitFor());
+        assertEquals(Duration.ofSeconds(4), server((request, progress) -> Outcome.done("x")).waitFor());
     }
 
     @Test
@@ -68,10 +68,10 @@ class UpdateServerTest {
         // A row that is due but cannot be claimed - another updater has it for the moment - would
         // otherwise spin this loop as fast as the database can answer.
         directory.at(NOW.minusSeconds(30));
-        directory.submit(UpdateKind.APPLY, UpdateSource.DISCORD, "a", Duration.ZERO);
+        directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
         directory.at(NOW);
 
-        assertEquals(Duration.ofSeconds(1), server(request -> Outcome.done("x")).waitFor());
+        assertEquals(Duration.ofSeconds(1), server((request, progress) -> Outcome.done("x")).waitFor());
     }
 
     // ---------------------------------------------------------------- draining
@@ -79,15 +79,15 @@ class UpdateServerTest {
     @Test
     void everythingDueIsRunInOneDrain() {
         directory.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
-        directory.submit(UpdateKind.APPLY, UpdateSource.GAME, "b", Duration.ZERO);
+        directory.submit(UpdateKind.UPDATE, UpdateSource.GAME, "b", Duration.ZERO);
 
         final List<UpdateKind> ran = new ArrayList<>();
-        server(request -> {
+        server((request, progress) -> {
             ran.add(request.kind());
             return Outcome.done("done " + request.kind());
         }).drain();
 
-        assertEquals(List.of(UpdateKind.REPORT, UpdateKind.APPLY), ran);
+        assertEquals(List.of(UpdateKind.REPORT, UpdateKind.UPDATE), ran);
         assertEquals(2, directory.finished().size());
         assertEquals("done REPORT", directory.finished().get(0).result());
     }
@@ -97,7 +97,7 @@ class UpdateServerTest {
         directory.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
 
         final AtomicInteger ran = new AtomicInteger();
-        server(request -> {
+        server((request, progress) -> {
             ran.incrementAndGet();
             return Outcome.done("x");
         }).drain();
@@ -110,9 +110,9 @@ class UpdateServerTest {
     @DisplayName("the runner's own verdict is what lands in the row")
     void aFailedRunIsWrittenBackAsFailed() {
         final UpdateRequest submitted =
-                directory.submit(UpdateKind.APPLY, UpdateSource.DISCORD, "a", Duration.ZERO);
+                directory.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
 
-        server(request -> Outcome.failed("the download timed out")).drain();
+        server((request, progress) -> Outcome.failed("the download timed out")).drain();
 
         final UpdateRequest row = directory.find(submitted.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, row.status());
@@ -132,7 +132,7 @@ class UpdateServerTest {
         final AtomicInteger connects = new AtomicInteger();
         final AtomicInteger ran = new AtomicInteger();
 
-        final UpdateServer server = new UpdateServer(directory, request -> {
+        final UpdateServer server = new UpdateServer(directory, (request, progress) -> {
             ran.incrementAndGet();
             return Outcome.done("x");
         }, failingConnector(connects), POLL, fixedClock(), Duration.ofMillis(1));

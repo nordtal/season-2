@@ -79,7 +79,7 @@ import java.util.Set;
  * string-only for the same reason {@link #loopback(String)} is.
  */
 @Slf4j
-public final class Arcane {
+public final class Arcane implements ArcaneOps {
 
     /** The header Arcane's documentation names for token authentication. */
     private static final String API_KEY_HEADER = "X-Api-Key";
@@ -350,6 +350,136 @@ public final class Arcane {
         } catch (final IllegalArgumentException notAUrl) {
             return "3552";
         }
+    }
+
+    // ---------------------------------------------------------------- the update sequence
+
+    /**
+     * Every service of the project, with its container id, its status and its health.
+     *
+     * <p>Called three times in a run and for three different reasons, which is worth knowing
+     * because they look identical: <b>first</b> as the proof that Arcane is actually reachable
+     * before a single jar is touched - a swap without a stop is finding 147, so a run that cannot
+     * stop anything must not begin; <b>then</b> to turn service names into container ids, which is
+     * what the stop and start calls are addressed to; and <b>last</b>, repeatedly, until every
+     * service that was stopped says it is back.</p>
+     *
+     * @return the services, or empty with the reason in {@code message}
+     */
+    @Override
+    public @NotNull RuntimeResult runtime() {
+        if (!configured()) {
+            return RuntimeResult.unreachable("Arcane is not configured (arcane.base-url is empty),"
+                    + " so this updater cannot stop or start anything. Nothing was touched. Set"
+                    + " arcane.base-url, arcane.environment, arcane.project and arcane.api-key -"
+                    + " or install by hand with `docker compose run --rm updater apply` on the host,"
+                    + " where you can stop the servers first.");
+        }
+        final String url = config.baseUrl() + substitute(config.runtimePath());
+        final URI uri;
+        try {
+            uri = new URI(url);
+        } catch (final URISyntaxException broken) {
+            return RuntimeResult.unreachable("arcane.base-url and arcane.runtime-path do not form a"
+                    + " valid URL: " + url);
+        }
+
+        try {
+            final HttpResponse<String> response = client.send(get(uri),
+                    HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() / 100 != 2) {
+                return RuntimeResult.unreachable("Arcane answered HTTP " + response.statusCode()
+                        + " for " + url + ", so this updater cannot see the project's services."
+                        + " Nothing was touched." + (response.statusCode() == 401
+                        || response.statusCode() == 403
+                        ? " Check arcane.api-key." : " Check arcane.environment and arcane.project"
+                        + " - both are ids, not names."));
+            }
+            return RuntimeResult.of(ArcaneRuntime.parse(response.body()));
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return RuntimeResult.unreachable("Interrupted while reading the project's services.");
+        } catch (final IOException failure) {
+            return RuntimeResult.unreachable(unreachable(uri, failure, config.baseUrl()));
+        }
+    }
+
+    /**
+     * Stops one container and waits for Arcane to say it did.
+     *
+     * <p><b>Arcane's own stop timeout is thirty seconds and it does not honour
+     * {@code stop_grace_period}</b> - read from its source on 2026-09-07,
+     * {@code internal/container/service.go} pins {@code Timeout: 30}, while {@code compose.yml}
+     * asks for 180. Paper was measured shutting down in three seconds with
+     * {@code All dimensions are saved} in the log, so there is a wide margin; what there is not is
+     * a way to widen it from here. A server that ever needs longer than thirty seconds to save is
+     * killed, and that surfaces as a damaged region file rather than as an error on this call.</p>
+     */
+    @Override
+    public @NotNull RedeployResult stop(final @NotNull String containerId) {
+        return container(containerId, "stop");
+    }
+
+    /** Starts one container again. Being started is not being back - see {@link #runtime()}. */
+    @Override
+    public @NotNull RedeployResult start(final @NotNull String containerId) {
+        return container(containerId, "start");
+    }
+
+    private RedeployResult container(final String containerId, final String action) {
+        if (!configured()) {
+            return RedeployResult.refused("Arcane is not configured, so nothing could be "
+                    + action + "ped.");
+        }
+        final String url = config.baseUrl() + substitute(config.containerPath())
+                .replace("{container}", containerId)
+                .replace("{action}", action);
+        final URI uri;
+        try {
+            uri = new URI(url);
+        } catch (final URISyntaxException broken) {
+            return RedeployResult.refused("arcane.container-path does not form a valid URL: " + url);
+        }
+
+        log.info("Asking Arcane to {} container {}", action, containerId);
+        try {
+            final HttpResponse<String> response = client.send(
+                    HttpRequest.newBuilder(uri)
+                            .POST(HttpRequest.BodyPublishers.noBody())
+                            .header(API_KEY_HEADER, config.apiKey())
+                            .header("Accept", "application/json")
+                            .header("User-Agent", "nordtal-season-2/updater")
+                            .timeout(Duration.ofSeconds(config.timeoutSeconds()))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() / 100 == 2) {
+                return RedeployResult.triggered("HTTP " + response.statusCode());
+            }
+            return RedeployResult.refused("Arcane answered HTTP " + response.statusCode() + " to "
+                    + action + " " + containerId + " (" + url + ")");
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return RedeployResult.refused("Interrupted while asking Arcane to " + action + ".");
+        } catch (final IOException failure) {
+            return RedeployResult.refused(unreachable(uri, failure, config.baseUrl()));
+        }
+    }
+
+    private HttpRequest get(final URI uri) {
+        return HttpRequest.newBuilder(uri)
+                .GET()
+                .header(API_KEY_HEADER, config.apiKey())
+                .header("Accept", "application/json")
+                .header("User-Agent", "nordtal-season-2/updater")
+                .timeout(Duration.ofSeconds(config.timeoutSeconds()))
+                .build();
+    }
+
+    /** Both ids into a configured path template. */
+    private String substitute(final String path) {
+        return path.replace(ENVIRONMENT_PLACEHOLDER, config.environment())
+                .replace(PROJECT_PLACEHOLDER, config.project());
     }
 
     private RedeployResult interpret(final int status) {

@@ -243,6 +243,29 @@ public final class HungerGamesManager {
                 }
             });
             online.setInvulnerable(true);
+            // AND ALLOWED TO FLY, WHICH IS NOT A GAMEPLAY DECISION - it is the only way to stop
+            // vanilla from kicking every participant off the server, in a loop, in the first ten
+            // seconds of the season's flagship event.
+            //
+            // FreezeListener cancels every position change for the whole countdown, which means a
+            // participant standing above air does not fall: they hover. Vanilla's own check
+            // ("<name> was kicked for floating too long" / "Flying is not enabled on this server")
+            // fires after about five seconds of exactly that, and the kick is not the end of it -
+            // the proxy puts them back, the start places them on the same tower, and they are
+            // kicked again. Measured on the local stack 2026-09-07 (finding 138): both
+            // participants cycled through kick and rejoin every five seconds with no message
+            // anywhere naming a cause other than vanilla's, and the only way out was ending the
+            // phase from outside.
+            //
+            // Locally that happens because this repository has no arena world, so there is nothing
+            // under the tower coordinates at all. On the real arena the towers are built - but the
+            // freeze is what turns "the block under a tower is missing, or one lower than
+            // configured, or somebody mined it" into a loop that takes out every participant at
+            // once, at the one moment nothing can be retried. mayfly is what the vanilla check
+            // reads, so setting it removes the whole failure mode rather than the local instance
+            // of it; movement stays impossible because FreezeListener cancels it, so this grants
+            // no actual flight. release() takes it away again.
+            online.setAllowFlight(true);
             // TRAVEL, and this is the module's real "the game has started" moment: a player standing
             // in the lobby is picked up and put on a pillar without having asked for it. The admin's
             // /hg start confirmation is a chat line to one person; this is what every participant
@@ -282,6 +305,11 @@ public final class HungerGamesManager {
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
                 online.setInvulnerable(false);
+                // Handed out in placeOnTower for the length of the freeze, and taken back here -
+                // see the comment there. setFlying(false) first, because setAllowFlight(false) on
+                // a player who is actually flying drops them, and by this point the freeze is off.
+                online.setFlying(false);
+                online.setAllowFlight(false);
                 online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
                         "hg.start.released", "seconds", config.pvpProtectionSeconds()));
                 // The last beat of the countdown, on the same category as the marks before it -

@@ -10,6 +10,8 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.config.HungerGamesSpec;
 import eu.nordtal.s2.hungergames.game.GameState;
+import eu.nordtal.s2.hungergames.game.WinTracker;
+import eu.nordtal.s2.hungergames.loot.LootRefill;
 
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
@@ -56,13 +58,29 @@ public final class HudRenderer {
     private final Map<UUID, BossBar> borderBars = new HashMap<>();
 
     private BukkitTask task;
-    private volatile Instant nextRefillAt;
-    private volatile int aliveCount;
-    private volatile int deadCount;
+
+    /**
+     * The living count is <b>read</b> here, never pushed in.
+     *
+     * <p>It used to be two {@code volatile} fields plus a {@code setCounts(alive, dead)} for
+     * somebody to call. Nobody ever did - the setter had no caller anywhere in the repository, so
+     * the first line of this HUD read "Alive 0, Dead 0" for the whole of every game (finding 139,
+     * seen on the local stack 2026-09-07). Both halves of the wire existed and nothing joined them:
+     * {@code WinTracker#aliveCount()} and {@code #deadCount(int)} had no caller either.
+     *
+     * <p>A push would work and would break again the same way, because "remember to call this
+     * whenever somebody dies" is a rule with no enforcement. Reading the tracker at render time
+     * cannot go stale: the HUD redraws four times a second from the same object the death handler
+     * writes to.</p>
+     */
+    private final WinTracker wins;
+
+    /** Read on every redraw, for the reason given on {@link #wins}. */
+    private final LootRefill loot;
 
     public HudRenderer(final Plugin plugin, final World world, final HungerGamesSpec config,
                        final Messages messages, final PlayerLocales locales, final BorderController border,
-                       final GameState state) {
+                       final GameState state, final WinTracker wins, final LootRefill loot) {
         this.plugin = plugin;
         this.world = world;
         this.config = config;
@@ -70,15 +88,8 @@ public final class HudRenderer {
         this.locales = locales;
         this.border = border;
         this.state = state;
-    }
-
-    public void setCounts(final int alive, final int dead) {
-        this.aliveCount = alive;
-        this.deadCount = dead;
-    }
-
-    public void setNextRefillAt(final Instant instant) {
-        this.nextRefillAt = instant;
+        this.wins = wins;
+        this.loot = loot;
     }
 
     public void start() {
@@ -129,7 +140,9 @@ public final class HudRenderer {
                 key -> BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS));
 
         playersBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_ALIVE,
-                withArrow(messages.format(locale, "hg.hud.players", "alive", aliveCount, "dead", deadCount),
+                withArrow(messages.format(locale, "hg.hud.players",
+                                "alive", wins.aliveCount(),
+                                "dead", wins.deadCount(state.effectiveParticipants())),
                         nearestPlayerArrow(player))))));
 
         lootBar.name(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_LOOT_POINT,
@@ -148,6 +161,7 @@ public final class HudRenderer {
     }
 
     private String lootLine(final java.util.Locale locale) {
+        final Instant nextRefillAt = loot.nextRefillAt();
         if (nextRefillAt == null) {
             return messages.get(locale, "hg.hud.loot-none");
         }

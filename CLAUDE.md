@@ -1044,7 +1044,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1298 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1305 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-07, on `release/0.6.0` after the agent-driven rehearsal on the local
 stack and stage 8 of the polish plan). The counts
 below are what the JUnit XML reports, not `@Test` counts.
@@ -1106,7 +1106,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | module | tests |
 |---|---|
 | `common` | 334 |
-| `smp` | 205 |
+| `smp` | 212 |
 | `network-control` | 195 |
 | `commands` | 180 |
 | `updater` | 151 |
@@ -1400,7 +1400,23 @@ a title and a subtitle in both languages and that no title runs past forty chara
 key there is not one wrong line among many, it is the literal string `limbo.wait.backend.title` on
 an otherwise black screen.
 
-`smp` has **205**. **The "two-step everywhere" rule reached this module on 2026-09-04** - `/smp
+`smp` has **212**. **Seven are from the final CodeRabbit review of PR #8, 2026-09-07, and each of
+the three carries a rule.** `OneGraveOneWindowTest` (3): **one grave is one window, however many
+people are standing in it.** A grave is open to anybody, so two people can right-click the same one
+in the same second - and while each got an inventory of their own, both were filled from the same
+stored blob and each close wrote its own whole snapshot back, so both looters took the lot and the
+grave paid out twice (finding 142). A shared inventory is what a vanilla chest does; what needed a
+test is the *shape*, because the failure looks exactly like a grave being emptied. It also pins the
+half that is a Bukkit fact: the close fires **before** the viewer is dropped, so the settle waits a
+tick and asks then. `DeadFighterIsRespawnedTest` (2): a duel loser who is dead when the duel is
+settled has their own inventory parked in a map nothing persists, with **no time limit on the
+wait** - a restart while they sit on the death screen loses it and leaves them the arena's loadout,
+which is finding 122 by another road (143). `TrackProvisioningIsAtomicTest` (2): `ensureObjective`
+updates the target on conflict and `ObjectiveEngine` reads that target from the row, so provisioning
+statement by statement could leave the database carrying a file the log had just reported as refused
+(144).
+
+**The "two-step everywhere" rule reached this module on 2026-09-04** - `/smp
 farmreset now`, `/smp objective complete` and `/smp milestone unlock` have to be typed twice inside
 `Confirmations.WINDOW` - and what asserts it is `SmpCommandsTest#whatIsIrreversible`, in
 `:commands`, as one set each: the three that are guarded and the three that deliberately are not.

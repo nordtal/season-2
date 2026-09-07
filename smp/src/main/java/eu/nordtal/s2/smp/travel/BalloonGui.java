@@ -184,9 +184,15 @@ public final class BalloonGui implements Surface {
         // is by definition alive, awake and connected - but the success path below is six
         // unconditional statements and one of them is a message saying they arrived. Reusing the
         // branch six lines up rather than inventing a second way to say the same thing.
-        final org.bukkit.Location landing =
-                eu.nordtal.s2.smp.farm.LandingSite.safeAt(destination, destination.getSpawnLocation());
-        if (!player.teleport(landing)) {
+        //
+        // findSafeAt rather than safeAt, for the same reason: safeAt ends with the world spawn
+        // itself when its search finds nothing, and here that would be a message saying somebody
+        // arrived somewhere they cannot survive. The balloon is the one caller that is allowed to
+        // say no, because it already has the sentence for it (CodeRabbit, PR #8).
+        final org.bukkit.Location landing = eu.nordtal.s2.smp.farm.LandingSite
+                .findSafeAt(destination, destination.getSpawnLocation())
+                .orElse(null);
+        if (landing == null || !player.teleport(landing)) {
             player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.balloon.unavailable"));
             sounds.play(player, Feedback.REFUSED);
             return false;

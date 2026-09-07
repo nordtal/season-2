@@ -77,8 +77,21 @@ public final class Graves implements InventoryHolder {
     /** Grave id -> what is in it right now. Emptied graves are removed from here. */
     private final Map<UUID, GraveRow> open = new HashMap<>();
 
-    /** Open inventory -> the grave it is showing. */
-    private final Map<Inventory, UUID> viewing = new HashMap<>();
+    /**
+     * Grave id -> the one window showing it, however many people are looking.
+     *
+     * <h2>Why one and not one per viewer</h2>
+     * A grave is open to anybody (see the class comment), so two people can right-click the same
+     * one in the same second. While each got an inventory of their own, both were filled from the
+     * same stored contents and each close wrote its own whole snapshot back: two looters each took
+     * the lot, and the grave held every item twice. Not a lost write - a duplicated one, of
+     * whatever the dead player was carrying (CodeRabbit, PR #8).
+     *
+     * <p>One shared inventory is what a vanilla chest does, and it needs no rule of its own: both
+     * looters watch the same slots empty, and taking an item is a main-thread click on one object.
+     * The grave is settled when the last of them closes it - see {@link #onClosed}.</p>
+     */
+    private final Map<UUID, Inventory> shown = new HashMap<>();
 
     public Graves(final Plugin plugin, final SmpDao dao,
                   final eu.nordtal.s2.smp.player.Identities identities, final Messages messages,
@@ -100,7 +113,7 @@ public final class Graves implements InventoryHolder {
      * interface.
      */
     public boolean isShowingGrave(final Inventory inventory) {
-        return viewing.containsKey(inventory);
+        return shown.containsValue(inventory);
     }
 
     @Override
@@ -201,12 +214,13 @@ public final class Graves implements InventoryHolder {
             });
         }
         open.remove(graveId);
+        shown.remove(graveId);
     }
 
     /** Removes every display this plugin drew. Called at disable; the rows stay in the database. */
     public void clearDisplays() {
         List.copyOf(parts.keySet()).forEach(this::erase);
-        viewing.clear();
+        shown.clear();
     }
 
     // ------------------------------------------------------------------ opening
@@ -223,16 +237,24 @@ public final class Graves implements InventoryHolder {
             return;
         }
         final Locale locale = locales.of(player.getUniqueId());
-        final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
 
-        // Rows rather than slots, because the frame is chosen by row count - and clamped to the
-        // six the pack draws before it reaches MenuTitle, which throws on a seventh.
-        final int rows = Math.min(MenuTitle.MAX_ROWS, Math.max(1, (contents.length + 8) / 9));
-        final Inventory inventory = Bukkit.createInventory(null, rows * 9,
-                MenuTitle.of(rows, MessageRenderer.of(messages).get(locale, "smp.grave.title")));
-        inventory.setContents(java.util.Arrays.copyOf(contents, inventory.getSize()));
-
-        viewing.put(inventory, graveId);
+        // The window this grave already has, if somebody else is standing in it. Building a second
+        // one from the same stored contents is what duplicated them - see the field.
+        //
+        // The cost is that the second looter reads the first looter's title: it carries no name and
+        // no number, only the word for "grave", so the whole of the difference is the language it
+        // is written in. A shared window in one of two languages is a better trade than a private
+        // window that doubles the loot.
+        final Inventory inventory = shown.computeIfAbsent(graveId, id -> {
+            final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
+            // Rows rather than slots, because the frame is chosen by row count - and clamped to the
+            // six the pack draws before it reaches MenuTitle, which throws on a seventh.
+            final int rows = Math.min(MenuTitle.MAX_ROWS, Math.max(1, (contents.length + 8) / 9));
+            final Inventory window = Bukkit.createInventory(null, rows * 9,
+                    MenuTitle.of(rows, MessageRenderer.of(messages).get(locale, "smp.grave.title")));
+            window.setContents(java.util.Arrays.copyOf(contents, window.getSize()));
+            return window;
+        });
         player.openInventory(inventory);
 
         // At the grave, not at the player: the person opening it is standing next to it, and
@@ -249,12 +271,34 @@ public final class Graves implements InventoryHolder {
      *
      * <p>The experience is credited on the grave becoming empty rather than on each item taken -
      * one death, one refund, whoever finished the job.
+     *
+     * <p><b>Settled a tick later, when the window is empty of people.</b> One window can have
+     * several viewers (see {@link #shown}), and writing its contents back while somebody is still
+     * taking things out of it would store a snapshot that is already out of date. Bukkit fires the
+     * close before it drops the viewer, so "is anybody left?" has no honest answer inside the
+     * event - one tick later it has exactly one.</p>
      */
     public void onClosed(final Player player, final Inventory inventory) {
-        final UUID graveId = viewing.remove(inventory);
+        if (!shown.containsValue(inventory)) {
+            return;
+        }
+        Bukkit.getScheduler().runTask(plugin, () -> settle(player, inventory));
+    }
+
+    private void settle(final Player player, final Inventory inventory) {
+        if (!inventory.getViewers().isEmpty()) {
+            // Somebody else still has it open, and they will come through here when they close it.
+            return;
+        }
+        final UUID graveId = shown.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(inventory))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
         if (graveId == null) {
             return;
         }
+        shown.remove(graveId);
         final GraveRow row = open.get(graveId);
         if (row == null) {
             return;

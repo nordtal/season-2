@@ -47,12 +47,14 @@ public final class SurfaceListener implements Listener {
     }
 
     /**
-     * {@code LOWEST}, and that is load-bearing rather than tidy.
+     * {@code LOWEST}, and it was load-bearing rather than tidy.
      *
-     * <p>{@code GraveListener} runs at the default priority and hands the close to
-     * {@code Graves#onClosed}, which forgets that inventory. Asking afterwards whether it was a
-     * grave answers no, so this observer has to run first - the one case where the close sound
-     * depends on handler order.
+     * <p>{@code GraveListener} runs at the default priority and handed the close to
+     * {@code Graves#onClosed}, which forgot that inventory there and then; asking afterwards
+     * whether it had been a grave answered no, so this observer had to run first. Since the grave
+     * window became one window with several viewers it is forgotten a tick later instead, which
+     * makes the order stop mattering - the priority stays because a close sound that depends on
+     * nothing is cheaper to keep than to re-derive.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onClose(final InventoryCloseEvent event) {

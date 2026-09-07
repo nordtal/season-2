@@ -198,9 +198,11 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // reminder on a timer rather than an event. A chime on either would be the most irritating
         // thing on this server, which is the same argument smp's SurfaceListener makes for not
         // chiming at every barrel.
-        hud = new HudRenderer(this, world, config, messages, locales, border, state);
-        lobby = new Lobby(this, dao, config, messages, locales);
+        // winTracker before hud: the HUD reads the living count off it on every redraw rather than
+        // waiting to be told - see HudRenderer#wins for what the telling version cost.
         winTracker = new WinTracker(dao, messages, locales, sounds);
+        hud = new HudRenderer(this, world, config, messages, locales, border, state, winTracker, loot);
+        lobby = new Lobby(this, dao, config, messages, locales);
         ceremony = new Ceremony(messages, locales, sounds);
         manager = new HungerGamesManager(this, dao, config, messages, locales, bodies, state, border, sounds);
 

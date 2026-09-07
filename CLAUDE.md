@@ -1061,10 +1061,22 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1305 in total, none skipped, all green** (`./gradlew build` with a
-Docker daemon present, 2026-09-07, on `release/0.6.0` after the agent-driven rehearsal on the local
-stack and stage 8 of the polish plan). The counts
+**Nine modules have tests: 1340 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-08, on `release/0.7.0`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
+
+**Thirty-five are from 2026-09-07/08 and they arrive in three groups.** Four are `smp`'s
+`StagingIsDelayedTest`: tomorrow's farm world is no longer built in the tick that swapped today's
+away (finding 126), and every wrong version of that change *still works* - the world appears one
+start later, by a caller that was going to run anyway - so the shape is what is asserted. Ten are
+the **start event winner's head start**, which was configured, migrated and documented on
+2026-09-01 and had **no reader at all** until it was built: `HeadStartIntegrationTest` (8, real
+PostgreSQL) drives the claim that must happen exactly once per season for exactly one person, and
+`HeadStartIsWiredTest` (2) exists because nothing else could ever notice it missing. It was found by
+sweeping every `@ConfigSpec` key in the repository for readers - a sweep that now comes back empty.
+The remaining twenty-one are the update rework: `UpdateReportsTest` (10) for the structured report
+that replaced the code block, `UpdateRunTest` (10) for stop → swap → start → verify against a fake
+Arcane, and one `UpdateDirectoryIntegrationTest` case for the countdown scope that was wrong.
 
 **Ten are from the second rehearsal afternoon, 2026-09-06, and each carries a rule.** The two that
 matter most are the grave's. `GraveLootIntegrationTest` (4) drives closing a grave against the real
@@ -1122,11 +1134,11 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 334 |
-| `smp` | 212 |
+| `common` | 345 |
+| `smp` | 226 |
 | `network-control` | 195 |
 | `commands` | 180 |
-| `updater` | 151 |
+| `updater` | 161 |
 | `discord-bot` | 145 |
 | `hunger-games` | 72 |
 | `limbo` | 11 |

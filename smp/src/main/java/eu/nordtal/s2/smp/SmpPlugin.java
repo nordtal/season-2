@@ -134,6 +134,7 @@ public final class SmpPlugin extends JavaPlugin {
     private Outbox outbox;
     private ScheduledExecutorService commandWaiter;
     private SmpDao dao;
+    private Jdbi jdbi;
     private Messages messages;
     private eu.nordtal.s2.common.command.CommandRequests requests;
     private eu.nordtal.s2.smp.announce.Announcer announcer;
@@ -272,7 +273,7 @@ public final class SmpPlugin extends JavaPlugin {
         }
 
         pool = SmpPool.open(databaseHandle.get());
-        final Jdbi jdbi = Jdbi.create(pool)
+        jdbi = Jdbi.create(pool)
                 .installPlugin(new SqlObjectPlugin())
                 .installPlugin(new PostgresPlugin());
         dao = jdbi.onDemand(SmpDao.class);
@@ -808,14 +809,36 @@ public final class SmpPlugin extends JavaPlugin {
      * {@code milestones.yml} mid-season has to exist as a row before anybody can hand anything in
      * against it. The objective half was missing until 2026-09-06 (finding 99).
      */
+    /**
+     * Writes one row per milestone and one per objective, <b>all of them or none</b>.
+     *
+     * <h2>Why the transaction</h2>
+     * {@code ensureObjective} updates the target on conflict, because lowering one is the first
+     * escape hatch for an objective that has become impossible. So this is not only an insert of
+     * rows nothing reads yet: it rewrites the arithmetic {@code ObjectiveEngine#credit} reads,
+     * which takes {@code target} from the database row rather than from the running track.
+     *
+     * <p>Statement by statement, a failure in the middle - a connection that has stopped answering
+     * inside {@code query-timeout-seconds} is the ordinary way - left some objectives carrying the
+     * candidate file's targets and the rest carrying the running track's, with {@code track} itself
+     * unchanged and the log line saying the reload had been refused. Progress credited after that
+     * would complete an objective against a number from a file that was never applied. One
+     * transaction makes the reported outcome and the database agree (CodeRabbit, PR #8).
+     *
+     * <p>Called at enable and on every {@code /smp reload}; it is idempotent, so the cost of the
+     * transaction is one round trip rather than a decision.</p>
+     */
     private void ensureRows(final MilestoneTrack definition) {
-        for (final Milestone milestone : definition.milestones()) {
-            dao.ensureMilestone(milestone.key(), MilestoneState.LOCKED.name());
-            for (final eu.nordtal.s2.smp.milestone.Objective objective : milestone.objectives()) {
-                dao.ensureObjective(milestone.key(), objective.key(), objective.type().name(),
-                        objective.target());
+        jdbi.useTransaction(handle -> {
+            final SmpDao transactional = handle.attach(SmpDao.class);
+            for (final Milestone milestone : definition.milestones()) {
+                transactional.ensureMilestone(milestone.key(), MilestoneState.LOCKED.name());
+                for (final eu.nordtal.s2.smp.milestone.Objective objective : milestone.objectives()) {
+                    transactional.ensureObjective(milestone.key(), objective.key(),
+                            objective.type().name(), objective.target());
+                }
             }
-        }
+        });
     }
 
     private void loadSeasonState() {

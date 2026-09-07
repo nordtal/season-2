@@ -89,7 +89,7 @@ Gradle produces into a directory `.gitignore` excludes.
    It **cannot move a version**: only artefacts with *nothing* installed are fetched, so a restart
    of a running network finds nothing missing and does nothing at all. Upgrades stay a request
    somebody makes, from Discord or in game. `UPDATER_BOOTSTRAP=false` turns it off, and then the
-   servers refuse to start until an apply has run and say so by name.
+   servers refuse to start until `updater bootstrap` has run, and say so by name.
 
    A first deployment downloads four server jars and every plugin before it goes healthy, which is
    why the updater's healthcheck allows fifteen minutes.
@@ -107,8 +107,11 @@ docker compose up -d
 ```
 
 `docker compose run --rm updater report` prints what is installed and changes nothing;
-`updater bootstrap` is the manual form of step 6 and is what to reach for when the bootstrap is off or
-you want an upgrade now rather than through Discord.
+`updater bootstrap` is the manual form of step 6 and is what to reach for when the automatic
+bootstrap is off, or when a volume has been emptied. **It fills gaps and never upgrades** — an
+artefact that already has a jar keeps it. An upgrade is `/update now`, from Discord or in game: it
+stops each server before its jars move and starts it again afterwards, which is the whole difference
+and the reason finding 147 exists.
 
 **Pinning a release** is one line of environment, and it is how a rollback is expressed:
 
@@ -344,7 +347,7 @@ escape sequences.
 
 **The normal way is `/update` in the admin channel on Discord.** It reports what is newer than what
 is running, an **Install** button installs it, and a **Restart the network** button under that
-starts a one-minute countdown that every player online is warned through. `/smp update` in game does
+starts a 30-second countdown that every player online is warned through. `/update` in game does
 the same four things for an admin who is not at a keyboard with Discord on it.
 
 Both reach the updater the only way anything here can — a row in `update_request` and a
@@ -355,8 +358,14 @@ On the host it is one command, and a second one to make it take effect:
 
 ```bash
 docker compose run --rm updater report   # what would change, changes nothing
-docker compose run --rm updater bootstrap    # migrate, then fetch and put in place
-docker compose --profile mc restart      # the servers pick up what is on disk
+docker compose run --rm updater bootstrap   # migrate, then fill EMPTY slots. Upgrades nothing
+```
+
+To move a version that is already installed, do not reach for a command here at all: `/update now`
+in Discord or in game stops the affected servers, swaps, starts them and waits until each reports
+healthy. Installing over a running server is what this deployment stopped doing on 2026-09-07.
+
+```bash
 ```
 
 An `apply` run by hand and one asked for from Discord cannot collide: an apply takes a PostgreSQL
@@ -418,13 +427,13 @@ report shows `paper-26.2-125.jar -> paper-26.2-121.jar` like any other move. It 
 ### Restarting the network
 
 The restart is **one Arcane redeploy of the whole project**, asked for by the button in Discord, by
-`/smp update restart` in game, or not at all.
+`/update restart` in game, or not at all.
 
 Whichever asks, the request is written with an instant sixty seconds out and **every player on the
 network is counted down towards it** — in limbo, in Hunger Games and on the SMP, at 60, 30, 10 and 5
 seconds and then "restarting now". The proxy does the announcing, because it is the only process
 that sees everybody. Inside that minute the countdown can be stopped: the **Stop the countdown**
-button, or `/smp update restart cancel`. After it, "too late" is the honest answer and that is what
+button, or `/update cancel`. After it, "too late" is the honest answer and that is what
 you get.
 
 **It is not the Docker socket, deliberately.** A container holding `/var/run/docker.sock` can do
@@ -539,7 +548,7 @@ A `FAILED_DOWNLOAD` on the client is almost always the hash and not the network 
 ### The restart, and why it is worth setting up Arcane locally
 
 `deploy/dev deploy` restarts one container and is what you want ninety-nine times out of a hundred.
-The hundredth is the **restart path itself** — the button in Discord, `/smp update restart` in game,
+The hundredth is the **restart path itself** — the button in Discord, `/update restart` in game,
 the countdown every player sees, and the Arcane redeploy at the end of it. That path cannot be
 rehearsed anywhere but against a real Arcane, and the cost of not rehearsing it is on record: the
 production `ARCANE_URL` carried `docker.host.internal` — the three labels in the wrong order — and
@@ -702,7 +711,7 @@ Two kinds, and the distinction matters because one of them may be missing and th
 **Where all three come from changed on 2026-09-01.** They used to be three full URLs in
 `SMP_EXTRA_PLUGIN_URLS`, with three versions written into `.env` by hand. The updater resolves them
 now — DisplayTags from its own repository's releases, PacketEvents and Chunky from Modrinth filtered
-to this Minecraft version and `paper` — so a version bump is a run of `updater bootstrap` and not an
+to this Minecraft version and `paper` — so a version bump is a run of `/update now` and not an
 edit. `required: true` is unchanged, and the container refuses to start unless **every plugin the
 service is supposed to have** is in `plugins/`.
 

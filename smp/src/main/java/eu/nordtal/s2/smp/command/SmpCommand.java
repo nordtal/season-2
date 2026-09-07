@@ -13,6 +13,7 @@ import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.commands.update.UpdateCommands;
 import eu.nordtal.s2.commands.update.UpdateEffects;
 import eu.nordtal.s2.papercommon.command.PaperCommands;
+import eu.nordtal.s2.papercommon.command.UpdateWatcher;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.milestone.MilestoneTrack;

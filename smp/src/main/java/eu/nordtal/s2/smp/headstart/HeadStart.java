@@ -96,10 +96,12 @@ public final class HeadStart implements Listener {
         if (discordId.isEmpty()) {
             return;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> grant(player, discordId.get()));
+        final java.util.UUID mcUuid = player.getUniqueId();
+        final String name = player.getName();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> grant(mcUuid, name, discordId.get()));
     }
 
-    private void grant(final Player player, final String discordId) {
+    private void grant(final java.util.UUID mcUuid, final String name, final String discordId) {
         if (!dao.startEventWinner().filter(discordId::equals).isPresent()) {
             return;
         }
@@ -112,20 +114,26 @@ public final class HeadStart implements Listener {
         final Integer balance = dao.auraOf(discordId).orElse(null);
         final List<ItemStack> items = items();
 
-        Bukkit.getScheduler().runTask(plugin, () -> hand(player, aura, balance, items));
+        // By uuid, not the Player captured at join: between the claim committing and this task
+        // running the winner may have reconnected, and the captured instance of a reconnected
+        // player answers isOnline() false for ever. The head start would then be booked, the flag
+        // set, and the items left to the manual path below - for somebody who is standing right
+        // there. Found by review, 2026-09-08.
+        Bukkit.getScheduler().runTask(plugin, () -> hand(mcUuid, name, aura, balance, items));
     }
 
     /** The main-thread half: the items, the number, the line and the sound. */
-    private void hand(final Player player, final int aura, final Integer balance,
-                      final List<ItemStack> items) {
+    private void hand(final java.util.UUID mcUuid, final String name, final int aura,
+                      final Integer balance, final List<ItemStack> items) {
         if (balance != null) {
-            identities.recordAura(player.getUniqueId(), balance);
+            identities.recordAura(mcUuid, balance);
         }
-        if (!player.isOnline()) {
+        final Player player = Bukkit.getPlayer(mcUuid);
+        if (player == null) {
             // See the class comment: there is nothing to give back to. Name everything a person
             // needs in order to finish this by hand, because the alternative is a winner who was
             // told nothing and got nothing.
-            plugin.getLogger().warning(player.getName() + " left in the tick after their own join,"
+            plugin.getLogger().warning(name + " left in the tick after their own join,"
                     + " so the start event's head start (" + aura + " aura and " + describe(items)
                     + ") was booked but the items were not handed over. The aura is in the books."
                     + " To offer the items again:"
@@ -143,9 +151,12 @@ public final class HeadStart implements Listener {
                     .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
         }
 
-        final Locale locale = locales.of(player.getUniqueId());
-        player.sendMessage(MessageRenderer.of(messages).format(locale, "smp.headstart.granted",
-                "aura", aura));
+        final Locale locale = locales.of(mcUuid);
+        // Two lines, because items() drops any material this server does not know: telling the
+        // winner their spoils are in their inventory when every configured item was skipped is the
+        // one sentence here that could be simply untrue.
+        player.sendMessage(MessageRenderer.of(messages).format(locale, items.isEmpty()
+                ? "smp.headstart.granted-aura-only" : "smp.headstart.granted", "aura", aura));
         sounds.play(player, Feedback.BIG_SUCCESS);
         // The number is on the nametag, in the tab list and on the leaderboard board, and the whole
         // prize is that it is visible. Redrawing everybody is what makes it visible to everybody

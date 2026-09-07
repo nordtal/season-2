@@ -592,7 +592,8 @@ it and `announce` as the only two declarations that are not admin-only.
 exception.** The roots themselves carry no `requires` - gating `/hg` at the root hid `/hg ready`,
 which every participant needs - so the check sits on every node below, and a subtree this adapter did
 not build has to be told which it is. It defaults to gated because the one subtree that exists is
-`/smp update`, and the day the root check moved down it silently lost its own.
+`/smp update`, and the day the root check moved down it silently lost its own. That subtree is
+gone as of 2026-09-08 - `/update` is a root of its own - but the rule it taught is not.
 
 **`:paper-common` is new on 2026-09-04, and it is a layer this repository did not have.** `:common`
 is compiled against no platform at all, on purpose - that rule is what lets one shared module serve
@@ -817,7 +818,7 @@ are kept because the reasoning is what a future change has to argue with:
     row is left in this list because the migration is still applied and its `CREATE TABLE` is still
     what a fresh database runs first.
   - `V7__update_request.sql` (2026-09-01): the one row the updater is driven by - `/update` in
-    Discord and `/smp update` in game both write here, and nothing calls that container. It was
+    Discord and `/update` in game both write here, and nothing calls that container. It was
     missing from this list until 2026-09-04, which is how a reader came to believe the numbering
     skipped a version (`docs/state-of-play.md` finding 56).
   - `V8__pre_launch.sql` (2026-09-03): the fifth `SeasonPhase`, `PRE_LAUNCH`, and the
@@ -900,7 +901,8 @@ docker compose run --rm updater migrate  # apply the database schema, nothing el
 ```
 
 **It has no compose profile**, so it is in every selection: it is the only process that applies the
-schema, and it is what answers `/update` in Discord and `/smp update` in game. Everything else in
+schema, and it is what answers `/update` - one command on all five processes since
+2026-09-08, in Discord and in game alike. Everything else in
 the stack has `depends_on: updater: service_healthy`, and it becomes healthy the moment the schema
 is current (it touches `/tmp/updater-ready`).
 
@@ -1090,7 +1092,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1344 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1345 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-08, on `release/0.7.0`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1486,8 +1488,8 @@ asserted directly. What makes the rule worth an assertion at all is asymmetric: 
 deletes a world folder (it is why `deploy/minecraft/entrypoint-test.sh` exists at all), so a
 refactor that drops the guard produces a command that works perfectly and destroys the farm world on
 a typo. The other half matters as much - a flag on everything that writes is a flag nobody reads, so
-`/smp aura` and `/smp reload` are named as *unguarded*; `/smp update restart` keeps its own
-confirmation, a minute of countdown every player sees. **Six are new on 2026-09-04**, and they are this module's first that need a
+`/smp aura` and `/smp reload` are named as *unguarded*; `/update restart` keeps its own
+confirmation, thirty seconds of countdown every player sees. **Six are new on 2026-09-04**, and they are this module's first that need a
 container: `SpinRefundIntegrationTest` drives the two wheel-refund statements against a real
 PostgreSQL running the real migrations. The wheel spends the spin in SQL before it draws a prize -
 deliberately, so the animation cannot become a second answer about one spin - and the cost of that

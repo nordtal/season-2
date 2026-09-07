@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -57,6 +58,23 @@ class HeadStartIsWiredTest {
         assertTrue(source.contains("hgWinnerItems()"),
                 "config.yml#hg-winner-items is the other half, and a head start that pays only the"
                         + " number would look exactly like one that works");
+    }
+
+    @Test
+    @DisplayName("the winner is resolved from their uuid at delivery, not carried across the hop")
+    void aReconnectStillGetsTheItems() {
+        final String source = read("smp/src/main/java/eu/nordtal/s2/smp/headstart/HeadStart.java");
+
+        assertTrue(source.contains("Bukkit.getPlayer(mcUuid)"),
+                "the delivery has to resolve the CURRENT session. Between the claim committing and"
+                        + " the main-thread task running, the winner can reconnect - and a Player"
+                        + " captured at join answers isOnline() false for ever after that, so the"
+                        + " head start would be booked, the flag set, and the items left to the"
+                        + " manual path for somebody standing right there. Found by review,"
+                        + " 2026-09-08.");
+        assertFalse(source.contains("private void hand(final Player"),
+                "hand() must not take a Player: the whole point is that the instance captured at"
+                        + " join is the one that goes stale");
     }
 
     private static String read(final String relative) {

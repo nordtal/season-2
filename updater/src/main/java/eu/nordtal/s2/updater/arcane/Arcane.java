@@ -372,8 +372,9 @@ public final class Arcane implements ArcaneOps {
             return RuntimeResult.unreachable("Arcane is not configured (arcane.base-url is empty),"
                     + " so this updater cannot stop or start anything. Nothing was touched. Set"
                     + " arcane.base-url, arcane.environment, arcane.project and arcane.api-key -"
-                    + " or install by hand with `docker compose run --rm updater apply` on the host,"
-                    + " where you can stop the servers first.");
+                    + " or fill EMPTY volumes by hand with `docker compose run --rm updater"
+                    + " bootstrap` on the host. That command does not upgrade anything: an upgrade"
+                    + " needs the servers stopped first, and only this sequence does that.");
         }
         final String url = config.baseUrl() + substitute(config.runtimePath());
         final URI uri;
@@ -428,8 +429,9 @@ public final class Arcane implements ArcaneOps {
 
     private RedeployResult container(final String containerId, final String action) {
         if (!configured()) {
+            // Not action + "ped": that reads "stopped" for a stop and "startped" for a start.
             return RedeployResult.refused("Arcane is not configured, so nothing could be "
-                    + action + "ped.");
+                    + ("stop".equals(action) ? "stopped" : "started") + ".");
         }
         final String url = config.baseUrl() + substitute(config.containerPath())
                 .replace("{container}", containerId)

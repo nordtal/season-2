@@ -45,7 +45,7 @@ a projection of it; LuckPerms is not involved anywhere.
 | [hunger-games.md](hunger-games.md) | The start event in full: registration, teams, border, loot, HUD, winning |
 | [smp.md](smp.md) | The SMP in full: worlds, travel, milestones, aura, prestige, duels, graves, POIs |
 | [presentation.md](presentation.md) | **What Nordtal looks like**, written 2026-09-04 because the decision behind it had never been written down: how a menu panel is built and with which measured numbers, where a glyph can and cannot appear, the nine sound categories, and what stays vanilla on purpose |
-| [updater.md](updater.md) | **Designed 2026-09-01; all six steps built the same day.** How versions and the schema stop being hand edits: what the updater owns, where it reads versions from, the order a run happens in, and the two surfaces it is driven from — `/update` in Discord and `/smp update` in game, both reaching it through a row in the database |
+| [updater.md](updater.md) | **Designed 2026-09-01; all six steps built the same day.** How versions and the schema stop being hand edits: what the updater owns, where it reads versions from, the order a run happens in, and the two surfaces it is driven from — `/update` in Discord and in game alike — one declaration since 2026-09-08 — reaching it through a row in the database |
 | [../deploy/README.md](../deploy/README.md) | Everything about production: the runbook, why the stack has this shape, what was measured on it, and the third-party plugins the SMP server needs |
 | [access-system.md](access-system.md) | The paid access concept: product, rules, payment matching, linking |
 | [state-of-play.md](state-of-play.md) | Where the **code** stands against all of the above, what can be built today, and what still needs a decision |
@@ -80,7 +80,7 @@ before; it was committed after the implementation it failed to describe. Numbers
 | SMP: the milestone track, aura, prestige, the milestone engine | **built** 2026-09-01 |
 | SMP: worlds, travel, duels, graves, POIs, boards, the wheel | **built** 2026-09-01, in three blocks — and unrehearsed: nothing in it has been seen on a running server |
 | PostgreSQL backup and restore | **built and measured 2026-09-01**, and this row said "not designed — the one open piece of concept work" until 2026-09-04. `postgres-backup` dumps daily with `pg_dump --format=custom`, verifies each dump by reading its own TOC back before renaming it, keeps `BACKUP_KEEP`, and stops on SIGTERM; the restore path, the reason Arcane must snapshot `postgres-dumps` and never `postgres-data`, and a table of what was actually measured are all in [../deploy/README.md](../deploy/README.md#backups). What is **not** proven is a restore of the real season database — a rehearsal step, not a design gap |
-| Version and schema management (`updater`) | **all six steps built 2026-09-01** — resolves every version from GitHub, Modrinth and the Fill API, compares against the volumes, reports, and on `apply` migrates the schema, installs every jar (the bot's and its own included) and writes the proxy's `pack.yml`. Driven from `/update` in Discord and `/smp update` in game; restarts the stack through Arcane's API after a one-minute countdown every player sees. The one unfinished thing is Arcane's endpoint path, which is a setting — [updater.md](updater.md) |
+| Version and schema management (`updater`) | **all six steps built 2026-09-01** — resolves every version from GitHub, Modrinth and the Fill API, compares against the volumes, reports, and on `/update now` stops the servers whose jars change, migrates the schema, installs every jar (the bot's and its own included), writes the proxy's `pack.yml`, starts them again and waits until each reports healthy. One command on all five processes since 2026-09-08, after a 30-second countdown every player sees. Nothing of it has run: no 2xx has ever been seen from this Arcane, and the run refuses to start without one — [updater.md](updater.md) |
 
 **What is left is a rehearsal, not a feature.** Every module in this repository has behaviour as of
 2026-09-01, the SMP's world half included. What none of them has is a witness: no world, no packet
@@ -142,9 +142,10 @@ Discord ([architecture.md](architecture.md#commands)).
 | `/smp aura <player> <delta>` | admin | corrects a balance. Writes its reason, like every other aura change. **Not** confirmed - applying the negative is an exact undo |
 | `/smp status` | anyone | **new 2026-09-06.** The season phase, the active milestone with its progress, and how many are on the SMP - three lines, read-only, in Discord as well |
 | `/smp access <player>` | admin | **new 2026-09-04.** Is that account linked, does it have access, and is there a purchase halfway through? The shortened form of `/access status`, answered to the asker only |
-| `/smp update` | admin | asks the updater what differs, and reports its answer verbatim |
-| `/smp update apply` | admin | installs what differs |
-| `/smp update restart [cancel]` | admin | the countdown, and the way out of it |
+| `/update` | admin | asks the updater what differs, and reports its answer |
+| `/update now` | admin | the whole run: countdown, stop, install, start, wait for healthy |
+| `/update restart` | admin | the same run with nothing installed |
+| `/update cancel` | admin | the way out, for as long as the countdown lasts |
 
 **Escape hatch 3 is not a command**: it is lowering an objective's `target` in `milestones.yml`
 below the progress already collected, which completes it on the next `/smp reload`.

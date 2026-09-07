@@ -42,7 +42,7 @@ import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
 import eu.nordtal.s2.smp.command.SmpCommand;
-import eu.nordtal.s2.smp.command.UpdateWatcher;
+import eu.nordtal.s2.papercommon.command.UpdateWatcher;
 import eu.nordtal.s2.smp.chat.SystemLines;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;

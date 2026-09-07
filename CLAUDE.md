@@ -1166,7 +1166,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | module | tests |
 |---|---|
 | `common` | 345 |
-| `smp` | 226 |
+| `smp` | 227 |
 | `network-control` | 195 |
 | `commands` | 184 |
 | `updater` | 161 |

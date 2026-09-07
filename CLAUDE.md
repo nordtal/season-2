@@ -1166,7 +1166,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | `common` | 345 |
 | `smp` | 226 |
 | `network-control` | 195 |
-| `commands` | 187 |
+| `commands` | 184 |
 | `updater` | 161 |
 | `discord-bot` | 145 |
 | `hunger-games` | 72 |

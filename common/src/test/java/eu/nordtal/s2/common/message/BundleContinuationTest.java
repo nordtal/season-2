@@ -102,10 +102,19 @@ class BundleContinuationTest {
         final List<String> parenthesised = new ArrayList<>();
         for (final Path bundle : bundles()) {
             final List<String> lines = read(bundle);
+            boolean continued = false;
             for (int i = 0; i < lines.size(); i++) {
                 final String line = lines.get(i);
+                // The value only: a comment is not read by anybody but us, and this rule is about
+                // what a player is shown. A file explaining the rule - "# never write spin(s)" -
+                // must not fail the test that enforces it.
+                final String value = continued ? line : valueOf(line);
+                continued = continues(line);
+                if (value == null) {
+                    continue;
+                }
                 for (final String shape : List.of("(s)", "(n)", "(en)", "(e)", "(er)")) {
-                    if (line.contains(shape)) {
+                    if (value.contains(shape)) {
                         parenthesised.add(RepositoryRoot.relative(bundle) + ":" + (i + 1)
                                 + " writes \"" + shape + "\"");
                     }
@@ -115,6 +124,32 @@ class BundleContinuationTest {
         assertEquals(List.of(), parenthesised,
                 "a bundle value must not spell a plural with a parenthesis - pick a key on the"
                         + " count instead, the way the farm-reset warning does at one minute");
+    }
+
+    /**
+     * The value a line declares, or {@code null} if it declares none.
+     *
+     * <p>A properties comment starts with {@code #} or {@code !} after any leading whitespace, and
+     * a key ends at the first unescaped {@code =} or {@code :} - or, for a key with no separator at
+     * all, at the first unescaped whitespace. A line that is neither a comment nor a declaration is
+     * blank.</p>
+     */
+    private static String valueOf(final String line) {
+        final String trimmed = line.stripLeading();
+        if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith("!")) {
+            return null;
+        }
+        for (int i = 0; i < trimmed.length(); i++) {
+            final char character = trimmed.charAt(i);
+            if (character == '\\') {
+                i++;
+                continue;
+            }
+            if (character == '=' || character == ':' || Character.isWhitespace(character)) {
+                return trimmed.substring(i + 1);
+            }
+        }
+        return "";
     }
 
     /**

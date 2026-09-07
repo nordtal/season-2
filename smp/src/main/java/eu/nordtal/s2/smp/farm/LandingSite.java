@@ -84,11 +84,37 @@ public final class LandingSite {
      *         otherwise, and {@code preferred} again if the search finds nothing
      */
     public static Location safeAt(final World world, final Location preferred) {
+        return findSafeAt(world, preferred).orElse(preferred);
+    }
+
+    /**
+     * The same search, for a caller that is allowed to say no.
+     *
+     * <p>{@link #safeAt} ends with {@code preferred} when the search finds nothing, and that
+     * fallback is deliberate everywhere it is used: a duel has to end even if the spawn is
+     * hostile, and the farm-world reset has to empty a world that is about to be deleted. Not
+     * arriving is worse than arriving badly in both.</p>
+     *
+     * <p>The balloon is the one caller where it is not. It already has a branch for "this
+     * destination is not available", it is reached from a menu the player chose to open, and its
+     * success path ends by telling them they arrived - so a fallback there is a message saying
+     * somebody landed safely somewhere they cannot survive. This is the same shape of mistake the
+     * balloon has already made once, when it took the Nether's world spawn at face value and
+     * suffocated the first player to use it (finding 134); the difference is only how rare the
+     * remaining case is.</p>
+     *
+     * @param world     the world
+     * @param preferred where the caller would like them
+     * @return {@code preferred} if a player fits there, the nearest column where one does
+     *         otherwise, and empty if there is no such column within {@link #MAX_RADIUS}
+     */
+    public static java.util.Optional<Location> findSafeAt(final World world,
+                                                          final Location preferred) {
         if (fits(world, preferred)) {
-            return preferred;
+            return java.util.Optional.of(preferred);
         }
-        final Location found = find(world, preferred.getBlockX(), preferred.getBlockZ());
-        return found == null ? preferred : found;
+        return java.util.Optional.ofNullable(
+                find(world, preferred.getBlockX(), preferred.getBlockZ()));
     }
 
     /**

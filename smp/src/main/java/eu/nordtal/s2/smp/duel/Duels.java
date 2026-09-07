@@ -445,6 +445,20 @@ public final class Duels {
             // sound still go out now: they are read after the respawn either way, and a duel that
             // says nothing until somebody clicks a button reads as a duel that broke.
             pending.put(playerId, state);
+            // And the button is pressed here rather than by the player, which closes the one hole
+            // the pending map has. It is this process's memory and nothing persists it, so a
+            // fighter still sitting on the death screen when the server stops loses their own
+            // inventory for good and keeps the arena's loadout - which is finding 122 exactly,
+            // arriving by a different road (CodeRabbit, PR #8). The wait was open-ended: somebody
+            // who dies and walks away from the keyboard holds it until they come back. Respawning
+            // them here settles it on the next tick instead, and leaves a window one tick wide.
+            //
+            // It also finishes what the owner decided on 2026-09-06 - a duel ends at the spawn
+            // with a title and NO death screen. onDamage cancels the lethal blow, so this branch
+            // is only reached by /kill, the void and setHealth(0), the three ways a fighter can
+            // die without being hit; those were the cases still showing the screen the decision
+            // was about.
+            player.spigot().respawn();
         } else {
             state.restore(player, spawn());
         }

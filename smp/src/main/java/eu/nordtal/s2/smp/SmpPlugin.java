@@ -51,6 +51,7 @@ import eu.nordtal.s2.smp.feedback.WorldEffects;
 import eu.nordtal.s2.smp.feedback.SurfaceListener;
 import eu.nordtal.s2.smp.grave.GraveListener;
 import eu.nordtal.s2.smp.grave.Graves;
+import eu.nordtal.s2.smp.headstart.HeadStart;
 import eu.nordtal.s2.smp.hud.SmpHud;
 import eu.nordtal.s2.smp.navigate.NavigateListener;
 import eu.nordtal.s2.smp.navigate.Navigation;
@@ -368,6 +369,11 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(systemLines, this);
         getServer().getPluginManager().registerEvents(
                 new NavigateListener(this, dao, navigation, identities, locales, sounds), this);
+        // The start event's winner is paid on their FIRST join here, and never by hunger-games -
+        // see HeadStart for why the dependency points this way round.
+        getServer().getPluginManager().registerEvents(
+                new HeadStart(this, dao, identities, surfaces, config, messages, locales, sounds),
+                this);
 
         // ...and keeps being one only for as long as the database says so. Without this the flag is
         // read once per session and a revoked admin keeps operator until they disconnect; see

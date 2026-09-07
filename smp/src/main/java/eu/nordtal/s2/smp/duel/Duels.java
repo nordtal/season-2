@@ -147,9 +147,27 @@ public final class Duels {
     private record Queued(UUID first, UUID second, DuelType type) {
     }
 
-    /** One running duel. */
+    /**
+     * One running duel.
+     *
+     * <p><b>{@code discordIds} is captured when the duel starts, and that is the whole point of the
+     * field.</b> The aura used to be booked against {@code Identities}, which is a per-session cache
+     * that {@code JoinGate}'s quit handler clears - and {@code JoinGate} is registered before
+     * {@code DuelListener}, so on a disconnect mid-fight the leaver's discord id was already gone by
+     * the time {@link #book} looked for it. {@code book} returned early and <b>nothing at all was
+     * booked</b>: not the loser's stake and not the winner's. Logging out was exactly the free
+     * escape from losing that {@code docs/smp.md} says it must not be, and it was silent - the duel
+     * ends, the arena goes, the survivor is returned with their inventory and a "you won" title, and
+     * only the number is missing (finding 137, measured on the local stack 2026-09-07).
+     *
+     * <p>Capturing at the start rather than reordering the two listeners is deliberate: a duel's
+     * participants cannot change once it is running, so the value is knowable then, and the
+     * alternative would make the aura's correctness depend on the registration order of two
+     * listeners that have nothing to do with each other.</p>
+     */
     private record ActiveDuel(UUID first, UUID second, DuelType type, int slot,
-                              Map<UUID, SavedState> saved, long startedAt) {
+                              Map<UUID, SavedState> saved, Map<UUID, String> discordIds,
+                              long startedAt) {
 
         UUID opponentOf(final UUID player) {
             return player.equals(first) ? second : first;
@@ -268,8 +286,15 @@ public final class Duels {
         saved.put(first.getUniqueId(), SavedState.of(first));
         saved.put(second.getUniqueId(), SavedState.of(second));
 
+        // Read now, while both fighters are online - see the field's comment.
+        final Map<UUID, String> discordIds = new HashMap<>();
+        identities.discordIdOf(first.getUniqueId())
+                .ifPresent(id -> discordIds.put(first.getUniqueId(), id));
+        identities.discordIdOf(second.getUniqueId())
+                .ifPresent(id -> discordIds.put(second.getUniqueId(), id));
+
         final ActiveDuel duel = new ActiveDuel(first.getUniqueId(), second.getUniqueId(), type,
-                slot.get(), saved, System.currentTimeMillis());
+                slot.get(), saved, discordIds, System.currentTimeMillis());
         byPlayer.put(first.getUniqueId(), duel);
         byPlayer.put(second.getUniqueId(), duel);
 
@@ -450,19 +475,21 @@ public final class Duels {
      * place that reacts to a death.
      */
     private void book(final UUID winnerId, final UUID loserId, final ActiveDuel duel) {
-        final Optional<String> winner = identities.discordIdOf(winnerId);
-        final Optional<String> loser = identities.discordIdOf(loserId);
-        if (winner.isEmpty() || loser.isEmpty()) {
+        // From the duel, never from Identities: on a disconnect the cache has already been
+        // cleared by the time this runs - see ActiveDuel#discordIds.
+        final String winner = duel.discordIds().get(winnerId);
+        final String loser = duel.discordIds().get(loserId);
+        if (winner == null || loser == null) {
             return;
         }
         final int stake = config.duelStake();
         final String type = duel.type().name();
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            dao.addAura(winner.get(), stake, AuraReason.DUEL_WIN.stored(), type);
-            dao.addAura(loser.get(), -stake, AuraReason.DUEL_LOSS.stored(), type);
-            dao.auraOf(winner.get()).ifPresent(value -> identities.recordAura(winnerId, value));
-            dao.auraOf(loser.get()).ifPresent(value -> identities.recordAura(loserId, value));
+            dao.addAura(winner, stake, AuraReason.DUEL_WIN.stored(), type);
+            dao.addAura(loser, -stake, AuraReason.DUEL_LOSS.stored(), type);
+            dao.auraOf(winner).ifPresent(value -> identities.recordAura(winnerId, value));
+            dao.auraOf(loser).ifPresent(value -> identities.recordAura(loserId, value));
         });
     }
 

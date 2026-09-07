@@ -622,6 +622,32 @@ the SMP cannot derive — whether it has already paid.
 
 **Still a config default:** how much aura, and which one or two items.
 
+**Built 2026-09-07, and it was the last unbuilt thing in this document.** `eu.nordtal.s2.smp.headstart.HeadStart`
+is a listener on `PlayerJoinEvent` at `MONITOR`, off the main thread; `SmpDao#startEventWinner`
+resolves the winner and `#grantHeadStart` claims and pays in one transaction. Everything the design
+above describes had existed since 2026-09-01 — `hg-winner-aura`, `hg-winner-items`,
+`AuraReason.HG_WINNER` and the column — and **not one line of code read any of it**, which is a
+shape worth naming because nothing could ever have noticed: it fires once a season, for one person,
+on one join, and a head start that silently pays nothing looks exactly like one nobody has won yet.
+It was found by sweeping every `@ConfigSpec` key in the repository for readers, not by a test.
+`HeadStartIsWiredTest` is what makes the next one loud.
+
+Three decisions the implementation had to take, none of which the concept had reason to name:
+
+- **The winner is the *earliest* `DECIDED` game, not the newest.** The head start belongs to the
+  start event, and the start event is the first hunger games the season plays. The other ordering
+  would let a practice game months later move a prize that has already been handed to somebody
+  else, and there is no way to take one back.
+- **The claim is spent before anything is handed over**, the same ordering the wheel uses, as one
+  `INSERT … ON CONFLICT DO UPDATE … WHERE NOT granted`: a second call affects zero rows, which is
+  how "already paid" is told from "just paid" without a read-then-write two joins can race. The
+  aura is booked *inside that transaction*, because a claim that succeeded with a payout that did
+  not is the one outcome nothing can repair.
+- **The wheel can put a spin back and this cannot**, because the flag is a single boolean with
+  nothing to return to. So the one path that loses the items — the winner logging off inside the
+  tick after their own join — logs the player, the exact items and the one `UPDATE` that offers it
+  again, rather than a warning nobody can act on.
+
 ### Deaths cost aura
 
 Decided 2026-08-31. Aura is meant to be a number with risk in it, not a collection meter that only

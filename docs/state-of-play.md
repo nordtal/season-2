@@ -523,6 +523,10 @@ inherits them with nothing copied.
 **Specified by** [hunger-games.md](hunger-games.md#after-the-game) and
 [smp.md](smp.md#the-hunger-games-winners-head-start). **Touches** `smp` only.
 
+**Built 2026-09-07** — `eu.nordtal.s2.smp.headstart.HeadStart`, `SmpDao#startEventWinner` and
+`#grantHeadStart`, eight integration cases against a real PostgreSQL and two wiring cases. With it,
+**§2 is empty**: there is nothing left in this document that can be built without a server.
+
 Decided 2026-09-01, and the decision moved the work: **the SMP grants it on the winner's first
 join**, deriving the winner from `hg_game.winner_member_id` of the `DECIDED` game.
 `hunger-games` writes nothing into the SMP's tables. V6's

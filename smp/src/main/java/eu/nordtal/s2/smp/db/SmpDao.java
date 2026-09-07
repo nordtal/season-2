@@ -385,6 +385,73 @@ public interface SmpDao {
     @SqlQuery("SELECT aura FROM smp_player WHERE discord_id = :discordId")
     Optional<Integer> auraOf(@Bind("discordId") String discordId);
 
+    // ---------------------------------------------------------------- the start event's winner
+
+    /**
+     * The Discord id of the player who won the start event, if one has been decided.
+     *
+     * <h2>Why the earliest decided game and not the newest</h2>
+     * The head start belongs to the <b>start event</b>, and the start event is the first hunger
+     * games this season plays. Ordering the other way would let a practice game run later - during
+     * an SMP-phase rehearsal, say - move a reward that has very likely already been paid to
+     * somebody else, and there is no way to take one back. {@code created} rather than
+     * {@code ended} because it is {@code NOT NULL}: a game whose end was never written is still a
+     * game that was started first.
+     *
+     * <p>The join is what makes this safe to call on every login: a game decided with no winner (a
+     * tiebreak that found none, or every participant dead) has {@code winner_member_id IS NULL} and
+     * drops out of the join rather than returning a row nobody can be paid.</p>
+     */
+    @SqlQuery("""
+            SELECT member.discord_id
+            FROM hg_game game
+                     JOIN hg_member member ON member.id = game.winner_member_id
+            WHERE game.state = 'DECIDED'
+            ORDER BY game.created
+            LIMIT 1
+            """)
+    Optional<String> startEventWinner();
+
+    /**
+     * Claims the winner's head start and books its aura, or answers that it is already gone.
+     *
+     * <h2>The claim is the gate, and it is one statement</h2>
+     * Same shape the wheel uses for a spin: the thing that must happen once is spent in SQL
+     * <em>before</em> anything is handed over, so two of anything - a reconnect, a second server,
+     * a replayed join - cannot both win. The {@code WHERE} on the {@code DO UPDATE} is what does
+     * it: a row already carrying {@code true} matches nothing, the statement affects zero rows, and
+     * this method answers {@code false} without having written a thing.
+     *
+     * <p>The {@code INSERT} half is not a formality. Aura is only ever written for somebody who has
+     * earned some, so the winner of the start event - who has by definition played no SMP yet -
+     * normally has no {@code smp_player} row at all on the join this runs on.</p>
+     *
+     * <p>Aura is booked inside the same transaction rather than by a second call, because a claim
+     * that succeeded and a payout that did not is the one outcome nothing can repair: the flag says
+     * it has been granted and the balance says it has not.</p>
+     *
+     * @return whether this call is the one that granted it
+     */
+    @Transaction
+    default boolean grantHeadStart(final String discordId, final int aura, final String reason) {
+        if (claimHeadStart(discordId) == 0) {
+            return false;
+        }
+        if (aura != 0) {
+            addAura(discordId, aura, reason, null);
+        }
+        return true;
+    }
+
+    @SqlUpdate("""
+            INSERT INTO smp_player (discord_id, hg_winner_reward_granted)
+            VALUES (:discordId, true)
+            ON CONFLICT (discord_id) DO UPDATE
+                SET hg_winner_reward_granted = true, updated = now()
+                WHERE NOT smp_player.hg_winner_reward_granted
+            """)
+    int claimHeadStart(@Bind("discordId") String discordId);
+
     // ---------------------------------------------------------------- graves
 
     @SqlUpdate("""

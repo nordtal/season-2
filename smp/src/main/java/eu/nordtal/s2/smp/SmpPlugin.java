@@ -42,7 +42,7 @@ import eu.nordtal.s2.smp.aura.DeathPenalty;
 import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
 import eu.nordtal.s2.smp.command.SmpCommand;
-import eu.nordtal.s2.smp.command.UpdateCommands;
+import eu.nordtal.s2.smp.command.UpdateWatcher;
 import eu.nordtal.s2.smp.chat.SystemLines;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
@@ -614,7 +614,7 @@ public final class SmpPlugin extends JavaPlugin {
                             // Over the pool this plugin already owns. The updater is a different
                             // container and this is how it is reached: a row and a notification,
                             // never a call.
-                            new UpdateCommands(this, UpdateDirectory.using(pool), messages, locales),
+                            new UpdateWatcher(this, UpdateDirectory.using(pool)),
                             // A supplier and not the field: /smp reload replaces it.
                             () -> track, season)
                     .forEach(node -> event.registrar().register(node));

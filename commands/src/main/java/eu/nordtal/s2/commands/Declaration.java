@@ -140,6 +140,11 @@ public record Declaration(List<String> path, Target target, Set<Surface> surface
      * by surface would have quietly answered "local" for both.</p>
      */
     public boolean isRemoteOn(final Target host) {
-        return target != Objects.requireNonNull(host, "host");
+        Objects.requireNonNull(host, "host");
+        // Target.LOCAL is never remote, anywhere: its effect is a row in a table every process
+        // already has a pool for, so sending it somewhere would be a round trip to run a statement
+        // the asker could run itself - and the command it exists for, /update, is the one somebody
+        // types when the network is already misbehaving. See Target.LOCAL.
+        return target != Target.LOCAL && target != host;
     }
 }

@@ -4,6 +4,7 @@ import eu.nordtal.s2.commands.access.AccessCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.limbo.LimboCommands;
 import eu.nordtal.s2.commands.network.NetworkCommands;
+import eu.nordtal.s2.commands.update.UpdateCommands;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
 import eu.nordtal.s2.commands.smp.SmpCommands;
 
@@ -42,7 +43,8 @@ public final class Catalogue {
                         LimboCommands.declarations(),
                         NetworkCommands.declarations(),
                         AccessCommands.declarations(),
-                        eu.nordtal.s2.commands.announce.AnnounceCommands.declarations())
+                        eu.nordtal.s2.commands.announce.AnnounceCommands.declarations(),
+                        UpdateCommands.declarations())
                 .flatMap(List::stream)
                 .toList();
     }

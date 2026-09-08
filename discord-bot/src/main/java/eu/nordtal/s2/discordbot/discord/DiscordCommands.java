@@ -180,6 +180,7 @@ public final class DiscordCommands extends ListenerAdapter {
      */
     public List<CommandData> commands() {
         final Map<String, SlashCommandData> roots = new LinkedHashMap<>();
+        final java.util.Set<String> bare = new java.util.HashSet<>();
 
         for (final Entry entry : byPath.values()) {
             final List<String> path = entry.declaration().path();
@@ -194,13 +195,30 @@ public final class DiscordCommands extends ListenerAdapter {
                             .setDefaultPermissions(DefaultMemberPermissions.DISABLED));
 
             switch (path.size()) {
-                case 1 -> options(entry).forEach(root::addOptions);
+                case 1 -> {
+                    bare.add(path.getFirst());
+                    options(entry).forEach(root::addOptions);
+                }
                 case 2 -> root.addSubcommands(subcommand(path.get(1), entry));
                 case 3 -> group(root, path.get(1)).addSubcommands(subcommand(path.get(2), entry));
                 default -> throw new IllegalStateException(entry.declaration().name()
                         + " is " + path.size() + " levels deep and Discord allows three. The paths"
                         + " were chosen to fit both surfaces; a fourth level needs a different"
                         + " shape, not a workaround here.");
+            }
+        }
+        // A root that has subcommands is a menu, and Discord cannot run a menu. JDA accepts the
+        // shape without a word, Discord registers it, and the bare command is simply never
+        // offered - which is how /update (the report) was unreachable in Discord from the day it
+        // was declared, 2026-09-08, while /update now under it worked. Refused here, loudly, so
+        // the next such declaration fails at startup instead of going missing.
+        for (final String name : bare) {
+            final SlashCommandData root = roots.get(name);
+            if (!root.getSubcommands().isEmpty() || !root.getSubcommandGroups().isEmpty()) {
+                throw new IllegalStateException("/" + name + " is declared as a command of its own"
+                        + " AND has subcommands; Discord cannot run a root that is a menu, so the"
+                        + " bare form would never be offered. Give it a subcommand of its own and,"
+                        + " for the game, a Catalogue#rootDefault.");
             }
         }
         return List.copyOf(roots.values());

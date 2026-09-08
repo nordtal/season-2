@@ -32,9 +32,19 @@ public final class UpdateCommands {
     private UpdateCommands() {
     }
 
-    /** {@code /update} - resolve every source, compare, report. Writes no file. */
+    /**
+     * {@code /update check} - resolve every source, compare, report. Writes no file.
+     *
+     * <h2>Why a subcommand, when the bare {@code /update} reads better</h2>
+     * Because Discord cannot run a root that has subcommands: a slash command with {@code now},
+     * {@code restart} and {@code cancel} under it is a menu, and a menu is not invokable. The
+     * report was declared as the bare root on 2026-09-08 and was unreachable in Discord from that
+     * moment - the adapter registered it without complaint and Discord never offered it. In game
+     * the bare {@code /update} still works: {@code Catalogue#rootDefault} names this command as
+     * what a root with nothing of its own runs, the way {@code /phase} is {@code /phase show}.
+     */
     public static final Declaration REPORT = new Declaration(
-            List.of("update"), Target.LOCAL,
+            List.of("update", "check"), Target.LOCAL,
             Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, false, List.of());
 
     /**

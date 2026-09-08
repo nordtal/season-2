@@ -53,6 +53,7 @@ class ResolverTest {
                 .serving("/repos/nordtal/papermc-display-tags/releases", "github-display-tags.json")
                 .serving("/project/HYKaKraK/version", "modrinth-packetevents.json")
                 .serving("/project/fALzjamp/version", "modrinth-chunky.json")
+                .serving("/project/9eGKb6K1/version", "modrinth-voicechat.json")
                 .serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json")
                 .serving("/projects/velocity/versions/4.1.1/builds", "fill-velocity-4.1.1.json")
                 .answering(".zip.sha1", PACK_SHA1 + "\n");
@@ -96,6 +97,45 @@ class ResolverTest {
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "paper"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "network-control", "velocity"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "network-control", "resource-pack"));
+    }
+
+    @Test
+    @DisplayName("voice chat is resolved for the two servers people play on, and for nothing else")
+    void voiceChatIsOnTheTwoBackendsThatPlay() throws IOException {
+        installCurrentEverything();
+
+        final UpdatePlan plan = resolve();
+
+        for (final String service : List.of("smp", "hunger-games")) {
+            final Change change = changeFor(plan, service, "voicechat");
+            assertEquals(Change.Status.UP_TO_DATE, change.status(), service);
+            assertEquals("voicechat-bukkit-2.6.23.jar", change.installed(), service);
+        }
+
+        // limbo and the proxy carry no row at all: an artefact nothing installs must not appear as
+        // one that is merely up to date, because a row is what the guard and the applier act on.
+        // The waiting room is seconds long and holds nobody who could be talked to.
+        assertTrue(plan.changes().stream()
+                        .filter(change -> "voicechat".equals(change.artifact()))
+                        .noneMatch(change -> "limbo".equals(change.service())
+                                || "network-control".equals(change.service())),
+                Report.render(plan));
+    }
+
+    @Test
+    @DisplayName("an unclaimed voice chat jar on limbo is reported, never removed")
+    void voiceChatOnLimboIsUnclaimed() throws IOException {
+        installCurrentEverything();
+        // Somebody dropped it in by hand. That is legitimate and has to stay visible: the updater
+        // deletes nothing it does not account for, and a jar it silently ignored would be a second
+        // copy of a plugin loading beside the one it does manage.
+        write("limbo", "plugins/voicechat-bukkit-2.6.23.jar");
+
+        final UpdatePlan plan = resolve();
+
+        assertTrue(plan.unclaimed().stream().anyMatch(jar -> "limbo".equals(jar.service())
+                        && jar.fileName().equals("voicechat-bukkit-2.6.23.jar")),
+                Report.render(plan));
     }
 
     @Test
@@ -346,11 +386,13 @@ class ResolverTest {
         write("limbo", "plugins/limbo-0.1.0.jar");
         write("limbo", ".server/paper-26.2-121.jar");
         write("hunger-games", "plugins/hunger-games-0.1.0.jar");
+        write("hunger-games", "plugins/voicechat-bukkit-2.6.23.jar");
         write("hunger-games", ".server/paper-26.2-121.jar");
         write("smp", "plugins/smp-0.1.0.jar");
         write("smp", "plugins/papermc-display-tags-2.0.0.jar");
         write("smp", "plugins/packetevents-spigot-2.13.0.jar");
         write("smp", "plugins/Chunky-Bukkit-1.5.3.jar");
+        write("smp", "plugins/voicechat-bukkit-2.6.23.jar");
         write("smp", ".server/paper-26.2-121.jar");
         // The bot and the updater are one jar in the root of their own volume - no plugins folder,
         // nothing else in there. v0.1.0 carries no updater jar, so only the bot's is written here.

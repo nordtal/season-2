@@ -63,6 +63,7 @@ public final class Resolver {
         resolveDisplayTags(newest, failures);
         resolveModrinth(newest, failures, Topology.PACKETEVENTS, config.packetEventsProject());
         resolveModrinth(newest, failures, Topology.CHUNKY, config.chunkyProject());
+        resolveModrinth(newest, failures, Topology.VOICE_CHAT, config.voiceChatProject());
         resolveFill(newest, failures, Topology.PAPER, config.minecraftVersion(), config.paperBuild());
         resolveFill(newest, failures, Topology.VELOCITY, config.velocityVersion(), config.velocityBuild());
 

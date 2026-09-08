@@ -301,6 +301,9 @@ public final class UpdateFollower {
     private static Tone toneOf(final UpdateReport.State state) {
         return switch (state) {
             case HEALTHY -> Tone.GOOD;
+            // A finished snapshot is the good news a BACKUP run exists to deliver, the same way a
+            // service coming back is an update's.
+            case SAVED -> Tone.GOOD;
             case FAILED -> Tone.BAD;
             // Not news: a service with nothing to move is never stopped and never started, and it
             // is listed only so that "the report says nothing about limbo" is not a possible read.

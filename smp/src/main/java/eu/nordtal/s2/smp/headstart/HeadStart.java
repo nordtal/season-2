@@ -119,12 +119,12 @@ public final class HeadStart implements Listener {
         // player answers isOnline() false for ever. The head start would then be booked, the flag
         // set, and the items left to the manual path below - for somebody who is standing right
         // there. Found by review, 2026-09-08.
-        Bukkit.getScheduler().runTask(plugin, () -> hand(mcUuid, name, aura, balance, items));
+        Bukkit.getScheduler().runTask(plugin, () -> hand(mcUuid, name, discordId, aura, balance, items));
     }
 
     /** The main-thread half: the items, the number, the line and the sound. */
-    private void hand(final java.util.UUID mcUuid, final String name, final int aura,
-                      final Integer balance, final List<ItemStack> items) {
+    private void hand(final java.util.UUID mcUuid, final String name, final String discordId,
+                      final int aura, final Integer balance, final List<ItemStack> items) {
         if (balance != null) {
             identities.recordAura(mcUuid, balance);
         }
@@ -138,8 +138,10 @@ public final class HeadStart implements Listener {
                     + ") was booked but the items were not handed over. The aura is in the books."
                     + " To offer the items again:"
                     + " UPDATE smp_player SET hg_winner_reward_granted = false WHERE discord_id ="
-                    + " '<their discord id>'; - which also books the aura a second time, so correct"
-                    + " that with /smp aura.");
+                    + " '" + discordId + "'; - which also books the aura a second time, so correct"
+                    + " that with /smp aura. The id is spelled out because a Minecraft name is not"
+                    + " a key in any of these tables, and this line is the whole of what somebody"
+                    + " has to work from.");
             return;
         }
 

@@ -145,6 +145,29 @@ public final class Runner implements RequestRunner {
 
             final UpdateRun.Stopped stopped = run.stop(planned, runtime);
 
+            // A service that has work and did not stop is still RUNNING, and Runs.apply would move
+            // its jars anyway - which is finding 147 exactly, reached through the one path that was
+            // supposed to end it. Nothing is migrated and nothing is installed; whatever DID stop is
+            // started again, because leaving half a network down over a refused stop turns a
+            // cancelled update into an outage.
+            final List<String> notStopped = planned.services().stream()
+                    .filter(line -> !line.changes().isEmpty())
+                    .map(UpdateReport.ServiceLine::service)
+                    .filter(service -> !Topology.UPDATER.equals(service))
+                    .filter(service -> !stopped.services().contains(service))
+                    .toList();
+            if (!notStopped.isEmpty()) {
+                final UpdateReport back = run.start(new UpdateRun.Stopped(
+                        stopped.report().withNote("NOTHING WAS INSTALLED. " + String.join(", ",
+                                notStopped) + " could not be stopped, and installing into a server"
+                                + " that is still running is the failure this sequence exists to"
+                                + " prevent. Every service that did stop has been started again."),
+                        stopped.services(), runtime));
+                return Outcome.failed(UpdateReports.toJson(run
+                        .verify(back, stopped.services(), UpdateRun.Waiting.real())
+                        .withStage(UpdateReport.Stage.FAILED)));
+            }
+
             try {
                 eu.nordtal.s2.updater.schema.Schema.migrate(database);
             } catch (final RuntimeException failure) {

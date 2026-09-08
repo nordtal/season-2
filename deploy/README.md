@@ -426,14 +426,17 @@ report shows `paper-26.2-125.jar -> paper-26.2-121.jar` like any other move. It 
 
 ### Restarting the network
 
-The restart is **one Arcane redeploy of the whole project**, asked for by the button in Discord, by
-`/update restart` in game, or not at all.
+The restart is **the same sequence an update runs, with nothing installed** — stop each service,
+start it again, wait until it reports healthy — asked for by the button in Discord, by
+`/update restart` in game, or not at all. It is no longer one project-wide Arcane redeploy: that
+took the updater down with everything else, which is why nothing could ever report whether the
+network came back.
 
-Whichever asks, the request is written with an instant sixty seconds out and **every player on the
-network is counted down towards it** — in limbo, in Hunger Games and on the SMP, at 60, 30, 10 and 5
+Whichever asks, the request is written with an instant **thirty seconds** out and **every player on
+the network is counted down towards it** — in limbo, in Hunger Games and on the SMP, at 30, 10 and 5
 seconds and then "restarting now". The proxy does the announcing, because it is the only process
-that sees everybody. Inside that minute the countdown can be stopped: the **Stop the countdown**
-button, or `/update cancel`. After it, "too late" is the honest answer and that is what
+that sees everybody. Inside those thirty seconds the countdown can be stopped: the **Stop the
+countdown** button, or `/update cancel`. After it, "too late" is the honest answer and that is what
 you get.
 
 **It is not the Docker socket, deliberately.** A container holding `/var/run/docker.sock` can do

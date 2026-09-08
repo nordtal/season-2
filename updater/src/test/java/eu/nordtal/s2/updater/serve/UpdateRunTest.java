@@ -196,6 +196,27 @@ class UpdateRunTest {
         assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
     }
 
+    @Test
+    @DisplayName("a service that refused to stop is not in the set the run may install into")
+    void aRefusedStopIsVisibleToTheCaller() {
+        // Runner reads exactly this to decide whether to abort: a service with work that is not in
+        // stopped.services() is still RUNNING, and installing into it is finding 147 reached
+        // through the sequence that exists to prevent it. Found by review, 2026-09-08.
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP, Topology.LIMBO).stopFails();
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        final UpdateReport planned = planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO));
+        final UpdateRun.Stopped stopped = run.stop(planned, arcane.runtime());
+
+        assertEquals(List.of(), stopped.services(),
+                "neither stopped, so neither may be installed into");
+        assertEquals(List.of(Topology.SMP, Topology.LIMBO), planned.services().stream()
+                        .filter(line -> !line.changes().isEmpty())
+                        .map(UpdateReport.ServiceLine::service)
+                        .toList(),
+                "and both had work, which is what makes the difference detectable at all");
+    }
+
     // ---------------------------------------------------------------- the live report
 
     @Test

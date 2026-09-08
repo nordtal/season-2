@@ -222,29 +222,44 @@ class TopologyTest {
             final String onTheServer = mountsOf(definition).stream()
                     .filter(mount -> mount.endsWith(":/data/plugins"))
                     .findFirst()
-                    .orElseThrow(() -> new AssertionError(service.name() + " does not bind a host"
-                            + " directory onto /data/plugins. Since 2026-09-05 plugins/ is a"
-                            + " directory next to compose.yml and not part of the named volume;"
-                            + " without this line the server reads an empty folder and the"
-                            + " entrypoint stops the container."));
+                    .orElseThrow(() -> new AssertionError(service.name() + " mounts nothing onto"
+                            + " /data/plugins. Since 2026-09-05 plugins/ is separate from the"
+                            + " server's own volume; without this line the server reads an empty"
+                            + " folder and the entrypoint stops the container."));
 
             final String onTheUpdater = updaterMounts.stream()
                     .filter(mount -> mount.endsWith(":/volumes/" + service.name() + "/plugins"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("the updater does not mount "
-                            + service.name() + "'s plugins/ directory. It would then install into"
-                            + " the named volume while the server reads the host directory - and"
-                            + " nothing would say so: `apply` reports success, the jars are on"
-                            + " disk, and no server runs a single one of them."));
+                            + service.name() + "'s plugins/. It would then install into one place"
+                            + " while the server reads another - and nothing would say so:"
+                            + " `apply` reports success, the jars are on disk, and no server runs"
+                            + " a single one of them."));
 
-            // The two have to be the SAME source, expression for expression. A SERVERS_ROOT that
-            // is spelt differently in the two places is exactly the silent split above.
+            // The two have to be the SAME source, expression for expression. A variable spelt
+            // differently in the two places, or one side copying the default rather than the
+            // variable, is exactly the silent split above.
             assertEquals(sourceOf(onTheServer), sourceOf(onTheUpdater),
                     service.name() + ": the server and the updater are pointed at two different"
-                            + " host directories");
-            assertTrue(sourceOf(onTheServer).endsWith("/" + service.name() + "/plugins"),
-                    service.name() + " reads a plugins/ directory belonging to another service: "
-                            + sourceOf(onTheServer));
+                            + " plugin sources");
+
+            // AND THE DEFAULT HAS TO BE A VOLUME NAME (2026-09-08, finding 151). It was
+            // ${SERVERS_ROOT:-./deploy/servers}/<service>/plugins for three days, which put every
+            // deployed config.yml, milestones.yml, sounds.yml and pack.yml inside the directory
+            // Arcane's GitOps sync pulls - and that sync DELETES IGNORED FILES, so the first sync
+            // after a hand edit takes the lot and every server comes back writing fresh defaults.
+            //
+            // Docker distinguishes a bind mount from a volume by nothing but the shape of the
+            // string: anything containing a `/` is a path. A `.` is checked too because that is
+            // what a relative path starts with here and what a stray `./` leaves behind.
+            final String fallback = defaultOf(sourceOf(onTheServer));
+            assertFalse(fallback.contains("/") || fallback.contains("."),
+                    service.name() + "'s plugins/ defaults to '" + fallback + "', which Docker"
+                            + " reads as a PATH and not as a volume name. Production sets none of"
+                            + " these variables, so that default is what the host gets - and a"
+                            + " path inside this checkout is deleted by Arcane's GitOps sync with"
+                            + " every hand-edited plugin config in it. A local stack opts into the"
+                            + " bind by setting the variable; the default must not.");
         }
     }
 

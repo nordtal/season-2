@@ -4,7 +4,7 @@
 # the production host runs, pointed at locally built jars.
 #
 # What makes that possible is one line in compose.yml: each server's plugins/ is a directory on
-# this machine (SERVERS_ROOT) rather than part of its named volume. So installing a freshly built
+# this machine (<SERVICE>_PLUGINS) rather than a volume of its own. So installing a freshly built
 # plugin is a `cp` and a restart of one container, and reading plugins/smp/config.yml is opening a
 # file. Worlds, the .server/ jar cache and logs stay in the volumes, where Arcane's volume backup
 # can still see them on the host.
@@ -30,7 +30,7 @@ ENV_FILE="deploy/dev.env"
 EXAMPLE="deploy/dev.env.example"
 
 # The four services that run one of our plugins, and the module that builds it. The service name is
-# also the directory under SERVERS_ROOT - the same identity compose.yml and :updater's Topology use.
+# also the <SERVICE>_PLUGINS variable's - the same identity compose.yml and :updater's Topology use.
 MODULES=(network-control limbo hunger-games smp)
 
 log()  { printf '\033[36m[dev]\033[0m %s\n' "$*"; }
@@ -80,12 +80,23 @@ compose() {
         docker compose --env-file "$ENV_FILE" "$@"
 }
 
-servers_root() {
-    # Read from the env file rather than assumed, because the whole reason it is a variable is that
-    # it can be moved out of the checkout.
-    local value
-    value="$(sed -n 's/^SERVERS_ROOT=//p' "$ENV_FILE" 2>/dev/null | tail -n1)"
-    printf '%s' "${value:-./deploy/servers}"
+plugins_dir() {
+    # Where one service's plugins/ lives on THIS machine. compose.yml defaults each of these to a
+    # named volume (mc-<service>-plugins) because production must not keep its configs inside the
+    # directory Arcane's GitOps sync pulls; deploy/dev.env sets them to paths instead, which is what
+    # makes a local `cp` of a jar and a plain `$EDITOR` on config.yml possible at all.
+    #
+    # So this reads the variable rather than assuming a layout, and REFUSES a value with no `/` in
+    # it: that is a volume name to Docker, and there is nothing here that can copy a file into one.
+    # Falling back to ./deploy/servers instead would silently write jars into a directory no
+    # container has mounted, which reads exactly like a build that worked.
+    local service="$1" var value
+    var="$(printf '%s' "$service" | tr 'a-z-' 'A-Z_')_PLUGINS"
+    value="$(sed -n "s/^$var=//p" "$ENV_FILE" 2>/dev/null | tail -n1)"
+    [[ -n "$value" ]] || die "$ENV_FILE sets no $var. The local stack needs a path there; see $EXAMPLE"
+    [[ "$value" == */* ]] || die "$var is '$value', which Docker reads as a VOLUME NAME, not a path."\
+" The local stack cannot copy jars or read configs out of a volume - set it to a directory."
+    printf '%s' "$value"
 }
 
 pack_root() {
@@ -132,14 +143,12 @@ cmd_init() {
         log "wrote $ENV_FILE with a generated forwarding secret and database password"
     fi
 
-    local root
-    root="$(servers_root)"
     local service
     for service in "${MODULES[@]}"; do
-        mkdir -p "$root/$service/plugins"
+        mkdir -p "$(plugins_dir "$service")"
     done
     mkdir -p "$(pack_root)"
-    log "plugin directories are under $root - this is where jars and plugin configs live now"
+    log "plugin directories: $(plugins_dir smp) and its three siblings - jars and configs live there"
     log "next: deploy/dev up"
 }
 
@@ -157,11 +166,10 @@ build_modules() {
 
 install_module() {
     local module="$1"
-    local jar root target
+    local jar target
     jar="$(jar_of "$module")"
     [[ -f "$jar" ]] || die "$jar was not built"
-    root="$(servers_root)"
-    target="$root/$module/plugins"
+    target="$(plugins_dir "$module")"
     mkdir -p "$target"
 
     # Remove every other jar of this plugin first. The updater splits a filename on the LAST hyphen
@@ -241,7 +249,7 @@ cmd_pack() {
     cp "$zip" "$pack_dir/$name"
     sha="$(shasum -a 1 "$zip" | cut -d' ' -f1)"
 
-    pack_yml="$(servers_root)/network-control/plugins/network-control/pack.yml"
+    pack_yml="$(plugins_dir network-control)/network-control/pack.yml"
     [[ -f "$pack_yml" ]] || die "$pack_yml is not there yet - bring the proxy up once so it writes"
 
     local port

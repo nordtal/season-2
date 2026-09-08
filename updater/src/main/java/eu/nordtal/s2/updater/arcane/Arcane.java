@@ -146,10 +146,19 @@ public final class Arcane implements ArcaneOps {
                         + " connection error that names DNS only in its cause.",
                 config.baseUrl(), suggestion));
         this.client = HttpClient.newBuilder()
-                // Arcane sits behind the same reverse proxy as everything else here, so a redirect
-                // is plausible; NORMAL follows it and refuses HTTPS to HTTP, which is the one
-                // redirect an authenticated request must never take.
-                .followRedirects(HttpClient.Redirect.NORMAL)
+                // NEVER, and the comment this replaces was wrong in a way worth keeping visible.
+                // It said NORMAL "refuses HTTPS to HTTP, which is the one redirect an authenticated
+                // request must never take" - true, and not the hole. NORMAL happily follows HTTP to
+                // HTTP *to a different authority*, and the JDK carries the X-Api-Key header along:
+                // a compromised or merely mistaken Arcane could redirect any of these four calls to
+                // a host of its choosing and be handed a credential that redeploys every project it
+                // has (CWE-522, found by review 2026-09-08).
+                //
+                // Following nothing is the answer rather than validating each hop, because there is
+                // no legitimate redirect here to preserve: arcane.base-url is a setting, and the
+                // fix for a redirect is to point it at where Arcane actually is. A 3xx is now
+                // reported as exactly that, with the Location in the message.
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(Duration.ofSeconds(config.timeoutSeconds()))
                 .build();
     }
@@ -220,7 +229,9 @@ public final class Arcane implements ArcaneOps {
             // ofLines() is lazy: send() returns as soon as the status line and headers are in, and
             // the stream behind it is never read. That is deliberate - see the class comment.
             final HttpResponse<?> response = client.send(request, HttpResponse.BodyHandlers.ofLines());
-            return interpret(response.statusCode());
+            final String redirected = redirect(response.statusCode(), response.headers(), endpoint());
+            return redirected != null ? RedeployResult.refused(redirected)
+                    : interpret(response.statusCode());
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             return RedeployResult.refused("Interrupted while asking Arcane to redeploy.");
@@ -441,6 +452,10 @@ public final class Arcane implements ArcaneOps {
         try {
             final HttpResponse<String> response = client.send(get(uri),
                     HttpResponse.BodyHandlers.ofString());
+            final String redirected = redirect(response.statusCode(), response.headers(), url);
+            if (redirected != null) {
+                return RuntimeResult.unreachable(redirected);
+            }
             if (response.statusCode() / 100 != 2) {
                 return RuntimeResult.unreachable("Arcane answered HTTP " + response.statusCode()
                         + " for " + url + ", so this updater cannot see the project's services."
@@ -515,6 +530,10 @@ public final class Arcane implements ArcaneOps {
             if (response.statusCode() / 100 == 2) {
                 return RedeployResult.triggered("HTTP " + response.statusCode());
             }
+            final String redirected = redirect(response.statusCode(), response.headers(), url);
+            if (redirected != null) {
+                return RedeployResult.refused(redirected);
+            }
             return RedeployResult.refused("Arcane answered HTTP " + response.statusCode() + " to "
                     + action + " " + containerId + " (" + url + ")");
         } catch (final InterruptedException interrupted) {
@@ -541,10 +560,33 @@ public final class Arcane implements ArcaneOps {
                 .replace(PROJECT_PLACEHOLDER, config.project());
     }
 
+    /**
+     * What a redirect means here, for the operator rather than for the client.
+     *
+     * <p>Nothing follows one any more - see the client above. A 3xx is a configuration fact: the
+     * base URL is not where Arcane is, and the header this request carries must not be handed to
+     * whatever the redirect names.</p>
+     *
+     * @return the sentence, or {@code null} when this is not a redirect
+     */
+    private static String redirect(final int status, final java.net.http.HttpHeaders headers,
+                                   final String url) {
+        if (status / 100 != 3) {
+            return null;
+        }
+        return "Arcane answered HTTP " + status + " for " + url + " - a redirect to "
+                + headers.firstValue("Location").orElse("somewhere it did not name") + ". This"
+                + " updater does not follow redirects on a request carrying an API key, because"
+                + " the header would travel to wherever the redirect points. Nothing was done."
+                + " Point arcane.base-url at the address Arcane actually answers on.";
+    }
+
     private RedeployResult interpret(final int status) {
         if (status / 100 == 2) {
             return RedeployResult.triggered("Redeploy accepted by Arcane (HTTP " + status + ")."
-                    + " The whole stack goes down and comes back up, this updater included.");
+                    + " The whole stack goes down and comes back up, this updater included - which"
+                    + " is why nothing can report whether it did. An update or a restart cycles"
+                    + " services one at a time instead and stays alive to say.");
         }
         return switch (status) {
             case 401, 403 -> RedeployResult.refused("Arcane refused the token (HTTP " + status

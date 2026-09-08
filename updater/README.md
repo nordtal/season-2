@@ -65,9 +65,10 @@ or — the two that matter — *unknown* and *UNRESOLVED*. Those two exist so th
   change, migrates, installs, starts them again and waits until each reports healthy; `bootstrap`
   fills empty slots and **stops and starts nothing at all**. Expecting `/update now` to leave
   servers down, or `bootstrap` to bring them round, is the way round to get this wrong.
-- **A report run puts nothing into a Minecraft volume.** Only those two do, and both still
-  restarts nothing: it prints what it did and stops, because a person reading a half-done run
-  before the network goes down on it is the entire point of the restart being a separate button.
+- **A report run puts nothing into a Minecraft volume and restarts nothing.** It prints what
+  differs and stops - that is the whole of it, and it is what makes reading a plan before acting on
+  it possible. The two runs above are the ones that write; `/update now` also stops and starts the
+  services it installs into, which is the difference the bullet before this one is about.
 - **Two updaters cannot *serve* at once.** `serve` takes a second PostgreSQL advisory lock
   (`nordtalS`) for its whole life, and a second one refuses to start rather than joining in. It is
   what makes `settleOrphans` correct: that method closes every row left `RUNNING` on the reasoning

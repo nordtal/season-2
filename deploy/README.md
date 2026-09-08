@@ -432,12 +432,24 @@ start it again, wait until it reports healthy — asked for by the button in Dis
 took the updater down with everything else, which is why nothing could ever report whether the
 network came back.
 
-Whichever asks, the request is written with an instant **thirty seconds** out and **every player on
+**The confirmation comes first, and the countdown only after it.** `/update now` and
+`/update restart` are irreversible commands: in chat they have to be typed again inside thirty
+seconds, in Discord a button has to be pressed. Until that happens **nothing is scheduled at all** -
+no row, no countdown, no warning to anybody. An operator who types the command once and walks away
+has not started a restart.
+
+Once confirmed, the request is written with an instant **thirty seconds** out and **every player on
 the network is counted down towards it** — in limbo, in Hunger Games and on the SMP, at 30, 10 and 5
 seconds and then "restarting now". The proxy does the announcing, because it is the only process
 that sees everybody. Inside those thirty seconds the countdown can be stopped: the **Stop the
 countdown** button, or `/update cancel`. After it, "too late" is the honest answer and that is what
 you get.
+
+**If a service refuses to stop, an update installs nothing.** It migrates nothing, moves no jar,
+starts every service that did stop, and comes back `FAILED` naming the ones that refused — because
+installing into a server that is still running is the whole failure this sequence replaced. A
+restart has nothing to install and so nothing to abort: the service that refused stays up, the ones
+that stopped are started again, and the run is reported as failed.
 
 **It is not the Docker socket, deliberately.** A container holding `/var/run/docker.sock` can do
 anything on the host, and the updater is the container whose whole job is downloading files from the

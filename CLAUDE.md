@@ -912,7 +912,10 @@ Modrinth filtered to `26.2`/`paper`, Paper and Velocity from the PaperMC Fill AP
 against the jars in the mounted volumes, and prints the difference. **`/update now`** then stops the
 services whose jars change, applies the schema, installs what differs, writes the proxy's `pack.yml`
 and starts each service again — the migration running with those servers *down*, which is stronger
-than the old rule that only put it before the jars moved. `bootstrap` on the host does the same
+than the old rule that only put it before the jars moved. **A service that will not stop ends the
+run before the migration**: nothing is installed, whatever did stop is started again, and the run
+is `FAILED` naming the refusal — installing into a running server as a fallback would be finding
+147 with an excuse. `bootstrap` on the host does the same
 install for artefacts with **nothing** installed and stops nothing, because there is nothing running
 to stop.
 
@@ -1098,7 +1101,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1347 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1348 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-08, on `release/0.7.0`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1175,7 +1178,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | `smp` | 227 |
 | `network-control` | 195 |
 | `commands` | 184 |
-| `updater` | 163 |
+| `updater` | 164 |
 | `discord-bot` | 145 |
 | `hunger-games` | 72 |
 | `limbo` | 11 |

@@ -569,12 +569,45 @@ Three rules ride on it, and the first two are what make it safe rather than mere
   `UpdateIsServedEverywhereTest` names all five wiring sites.
 
 It is not a general escape: a command belongs here only when its effect touches nothing but the
-database. The one that does is `/update`, whose four commands were folded on 2026-09-08 - `/update`,
-`/update now`, `/update restart`, `/update cancel`. What stayed with each surface is the *drawing*:
-Discord's live embed with a field per service, `smp`'s `UpdateWatcher` (all that is left of a class
-that used to own a Brigadier tree). The comment in `SmpCommand` saying `/smp update` "should not
-become a NordtalCommand" rested on the rule that the updater's report must never be rendered twice -
-which was deliberately rewritten the day before, and is now "nothing is *decided* twice".
+database. The one that does is `/update`, whose commands were folded on 2026-09-08 - `/update`,
+`/update now`, `/update restart`, `/update cancel`, and `/update check` since the next day. What
+stayed with each surface is the *drawing*: Discord's live embed with a field per service, `smp`'s
+`UpdateWatcher` (all that is left of a class that used to own a Brigadier tree). The comment in
+`SmpCommand` saying `/smp update` "should not become a NordtalCommand" rested on the rule that the
+updater's report must never be rendered twice - which was deliberately rewritten the day before, and
+is now "nothing is *decided* twice".
+
+**Four things the fold found, all on 2026-09-08, and each was invisible from the surface it broke
+on** (findings 153 to 156):
+
+- **The proxy answers a command it knows, so a watcher is not enough.** Velocity executes every
+  command in its own dispatcher, so `/update` on the proxy acknowledged the player and then said
+  nothing for the whole run, while the identical Paper path worked. The decision half is
+  `UpdateFollower` in `:commands` - finished, gone, timed out, or a report, as a pure function - and
+  each surface drives it: `UpdateWatch` on the proxy's scheduler, `UpdateWatcher` in
+  `:paper-common`, now only for the console.
+- **A root with an all-admin subtree is gated at the root**, and reaching a root default by calling
+  the child's dispatch goes *around* `requires`. That is finding 102 on `/phase` arriving a second
+  time on `/update`, with a comment in both adapters claiming the child checked. Both adapters now
+  also check inside `run()`; `PaperCommandsRootGateTest` and `VelocityCommandsRootGateTest`.
+- **A console has no id, and `requested_by` must say so.** The source comes from `origin()`:
+  `null` for a console, the Discord id for Discord. Writing the asker's own id made the column claim
+  a person had asked for runs nobody asked for.
+- **Discord cannot execute a root that also has subcommands** - it becomes a menu. The read-only
+  report is therefore `/update check` there, `Catalogue.ROOT_DEFAULTS` keeps bare `/update` working
+  in game, and `DiscordCommandsTest#noRootIsBothACommandAndAMenu` fails the next command that would
+  reach Discord as an unusable root.
+
+**A shared command may name a tone, and only a tone** (2026-09-09). `:commands`' bundle carries no
+markup - that rule is not being relaxed - and what it cost was the one thing a wall of update output
+needs: finding the failed service among eleven lines of identical shape. So the *meaning* travels
+and the rendering does not. `NordtalUser#reply` takes a `Tone` (`NEUTRAL`, `GOOD`, `BAD`, `WARN`,
+`MUTED`); Paper and Velocity paint it through `:common`'s `Tones` with `colorIfAbsent`, so a process
+that rewords the key in its own bundle *with* colour still wins; Discord ignores it, because an
+embed has one colour for all of it. The palette is the pack's own and not `NamedTextColor` - a reply
+in vanilla green and red reads as a terminal standing next to a network drawn from
+`docs/presentation.md`. `Tone` is a bare enum in `:common`, apart from `Tones`, because two of the
+five processes load it through `NordtalUser`'s signature in a JVM with no Adventure at all.
 
 **`Surface.SYSTEM` is the surface nobody types on, since 2026-09-06.** `announce <language> <text>`
 is a `Target.BOT` command declared on it alone: the SMP renders a milestone's completion and each
@@ -1101,8 +1134,8 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1351 in total, none skipped, all green** (`./gradlew build` with a
-Docker daemon present, 2026-09-08, on `release/0.7.0`). The counts
+**Nine modules have tests: 1392 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-09, on `release/0.7.1`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
 **Thirty-five are from 2026-09-07/08 and they arrive in three groups.** Four are `smp`'s
@@ -1174,15 +1207,15 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 345 |
+| `common` | 351 |
 | `smp` | 227 |
-| `network-control` | 195 |
-| `commands` | 184 |
-| `updater` | 164 |
-| `discord-bot` | 148 |
+| `network-control` | 201 |
+| `commands` | 200 |
+| `updater` | 167 |
+| `discord-bot` | 156 |
 | `hunger-games` | 72 |
 | `limbo` | 11 |
-| `paper-common` | 5 |
+| `paper-common` | 7 |
 
 **Sixteen are from the local stack, 2026-09-05, and fourteen of them are in `:updater`.** Eight are
 `ArcaneDiagnosisTest`, and what they pin is a *message* rather than a behaviour — see "The restart"

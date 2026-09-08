@@ -46,8 +46,8 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
                 // player. This line is for the person who typed it, and its job is to name the way
                 // back out while there still is one.
                 user.reply("update.started", Map.of(
-                        "id", id,
-                        "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()), Feedback.BIG_SUCCESS);
+                        "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
+                        Feedback.BIG_SUCCESS);
             } catch (final RuntimeException failure) {
                 user.reply("update.write-failed", Map.of(), Feedback.REFUSED);
             }

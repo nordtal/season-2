@@ -5,6 +5,8 @@ import com.velocitypowered.api.proxy.Player;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.Tones;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
 import net.kyori.adventure.text.Component;
@@ -77,6 +79,11 @@ public final class VelocityUser implements NordtalUser {
     @Override
     public void reply(final String messageKey, final Map<String, ?> placeholders) {
         player.sendMessage(render(messageKey, placeholders));
+    }
+
+    @Override
+    public void reply(final String messageKey, final Map<String, ?> placeholders, final Tone tone) {
+        player.sendMessage(Tones.paint(render(messageKey, placeholders), tone));
     }
 
     @Override

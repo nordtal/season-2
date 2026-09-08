@@ -23,10 +23,15 @@ public final class ReportUpdate implements NordtalCommand<UpdateEffects> {
             try {
                 final long id = effects.submit(UpdateKind.REPORT, user).id();
                 effects.watch(id, user);
-                // The id, not the answer: resolving every source takes seconds and the surfaces
-                // read the row themselves - Discord by editing its embed, the game by printing the
-                // report when it lands. This command's job ends at "it has been asked for".
-                user.reply("update.asked", Map.of("id", id), Feedback.SMALL_SUCCESS);
+                // An acknowledgement and not the answer: resolving every source takes seconds and
+                // the surfaces read the row themselves - Discord by editing its embed, the game by
+                // printing the report when it lands. This command's job ends at "it has been asked
+                // for".
+                //
+                // The id is deliberately not in the sentence. It was, and it is a database
+                // primary key being read out to somebody who cannot do anything with it; the one
+                // reader who can is looking at the updater's log, where it still is.
+                user.reply("update.asked", Map.of(), Feedback.SMALL_SUCCESS);
             } catch (final RuntimeException failure) {
                 user.reply("update.write-failed", Map.of(), Feedback.REFUSED);
             }

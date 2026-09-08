@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
 import eu.nordtal.s2.commands.NordtalUser;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
@@ -29,9 +30,23 @@ import java.util.function.LongFunction;
  * stop asking. A surface calls {@link #poll} on whatever timer it has and hands each line to its
  * user. Nothing here names a scheduler, a thread or a platform.</p>
  *
- * <h2>The report is text and stays text</h2>
- * Report lines go out as literals, never through a message key: the updater's report carries
- * version strings and filenames, and one containing {@code <} would become a MiniMessage tag.
+ * <h2>The report is drawn from keys, and that is new on 2026-09-08</h2>
+ * It used to be printed as {@link UpdateReport#render()}, verbatim, on the rule that nothing is
+ * rendered twice. What that produced was an English wall of text for a German admin -
+ * {@code "smp: waiting - paper 26.2.121 -> 26.2.126"} - on the one command whose answer is longest.
+ * The rule the repository actually holds is that nothing is <em>decided</em> twice, and none of the
+ * deciding moved: every version, every state and every outcome below is read straight off the
+ * updater's report. What is chosen here is which message key names it.
+ *
+ * <p>The values that go into those keys - version strings, filenames, an Arcane failure - are
+ * substituted as placeholders and are therefore escaped by {@code MessageRenderer}. That is what
+ * makes it safe to stop printing them as literals: a version containing {@code <} arrives as text
+ * rather than as a MiniMessage tag, which is the property the old rule was protecting.</p>
+ *
+ * <h2>What still goes out as a literal</h2>
+ * A {@code result} written before V12 is plain text and nothing can be said about its structure, so
+ * it is printed as it is. A cancellation's {@code result} is the reason somebody typed, which is
+ * text too and is wrapped in {@code update.stopped-by} rather than translated.
  */
 public final class UpdateFollower {
 
@@ -48,18 +63,27 @@ public final class UpdateFollower {
     public static final int MAX_LINES = 40;
 
     /** One thing to say: a message key with placeholders, or a literal line of the report. */
-    public record Say(String key, Map<String, ?> placeholders, String literal) {
+    public record Say(String key, Map<String, ?> placeholders, String literal, Tone tone) {
+
+        public static Say key(final String key, final Map<String, ?> placeholders, final Tone tone) {
+            return new Say(Objects.requireNonNull(key, "key"), Map.copyOf(placeholders), null,
+                    tone == null ? Tone.NEUTRAL : tone);
+        }
 
         public static Say key(final String key, final Map<String, ?> placeholders) {
-            return new Say(Objects.requireNonNull(key, "key"), Map.copyOf(placeholders), null);
+            return key(key, placeholders, Tone.NEUTRAL);
         }
 
         public static Say key(final String key) {
-            return key(key, Map.of());
+            return key(key, Map.of(), Tone.NEUTRAL);
+        }
+
+        public static Say key(final String key, final Tone tone) {
+            return key(key, Map.of(), tone);
         }
 
         public static Say literal(final String text) {
-            return new Say(null, Map.of(), Objects.requireNonNull(text, "text"));
+            return new Say(null, Map.of(), Objects.requireNonNull(text, "text"), Tone.NEUTRAL);
         }
 
         /** Sends this line the way the user's surface sends lines. */
@@ -67,7 +91,7 @@ public final class UpdateFollower {
             if (literal != null) {
                 user.replyLiteral(literal);
             } else {
-                user.reply(key, placeholders);
+                user.reply(key, placeholders, tone);
             }
         }
     }
@@ -87,8 +111,9 @@ public final class UpdateFollower {
             says = List.copyOf(says);
         }
 
-        static Step keepWaiting() {
-            return new Step(List.of(), false, null);
+        /** Lines to say, and the row is not settled - which is every pass while a run works. */
+        static Step saying(final List<Say> says) {
+            return new Step(says, false, null);
         }
 
         static Step done(final List<Say> says) {
@@ -104,6 +129,16 @@ public final class UpdateFollower {
     private final long id;
     private final LongFunction<Optional<UpdateRequest>> reader;
     private final Instant deadline;
+
+    /**
+     * The last stage this follower announced, so a stage is spoken once.
+     *
+     * <p>A run rewrites its report every few seconds and this polls every two, so without it a
+     * player would be told "Stopping the servers" a dozen times. Only the transitions are
+     * interesting, which is also the whole of what chat can usefully show while a run works -
+     * Discord redraws a field per service instead, because it can edit one message.</p>
+     */
+    private UpdateReport.Stage lastStage;
 
     /**
      * @param id       the request to follow
@@ -139,10 +174,10 @@ public final class UpdateFollower {
         try {
             row = reader.apply(id);
         } catch (final RuntimeException failure) {
-            return new Step(List.of(Say.key("update.failed")), true, failure);
+            return new Step(List.of(Say.key("update.failed", Tone.BAD)), true, failure);
         }
         if (row.isEmpty()) {
-            return Step.done(List.of(Say.key("update.gone")));
+            return Step.done(List.of(Say.key("update.gone", Tone.WARN)));
         }
         final UpdateRequest request = row.get();
         if (request.status().isFinished()) {
@@ -152,37 +187,125 @@ public final class UpdateFollower {
             // Names the state the row is in, because PENDING here means one specific thing:
             // nothing is listening, and the updater container is not running.
             return Step.done(List.of(Say.key("update.timeout",
-                    Map.of("id", id, "status", request.status()))));
+                    Map.of("status", request.status()), Tone.BAD)));
         }
-        return Step.keepWaiting();
+        return Step.saying(stageChange(request));
+    }
+
+    /**
+     * One line when the run moves to a stage this follower has not announced yet.
+     *
+     * <p>Silent for a row with no parsable report - a {@code PENDING} row waiting out its countdown
+     * has written nothing at all, and the proxy is already counting that down to everybody.</p>
+     */
+    private List<Say> stageChange(final UpdateRequest request) {
+        final Optional<UpdateReport> report = UpdateReports.parse(request.result());
+        if (report.isEmpty() || report.get().stage() == lastStage) {
+            return List.of();
+        }
+        lastStage = report.get().stage();
+        return List.of(headline(lastStage));
     }
 
     /**
      * The updater's answer, as lines.
      *
-     * <p>Since 2026-09-07 the row carries an {@link UpdateReport} as JSON, and its own
-     * {@code render()} is the one text form of it - the same one a console prints. A row written
-     * before that change is plain text and is printed as it is, which is why the fallback exists.</p>
+     * <p>Since 2026-09-07 the row carries an {@link UpdateReport} as JSON. A row written before
+     * that is plain text and is printed as it is, which is why the fallback exists - and a
+     * cancellation is plain text by design, because its {@code result} is the reason somebody
+     * typed.</p>
      */
     private static List<Say> report(final UpdateRequest request) {
-        final String stored = request.result();
-        final String result = UpdateReports.parse(stored)
-                .map(UpdateReport::render)
-                .orElseGet(() -> stored == null ? "(the updater wrote nothing)" : stored);
-        final String[] lines = result.split("\n", -1);
+        final Optional<UpdateReport> parsed = UpdateReports.parse(request.result());
+        final List<Say> says = parsed.isPresent()
+                ? structured(parsed.get())
+                : plain(request);
 
+        if (says.size() <= MAX_LINES) {
+            return says;
+        }
+        final List<Say> cut = new ArrayList<>(says.subList(0, MAX_LINES));
+        cut.add(Say.key("update.truncated", Map.of("lines", says.size() - MAX_LINES), Tone.MUTED));
+        return cut;
+    }
+
+    /** A report, as a headline and a line per service with its changes under it. */
+    private static List<Say> structured(final UpdateReport report) {
         final List<Say> says = new ArrayList<>();
-        // CANCELLED is deliberately not in here: a stopped countdown is somebody using the way
-        // out, and /update cancel has already said so in its own words.
-        if (request.status() == UpdateStatus.FAILED) {
-            says.add(Say.key("update.failed"));
+        says.add(headline(report.stage()));
+
+        for (final UpdateReport.ServiceLine line : report.services()) {
+            final Tone tone = toneOf(line.state());
+            says.add(Say.key("update.line." + line.state(),
+                    Map.of("service", line.service()), tone));
+            for (final UpdateReport.Change change : line.changes()) {
+                says.add(change.from() == null
+                        ? Say.key("update.change.new", Map.of(
+                                "artefact", change.artefact(), "to", change.to()), Tone.MUTED)
+                        : Say.key("update.change", Map.of("artefact", change.artefact(),
+                                "from", change.from(), "to", change.to()), Tone.MUTED));
+            }
+            if (line.detail() != null && !line.detail().isBlank()) {
+                says.add(Say.key("update.detail", Map.of("detail", line.detail()), tone));
+            }
         }
-        for (int line = 0; line < Math.min(lines.length, MAX_LINES); line++) {
-            says.add(Say.literal(lines[line]));
-        }
-        if (lines.length > MAX_LINES) {
-            says.add(Say.key("update.truncated", Map.of("lines", lines.length - MAX_LINES)));
+        for (final String note : report.notes()) {
+            says.add(Say.key("update.note", Map.of("note", note), toneOf(report.stage())));
         }
         return says;
+    }
+
+    /**
+     * A {@code result} that is not a report: a cancellation reason, or a row from before V12.
+     *
+     * <p>CANCELLED is deliberately not given the failure line: a stopped countdown is somebody
+     * using the way out, and its {@code result} names who did it.</p>
+     */
+    private static List<Say> plain(final UpdateRequest request) {
+        final String stored = request.result();
+        if (request.status() == UpdateStatus.CANCELLED) {
+            return List.of(Say.key("update.stopped-by",
+                    Map.of("reason", stored == null ? "" : stored), Tone.WARN));
+        }
+        final List<Say> says = new ArrayList<>();
+        if (request.status() == UpdateStatus.FAILED) {
+            says.add(Say.key("update.failed", Tone.BAD));
+        }
+        final String text = stored == null ? "(the updater wrote nothing)" : stored;
+        for (final String line : text.split("\n", -1)) {
+            says.add(Say.literal(line));
+        }
+        return says;
+    }
+
+    private static Say headline(final UpdateReport.Stage stage) {
+        return Say.key("update.stage." + stage, toneOf(stage));
+    }
+
+    /**
+     * What a stage is, as news.
+     *
+     * <p>Only the four terminal stages carry one: everything else is a run in progress, which is
+     * neither good nor bad news, it is just where it has got to.</p>
+     */
+    private static Tone toneOf(final UpdateReport.Stage stage) {
+        return switch (stage) {
+            case DONE -> Tone.GOOD;
+            case FAILED -> Tone.BAD;
+            case CANCELLED -> Tone.WARN;
+            case NOTHING_TO_DO -> Tone.MUTED;
+            default -> Tone.NEUTRAL;
+        };
+    }
+
+    private static Tone toneOf(final UpdateReport.State state) {
+        return switch (state) {
+            case HEALTHY -> Tone.GOOD;
+            case FAILED -> Tone.BAD;
+            // Not news: a service with nothing to move is never stopped and never started, and it
+            // is listed only so that "the report says nothing about limbo" is not a possible read.
+            case UNCHANGED -> Tone.MUTED;
+            default -> Tone.NEUTRAL;
+        };
     }
 }

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateRequest;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,20 +34,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * subtracted from it, so the overflow field measured itself against space already spent. Each was
  * introduced by the fix for the one before it, which is the argument for measuring the result
  * instead of reasoning about the guard.</p>
+ *
+ * <p>It renders against the real shared bundle since 2026-09-08, because the embed's headings and
+ * state labels stopped being hardcoded English that day. A German label is not the same length as
+ * its English original, so the budget arithmetic is measured in the language it will actually be
+ * drawn in - both of them.</p>
  */
 class EmbedBudgetTest {
 
     /** Discord's own limit, and the thing every case here measures against. */
     private static final int LIMIT = 6000;
 
+    private final Messages messages = Messages.load(EmbedBudgetTest.class.getClassLoader(),
+            "messages/commands", Locale.ENGLISH, Locale.GERMAN);
+
     @Test
     @DisplayName("long notes and more services than fit still build inside the limit")
     void theWorstCaseFits() {
-        final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request());
+        for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
+            final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(),
+                    messages, locale);
 
-        assertTrue(embed.getLength() <= LIMIT,
-                "the embed is " + embed.getLength() + " characters; JDA refuses it above " + LIMIT
-                        + ", and the admin then sees 'that did not work' instead of the run");
+            assertTrue(embed.getLength() <= LIMIT,
+                    locale + ": the embed is " + embed.getLength() + " characters; JDA refuses it"
+                            + " above " + LIMIT + ", and the admin then sees 'that did not work'"
+                            + " instead of the run");
+        }
     }
 
     @Test
@@ -53,15 +67,20 @@ class EmbedBudgetTest {
     void theDescriptionIsSubtractedFromTheBudget() {
         // The exact shape of the third bug: notes long enough to consume everything the services
         // left, and more services than were drawn, so the overflow field is offered.
-        final MessageEmbed embed = UpdateCommand.fields(report(30, 900, 1, 5000), request());
+        for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
+            final MessageEmbed embed = UpdateCommand.fields(report(30, 900, 1, 5000), request(),
+                    messages, locale);
 
-        assertTrue(embed.getLength() <= LIMIT, "the embed is " + embed.getLength() + " characters");
+            assertTrue(embed.getLength() <= LIMIT,
+                    locale + ": the embed is " + embed.getLength() + " characters");
+        }
     }
 
     @Test
     @DisplayName("an ordinary run is drawn in full, not truncated into uselessness")
     void theNormalCaseKeepsEveryService() {
-        final MessageEmbed embed = UpdateCommand.fields(report(4, 60, 2, 80), request());
+        final MessageEmbed embed = UpdateCommand.fields(report(4, 60, 2, 80), request(),
+                messages, Locale.GERMAN);
 
         assertTrue(embed.getLength() <= LIMIT);
         assertTrue(embed.getFields().size() == 4,

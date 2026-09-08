@@ -223,7 +223,7 @@ public class AccessBot implements AutoCloseable {
             // keeps editing while the run works, which no other surface has an equivalent for.
             final eu.nordtal.s2.commands.update.UpdateEffects updateEffects =
                     new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                            updates, eu.nordtal.s2.common.update.UpdateSource.DISCORD,
+                            updates,
                             worker::execute,
                             (what, failure) -> log.warn("An update command failed while {}", what,
                                     failure),

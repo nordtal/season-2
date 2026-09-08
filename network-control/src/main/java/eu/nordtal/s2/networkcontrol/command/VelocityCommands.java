@@ -127,7 +127,18 @@ public final class VelocityCommands {
         // ArgumentBuilder.then(ArgumentBuilder) builds its argument on the spot, so anything added
         // to a node after its parent took it is silently lost.
         return roots.values().stream()
-                .map(root -> new BrigadierCommand(materialise(root)))
+                .map(root -> {
+                    final LiteralArgumentBuilder<CommandSource> builder = materialise(root);
+                    // A root whose every command is admin-only is gated itself - see
+                    // PaperCommands#build. /update is such a root and its bare form is a
+                    // command; with the check on the children alone, any player ran the report.
+                    // On the proxy the gate has a second effect: Velocity forwards a command the
+                    // source may not use to the backend, so a non-admin.s /update leaves here.
+                    if (adminOnly(root)) {
+                        builder.requires(this::mayUse);
+                    }
+                    return new BrigadierCommand(builder);
+                })
                 .toList();
     }
 
@@ -290,6 +301,13 @@ public final class VelocityCommands {
             return Command.SINGLE_SUCCESS;
         }
 
+        // The lock behind the tree.s gate - see PaperCommands#run. A root-level command has no
+        // node above it to carry a requires, and this check cannot be skipped by the tree.s shape.
+        if (entry.declaration().adminOnly() && !mayUse(context.getSource())) {
+            user.reply("command.not-admin", Map.of(), Feedback.REFUSED);
+            return Command.SINGLE_SUCCESS;
+        }
+
         for (final Argument argument : entry.declaration().arguments()) {
             if (!argument.required() || values.containsKey(argument.name())) {
                 continue;
@@ -409,6 +427,8 @@ public final class VelocityCommands {
     private NordtalUser user(final CommandSource source) {
         return source instanceof Player player
                 ? new VelocityUser(player, roster, messages)
-                : new ConsoleUser(messages);
+                // The console.s own audience, so a reply reaches the proxy log the way every other
+                // line does. Without it ConsoleUser fell back to System.out (finding 2026-09-08).
+                : new ConsoleUser(messages, proxy.getConsoleCommandSource());
     }
 }

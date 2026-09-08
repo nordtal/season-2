@@ -21,7 +21,7 @@ public final class ReportUpdate implements NordtalCommand<UpdateEffects> {
     public void run(final NordtalUser user, final Values values, final UpdateEffects effects) {
         effects.async(() -> {
             try {
-                final long id = effects.submit(UpdateKind.REPORT, user.name()).id();
+                final long id = effects.submit(UpdateKind.REPORT, user).id();
                 effects.watch(id, user);
                 // The id, not the answer: resolving every source takes seconds and the surfaces
                 // read the row themselves - Discord by editing its embed, the game by printing the

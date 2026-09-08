@@ -290,16 +290,25 @@ public final class PaperCommands {
         return roots.values().stream()
                 .map(root -> {
                     final LiteralArgumentBuilder<CommandSourceStack> builder = materialise(root);
+                    // The root is gated when everything under it is admin-only - and that is a
+                    // real case since 2026-09-08, because /update is a root of its own whose bare
+                    // form IS a command. Without this the report ran for any player: requires sat
+                    // on the first-level children alone, and a root-level command has none above
+                    // it. An open extra keeps the root open, the way /hg ready keeps /hg open.
+                    if (adminOnly(root) && !openExtras.containsKey(root.literal)) {
+                        builder.requires(this::mayUse);
+                    }
                     // Gated, like every node this adapter builds below a root. The root itself
-                    // carries no requires, so an extra that is not gated here is not gated at all.
+                    // carries no requires unless the line above put one there, so an extra that
+                    // is not gated here is not gated at all.
                     extras.getOrDefault(root.literal, List.of())
                             .forEach(extra -> builder.then(extra.requires(this::mayUse)));
                     openExtras.getOrDefault(root.literal, List.of()).forEach(builder::then);
-                    // NO requires on the root, deliberately. Brigadier's requires gates a whole
-                    // subtree, and a root is shared: /hg carries `ready`, which any player may run
-                    // and which this adapter does not own. Gating the root would hide it. Every
-                    // node this adapter creates below the root carries the check instead, so what a
-                    // non-admin sees under /hg is exactly `ready`.
+                    // No requires on a root that carries anything open, deliberately. Brigadier.s
+                    // requires gates a whole subtree, and a root is shared: /hg carries `ready`,
+                    // which any player may run and which this adapter does not own. Gating that
+                    // root would hide it. Every node this adapter creates below the root carries
+                    // the check instead, so what a non-admin sees under /hg is exactly `ready`.
                     return builder.build();
                 })
                 .toList();
@@ -656,6 +665,15 @@ public final class PaperCommands {
         if (user.origin() == NordtalUser.Origin.CONSOLE
                 && !entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.CONSOLE)) {
             user.reply("command.not-from-console", Map.of(), Feedback.REFUSED);
+            return Command.SINGLE_SUCCESS;
+        }
+
+        // The tree.s requires is the gate and this is the lock behind it. Brigadier.s requires
+        // sits on nodes, and until 2026-09-08 no node above a root-level command had one: /update
+        // typed bare ran for every player. A check that lives on the decision itself cannot be
+        // skipped by the shape of the tree.
+        if (entry.declaration().adminOnly() && !mayUse(sender, isAdmin)) {
+            user.reply("command.not-admin", Map.of(), Feedback.REFUSED);
             return Command.SINGLE_SUCCESS;
         }
 

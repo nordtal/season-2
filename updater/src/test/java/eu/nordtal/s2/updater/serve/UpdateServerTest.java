@@ -103,7 +103,7 @@ class UpdateServerTest {
         }).drain();
 
         assertEquals(0, ran.get());
-        assertTrue(directory.pendingRestart().isPresent(), "still counting down");
+        assertTrue(directory.countingDown().isPresent(), "still counting down");
     }
 
     @Test

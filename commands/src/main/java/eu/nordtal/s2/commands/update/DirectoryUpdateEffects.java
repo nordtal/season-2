@@ -69,12 +69,12 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
 
     @Override
     public UpdateRequest submit(final UpdateKind kind, final NordtalUser user) {
-        // The countdown belongs to the kind and not to the caller. Every surface asked for it
-        // separately before this class existed, and the Discord one asked for zero on an update -
-        // which would have taken four servers away with no warning shown anywhere.
-        final Duration delay = kind.stopsServers()
-                ? UpdateDirectory.UPDATE_COUNTDOWN : Duration.ZERO;
-        return updates.submit(kind, sourceOf(user), requesterOf(user), delay);
+        // Every kind is written due immediately, since 2026-09-08. The countdown used to be set
+        // here, which meant it ran before anybody knew whether there was anything to install: the
+        // ordinary /update now counted thirty seconds down to every player on the network and then
+        // answered "everything is already current". The updater sets it now, on the row it has
+        // claimed, once its plan has work in it - see UpdateDirectory#startCountdown.
+        return updates.submit(kind, sourceOf(user), requesterOf(user), Duration.ZERO);
     }
 
     /** Which surface a user is on, as the row records it. */
@@ -109,6 +109,6 @@ public final class DirectoryUpdateEffects implements UpdateEffects {
 
     @Override
     public Optional<UpdateRequest> cancel(final String reason) {
-        return updates.cancelPendingRestart(reason);
+        return updates.cancelCountdown(reason);
     }
 }

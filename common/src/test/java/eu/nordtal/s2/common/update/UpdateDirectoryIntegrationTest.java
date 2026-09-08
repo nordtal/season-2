@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.access.AccessSchema;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.postgresql.PGConnection;
@@ -170,7 +171,7 @@ class UpdateDirectoryIntegrationTest {
         updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
 
         assertTrue(updates.claimNext().isEmpty(), "not before its time");
-        assertTrue(updates.pendingRestart().isPresent(), "but it is visible to whoever announces it");
+        assertTrue(updates.countingDown().isPresent(), "but it is visible to whoever announces it");
     }
 
     @Test
@@ -240,8 +241,8 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest submitted = updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "a", Duration.ZERO);
         updates.claimNext().orElseThrow();
 
-        // CANCELLED is reachable only from PENDING. Letting it in here would mean an updater could
-        // "cancel" a restart it had already begun.
+        // CANCELLED is reachable only through cancelCountdown, which is a person withdrawing one.
+        // Letting it in here would mean an updater could report its own work as somebody's cancel.
         assertThrows(IllegalArgumentException.class,
                 () -> updates.finish(submitted.id(), UpdateStatus.CANCELLED, "too late"));
         assertThrows(IllegalArgumentException.class,
@@ -254,22 +255,77 @@ class UpdateDirectoryIntegrationTest {
     void aCountdownCanBeStoppedWhileItIsStillRunning() {
         updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
 
-        final UpdateRequest cancelled = updates.cancelPendingRestart("Till changed their mind").orElseThrow();
+        final UpdateRequest cancelled = updates.cancelCountdown("Till changed their mind").orElseThrow();
         assertEquals(UpdateStatus.CANCELLED, cancelled.status());
         assertEquals("Till changed their mind", cancelled.result());
 
-        assertTrue(updates.pendingRestart().isEmpty(), "and nothing is counting down any more");
+        assertTrue(updates.countingDown().isEmpty(), "and nothing is counting down any more");
         assertTrue(updates.claimNext().isEmpty(), "and no updater will ever pick it up");
     }
 
     @Test
-    void cancellingAfterTheRestartStartedAnswersEmptyRatherThanLying() {
+    @DisplayName("the countdown the updater starts is the one the proxy shows and the button stops")
+    void theUpdatersOwnCountdownIsCancellable() {
+        // The whole of V13, driven end to end. The row is written due immediately, claimed, and
+        // only then given a countdown - which is the order that stops a run finding nothing new
+        // from counting thirty seconds down to everybody playing first.
+        final UpdateRequest submitted =
+                updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
+        assertTrue(updates.countingDown().isEmpty(),
+                "a request nobody has resolved yet is not counting down");
+
+        updates.claimNext().orElseThrow();
+        assertTrue(updates.countingDown().isEmpty(),
+                "and neither is one that has only been claimed");
+
+        final UpdateRequest counting =
+                updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+        assertEquals(UpdateStatus.RUNNING, counting.status(),
+                "a counting-down row is RUNNING, which is why the partial index had to widen");
+        assertEquals(submitted.id(), updates.countingDown().orElseThrow().id());
+
+        assertEquals(submitted.id(), updates.cancelCountdown("stop").orElseThrow().id());
+        assertFalse(updates.commitCountdown(submitted.id()),
+                "and the run must then stop nothing at all");
+        assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "{}").isEmpty(),
+                "the cancellation is the answer; a late finish must not overwrite it");
+        assertEquals("stop", updates.find(submitted.id()).orElseThrow().result());
+    }
+
+    @Test
+    @DisplayName("committing the countdown takes it out of the set the cancel can reach")
+    void committingEndsTheCancelWindow() {
+        final UpdateRequest submitted =
+                updates.submit(UpdateKind.UPDATE, UpdateSource.GAME, "Till", Duration.ZERO);
+        updates.claimNext().orElseThrow();
+        updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+
+        assertTrue(updates.commitCountdown(submitted.id()), "the run holds the right to proceed");
+        assertTrue(updates.countingDown().isEmpty(), "nothing is counting down any more");
+        assertTrue(updates.cancelCountdown("too late").isEmpty(),
+                "which is the sentence the admin needs, and not an error");
+        assertEquals(UpdateStatus.RUNNING, updates.find(submitted.id()).orElseThrow().status());
+    }
+
+    @Test
+    @DisplayName("a countdown cannot be started on a request somebody has already withdrawn")
+    void aCancelledRequestGetsNoCountdown() {
+        final UpdateRequest submitted =
+                updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "Till", Duration.ofSeconds(60));
+        updates.cancelCountdown("changed my mind").orElseThrow();
+
+        assertTrue(updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).isEmpty());
+        assertEquals(UpdateStatus.CANCELLED, updates.find(submitted.id()).orElseThrow().status());
+    }
+
+    @Test
+    void cancellingAfterTheRunBeganAnswersEmptyRatherThanLying() {
         // The one answer the admin actually needs: "too late", not "cancelled" on a row that is
-        // already redeploying the network.
+        // already stopping servers. A claimed row with no countdown on it is exactly that.
         updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "a", Duration.ZERO);
         updates.claimNext().orElseThrow();
 
-        assertTrue(updates.cancelPendingRestart("too late").isEmpty());
+        assertTrue(updates.cancelCountdown("too late").isEmpty());
     }
 
     @Test
@@ -279,14 +335,14 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest report = updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a",
                 Duration.ZERO);
 
-        assertTrue(updates.cancelPendingRestart("nope").isEmpty());
+        assertTrue(updates.cancelCountdown("nope").isEmpty());
         assertEquals(UpdateStatus.PENDING, updates.find(report.id()).orElseThrow().status());
     }
 
     @Test
     void anUpdateIsCountedDownAndCanBeStopped() {
         // New on 2026-09-07, and it is the half that was missing rather than a refinement. Both
-        // pendingRestart() and cancelPendingRestart() looked for kind = 'RESTART' alone, which was
+        // countingDown() and cancelCountdown() looked for kind = 'RESTART' alone, which was
         // complete while a restart was the only thing with a countdown on it. An UPDATE now stops
         // servers and carries the same not_before - so the old scope would have counted down before
         // a restart and said NOTHING before the one that also replaces jars, and the button
@@ -294,9 +350,9 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest update = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a",
                 Duration.ofSeconds(30));
 
-        assertEquals(update.id(), updates.pendingRestart().orElseThrow().id(),
+        assertEquals(update.id(), updates.countingDown().orElseThrow().id(),
                 "the proxy counts down towards whatever is about to take servers away");
-        assertEquals(update.id(), updates.cancelPendingRestart("stop").orElseThrow().id());
+        assertEquals(update.id(), updates.cancelCountdown("stop").orElseThrow().id());
         assertEquals(UpdateStatus.CANCELLED, updates.find(update.id()).orElseThrow().status());
     }
 
@@ -305,38 +361,41 @@ class UpdateDirectoryIntegrationTest {
         final UpdateRequest soon = updates.submit(UpdateKind.RESTART, UpdateSource.GAME, "a", Duration.ofSeconds(60));
         updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "b", Duration.ofSeconds(600));
 
-        assertEquals(soon.id(), updates.pendingRestart().orElseThrow().id());
-        assertEquals(soon.id(), updates.cancelPendingRestart("stop").orElseThrow().id());
-        assertTrue(updates.pendingRestart().isPresent(), "the later one is still standing");
+        assertEquals(soon.id(), updates.countingDown().orElseThrow().id());
+        assertEquals(soon.id(), updates.cancelCountdown("stop").orElseThrow().id());
+        assertTrue(updates.countingDown().isPresent(), "the later one is still standing");
     }
 
     // ---------------------------------------------------------------- orphans
 
     @Test
-    void anOrphanedRestartIsHowTheUpdaterLearnsTheRestartWorked() {
-        // A RESTART request takes down the container that is running it, every time, by design.
-        // So a restart found RUNNING on the next boot is the success signal - reporting it as a
-        // failure would mean the one request that always works always looks broken.
+    @DisplayName("an orphaned restart is a failure like every other kind, since 2026-09-08")
+    void anOrphanedRestartIsAFailureToo() {
+        // It was read as SUCCESS until this change, and the inference was right at the time: a
+        // RESTART was one Arcane redeploy of the whole project, which took the container running it
+        // down every time by design. A restart now cycles the four Minecraft services one at a time
+        // and never stops the updater, so an orphaned one means what every other kind means - the
+        // updater died in the middle of it. Reporting that as "the redeploy happened" is the one
+        // reading nobody can act on.
         final UpdateRequest restart = updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "a", Duration.ZERO);
         updates.claimNext().orElseThrow();
 
-        assertEquals(1, updates.settleOrphans("The redeploy happened", "Killed mid-run"));
+        assertEquals(1, updates.settleOrphans("Killed mid-run"));
 
         final UpdateRequest read = updates.find(restart.id()).orElseThrow();
-        assertEquals(UpdateStatus.DONE, read.status());
-        assertEquals("The redeploy happened", read.result());
+        assertEquals(UpdateStatus.FAILED, read.status());
+        assertEquals("Killed mid-run", read.result());
         assertNotNull(read.finished());
 
-        assertEquals(0, updates.settleOrphans("x", "y"), "and a second start finds nothing to do");
+        assertEquals(0, updates.settleOrphans("x"), "and a second start finds nothing to do");
     }
 
     @Test
-    void anOrphanedApplyIsAFailureAndSaysSo() {
-        // Everything that is not a restart had no business dying, so it reads as what it was.
+    void anOrphanedUpdateIsAFailureAndSaysSo() {
         final UpdateRequest apply = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
         updates.claimNext().orElseThrow();
 
-        assertEquals(1, updates.settleOrphans("The redeploy happened", "Killed mid-run"));
+        assertEquals(1, updates.settleOrphans("Killed mid-run"));
 
         final UpdateRequest read = updates.find(apply.id()).orElseThrow();
         assertEquals(UpdateStatus.FAILED, read.status());
@@ -347,7 +406,7 @@ class UpdateDirectoryIntegrationTest {
     void settlingOrphansLeavesPendingWorkAlone() {
         final UpdateRequest waiting = updates.submit(UpdateKind.UPDATE, UpdateSource.DISCORD, "a", Duration.ZERO);
 
-        assertEquals(0, updates.settleOrphans("restarted", "failed"));
+        assertEquals(0, updates.settleOrphans("failed"));
         assertEquals(UpdateStatus.PENDING, updates.find(waiting.id()).orElseThrow().status());
     }
 

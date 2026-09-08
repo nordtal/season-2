@@ -48,6 +48,20 @@ public final class Channels {
      */
     public static final String COMMAND = "nordtal_command";
 
+    /**
+     * A run was asked for, or one has started counting down. Payload: empty.
+     *
+     * <p>Matches {@code pg_notify('nordtal_update', '')} in {@code UpdateDao#submit}. Two processes
+     * listen: the updater, so a request is claimed the moment it is written, and the proxy, so the
+     * countdown appears in front of every player the moment the updater starts one rather than up to
+     * a poll later. On a thirty-second countdown a five-second poll is a sixth of the warning spent
+     * before it is shown.</p>
+     *
+     * <p>The proxy's poll is still the guarantee: this only makes it feel instant, and the first
+     * thing every listener does on connect is re-read.</p>
+     */
+    public static final String UPDATE = "nordtal_update";
+
     private Channels() {
     }
 }

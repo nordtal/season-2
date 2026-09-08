@@ -196,12 +196,12 @@ public final class UpdateCommand extends ListenerAdapter {
                 return;
             }
 
-            // Both kinds that take servers down get the countdown; a report takes nothing down
-            // and waiting thirty seconds to be told what is new would be theatre.
-            final Duration delay = kind.stopsServers()
-                    ? UpdateDirectory.UPDATE_COUNTDOWN : Duration.ZERO;
+            // Due immediately, whatever the kind: the countdown is the updater's now, started on
+            // the row it has claimed once it knows there is work to do. Setting it here meant the
+            // ordinary run - the one where nothing is new - counted thirty seconds down to every
+            // player on the network before answering "everything is already current".
             final UpdateRequest request =
-                    updates.submit(kind, UpdateSource.DISCORD, userId, delay);
+                    updates.submit(kind, UpdateSource.DISCORD, userId, Duration.ZERO);
 
             if (kind.stopsServers()) {
                 announceCountdown(hook, locale, userId, request);
@@ -258,7 +258,7 @@ public final class UpdateCommand extends ListenerAdapter {
                 plain(hook, say(locale, "command.not-admin"));
                 return;
             }
-            final Optional<UpdateRequest> cancelled = updates.cancelPendingRestart(
+            final Optional<UpdateRequest> cancelled = updates.cancelCountdown(
                     "Cancelled in Discord by " + user.getName());
 
             if (cancelled.isPresent()) {

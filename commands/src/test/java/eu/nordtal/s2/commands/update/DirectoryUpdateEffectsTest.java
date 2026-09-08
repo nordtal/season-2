@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -51,13 +52,21 @@ class DirectoryUpdateEffectsTest {
     }
 
     @Test
-    @DisplayName("the countdown belongs to the kind: the two that stop servers get it, the report does not")
-    void theCountdownIsTheKinds() {
+    @DisplayName("no kind is written with a countdown on it - the updater starts that, once it knows")
+    void nothingIsCountedDownBeforeItIsResolved() {
+        // This asserted the opposite until 2026-09-08, and the opposite is what V13 undoes: every
+        // surface wrote now() + 30s, so a countdown ran BEFORE anybody knew whether there was
+        // anything to install. The ordinary /update now finds nothing new - and it spent thirty
+        // seconds telling every player on the network that the servers were going down first.
+        // A warning that is usually wrong is one people learn to ignore.
         effects.submit(UpdateKind.REPORT, FakeUser.inGame());
         effects.submit(UpdateKind.UPDATE, FakeUser.inGame());
         effects.submit(UpdateKind.RESTART, FakeUser.inGame());
-        assertEquals(Duration.ZERO, directory.submitted.get(0).delay());
-        assertEquals(UpdateDirectory.UPDATE_COUNTDOWN, directory.submitted.get(1).delay());
-        assertEquals(UpdateDirectory.UPDATE_COUNTDOWN, directory.submitted.get(2).delay());
+
+        assertEquals(List.of(Duration.ZERO, Duration.ZERO, Duration.ZERO),
+                directory.submitted.stream()
+                        .map(FakeUpdateDirectory.Submitted::delay).toList(),
+                "the countdown is UpdateDirectory#startCountdown's, on the row the updater has"
+                        + " claimed and resolved");
     }
 }

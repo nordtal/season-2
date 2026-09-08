@@ -126,6 +126,15 @@ public final class NetworkControlPlugin {
     private NotificationListener phaseListener;
 
     /**
+     * Assigned after the listener above is started, and read by it.
+     *
+     * <p>Volatile because the listener's own thread calls its refreshes the moment it connects,
+     * which is before this line is reached - the same window {@code commandInbox} has, answered the
+     * same way. The five-second poll covers it.</p>
+     */
+    private volatile RestartWatch restartWatch;
+
+    /**
      * Commands another process asked this one to run.
      *
      * <p>A field because the notification listener is built before it and refers to it: the listener
@@ -303,7 +312,8 @@ public final class NetworkControlPlugin {
                             databaseConfig.username(), databaseConfig.password(),
                             databaseConfig.queryTimeoutSeconds(),
                             "network-control-notification-listener",
-                            java.util.List.of(Channels.PHASE, Channels.ADMIN, Channels.COMMAND)),
+                            java.util.List.of(Channels.PHASE, Channels.ADMIN, Channels.COMMAND,
+                                    Channels.UPDATE)),
                     "network-control-phase-listener",
                     java.util.List.of(
                             new NotificationListener.Refresh("the season phase", phaseWatch::refresh),
@@ -319,6 +329,16 @@ public final class NetworkControlPlugin {
                                 final CommandInbox inbox = commandInbox;
                                 if (inbox != null) {
                                     inbox.drain();
+                                }
+                            }),
+                            // The countdown, for the same reason and with the same null guard. On a
+                            // thirty-second warning, five seconds of poll latency is a sixth of it
+                            // spent before anybody is told - and the beats that passed in that
+                            // window are dropped, so the "30 seconds" line would simply not happen.
+                            new NotificationListener.Refresh("the restart countdown", () -> {
+                                final RestartWatch watch = restartWatch;
+                                if (watch != null) {
+                                    watch.check();
                                 }
                             })),
                     logger, pollInterval);
@@ -379,9 +399,9 @@ public final class NetworkControlPlugin {
         // A restart is asked for in Discord or with /smp update restart; both write a row with an
         // absolute instant on it, and this counts towards that instant rather than towards a
         // duration of its own - see docs/updater.md#how-it-is-operated.
-        final RestartWatch restartWatch = new RestartWatch(proxy, logger,
+        this.restartWatch = new RestartWatch(this, proxy, logger,
                 UpdateDirectory.using(pool), roster, messages, Clock.systemUTC());
-        proxy.getScheduler().buildTask(this, restartWatch::check)
+        proxy.getScheduler().buildTask(this, this.restartWatch::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();

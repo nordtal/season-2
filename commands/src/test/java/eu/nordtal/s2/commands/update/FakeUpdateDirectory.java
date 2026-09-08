@@ -52,12 +52,22 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public Optional<UpdateRequest> pendingRestart() {
+    public Optional<UpdateRequest> startCountdown(final long id, final java.time.Duration seconds) {
+        throw new UnsupportedOperationException("only the updater counts down");
+    }
+
+    @Override
+    public boolean commitCountdown(final long id) {
+        throw new UnsupportedOperationException("only the updater counts down");
+    }
+
+    @Override
+    public Optional<UpdateRequest> countingDown() {
         throw new UnsupportedOperationException("not read in these tests");
     }
 
     @Override
-    public Optional<UpdateRequest> cancelPendingRestart(final String reason) {
+    public Optional<UpdateRequest> cancelCountdown(final String reason) {
         throw new UnsupportedOperationException("not cancelled in these tests");
     }
 
@@ -67,7 +77,7 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public int settleOrphans(final String restarted, final String failed) {
+    public int settleOrphans(final String failed) {
         throw new UnsupportedOperationException("only the updater settles");
     }
 }

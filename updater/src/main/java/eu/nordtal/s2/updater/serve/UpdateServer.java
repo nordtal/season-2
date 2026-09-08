@@ -158,11 +158,17 @@ public final class UpdateServer implements AutoCloseable {
                 }
             });
 
-            // The one place a RESTART usually does not reach: by now this container is on its way
-            // down and the row stays RUNNING, which is exactly how the next start recognises that
-            // the redeploy worked.
-            directory.finish(request.id(), outcome.status(), outcome.report());
-            log.info("Request {} finished as {}", request.id(), outcome.status());
+            // Empty when the row is not RUNNING any more, which since 2026-09-08 has one ordinary
+            // cause: somebody stopped the countdown while the run was waiting it out. The run
+            // stopped nothing and installed nothing, and the cancellation is the answer that
+            // belongs in the row - so this must not overwrite it.
+            if (directory.finish(request.id(), outcome.status(), outcome.report()).isEmpty()) {
+                log.info("Request {} was settled by somebody else while it ran - most likely"
+                        + " cancelled during its countdown - so its report was not written",
+                        request.id());
+            } else {
+                log.info("Request {} finished as {}", request.id(), outcome.status());
+            }
         }
     }
 
@@ -187,13 +193,19 @@ public final class UpdateServer implements AutoCloseable {
      * Settles whatever the previous instance of this container left behind.
      * <p>
      * Nothing is running those rows: the only process that claims one is an updater, and this one
-     * has just started. A {@code RESTART} found in that state is the successful outcome of the last
-     * thing the previous instance did - see {@code UpdateDirectory#settleOrphans}.
+     * has just started.
      * </p>
+     *
+     * <h2>A restart is no longer read as having succeeded</h2>
+     * It was, until 2026-09-08: a redeploy of the whole project took this container down mid-call,
+     * so an orphaned {@code RESTART} was how the updater learned the restart had happened. A restart
+     * cycles the four Minecraft services one at a time now and never stops the updater, so an
+     * orphaned one means what every other kind means - it died in the middle. See
+     * {@code UpdateDirectory#settleOrphans}.
      *
      * <h2>That first sentence is a premise, and since 2026-09-02 it is enforced</h2>
      * It is only true while exactly one {@code serve} exists. With two, this method takes the
-     * <em>other</em> one's in-flight {@code APPLY} - a run that is at that moment installing jars -
+     * <em>other</em> one's in-flight {@code UPDATE} - a run that is at that moment installing jars -
      * and marks it {@code FAILED}; the real updater's {@code finish(...)} then matches no
      * {@code RUNNING} row, so its report is dropped and the row keeps the sentence "the updater
      * stopped while this request was running", which is the opposite of what happened.
@@ -207,8 +219,6 @@ public final class UpdateServer implements AutoCloseable {
     private void settleOrphans() {
         try {
             final int settled = directory.settleOrphans(
-                    "The redeploy happened: the updater was restarted while this request was"
-                            + " running, which is what a restart does to it.",
                     "The updater stopped while this request was running, so it did not finish."
                             + " Nothing here says how far it got - check the report of the next run"
                             + " before assuming anything was installed.");

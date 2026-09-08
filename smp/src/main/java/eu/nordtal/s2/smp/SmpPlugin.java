@@ -177,6 +177,8 @@ public final class SmpPlugin extends JavaPlugin {
     private final SeasonState season = new SeasonState();
     private Identities identities;
     private FarmWorldReset farmReset;
+    /** The daily ask for a network backup. Null-safe stop: it is built in onEnable. */
+    private eu.nordtal.s2.smp.backup.NightlyBackup nightlyBackup;
     private SmpHud hud;
     private Boards boards;
     private final Navigation navigation = new Navigation();
@@ -322,6 +324,14 @@ public final class SmpPlugin extends JavaPlugin {
         farmReset = new FarmWorldReset(this, config, worlds, swap, pregen, messages, locales,
                 dao, navigation, sounds, hud, announcer);
         farmReset.start();
+
+        // The network's backup clock, and it is here for a reason that is not about the SMP: the
+        // updater must not schedule its own work (docs/updater.md - `serve` is not a scheduler),
+        // and this is the one process that already runs a daily clock. It writes an update_request
+        // row and nothing else; the updater does the stopping, the snapshot and the starting.
+        nightlyBackup = new eu.nordtal.s2.smp.backup.NightlyBackup(this,
+                UpdateDirectory.using(pool), BukkitSmpEffects.async(this), config.backupTime());
+        nightlyBackup.start();
 
         // One instance, registered as a listener and handed to everything that has a moment: it
         // has to be the same object that stamped a rocket and the one asked whether that rocket may
@@ -578,6 +588,12 @@ public final class SmpPlugin extends JavaPlugin {
         }
         if (farmReset != null) {
             quietly("farmReset.stop", farmReset::stop);
+        }
+        // Its own guard rather than farmReset's: the two are built one line apart, and a throw in
+        // between would leave this null while farmReset is not - which is a NullPointerException
+        // inside the shutdown that was already dealing with a broken start.
+        if (nightlyBackup != null) {
+            quietly("nightlyBackup.stop", nightlyBackup::stop);
         }
         // Before the pool: the listener thread is parked on a connection of its own, but a refresh
         // already in flight reads through the pool.

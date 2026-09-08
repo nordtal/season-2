@@ -55,6 +55,45 @@ class ConfigsTest {
     }
 
     @Test
+    @DisplayName("a fresh file backs up the four volumes that cannot be rebuilt, and never PGDATA")
+    void whatANightlyBackupSaves() throws Exception {
+        final UpdaterSpec config = Configs.updater(directory, LOGGER).get();
+        final java.util.List<String> volumes = config.backup().volumes();
+
+        // Nordtal is a hand-built world in no repository and in no release; the plugins volumes
+        // hold every hand-edited config in the deployment, which is exactly what Arcane's GitOps
+        // sync used to be able to delete (finding 151).
+        assertTrue(volumes.contains("nordtal-s2_mc-smp"), volumes.toString());
+        assertTrue(volumes.contains("nordtal-s2_mc-smp-plugins"), volumes.toString());
+        assertTrue(volumes.contains("nordtal-s2_postgres-dumps"), volumes.toString());
+        assertTrue(volumes.stream().noneMatch(volume -> volume.endsWith("postgres-data")),
+                "a snapshot of a live PGDATA fails at RESTORE and nowhere else: " + volumes);
+
+        // The stop list and the volume list are not the same list, deliberately: limbo and
+        // hunger-games hold no world worth saving, so stopping them would be an outage with
+        // nothing to show for it, while their plugins/ volumes are still worth a snapshot.
+        assertEquals(java.util.List.of("smp", "network-control", "bot"),
+                config.backup().stopServices());
+    }
+
+    @Test
+    @DisplayName("listing postgres-data is refused by name, not warned about")
+    void theDataDirectoryIsRefused() throws Exception {
+        java.nio.file.Files.writeString(directory.resolve("updater.yml"), """
+                backup:
+                  volumes:
+                    - 'nordtal-s2_postgres-data'
+                """);
+
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.updater(directory, LOGGER));
+
+        final String message = String.valueOf(error.getMessage() + error.getCause());
+        assertTrue(message.contains("postgres-dumps"),
+                "and it names the volume that should have been there instead: " + message);
+    }
+
+    @Test
     @DisplayName("a base-url with no project id is refused, and the message says it is not a name")
     void aBaseUrlWithoutAProjectIdIsRefused() throws Exception {
         write("""

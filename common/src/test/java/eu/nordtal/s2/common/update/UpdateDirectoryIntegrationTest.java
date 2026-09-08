@@ -106,6 +106,22 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
+    @DisplayName("every kind the code can name is a kind the CHECK accepts")
+    void theEnumAndTheConstraintAgree() {
+        // The one thing an in-memory test cannot say anything about. UpdateKind is a Java enum and
+        // update_request.kind is a varchar behind a CHECK, and the two are held together by nothing
+        // but a migration somebody remembered to write - so a value added to the enum without one
+        // compiles, passes every unit test, reaches a real database and is refused there, at the
+        // moment somebody presses the button. BACKUP is what V14 added; APPLY is retired and
+        // still has to map, because rows carrying it are in the deployed table.
+        for (final UpdateKind kind : UpdateKind.values()) {
+            final UpdateRequest written =
+                    updates.submit(kind, UpdateSource.CONSOLE, null, Duration.ZERO);
+            assertEquals(kind, written.kind(), kind + " did not survive the round trip");
+        }
+    }
+
+    @Test
     void aDelayIsExactlyThatManySecondsOnTheDatabaseClock() {
         // The countdown is why this table exists in the shape it does. make_interval(secs => N) is
         // real seconds - not calendar arithmetic - so the answer must not depend on the time zone

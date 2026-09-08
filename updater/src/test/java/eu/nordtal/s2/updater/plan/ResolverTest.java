@@ -407,6 +407,14 @@ class ResolverTest {
             }
 
             @Override
+            public BackupSpec backup() {
+                // Defaults throughout: this test is not about a backup, and BackupSpec's own
+                // defaults are the production ones.
+                return new BackupSpec() {
+                };
+            }
+
+            @Override
             public ArcaneSpec arcane() {
                 // Every setting on it has a default and none of them matters here: an empty
                 // base-url means "no restart is possible", which is exactly right for a test

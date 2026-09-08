@@ -39,7 +39,8 @@ import java.util.function.Consumer;
  * <h2>The kinds are different amounts of damage</h2>
  * {@code REPORT} writes nothing at all. {@code UPDATE} takes the advisory lock, stops the servers
  * whose jars change, migrates, swaps and starts them again. {@code RESTART} is the same sequence
- * with nothing installed. {@code APPLY} is retired and refused - see {@code UpdateKind}.
+ * with nothing installed, and {@code BACKUP} is that sequence with an Arcane volume snapshot in the
+ * gap. {@code APPLY} is retired and refused - see {@code UpdateKind}.
  *
  * <h2>Every answer is a report, and the report is JSON</h2>
  * Since 2026-09-07 an answer is an {@code UpdateReport} rather than a paragraph, so that Discord
@@ -108,6 +109,7 @@ public final class Runner implements RequestRunner {
                                 + " an update instead - it stops each server first.")));
                 case UPDATE -> update(request, progress);
                 case RESTART -> restart(request, progress);
+                case BACKUP -> backup(request, progress);
             };
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
@@ -345,6 +347,130 @@ public final class Runner implements RequestRunner {
                         ? outcome.status().name().toLowerCase(java.util.Locale.ROOT)
                         : outcome.detail()))
                 .orElse(null);
+    }
+
+    // ---------------------------------------------------------------- backup
+
+    /**
+     * Count down, stop the servers, snapshot the volumes, start the servers, wait for them.
+     *
+     * <h2>Why the updater stops the servers and Arcane does not</h2>
+     * Arcane's backup policy has a {@code Stop Containers} flag that would do the same job in one
+     * click. It stays <b>off</b>, and both halves of that matter. Leaving it on means Arcane takes
+     * the world away from whoever is standing in it with no countdown - and the countdown is the
+     * entire reason this network has a request row rather than a cron job. Leaving it off <em>and
+     * letting Arcane's own schedule run</em> means snapshotting a world Paper is writing to, which
+     * fails at restore rather than at backup, months later, on the day it is needed. So the
+     * schedule is here, the stopping is here, and Arcane's policy decides only where a snapshot
+     * goes.
+     *
+     * <h2>It always has work</h2>
+     * Unlike an update there is nothing to resolve and no "everything is already current", so the
+     * countdown is unconditional - the same shape as a restart, which is why both build their
+     * planned report the same way.
+     *
+     * <h2>A failed snapshot never leaves the network down</h2>
+     * Every path from the stop onwards ends in {@link UpdateRun#start} and {@link UpdateRun#verify}.
+     * A backup that fails is bad news; a backup that fails and leaves four servers stopped is an
+     * outage caused by a safety measure, which is worse than having no backup at all.
+     */
+    private Outcome backup(final UpdateRequest request, final Consumer<UpdateReport> progress) {
+        final UpdateRun run = new UpdateRun(arcane, progress);
+
+        final RuntimeResult runtime = run.check();
+        if (!runtime.reached()) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote(runtime.message())));
+        }
+
+        final List<String> volumes = config.backup().volumes().stream()
+                .filter(volume -> volume != null && !volume.isBlank())
+                .map(String::trim)
+                .toList();
+        if (volumes.isEmpty()) {
+            // Nothing to save is not a quiet success. Taking the network down for a list somebody
+            // emptied by accident would be an outage that reports as a backup.
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("backup.volumes in updater.yml is empty, so there is nothing to save"
+                            + " and nothing was stopped.")));
+        }
+
+        // The same lock an update and a restart take. A backup stops servers, so overlapping it
+        // with a run that is moving their jars is finding 147 arriving from a third direction.
+        final Optional<RunLock> lock;
+        try {
+            lock = RunLock.tryAcquire(database.dataSource());
+        } catch (final SQLException failure) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("Could not reach the database to take the updater lock: " + failure)));
+        }
+        if (lock.isEmpty()) {
+            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
+                    .withNote("Another updater run is in progress - nothing was backed up. That is"
+                            + " either an update, a restart or a `docker compose run --rm updater"
+                            + " bootstrap` somebody started on the host. Wait for it and ask"
+                            + " again.")));
+        }
+        try (RunLock held = lock.get()) {
+            return backupUnderLock(request, run, runtime, volumes, progress);
+        }
+    }
+
+    private Outcome backupUnderLock(final UpdateRequest request, final UpdateRun run,
+                                    final RuntimeResult runtime, final List<String> volumes,
+                                    final Consumer<UpdateReport> progress) {
+
+        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
+        for (final String service : config.backup().stopServices()) {
+            if (service == null || service.isBlank()) {
+                continue;
+            }
+            planned = planned.with(new UpdateReport.ServiceLine(service.trim(),
+                    UpdateReport.State.PLANNED,
+                    List.of(new UpdateReport.Change("backup", null, "stopped while saving")), null));
+        }
+
+        if (!countDown(request.id(), planned, progress)) {
+            return cancelled();
+        }
+
+        final UpdateRun.Stopped stopped = run.stop(planned, runtime);
+
+        // A service that refused to stop is still writing to a volume this run is about to
+        // snapshot, and a torn snapshot fails at RESTORE rather than here - the one place a
+        // failure is useless. So nothing is saved, and whatever did stop is started again.
+        final List<String> notStopped = planned.services().stream()
+                .map(UpdateReport.ServiceLine::service)
+                .filter(service -> !stopped.services().contains(service))
+                .toList();
+        if (!notStopped.isEmpty()) {
+            final UpdateReport back = run.start(new UpdateRun.Stopped(
+                    stopped.report().withNote("NOTHING WAS SAVED. " + String.join(", ", notStopped)
+                            + " could not be stopped, and a snapshot of a running server is one"
+                            + " that fails when somebody tries to restore it. Every service that"
+                            + " did stop has been started again."),
+                    stopped.services(), runtime));
+            return Outcome.failed(UpdateReports.toJson(run
+                    .verify(back, stopped.services(), UpdateRun.Waiting.real())
+                    .withStage(UpdateReport.Stage.FAILED)));
+        }
+
+        final UpdateReport saved = run.save(stopped.report(), volumes,
+                Duration.ofMinutes(Math.max(1, config.backup().patienceMinutes())),
+                UpdateRun.Waiting.real());
+
+        final UpdateReport started = run.start(
+                new UpdateRun.Stopped(saved, stopped.services(), runtime));
+        final UpdateReport verified = run.verify(started, stopped.services(),
+                UpdateRun.Waiting.real());
+
+        final boolean failed = verified.services().stream()
+                .anyMatch(line -> line.state() == UpdateReport.State.FAILED);
+        final UpdateReport finished = verified.withStage(failed
+                ? UpdateReport.Stage.FAILED : UpdateReport.Stage.DONE);
+        return failed
+                ? Outcome.failed(UpdateReports.toJson(finished))
+                : Outcome.done(UpdateReports.toJson(finished));
     }
 
     // ---------------------------------------------------------------- restart

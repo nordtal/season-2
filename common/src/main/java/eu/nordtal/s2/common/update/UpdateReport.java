@@ -176,6 +176,8 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         COUNTDOWN("Updating shortly"),
         /** Servers are being stopped, in the order the report lists them. */
         STOPPING("Stopping the servers"),
+        /** The volumes are being saved, with nothing running on them. Only a {@code BACKUP} run. */
+        BACKING_UP("Saving the volumes"),
         /** The schema is current and the jars are being swapped, with nothing running on them. */
         INSTALLING("Installing"),
         /** The servers are being started again. */
@@ -218,6 +220,12 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         STOPPED("stopped"),
         /** The new jars are in place and it has not been started yet. */
         INSTALLED("updated"),
+        /**
+         * A volume's snapshot is finished. Not a service state - a {@code BACKUP} run's report
+         * carries one line per <em>volume</em> beside its lines per service, because the two are
+         * exactly the two things a person watching that run wants to know went right.
+         */
+        SAVED("saved"),
         /** Started, and not yet reporting healthy. */
         STARTING("starting"),
         /** Back, and its own healthcheck says so. */

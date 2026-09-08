@@ -1,6 +1,7 @@
 package eu.nordtal.s2.updater.serve;
 
 import eu.nordtal.s2.updater.arcane.ArcaneOps;
+import eu.nordtal.s2.updater.arcane.BackupResult;
 import eu.nordtal.s2.updater.arcane.RedeployResult;
 import eu.nordtal.s2.updater.arcane.RuntimeResult;
 import eu.nordtal.s2.updater.arcane.ServiceRuntime;
@@ -16,7 +17,10 @@ import java.util.Map;
  * An Arcane that answers from a map instead of over HTTP.
  *
  * <p>Everything the update sequence does is an ordering decision, and the only way to see one is to
- * record the calls. {@link #calls} is that record, in order: {@code stop:smp}, {@code start:smp}.</p>
+ * record the calls. {@link #calls} is that record, in order: {@code stop:smp}, {@code backup:mc-smp},
+ * {@code start:smp}. A backup run's whole correctness is that middle entry sitting between the
+ * other two - a snapshot taken of a server that is still running fails at RESTORE and nowhere
+ * else.</p>
  */
 final class FakeArcane implements ArcaneOps {
 
@@ -28,6 +32,17 @@ final class FakeArcane implements ArcaneOps {
 
     private boolean reachable = true;
     private boolean stopFails;
+
+    /** volume -> how many polls it stays running before it settles. */
+    private final Map<String, Integer> backupDelay = new LinkedHashMap<>();
+
+    /** volume -> what it settles as. Absent means "succeeds". */
+    private final Map<String, Boolean> backupSucceeds = new LinkedHashMap<>();
+
+    /** Volumes whose POST is refused outright - Arcane unreachable, a 404, a 409. */
+    private final java.util.Set<String> backupRefused = new java.util.LinkedHashSet<>();
+
+    private final Map<String, Integer> polls = new LinkedHashMap<>();
 
     FakeArcane running(final String... names) {
         for (final String name : names) {
@@ -57,6 +72,45 @@ final class FakeArcane implements ArcaneOps {
     void back(final String service) {
         services.put(service, new ServiceRuntime(service, service + "-container", "running",
                 "healthy"));
+    }
+
+    /** This volume's snapshot never starts. */
+    FakeArcane backupRefused(final String volume) {
+        backupRefused.add(volume);
+        return this;
+    }
+
+    /** This volume's snapshot starts and then reports failed. */
+    FakeArcane backupFails(final String volume) {
+        backupSucceeds.put(volume, false);
+        return this;
+    }
+
+    /** This volume's snapshot stays RUNNING for ever, so only the patience can end the wait. */
+    FakeArcane backupNeverFinishes(final String volume) {
+        backupDelay.put(volume, Integer.MAX_VALUE);
+        return this;
+    }
+
+    @Override
+    public @NotNull BackupResult backup(final @NotNull String volume) {
+        calls.add("backup:" + volume);
+        if (!reachable || backupRefused.contains(volume)) {
+            return BackupResult.refused("refused");
+        }
+        return BackupResult.running(volume + "-backup", "started");
+    }
+
+    @Override
+    public @NotNull BackupResult backupState(final @NotNull String volume,
+                                             final @NotNull String backupId) {
+        final int seen = polls.merge(volume, 1, Integer::sum);
+        if (seen <= backupDelay.getOrDefault(volume, 0)) {
+            return BackupResult.running(backupId, "running");
+        }
+        return backupSucceeds.getOrDefault(volume, true)
+                ? BackupResult.succeeded(backupId, "saved")
+                : BackupResult.failed(backupId, "the archive could not be written");
     }
 
     @Override

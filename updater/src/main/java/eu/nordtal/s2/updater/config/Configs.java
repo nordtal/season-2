@@ -84,6 +84,7 @@ public final class Configs {
                     requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
                     requirePositive("poll-interval-seconds", config.pollIntervalSeconds());
                     requireArcane(config.arcane());
+                    requireBackup(config.backup());
                 })
                 .load();
 
@@ -98,6 +99,29 @@ public final class Configs {
     }
 
     // ------------------------------------------------------------------ validation helpers
+
+    /**
+     * What a backup may and may not be pointed at.
+     *
+     * <h2>{@code postgres-data} is refused by name</h2>
+     * A snapshot of a live PGDATA is a torn one, and the way that surfaces is not an error here -
+     * it is a {@code pg_restore} that fails months later, on the one day somebody needs it. The
+     * pg_dump sidecar writes {@code postgres-dumps} for exactly this reason, and that is the volume
+     * that belongs in the list. Refusing the name outright rather than warning about it, because
+     * "the backup ran" is what a person will remember, not a line in a log they did not read.
+     */
+    private static void requireBackup(final UpdaterSpec.BackupSpec backup) {
+        requirePositive("backup.patience-minutes", backup.patienceMinutes());
+        for (final String volume : backup.volumes()) {
+            if (volume != null && volume.endsWith("postgres-data")) {
+                throw new IllegalArgumentException("backup.volumes lists '" + volume + "'. A"
+                        + " snapshot of a running PostgreSQL data directory is torn, and it fails"
+                        + " when somebody tries to RESTORE it rather than now - which is the worst"
+                        + " place for it to fail. The pg_dump sidecar writes postgres-dumps; list"
+                        + " that instead. See deploy/README.md#backups.");
+            }
+        }
+    }
 
     /**
      * {@code latest} or a positive integer - the two things a Fill build pin can be. Anything else

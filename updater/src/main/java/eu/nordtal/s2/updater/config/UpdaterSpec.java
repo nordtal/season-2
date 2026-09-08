@@ -5,6 +5,8 @@ import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
+import java.util.List;
+
 /**
  * {@code config/updater.yml} - where every version comes from, and where the files it compares
  * against live.
@@ -306,6 +308,105 @@ public interface UpdaterSpec {
     })
     ArcaneSpec arcane();
 
+    @Order(18)
+    @Key("backup")
+    @Comment({
+            "The nightly volume backup: which volumes are saved and which services are stopped",
+            "while they are.",
+            "",
+            "THE UPDATER DOES NOT SCHEDULE THIS AND MUST NOT. `serve` has exactly one rule it is",
+            "protected by - it does nothing at all until a row appears in update_request - and a",
+            "timer here would be the end of it. The nightly row is written by `smp`, which already",
+            "owns a daily clock for the farm world; see smp's config.yml#backup-time. An admin",
+            "asks for one with /backup now. The consequence is written down rather than hidden: a",
+            "season with `smp` down has no nightly backup and nothing else notices."
+    })
+    BackupSpec backup();
+
+    /** What a {@code BACKUP} run saves and what it stops while it does. */
+    @ConfigSpec
+    interface BackupSpec {
+
+        @Order(1)
+        @Key("volumes")
+        @Comment({
+                "The Docker volumes to snapshot, by their REAL names - what `docker volume ls`",
+                "prints, not the keys in compose.yml. Compose prefixes every volume with the",
+                "project name, which compose.yml pins as `nordtal-s2`, so the two differ by that",
+                "prefix and Arcane only knows the real one.",
+                "",
+                "WHY THESE AND NOT THE OTHERS. mc-smp is Nordtal - a hand-built world in no",
+                "repository and in no release, and the only thing here that cannot be rebuilt.",
+                "mc-network-control carries velocity.toml and the forwarding secret. bot-config",
+                "and postgres-dumps are the bot's and the database's. The four *-plugins volumes",
+                "are new on 2026-09-08 and hold the only hand-edited files in the deployment:",
+                "every plugin's config.yml, smp's milestones.yml and sounds.yml, and the proxy's",
+                "pack.yml with the resource pack's SHA-1 in it.",
+                "",
+                "WHAT IS DELIBERATELY ABSENT. postgres-data is never here: a snapshot of a live",
+                "PGDATA is torn, and it fails at RESTORE rather than at backup, which is the worst",
+                "place for it to fail. The pg_dump sidecar writes postgres-dumps instead and that",
+                "is what is saved. mc-limbo and mc-hunger-games are absent too - limbo builds its",
+                "world at every enable and the hunger games arena is a folder that is copied in,",
+                "so both are rebuilt rather than restored. bot-jar and updater-jar are refilled by",
+                "`updater bootstrap`.",
+                "",
+                "WHERE a snapshot goes is Arcane's decision and not this file's: its backup policy",
+                "on each volume says local, S3 or both. Set that up once - see deploy/README.md."
+        })
+        default List<String> volumes() {
+            return List.of("nordtal-s2_mc-smp",
+                    "nordtal-s2_mc-smp-plugins",
+                    "nordtal-s2_mc-network-control",
+                    "nordtal-s2_mc-network-control-plugins",
+                    "nordtal-s2_mc-limbo-plugins",
+                    "nordtal-s2_mc-hunger-games-plugins",
+                    "nordtal-s2_bot-config",
+                    "nordtal-s2_postgres-dumps");
+        }
+
+        @Order(2)
+        @Key("stop-services")
+        @Comment({
+                "Which compose services are stopped while the snapshot is taken, by the names",
+                "Arcane's runtime endpoint reports - which are compose's service names.",
+                "",
+                "A SNAPSHOT OF A RUNNING PAPER SERVER IS A TORN ONE, and the way that surfaces is",
+                "a region file that will not load, months later, on the one day somebody needs the",
+                "backup. So the servers holding a saved volume go down first.",
+                "",
+                "ARCANE CAN DO THIS ITSELF AND IT IS TURNED OFF ON PURPOSE. A backup policy has a",
+                "`Stop Containers` flag; leaving it on means Arcane stops the containers with no",
+                "countdown and no warning to anybody standing in the world. The stopping is done",
+                "here so that the thirty-second countdown every player sees runs first, and so",
+                "that something is left running afterwards to say whether everything came back.",
+                "",
+                "limbo and hunger-games are absent: neither holds a world worth saving, and an",
+                "outage with nothing to show for it is worse than no backup. Their plugins/",
+                "volumes are still snapshotted - a config.yml is written at enable and at reload",
+                "and at no other time, so there is nothing in flight to tear."
+        })
+        default List<String> stopServices() {
+            return List.of("smp", "network-control", "bot");
+        }
+
+        @Order(3)
+        @Key("patience-minutes")
+        @Comment({
+                "How long one volume's snapshot may take before the run gives up on it and starts",
+                "the servers again.",
+                "",
+                "Generous, because the servers are already down and the alternative to waiting is",
+                "starting them back up onto a half-written snapshot. Nordtal at border 4000 is",
+                "several gigabytes and the first S3 upload of it is the slow one; every one after",
+                "that is a Rustic delta. What this must not be is infinite: a backup that hangs",
+                "would otherwise leave the network down until somebody noticed."
+        })
+        default int patienceMinutes() {
+            return 60;
+        }
+    }
+
     /** Where Arcane is and how to ask it for a redeploy. */
     @ConfigSpec
     interface ArcaneSpec {
@@ -439,6 +540,31 @@ public interface UpdaterSpec {
         }
 
         @Order(8)
+        @Key("backup-path")
+        @Comment({
+                "Where the updater starts a volume backup and reads its state, with {volume}",
+                "replaced by the Docker volume name. POST starts one, GET lists them.",
+                "",
+                "Read from Arcane's own source on 2026-09-08, v2.10.2 -",
+                "backend/internal/volume/handler.go registers both under",
+                "/environments/{id}/volumes/{volumeName}/backups: the POST answers 202 with the",
+                "new backup's entry (its id and a status of `running`), the GET answers a",
+                "paginated list of entries each carrying id and status. A setting for the same",
+                "reason redeploy-path is one: the documentation does not publish either.",
+                "",
+                "The POST body is empty on purpose. Arcane then loads the volume's OWN backup",
+                "policy and uses its destination - local, S3 or both - so where a snapshot goes",
+                "stays a decision taken once in Arcane's interface rather than a second copy of it",
+                "in this file. A volume with no policy is backed up locally.",
+                "",
+                "A 409 means a backup of that volume is already running, which is not a failure of",
+                "this run: it is reported as such and the servers still come back."
+        })
+        default String backupPath() {
+            return "/api/environments/{environment}/volumes/{volume}/backups";
+        }
+
+        @Order(9)
         @Key("timeout-seconds")
         @Comment({
                 "How long to wait for the redeploy call.",

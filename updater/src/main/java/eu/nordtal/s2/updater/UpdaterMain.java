@@ -374,9 +374,13 @@ public final class UpdaterMain {
 
                 markReady();
 
+                // One directory, shared: the server claims and settles rows through it and the
+                // runner starts and commits the countdown on the row it is running. Two would be
+                // two pools for one table.
+                final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
                 try (UpdateServer server = new UpdateServer(
-                        UpdateDirectory.using(database.dataSource()),
-                        new Runner(config, database, arcane),
+                        updates,
+                        new Runner(config, database, arcane, updates),
                         PostgresNotifications.connector(databaseConfig),
                         Duration.ofSeconds(config.pollIntervalSeconds()),
                         Clock.systemUTC())) {

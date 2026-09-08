@@ -100,15 +100,43 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
-    public Optional<UpdateRequest> pendingRestart() {
+    public Optional<UpdateRequest> startCountdown(final long id, final java.time.Duration seconds) {
+        final UpdateRequest row = rows.get(id);
+        if (row == null || row.status() != UpdateStatus.RUNNING) {
+            return Optional.empty();
+        }
+        final UpdateRequest counting = new UpdateRequest(row.id(), row.kind(), row.status(),
+                row.source(), row.requestedBy(), row.requested(), now.plus(seconds), row.started(),
+                row.finished(), row.result());
+        rows.put(id, counting);
+        return Optional.of(counting);
+    }
+
+    @Override
+    public boolean commitCountdown(final long id) {
+        final UpdateRequest row = rows.get(id);
+        if (row == null || row.status() != UpdateStatus.RUNNING) {
+            return false;
+        }
+        rows.put(id, new UpdateRequest(row.id(), row.kind(), row.status(), row.source(),
+                row.requestedBy(), row.requested(), now, row.started(), row.finished(),
+                row.result()));
+        return true;
+    }
+
+    @Override
+    public Optional<UpdateRequest> countingDown() {
         return rows.values().stream()
-                .filter(row -> row.status() == UpdateStatus.PENDING && row.kind() == UpdateKind.RESTART)
+                .filter(row -> row.status() == UpdateStatus.PENDING
+                        || row.status() == UpdateStatus.RUNNING)
+                .filter(row -> row.kind() == UpdateKind.RESTART || row.kind() == UpdateKind.UPDATE)
+                .filter(row -> row.notBefore().isAfter(now))
                 .findFirst();
     }
 
     @Override
-    public Optional<UpdateRequest> cancelPendingRestart(final String reason) {
-        return pendingRestart().map(row -> {
+    public Optional<UpdateRequest> cancelCountdown(final String reason) {
+        return countingDown().map(row -> {
             final UpdateRequest cancelled = new UpdateRequest(row.id(), row.kind(),
                     UpdateStatus.CANCELLED, row.source(), row.requestedBy(), row.requested(),
                     row.notBefore(), null, now, reason);
@@ -126,17 +154,17 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
-    public int settleOrphans(final String restarted, final String failed) {
+    public int settleOrphans(final String failed) {
         int settled = 0;
         for (final UpdateRequest row : List.copyOf(rows.values())) {
             if (row.status() != UpdateStatus.RUNNING) {
                 continue;
             }
-            final boolean isRestart = row.kind() == UpdateKind.RESTART;
-            rows.put(row.id(), new UpdateRequest(row.id(), row.kind(),
-                    isRestart ? UpdateStatus.DONE : UpdateStatus.FAILED, row.source(),
-                    row.requestedBy(), row.requested(), row.notBefore(), row.started(), now,
-                    isRestart ? restarted : failed));
+            // Every kind, since 2026-09-08. A RESTART used to be closed as DONE here, because a
+            // redeploy of the whole project took the updater down mid-call; it does not any more.
+            rows.put(row.id(), new UpdateRequest(row.id(), row.kind(), UpdateStatus.FAILED,
+                    row.source(), row.requestedBy(), row.requested(), row.notBefore(),
+                    row.started(), now, failed));
             settled++;
         }
         return settled;

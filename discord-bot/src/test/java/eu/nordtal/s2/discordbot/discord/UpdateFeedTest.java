@@ -49,6 +49,7 @@ class UpdateFeedTest {
 
         final List<Post> posted = new ArrayList<>();
         final List<Post> edited = new ArrayList<>();
+        final List<String> alerted = new ArrayList<>();
 
         /** Whether Discord acknowledges a post, so "no message id yet" can be driven too. */
         boolean acknowledge = true;
@@ -65,6 +66,11 @@ class UpdateFeedTest {
         @Override
         public void edit(final String messageId, final MessageEmbed embed) {
             edited.add(new Post(embed, messageId));
+        }
+
+        @Override
+        public void alert(final String text) {
+            alerted.add(text);
         }
     }
 
@@ -158,6 +164,55 @@ class UpdateFeedTest {
     private final Messages messages = Messages.load(UpdateFeedTest.class.getClassLoader(),
             "messages/commands", Locale.ENGLISH, Locale.GERMAN);
     private final UpdateFeed feed = new UpdateFeed(rows, board, messages);
+
+    @Test
+    @DisplayName("a run that fails mentions the admin role; one that succeeds does not")
+    void onlyAFailureIsWorthAPing() {
+        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING, reportAt(UpdateReport.Stage.STOPPING),
+                null));
+        feed.tick();
+        assertTrue(board.alerted.isEmpty(), "a run still going is not news for the admin role");
+
+        rows.put(row(1, UpdateSource.GAME, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING),
+                NOW));
+        feed.tick();
+        assertEquals(1, board.alerted.size(),
+                "a failed run did not mention the admin role. Editing the embed notifies nobody -"
+                        + " which is the whole point at five in the morning, when the backup gave up"
+                        + " waiting and the only other trace is a message turning red on a screen"
+                        + " nobody is looking at");
+
+        feed.tick();
+        assertEquals(1, board.alerted.size(),
+                "the same failed run was announced twice. It is removed from the follow list at the"
+                        + " moment it finishes, so a second mention means the two paths that can"
+                        + " announce one both fired");
+    }
+
+    @Test
+    @DisplayName("a cancelled run says nothing - somebody typed that and already knows")
+    void aCancellationIsNotAFailure() {
+        rows.put(row(2, UpdateSource.GAME, UpdateStatus.CANCELLED, reportAt(UpdateReport.Stage.RESOLVING),
+                NOW));
+        feed.tick();
+
+        assertEquals(1, board.posted.size(), "a cancelled run is still worth a line in the channel");
+        assertTrue(board.alerted.isEmpty(),
+                "a cancellation mentioned the admin role. A ping that fires for something somebody"
+                        + " chose is a ping people learn to ignore, which is the same as none");
+    }
+
+    @Test
+    @DisplayName("a run that was already failed when first seen is announced too")
+    void aRunThatFinishedWhileTheBotWasDownIsAnnounced() {
+        rows.put(row(3, UpdateSource.CONSOLE, UpdateStatus.FAILED, reportAt(UpdateReport.Stage.STOPPING),
+                NOW));
+        feed.tick();
+
+        assertEquals(1, board.alerted.size(),
+                "a row that arrives already failed was posted but not announced. That is exactly the"
+                        + " run nobody watched - it went wrong while the bot was restarting");
+    }
 
     private static UpdateRequest row(final long id, final UpdateSource source,
                                      final UpdateStatus status, final String result,

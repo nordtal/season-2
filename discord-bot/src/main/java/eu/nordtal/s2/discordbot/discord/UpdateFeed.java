@@ -7,6 +7,7 @@ import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
+import eu.nordtal.s2.common.update.UpdateStatus;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -77,6 +78,16 @@ public final class UpdateFeed {
 
         void edit(String messageId, MessageEmbed embed);
 
+        /**
+         * A line that mentions the admin role.
+         *
+         * <p>Separate from {@link #post} because an <em>edit</em> notifies nobody: a run that goes
+         * wrong at five in the morning would otherwise turn a green embed red on a screen nobody is
+         * looking at. Only a failure uses this - a successful run that pings is a ping people learn
+         * to ignore, which is the same as no ping at all.</p>
+         */
+        void alert(String text);
+
         static Board of(final AdminLog admin) {
             return new Board() {
                 @Override
@@ -88,6 +99,11 @@ public final class UpdateFeed {
                 @Override
                 public void edit(final String messageId, final MessageEmbed embed) {
                     admin.edit(messageId, embed);
+                }
+
+                @Override
+                public void alert(final String text) {
+                    admin.alert(text);
                 }
             };
         }
@@ -163,6 +179,9 @@ public final class UpdateFeed {
                 continue;
             }
             final boolean over = request.status().isFinished();
+            if (over) {
+                alertIfFailed(request);
+            }
             board.post(embed(request), messageId -> {
                 if (over) {
                     return;
@@ -202,8 +221,34 @@ public final class UpdateFeed {
                 drawing.put(id, new Drawn(drawn.messageId(), request.result()));
             }
             if (request.status().isFinished()) {
+                alertIfFailed(request);
                 drawing.remove(id);
             }
+        }
+    }
+
+    /**
+     * Mentions the admin role when a run ended badly, and says nothing at all when it did not.
+     *
+     * <p>Called exactly once per run: from {@link #tick()} for a row that was already over when it
+     * was first seen, and from {@link #redraw()} at the moment a run being followed finishes, just
+     * before it stops being followed. The two paths are exclusive - a row that arrives finished is
+     * never registered for redrawing.</p>
+     *
+     * <p>A cancellation is not a failure: somebody typed {@code /update cancel} and already knows.
+     * What this is for is the backup that gave up waiting after thirty minutes and the update that
+     * could not stop a server - the cases where the network is in a state nobody asked for and the
+     * only other trace is an edit to a message from five minutes ago.</p>
+     */
+    private void alertIfFailed(final UpdateRequest request) {
+        if (request.status() != UpdateStatus.FAILED) {
+            return;
+        }
+        try {
+            board.alert(footer(request) + " - FAILED. See the embed above.");
+        } catch (final RuntimeException failure) {
+            // The embed is already posted; losing the mention must not lose the pass.
+            log.warn("Could not alert admins about failed update request {}", request.id(), failure);
         }
     }
 

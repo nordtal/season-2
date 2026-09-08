@@ -25,7 +25,14 @@ package eu.nordtal.s2.common.message;
  */
 public enum Tone {
 
-    /** Nothing to flag. Whatever a surface uses for ordinary text. */
+    /**
+     * Nothing to flag - an ordinary reply.
+     *
+     * <p>Painted grey rather than left alone (owner, 2026-09-09). "Left alone" is not a colour: it
+     * is whatever the client defaults to on that surface and after whatever came before it in the
+     * same message, so the one tone that is used most often would be the only one that looks
+     * different depending on where it lands.</p>
+     */
     NEUTRAL,
 
     /** It worked, it is current, it came back. */

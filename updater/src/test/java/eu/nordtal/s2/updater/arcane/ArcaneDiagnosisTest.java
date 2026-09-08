@@ -166,4 +166,37 @@ class ArcaneDiagnosisTest {
                 "a real host over plain HTTP is a redeploy credential on the wire");
         assertFalse(Arcane.sameHost("http://10.0.0.4:3552"));
     }
+
+    @Test
+    @DisplayName("a credentialed request follows no redirect at all")
+    void redirectsAreNotFollowed() {
+        // Not a behaviour test - a source assertion, because the client is built in a constructor
+        // that needs a config and the property being pinned is one line of it. Redirect.NORMAL
+        // follows HTTP to HTTP across authorities and the JDK carries X-Api-Key along, so a
+        // redirect from a compromised or merely misconfigured Arcane would hand a redeploy
+        // credential to whatever it named (CWE-522, found by review 2026-09-08).
+        final String source = source("updater/src/main/java/eu/nordtal/s2/updater/arcane/Arcane.java");
+
+        assertTrue(source.contains("followRedirects(HttpClient.Redirect.NEVER)"),
+                "every request this class makes carries the API key, so it must follow nothing");
+        assertFalse(source.contains("Redirect.NORMAL"),
+                "NORMAL refuses only HTTPS->HTTP, which is not the hole");
+        assertTrue(source.contains("private static String redirect("),
+                "a 3xx has to be reported as the configuration fact it is, with the Location in"
+                        + " the message - otherwise it lands in the generic 'answered HTTP 301'"
+                        + " branch and nobody learns that the base URL is wrong");
+    }
+
+    private static String source(final String relative) {
+        try {
+            java.nio.file.Path candidate = java.nio.file.Path.of("").toAbsolutePath();
+            while (candidate != null && !java.nio.file.Files.isRegularFile(
+                    candidate.resolve("settings.gradle.kts"))) {
+                candidate = candidate.getParent();
+            }
+            return java.nio.file.Files.readString(candidate.resolve(relative));
+        } catch (final java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
 }

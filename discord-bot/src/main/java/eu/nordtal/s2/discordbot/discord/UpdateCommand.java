@@ -85,6 +85,18 @@ public final class UpdateCommand extends ListenerAdapter {
     /** Discord's embed description limit, minus the code fence this puts around the report. */
     private static final int DESCRIPTION_BUDGET = 4000;
 
+    /**
+     * Discord's limit on <em>everything</em> in one embed added together.
+     *
+     * <h2>Why the per-part caps are not enough</h2>
+     * The description may use its own 4 000 and each of up to 24 service fields may use 1 000, so
+     * the parts can be individually legal and the whole still refused. JDA throws from
+     * {@code build()} when that happens, the exception unwinds into {@code fail()}, and the admin
+     * is told "that did not work" instead of being shown the run - on the exact runs that have the
+     * most to say, which are the ones going wrong. Found by review, 2026-09-08.
+     */
+    private static final int EMBED_BUDGET = 6000;
+
     private static final String NOT_AN_ADMIN =
             "You are not an admin. Updates are run by whoever holds the admin role in this guild, "
                     + "and nothing else.";
@@ -393,20 +405,39 @@ public final class UpdateCommand extends ListenerAdapter {
                 .setColor(colour(report.stage() == UpdateReport.Stage.FAILED))
                 .setTimestamp(request.finished() == null ? Instant.now() : request.finished());
 
-        if (!report.notes().isEmpty()) {
-            embed.setDescription(truncate(String.join("\n", report.notes())));
-        }
-
-        // Inline, so three or four servers sit side by side rather than as a column of headings.
-        // Discord caps an embed at 25 fields; four services and a bot cannot reach that, and the
-        // guard is here because the day a fifth backend is added is not the day to discover it.
-        int drawn = 0;
+        // The service lines are what somebody is actually watching, so they get the budget first
+        // and the notes get what is left. A run whose notes are long is usually a run that failed,
+        // and "which server did not come back" is the half that matters then.
+        int budget = EMBED_BUDGET - report.stage().headline().length();
+        final java.util.List<String[]> drawn = new java.util.ArrayList<>();
         for (final UpdateReport.ServiceLine line : report.services()) {
-            if (drawn++ >= 24) {
-                embed.addField("...", "and " + (report.services().size() - 24) + " more", false);
+            // Discord caps an embed at 25 fields; four services and a bot cannot reach that, and
+            // the guard is here because the day a fifth backend is added is not the day to find out.
+            if (drawn.size() >= 24) {
                 break;
             }
-            embed.addField(line.service(), body(line), true);
+            final String value = body(line);
+            final int cost = line.service().length() + value.length();
+            if (cost > budget) {
+                break;
+            }
+            budget -= cost;
+            drawn.add(new String[] {line.service(), value});
+        }
+
+        if (!report.notes().isEmpty() && budget > 0) {
+            final String notes = String.join("\n", report.notes());
+            embed.setDescription(truncate(notes, Math.min(DESCRIPTION_BUDGET, budget)));
+        }
+        // Inline, so three or four servers sit side by side rather than as a column of headings.
+        drawn.forEach(field -> embed.addField(field[0], field[1], true));
+        if (drawn.size() < report.services().size()) {
+            final int left = report.services().size() - drawn.size();
+            // Only if it fits; an "and N more" that itself overflows would be the same bug again.
+            if (("..." + left).length() + 20 <= budget) {
+                embed.addField("...", "and " + left + " more - the updater's log has all of it",
+                        false);
+            }
         }
         return embed.build();
     }
@@ -455,10 +486,15 @@ public final class UpdateCommand extends ListenerAdapter {
     }
 
     private static String truncate(final String text) {
-        return text.length() > DESCRIPTION_BUDGET
-                ? text.substring(0, DESCRIPTION_BUDGET)
-                        + "\n... truncated; the updater's log has all of it"
-                : text;
+        return truncate(text, DESCRIPTION_BUDGET);
+    }
+
+    private static String truncate(final String text, final int budget) {
+        final String tail = "\n... truncated; the updater's log has all of it";
+        if (text.length() <= budget) {
+            return text;
+        }
+        return budget <= tail.length() ? "" : text.substring(0, budget - tail.length()) + tail;
     }
 
     /**

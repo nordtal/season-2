@@ -74,6 +74,14 @@ class ConfigsTest {
         // nothing to show for it, while their plugins/ volumes are still worth a snapshot.
         assertEquals(java.util.List.of("smp", "network-control", "bot"),
                 config.backup().stopServices());
+
+        // Thirty rather than sixty (owner, 2026-09-09), and the two halves of that decision are
+        // one decision: the wait was shortened because giving up stopped being silent. A run that
+        // ends FAILED mentions the admin role through UpdateFeed, so the network coming back after
+        // half an hour with one volume unsaved is something a person is told about rather than
+        // something they find. Raising this back without that mention would put the network's
+        // longest unattended outage behind an embed nobody reads at five in the morning.
+        assertEquals(30, config.backup().patienceMinutes());
     }
 
     @Test

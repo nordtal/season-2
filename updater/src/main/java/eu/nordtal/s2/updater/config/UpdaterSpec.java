@@ -396,14 +396,19 @@ public interface UpdaterSpec {
                 "How long one volume's snapshot may take before the run gives up on it and starts",
                 "the servers again.",
                 "",
-                "Generous, because the servers are already down and the alternative to waiting is",
-                "starting them back up onto a half-written snapshot. Nordtal at border 4000 is",
-                "several gigabytes and the first S3 upload of it is the slow one; every one after",
-                "that is a Rustic delta. What this must not be is infinite: a backup that hangs",
-                "would otherwise leave the network down until somebody noticed."
+                "The servers are already down while this waits, so the number is a judgement about",
+                "which is worse: a network down longer than it should be, or a snapshot abandoned",
+                "just before it finished. Nordtal at border 4000 is several gigabytes and the first",
+                "S3 upload of it is the slow one; every one after that is a Rustic delta.",
+                "",
+                "Thirty minutes rather than an hour (owner, 2026-09-09), because giving up is no",
+                "longer silent: a run that ends FAILED mentions the admin role in the admin channel",
+                "instead of only editing an embed nobody is looking at at five in the morning. That",
+                "is what makes the shorter wait safe - the network comes back sooner and somebody",
+                "is told that a volume was not saved. What this must not be is infinite."
         })
         default int patienceMinutes() {
-            return 60;
+            return 30;
         }
     }
 

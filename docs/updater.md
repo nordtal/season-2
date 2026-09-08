@@ -117,11 +117,30 @@ tests against it — so it is also the first thing to look at when something bre
 
 ## What a run does, in order
 
-1. **Resolve.** Ask every source above what the newest thing is. Compare against what is on disk.
-   Nothing is downloaded yet.
-2. **Migrate.** Apply Flyway. This happens before any jar moves, so a plugin never comes up against
-   a schema that is older than it is.
-3. **Swap.** Fetch into a staging directory inside each server's own volume, verify, and only then
+1. **Resolve, and report.** Ask every source above what the newest thing is, compare against what
+   is on disk, and say so: per artefact, old → new, "unchanged", or **"skipped, and here is why"** —
+   which is a third answer and not a quiet fourth kind of "fine". A run where every server was
+   skipped because its volume was not mounted did no work and had no failure, and it must not close
+   with "Nothing needed doing"; that sentence is how somebody shuts the report believing the network
+   is current. **Nothing is downloaded and nothing is written** — this is what `/update` alone does,
+   and reading it before acting is the entire reason it is a separate command.
+2. **Confirm, then count down.** `/update now` is irreversible, so it is confirmed the way every
+   irreversible command in this network is: typed again inside thirty seconds in chat, a button in
+   Discord. Only then is the row written, thirty seconds out, with every player counted down
+   towards it. Until the confirmation there is no row, no countdown and no warning to anybody.
+3. **Stop.** Each service whose jars actually change, one container at a time through Arcane. A
+   service with nothing to install is never stopped — an outage with nothing to show for it is
+   worse than no update. **The updater is never one of them**: it is the process running this
+   sequence, and stopping it is why the old design could never report whether anything came back.
+
+   **A service that refuses to stop ends the run here.** Nothing is migrated, no jar moves, every
+   service that did stop is started again, and the run is `FAILED` naming the refusal. Installing
+   into a server that is still running is the failure this sequence replaced; doing it as a fallback
+   would be that failure with an excuse.
+4. **Migrate.** Apply Flyway, with the affected servers **down**. That is stronger than the rule it
+   replaced — which only put the migration before the jars moved, while the servers were still up —
+   so a plugin can no longer see a schema half a version away from itself.
+5. **Swap.** Fetch into a staging directory inside each destination directory, verify, and only then
    move everything in and delete the superseded jars — supersede-by-prefix, the same rule
    `entrypoint.sh` used. **Two phases, which the entrypoint did not do**, and for a reason it did
    not have: this moves eight artefacts across four servers at once, and a network running four
@@ -130,41 +149,41 @@ tests against it — so it is also the first thing to look at when something bre
    and PacketEvents is required under it, so a partial swap there is a server that does not start.
    The server jar is outside that rule (2026-09-02): a build Fill could not answer for is its own
    skipped row and the plugins move regardless, because they depend on the version, not the build.
-4. **Set the pack.** Write the release's pack URL and the `.sha1` asset's content where
+6. **Set the pack.** Write the release's pack URL and the `.sha1` asset's content where
    network-control reads them.
-5. **Report.** Post the result: per artefact, old → new, "unchanged", or **"skipped, and here is
-   why"** — which is a third answer and not a quiet fourth kind of "fine". A run where every server
-   was skipped because its volume was not mounted did no work and had no failure, and it must not
-   close with "Nothing needed doing"; that sentence is how somebody shuts the report believing the
-   network is current. **This all happens before anything restarts**, which is the whole reason the
-   order is this way round.
-6. **The run, on a confirmation.** Thirty seconds after it is asked for - with every player on the
-   network counted down towards it - the services whose jars change are stopped, the schema and the
-   jars are moved with nothing running on them, each service is started again, and the run waits
-   until every one of them reports healthy.
-
-   **A refused stop ends the run before anything is installed.** If any service that has work does
-   not stop, the run migrates nothing and installs nothing, starts every service it *did* stop, and
-   records `FAILED` naming the ones that refused. Installing into a server that is still running is
-   the failure this sequence exists to prevent, and doing it as a fallback would be that failure
-   with an excuse. `/update restart` has nothing to abort before - it installs nothing either way -
-   so a refused stop there simply leaves that service running, restores the ones that did stop, and
-   is reported as a failure.
+7. **Start, and prove it.** Each stopped service is started again, and the run then polls Arcane's
+   `/runtime` until every one of them reports `running` **and** `healthy` — up to five minutes. A
+   container whose plugin threw in `onEnable` is `running` with an open port and no season on it,
+   which is what the first deployment actually produced; the healthcheck reads the readiness marker
+   every process writes, and this is the first thing in the network that acts on that evidence. A
+   service that does not come back makes the whole run `FAILED`, **named**, while the others are
+   still reported as returned.
 
 **The updater installs its own new jar and does not run it.** It cannot: no process swaps the jar it
-is executing and keeps going. It does not need to — the redeploy takes the whole stack down and
-back up, the updater included, so the next start picks up the new jar by itself. Which is only true
+is executing and keeps going, and since 2026-09-08 it deliberately never stops itself either — the
+run has to survive to start the other services again and to say whether they came back. So its own
+new jar simply waits, and **the next time the updater is restarted for any other reason it comes up
+on it**. That is the one place the old fire-and-forget redeploy did something this design does not,
+and it is a fair trade: an updater one version behind still runs every sequence correctly, whereas
+an updater that takes itself down can report nothing at all. Which is only true
 because the updater, like the bot, **runs from a volume rather than from a jar baked into its
 image** (decided 2026-09-01; the baked jar is a floor for the first deployment and nothing else).
 Until that changed, the paragraph above was wrong: a redeploy brought the same image back with the
 same jar in it.
 
-The implementation consequence is that the redeploy call is fire-and-forget. Arcane answers
-long-running operations as a stream of newline-delimited JSON, and the updater is killed part-way
-through its own request — so the call waits only for the response to *begin*, and being killed
-there is the successful outcome. It is recognised as one: the request row is left `RUNNING`, and the
-next start of the container reads a `RESTART` in that state as "the redeploy happened". That is
-inference rather than proof, and the row says so rather than claiming certainty.
+**None of that is how a run works any more, and the difference is the point of the rewrite.**
+`/update now` and `/update restart` call Arcane per *container* — `stop`, then `start`, one service
+at a time — and never touch the project-wide redeploy, because that took the updater down with
+everything else and left nobody to report. `Arcane#redeploy` is still there and no production path
+calls it.
+
+What that bought is the whole of step 7 above: the updater is alive after the start, so it can poll
+`/runtime` until each service says `running` and `healthy`, and say which one did not. The old
+fire-and-forget call could only ever be *inferred* to have worked — the request row was left
+`RUNNING` and the next start of the container read that as "the redeploy happened", which is
+inference and not proof. **Arcane is still required**, and more so than before: service control and
+the health read both go through it, and a run that cannot reach it refuses to start rather than
+installing anything.
 
 ## The restart, and why not the Docker socket
 

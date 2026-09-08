@@ -923,9 +923,13 @@ deliberately not used: generic keys such as `password` would collide across file
 - **The ids default to empty and the bot refuses to start until they are filled in.** Season 1
   shipped real channel and role ids as defaults, so a config that failed to load wrote into a
   production channel. Prices do have real defaults; ids never will.
-- `bot.yml` gained `bunq.environment` (`PRODUCTION` / `SANDBOX`). It was hardcoded, which made the
-  sandbox test in the concept impossible to run. The bunq context file belongs to one environment:
-  switching also means pointing `bunq.context-path` at a fresh file.
+- `bot.yml` **had** `bunq.environment` (`PRODUCTION` / `SANDBOX`) from 2026-08-30, so the sandbox
+  test in the concept could be run without editing code. It is retired as of 2026-09-09, because the
+  test is: the owner has no sandbox key and a real 3 € purchase with a cancel-and-restart replaces
+  the run (finding 152). A switch nobody will ever throw again, on the one path in this repository
+  that moves other people's money, is a trap rather than an option. `ConfigsTest` pins that a
+  deployed `bot.yml` carrying the line **loses it** on the next start; do not re-declare it without
+  a sandbox key in somebody's hand.
 - **The tiers are a list**, so a fourth tier is a config edit and not a release. The obstacle was
   that jcore initialises a `List<NestedSpec>` to empty, which would ship a fresh install with no
   prices — solved with `Specs.createUnsafe` in `DefaultTiers`, which builds real default entries
@@ -1167,7 +1171,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1411 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1410 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-09, on `release/0.7.1`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1245,7 +1249,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | `network-control` | 201 |
 | `commands` | 201 |
 | `updater` | 176 |
-| `discord-bot` | 159 |
+| `discord-bot` | 158 |
 | `hunger-games` | 72 |
 | `limbo` | 11 |
 | `paper-common` | 7 |
@@ -1672,10 +1676,10 @@ stand-in. `DocumentedCommandsTest` reads six documents rather than any code, bec
 guards was in the documents.
 
 **What none of it proves.** Nothing here touches bunq, Discord, or a running Velocity proxy. Tab
-creation, cancellation and result inquiries need the **bunq sandbox**
-(`bunq.environment: SANDBOX`); buttons, ephemeral messages, DMs, role assignment and the managed
-messages need the **real guild** in an admin-only channel; a 3 € real purchase is the last step,
-never the development loop. **The login path is a third gap of the same shape**: the login gate
+creation, cancellation and result inquiries can now only be exercised by a **real 3 € purchase**,
+cancelled and started again - the sandbox that used to stand in front of it was struck on
+2026-09-08 for want of a key; buttons, ephemeral messages, DMs, role assignment and the managed
+messages need the **real guild** in an admin-only channel. **The login path is a third gap of the same shape**: the login gate
 (`LoginGate`), the kick messages it produces, the routing that moves players on a phase change, and
 code redemption through the actual Discord modal all need a **running Velocity proxy with a real
 client** plus a **real Discord guild** to be verified at all - nothing in this repository's test

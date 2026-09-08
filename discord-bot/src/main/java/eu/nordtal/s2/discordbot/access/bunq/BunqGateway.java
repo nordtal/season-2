@@ -198,10 +198,10 @@ public final class BunqGateway {
     /**
      * Loads or creates the bunq API context, once per process.
      * <p>
-     * The context file holds credentials and the installed device key. It belongs to <b>one</b>
-     * environment: a context created against PRODUCTION cannot be used against SANDBOX, so
-     * switching {@code bunq.environment} also means pointing {@code bunq.context-path} at a fresh
-     * file.
+     * The context file holds credentials and the installed device key. It belongs to one
+     * environment, and there is only one: {@link ApiEnvironmentType#PRODUCTION}. The
+     * {@code bunq.environment} setting was retired on 2026-09-09 with the sandbox run it existed
+     * for - see the comment where it used to be declared in {@code BotSpec}.
      * </p>
      */
     private synchronized void loadContext() {
@@ -210,20 +210,16 @@ public final class BunqGateway {
         }
         final Path path = contextPath();
         if (Files.notExists(path)) {
-            final ApiContext context = ApiContext.create(environment(), config.bunq().apiKey(), DEVICE_DESCRIPTION);
+            final ApiContext context = ApiContext.create(ApiEnvironmentType.PRODUCTION, config.bunq().apiKey(), DEVICE_DESCRIPTION);
             createParentDirectory(path);
             context.save(path.toString());
             BunqContext.loadApiContext(context);
-            log.info("Created a new bunq API context for {} at {}", environment(), path);
+            log.info("Created a new bunq API context at {}", path);
         } else {
             BunqContext.loadApiContext(ApiContext.restore(path.toString()));
             log.info("Restored the bunq API context from {}", path);
         }
         contextLoaded = true;
-    }
-
-    private ApiEnvironmentType environment() {
-        return ApiEnvironmentType.valueOf(config.bunq().environment());
     }
 
     private Path contextPath() {

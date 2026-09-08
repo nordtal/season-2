@@ -260,12 +260,22 @@ Access". Both renames were free because nothing has ever run in production.
    short payment, one-open-request-per-person. Containers are started and stopped from `@BeforeAll`
    by hand — this repo is on the JUnit 6 BOM and the `junit-jupiter` Testcontainers extension is
    built for 5.
-2. bunq **sandbox** for the payment path end to end. The environment is a config key
-   (`BotSpec#bunq().environment()`) rather than a hardcoded `PRODUCTION`, so the sandbox run needs no
-   code change. **Still unrun** — nothing in the test suite touches bunq.
-3. The real guild, in a channel only admins can see, for buttons, modals, ephemeral messages and
+2. The real guild, in a channel only admins can see, for buttons, modals, ephemeral messages and
    role assignment.
-4. A real 3 € purchase as the final step, never as the development loop.
+3. **A real 3 € purchase, cancelled and restarted, for the payment path end to end.** Nothing in
+   the test suite touches bunq, so this is the only thing that ever will.
+
+   This used to be step 2 of four, and the fourth said "a real purchase as the final step, never as
+   the development loop". The step before it was the **bunq sandbox**, and `bot.yml#bunq.environment`
+   existed so it could be run without a code change. It was never run: the owner has no sandbox key,
+   and on 2026-09-08 decided that a real purchase — three euros, cancelled and started again — is
+   what replaces it. So the setting is gone too (2026-09-09, finding 152); a `bot.yml` in a deployed
+   volume that still carries the line loses it on the next start, with a `WARN` and a `.bak`.
+
+   The cost is named rather than hidden: there is no rehearsal for the payment path any more, and
+   the first exercise of tab creation, cancellation and result inquiries is against real money in a
+   real account. What makes that acceptable is that the amount is three euros and the cancel path is
+   the first thing the run tests.
 
 "It compiles" is not verification, and neither is a green build on a machine without Docker — the
 integration tests skip themselves there.

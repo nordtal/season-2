@@ -648,6 +648,13 @@ Three decisions the implementation had to take, none of which the concept had re
   tick after their own join — logs the player, the exact items and the one `UPDATE` that offers it
   again, rather than a warning nobody can act on.
 
+**The trap that follows from the first decision, written down 2026-09-08 so nobody rediscovers it on
+opening day:** the prize goes to the winner of the **earliest** `DECIDED` game. A practice game run to
+`DECIDED` before the real start event therefore owns the head start for good. If that happens:
+`DELETE FROM hg_game WHERE id = '<the practice game>'` before the SMP phase opens - or, if it was
+already paid, `UPDATE smp_player SET hg_winner_reward_granted = false WHERE discord_id = '<the real
+winner>'` plus `/smp aura` to straighten the books.
+
 ### Deaths cost aura
 
 Decided 2026-08-31. Aura is meant to be a number with risk in it, not a collection meter that only

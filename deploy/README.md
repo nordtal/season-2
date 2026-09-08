@@ -472,8 +472,16 @@ ARCANE_ENVIRONMENT=0                        # the environment's ID; 0 is Arcane'
 ARCANE_PROJECT=51b523fe-21aa-…              # the project's ID. A UUID, NOT 'nordtal-s2'
 ```
 
-**Leave `ARCANE_URL` empty and nothing breaks.** Everything else works; both surfaces answer "Arcane
-is not configured" and tell you to click Redeploy yourself.
+**Leave `ARCANE_URL` empty and updating stops working.** That was not true until 2026-09-08 and is
+now the deliberate design: an update stops each affected server before its jars move, so a run that
+cannot reach Arcane has no safe way to continue and **refuses before resolving a version or touching
+a file**. Both surfaces say so by name.
+
+What still works without Arcane is `docker compose run --rm updater bootstrap` on the host, which
+fills *empty* slots and stops nothing — enough to bring a fresh deployment up, not enough to move a
+version. Clicking **Redeploy** in Arcane by hand remains possible and is an out-of-band fallback, not
+part of the flow: it recreates diverged containers, it does not stop anything for a jar swap, and
+nothing then checks that the servers came back.
 
 **Both of those are IDs, and that is the trap.** The compose project is called `nordtal-s2` in every
 other file here, and putting that name in `ARCANE_PROJECT` answers 404. The project ID is a UUID
@@ -487,11 +495,21 @@ It has no default and the updater refuses to start without it once `ARCANE_URL` 
 ID is not something anybody can guess. `ARCANE_ENVIRONMENT` defaults to `0` and only changes if
 Arcane reaches this host through an agent, in which case it is a UUID too.
 
-`ARCANE_REDEPLOY_PATH` is a fifth variable that no longer needs a person. It was read from Arcane's
-own source on 2026-09-01 — `backend/internal/project/handler.go` at release v2.10.0 registers
-`POST /environments/{id}/projects/{projectId}/redeploy` under the `/api` group — and that is the
-default. It stays a setting because Arcane's public documentation still does not publish it, so a
-version that moves the path is a line in `.env` and not a release.
+**Three path variables, and the one you have heard of is not the one that matters.**
+`ARCANE_RUNTIME_PATH` and `ARCANE_CONTAINER_PATH` are what a run uses: one read of the project's
+services — each with its container id, its status and its Docker health — and one `stop`/`start` per
+container. Container-level is not a detail: Arcane's project-wide calls do stop *and* start in a
+single request, and an update needs the **gap** between them, because that is where the jars are
+replaced. It is also why the updater survives its own update — it never stops itself, so it is still
+running to start the others and to say whether they came back.
+
+`ARCANE_REDEPLOY_PATH` is the third and is **no longer on any production path**. It redeployed the
+whole project, which took this container down with everything else and left nothing to report the
+outcome. The call still exists for a person who wants it by hand.
+
+All three were read from Arcane's own source rather than its documentation — `handler.go` at v2.10.0
+and v2.10.2 — and all three stay settings for that reason: the documentation does not publish them,
+so a version that moves a path is a line in `.env` and not a release of ours.
 
 **Watch the first press.** [getarcaneapp/arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943)
 reports a redeploy of an *already running* project doing nothing while still answering success —

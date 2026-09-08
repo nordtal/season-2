@@ -4,10 +4,12 @@ import eu.nordtal.s2.discordbot.config.AccessSpec;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import org.jdbi.v3.core.Jdbi;
 
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * The admin surface: one row in {@code audit_log} and, when a human is needed, one line in the
@@ -49,6 +51,46 @@ public final class AdminLog {
     }
 
     /**
+     * Posts an embed and hands its message id back, so a caller can rewrite it later.
+     *
+     * <p>The one thing in the admin channel that is not a finished sentence: an update run is drawn
+     * when it starts and edited as it works, the same way the asker's own ephemeral message is. It
+     * goes through this class rather than reaching for the channel directly because "which channel
+     * is the admin channel, and what happens when it is missing" is answered here once.</p>
+     *
+     * @param embed  what to draw
+     * @param sentId called with the message id once Discord has accepted it, on a JDA thread. Not
+     *               called at all when the post fails, which is why a caller has to treat "no id
+     *               yet" as an ordinary state rather than as an error
+     */
+    public void post(final MessageEmbed embed, final Consumer<String> sentId) {
+        final MessageChannel channel = channel();
+        if (channel == null) {
+            return;
+        }
+        channel.sendMessageEmbeds(embed).queue(
+                sent -> sentId.accept(sent.getId()),
+                failure -> log.error("Could not post an embed to the admin channel", failure));
+    }
+
+    /**
+     * Rewrites a message this class posted.
+     *
+     * <p>A failure is logged and nothing else: the message is a drawing of a row that is the real
+     * record, and an admin channel that cannot be edited must not be able to stop a run.</p>
+     */
+    public void edit(final String messageId, final MessageEmbed embed) {
+        final MessageChannel channel = channel();
+        if (channel == null) {
+            return;
+        }
+        channel.editMessageEmbedsById(messageId, embed).queue(
+                success -> {
+                },
+                failure -> log.error("Could not edit admin-channel message {}", messageId, failure));
+    }
+
+    /**
      * Writes one {@code audit_log} row.
      *
      * @param action  LINK, UNLINK, GRANT_ACCESS, REVOKE_ACCESS, SETTLE, ...
@@ -68,11 +110,20 @@ public final class AdminLog {
         }
     }
 
-    private void post(final String text) {
-        final MessageChannel channel = jda.getChannelById(MessageChannel.class, config.channels().admin());
+    private MessageChannel channel() {
+        final MessageChannel channel =
+                jda.getChannelById(MessageChannel.class, config.channels().admin());
         if (channel == null) {
-            log.error("Admin channel {} does not exist or the bot cannot see it. The message was: {}",
-                    config.channels().admin(), text);
+            log.error("Admin channel {} does not exist or the bot cannot see it",
+                    config.channels().admin());
+        }
+        return channel;
+    }
+
+    private void post(final String text) {
+        final MessageChannel channel = channel();
+        if (channel == null) {
+            log.error("The message that could not be posted was: {}", text);
             return;
         }
         channel.sendMessage(text).queue(

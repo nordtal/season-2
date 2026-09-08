@@ -52,6 +52,21 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public java.util.List<UpdateRequest> since(final long id) {
+        throw new UnsupportedOperationException("only the bot's feed reads the table forward");
+    }
+
+    @Override
+    public long latestId() {
+        throw new UnsupportedOperationException("only the bot's feed reads the table forward");
+    }
+
+    @Override
+    public java.util.List<UpdateRequest> finishedWithin(final java.time.Duration window) {
+        throw new UnsupportedOperationException("only the bot's feed reads the table forward");
+    }
+
+    @Override
     public Optional<UpdateRequest> startCountdown(final long id, final java.time.Duration seconds) {
         throw new UnsupportedOperationException("only the updater counts down");
     }

@@ -100,6 +100,25 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
+    public java.util.List<UpdateRequest> since(final long id) {
+        return rows.values().stream().filter(row -> row.id() > id)
+                .sorted(java.util.Comparator.comparingLong(UpdateRequest::id)).toList();
+    }
+
+    @Override
+    public long latestId() {
+        return rows.keySet().stream().mapToLong(Long::longValue).max().orElse(0L);
+    }
+
+    @Override
+    public java.util.List<UpdateRequest> finishedWithin(final java.time.Duration window) {
+        final java.time.Instant from = now.minus(window);
+        return rows.values().stream()
+                .filter(row -> row.finished() != null && row.finished().isAfter(from))
+                .sorted(java.util.Comparator.comparingLong(UpdateRequest::id)).toList();
+    }
+
+    @Override
     public Optional<UpdateRequest> startCountdown(final long id, final java.time.Duration seconds) {
         final UpdateRequest row = rows.get(id);
         if (row == null || row.status() != UpdateStatus.RUNNING) {

@@ -94,6 +94,33 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> find(long id);
 
     /**
+     * Every request written after the one named, oldest first.
+     *
+     * <p>What the Discord bot's admin-channel feed reads. A run asked for in game or at a console
+     * had no surface anybody else could see until 2026-09-08: the only run visible to an admin who
+     * did not start it was one started in Discord, which is the one that already has somebody
+     * watching it.</p>
+     *
+     * @param id the last one already drawn; {@code 0} for everything there is
+     */
+    java.util.List<UpdateRequest> since(long id);
+
+    /**
+     * The highest id there is, or zero.
+     *
+     * <p>Where a feed starts, so a restart does not post a season of history into a channel.</p>
+     */
+    long latestId();
+
+    /**
+     * Every request that finished within the given window.
+     *
+     * <p>The other half of that start: a run that finished while the bot was restarting has an id
+     * below {@link #latestId()} and would otherwise be the one run nobody ever saw the answer to.</p>
+     */
+    java.util.List<UpdateRequest> finishedWithin(Duration window);
+
+    /**
      * Takes the oldest due request and marks it running. <b>Only the updater calls this.</b>
      *
      * @return the claimed request, or empty when nothing is due

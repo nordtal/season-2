@@ -1,6 +1,8 @@
 package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.update.UpdateKind;
+import eu.nordtal.s2.common.update.UpdateReport;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -129,6 +131,61 @@ class MessageBundlesTest {
             }
         }
         assertEquals(List.of(), offending, "see the header of messages/commands/en.properties");
+    }
+
+    @Test
+    @DisplayName("every stage and every service state the updater can report has a line to say")
+    void theUpdateReportIsFullyTranslated() throws IOException {
+        // The sweep above cannot see these: the key is built from an enum constant, so a stage
+        // added to UpdateReport would reach an admin as the literal string update.stage.PAUSING -
+        // in the middle of a run that is taking four servers down.
+        final Properties english = load("en");
+        final Properties german = load("de");
+        final List<String> missing = new ArrayList<>();
+
+        for (final UpdateReport.Stage stage : UpdateReport.Stage.values()) {
+            check(english, german, "update.stage." + stage, missing);
+        }
+        for (final UpdateReport.State state : UpdateReport.State.values()) {
+            check(english, german, "update.line." + state, missing);
+            check(english, german, "update.state." + state, missing);
+        }
+        for (final UpdateKind kind : UpdateKind.values()) {
+            // The heading for a row written before the report became structured. Those rows are
+            // still in the deployed database and still readable, APPLY included.
+            check(english, german, "update.title." + kind, missing);
+        }
+        assertEquals(List.of(), missing);
+    }
+
+    @Test
+    @DisplayName("a service's chat line ends with the same word its Discord field uses")
+    void theTwoStateLabelsStayOneLabel() throws IOException {
+        // update.line.* is "{service}: stopped" for chat, which has no headings; update.state.* is
+        // "stopped" alone, for a Discord field that already carries the service as its heading.
+        // Two families for one word is exactly what drifts, so the build holds them together.
+        for (final String language : List.of("en", "de")) {
+            final Properties bundle = load(language);
+            for (final UpdateReport.State state : UpdateReport.State.values()) {
+                final String line = bundle.getProperty("update.line." + state);
+                final String label = bundle.getProperty("update.state." + state);
+                assertTrue(line.endsWith(label),
+                        language + ": update.line." + state + " (\"" + line + "\") does not end"
+                                + " with update.state." + state + " (\"" + label + "\")");
+                assertEquals("{service}: " + label, line,
+                        language + ": a chat line is the service, a colon and the same label");
+            }
+        }
+    }
+
+    private static void check(final Properties english, final Properties german, final String key,
+                              final List<String> missing) {
+        if (english.getProperty(key) == null) {
+            missing.add("en/" + key);
+        }
+        if (german.getProperty(key) == null) {
+            missing.add("de/" + key);
+        }
     }
 
     @Test

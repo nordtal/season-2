@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
 import eu.nordtal.s2.commands.FakeUser;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.common.update.UpdateReports;
@@ -40,7 +41,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a row that is still open says nothing and keeps the surface polling")
+    @DisplayName("a row that has written nothing yet says nothing and keeps the surface polling")
     void waits() {
         final UpdateFollower.Step step = following(id -> Optional.of(row(UpdateStatus.RUNNING, null)))
                 .poll(NOW.plusSeconds(30));
@@ -49,7 +50,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a finished report is printed line by line, as literals, never through a key")
+    @DisplayName("a finished report is said as keys, so a German admin reads German")
     void printsTheReport() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
                 .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED,
@@ -60,15 +61,76 @@ class UpdateFollowerTest {
         step.deliver(user);
 
         assertTrue(step.finished());
-        assertEquals(List.of("<literal>", "<literal>"), user.keys(),
-                "a version string with a '<' in it reaches chat as text, not as a MiniMessage tag");
-        assertEquals("What is new", user.replies.get(0).of("text"));
-        assertEquals("smp: waiting - smp.jar 0.7.0 -> <0.7.1>", user.replies.get(1).of("text"));
+        // Not one literal anywhere: a report used to be printed as the updater's own English text,
+        // which is what a German admin got on the longest answer in the network.
+        assertEquals(List.of("update.stage.PLANNED", "update.line.PLANNED", "update.change"),
+                user.keys());
+        assertEquals("smp", user.replies.get(1).of("service"));
+        assertEquals("smp.jar", user.replies.get(2).of("artefact"));
+        assertEquals("<0.7.1>", user.replies.get(2).of("to"),
+                "a version string with a '<' in it travels as a placeholder, which MessageRenderer"
+                        + " escapes - it must never be composed into the template");
     }
 
     @Test
-    @DisplayName("a failed run says so first, and then still prints what the updater wrote")
-    void failedSaysSo() {
+    @DisplayName("the failed service is the one line that is coloured differently")
+    void theFailureIsFindable() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY,
+                        List.of(), null))
+                .with(new UpdateReport.ServiceLine("limbo", UpdateReport.State.FAILED,
+                        List.of(), "did not come back"))
+                .withNote("one service did not come back");
+        final FakeUser user = FakeUser.inGame();
+        following(id -> Optional.of(row(UpdateStatus.FAILED, UpdateReports.toJson(report))))
+                .poll(NOW).deliver(user);
+
+        assertEquals(List.of("update.stage.FAILED", "update.line.HEALTHY", "update.line.FAILED",
+                "update.detail", "update.note"), user.keys());
+        assertEquals(Tone.BAD, user.replies.get(0).tone());
+        assertEquals(Tone.GOOD, user.replies.get(1).tone(), "the service that came back");
+        assertEquals(Tone.BAD, user.replies.get(2).tone(), "the one a reader has to find");
+        assertEquals(Tone.BAD, user.replies.get(3).tone(),
+                "a detail carries the tone of the line it belongs to, not its own");
+    }
+
+    @Test
+    @DisplayName("a stage is announced once, when the run reaches it - not on every poll")
+    void stagesAreSaidOnce() {
+        final UpdateReport[] current = {UpdateReport.at(UpdateReport.Stage.RESOLVING)};
+        final FakeUser user = FakeUser.inGame();
+        final UpdateFollower follower = following(id -> Optional.of(
+                row(UpdateStatus.RUNNING, UpdateReports.toJson(current[0]))));
+
+        follower.poll(NOW).deliver(user);
+        follower.poll(NOW.plusSeconds(2)).deliver(user);
+        follower.poll(NOW.plusSeconds(4)).deliver(user);
+        assertEquals(List.of("update.stage.RESOLVING"), user.keys(),
+                "a run rewrites its report every few seconds and this polls every two; without the"
+                        + " memory a player is told 'Stopping the servers' a dozen times");
+
+        current[0] = current[0].withStage(UpdateReport.Stage.STOPPING);
+        final UpdateFollower.Step step = follower.poll(NOW.plusSeconds(6));
+        step.deliver(user);
+        assertFalse(step.finished(), "a stage change is news, not an ending");
+        assertEquals(List.of("update.stage.RESOLVING", "update.stage.STOPPING"), user.keys());
+    }
+
+    @Test
+    @DisplayName("a cancelled countdown names who stopped it, and is not a failure")
+    void cancelledIsNotFailed() {
+        final FakeUser user = FakeUser.inGame();
+        following(id -> Optional.of(row(UpdateStatus.CANCELLED, "Cancelled by tester")))
+                .poll(NOW).deliver(user);
+        assertEquals(List.of("update.stopped-by"), user.keys());
+        assertEquals("Cancelled by tester", user.only().of("reason"));
+        assertEquals(Tone.WARN, user.only().tone(),
+                "somebody used the way out on purpose; red would read as something going wrong");
+    }
+
+    @Test
+    @DisplayName("a row from before V12 is plain text and is still printed as it is")
+    void legacyRowsArePrintedVerbatim() {
         final FakeUser user = FakeUser.inGame();
         following(id -> Optional.of(row(UpdateStatus.FAILED, "plain text from before V12")))
                 .poll(NOW).deliver(user);
@@ -77,24 +139,22 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("a cancelled countdown is not a failure and is printed without the failure line")
-    void cancelledIsNotFailed() {
-        final FakeUser user = FakeUser.inGame();
-        following(id -> Optional.of(row(UpdateStatus.CANCELLED, "Cancelled by tester")))
-                .poll(NOW).deliver(user);
-        assertEquals(List.of("<literal>"), user.keys());
-    }
-
-    @Test
     @DisplayName("a report longer than the chat can hold is cut, and the cut is announced")
     void longReportsAreCut() {
-        final String longResult = String.join("\n",
-                java.util.Collections.nCopies(UpdateFollower.MAX_LINES + 3, "line"));
+        UpdateReport building = UpdateReport.at(UpdateReport.Stage.DONE);
+        for (int i = 0; i < UpdateFollower.MAX_LINES + 3; i++) {
+            building = building.with(new UpdateReport.ServiceLine("service-" + i,
+                    UpdateReport.State.HEALTHY, List.of(), null));
+        }
+        final UpdateReport report = building;
         final FakeUser user = FakeUser.inGame();
-        following(id -> Optional.of(row(UpdateStatus.DONE, longResult))).poll(NOW).deliver(user);
+        following(id -> Optional.of(row(UpdateStatus.DONE, UpdateReports.toJson(report))))
+                .poll(NOW).deliver(user);
+
         assertEquals(UpdateFollower.MAX_LINES + 1, user.replies.size());
         assertEquals("update.truncated", user.replies.getLast().key());
-        assertEquals(3, user.replies.getLast().of("lines"));
+        // MAX_LINES + 3 services plus the headline is MAX_LINES + 4 lines; MAX_LINES are kept.
+        assertEquals(4, user.replies.getLast().of("lines"));
     }
 
     @Test
@@ -117,6 +177,9 @@ class UpdateFollowerTest {
         assertTrue(step.finished());
         assertEquals("update.timeout", user.only().key());
         assertEquals(UpdateStatus.PENDING, user.only().of("status"));
+        assertFalse(user.only().placeholders().containsKey("id"),
+                "the request id is a primary key read out to somebody who cannot use it; the one"
+                        + " reader who can is looking at the updater's log, where it still is");
     }
 
     @Test

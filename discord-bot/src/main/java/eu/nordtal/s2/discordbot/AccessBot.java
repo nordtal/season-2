@@ -182,7 +182,8 @@ public class AccessBot implements AutoCloseable {
             // Built before the listener list because the command effects below hand it the
             // watch: the declaration decides, this draws.
             final UpdateCommand updateCommand =
-                    new UpdateCommand(updates, admin, database.jdbi(), worker, timers);
+                    new UpdateCommand(updates, admin, database.jdbi(), messages, worker,
+                            timers);
 
             jda.addEventListener(
                     guildState,

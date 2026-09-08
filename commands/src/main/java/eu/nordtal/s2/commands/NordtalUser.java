@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Locale;
 import java.util.Map;
@@ -112,6 +113,21 @@ public interface NordtalUser {
      */
     default void reply(final String messageKey, final Map<String, ?> placeholders,
                        final Feedback feedback) {
+        reply(messageKey, placeholders);
+    }
+
+    /**
+     * Say something, and let the surface show at a glance whether it is good news.
+     *
+     * <p>The same shape as the {@link Feedback} overload above and for the same reason: a surface
+     * that cannot do it implements nothing and loses nothing. Discord is that surface here - an
+     * embed has one colour for the whole of it - so the default is what the bot uses.</p>
+     *
+     * <p>It exists for {@code /update}, whose answer is up to forty lines of which one is the
+     * failure. See {@link Tone}.</p>
+     */
+    default void reply(final String messageKey, final Map<String, ?> placeholders,
+                       final Tone tone) {
         reply(messageKey, placeholders);
     }
 

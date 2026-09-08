@@ -264,6 +264,56 @@ the only thing that resolves a version, compares a volume or judges an outcome. 
 reasoning, including why the report lives as JSON in the existing column rather than in a table of
 its own.
 
+### The fifth kind: a volume backup
+
+Arcane can snapshot a volume to S3 on a schedule of its own, and it can stop the containers first.
+What it cannot do is tell anybody. A stop nobody announced is a stop that lands on whoever happened
+to be online at a quarter to five, so **the updater drives the backup the same way it drives an
+update**: countdown, stop, do the thing, start, verify, report.
+
+**`serve` is still not a scheduler, and this is not an exception to that rule.** The clock lives in
+`smp`, which already schedules the farm reset - `config.yml#backup-time`, default `04:45`, fifteen
+minutes ahead of the 05:00 reset, blank meaning never. At that time `smp` writes a `BACKUP` row and
+the updater executes it like any other request. The cost of that choice is named rather than hidden:
+**no `smp`, no backup, and nothing says so** (owner, 2026-09-09). What makes it bearable is that a
+failed run now mentions the admin role.
+
+The sequence, in `Runner#backup`:
+
+1. Check Arcane answers at all - the run refuses to start otherwise, the same as an update.
+2. Refuse an empty volume list. A backup that saves nothing and reports success is worse than none.
+3. Take the **same `RunLock`** as update and restart. The second asker is refused, never queued.
+4. Countdown, then stop `backup.stop-services` (`smp`, `network-control`, `bot`).
+5. `POST` every volume **first**, then poll. Starting and waiting one at a time would hold the
+   network down for the *sum* of the uploads instead of the longest one.
+6. Start again, wait for each service to report `running` and `healthy`.
+
+**A service that refuses to stop aborts the run before anything is saved**, and everything that did
+stop is started again - the same rule an update follows, for the same reason: a snapshot taken
+around a live server is torn, and the tear surfaces at *restore*, months later.
+
+**The Arcane API, read from v2.10.2's source on 2026-09-08 rather than from its docs.**
+`POST /api/environments/{id}/volumes/{name}/backups` starts one (202, permission
+`PermVolumesBackup`, `409` when one is already running for that volume). An **empty body** is
+deliberate: Arcane then loads the volume's own policy and uses its destination, so *where* a
+snapshot goes stays a decision taken once, in Arcane, and not a second time here.
+`GET` on the same path lists entries with `id` and `status` (`running` / `succeeded` / `failed`);
+there is no get-by-id, so the run polls the list for its own id.
+
+**An unreadable poll is `RUNNING`, never `FAILED`.** The snapshot is still being written on the far
+side, and calling it failed would start the servers on top of it. Only `backup.patience-minutes`
+ends a wait - **thirty** minutes per volume, and the volume line then says *gave up waiting* rather
+than claiming Arcane failed.
+
+Thirty rather than sixty because giving up stopped being silent on the same day: a run that ends
+`FAILED` mentions the admin role in the admin channel instead of only editing an embed. The two are
+one decision, and `ConfigsTest` says so where the number is.
+
+**What is never backed up is `postgres-data`.** PostgreSQL is saved through the `pg_dump` sidecar
+into `postgres-dumps`, and that volume is in the list; a filesystem snapshot of a live PGDATA is the
+kind of backup that restores into a corrupt cluster. `Configs` refuses any volume whose name ends in
+`postgres-data` **by name**, at load, rather than warning about it.
+
 ### Every run reaches the admin channel, not only the ones started in Discord
 
 A run asked for in game, or from a console, used to be invisible in Discord: the embed existed only

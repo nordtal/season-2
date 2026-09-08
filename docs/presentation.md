@@ -336,6 +336,28 @@ actually typed. **The icons are drawn white on purpose**, because Minecraft mult
 the component's colour: white art can be tinted to whatever the bundle asks for, black art cannot be
 tinted lighter. That is the same lesson the board frame taught the hard way (section 3).
 
+### Nordtal blue, the one colour that is not a mood
+
+The five above say what a line *is*. This one says who is speaking, and it never varies with the
+occasion: **the name Nordtal is always the blue of the logo.**
+
+The value is measured, not chosen. `resource-pack/src/pack.png` builds the mark out of one blue
+family on near-black - `#24357d` at its brightest, then `#1d2a62`, `#1b285e`, `#1b254d` and
+`#13182f`, with `#fffcf6` for the lights. **`#24357d` is the brand**, and it is what to write
+wherever the ground is light: a menu panel, a board, a document, the website.
+
+On a dark ground `#24357d` is a dark blue on a dark grey and barely legible - the server browser's
+list and a Minecraft chat are both such grounds. There the same hue is used **lightened**, today
+`#4a63d8`. One brand, two applications; a line that needs the name never picks a third value.
+
+This is written down because it was got wrong in the obvious way. Until 2026-09-09 each of the five
+MOTDs coloured the name for itself - a light blue gradient before the opening, orange during the
+hunger games, green on the SMP, grey in maintenance. Every one of those was defensible on its own,
+and together they meant the server browser showed four different marks depending on the day. A name
+that changes colour is not one mark seen four times; it is four marks. The phase is what the
+*second* line is for, and it already says it. `NetworkSpec.MotdSpec#NORDTAL_BLUE` is now the single
+literal and `BrandColourTest` fails a phase that colours the name again.
+
 ---
 
 ## 6. Moments

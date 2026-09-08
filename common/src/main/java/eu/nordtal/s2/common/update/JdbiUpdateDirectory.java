@@ -48,6 +48,22 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public java.util.List<UpdateRequest> since(final long id) {
+        return dao.since(id);
+    }
+
+    @Override
+    public long latestId() {
+        return dao.latestId();
+    }
+
+    @Override
+    public java.util.List<UpdateRequest> finishedWithin(final Duration window) {
+        Objects.requireNonNull(window, "window");
+        return dao.finishedWithin(Math.max(0L, window.toSeconds()));
+    }
+
+    @Override
     public Optional<UpdateRequest> claimNext() {
         return dao.claimNext();
     }

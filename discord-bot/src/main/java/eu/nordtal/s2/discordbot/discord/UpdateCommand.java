@@ -440,16 +440,31 @@ public final class UpdateCommand extends ListenerAdapter {
     // twice.
     static MessageEmbed fields(final UpdateReport report, final UpdateRequest request,
                                final Messages messages, final Locale locale) {
+        return fields(report, request, messages, locale, null);
+    }
+
+    /**
+     * @param footer who asked and from where, or {@code null}. Only the admin channel's feed sets
+     *               one - the asker's own message does not need to be told who they are - and it is
+     *               <b>subtracted from the budget</b> rather than added on top, because Discord's
+     *               6 000 counts a footer like everything else and the arithmetic here has already
+     *               been wrong three times by being reasoned about instead of measured
+     */
+    static MessageEmbed fields(final UpdateReport report, final UpdateRequest request,
+                               final Messages messages, final Locale locale, final String footer) {
         final String headline = messages.format(locale, "update.stage." + report.stage(), Map.of());
         final net.dv8tion.jda.api.EmbedBuilder embed = new net.dv8tion.jda.api.EmbedBuilder()
                 .setTitle(headline)
                 .setColor(colour(report.stage() == UpdateReport.Stage.FAILED))
                 .setTimestamp(request.finished() == null ? Instant.now() : request.finished());
+        if (footer != null) {
+            embed.setFooter(footer);
+        }
 
         // The service lines are what somebody is actually watching, so they get the budget first
         // and the notes get what is left. A run whose notes are long is usually a run that failed,
         // and "which server did not come back" is the half that matters then.
-        int budget = EMBED_BUDGET - headline.length();
+        int budget = EMBED_BUDGET - headline.length() - (footer == null ? 0 : footer.length());
         final java.util.List<String[]> drawn = new java.util.ArrayList<>();
         for (final UpdateReport.ServiceLine line : report.services()) {
             // Discord caps an embed at 25 fields; four services and a bot cannot reach that, and

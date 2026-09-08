@@ -133,6 +133,45 @@ interface UpdateDao {
     Optional<UpdateRequest> find(@Bind("id") long id);
 
     /**
+     * Every request written after the one named, oldest first.
+     *
+     * <p>The Discord bot's feed: it remembers the highest id it has drawn and asks for what came
+     * after it, so a run asked for <em>in game</em> or from a console appears in the admin channel
+     * without anybody having to think of posting it. Before this existed, the only run an admin who
+     * had not started it could see was one started in Discord - and those are the ones that already
+     * have somebody watching.</p>
+     *
+     * @param id the last one already seen; {@code 0} for everything
+     */
+    @SqlQuery("SELECT * FROM update_request WHERE id > :id ORDER BY id")
+    java.util.List<UpdateRequest> since(@Bind("id") long id);
+
+    /**
+     * The highest id in the table, or zero when it is empty.
+     *
+     * <p>What the feed starts from, so a bot restarting after a season of updates does not post the
+     * whole history into the admin channel. What that costs is the runs that finished while the bot
+     * was down, which {@link #finishedWithin(long)} is for.</p>
+     */
+    @SqlQuery("SELECT coalesce(max(id), 0) FROM update_request")
+    long latestId();
+
+    /**
+     * Every request that reached a terminal state in the last {@code seconds}.
+     *
+     * <p>The other half of a boot: a run started in game five minutes ago finished while this bot
+     * was restarting, so its id is below {@link #latestId()} and the feed would never see it - which
+     * would make the one run nobody watched also the one run nobody ever saw the answer to.</p>
+     */
+    @SqlQuery("""
+            SELECT * FROM update_request
+            WHERE finished IS NOT NULL
+              AND finished > now() - make_interval(secs => cast(:seconds AS double precision))
+            ORDER BY id
+            """)
+    java.util.List<UpdateRequest> finishedWithin(@Bind("seconds") long seconds);
+
+    /**
      * Starts the countdown on a request this updater has already claimed.
      *
      * <h2>Why the countdown begins here and not when the row was written</h2>

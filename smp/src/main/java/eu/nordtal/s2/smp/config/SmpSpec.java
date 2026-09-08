@@ -148,6 +148,34 @@ public interface SmpSpec {
     }
 
     @Order(12)
+    @Key("backup-time")
+    @Comment({
+            "Local time of day this plugin asks the updater for a network backup, HH:mm.",
+            "",
+            "WHY THE SMP OWNS THE NETWORK'S BACKUP CLOCK. The updater is not a scheduler and must",
+            "never become one - `serve` does nothing at all until a row appears in update_request,",
+            "which is what stops a crash restart at three in the morning from moving a version.",
+            "So somebody else has to write that row on a timer, and this plugin is the one process",
+            "in the network that already runs a daily clock: the farm world reset below.",
+            "",
+            "Fifteen minutes before farm-reset-time on purpose. The backup stops smp,",
+            "network-control and the bot for the length of the snapshot; running it into the reset",
+            "would mean the world swap happening on a server that was just brought back, and the",
+            "saved copy of the farm world would be the one about to be deleted anyway.",
+            "",
+            "EMPTY MEANS NO NIGHTLY BACKUP, which is what a local stack wants: there is no Arcane",
+            "on a laptop, so the run would fail every night at a quarter to five. The cost of",
+            "leaving it empty in production is that nothing is saved and nothing says so - the",
+            "only evidence either way is Arcane's own backup list.",
+            "",
+            "A backup asked for here is the same run as /backup now, countdown included: every",
+            "player online sees thirty seconds of warning before the servers go down."
+    })
+    default String backupTime() {
+        return "04:45";
+    }
+
+    @Order(13)
     @Key("farm-reset-warning-minutes")
     @Comment("How far ahead the reset is announced, in chat and on the HUD, in every language.")
     default List<Integer> farmResetWarningMinutes() {
@@ -156,7 +184,7 @@ public interface SmpSpec {
 
     // ------------------------------------------------- world generation plumbing
 
-    @Order(13)
+    @Order(14)
     @Key("required-datapacks")
     @Comment({
             "The world-generation datapacks that MUST be installed and enabled, checked at enable.",

@@ -546,7 +546,9 @@ public final class UpdateCommand extends ListenerAdapter {
             case UNCHANGED -> "–";
             case PLANNED -> "○";
             case STOPPED, INSTALLED, STARTING -> "◑";
-            case HEALTHY -> "✔";
+            // A finished snapshot and a service that came back are the same news to a reader
+            // scanning the fields: this one is done and it is done right.
+            case HEALTHY, SAVED -> "✔";
             case FAILED -> "✖";
         };
     }

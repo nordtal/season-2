@@ -575,6 +575,29 @@ services:
       # the file in jcore's config system, so `${VAR:-}` here would blank out the spec's own
       # default rather than fall back to it. smp's ConfigsTest asserts the two copies agree.
       NORDTAL_SMP_PREGENERATION_ON_START: ${SMP_PREGENERATION_ON_START:-true}
+      # WHEN THIS SERVER ASKS FOR THE NETWORK'S NIGHTLY BACKUP, and it is on this service for a
+      # reason that has nothing to do with the SMP: the updater must not schedule its own work
+      # (docs/updater.md - `serve` is not a scheduler, so a crash restart at three in the morning
+      # cannot move a version), and this plugin is the one process in the network that already runs
+      # a daily clock. It writes an update_request row of kind BACKUP; the updater counts down,
+      # stops smp, network-control and the bot, asks Arcane for one snapshot per volume, starts
+      # them again and waits for every healthcheck.
+      #
+      # 04:45 is a quarter of an hour before farm-reset-time. The other way round would snapshot a
+      # farm world that is about to be deleted, on servers that had only just come back.
+      #
+      # EMPTY MEANS NO NIGHTLY BACKUP AT ALL and nothing else asks for one - which is what a local
+      # stack wants, because there is no Arcane on a laptop. The default is REPEATED from SmpSpec
+      # rather than left empty, for the reason the line above it carries: an empty environment
+      # variable wins over the file, so `${VAR:-}` here would turn the backup off in production
+      # while config.yml still said 04:45 and nothing anywhere said otherwise.
+      #
+      # NOTE THE SINGLE DASH, and it is the only one in this file. `${VAR:-x}` falls back when the
+      # variable is unset OR EMPTY, so `SMP_BACKUP_TIME=` in an env file would silently become
+      # 04:45 again and the local stack would ask for a backup every night against an Arcane that
+      # is not there. `${VAR-x}` falls back only when it is unset, which is what makes "set it to
+      # empty to turn it off" actually work. :smp's ComposeWorldTest asserts the dash.
+      NORDTAL_SMP_BACKUP_TIME: ${SMP_BACKUP_TIME-04:45}
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password

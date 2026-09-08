@@ -470,6 +470,94 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("every volume a backup saves is a volume compose.yml declares, prefix included")
+    void theBackupNamesRealVolumes() {
+        // TWO COPIES OF ONE FACT, the same shape Topology and compose.yml already are. Arcane
+        // addresses a volume by its REAL Docker name, which is compose's `name:` plus an
+        // underscore plus the key under `volumes:` - so a volume renamed here and not there is a
+        // 404 from Arcane on the one night it matters, and a run that reports a failed backup for
+        // a volume that has not existed for weeks.
+        //
+        // A 404 is the GOOD version of getting this wrong. The bad one is a typo that happens to
+        // name a volume Docker will simply CREATE on first use: Arcane would snapshot an empty
+        // directory and report success for ever.
+        final String project = composeProject();
+        final Set<String> declared = composeVolumes();
+
+        for (final String volume : defaults().backup().volumes()) {
+            assertTrue(volume.startsWith(project + "_"),
+                    "backup.volumes lists '" + volume + "', which does not start with compose's own"
+                            + " project name '" + project + "_'. Docker prefixes every volume in a"
+                            + " compose project, and Arcane only knows the prefixed name.");
+            final String key = volume.substring(project.length() + 1);
+            assertTrue(declared.contains(key),
+                    "backup.volumes lists '" + volume + "', but compose.yml declares no volume '"
+                            + key + "'. Docker creates a volume it has never seen on first use, so"
+                            + " this would snapshot an empty directory and report success.");
+        }
+    }
+
+    @Test
+    @DisplayName("every service a backup stops is a service compose.yml runs")
+    void theBackupStopsRealServices() {
+        // A name Arcane does not list is reported as "Arcane does not list a container for this
+        // service" and aborts the run before anything is saved - which is the right direction to
+        // fail in, and still an outage for nothing at a quarter to five in the morning.
+        for (final String service : defaults().backup().stopServices()) {
+            assertNotNull(services.get(service), "backup.stop-services names '" + service
+                    + "', which is not a service in compose.yml. The run would stop nothing, save"
+                    + " nothing and report a failure.");
+        }
+    }
+
+    /** The compose project name, which is the prefix Docker puts on every volume in it. */
+    private static String composeProject() {
+        final Path compose = findUpwards("compose.yml");
+        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
+            final Object name = root.get("name");
+            assertNotNull(name, "compose.yml has no top-level name:, so the volume prefix is the"
+                    + " directory name and depends on where somebody cloned this repository");
+            return String.valueOf(name);
+        } catch (final IOException unreadable) {
+            throw new IllegalStateException("could not read " + compose, unreadable);
+        }
+    }
+
+    /** The keys under compose.yml's top-level {@code volumes:} block. */
+    private static Set<String> composeVolumes() {
+        final Path compose = findUpwards("compose.yml");
+        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> volumes = (Map<String, Object>) root.get("volumes");
+            assertNotNull(volumes, compose + " has no volumes block");
+            return new LinkedHashSet<>(volumes.keySet());
+        } catch (final IOException unreadable) {
+            throw new IllegalStateException("could not read " + compose, unreadable);
+        }
+    }
+
+    /** {@link UpdaterSpec} answering nothing but its own defaults. */
+    private static UpdaterSpec defaults() {
+        return new UpdaterSpec() {
+            @Override
+            public BackupSpec backup() {
+                return new BackupSpec() {
+                };
+            }
+
+            @Override
+            public ArcaneSpec arcane() {
+                return new ArcaneSpec() {
+                };
+            }
+        };
+    }
+
+    @Test
     @DisplayName("the bootstrap default repeated in compose.yml still matches the spec's own")
     void theBootstrapDefaultAgreesWithTheSpec() {
         // Same reason as the two Arcane defaults above: an empty environment variable wins over the
@@ -482,6 +570,14 @@ class TopologyTest {
         // arcane() is the one member of UpdaterSpec without a default, so it has to be supplied
         // even though this test only reads bootstrap().
         final UpdaterSpec spec = new UpdaterSpec() {
+            @Override
+            public BackupSpec backup() {
+                // Defaults throughout: this test is not about a backup, and BackupSpec's own
+                // defaults are the production ones.
+                return new BackupSpec() {
+                };
+            }
+
             @Override
             public ArcaneSpec arcane() {
                 return new ArcaneSpec() {

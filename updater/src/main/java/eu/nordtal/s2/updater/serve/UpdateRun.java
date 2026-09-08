@@ -2,6 +2,7 @@ package eu.nordtal.s2.updater.serve;
 
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.updater.arcane.ArcaneOps;
+import eu.nordtal.s2.updater.arcane.BackupResult;
 import eu.nordtal.s2.updater.arcane.RedeployResult;
 import eu.nordtal.s2.updater.arcane.RuntimeResult;
 import eu.nordtal.s2.updater.arcane.ServiceRuntime;
@@ -59,6 +60,16 @@ final class UpdateRun {
 
     /** How often the runtime is re-read while waiting. Cheap: one GET against a local Arcane. */
     private static final Duration HEALTH_POLL = Duration.ofSeconds(5);
+
+    /**
+     * How often a running backup is asked about.
+     *
+     * <p>Longer than the health poll because the thing being watched is minutes rather than
+     * seconds long, and because each tick is one GET per volume still running rather than one in
+     * total. Nobody is watching a snapshot to the second; what the polling is for is noticing that
+     * it finished, not timing it.</p>
+     */
+    private static final Duration BACKUP_POLL = Duration.ofSeconds(15);
 
     private final ArcaneOps arcane;
     private final Consumer<UpdateReport> progress;
@@ -119,6 +130,89 @@ final class UpdateRun {
             progress.accept(report);
         }
         return new Stopped(report, List.copyOf(stopped), runtime);
+    }
+
+    /**
+     * Snapshots every volume, with the servers already stopped, and waits for each one.
+     *
+     * <h2>All of them are started, then all of them are waited for</h2>
+     * Rather than start-and-wait per volume, which would serialise several gigabytes of upload
+     * behind each other and hold the network down for the sum rather than the maximum. Arcane runs
+     * them concurrently; this only asks.
+     *
+     * <h2>An unreadable poll is not a failure</h2>
+     * {@link ArcaneOps#backupState} answers {@code RUNNING} for anything it could not read, so a
+     * momentary 502 does not end a snapshot that is still being written. What ends a wait is the
+     * patience, and a volume that runs out of it is reported {@code FAILED} with the last thing
+     * Arcane said about it - the snapshot may well still finish, which is exactly why the sentence
+     * says "gave up waiting" rather than "failed".
+     *
+     * @param volumes the Docker volume names, from {@code updater.yml#backup.volumes}
+     * @return the report with one line per volume, each {@code SAVED} or {@code FAILED}
+     */
+    @NotNull UpdateReport save(final UpdateReport stopped, final List<String> volumes,
+                               final Duration patience, final Waiting clock) {
+        UpdateReport report = stopped.withStage(UpdateReport.Stage.BACKING_UP);
+        progress.accept(report);
+
+        final java.util.Map<String, String> started = new java.util.LinkedHashMap<>();
+        for (final String volume : volumes) {
+            report = report.with(new UpdateReport.ServiceLine(volume, UpdateReport.State.PLANNED,
+                    List.of(new UpdateReport.Change("backup", null, "snapshot")), null));
+            final BackupResult asked = arcane.backup(volume);
+            if (asked.id() == null) {
+                report = report.with(report.line(volume).failed(asked.message()));
+            } else {
+                started.put(volume, asked.id());
+                report = report.with(report.line(volume).at(UpdateReport.State.STARTING));
+            }
+            progress.accept(report);
+        }
+
+        final Instant deadline = clock.now().plus(patience);
+        final List<String> pending = new java.util.ArrayList<>(started.keySet());
+        java.util.Map<String, String> lastSeen = new java.util.HashMap<>();
+        while (!pending.isEmpty()) {
+            final List<String> settled = new java.util.ArrayList<>();
+            for (final String volume : pending) {
+                final BackupResult state = arcane.backupState(volume, started.get(volume));
+                lastSeen.put(volume, state.message());
+                if (!state.isFinished()) {
+                    continue;
+                }
+                settled.add(volume);
+                report = report.with(state.isGood()
+                        ? report.line(volume).at(UpdateReport.State.SAVED)
+                        : report.line(volume).failed(state.message()));
+            }
+            if (!settled.isEmpty()) {
+                pending.removeAll(settled);
+                progress.accept(report);
+            }
+            if (pending.isEmpty()) {
+                break;
+            }
+            if (!clock.now().isBefore(deadline)) {
+                for (final String volume : pending) {
+                    report = report.with(report.line(volume).failed("gave up waiting after "
+                            + patience.toMinutes() + " minutes (last seen: "
+                            + lastSeen.getOrDefault(volume, "no answer") + "). Arcane may still be"
+                            + " writing it; the servers were started again rather than left down"
+                            + " for a snapshot nothing here can hurry."));
+                }
+                progress.accept(report);
+                break;
+            }
+            if (!clock.sleep(BACKUP_POLL)) {
+                for (final String volume : pending) {
+                    report = report.with(report.line(volume)
+                            .failed("the updater stopped while waiting for this backup"));
+                }
+                progress.accept(report);
+                break;
+            }
+        }
+        return report;
     }
 
     /** Starts everything this run stopped, and says so. */

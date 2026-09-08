@@ -23,6 +23,7 @@ import eu.nordtal.s2.discordbot.discord.BotAccessEffects;
 import eu.nordtal.s2.discordbot.discord.BotPhaseEffects;
 import eu.nordtal.s2.discordbot.discord.DiscordCommands;
 import eu.nordtal.s2.discordbot.discord.UpdateCommand;
+import eu.nordtal.s2.discordbot.discord.UpdateFeed;
 import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
 import eu.nordtal.s2.discordbot.access.payment.PaymentProcessor;
 import eu.nordtal.s2.discordbot.access.payment.PaymentRequests;
@@ -276,7 +277,15 @@ public class AccessBot implements AutoCloseable {
             final StatusChannels status = new StatusChannels(jda, languages, messages, phases,
                     SnapshotDirectory.using(database.dataSource()), Clock.systemUTC(), announcements);
 
-            schedule(accessConfig, processor, roles, status);
+            // Every update run in the admin channel, including the ones nobody in Discord started.
+            // Started here rather than inside schedule() because start() reads the table once, to
+            // decide where the feed begins - and a restart that began at zero would post a season
+            // of history into the channel.
+            final UpdateFeed updateFeed =
+                    new UpdateFeed(updates, UpdateFeed.Board.of(admin), messages);
+            updateFeed.start();
+
+            schedule(accessConfig, processor, roles, status, updateFeed);
 
             // The container readiness marker, and note where this line sits: after JDA is ready,
             // after the managed messages are published and after both reconciles - so a marker on
@@ -310,7 +319,8 @@ public class AccessBot implements AutoCloseable {
      * </p>
      */
     private void schedule(final AccessSpec config, final PaymentProcessor processor,
-                          final AccessRoles roles, final StatusChannels status) {
+                          final AccessRoles roles, final StatusChannels status,
+                          final UpdateFeed updateFeed) {
         final int poll = config.payment().pollIntervalSeconds();
         timers.scheduleWithFixedDelay(guarded("payment poll", processor::poll), poll, poll, TimeUnit.SECONDS);
 
@@ -334,6 +344,13 @@ public class AccessBot implements AutoCloseable {
         } else {
             log.info("No language has a status-channel; the sidebar status is off");
         }
+
+        // One indexed lookup every two seconds, and almost always none at all: `id > lastSeen`
+        // answers nothing for the whole of a season except while somebody is updating. Two seconds
+        // because a run moves stage by stage and the channel is where the rest of the admins watch
+        // it - the same interval the asker's own embed redraws on.
+        timers.scheduleWithFixedDelay(guarded("update feed", updateFeed::tick),
+                UpdateFeed.INTERVAL.toSeconds(), UpdateFeed.INTERVAL.toSeconds(), TimeUnit.SECONDS);
     }
 
     private Runnable guarded(final String name, final Runnable task) {

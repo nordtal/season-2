@@ -19,6 +19,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -364,6 +365,51 @@ class UpdateDirectoryIntegrationTest {
         assertEquals(soon.id(), updates.countingDown().orElseThrow().id());
         assertEquals(soon.id(), updates.cancelCountdown("stop").orElseThrow().id());
         assertTrue(updates.countingDown().isPresent(), "the later one is still standing");
+    }
+
+    // ---------------------------------------------------------------- reading the table forward
+
+    @Test
+    @DisplayName("the feed reads forward from the last id it drew, and no further back")
+    void sinceIsEverythingAfterTheMark() {
+        final UpdateRequest first = updates.submit(UpdateKind.REPORT, UpdateSource.GAME, "a", Duration.ZERO);
+        final UpdateRequest second = updates.submit(UpdateKind.UPDATE, UpdateSource.CONSOLE, null, Duration.ZERO);
+
+        assertEquals(List.of(first.id(), second.id()),
+                updates.since(0L).stream().map(UpdateRequest::id).toList(),
+                "zero means everything, which is what a database with no history answers with");
+        assertEquals(List.of(second.id()),
+                updates.since(first.id()).stream().map(UpdateRequest::id).toList());
+        assertEquals(List.of(), updates.since(second.id()),
+                "and the ordinary tick, for the whole of a season, answers nothing at all");
+
+        assertEquals(second.id(), updates.latestId(),
+                "which is where a restarting bot begins, so it does not post the history again");
+    }
+
+    @Test
+    void latestIdOfAnEmptyTableIsZero() {
+        assertEquals(0L, updates.latestId(),
+                "a fresh deployment has no history, and the feed must not be given null to reason"
+                        + " about");
+    }
+
+    @Test
+    @DisplayName("a run that finished while the bot was down is inside the catch-up window")
+    void finishedWithinFindsTheRunNobodySaw() {
+        final UpdateRequest done = updates.submit(UpdateKind.UPDATE, UpdateSource.GAME, "a", Duration.ZERO);
+        updates.claimNext().orElseThrow();
+        updates.finish(done.id(), UpdateStatus.DONE, "{}").orElseThrow();
+
+        final UpdateRequest open = updates.submit(UpdateKind.REPORT, UpdateSource.GAME, "b", Duration.ZERO);
+
+        assertEquals(List.of(done.id()),
+                updates.finishedWithin(Duration.ofMinutes(12)).stream()
+                        .map(UpdateRequest::id).toList(),
+                "a request that has not finished is not a result to post");
+        assertEquals(List.of(), updates.finishedWithin(Duration.ZERO),
+                "and a window of nothing finds nothing, rather than everything");
+        assertEquals(UpdateStatus.PENDING, updates.find(open.id()).orElseThrow().status());
     }
 
     // ---------------------------------------------------------------- orphans

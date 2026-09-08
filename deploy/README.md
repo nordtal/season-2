@@ -346,13 +346,16 @@ escape sequences.
 ## Updating
 
 **The normal way is `/update` in the admin channel on Discord.** It reports what is newer than what
-is running, an **Install** button installs it, and a **Restart the network** button under that
-starts a 30-second countdown that every player online is warned through. `/update` in game does
-the same four things for an admin who is not at a keyboard with Discord on it.
+is running and changes nothing; an **Update now** button under it runs the whole thing, after a
+30-second countdown every player online is warned through. `/update` is the same command in game and
+on the proxy console — one declaration, three adapters, since 2026-09-08.
 
 Both reach the updater the only way anything here can — a row in `update_request` and a
-notification, answered by the container that has the volumes. Neither renders the report itself:
-what you read is the updater's own text, written once by the process that did the work.
+notification, answered by the container that has the volumes. **The updater is still the only thing
+that decides anything**, but the answer is now data rather than a paragraph: it writes an
+`UpdateReport` into `update_request.result` as JSON, one line per service and one entry per artefact
+moving. Discord draws that as a field per service, edited in place while the run works; chat and the
+console print `UpdateReport#render()`, which is the only text form of it.
 
 On the host it is one command, and a second one to make it take effect:
 
@@ -368,14 +371,15 @@ healthy. Installing over a running server is what this deployment stopped doing 
 ```bash
 ```
 
-An `apply` run by hand and one asked for from Discord cannot collide: an apply takes a PostgreSQL
-advisory lock and **the second one to ask is refused rather than queued** — a plan resolved now
-would be stale by the time it got its turn. The refusal names both possibilities so you know which
-one you are waiting for.
+A `bootstrap` run by hand, an update and a restart cannot collide: **every one of them takes the
+same PostgreSQL advisory lock, and the second one to ask is refused rather than queued** — a plan
+resolved now would be stale by the time it got its turn. The refusal names both possibilities so you
+know which one you are waiting for.
 
-`apply` applies the schema before it moves a jar, so a plugin never comes up against a schema older
-than itself. A migration that fails stops the run there: nothing is fetched, nothing is written, and
-a half-migrated database with new jars on top of it is the state nobody can reason about.
+An update applies the schema **with the affected servers stopped**, before a jar moves, so a plugin
+can never come up against a schema older than itself. A migration that fails stops the run there:
+nothing is fetched, nothing is written, every service that was stopped is started again, and a
+half-migrated database with new jars on top of it is the state nobody has to reason about.
 
 The updater asks GitHub, Modrinth and the PaperMC Fill API what the newest version of everything is,
 compares that against the jars lying in the volumes, and moves the ones that differ. Nothing is
@@ -396,10 +400,12 @@ Three properties worth knowing, because each is a decision:
   The server jar is the one exception (2026-09-02): a Paper or Velocity build the Fill API could not
   answer for is its own "skipped" row and the plugins move anyway — they are compiled against the
   *version*, never a build, and the build already in `.server/` runs.
-- **It restarts nothing.** `apply` prints what it did and stops. Read that before restarting — a
-  server that was part-updated is exactly the thing worth catching before the network goes down on
-  it. The restart is a separate button for that reason, and it is a *button* and not a step of the
-  run.
+- **The report restarts nothing, and the run restarts exactly what it stopped.** `/update` on its
+  own prints what would change and stops — read that before pressing anything, because a plan is the
+  one thing you can still act on freely. `/update now` then stops the affected servers, installs,
+  starts them again and waits until each reports healthy; it does not leave servers down, and a
+  server that does not come back makes the whole run fail by name. `bootstrap` on the host stops and
+  starts nothing at all, because it only fills slots that are empty.
 - **"Skipped" is not "up to date".** A run where nothing could be checked — an unmounted volume, a
   source that did not answer — did no work and had no failure, and the report says so in as many
   words rather than closing with "Nothing needed doing". That sentence on a run like this one is how
@@ -420,7 +426,8 @@ deleted every other jar, which undid each updater run on the next restart and tu
 after an update into a Fill API call, i.e. the outage the cache exists to survive.
 
 Rolling back to an older build is `UPDATER_PAPER_BUILD=121` (or `UPDATER_VELOCITY_BUILD`) in
-`.env`, then `apply`, then the restart — the same shape as `UPDATER_SEASON_RELEASE=v0.1.0`. The
+`.env`, then `/update now` — one run, no separate restart — the same shape as
+`UPDATER_SEASON_RELEASE=v0.1.0`. The
 report shows `paper-26.2-125.jar -> paper-26.2-121.jar` like any other move. It is *not*
 `PAPER_BUILD`: that one seeds an empty cache and never moves a running server.
 

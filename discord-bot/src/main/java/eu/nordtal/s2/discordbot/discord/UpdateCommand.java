@@ -433,10 +433,12 @@ public final class UpdateCommand extends ListenerAdapter {
         drawn.forEach(field -> embed.addField(field[0], field[1], true));
         if (drawn.size() < report.services().size()) {
             final int left = report.services().size() - drawn.size();
-            // Only if it fits; an "and N more" that itself overflows would be the same bug again.
-            if (("..." + left).length() + 20 <= budget) {
-                embed.addField("...", "and " + left + " more - the updater's log has all of it",
-                        false);
+            // Measured, not estimated. The first version of this reserved a flat 20 characters and
+            // then wrote a value nearly three times that - which is the same overflow bug one line
+            // further down, introduced by the guard against it.
+            final String overflow = "and " + left + " more - the updater's log has all of it";
+            if ("...".length() + overflow.length() <= budget) {
+                embed.addField("...", overflow, false);
             }
         }
         return embed.build();

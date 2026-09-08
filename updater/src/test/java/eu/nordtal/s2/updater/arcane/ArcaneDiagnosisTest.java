@@ -146,4 +146,24 @@ class ArcaneDiagnosisTest {
 
         assertTrue(sentence.endsWith("java.net.ConnectException: Operation timed out"), sentence);
     }
+
+    // ---------------------------------------------------------------- the same-host exception
+
+    @Test
+    @DisplayName("plain HTTP with a key is refused for a remote host and allowed for this one")
+    void cleartextIsOnlyDefensibleOnThisMachine() {
+        // The constructor has warned about this since finding 114, and a warning is what a log
+        // holds and nobody reads. Every request carries the X-Api-Key header, so from 2026-09-08
+        // the check sits in front of the request instead - and the exception has to stay explicit,
+        // because the local stack genuinely does talk to the host over Docker's own bridge.
+        assertTrue(Arcane.sameHost("http://host.docker.internal:3552"),
+                "the documented value for the local stack: the request never leaves the machine");
+        assertTrue(Arcane.sameHost("http://localhost:3552"),
+                "broken for another reason entirely - see loopback() - but not a leaked credential");
+        assertTrue(Arcane.sameHost("http://127.0.0.1:3552"));
+
+        assertFalse(Arcane.sameHost("http://arcane.nordtal.eu"),
+                "a real host over plain HTTP is a redeploy credential on the wire");
+        assertFalse(Arcane.sameHost("http://10.0.0.4:3552"));
+    }
 }

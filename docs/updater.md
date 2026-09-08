@@ -138,8 +138,10 @@ tests against it — so it is also the first thing to look at when something bre
    close with "Nothing needed doing"; that sentence is how somebody shuts the report believing the
    network is current. **This all happens before anything restarts**, which is the whole reason the
    order is this way round.
-6. **Restart, on a button.** One Arcane redeploy of the whole project, sixty seconds after it is
-   asked for, with every player on the network counted down towards it.
+6. **The run, on a confirmation.** Thirty seconds after it is asked for - with every player on the
+   network counted down towards it - the services whose jars change are stopped, the schema and the
+   jars are moved with nothing running on them, each service is started again, and the run waits
+   until every one of them reports healthy.
 
 **The updater installs its own new jar and does not run it.** It cannot: no process swaps the jar it
 is executing and keeps going. It does not need to — the redeploy takes the whole stack down and
@@ -237,17 +239,18 @@ its own.
 
 ### The thirty-second countdown
 
-A restart takes the whole stack down, so the request is written with `not_before` sixty seconds in
-the future and **network-control counts every player down towards it** — wherever they are, limbo
+A run takes the affected servers down, so the request is written with `not_before` thirty seconds
+in the future and **network-control counts every player down towards it** — wherever they are, limbo
 and Hunger Games included. That is why the proxy owns the announcement and not the SMP plugin: the
 proxy is the only process that sees everybody, and a restart asked for *in Discord* has to warn
 people too.
 
-The countdown is a second chance rather than the first: the command itself is confirmed before it starts, by being typed again in chat and by a button in Discord. So `/update restart`
-does not ask "are you sure" — it starts a minute that everybody sees and that
-`/update cancel` (or the button in Discord) stops. The length is a constant in `:common`
-rather than a setting, because three processes submit restarts and a fourth renders the countdown:
-a value configured in four files is a counter that reaches zero while nothing happens.
+The countdown is a second chance rather than the first. The command itself is confirmed *before*
+the countdown starts — typed again inside thirty seconds in chat, a button in Discord — and only
+then do the thirty seconds everybody sees begin, which `/update cancel` (or the button) stops. The
+length is a constant in `:common` rather than a setting, because three processes submit runs and a
+fourth renders the countdown: a value configured in four files is a counter that reaches zero while
+nothing happens.
 
 ### Poll first, notify second
 

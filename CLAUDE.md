@@ -909,9 +909,12 @@ is current (it touches `/tmp/updater-ready`).
 It resolves the newest version of every jar the network runs — the six season-2 jars and the pack
 from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents and Chunky from
 Modrinth filtered to `26.2`/`paper`, Paper and Velocity from the PaperMC Fill API — compares that
-against the jars in the mounted volumes, and prints the difference. `apply` then installs what
-differs and writes the proxy's `pack.yml` — after applying the schema, so a plugin never comes up
-against a schema older than itself.
+against the jars in the mounted volumes, and prints the difference. **`/update now`** then stops the
+services whose jars change, applies the schema, installs what differs, writes the proxy's `pack.yml`
+and starts each service again — the migration running with those servers *down*, which is stronger
+than the old rule that only put it before the jars moved. `bootstrap` on the host does the same
+install for artefacts with **nothing** installed and stops nothing, because there is nothing running
+to stop.
 
 **It owns the plugin jars now, and `deploy/minecraft/entrypoint.sh` does not.** That script fetched
 them until 2026-09-01; `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS`, `SEASON_RELEASE`, `PACK_URL` and
@@ -959,15 +962,18 @@ Seven rules that are easy to break and expensive to break:
 - **Exactly one `serve` may run, enforced by its own advisory lock (`nordtalS`) since 2026-09-02.**
   `settleOrphans` closes every row left `RUNNING` because "nothing is running those rows: the only
   process that claims one is an updater, and this one has just started" - a premise that is true of
-  one serve and false of two. A second serve marks the first one's in-flight `APPLY` as `FAILED`,
+  one serve and false of two. A second serve marks the first one's in-flight run as `FAILED`,
   the real one's `finish(...)` then matches nothing, and the report of the run that was installing
   jars is replaced by "the updater stopped while this request was running". Producing two was easy
   until the same day: `docker compose run` inherits the service's `command`, so the documented
   read-only report started a daemon. Both halves are fixed - `report` has a name, and the premise is
   now a fact.
-- **An apply takes the advisory lock, and the second asker is refused, not queued.** The daemon and
-  a hand-run `apply` overlap on exactly the day somebody is bootstrapping. A plan resolved now is
-  stale by the time a queued run would start.
+- **Every run that moves or cycles anything takes the advisory lock, and the second asker is
+  refused rather than queued.** An update, a restart and a hand-run `bootstrap` all take it: the
+  daemon and somebody at a shell overlap on exactly the day somebody is bootstrapping, and a plan
+  resolved now is stale by the time a queued run would start. **A restart took no lock at all until
+  2026-09-08** - so it could cycle the servers underneath a `bootstrap` that was moving their jars,
+  which is finding 147 arriving from the other side.
 - **Filenames are the identity of what is installed**, split by `JarName` on the last `-`, which is
   `${file%-*.jar}` out of `deploy/minecraft/entrypoint.sh`. Inventing a better rule here means two
   programs disagreeing about which jar supersedes which, and the way that surfaces is Paper loading
@@ -1092,7 +1098,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1345 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1347 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-08, on `release/0.7.0`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1169,7 +1175,7 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 | `smp` | 227 |
 | `network-control` | 195 |
 | `commands` | 184 |
-| `updater` | 161 |
+| `updater` | 163 |
 | `discord-bot` | 145 |
 | `hunger-games` | 72 |
 | `limbo` | 11 |

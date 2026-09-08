@@ -482,10 +482,17 @@ public final class UpdateCommand extends ListenerAdapter {
     }
 
     private static String timedOut(final UpdateRequest request) {
+        // "Nothing was changed" is only true of a PENDING row. A RUNNING one means the updater
+        // claimed the request and did not come back: it may have stopped servers and moved jars
+        // already, and telling an admin nothing happened is the worst thing to say at that moment.
+        // The timeout is this bot's patience, not a statement about the run. Found by review.
+        final String state = request.status() == UpdateStatus.PENDING
+                ? "Nothing was changed - nothing ever claimed it."
+                : "It was claimed and did not finish, so servers may be stopped and jars may"
+                        + " already have moved. Read the updater's log before doing anything else.";
         return "The updater has not answered in " + PATIENCE.toMinutes() + " minutes. The request "
                 + "is still row " + request.id() + " in `update_request` and it is "
-                + request.status() + " - if it is still PENDING, the `updater` container is not "
-                + "running. Nothing here was changed either way.";
+                + request.status() + ". " + state;
     }
 
     /**

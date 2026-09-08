@@ -68,6 +68,25 @@ class DiscordCommandsTest {
     }
 
     @Test
+    @DisplayName("no root is both a command of its own and a parent of subcommands")
+    void noRootIsBothACommandAndAMenu() {
+        // Discord cannot run a root that has subcommands - it is a menu - and nothing says so:
+        // JDA registers the shape and the bare command is never offered. /update was declared
+        // exactly like that on 2026-09-08 and the report was unreachable in Discord until it
+        // became /update check. The adapter refuses the shape at startup; this asks the
+        // catalogue the same question, so the refusal is never the first anybody hears of it.
+        final Set<String> parents = new HashSet<>();
+        final Set<String> bare = new HashSet<>();
+        for (final Declaration declaration : inDiscord()) {
+            (declaration.path().size() == 1 ? bare : parents).add(declaration.path().getFirst());
+        }
+        bare.retainAll(parents);
+        assertEquals(Set.of(), bare,
+                "a root is both runnable bare and a parent. Discord never offers the bare form;"
+                        + " give it a subcommand and a Catalogue#rootDefault for the game.");
+    }
+
+    @Test
     @DisplayName("no path is both a subcommand and a subcommand group")
     void noNameIsBothASubcommandAndAGroup() {
         // The one that cost the most to learn. Discord builds a two-segment path as a SUBCOMMAND

@@ -69,8 +69,14 @@ class CatalogueTest {
             assertTrue(declaration.arguments().stream().noneMatch(Argument::required),
                     declaration.name() + " needs an argument, so a bare root could not run it");
         }
-        assertEquals(1, found, "exactly /phase has a default today; changing that is a decision");
+        assertEquals(2, found, "exactly /phase and /update have a default today; changing that is a"
+                + " decision");
         assertEquals(java.util.Optional.of(PhaseCommands.SHOW), Catalogue.rootDefault("phase", true));
+        // /update alone is the report, since 2026-09-08 - the report had to become /update check
+        // because Discord cannot run a root that has subcommands, and the bare form in game is
+        // what people type.
+        assertEquals(java.util.Optional.of(eu.nordtal.s2.commands.update.UpdateCommands.REPORT),
+                Catalogue.rootDefault("update", true));
     }
 
     @Test
@@ -93,6 +99,8 @@ class CatalogueTest {
         }
         assertEquals(java.util.Optional.empty(), Catalogue.rootDefault("phase", false),
                 "/phase show is admin-only, so a bare /phase from a player must fall through to help");
+        assertEquals(java.util.Optional.empty(), Catalogue.rootDefault("update", false),
+                "/update check is admin-only; a player.s bare /update runs nothing");
     }
 
     @Test

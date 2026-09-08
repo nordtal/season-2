@@ -489,7 +489,11 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
-      EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
+      # Simple Voice Chat is here and on smp, and NOT on limbo (owner, 2026-09-08): the waiting
+      # room is seconds long and holds nobody who could be talked to. The prefix is the jar's, not
+      # the updater's artefact id - voicechat resolves to voicechat-bukkit-<version>.jar, the same
+      # assumption the two prefixes in smp's list below carry, with the same failure mode.
+      EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games voicechat-bukkit}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       # The hand-built event world. HungerGamesSpec#world-name defaults to `hunger_games` and the
@@ -507,6 +511,23 @@ services:
       NORDTAL_HUNGER_GAMES_DATABASE_JDBC_URL: *db-url
       NORDTAL_HUNGER_GAMES_DATABASE_USERNAME: *db-username
       NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD: *db-password
+    ports:
+      # SIMPLE VOICE CHAT'S UDP PORT. Audio does not go through the Minecraft connection and does
+      # not go through the proxy: the client opens a UDP socket straight to the backend it is on,
+      # so this port is the whole of whether voice chat works from outside this machine (Simple
+      # Voice Chat wiki, "Proxy Setup" -> "Other Minecraft Proxies", read 2026-09-08).
+      #
+      # THE SAME NUMBER ON BOTH SIDES OF THE COLON, deliberately. The plugin tells the client which
+      # port to talk to, and it takes that number from its own `port` setting inside the container -
+      # so a host mapping that remaps it sends every client to a port nothing is listening on, and
+      # the failure is a voice chat that connects to the server and then times out. Changing this
+      # variable therefore means changing `port` in plugins/voicechat/voicechat-server.properties on
+      # this volume as well; nothing in this repository writes that file.
+      #
+      # ONE PORT PER BACKEND, and they must differ from smp's: two containers on one host cannot
+      # publish the same UDP port, and the wiki says outright that every instance behind one proxy
+      # needs its own.
+      - "${VOICE_BIND:-0.0.0.0}:${HUNGER_GAMES_VOICE_PORT:-24455}:${HUNGER_GAMES_VOICE_PORT:-24455}/udp"
     volumes:
       - mc-hunger-games:/data
       # plugins/ in its own volume, the rest in mc-hunger-games - see network-control above.
@@ -548,14 +569,21 @@ services:
       # Dungeons and Taverns decide the terrain on top of it, so this number does not produce the
       # same landscape anywhere those packs are absent. See docs/smp.md#worlds.
       LEVEL_SEED: ${SMP_LEVEL_SEED:-1837371427}
-      # All four, and this is the service the coarse guard let through: on the first deployment
+      # All five, and this is the service the coarse guard let through: on the first deployment
       # PacketEvents and Chunky resolved while the season release did not, so `plugins/` was not
       # empty and the SMP started with no season on it. The two third-party prefixes are not the
       # updater's artefact ids (`packetevents` resolves to packetevents-spigot-*.jar, `chunky` to
       # Chunky-Bukkit-*.jar) - Topology reads those back off the resolved filename rather than
       # assuming them, and this list does assume them. A publisher renaming a jar therefore stops
       # this container with the prefix in the message, which is the right side to fail on.
-      EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit}
+      #
+      # COREPROTECT IS DELIBERATELY NOT IN THIS LIST. The updater carries a row for it, and that row
+      # is UNSUPPORTED for as long as its publisher has no 26.2 build (there is none: 24.0 stops at
+      # 26.1.2, checked 2026-09-08). An artefact that cannot be installed must not be one this
+      # container refuses to start without - that would turn somebody else's release schedule into
+      # an outage here. :updater's TopologyTest asserts the guard asks for exactly the artefacts
+      # that are not optional.
+      EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit voicechat-bukkit}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${SMP_HEAP:-6G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
@@ -600,6 +628,11 @@ services:
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password
+    ports:
+      # Simple Voice Chat's UDP port - see hunger-games above for why the two numbers on either
+      # side of the colon are the same one and why this backend and that one cannot share it.
+      # 24454 is the plugin's own default, so this is the one of the two that needs no config edit.
+      - "${VOICE_BIND:-0.0.0.0}:${SMP_VOICE_PORT:-24454}:${SMP_VOICE_PORT:-24454}/udp"
     volumes:
       - mc-smp:/data
       # plugins/ in its own volume, the rest in mc-smp - see network-control above.

@@ -90,6 +90,60 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("every service that runs voice chat publishes its own UDP port, and no two share one")
+    void voiceChatHasAPortPerBackend() {
+        // Voice audio does not go through the proxy - the client opens a UDP socket straight to the
+        // backend it is standing on (Simple Voice Chat wiki, "Proxy Setup", read 2026-09-08). So a
+        // service that runs the plugin and publishes no UDP port has voice chat installed and
+        // unreachable, which from inside the game is indistinguishable from not having it at all.
+        //
+        // The two rules asserted below are the ones a second backend would break silently. Two
+        // containers cannot publish one host UDP port, so the SECOND service to get the plugin is
+        // the one whose `up` fails - not the one whose port was taken. And the plugin tells the
+        // client the port it is listening on INSIDE the container, so a mapping of the shape
+        // 24460:24454/udp answers the handshake and then times out every packet after it.
+        final Map<String, String> published = new java.util.LinkedHashMap<>();
+        for (final Topology.Service service : Topology.SERVICES) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
+            @SuppressWarnings("unchecked")
+            final List<Object> ports = (List<Object>) defined.get("ports");
+
+            final List<String> udp = ports == null ? List.of() : ports.stream()
+                    .map(String::valueOf)
+                    .filter(port -> port.endsWith("/udp"))
+                    .toList();
+
+            if (!service.plugins().contains(Topology.VOICE_CHAT)) {
+                assertEquals(List.of(), udp, service.name() + " publishes a UDP port but runs no"
+                        + " voice chat. Either the plugin was taken off this service and the port"
+                        + " left behind, or the topology and compose.yml have drifted.");
+                continue;
+            }
+
+            assertEquals(1, udp.size(), service.name() + " runs voice chat and publishes " + udp
+                    + ". It needs exactly one UDP port: the client talks to this container"
+                    + " directly, and the proxy carries none of it.");
+
+            // "${VOICE_BIND:-0.0.0.0}:${SMP_VOICE_PORT:-24454}:${SMP_VOICE_PORT:-24454}/udp"
+            final String mapping = udp.getFirst();
+            final List<String> parts = fields(mapping.substring(0, mapping.length() - "/udp".length()));
+            assertEquals(3, parts.size(), mapping + " is not bind:host:container");
+            assertEquals(parts.get(1), parts.get(2), service.name() + " maps " + parts.get(1)
+                    + " to " + parts.get(2) + ". Simple Voice Chat hands the client the port it is"
+                    + " bound to inside the container, so a remapped port is a voice chat that"
+                    + " connects and then never receives a packet.");
+
+            final String previous = published.put(defaultOf(parts.get(1)), service.name());
+            assertNull(previous, service.name() + " and " + previous + " both publish UDP "
+                    + defaultOf(parts.get(1)) + ". Two containers cannot, and the one that fails to"
+                    + " start is whichever compose brings up second.");
+        }
+
+        assertFalse(published.isEmpty(), "no service publishes a voice chat port at all");
+    }
+
+    @Test
     @DisplayName("one player number, on the proxy and on every Paper backend")
     void oneNumberLimitsTheNetwork() {
         // This test has now asserted three different things, and the two it used to assert are why
@@ -153,6 +207,31 @@ class TopologyTest {
         assertTrue(String.valueOf(advertised).contains("NETWORK_MAX_PLAYERS"),
                 "the one player number is not NETWORK_MAX_PLAYERS any more: " + advertised
                         + ". .env.example, deploy/README.md and NetworkSpec all name it.");
+    }
+
+    /**
+     * A {@code bind:host:container} mapping split on the colons that separate it - not on the ones
+     * inside a {@code ${VAR:-default}}, of which every field here has one.
+     */
+    private static List<String> fields(final String mapping) {
+        final List<String> parts = new java.util.ArrayList<>();
+        final StringBuilder current = new StringBuilder();
+        int depth = 0;
+        for (int i = 0; i < mapping.length(); i++) {
+            final char c = mapping.charAt(i);
+            if (c == '$' && i + 1 < mapping.length() && mapping.charAt(i + 1) == '{') {
+                depth++;
+            } else if (c == '}' && depth > 0) {
+                depth--;
+            } else if (c == ':' && depth == 0) {
+                parts.add(current.toString());
+                current.setLength(0);
+                continue;
+            }
+            current.append(c);
+        }
+        parts.add(current.toString());
+        return List.copyOf(parts);
     }
 
     /** {@code ${SMP_EXPECTED_PLUGINS:-smp …}} - what compose uses when .env says nothing. */

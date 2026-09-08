@@ -141,6 +141,24 @@ public interface UpdaterSpec {
     }
 
     @Order(7)
+    @Key("voicechat-project")
+    @Comment({
+            "The Modrinth project id of Simple Voice Chat ('simple-voice-chat'), installed on",
+            "smp and hunger-games. The jar is voicechat-bukkit-<version>.jar.",
+            "",
+            "THE ID, NOT THE SLUG, for the reason packetevents-project gives.",
+            "",
+            "The plugin is resolved with the `paper` loader like the other two. The project also",
+            "publishes a `velocity` build - the proxy half that forwards voice traffic for a whole",
+            "network - and this module deliberately does NOT resolve it: every velocity build ever",
+            "published is marked alpha or beta on Modrinth, and Modrinth#newest only accepts",
+            "`release`. Adding it is a decision about that rule, not a line here."
+    })
+    default String voiceChatProject() {
+        return "9eGKb6K1";
+    }
+
+    @Order(9)
     @Key("minecraft-version")
     @Comment({
             "The Minecraft version the network runs. Used as the game_versions filter against",
@@ -153,7 +171,7 @@ public interface UpdaterSpec {
         return "26.2";
     }
 
-    @Order(8)
+    @Order(10)
     @Key("velocity-version")
     @Comment({
             "The Velocity version the proxy runs. Same rule as minecraft-version: the updater",
@@ -163,7 +181,7 @@ public interface UpdaterSpec {
         return "4.1.1";
     }
 
-    @Order(9)
+    @Order(11)
     @Key("paper-build")
     @Comment({
             "Which build of minecraft-version the three Paper servers run: the word 'latest'",
@@ -179,7 +197,7 @@ public interface UpdaterSpec {
         return "latest";
     }
 
-    @Order(10)
+    @Order(12)
     @Key("velocity-build")
     @Comment({
             "Which build of velocity-version the proxy runs. Same rule as paper-build."
@@ -188,7 +206,7 @@ public interface UpdaterSpec {
         return "latest";
     }
 
-    @Order(11)
+    @Order(13)
     @Key("volumes-root")
     @Comment({
             "Where the four Minecraft volumes are mounted inside this container - one",
@@ -206,7 +224,7 @@ public interface UpdaterSpec {
         return "/volumes";
     }
 
-    @Order(12)
+    @Order(14)
     @Key("github-token")
     @Comment({
             "Optional. A token raises GitHub's unauthenticated rate limit of 60 requests per",
@@ -220,7 +238,7 @@ public interface UpdaterSpec {
         return "";
     }
 
-    @Order(13)
+    @Order(15)
     @Key("http-timeout-seconds")
     @Comment({
             "How long any single API call may take before the run gives up.",
@@ -232,7 +250,7 @@ public interface UpdaterSpec {
         return 30;
     }
 
-    @Order(14)
+    @Order(16)
     @Key("download-timeout-seconds")
     @Comment({
             "How long a single jar may take to download during `updater apply`.",
@@ -245,7 +263,7 @@ public interface UpdaterSpec {
         return 600;
     }
 
-    @Order(15)
+    @Order(17)
     @Key("poll-interval-seconds")
     @Comment({
             "How often `updater serve` looks in update_request for work it was not told about.",
@@ -265,7 +283,7 @@ public interface UpdaterSpec {
         return 15;
     }
 
-    @Order(16)
+    @Order(18)
     @Key("bootstrap")
     @Comment({
             "Whether `updater serve` installs what is MISSING before it reports itself ready.",
@@ -291,7 +309,7 @@ public interface UpdaterSpec {
         return true;
     }
 
-    @Order(17)
+    @Order(19)
     @Key("arcane")
     @Comment({
             "How the restart is actually performed: one redeploy of the whole compose project",
@@ -308,7 +326,7 @@ public interface UpdaterSpec {
     })
     ArcaneSpec arcane();
 
-    @Order(18)
+    @Order(20)
     @Key("backup")
     @Comment({
             "The nightly volume backup: which volumes are saved and which services are stopped",

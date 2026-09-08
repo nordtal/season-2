@@ -143,6 +143,14 @@ tests against it — so it is also the first thing to look at when something bre
    jars are moved with nothing running on them, each service is started again, and the run waits
    until every one of them reports healthy.
 
+   **A refused stop ends the run before anything is installed.** If any service that has work does
+   not stop, the run migrates nothing and installs nothing, starts every service it *did* stop, and
+   records `FAILED` naming the ones that refused. Installing into a server that is still running is
+   the failure this sequence exists to prevent, and doing it as a fallback would be that failure
+   with an excuse. `/update restart` has nothing to abort before - it installs nothing either way -
+   so a refused stop there simply leaves that service running, restores the ones that did stop, and
+   is reported as a failure.
+
 **The updater installs its own new jar and does not run it.** It cannot: no process swaps the jar it
 is executing and keeps going. It does not need to — the redeploy takes the whole stack down and
 back up, the updater included, so the next start picks up the new jar by itself. Which is only true

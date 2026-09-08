@@ -1,0 +1,60 @@
+[
+  {
+    "version_number": "bukkit-2.6.23",
+    "version_type": "release",
+    "date_published": "2026-09-04T16:18:51.721863Z",
+    "project_id": "9eGKb6K1",
+    "game_versions": [
+      "26.1",
+      "26.1.1",
+      "26.1.2",
+      "26.2"
+    ],
+    "loaders": [
+      "bukkit",
+      "folia",
+      "paper",
+      "purpur",
+      "spigot"
+    ],
+    "files": [
+      {
+        "filename": "voicechat-bukkit-2.6.23.jar",
+        "primary": true,
+        "url": "https://cdn.modrinth.com/data/9eGKb6K1/versions/IhqyykOv/voicechat-bukkit-2.6.23.jar",
+        "hashes": {
+          "sha512": "3f01340bb29e03c0ba3ebb250b461bea6503a76544c9468fb228738a04fe9c21bfee83b5606e9b403c2b0587da9ad8d08687f6442e0dee392bf6010697641d96"
+        }
+      }
+    ]
+  },
+  {
+    "version_number": "bukkit-2.6.21",
+    "version_type": "release",
+    "date_published": "2026-07-19T11:39:46.703721Z",
+    "project_id": "9eGKb6K1",
+    "game_versions": [
+      "26.1",
+      "26.1.1",
+      "26.1.2",
+      "26.2"
+    ],
+    "loaders": [
+      "bukkit",
+      "folia",
+      "paper",
+      "purpur",
+      "spigot"
+    ],
+    "files": [
+      {
+        "filename": "voicechat-bukkit-2.6.21.jar",
+        "primary": true,
+        "url": "https://cdn.modrinth.com/data/9eGKb6K1/versions/62MVmInV/voicechat-bukkit-2.6.21.jar",
+        "hashes": {
+          "sha512": "12a0ff0240e12bda82c10f2277c7bf3016c2a1833f8e73f338a61601cb555a2b18832041c902c81c4f8dd781993994fbd60d0336f443d92ff887933141a6f5a7"
+        }
+      }
+    ]
+  }
+]

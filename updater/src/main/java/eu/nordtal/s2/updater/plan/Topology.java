@@ -68,6 +68,18 @@ public final class Topology {
     public static final String PACKETEVENTS = "packetevents";
     public static final String CHUNKY = "chunky";
 
+    /**
+     * Simple Voice Chat's Bukkit plugin - {@code voicechat-bukkit-<version>.jar}, so the filename
+     * prefix is {@code voicechat-bukkit} and not this id.
+     *
+     * <p>It is <b>optional for a player</b>: the audio is carried by a mod the client either has or
+     * has not, and a client without it notices nothing at all. It is not optional for the server,
+     * which is why it is an ordinary plugin row here and is asked for by the entrypoint guard: a
+     * backend that quietly came up without it is a backend where everybody's voice chat is off and
+     * nothing in the game says why.</p>
+     */
+    public static final String VOICE_CHAT = "voicechat";
+
     public static final String PAPER = "paper";
     public static final String VELOCITY = "velocity";
 
@@ -117,11 +129,13 @@ public final class Topology {
     public static final List<Service> SERVICES = List.of(
             new Service(NETWORK_CONTROL, Kind.VELOCITY, List.of(NETWORK_CONTROL)),
             new Service(LIMBO, Kind.PAPER, List.of(LIMBO)),
-            new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES)),
+            // Voice chat is on the two servers people play on and not on limbo: the waiting room
+            // is seconds long and holds nobody who could be talked to (owner, 2026-09-08).
+            new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES, VOICE_CHAT)),
             // The only service with required third-party plugins. DisplayTags is required by the
             // SMP plugin's own paper-plugin.yml; PacketEvents is required under DisplayTags;
             // Chunky pre-generates the world border and is loaded by :smp reflectively.
-            new Service(SMP, Kind.PAPER, List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY)));
+            new Service(SMP, Kind.PAPER, List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY, VOICE_CHAT)));
 
     private Topology() {
     }

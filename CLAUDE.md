@@ -62,7 +62,10 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   described by a `@ConfigSpec` interface. It is the default for every new config in this repo.
   `network-control` (`database.yml`, `gate.yml`, `pack.yml`), `hunger-games` (`config.yml`,
   `database.yml`), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`, `database.yml`,
-  `milestones.yml`, `sounds.yml`), `hunger-games` (`config.yml`, `database.yml`, `sounds.yml`) and
+  `milestones.yml`, `sounds.yml`; `config.yml` gained `backup-time` on 2026-09-09, default `04:45`,
+  blank meaning never - the network's backup clock lives in `smp` because `smp` already schedules the
+  farm reset, and `serve` is deliberately still not a scheduler), `hunger-games` (`config.yml`,
+  `database.yml`, `sounds.yml`) and
   `discord-bot` (`access.yml`, `bot.yml`, `database.yml`) all use it — read one of them, and
   "Configuration" below, before writing the next.
 - **No command framework, decided 2026-08-31.** Season 1 used Incendo Cloud; season 2 uses
@@ -570,7 +573,12 @@ Three rules ride on it, and the first two are what make it safe rather than mere
 
 It is not a general escape: a command belongs here only when its effect touches nothing but the
 database. The one that does is `/update`, whose commands were folded on 2026-09-08 - `/update`,
-`/update now`, `/update restart`, `/update cancel`, and `/update check` since the next day. What
+`/update now`, `/update restart`, `/update cancel`, and `/update check` since the next day. **`/backup
+now` is the sixth**, added 2026-09-09: a root of its own so it is not one tab-completion away from
+`/update now`, but declared in `UpdateCommands` and returned from its `all()`, so it rides the single
+wiring site all five processes already have rather than adding five more places to forget. There is
+one countdown in the network and one thing that stops it, so `/update cancel` cancels a backup too
+and there is no `/backup cancel`. What
 stayed with each surface is the *drawing*: Discord's live embed with a field per service, `smp`'s
 `UpdateWatcher` (all that is left of a class that used to own a Brigadier tree). The comment in
 `SmpCommand` saying `/smp update` "should not become a NordtalCommand" rested on the rule that the
@@ -869,6 +877,17 @@ are kept because the reasoning is what a future change has to argue with:
     two `smp_aura_event` rows and forgets the duel, so there was no history for the constraint to
     disagree with. Dropped rather than filled in, decided by the owner 2026-09-04
     (`docs/state-of-play.md` finding 49). The aura side of a duel is untouched.
+  - `V11__command_request.sql` (2026-09-04): the transport a shared command travels on when its
+    effect lives in another process. Its six constraints and why it is not `update_request` are
+    argued at length in the file itself; see ":commands" above.
+  - `V12__update_report.sql` (2026-09-07): the structured report in `update_request.result`, and the
+    reversal of V7's "a request is never amended" - a run that stops servers and waits five minutes
+    for healthchecks has to say so while it waits.
+  - `V13__countdown_after_resolving.sql` (2026-09-09): widens the partial index to
+    `status IN ('PENDING','RUNNING')`, because the countdown is now written by the run itself once
+    it knows there is work, rather than by whoever submitted the request.
+  - `V14__backup_request.sql` (2026-09-09): widens `update_request_kind_check` to accept `BACKUP`,
+    `NOT VALID`, the shape V12 established.
 - **Money is integer cents** in Java and in the database. `Money` is the only place that converts
   to and from bunq's decimal strings, and it goes through `BigDecimal`. Season 1 used
   `Float.parseFloat` and `<`.
@@ -1017,13 +1036,26 @@ Seven rules that are easy to break and expensive to break:
 - **`Topology` and `compose.yml` are two copies of one fact.** A fifth backend server is a
   change to both in the same commit; `TopologyTest` reads the real compose file and fails otherwise.
   It also fails if `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two `PACK_*` variables come back.
-- **`plugins/` is a directory on the host and not part of the volume, since 2026-09-05**
-  (`compose.yml`, `${SERVERS_ROOT:-./deploy/servers}/<service>/plugins`). Everything else about a
-  server — the world, the `.server/` jar cache, `logs/` — stays in `mc-<service>`, and that split is
-  the decision: Arcane's volume backup is the only thing that saves a world and a bind mount is not
-  a volume, so the worlds do not come out. Nothing makes that claim on `plugins/`, and what keeping
-  it inside cost was a `docker compose cp` in both directions for every config edit and a third for
-  every jar — which is why there was no local development stack at all until that day.
+- **`plugins/` is a volume of its own, and a bind mount only where somebody asked for one — since
+  2026-09-09** (`compose.yml`, `${SMP_PLUGINS:-mc-smp-plugins}:/data/plugins` and three like it).
+  Everything else about a server — the world, the `.server/` jar cache, `logs/` — stays in
+  `mc-<service>`. The split is still the decision it was: a config edit and a jar swap should not
+  need `docker compose cp` in both directions, which is why there was no local development stack at
+  all before 2026-09-05.
+
+  **What changed is the default, and it changed because the old one could delete the season's
+  configuration.** From 2026-09-05 the expression was `${SERVERS_ROOT:-./deploy/servers}/<service>/
+  plugins`, so a deployment that set nothing got a *bind mount into the checkout Arcane's GitOps
+  sync pulls* — and that sync deletes ignored files (owner, 2026-09-08, finding 151). Production had
+  the variable unset the whole time: `config.yml`, `milestones.yml`, `sounds.yml` and `pack.yml` were
+  all sitting where the next sync would take them. The comment in `compose.yml` named exactly this
+  risk and left it as something to set.
+
+  So the default is now a **volume name** and never a path. Four variables, one per service, and
+  `TopologyTest#thePluginDirectoryIsOneDirectory` asserts that each default contains neither `/` nor
+  `.` — a default with a path character in it is the old trap wearing a new name. The bind is what
+  `deploy/dev.env` opts into, and `deploy/dev` refuses a `<SERVICE>_PLUGINS` with no `/` in it
+  rather than writing jars into a directory no container mounts.
 
   **The updater mounts the same four directories** at `/volumes/<service>/plugins`. Without them it
   installs into the named volume while every server reads the host directory, and *nothing anywhere
@@ -1037,9 +1069,10 @@ Seven rules that are easy to break and expensive to break:
   copy-and-delete across devices, silently — and what would have been lost, silently, is the
   property the class exists for. Staging is resolved **per destination directory** now
   (`plugins/.nordtal-staging`, `.server/.nordtal-staging`); `Installation` only takes regular files,
-  so neither is ever read back as a plugin. `SERVERS_ROOT` is a variable rather than a constant
-  because its default sits inside the directory Arcane's GitOps sync pulls — if that sync ever
-  removes ignored files, it becomes an absolute path outside the checkout and nothing else changes.
+  so neither is ever read back as a plugin. The escape hatch that sentence described - "if that sync
+  ever removes ignored files, `SERVERS_ROOT` becomes an absolute path outside the checkout" - was
+  written as a contingency and turned out to be the situation. It is why the default is a volume
+  now: an escape hatch nobody knows they need is not one.
 - **There is exactly one player number, since 2026-09-04, and `TopologyTest` is what keeps it one.**
   `NETWORK_MAX_PLAYERS` in `.env` reaches the proxy as `network.yml#max-players` *and* all three
   Paper backends as `MAX_PLAYERS`, which the entrypoint writes into `server.properties`; the test
@@ -1134,7 +1167,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1392 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1411 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-09, on `release/0.7.1`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1207,12 +1240,12 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 351 |
-| `smp` | 227 |
+| `common` | 352 |
+| `smp` | 232 |
 | `network-control` | 201 |
-| `commands` | 200 |
-| `updater` | 167 |
-| `discord-bot` | 156 |
+| `commands` | 201 |
+| `updater` | 176 |
+| `discord-bot` | 159 |
 | `hunger-games` | 72 |
 | `limbo` | 11 |
 | `paper-common` | 7 |

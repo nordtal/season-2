@@ -559,6 +559,16 @@ with, and a setting that did not take effect looks exactly like a setting that d
   plugin needs the locally built updater: the migrations it applies are compiled into `:common` and
   shaded into that jar, so a released updater would migrate to the released schema and the plugin
   would come up against it.
+- **Four `<SERVICE>_PLUGINS` variables pointing at `./deploy/servers/<service>/plugins`.** This is
+  what turns each server's plugins folder from a named volume into a bind mount you can edit with an
+  ordinary text editor. `SERVERS_ROOT`, the single variable that used to do it, is gone (2026-09-09)
+  — its default was a *path*, so a deployment that set nothing got a bind mount into the directory
+  Arcane's GitOps sync pulls, and that sync deletes ignored files. An existing local `deploy/dev.env`
+  needs the four lines added by hand: the file is gitignored, so nothing migrated it. `deploy/dev`
+  refuses a value with no `/` in it rather than writing jars into a directory no container mounts.
+- **`SMP_BACKUP_TIME=` (empty), which turns the nightly volume backup off.** The interpolation in
+  `compose.yml` is `${SMP_BACKUP_TIME-04:45}` — a **single** dash, the only one in the file, and it
+  is what makes an empty value mean "off" rather than silently falling back to the default.
 - **`SMP_PREGENERATION_ON_START=false`.** `smp` starts pre-generating tomorrow's farm world
   in its `onEnable` and Chunky takes every core it is given, so every `up` would spend its first
   minutes at full load. What turning it off costs is one postponed reset — the first daily reset
@@ -651,6 +661,32 @@ own table of contents back with `pg_restore --list`, and only then renamed — a
 that looks like every other dump in the directory is the one the retention sweep keeps and the
 restore picks. It runs as `postgres`, not root, and stops on SIGTERM instead of waiting out the
 grace period.
+
+### The volume backup is a run, not a schedule
+
+**Arcane's own scheduler is not what takes the nightly snapshot, and its `Stop Containers` flag must
+stay off.** A stop nobody announced lands on whoever is online at a quarter to five. Since
+2026-09-09 the updater drives it: `/backup now` on any surface, and a nightly row `smp` writes at
+`config.yml#backup-time` (default `04:45`, fifteen minutes before the farm reset). The run is a
+thirty-second countdown every player sees, then `smp`, `network-control` and the bot are stopped,
+then every volume is snapshotted, then everything comes back and is checked. Update and backup take
+the same lock and never overlap.
+
+What Arcane's backup policy still decides is the **destination** — the updater posts with an empty
+body on purpose, so `local` / `s3` / `local_s3` is configured once, in Arcane, per volume.
+
+The eight volumes, with the compose project prefix Arcane addresses them by: `nordtal-s2_mc-smp`,
+`nordtal-s2_mc-network-control`, `nordtal-s2_bot-config`, `nordtal-s2_postgres-dumps` and the four
+`*-plugins` volumes, which is where every hand edit to `config.yml`, `milestones.yml`, `sounds.yml`
+and `pack.yml` now lives. `postgres-data` is **never** in that list and is refused by name when the
+updater loads its config.
+
+A volume that has not finished after thirty minutes is given up on, the servers come back, and the
+run ends `FAILED` — which **mentions the admin role** in the admin channel rather than only turning
+an embed red on a screen nobody is looking at at five in the morning.
+
+Restoring is still Arcane's own restore, done by hand. Nothing in this repository drives it, and
+nobody has done it yet — see `todo.md` A3.
 
 ### Point Arcane at `postgres-dumps`, never at `postgres-data`
 

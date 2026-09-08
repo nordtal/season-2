@@ -675,8 +675,12 @@ services:
       # mounted anywhere in this file and must not be: a container with it can do anything on the
       # host, and this is the container whose job is downloading files from the internet.
       #
-      # LEAVING ARCANE_URL EMPTY IS A SUPPORTED STATE. Everything else works; the restart button
-      # says it is not configured and a redeploy is a click in Arcane.
+      # LEAVING ARCANE_URL EMPTY STOPS UPDATES, and since 2026-09-08 that is deliberate. An
+      # update stops each affected server before its jars move, so a run that cannot reach Arcane
+      # has no safe way to continue: it refuses before resolving a version or touching a file,
+      # rather than installing into servers that are still running. What still works without it is
+      # `docker compose run --rm updater bootstrap` on the host, which fills EMPTY slots and stops
+      # nothing - enough for a fresh deployment, not enough to move a version.
       #
       # THE TWO IDS ARE IDS AND NOT NAMES. ARCANE_ENVIRONMENT is 0 for Arcane's own host and a
       # UUID for a remote agent; ARCANE_PROJECT is a UUID Arcane generated for the project and is
@@ -691,6 +695,14 @@ services:
       # it. TopologyTest asserts the two copies still say the same thing.
       NORDTAL_UPDATER_ARCANE_ENVIRONMENT: ${ARCANE_ENVIRONMENT:-0}
       NORDTAL_UPDATER_ARCANE_REDEPLOY_PATH: ${ARCANE_REDEPLOY_PATH:-/api/environments/{environment}/projects/{project}/redeploy}
+      # The two paths a run actually uses. redeploy above is no longer on any production path -
+      # it took the updater down with everything else, so nothing was left to report whether the
+      # network came back - and these replaced it: one read of the project's services, and one
+      # stop/start per container. They are settings for the same reason redeploy-path is: read
+      # from Arcane's own source rather than from documentation that does not publish them, so a
+      # version that moves a path is a line here and not a release of ours.
+      NORDTAL_UPDATER_ARCANE_RUNTIME_PATH: ${ARCANE_RUNTIME_PATH:-/api/environments/{environment}/projects/{project}/runtime}
+      NORDTAL_UPDATER_ARCANE_CONTAINER_PATH: ${ARCANE_CONTAINER_PATH:-/api/environments/{environment}/containers/{container}/{action}}
     volumes:
       - updater-config:/app/config
       # Everything this module owns, under the names Topology in :updater expects to find beneath

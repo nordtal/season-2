@@ -399,7 +399,10 @@ public final class UpdateCommand extends ListenerAdapter {
         return List.of(fields(report.get(), request));
     }
 
-    private static MessageEmbed fields(final UpdateReport report, final UpdateRequest request) {
+    // Package-private so EmbedBudgetTest can build one and measure it: Discord's 6000 is a
+    // limit on the whole embed, and every guard here is arithmetic that has already been wrong
+    // twice.
+    static MessageEmbed fields(final UpdateReport report, final UpdateRequest request) {
         final net.dv8tion.jda.api.EmbedBuilder embed = new net.dv8tion.jda.api.EmbedBuilder()
                 .setTitle(report.stage().headline())
                 .setColor(colour(report.stage() == UpdateReport.Stage.FAILED))
@@ -427,7 +430,12 @@ public final class UpdateCommand extends ListenerAdapter {
 
         if (!report.notes().isEmpty() && budget > 0) {
             final String notes = String.join("\n", report.notes());
-            embed.setDescription(truncate(notes, Math.min(DESCRIPTION_BUDGET, budget)));
+            // Subtracted, not just bounded. The description consumes up to the whole remaining
+            // budget, and leaving `budget` unchanged here let the overflow field below measure
+            // itself against space the description had already taken.
+            final String description = truncate(notes, Math.min(DESCRIPTION_BUDGET, budget));
+            embed.setDescription(description);
+            budget -= description.length();
         }
         // Inline, so three or four servers sit side by side rather than as a column of headings.
         drawn.forEach(field -> embed.addField(field[0], field[1], true));

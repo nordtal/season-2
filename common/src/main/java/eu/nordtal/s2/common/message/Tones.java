@@ -20,6 +20,18 @@ import net.kyori.adventure.text.format.TextColor;
  */
 public final class Tones {
 
+    /** docs/presentation.md#the-palette: arriving. */
+    private static final TextColor GOOD_GREEN = TextColor.fromHexString("#8ba888");
+
+    /** docs/presentation.md#the-palette: leaving. The only warm red the network draws. */
+    private static final TextColor BAD_RED = TextColor.fromHexString("#a8888b");
+
+    /** docs/presentation.md#the-palette: the accent, what an announcement already wears. */
+    private static final TextColor ACCENT = TextColor.fromHexString("#b08a4a");
+
+    /** The sentence colour. Both the supporting detail and an ordinary reply. */
+    private static final TextColor GREY = NamedTextColor.GRAY;
+
     private Tones() {
     }
 
@@ -29,27 +41,35 @@ public final class Tones {
      * @return the same line, with a colour filled in where the message did not set one
      */
     public static Component paint(final Component message, final Tone tone) {
-        final TextColor colour = colourOf(tone);
-        return colour == null ? message : message.colorIfAbsent(colour);
+        return message.colorIfAbsent(colourOf(tone));
     }
 
     /**
-     * The palette. Four colours and "leave it alone", chosen so a report can be read without being
-     * read: the failed line is the only red one, and the versions under a service recede.
+     * The palette. Four colours and a quiet one, and every value is the pack's own rather than a
+     * named constant: {@code NamedTextColor.GREEN} and {@code RED} are the vanilla chat colours,
+     * and a reply in them reads as a terminal standing next to a network whose every other surface
+     * is drawn from {@code docs/presentation.md}. The two arrival colours already exist there for
+     * exactly this pair of meanings, and the accent is what an announcement already uses.
+     *
+     * <p>The one thing this palette must keep doing is what it was built for: the failed line has
+     * to be findable in a list of forty. {@code #a8888b} is quieter than vanilla red and still the
+     * only warm-red line on the surface.</p>
      */
     private static TextColor colourOf(final Tone tone) {
         if (tone == null) {
-            return null;
+            return GREY;
         }
         return switch (tone) {
-            case GOOD -> NamedTextColor.GREEN;
-            case BAD -> NamedTextColor.RED;
-            case WARN -> NamedTextColor.GOLD;
-            case MUTED -> NamedTextColor.GRAY;
-            // Not white: the client's own default for chat is what an unstyled line already gets,
-            // and forcing white here would make an ordinary line disagree with every other one the
-            // network sends.
-            case NEUTRAL -> null;
+            case GOOD -> GOOD_GREEN;
+            case BAD -> BAD_RED;
+            case WARN -> ACCENT;
+            case MUTED -> GREY;
+            // Grey, not "no colour" and not white (owner, 2026-09-09). Leaving it unpainted hands
+            // the line to the client's default, which differs by surface and by what came before
+            // it in the same message; white would make an ordinary reply the brightest thing on
+            // screen. Grey is what docs/presentation.md already gives a sentence the network says
+            // about itself, which is what a NEUTRAL reply is.
+            case NEUTRAL -> GREY;
         };
     }
 }

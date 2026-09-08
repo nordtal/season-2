@@ -31,10 +31,6 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
         "  NORDTAL_BOT_BUNQ_API_KEY      the bunq API key",
         "  NORDTAL_BOT_BUNQ_ACCOUNT_ID   the bunq monetary account id",
         "",
-        "Not a credential, but it lives here with them:",
-        "",
-        "  NORDTAL_BOT_BUNQ_ENVIRONMENT  PRODUCTION or SANDBOX",
-        "",
         "An environment value is never written back into this file. Anything",
         "written here does end up in the config volume, so only do that for a",
         "local checkout.",
@@ -76,19 +72,16 @@ public interface BotSpec {
             return "";
         }
 
-        @Order(3)
-        @Key("environment")
-        @Comment({
-                "Which bunq API to talk to: PRODUCTION or SANDBOX.",
-                "",
-                "It used to be hardcoded to PRODUCTION, which made the sandbox end-to-end test",
-                "in docs/access-system.md impossible to run without editing code. The context",
-                "file below belongs to one environment: switching this needs a fresh one, so",
-                "point context-path somewhere else when you switch."
-        })
-        default String environment() {
-            return "PRODUCTION";
-        }
+        // `environment` was here, PRODUCTION or SANDBOX, added on 2026-08-30 so the sandbox
+        // end-to-end test in docs/access-system.md could be run without editing code. It is gone
+        // as of 2026-09-09, and the reason is that the test it existed for is gone: the owner has
+        // no sandbox key and decided a real 3 EUR purchase with a cancel-and-restart replaces the
+        // run (finding 152). What was left was a switch nobody would ever throw again, sitting on
+        // the one code path in this repository that moves other people's money - and a setting
+        // whose only remaining purpose is to be set wrongly is a trap, not an option. jcore 3.1.0
+        // drops the retired key from a deployed bot.yml with a WARN and a .bak, so nothing has to
+        // be edited by hand; ConfigsTest pins that it really is dropped rather than quietly
+        // accepted. Do not reintroduce it without a sandbox key in somebody's hand.
 
         @Order(4)
         @Key("context-path")

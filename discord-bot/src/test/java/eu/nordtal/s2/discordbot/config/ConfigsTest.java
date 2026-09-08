@@ -579,7 +579,6 @@ class ConfigsTest {
                 bunq:
                   api-key: a-key
                   account-id: not-a-number
-                  environment: PRODUCTION
                   context-path: ''
                 """);
 
@@ -589,40 +588,33 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("an unknown bunq environment stops the bot")
-    void badBunqEnvironmentStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("bot.yml"), """
-                token: a-token
-                bunq:
-                  api-key: a-key
-                  account-id: '1234'
-                  environment: staging
-                  context-path: ''
-                """);
-
-        final ConfigValidationException error =
-                assertThrows(ConfigValidationException.class, Configs::bot);
-        assertTrue(error.getMessage().contains("PRODUCTION or SANDBOX"), error.getMessage());
-    }
-
-    @Test
-    @DisplayName("a complete bot.yml loads, including the sandbox switch")
-    void completeBotConfigLoads() throws Exception {
+    @DisplayName("a deployed bot.yml carrying the retired sandbox switch loses the line and keeps the bot")
+    void theRetiredEnvironmentKeyIsDroppedByName() throws Exception {
+        // bunq.environment was PRODUCTION or SANDBOX until 2026-09-09, when the sandbox run it
+        // existed for was struck (finding 152). A deployed bot.yml in a volume still carries the
+        // line, and the operator's only possible move would have been to delete it by hand - so
+        // jcore 3.1.0 deletes it instead, with a WARN and a .bak, and the bot starts.
+        //
+        // What this test is really for is the other half: nobody may quietly re-declare the key as
+        // a no-op to make an upgrade smoother. If it comes back, it comes back with a sandbox key
+        // in somebody's hand and a reason.
         Files.writeString(directory.resolve("bot.yml"), """
                 token: a-token
                 bunq:
                   api-key: a-key
                   account-id: '1234'
                   environment: SANDBOX
-                  context-path: ''
                 """);
 
-        final BotSpec config = Configs.bot().get();
-        assertAll(
-                () -> assertEquals("a-token", config.token()),
-                () -> assertEquals("1234", config.bunq().accountId()),
-                () -> assertEquals("SANDBOX", config.bunq().environment())
-        );
+        Configs.bot();
+
+        final String written = Files.readString(directory.resolve("bot.yml"));
+        // The key, not the word: this file's own header explains that an environment value is
+        // never written back into it, so a substring search passes and fails for the wrong reason.
+        assertFalse(written.lines().anyMatch(line -> line.strip().startsWith("environment:")),
+                "bot.yml still carries the retired bunq.environment key after a load. jcore drops a"
+                        + " key the interface does not declare - if it survived, something declared"
+                        + " it again: " + written);
     }
 
     @Test

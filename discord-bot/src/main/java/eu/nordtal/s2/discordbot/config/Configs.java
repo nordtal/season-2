@@ -126,11 +126,6 @@ public final class Configs {
                 // surfaced as a NumberFormatException minutes into a run.
                 throw new IllegalArgumentException("bunq.account-id must be a number");
             }
-            final String environment = config.bunq().environment();
-            if (!"PRODUCTION".equals(environment) && !"SANDBOX".equals(environment)) {
-                throw new IllegalArgumentException(
-                        "bunq.environment must be PRODUCTION or SANDBOX, was: " + environment);
-            }
         });
     }
 

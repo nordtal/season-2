@@ -25,7 +25,8 @@ container.
   portal. Without it there is no member cache, and both reconciles read that cache.
 - The **guild id, four role ids and the admin channel id**, plus a role and two channel ids per
   language. None of these has a usable default — the bot refuses to start until they are real.
-- A **bunq API key** and the numeric monetary account id, for either `SANDBOX` or `PRODUCTION`.
+- A **bunq API key** and the numeric monetary account id. Production only: the sandbox switch
+  was retired on 2026-09-09 with the sandbox run it existed for (see `docs/access-system.md`).
 - Docker with the compose plugin.
 
 ## Configuration is environment variables only

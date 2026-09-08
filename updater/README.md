@@ -61,7 +61,11 @@ or — the two that matter — *unknown* and *UNRESOLVED*. Those two exist so th
   updates on boot". A crash restart at three in the morning must not move a version: the network
   comes back on exactly what it was running. The container having a restart policy does not change
   that; adding a timer would, and nothing here may.
-- **A report run puts nothing into a Minecraft volume.** Only an update run and `bootstrap` do, and both still
+- **The two runs that write are not the same run.** An update run stops the services whose jars
+  change, migrates, installs, starts them again and waits until each reports healthy; `bootstrap`
+  fills empty slots and **stops and starts nothing at all**. Expecting `/update now` to leave
+  servers down, or `bootstrap` to bring them round, is the way round to get this wrong.
+- **A report run puts nothing into a Minecraft volume.** Only those two do, and both still
   restarts nothing: it prints what it did and stops, because a person reading a half-done run
   before the network goes down on it is the entire point of the restart being a separate button.
 - **Two updaters cannot *serve* at once.** `serve` takes a second PostgreSQL advisory lock

@@ -188,6 +188,10 @@ public final class Arcane implements ArcaneOps {
      *         escaping here would leave a row that says nothing at all
      */
     public @NotNull RedeployResult redeploy() {
+        final java.util.Optional<String> refused = refusedForCleartext();
+        if (refused.isPresent()) {
+            return RedeployResult.refused(refused.get());
+        }
         if (!configured()) {
             return RedeployResult.refused(
                     "Arcane is not configured (arcane.base-url is empty), so nothing was restarted."
@@ -342,6 +346,51 @@ public final class Arcane implements ArcaneOps {
                 || lower.startsWith("127.");
     }
 
+    /**
+     * Whether this origin is the machine this container is already on.
+     *
+     * <h2>The one place plain HTTP with an API key is defensible</h2>
+     * Container to host over Docker's own bridge: there is no network segment for anything to
+     * listen on, and {@code http://host.docker.internal} is the documented value for the local
+     * stack. Loopback counts too - it is broken for a different reason, which the constructor
+     * already says at length, but it is not a credential leaving the machine.
+     *
+     * <p>Anywhere else, an {@code X-Api-Key} on an unencrypted connection is a redeploy credential
+     * in the clear for anything that can see the wire (finding 114).</p>
+     */
+    static boolean sameHost(final String baseUrl) {
+        final String host = hostOf(baseUrl);
+        return host != null && (loopback(baseUrl) || DOCKER_GATEWAY.equals(host));
+    }
+
+    /**
+     * Why this Arcane must not be called at all, or empty when it may be.
+     *
+     * <h2>Refused rather than warned, since 2026-09-08</h2>
+     * The constructor has warned about a key on plain HTTP since finding 114, and a warning is what
+     * a log holds and nobody reads. Every request this class makes carries the header, so the
+     * check belongs in front of the request: a remote origin over {@code http://} is refused, and
+     * the same-host exception above stays explicit rather than being a special case somebody has
+     * to infer.
+     *
+     * <p>It is deliberately not a constructor failure. The updater is the bootstrap of the whole
+     * deployment - it is the only process that migrates - and refusing to start over a misconfigured
+     * restart button would trade a working schema for none, which is the trade the loopback warning
+     * already refuses to make.</p>
+     */
+    private java.util.Optional<String> refusedForCleartext() {
+        if (!cleartextWithKey(config.baseUrl(), config.apiKey()) || sameHost(config.baseUrl())) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of("arcane.base-url is " + config.baseUrl() + " - plain HTTP to a"
+                + " host that is not this one - and an API key is configured. Nothing was done,"
+                + " because sending the " + API_KEY_HEADER + " header over that connection hands"
+                + " anything on the wire the ability to redeploy every project in that Arcane. Use"
+                + " an https:// origin. The only exception is the local stack, where"
+                + " http://" + DOCKER_GATEWAY + " reaches the host across Docker's own bridge and"
+                + " leaves the machine at no point.");
+    }
+
     /** The port out of a base URL, or Arcane's own default, for the sentence that suggests a fix. */
     private static String portOf(final String baseUrl) {
         try {
@@ -368,6 +417,10 @@ public final class Arcane implements ArcaneOps {
      */
     @Override
     public @NotNull RuntimeResult runtime() {
+        final java.util.Optional<String> refused = refusedForCleartext();
+        if (refused.isPresent()) {
+            return RuntimeResult.unreachable(refused.get());
+        }
         if (!configured()) {
             return RuntimeResult.unreachable("Arcane is not configured (arcane.base-url is empty),"
                     + " so this updater cannot stop or start anything. Nothing was touched. Set"
@@ -428,6 +481,10 @@ public final class Arcane implements ArcaneOps {
     }
 
     private RedeployResult container(final String containerId, final String action) {
+        final java.util.Optional<String> refused = refusedForCleartext();
+        if (refused.isPresent()) {
+            return RedeployResult.refused(refused.get());
+        }
         if (!configured()) {
             // Not action + "ped": that reads "stopped" for a stop and "startped" for a start.
             return RedeployResult.refused("Arcane is not configured, so nothing could be "

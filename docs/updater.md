@@ -264,11 +264,37 @@ the only thing that resolves a version, compares a volume or judges an outcome. 
 reasoning, including why the report lives as JSON in the existing column rather than in a table of
 its own.
 
+### Every run reaches the admin channel, not only the ones started in Discord
+
+A run asked for in game, or from a console, used to be invisible in Discord: the embed existed only
+as the *reply* to a slash command. So the runs most worth seeing — the ones somebody started because
+the network was already misbehaving — were the ones nobody could follow.
+
+`UpdateFeed` is a two-second tick in the bot, alongside the other `guarded(...)` ticks. It picks up
+rows whose `source` is not `DISCORD` and whose id is above the last one it saw, posts the same embed
+the command draws, keeps the message id, and edits it as the report changes. On a restart it starts
+from `max(id)` — history is not re-announced — and separately posts a result for anything that
+finished in the last twelve minutes while the bot was down. `UpdateFeedTest` covers all four of
+those, because none of them can be exercised against a real guild without waiting for one.
+
+The channel's own lines stay **English** (owner, 2026-09-09), while the reply to whoever asked is
+rendered in their `discord_user.locale`. One channel with many readers has one text; a reply has one
+reader.
+
 ### The thirty-second countdown
 
-A run takes the affected servers down, so the request is written with `not_before` thirty seconds
-in the future and **network-control counts every player down towards it** — wherever they are, limbo
-and Hunger Games included. That is why the proxy owns the announcement and not the SMP plugin: the
+A run takes the affected servers down, so **once the updater knows there is something to take them
+down for**, it sets `not_before` thirty seconds in the future and **network-control counts every
+player down towards it** — wherever they are, limbo and Hunger Games included.
+
+**The order in that sentence is the whole of finding 157 and it was the other way round until
+2026-09-09.** The countdown used to be written by whoever *submitted* the request, before anything
+had been resolved — so a run that turned out to have nothing to do still took thirty seconds off
+everybody, in silence, and then did nothing. `Runner` now checks Arcane, resolves the plan, and only
+a plan with work in it writes `COUNTDOWN` and calls `startCountdown`. No work, no countdown, and the
+request settles as `NOTHING_TO_DO` in about a second. `CountdownComesAfterResolvingTest` reads
+`Runner`'s own source, because hoisting the countdown back above the `isWork()` guard is a
+one-line edit that looks like a tidy-up. That is why the proxy owns the announcement and not the SMP plugin: the
 proxy is the only process that sees everybody, and a restart asked for *in Discord* has to warn
 people too.
 
@@ -278,6 +304,23 @@ then do the thirty seconds everybody sees begin, which `/update cancel` (or the 
 length is a constant in `:common` rather than a setting, because three processes submit runs and a
 fourth renders the countdown: a value configured in four files is a counter that reaches zero while
 nothing happens.
+
+**Cancelling is a race and it is settled in SQL, not by looking.** `commitCountdown` is an
+`UPDATE … WHERE id AND status='RUNNING' RETURNING id`, so the run either takes the row and stops the
+servers, or comes back empty because `cancelCountdown` got there first — in which case nothing is
+stopped. `cancelCountdown` matches the same predicate with `FOR UPDATE SKIP LOCKED`, so a cancel
+typed while the commit holds the row is answered *too late* rather than left ambiguous. There is no
+window in which both a player sees "cancelled" and a server goes away.
+
+**And the number a player sees is the number.** The proxy used to draw the countdown off its
+five-second poll, so the figure on screen was up to five seconds behind the moment the servers
+actually went — on a thirty-second warning, a sixth of it. `Countdown` now schedules a beat on the
+exact millisecond of each threshold (chat at thirty and ten, then a **subtitle** carrying the bare
+number every second from ten to one, then the zero line), and the poll is left doing only what a
+poll is good for: noticing that the row was cancelled or has disappeared. The first row still
+arrives at once, because the proxy also holds `LISTEN nordtal_update`. `CountdownTest` drives all of
+it against a `MutableClock` — including a proxy that joins a countdown already in progress, which
+must not replay the beats it missed.
 
 ### Poll first, notify second
 
@@ -294,7 +337,9 @@ from two containers on a Docker network. What is still open is the *reconnect* b
 real dropped socket, which is the same open item the phase listener has.
 
 The bot and the SMP plugin **poll and do not listen** — the bot re-reads one indexed row every two
-seconds while an admin waits, and the proxy every five seconds for the countdown. A second dedicated
+seconds while an admin waits. The proxy is no longer in that sentence: it took `LISTEN
+nordtal_update` on 2026-09-09 so the first sight of a countdown is immediate rather than up to five
+seconds late, and its five-second poll now only watches for a cancellation. A second dedicated
 connection per backend would be real cost for a countdown that is already honest about the number of
 seconds it is showing.
 

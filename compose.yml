@@ -424,20 +424,25 @@ services:
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
     volumes:
       - mc-network-control:/data
-      # PLUGINS/ IS A DIRECTORY ON THE HOST, not part of the volume (2026-09-05). Everything else
-      # under /data - the world, the .server/ jar cache, logs/ - stays in the named volume, and
-      # that split is the whole of the decision. Arcane's volume backup is the only thing that
-      # saves a world (../deploy/README.md#the-world-volumes-are-a-different-problem) and a bind
-      # mount is not a volume, so the worlds must not come out. Nothing makes the same claim on
-      # plugins/, and what leaving it inside cost was paid every single time: a `docker compose cp`
-      # in one direction to read plugins/<name>/config.yml, another to put it back, and a third to
-      # drop in a freshly built jar. That is why there was no local development setup at all.
+      # PLUGINS/ IS ITS OWN VOLUME, separate from the server's (2026-09-05, corrected 2026-09-08).
+      # Everything else under /data - the world, the .server/ jar cache, logs/ - stays in mc-<name>,
+      # and that split is the whole of the decision: a plugin's config.yml, milestones.yml,
+      # sounds.yml and pack.yml are edited by hand and are worth backing up on their own schedule,
+      # while a world is 4 GB that must never come out of a volume Arcane can save.
       #
-      # SERVERS_ROOT is a variable rather than a constant because its default sits inside the
-      # directory Arcane's GitOps sync pulls. If that sync ever removes ignored files, point this
-      # at an absolute path outside the checkout and nothing else changes - see ../todo.md, where
-      # the check and its fallback are written down.
-      - ${SERVERS_ROOT:-./deploy/servers}/network-control/plugins:/data/plugins
+      # THE DEFAULT IS A VOLUME NAME AND THE BIND IS THE EXCEPTION, and that was the other way
+      # round for three days. `${SERVERS_ROOT:-./deploy/servers}/<service>/plugins` put every
+      # deployed config inside the directory Arcane's GitOps sync pulls - and that sync DELETES
+      # IGNORED FILES from the checkout (owner, 2026-09-08), so the first sync after a hand edit
+      # takes the whole of it with no warning and every server comes back up writing fresh
+      # defaults. Production sets none of these variables and therefore gets a named volume.
+      #
+      # Setting one to a path is what the local stack does (deploy/dev.env), because reading
+      # plugins/smp/config.yml has to be opening a file rather than two `docker compose cp`s. A
+      # value with a `/` in it is a bind mount to Docker and a value without one is a volume name;
+      # nothing else distinguishes them, which is why :updater's TopologyTest asserts the default
+      # carries neither a slash nor a dot.
+      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The waiting room. Needs the database for one thing only: the player's language.
@@ -473,8 +478,8 @@ services:
       NORDTAL_LIMBO_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-limbo:/data
-      # plugins/ on the host, the rest in the volume - see network-control above.
-      - ${SERVERS_ROOT:-./deploy/servers}/limbo/plugins:/data/plugins
+      # plugins/ in its own volume, the rest in mc-limbo - see network-control above.
+      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The start event. Runs once, then the phase turns to SMP and this can be stopped.
@@ -505,8 +510,8 @@ services:
       NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-hunger-games:/data
-      # plugins/ on the host, the rest in the volume - see network-control above.
-      - ${SERVERS_ROOT:-./deploy/servers}/hunger-games/plugins:/data/plugins
+      # plugins/ in its own volume, the rest in mc-hunger-games - see network-control above.
+      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The SMP - four worlds, and the only service with required third-party plugins.
@@ -575,8 +580,8 @@ services:
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-smp:/data
-      # plugins/ on the host, the rest in the volume - see network-control above.
-      - ${SERVERS_ROOT:-./deploy/servers}/smp/plugins:/data/plugins
+      # plugins/ in its own volume, the rest in mc-smp - see network-control above.
+      - ${SMP_PLUGINS:-mc-smp-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The updater. No profile, because everything else in this stack depends on it.
@@ -713,15 +718,16 @@ services:
       - mc-limbo:/volumes/limbo
       - mc-hunger-games:/volumes/hunger-games
       - mc-smp:/volumes/smp
-      # THE SAME FOUR plugins/ DIRECTORIES THE SERVERS READ, mounted where Topology expects them
-      # beneath volumes-root. Without these four lines this container installs into the named
-      # volume while every server reads the host directory - and nothing anywhere would say so:
-      # `apply` would report success, the jars would be on disk, and no server would be running
-      # a single one of them. TopologyTest holds the two halves together.
-      - ${SERVERS_ROOT:-./deploy/servers}/network-control/plugins:/volumes/network-control/plugins
-      - ${SERVERS_ROOT:-./deploy/servers}/limbo/plugins:/volumes/limbo/plugins
-      - ${SERVERS_ROOT:-./deploy/servers}/hunger-games/plugins:/volumes/hunger-games/plugins
-      - ${SERVERS_ROOT:-./deploy/servers}/smp/plugins:/volumes/smp/plugins
+      # THE SAME FOUR plugins/ SOURCES THE SERVERS READ, EXPRESSION FOR EXPRESSION, mounted where
+      # Topology expects them beneath volumes-root. Copying the default rather than the variable,
+      # or spelling one of them differently, splits the two sides in the one way nothing can see:
+      # this container installs into its own volume while every server reads another, `apply`
+      # reports success, the jars are on disk, and no server runs a single one of them.
+      # TopologyTest holds the two halves together, character for character.
+      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/volumes/network-control/plugins
+      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/volumes/limbo/plugins
+      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/volumes/hunger-games/plugins
+      - ${SMP_PLUGINS:-mc-smp-plugins}:/volumes/smp/plugins
       # The bot's jar and this container's own. Both are the same shape as a plugins folder to the
       # code above them: a directory with one jar in it that gets replaced.
       - bot-jar:/volumes/discord-bot
@@ -748,3 +754,16 @@ volumes:
   mc-limbo:
   mc-hunger-games:
   mc-smp:
+  # The four plugins/ folders, one volume each and separate from the server volume beside them.
+  # THEY HOLD THE ONLY HAND-EDITED FILES IN THE DEPLOYMENT - every plugin's config.yml, smp's
+  # milestones.yml and sounds.yml, the proxy's pack.yml - so they are worth Arcane's backup policy
+  # in a way mc-limbo and mc-hunger-games are not, and they are separate from the worlds precisely
+  # so that saving them is not saving four gigabytes of terrain. The jars in them are replaced by
+  # the updater and are not worth saving at all; a lost one is refilled by `updater bootstrap`.
+  #
+  # A local stack points the four variables above at directories instead and none of these is
+  # created. See deploy/dev.env.example.
+  mc-network-control-plugins:
+  mc-limbo-plugins:
+  mc-hunger-games-plugins:
+  mc-smp-plugins:

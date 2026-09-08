@@ -150,6 +150,21 @@ public interface NetworkSpec {
     @ConfigSpec
     interface MotdSpec {
 
+        // The name is the brand and never changes colour. It used to carry a gradient per phase -
+        // light blue before the start, orange in the event, green on the SMP, grey in maintenance -
+        // which is four different marks rather than one seen four times (owner, 2026-09-09). The
+        // phase is what the SECOND line is for, and it already says it.
+        //
+        // NORDTAL_BLUE is the logo's own blue, measured off resource-pack/src/pack.png: the mark
+        // is built from #24357d down through #1d2a62 and #1b285e to #13182f on near-black, and
+        // #24357d is the one a person would name. That value is the brand wherever the ground is
+        // light. This is not such a place: the server browser paints an almost black list, and
+        // #24357d on it is a dark blue on a dark grey. So the name is rendered in a lightened tone
+        // of the same hue - one brand, two applications, both written down in
+        // docs/presentation.md#the-palette. A future MOTD writes NORDTAL_BLUE and nothing else;
+        // BrandColourTest fails a phase that colours the name for itself again.
+        String NORDTAL_BLUE = "<#4a63d8><bold>nordtal.eu</bold></#4a63d8>";
+
         @Order(1)
         @Key("pre-launch")
         @Comment({
@@ -162,7 +177,7 @@ public interface NetworkSpec {
                 "phase on its own."
         })
         default String preLaunch() {
-            return "<gradient:#5ec2ff:#a8e6ff><bold>nordtal.eu</bold></gradient>"
+            return NORDTAL_BLUE
                     + "<newline><gray>Season 2 opens in <white>{countdown}</white></gray>";
         }
 
@@ -173,7 +188,7 @@ public interface NetworkSpec {
                 "{hg-teams} is what registration has produced so far."
         })
         default String preEvent() {
-            return "<gradient:#5ec2ff:#a8e6ff><bold>nordtal.eu</bold></gradient>"
+            return NORDTAL_BLUE
                     + "<newline><gray>Hunger Games: <white>{hg-teams}</white> teams,"
                     + " <white>{hg-participants}</white> players registered</gray>";
         }
@@ -185,7 +200,7 @@ public interface NetworkSpec {
                 "{hg-participants}; both come from the running game and drop to 0 between games."
         })
         default String startEvent() {
-            return "<gradient:#ffb457:#ff7a45><bold>nordtal.eu</bold></gradient>"
+            return NORDTAL_BLUE
                     + "<newline><gray>Hunger Games running: <white>{hg-alive}</white> of"
                     + " <white>{hg-participants}</white> alive</gray>";
         }
@@ -197,7 +212,7 @@ public interface NetworkSpec {
                 "on right now and {smp-milestone-progress} how far it has got, in percent."
         })
         default String smp() {
-            return "<gradient:#7ee081:#38b000><bold>nordtal.eu</bold></gradient>"
+            return NORDTAL_BLUE
                     + "<newline><gray>Working on <white>{smp-milestone}</white>"
                     + " (<white>{smp-milestone-progress}%</white>) - <white>{online}</white>/{max} online</gray>";
         }
@@ -209,7 +224,7 @@ public interface NetworkSpec {
                 "not a closed sign - it is a \"we are working, come back shortly\" sign."
         })
         default String maintenance() {
-            return "<gradient:#c0c0c0:#8a8a8a><bold>nordtal.eu</bold></gradient>"
+            return NORDTAL_BLUE
                     + "<newline><gray>Maintenance - back shortly</gray>";
         }
     }

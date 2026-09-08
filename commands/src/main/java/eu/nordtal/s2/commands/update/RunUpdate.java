@@ -40,7 +40,7 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
 
         effects.async(() -> {
             try {
-                final long id = effects.submit(kind, user.name()).id();
+                final long id = effects.submit(kind, user).id();
                 effects.watch(id, user);
                 // Everybody else is told by the proxy, which is the only process that sees every
                 // player. This line is for the person who typed it, and its job is to name the way

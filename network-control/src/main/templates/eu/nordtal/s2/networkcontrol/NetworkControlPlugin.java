@@ -403,18 +403,23 @@ public final class NetworkControlPlugin {
         NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
 
         // /update, folded 2026-09-08. Target.LOCAL, so the proxy writes the update_request row over
-        // the pool it already holds - and this is the surface where that matters most: an update is
-        // asked for when the network is misbehaving, and the proxy is what an admin can still reach
-        // when a backend cannot be joined. No watch: the proxy has no embed and its console has the
-        // log, so the answer is read where the run happens.
+        // the pool it already holds - and this is the surface that matters most, twice over: an
+        // update is asked for when the network is misbehaving, and the proxy is what an admin can
+        // still reach when a backend cannot be joined; and Velocity executes every command it
+        // knows itself, so for anybody PLAYING this is the only process that serves /update at
+        // all. The watcher is therefore not optional. It was wired as "(id, user) -> { }" the day
+        // the command was folded, on the reasoning that the proxy.s console has the log - and
+        // every admin in the network got the acknowledgement and never the answer.
+        final eu.nordtal.s2.networkcontrol.update.UpdateWatch updateWatch =
+                new eu.nordtal.s2.networkcontrol.update.UpdateWatch(this, proxy, logger,
+                        UpdateDirectory.using(pool), Clock.systemUTC());
         final eu.nordtal.s2.commands.update.UpdateEffects updateEffects =
                 new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool),
-                        eu.nordtal.s2.common.update.UpdateSource.CONSOLE,
+                        UpdateDirectory.using(pool),
                         ProxyNetworkEffects.async(this, proxy)::execute,
                         (what, failure) -> logger.warn("An update command failed while "
                                 + what, failure),
-                        (id, user) -> { });
+                        updateWatch::watch);
         eu.nordtal.s2.commands.update.UpdateCommands.all()
                 .forEach(command -> tree.local(command, updateEffects));
         // "clear" is not guessable and is the only value of this argument that is not a date.

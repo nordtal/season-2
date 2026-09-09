@@ -371,6 +371,15 @@
             "chars": [
                 "\udbb8\ude09"
             ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/wheel_ring.png",
+            "ascent": 13,
+            "height": 204,
+            "chars": [
+                "\udbb8\ude0a"
+            ]
         }
     ]
 }

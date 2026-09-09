@@ -49,8 +49,17 @@ public final class UpdateReports {
                 }
                 out.append("{\"artefact\":").append(quote(change.artefact()))
                         .append(",\"from\":").append(quote(change.from()))
-                        .append(",\"to\":").append(quote(change.to()))
-                        .append('}');
+                        .append(",\"to\":").append(quote(change.to()));
+                // Written only when it is not the default, the way `detail` is - and here that has
+                // a second effect worth naming. A reader older than 2026-09-09 throws on a key it
+                // does not know, and UpdateReports#parse turns that into "this is not a report",
+                // which every surface draws as the raw text. Omitting the common case means a
+                // network mid-deployment keeps drawing ordinary runs properly, and only a report
+                // that actually carries an unsupported artefact falls back.
+                if (change.state() != UpdateReport.Change.State.MOVING) {
+                    out.append(",\"state\":").append(quote(change.state().name()));
+                }
+                out.append('}');
             }
             out.append(']');
             if (line.detail() != null) {
@@ -182,6 +191,7 @@ public final class UpdateReports {
             String artefact = null;
             String from = null;
             String to = null;
+            UpdateReport.Change.State state = UpdateReport.Change.State.MOVING;
             while (true) {
                 final String key = string();
                 expect(':');
@@ -189,13 +199,14 @@ public final class UpdateReports {
                     case "artefact" -> artefact = string();
                     case "from" -> from = nullableString();
                     case "to" -> to = string();
+                    case "state" -> state = UpdateReport.Change.State.valueOf(string());
                     default -> throw new IllegalStateException("unknown key: " + key);
                 }
                 if (!more('}')) {
                     break;
                 }
             }
-            return new UpdateReport.Change(artefact, from, to);
+            return new UpdateReport.Change(artefact, from, to, state);
         }
 
         /** Runs {@code element} once per array entry, and eats an empty array without calling it. */

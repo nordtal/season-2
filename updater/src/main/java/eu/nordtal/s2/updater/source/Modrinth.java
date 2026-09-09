@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.ArrayList;
 
 /**
- * The Modrinth v2 API, for the two third-party plugins the SMP server requires: PacketEvents and
- * Chunky.
+ * The Modrinth v2 API, for the four third-party plugins the backends run: PacketEvents, Chunky,
+ * Simple Voice Chat and CoreProtect.
  *
  * <h2>Why Modrinth and not each project's own releases</h2>
  * Because Modrinth is the only source that answers the question actually being asked. GitHub
@@ -49,6 +49,30 @@ public final class Modrinth {
 
     private static final String API = "https://api.modrinth.com/v2/project/";
 
+    /**
+     * Modrinth answered, and it has no stable build of this plugin for this Minecraft version.
+     *
+     * <h2>Why this is a separate exception and not the general one</h2>
+     * Because the two are opposite advice. An outage is "this list is not the whole picture, look
+     * again later"; this is "there is nothing to look for, and there will not be until somebody
+     * else publishes". Both used to come out as a plain {@link IOException}, so a plugin that is
+     * simply behind the platform read as a source the updater could not reach - which makes the
+     * whole of its service {@code SKIPPED}, every run, for as long as the situation lasts. On
+     * {@code smp} that means the season jar is never installed either.
+     *
+     * <p>What it must <b>not</b> become is a way to install something else. There is no fallback
+     * here and there is deliberately no config key to allow one: a 26.1 jar on a 26.2 server is
+     * not a degraded version of a working plugin.</p>
+     */
+    public static final class Unsupported extends IOException {
+
+        private static final long serialVersionUID = 1L;
+
+        public Unsupported(final String message) {
+            super(message);
+        }
+    }
+
     private final Http http;
 
     public Modrinth(final Http http) {
@@ -60,11 +84,12 @@ public final class Modrinth {
      * {@code loader}.
      *
      * @param artifact the id this module knows the plugin by, carried into the {@link RemoteFile}.
-     * @throws IOException if the filter matches nothing, or if the newest match has no primary
-     *                     file. Both are refusals rather than fallbacks: "no version for 26.2"
-     *                     means the plugin has not been updated for the platform yet, and
-     *                     installing the 26.1 build instead is not a decision a program gets to
-     *                     make.
+     * @throws Unsupported if the filter matches nothing - the plugin has no stable build for this
+     *                     Minecraft version, which is a fact about somebody else's release
+     *                     schedule rather than a failure of this run
+     * @throws IOException if the newest match has no primary file, or the API could not be read.
+     *                     Both are refusals rather than fallbacks: installing the 26.1 build
+     *                     instead is not a decision a program gets to make.
      */
     public @NotNull RemoteFile newest(final @NotNull String artifact, final @NotNull String projectId,
                                       final @NotNull String gameVersion, final @NotNull String loader)
@@ -89,7 +114,7 @@ public final class Modrinth {
         }
 
         if (releases.isEmpty()) {
-            throw new IOException(what + ": no stable release is tagged for this platform. Either"
+            throw new Unsupported(what + ": no stable release is tagged for this platform. Either"
                     + " the plugin has not been updated for it yet, or a pre-release is being"
                     + " waited on - neither is something this module may work around by installing"
                     + " a build for a different Minecraft version.");

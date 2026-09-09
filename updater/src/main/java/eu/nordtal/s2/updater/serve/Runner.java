@@ -197,7 +197,10 @@ public final class Runner implements RequestRunner {
             // started again, because leaving half a network down over a refused stop turns a
             // cancelled update into an outage.
             final List<String> notStopped = planned.services().stream()
-                    .filter(line -> !line.changes().isEmpty())
+                    // isMoving, matching UpdateRun#stop exactly: a service listed only because an
+                    // artefact has no build yet was never asked to stop, so it must not be counted
+                    // as one that refused.
+                    .filter(UpdateReport.ServiceLine::isMoving)
                     .map(UpdateReport.ServiceLine::service)
                     .filter(service -> !Topology.UPDATER.equals(service))
                     .filter(service -> !stopped.services().contains(service))

@@ -80,13 +80,50 @@ class TopologyTest {
                     + " on it start and report healthy");
 
             final List<String> expected = List.of(defaultOf(String.valueOf(raw)).split("\\s+"));
-            assertEquals(service.plugins().size(), expected.size(),
-                    service.name() + " runs " + service.plugins() + " but its guard asks for "
-                            + expected + ". A plugin added to the topology and not to compose.yml is"
-                            + " one the container will happily start without.");
+            assertEquals(service.guarded().size(), expected.size(),
+                    service.name() + " runs " + service.plugins() + " (of which " + service.optional()
+                            + " is optional) but its guard asks for " + expected + ". A plugin added"
+                            + " to the topology and not to compose.yml is one the container will"
+                            + " happily start without.");
             assertTrue(expected.contains(service.name()),
                     service.name() + "'s own season jar is not in its EXPECTED_PLUGINS: " + expected);
         }
+    }
+
+    @Test
+    @DisplayName("an artefact that may have no build for this version is not one the guard demands")
+    void anOptionalPluginIsNotGuarded() {
+        // The other direction of the test above, and the reason Service#optional exists at all.
+        // EXPECTED_PLUGINS is a list of jars the container REFUSES TO START WITHOUT. Pointing it at
+        // an artefact whose publisher has not built for this Minecraft version would hand somebody
+        // else's release schedule the power to keep the SMP down - and there is one such artefact
+        // today: CoreProtect's newest release, 24.0, stops at 26.1.2 (checked 2026-09-08).
+        //
+        // It stays in the plan while it waits, which is the half worth having: the run that follows
+        // the day a build appears installs it, and nobody has to remember to add it back.
+        final Topology.Service smp = Topology.SERVICES.stream()
+                .filter(service -> service.name().equals(Topology.SMP))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(smp.plugins().contains(Topology.CORE_PROTECT),
+                "smp no longer carries a CoreProtect row - if that was deliberate, this test and"
+                        + " the artefact go together");
+        assertTrue(smp.optional().contains(Topology.CORE_PROTECT),
+                "CoreProtect is guarded again. Until a 26.2 build exists that is an SMP that will"
+                        + " not start, every start, for a reason nobody here can act on.");
+        assertFalse(smp.guarded().contains(Topology.CORE_PROTECT), "guarded() ignores optional()");
+
+        // And it really is absent from the string an operator would edit, not merely absent from a
+        // count. `${file%-*.jar}` on CoreProtect-CE-24.0.jar is CoreProtect-CE, so that - and not
+        // the artefact id - is what a guard entry for it would look like.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment =
+                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.SMP))
+                        .get("environment");
+        final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
+        assertFalse(guard.toLowerCase(java.util.Locale.ROOT).contains("coreprotect"),
+                "smp's EXPECTED_PLUGINS asks for CoreProtect: " + guard);
     }
 
     @Test

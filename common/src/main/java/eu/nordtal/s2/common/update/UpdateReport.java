@@ -89,9 +89,16 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
                 .orElseGet(() -> new ServiceLine(service, State.UNCHANGED, List.of(), null));
     }
 
-    /** @return whether anything at all is going to move - the difference between work and news */
+    /**
+     * @return whether anything at all is going to move - the difference between work and news
+     *
+     * <p>An artefact with no build for this Minecraft version is a change in the report and not
+     * work in the run: it is why this asks {@link ServiceLine#isMoving()} rather than counting
+     * changes. A run that found nothing but those has to end at {@link Stage#NOTHING_TO_DO}, and
+     * no server may be stopped for one.</p>
+     */
     public boolean isWork() {
-        return services.stream().anyMatch(line -> !line.changes().isEmpty());
+        return services.stream().anyMatch(ServiceLine::isMoving);
     }
 
     /**
@@ -128,6 +135,17 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
             return new ServiceLine(service, State.FAILED, changes, why);
         }
 
+        /**
+         * @return whether a run would stop this service and put a file into its volume
+         *
+         * <p>The one place "does this service move" is decided. A line carrying nothing but
+         * {@link Change.State#UNSUPPORTED} rows has something to <em>say</em> and nothing to do,
+         * and the difference is a server that stays up.</p>
+         */
+        public boolean isMoving() {
+            return changes.stream().anyMatch(change -> change.state() == Change.State.MOVING);
+        }
+
         /** {@code smp: healthy - paper 26.2.121 -> 26.2.126, smp 0.6.0 -> 0.7.0} */
         public String render() {
             final StringBuilder text = new StringBuilder(service).append(": ").append(state.label());
@@ -148,20 +166,69 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     }
 
     /**
-     * One artefact moving.
+     * One artefact, and what is happening to it.
      *
-     * @param from the version installed now, or {@code null} when nothing is installed - which is a
-     *             first deployment and reads as "install" rather than "upgrade"
+     * @param from  the version installed now, or {@code null} when nothing is installed - which is
+     *              a first deployment and reads as "install" rather than "upgrade"
+     * @param to    where it is going. The literal {@link #UNSUPPORTED} for an artefact that is
+     *              going nowhere, so that {@link #render()} and the codec have one shape to handle
+     * @param state whether this row is a file moving or an artefact waiting for a build
      */
-    public record Change(String artefact, String from, String to) {
+    public record Change(String artefact, String from, String to, State state) {
+
+        /**
+         * What {@link Change#to()} carries for an artefact that has no build to move to.
+         *
+         * <p>A sentinel rather than {@code null} because {@code to} is the one field every reader
+         * of this record has always been able to rely on, and a nullable version string is a
+         * {@code NullPointerException} in a surface nobody tests by hand. Nothing renders it: every
+         * surface branches on {@link #state()} first.</p>
+         */
+        public static final String UNSUPPORTED = "-";
 
         public Change {
             Objects.requireNonNull(artefact, "artefact");
             Objects.requireNonNull(to, "to");
+            state = state == null ? State.MOVING : state;
+        }
+
+        /** A file being installed or replaced, which is what every change was until 2026-09-09. */
+        public Change(final String artefact, final String from, final String to) {
+            this(artefact, from, to, State.MOVING);
+        }
+
+        /**
+         * An artefact the network wants and its publisher has not built for this Minecraft version.
+         *
+         * <p>It is in the report rather than left out of it so that it stays <b>named</b> while it
+         * waits: an artefact silently absent from every report is one somebody has to remember to
+         * put back.</p>
+         */
+        public static Change unsupported(final String artefact) {
+            return new Change(artefact, null, UNSUPPORTED, State.UNSUPPORTED);
         }
 
         public String render() {
-            return from == null ? artefact + " " + to : artefact + " " + from + " -> " + to;
+            return switch (state) {
+                case UNSUPPORTED -> artefact + " (no build for this Minecraft version yet)";
+                case MOVING -> from == null ? artefact + " " + to : artefact + " " + from + " -> " + to;
+            };
+        }
+
+        /** What is happening to one artefact. */
+        public enum State {
+            /** A file is being installed or replaced. {@code from} and {@code to} say which. */
+            MOVING,
+            /**
+             * Nothing is happening and nothing has gone wrong: the source answered, and it has no
+             * build of this artefact for the Minecraft version the network runs.
+             *
+             * <p>A service whose only changes are these is <b>not</b> work - it is never stopped,
+             * never installed into, and a run that finds nothing else to do is "nothing to do"
+             * rather than "installed". {@link UpdateReport#isWork()} is where that is decided, once.
+             * </p>
+             */
+            UNSUPPORTED
         }
     }
 

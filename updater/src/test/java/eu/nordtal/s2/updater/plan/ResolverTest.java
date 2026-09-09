@@ -26,6 +26,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -54,6 +55,10 @@ class ResolverTest {
                 .serving("/project/HYKaKraK/version", "modrinth-packetevents.json")
                 .serving("/project/fALzjamp/version", "modrinth-chunky.json")
                 .serving("/project/9eGKb6K1/version", "modrinth-voicechat.json")
+                // A recorded EMPTY array - what Modrinth really answered for CoreProtect filtered
+                // to 26.2/paper on 2026-09-08. It is a fixture and not a literal because the shape
+                // of "no version matches" is the thing under test.
+                .serving("/project/Lu3KuzdV/version", "modrinth-coreprotect-none.json")
                 .serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json")
                 .serving("/projects/velocity/versions/4.1.1/builds", "fill-velocity-4.1.1.json")
                 .answering(".zip.sha1", PACK_SHA1 + "\n");
@@ -120,6 +125,80 @@ class ResolverTest {
                         .noneMatch(change -> "limbo".equals(change.service())
                                 || "network-control".equals(change.service())),
                 Report.render(plan));
+    }
+
+    @Test
+    @DisplayName("a plugin with no build for this Minecraft version is UNSUPPORTED, not a failure")
+    void aPluginWithNoBuildIsUnsupported() throws IOException {
+        installCurrentEverything();
+
+        final UpdatePlan plan = resolve();
+        final Change change = changeFor(plan, "smp", "coreprotect");
+
+        assertEquals(Change.Status.UNSUPPORTED, change.status());
+        assertNull(change.wanted());
+        assertNull(change.installed());
+        assertNotNull(change.note());
+
+        // The properties that make this different from UNRESOLVED, and every one of them is about
+        // the SEASON JAR standing next to it rather than about CoreProtect. A failure row makes
+        // Applier skip the whole service, so treating "the publisher has not shipped for 26.2" as
+        // an outage would have meant the SMP's own jar was never installed - every run, for as long
+        // as it lasted.
+        assertFalse(change.status().isFailure(), Report.render(plan));
+        assertFalse(change.status().isWork(), Report.render(plan));
+        assertTrue(plan.changes().stream()
+                        .filter(row -> "smp".equals(row.service()))
+                        .noneMatch(row -> row.status().isFailure()),
+                "one artefact with no build made the whole SMP untrustworthy: " + Report.render(plan));
+    }
+
+    @Test
+    @DisplayName("a run that finds nothing but an unsupported artefact is nothing to do")
+    void anUnsupportedOnlyRunIsNothingToDo() throws IOException {
+        installCurrentEverything();
+
+        final UpdatePlan plan = resolve();
+
+        // Everything else on this deployment is current, so the only row that is not UP_TO_DATE is
+        // CoreProtect's. That must not read as work: no server is stopped, nothing is installed,
+        // and a report closing with "installed" would be a claim about a file that does not exist.
+        assertFalse(plan.hasWork(), Report.render(plan));
+        assertFalse(plan.hasMissing(), Report.render(plan));
+
+        final eu.nordtal.s2.common.update.UpdateReport report = PlanReport.of(plan);
+        assertFalse(report.isWork(), report.render());
+        assertEquals(eu.nordtal.s2.common.update.UpdateReport.State.UNCHANGED,
+                report.line("smp").state(), report.render());
+        assertTrue(report.line("smp").changes().stream()
+                        .anyMatch(entry -> entry.artefact().equals("coreprotect")
+                                && entry.state() == eu.nordtal.s2.common.update.UpdateReport
+                                        .Change.State.UNSUPPORTED),
+                "the artefact has to stay NAMED while it waits - one dropped from the report is one"
+                        + " somebody has to remember: " + report.render());
+
+        // The text report names it too. What its SUMMARY says when nothing else is wrong is
+        // ReportTest's job: this fixture's release predates the updater's own jar, so it always
+        // carries one unresolved row and the summary is about that instead.
+        final String text = Report.render(plan);
+        assertTrue(text.contains("coreprotect"), text);
+        assertTrue(text.contains("no build yet"), text);
+    }
+
+    @Test
+    @DisplayName("a Modrinth outage is still a failure - it is the one that must not read as fine")
+    void anOutageIsStillAFailure() throws IOException {
+        installCurrentEverything();
+        // The same artefact, the other reason for having no file. The distinction is the whole
+        // point of the new status, so it is asserted from both sides.
+        http.failing("/project/Lu3KuzdV/version", new HttpException(
+                URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
+
+        final UpdatePlan plan = resolve();
+        final Change change = changeFor(plan, "smp", "coreprotect");
+
+        assertEquals(Change.Status.UNRESOLVED, change.status(), Report.render(plan));
+        assertTrue(plan.hasFailures(), Report.render(plan));
     }
 
     @Test

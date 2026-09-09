@@ -52,6 +52,12 @@ public final class PlanReport {
             if (change.status().isWork()) {
                 work.get(change.service()).add(new UpdateReport.Change(
                         change.artifact(), change.installed(), version(change)));
+            } else if (change.status() == Change.Status.UNSUPPORTED) {
+                // In the report and not in the run. It is the only kind of change that stops a
+                // service being work: nothing is fetched for it, nothing is stopped for it, and it
+                // is listed so that an artefact waiting on somebody else's release schedule stays
+                // named instead of quietly not existing.
+                work.get(change.service()).add(UpdateReport.Change.unsupported(change.artifact()));
             } else if (change.status().isFailure()) {
                 // One unreadable row makes the whole service untrustworthy: "nothing to do" and
                 // "I could not look" are the same picture, and only one of them is safe to act on.
@@ -68,8 +74,13 @@ public final class PlanReport {
                 report = report.with(new UpdateReport.ServiceLine(service,
                         UpdateReport.State.FAILED, changes, why));
             } else {
+                // PLANNED means "this one is going to be stopped and written into". A service whose
+                // only rows are artefacts with no build is UNCHANGED, however many of them there
+                // are - it says something and it does nothing.
+                final boolean moving = changes.stream()
+                        .anyMatch(row -> row.state() == UpdateReport.Change.State.MOVING);
                 report = report.with(new UpdateReport.ServiceLine(service,
-                        changes.isEmpty() ? UpdateReport.State.UNCHANGED : UpdateReport.State.PLANNED,
+                        moving ? UpdateReport.State.PLANNED : UpdateReport.State.UNCHANGED,
                         changes, null));
             }
         }

@@ -27,8 +27,8 @@ import java.util.Set;
  * what the difference is. <b>Nothing here writes anything, anywhere.</b>
  *
  * <h2>One failure does not cost the whole report</h2>
- * Each source is asked inside its own try. A Modrinth outage turns two rows into
- * {@link Change.Status#UNRESOLVED} and leaves the other eight answered - because the question an
+ * Each source is asked inside its own try. A Modrinth outage turns its rows into
+ * {@link Change.Status#UNRESOLVED} and leaves the rest answered - because the question an
  * operator is actually asking is usually about our own jars, and losing that answer to somebody
  * else's CDN would make the report worth less than the {@code .env} file it replaces.
  *
@@ -36,6 +36,13 @@ import java.util.Set;
  * "unchanged". {@link UpdatePlan#hasFailures()} exists so that "nothing to do" can be distinguished
  * from "nothing could be asked", and the restart button in step 4 is meant to look different in
  * those two cases.</p>
+ *
+ * <h2>And "no build for this version" is neither of those</h2>
+ * A source that answers, and has nothing tagged for the Minecraft version the network runs, is
+ * {@link Change.Status#UNSUPPORTED}: not work, not a failure, and above all not a reason to skip
+ * the whole service the artefact sits on. Both used to come out as one exception, so a plugin
+ * merely lagging behind the platform would have stopped the season jar beside it from ever being
+ * installed.
  */
 @Slf4j
 public final class Resolver {
@@ -58,12 +65,16 @@ public final class Resolver {
     public @NotNull UpdatePlan resolve() {
         final Map<String, RemoteFile> newest = new LinkedHashMap<>();
         final Map<String, String> failures = new HashMap<>();
+        // Kept apart from `failures` on purpose. Both mean "there is no file to install", and only
+        // one of them means the report is untrustworthy - see Change.Status.UNSUPPORTED.
+        final Map<String, String> unsupported = new HashMap<>();
 
         final GitHubReleases.Release season = resolveSeason(newest, failures);
         resolveDisplayTags(newest, failures);
-        resolveModrinth(newest, failures, Topology.PACKETEVENTS, config.packetEventsProject());
-        resolveModrinth(newest, failures, Topology.CHUNKY, config.chunkyProject());
-        resolveModrinth(newest, failures, Topology.VOICE_CHAT, config.voiceChatProject());
+        resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject());
+        resolveModrinth(newest, failures, unsupported, Topology.CHUNKY, config.chunkyProject());
+        resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT, config.voiceChatProject());
+        resolveModrinth(newest, failures, unsupported, Topology.CORE_PROTECT, config.coreProtectProject());
         resolveFill(newest, failures, Topology.PAPER, config.minecraftVersion(), config.paperBuild());
         resolveFill(newest, failures, Topology.VELOCITY, config.velocityVersion(), config.velocityBuild());
 
@@ -82,7 +93,8 @@ public final class Resolver {
             artifacts.add(service.kind().fillProject());
 
             for (final String artifact : artifacts) {
-                changes.add(compare(service.name(), artifact, installed, newest, failures, claimed));
+                changes.add(compare(service.name(), artifact, installed, newest, failures,
+                        unsupported, claimed));
             }
 
             if (installed.mounted()) {
@@ -208,10 +220,24 @@ public final class Resolver {
         }
     }
 
+    /**
+     * One Modrinth-hosted plugin, with the two ways of having no file kept apart.
+     *
+     * <p>{@link Modrinth.Unsupported} means the API answered and the plugin has no stable build for
+     * this Minecraft version. That is not an outage and must not be reported as one: a failure row
+     * makes {@code Applier} skip the whole of the service it is on, so one plugin lagging behind
+     * the platform would stop the season jar beside it being installed at all, on every run, for as
+     * long as it lasted.</p>
+     */
     private void resolveModrinth(final Map<String, RemoteFile> newest, final Map<String, String> failures,
+                                 final Map<String, String> unsupported,
                                  final String artifact, final String projectId) {
         try {
             newest.put(artifact, modrinth.newest(artifact, projectId, config.minecraftVersion(), "paper"));
+        } catch (final Modrinth.Unsupported none) {
+            log.info("{} has no build for Minecraft {} - the row stays in the plan and installs"
+                    + " itself when one appears", artifact, config.minecraftVersion());
+            unsupported.put(artifact, none.getMessage());
         } catch (final IOException failed) {
             failures.put(artifact, failed.getMessage());
         }
@@ -236,9 +262,17 @@ public final class Resolver {
 
     private Change compare(final String service, final String artifact, final Installation installed,
                            final Map<String, RemoteFile> newest, final Map<String, String> failures,
-                           final Set<String> claimed) {
+                           final Map<String, String> unsupported, final Set<String> claimed) {
         final RemoteFile wanted = newest.get(artifact);
         if (wanted == null) {
+            final String none = unsupported.get(artifact);
+            if (none != null) {
+                // No filename to compare against, so nothing on disk is claimed for this row -
+                // which is deliberate rather than a gap. A jar somebody installed by hand comes out
+                // in UpdatePlan#unclaimed, where every jar this plan does not account for goes, and
+                // that is louder than a version comparison against a file that does not exist.
+                return Change.unsupported(service, artifact, none);
+            }
             return Change.unresolved(service, artifact,
                     failures.getOrDefault(artifact, "no source answered for this artefact"));
         }
@@ -291,7 +325,10 @@ public final class Resolver {
             return new Change(artifact, artifact, Change.Status.MOUNT_MISSING, null, wanted,
                     installed.directory() + " is not mounted in this container");
         }
-        return compare(artifact, artifact, installed, newest, failures, new HashSet<>());
+        // No unsupported map: the bot and the updater come from our own release, which either
+        // carries their jar or does not. "There is no build for this Minecraft version" is a
+        // sentence about somebody else's plugin and cannot be said about these two.
+        return compare(artifact, artifact, installed, newest, failures, Map.of(), new HashSet<>());
     }
 
     private Change resolvePack(final Path root, final Map<String, RemoteFile> newest,

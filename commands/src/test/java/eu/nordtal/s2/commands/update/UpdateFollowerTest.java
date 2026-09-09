@@ -73,6 +73,26 @@ class UpdateFollowerTest {
     }
 
     @Test
+    @DisplayName("an artefact with no build yet is its own line, and not a failure")
+    void printsAnUnsupportedArtefact() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.UNCHANGED,
+                        List.of(UpdateReport.Change.unsupported("coreprotect")), null));
+        final FakeUser user = FakeUser.inGame();
+        following(id -> Optional.of(
+                row(UpdateStatus.DONE, UpdateReports.toJson(report)))).poll(NOW).deliver(user);
+
+        // Its own key, because the sentence is different: nothing is moving, so "{artefact} {from}
+        // -> {to}" has nothing to put on either side of the arrow. And its own line rather than a
+        // silent omission - an artefact dropped from the report is one somebody has to remember.
+        assertEquals(List.of("update.stage.NOTHING_TO_DO", "update.line.UNCHANGED",
+                "update.change.unsupported"), user.keys());
+        assertEquals("coreprotect", user.replies.get(2).of("artefact"));
+        assertEquals(Tone.MUTED, user.replies.get(2).tone(),
+                "nothing has gone wrong here; a run that shouts about it trains people to skip it");
+    }
+
+    @Test
     @DisplayName("the failed service is the one line that is coloured differently")
     void theFailureIsFindable() {
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)

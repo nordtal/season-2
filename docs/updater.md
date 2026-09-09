@@ -264,6 +264,31 @@ the only thing that resolves a version, compares a volume or judges an outcome. 
 reasoning, including why the report lives as JSON in the existing column rather than in a table of
 its own.
 
+### Two third-party plugins, and a state that is neither work nor failure
+
+`voicechat` (Simple Voice Chat, Paper build) sits on `smp` and `hunger-games`, `voicechat-velocity`
+on the proxy, and `coreprotect` on `smp`. All three are **optional**: they are not in `guarded()`, so
+`EXPECTED_PLUGINS` does not ask for them and a run that cannot resolve one changes nothing about
+whether a server starts. The two reasons for that are different and the code keeps them apart -
+CoreProtect *cannot* be installed, voice chat *need not* be.
+
+**`UNSUPPORTED` is a fourth answer.** The source replied and has no build for this Minecraft version.
+It is neither work nor a failure: it does not skip the service, it stops no server, and a run in
+which nothing else is moving ends `NOTHING_TO_DO` rather than claiming an install. The artefact stays
+named in the plan, so the day a compatible release appears the next `/update now` installs it with
+nobody changing code. CoreProtect is the reason it exists - release 24.0 ends at 26.1.2, and the
+owner chose to carry it as waiting rather than to leave it out and forget it.
+
+**One project, two artefacts.** Simple Voice Chat publishes both builds under one Modrinth id; the
+loader distinguishes them, so `updater.yml` carries one `voicechat-project`.
+
+**The pre-release exception is one artefact wide.** `Modrinth#newest` takes only
+`version_type: release`. `voicechat-velocity` is the single exception, named in
+`Modrinth.PRE_RELEASE_EXCEPTIONS`, because that project has published thirteen Velocity versions
+since 2022 and not one release: waiting for a stable build is not a slower route to the same place,
+it is a route to nothing. Checked live on 2026-09-09 - eight `alpha`, five `beta`, zero `release`,
+and only `velocity-2.6.18` tagged for 26.2. It is a constant and not a setting on purpose.
+
 ### The fifth kind: a volume backup
 
 Arcane can snapshot a volume to S3 on a schedule of its own, and it can stop the containers first.

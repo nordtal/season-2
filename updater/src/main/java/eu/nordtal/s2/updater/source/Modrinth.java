@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.ArrayList;
 
 /**
- * The Modrinth v2 API, for the two third-party plugins the SMP server requires: PacketEvents and
- * Chunky.
+ * The Modrinth v2 API, for the third-party plugins the network runs: PacketEvents, Chunky,
+ * Simple Voice Chat - on the two backends and on the proxy - and CoreProtect.
  *
  * <h2>Why Modrinth and not each project's own releases</h2>
  * Because Modrinth is the only source that answers the question actually being asked. GitHub
@@ -40,14 +40,68 @@ import java.util.ArrayList;
  *       guarantee and the failure mode is installing a two-year-old build silently.</li>
  * </ul>
  *
- * <h2>Only {@code release}</h2>
+ * <h2>Only {@code release}, and one artefact that is named</h2>
  * {@code version_type} is one of {@code release}, {@code beta}, {@code alpha}. Only the first is
  * considered. An updater that pulls somebody's alpha onto a server people paid to play on, at
  * three in the morning, without being asked, is the thing this whole module is arranged to avoid.
+ *
+ * <p>The rule is unchanged for every artefact but one. {@link #PRE_RELEASE_EXCEPTIONS} is that one,
+ * written out by name rather than expressed as a switch - see its own note for why a setting would
+ * have been the wrong shape.</p>
  */
 public final class Modrinth {
 
     private static final String API = "https://api.modrinth.com/v2/project/";
+
+    /**
+     * The artefact ids for which a {@code beta} or an {@code alpha} counts, and there is exactly
+     * one: {@code voicechat-velocity}, Simple Voice Chat's proxy half.
+     *
+     * <h2>Why this one and why not a setting</h2>
+     * Because the reason is not "the alpha is newer". <b>The project has never published a
+     * {@code release} for Velocity at all</b> - 13 versions since 2022, every one of them
+     * {@code alpha} or {@code beta}, newest {@code velocity-2.6.18} of 2026-05-28, and it is the
+     * only one of the thirteen tagged for Minecraft 26.2 (queried against the live API,
+     * 2026-09-09). So "wait for a release" is not a slower path to the same place; it is a decision
+     * never to install this plugin, taken by accident and never written down.
+     *
+     * <p>The alternative that was rejected is a config key - a {@code minimum-version-type}, or a
+     * per-artefact flag in {@code updater.yml}. That would put the decision in a deployed file
+     * where an operator can widen it to everything at three in the morning to make one run
+     * succeed, and where nothing afterwards records that it was ever narrow. A named constant costs
+     * a code change and a red build, which is the price this exception should cost.</p>
+     *
+     * <p><b>Adding a second entry here is a decision, not a line.</b> {@code ModrinthTest} asserts
+     * this set has exactly one member and which one, so a second artefact leaning on the exception
+     * fails the build rather than inheriting it. What would have to be true for a new entry is what
+     * is true here: not that a pre-release is available, but that a stable one has never existed
+     * and there is no reason to expect one.</p>
+     */
+    public static final List<String> PRE_RELEASE_EXCEPTIONS = List.of("voicechat-velocity");
+
+    /**
+     * Modrinth answered, and it has no stable build of this plugin for this Minecraft version.
+     *
+     * <h2>Why this is a separate exception and not the general one</h2>
+     * Because the two are opposite advice. An outage is "this list is not the whole picture, look
+     * again later"; this is "there is nothing to look for, and there will not be until somebody
+     * else publishes". Both used to come out as a plain {@link IOException}, so a plugin that is
+     * simply behind the platform read as a source the updater could not reach - which makes the
+     * whole of its service {@code SKIPPED}, every run, for as long as the situation lasts. On
+     * {@code smp} that means the season jar is never installed either.
+     *
+     * <p>What it must <b>not</b> become is a way to install something else. There is no fallback
+     * here and there is deliberately no config key to allow one: a 26.1 jar on a 26.2 server is
+     * not a degraded version of a working plugin.</p>
+     */
+    public static final class Unsupported extends IOException {
+
+        private static final long serialVersionUID = 1L;
+
+        public Unsupported(final String message) {
+            super(message);
+        }
+    }
 
     private final Http http;
 
@@ -59,12 +113,17 @@ public final class Modrinth {
      * The newest {@code release} of {@code projectId} tagged for {@code gameVersion} on
      * {@code loader}.
      *
+     * <p>For an artefact in {@link #PRE_RELEASE_EXCEPTIONS}, and only for those, a {@code beta} or
+     * an {@code alpha} counts as well. There is no parameter and no setting for that: the decision
+     * is the id, so a caller cannot ask for it on the wrong artefact.</p>
+     *
      * @param artifact the id this module knows the plugin by, carried into the {@link RemoteFile}.
-     * @throws IOException if the filter matches nothing, or if the newest match has no primary
-     *                     file. Both are refusals rather than fallbacks: "no version for 26.2"
-     *                     means the plugin has not been updated for the platform yet, and
-     *                     installing the 26.1 build instead is not a decision a program gets to
-     *                     make.
+     * @throws Unsupported if the filter matches nothing - the plugin has no stable build for this
+     *                     Minecraft version, which is a fact about somebody else's release
+     *                     schedule rather than a failure of this run
+     * @throws IOException if the newest match has no primary file, or the API could not be read.
+     *                     Both are refusals rather than fallbacks: installing the 26.1 build
+     *                     instead is not a decision a program gets to make.
      */
     public @NotNull RemoteFile newest(final @NotNull String artifact, final @NotNull String projectId,
                                       final @NotNull String gameVersion, final @NotNull String loader)
@@ -80,19 +139,24 @@ public final class Modrinth {
         final String what = "Modrinth " + artifact + " (" + projectId + ") for " + gameVersion + "/" + loader;
         final JsonArray versions = Json.array(http.get(uri), what);
 
+        // The exception is decided here, from the artefact id alone, so that no caller and no
+        // config file can point it at anything else. See PRE_RELEASE_EXCEPTIONS.
+        final boolean preReleasesCount = PRE_RELEASE_EXCEPTIONS.contains(artifact);
+
         final List<JsonObject> releases = new ArrayList<>();
         for (final JsonElement element : versions) {
             final JsonObject version = element.getAsJsonObject();
-            if ("release".equals(Json.optionalString(version, "version_type"))) {
+            if (preReleasesCount || "release".equals(Json.optionalString(version, "version_type"))) {
                 releases.add(version);
             }
         }
 
         if (releases.isEmpty()) {
-            throw new IOException(what + ": no stable release is tagged for this platform. Either"
-                    + " the plugin has not been updated for it yet, or a pre-release is being"
-                    + " waited on - neither is something this module may work around by installing"
-                    + " a build for a different Minecraft version.");
+            throw new Unsupported(what + ": no "
+                    + (preReleasesCount ? "version of any kind" : "stable release")
+                    + " is tagged for this platform. Either the plugin has not been updated for it"
+                    + " yet, or a pre-release is being waited on - neither is something this module"
+                    + " may work around by installing a build for a different Minecraft version.");
         }
 
         // Newest first. A version with an unparseable date sorts last rather than crashing the run:

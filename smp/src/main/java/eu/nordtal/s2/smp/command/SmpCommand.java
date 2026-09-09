@@ -79,7 +79,7 @@ public final class SmpCommand {
         // One effects object for /update, built here because only this class knows both halves:
         // the pool (through the watcher) and where a Paper plugin is allowed to wait.
         final UpdateEffects updateEffects = new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                updates.directory(), eu.nordtal.s2.common.update.UpdateSource.GAME,
+                updates.directory(),
                 work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
                 (what, failure) -> plugin.getLogger()
                         .warning("An update command failed while " + what + ": " + failure),

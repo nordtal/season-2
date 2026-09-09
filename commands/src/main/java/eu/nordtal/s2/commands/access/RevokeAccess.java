@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Map;
 import java.util.Optional;
@@ -34,13 +35,16 @@ public final class RevokeAccess implements NordtalCommand<AccessEffects> {
                 revoked = effects.revoke(discordId, user);
             } catch (final RuntimeException failure) {
                 effects.warn("/access revoke for " + discordId, failure);
-                user.reply("access.failed", Map.of(), Feedback.REFUSED);
+                user.reply("access.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             user.reply(revoked == 0 ? "access.revoked.none"
                             : revoked == 1 ? "access.revoked.one" : "access.revoked",
                     Map.of("count", revoked),
-                    revoked == 0 ? Feedback.REFUSED : Feedback.SMALL_SUCCESS);
+                    revoked == 0 ? Feedback.REFUSED : Feedback.SMALL_SUCCESS,
+                    // Nothing to revoke is WARN and not BAD: the command did what it was asked and
+                    // found no grant, which is a fact about the account rather than a failure.
+                    revoked == 0 ? Tone.WARN : Tone.GOOD);
         });
     }
 }

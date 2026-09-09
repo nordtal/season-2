@@ -18,6 +18,12 @@ repositoryRootTestInputs {
     reads("docs/updater.md")
     reads("deploy/README.md")
 
+    // CountdownComesAfterResolvingTest reads Runner as text: the thing it asserts is an ORDER
+    // inside one method, and the branch it is about cannot be reached without asking GitHub,
+    // Modrinth and PaperMC what is new. Gradle's input here is the compiled class, so without this
+    // an edit that only moves two statements could leave :updater:test UP-TO-DATE.
+    reads("updater/src/main/java/eu/nordtal/s2/updater/serve/Runner.java")
+
     // TopologyTest holds deploy/dev.env.example against every required variable in compose.yml.
     // Compose interpolates the whole file before it filters by profile, so ONE unset `${X:?}`
     // stops the local stack before a single image is pulled - and it does that for a service the

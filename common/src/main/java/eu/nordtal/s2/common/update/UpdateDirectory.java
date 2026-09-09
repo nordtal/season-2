@@ -28,19 +28,24 @@ import java.util.Optional;
  */
 public interface UpdateDirectory {
 
-    /** The PostgreSQL channel every request is announced on. Next to {@code nordtal_phase}. */
-    String CHANNEL = "nordtal_update";
+    /**
+     * The PostgreSQL channel every request is announced on.
+     *
+     * <p>An alias for {@link eu.nordtal.s2.common.notify.Channels#UPDATE} rather than a second
+     * spelling of it: a channel name is only ever right in pairs, and two constants holding one
+     * string is the shape that lets a listener point at a channel nobody publishes on.</p>
+     */
+    String CHANNEL = eu.nordtal.s2.common.notify.Channels.UPDATE;
 
     /**
      * How long between an update being asked for and the servers going down.
      *
      * <h2>Why a constant and not a setting</h2>
-     * Three processes submit runs - the bot, the SMP plugin, and a person at a console - and a
-     * fourth renders the countdown to every player on the network. A configurable value would have
-     * to be configured in all four, in four files that are read by four containers, and the first
-     * time one of them disagreed the players would see a counter reach zero and nothing happen.
-     * The instant itself still travels on the row ({@code not_before}), so the updater and the
-     * proxy never compute it twice - this is only the length the submitters use.
+     * The updater starts the countdown and the proxy renders it to every player on the network. A
+     * configurable value would have to be configured in two containers, and the first time they
+     * disagreed the players would see a counter reach zero and nothing happen. The instant itself
+     * travels on the row ({@code not_before}), so the two never compute it twice - this is only the
+     * length {@link #startCountdown} asks for.
      *
      * <h2>Thirty seconds, and what that is long enough for</h2>
      * It was sixty until 2026-09-07, when the run stopped being "ask Arcane to redeploy" and became
@@ -51,7 +56,8 @@ public interface UpdateDirectory {
      * written, a spin paid out - all of which happen in one tick at zero.
      *
      * <p>It is also the cancel window, and halving it halves that. "Stop the countdown" works right
-     * up until an updater claims the row.</p>
+     * up until {@link #commitCountdown} takes the row, which is the instant the counter reaches
+     * zero rather than the instant the request was claimed.</p>
      */
     Duration UPDATE_COUNTDOWN = Duration.ofSeconds(30);
 
@@ -70,10 +76,11 @@ public interface UpdateDirectory {
      * @param kind        what to do
      * @param source      which surface is asking
      * @param requestedBy a Discord id, a Minecraft name, or {@code null} for the console
-     * @param delay       how long the updater must wait before acting. {@link Duration#ZERO} for
-     *                    everything but a restart, whose countdown this is. Negative is treated as
-     *                    zero rather than rejected - a caller computing a delay from two clocks
-     *                    should get "now", not an exception
+     * @param delay       how long the updater must wait before acting. <b>{@link Duration#ZERO}
+     *                    for every kind, since 2026-09-08</b> - the countdown is started by
+     *                    {@link #startCountdown} once the updater knows there is work to do, so a
+     *                    request that finds nothing new never counts anything down. Negative is
+     *                    treated as zero rather than rejected
      * @return the row as written, with the id to read the answer back by
      */
     UpdateRequest submit(UpdateKind kind, UpdateSource source, String requestedBy, Duration delay);
@@ -85,6 +92,33 @@ public interface UpdateDirectory {
      * @return the row, or empty if it has been deleted by hand
      */
     Optional<UpdateRequest> find(long id);
+
+    /**
+     * Every request written after the one named, oldest first.
+     *
+     * <p>What the Discord bot's admin-channel feed reads. A run asked for in game or at a console
+     * had no surface anybody else could see until 2026-09-08: the only run visible to an admin who
+     * did not start it was one started in Discord, which is the one that already has somebody
+     * watching it.</p>
+     *
+     * @param id the last one already drawn; {@code 0} for everything there is
+     */
+    java.util.List<UpdateRequest> since(long id);
+
+    /**
+     * The highest id there is, or zero.
+     *
+     * <p>Where a feed starts, so a restart does not post a season of history into a channel.</p>
+     */
+    long latestId();
+
+    /**
+     * Every request that finished within the given window.
+     *
+     * <p>The other half of that start: a run that finished while the bot was restarting has an id
+     * below {@link #latestId()} and would otherwise be the one run nobody ever saw the answer to.</p>
+     */
+    java.util.List<UpdateRequest> finishedWithin(Duration window);
 
     /**
      * Takes the oldest due request and marks it running. <b>Only the updater calls this.</b>
@@ -125,20 +159,52 @@ public interface UpdateDirectory {
     boolean progress(long id, String result);
 
     /**
-     * The restart that has been asked for and has not fired yet.
+     * Starts the countdown on a request this process has claimed. <b>Only the updater calls this.</b>
      *
-     * @return the pending restart, or empty. This is what network-control counts down towards
+     * <h2>Why the updater and not the submitter, since 2026-09-08</h2>
+     * Every surface used to write {@code not_before = now() + 30s} and the updater was forbidden to
+     * act before it. So a countdown ran for <em>every</em> update asked for, including the ordinary
+     * one where nothing is new: thirty seconds of "the servers are going down" shown to everybody
+     * playing, ending in "everything is already current". The updater now resolves first and only
+     * counts down when the plan has work in it, which only it can know.
+     *
+     * @param id      the claimed request
+     * @param seconds how long the countdown runs, from now on the database's clock
+     * @return the row with its new {@code not_before}, or empty when it is no longer running -
+     *         which means it was cancelled between the claim and this call
      */
-    Optional<UpdateRequest> pendingRestart();
+    Optional<UpdateRequest> startCountdown(long id, Duration length);
 
     /**
-     * Withdraws the pending restart.
+     * Ends the countdown and says whether it was still there to end. <b>Only the updater calls
+     * this.</b>
+     *
+     * <p>The one statement that decides the race at zero: a {@code /update cancel} arriving in the
+     * same millisecond either wins (and this answers false) or is refused. Reading the status and
+     * then acting on it would leave exactly the window this closes.</p>
+     *
+     * @param id the claimed request
+     * @return {@code true} when the run may go ahead, {@code false} when somebody cancelled - in
+     *         which case <b>nothing may be stopped</b>
+     */
+    boolean commitCountdown(long id);
+
+    /**
+     * The outage that is counting down right now.
+     *
+     * @return the request being counted down, or empty. This is what network-control counts down
+     *         towards
+     */
+    Optional<UpdateRequest> countingDown();
+
+    /**
+     * Withdraws the countdown that is running.
      *
      * @param reason what to record, naming who cancelled
      * @return the cancelled row, or empty when the countdown had already run out - which is the
      *         answer the admin needs, not an error
      */
-    Optional<UpdateRequest> cancelPendingRestart(String reason);
+    Optional<UpdateRequest> cancelCountdown(String reason);
 
     /**
      * When the next pending request becomes due.
@@ -152,16 +218,20 @@ public interface UpdateDirectory {
     Optional<Instant> nextDue();
 
     /**
-     * Marks restarts left {@code RUNNING} as done, and everything else left {@code RUNNING} as
-     * failed. <b>Only the updater calls this, once, at startup.</b>
+     * Fails everything left {@code RUNNING}. <b>Only the updater calls this, once, at startup.</b>
      *
-     * <p>A restart is the one request that is <em>supposed</em> to end this way: the redeploy takes
-     * this container down while the row is still open, so finding one on the next boot is how the
-     * updater learns that the restart it asked for actually happened.</p>
+     * <p>Nothing is running those rows: the only process that claims one is an updater, exactly one
+     * {@code serve} may exist, and this one has just started.</p>
      *
-     * @param restarted what to write into orphaned restarts
-     * @param failed    what to write into everything else
-     * @return how many rows were touched in total
+     * <h2>A restart used to be closed as {@code DONE}, and that is gone</h2>
+     * It was right while a restart was one Arcane redeploy of the whole project, which took this
+     * container down mid-call - so an orphaned {@code RESTART} was how the updater learned the
+     * restart had happened. Since 2026-09-07 a restart cycles the four Minecraft services and never
+     * stops the updater, so an orphaned one means what every other kind means: it died in the
+     * middle. Reporting that as success is the one reading nobody can act on.
+     *
+     * @param failed what to write into those rows
+     * @return how many there were
      */
-    int settleOrphans(String restarted, String failed);
+    int settleOrphans(String failed);
 }

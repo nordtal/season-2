@@ -192,6 +192,27 @@ public interface SmpDao {
     List<ContributionRow> contributionsOf(@Bind("objectiveId") UUID objectiveId);
 
     /**
+     * What one player has put into each objective of one milestone.
+     *
+     * <p>A <b>left</b> join, so an objective this player has never touched comes back at zero
+     * rather than not coming back: the menu that reads this draws one line per objective and a
+     * missing row would silently become a shorter list. Off the main thread like everything else
+     * here - it is read once when the spawn NPC's menu is opened.</p>
+     */
+    @SqlQuery("""
+            SELECT obj.key               AS key,
+                   coalesce(con.amount, 0) AS mine,
+                   obj.target            AS target
+            FROM smp_objective obj
+            LEFT JOIN smp_contribution con
+                   ON con.objective_id = obj.id AND con.discord_id = :discordId
+            WHERE obj.milestone_key = :milestoneKey
+            """)
+    @RegisterConstructorMapper(OwnContributionRow.class)
+    List<OwnContributionRow> ownContributions(@Bind("milestoneKey") String milestoneKey,
+                                              @Bind("discordId") String discordId);
+
+    /**
      * Marks an objective finished, once.
      *
      * <p>The {@code completed IS NULL} guard is what makes the payout happen exactly once: two
@@ -385,6 +406,40 @@ public interface SmpDao {
     @SqlQuery("SELECT aura FROM smp_player WHERE discord_id = :discordId")
     Optional<Integer> auraOf(@Bind("discordId") String discordId);
 
+    /**
+     * Where an amount of aura places somebody, and how many people it is out of.
+     *
+     * <h2>One statement, because two would describe two instants</h2>
+     * {@code /aura} prints the asker's place and the top ten under it. Read separately, a duel
+     * settled between the two reads makes the line about somebody disagree with the line about them
+     * in the list below it - which nobody reports as a bug and everybody notices.
+     *
+     * <h2>The same population as the board</h2>
+     * Joined through {@code account_link}, exactly like {@link #topAura}: somebody with an
+     * {@code smp_player} row and no link cannot be on a Minecraft server to be counted on a board in
+     * one. Counting them here and not there would make "number 4 of 37" sit above a list drawn from
+     * thirty-six people.
+     *
+     * <p>Ties share a place - the count is of everybody with <em>strictly</em> more - so two people
+     * on the same number are not told different things about it.</p>
+     *
+     * <h2>The asker counts even with no row of their own</h2>
+     * A player who has never been given aura has no {@code smp_player} row, so the total counted
+     * everybody <em>but</em> them while the place still counted them: on a fresh season that printed
+     * <b>"1 of 0"</b>, and on a running one "6 of 5". The id is passed in for that one reason - to
+     * add the asker to the population when the population does not already contain them. It changes
+     * nothing for anybody who has ever earned or lost a point.
+     */
+    @SqlQuery("""
+            SELECT count(*) FILTER (WHERE player.aura > :aura) + 1 AS place,
+                   count(*) + CASE WHEN coalesce(bool_or(player.discord_id = :discordId), false)
+                                   THEN 0 ELSE 1 END                AS total
+            FROM smp_player player
+                     JOIN account_link link ON link.discord_id = player.discord_id
+            """)
+    @RegisterConstructorMapper(AuraPlace.class)
+    AuraPlace auraPlace(@Bind("aura") int aura, @Bind("discordId") String discordId);
+
     // ---------------------------------------------------------------- the start event's winner
 
     /**
@@ -451,6 +506,41 @@ public interface SmpDao {
                 WHERE NOT smp_player.hg_winner_reward_granted
             """)
     int claimHeadStart(@Bind("discordId") String discordId);
+
+    // ---------------------------------------------------------------- the season's opening moment
+
+    /**
+     * Takes this player's one welcome, if it is still there.
+     *
+     * <p>Exactly {@link #claimHeadStart}'s shape and for exactly its reason: the flag is written
+     * <em>before</em> anything is shown, so two sessions racing each other - a reconnect inside a
+     * second, two proxies, a replayed join - cannot both win. The loser gets zero rows back and
+     * shows nothing.
+     *
+     * <p>The {@code INSERT} half is not a formality. A row only appears in {@code smp_player} when
+     * somebody earns something, and this runs on the join of a player who by definition has not yet.
+     *
+     * <p>Deliberately <b>not</b> transactional and deliberately claiming before showing: the moment
+     * itself cannot fail in a way worth putting back, and the opposite ordering - show, then record
+     * - shows it twice to anybody whose server restarts mid-welcome. What it costs is the one path
+     * that loses it: a player who leaves in the tick after their own join. That is a picture rather
+     * than a payout, so it is logged and not repaired; {@code V16__smp_welcome.sql} carries the one
+     * {@code UPDATE} that gives it back.
+     *
+     * @return whether this call is the one that took it
+     */
+    default boolean claimWelcome(final String discordId) {
+        return claimWelcomeRow(discordId) > 0;
+    }
+
+    @SqlUpdate("""
+            INSERT INTO smp_player (discord_id, welcome_shown)
+            VALUES (:discordId, true)
+            ON CONFLICT (discord_id) DO UPDATE
+                SET welcome_shown = true, updated = now()
+                WHERE NOT smp_player.welcome_shown
+            """)
+    int claimWelcomeRow(@Bind("discordId") String discordId);
 
     // ---------------------------------------------------------------- graves
 

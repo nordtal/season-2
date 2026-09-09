@@ -29,6 +29,7 @@ import eu.nordtal.s2.networkcontrol.gate.FallbackCache;
 import eu.nordtal.s2.networkcontrol.gate.GateMessages;
 import eu.nordtal.s2.networkcontrol.gate.LoginGate;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
+import eu.nordtal.s2.networkcontrol.gate.BackendKick;
 import eu.nordtal.s2.networkcontrol.gate.MisconfiguredGate;
 import eu.nordtal.s2.networkcontrol.launch.LaunchCountdown;
 import eu.nordtal.s2.networkcontrol.pack.PackMessages;
@@ -36,6 +37,8 @@ import eu.nordtal.s2.networkcontrol.pack.PackOffer;
 import eu.nordtal.s2.networkcontrol.pack.PackStation;
 import eu.nordtal.s2.networkcontrol.pack.WaitingBook;
 import eu.nordtal.s2.commands.Target;
+import eu.nordtal.s2.commands.chat.ChatCommands;
+import eu.nordtal.s2.commands.info.InfoCommands;
 import eu.nordtal.s2.commands.network.NetworkCommands;
 import eu.nordtal.s2.commands.network.NetworkEffects;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
@@ -43,6 +46,11 @@ import eu.nordtal.s2.commands.phase.PhaseEffects;
 import eu.nordtal.s2.commands.remote.CommandInbox;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.phase.SeasonDates;
+import eu.nordtal.s2.common.command.AllowlistDirectory;
+import eu.nordtal.s2.common.command.CommandAllowlist;
+import eu.nordtal.s2.networkcontrol.command.CommandGate;
+import eu.nordtal.s2.networkcontrol.command.ProxyChatEffects;
+import eu.nordtal.s2.networkcontrol.command.ProxyInfoEffects;
 import eu.nordtal.s2.networkcontrol.command.ProxyNetworkEffects;
 import eu.nordtal.s2.networkcontrol.command.VelocityCommands;
 import eu.nordtal.s2.networkcontrol.phase.ProxyPhaseEffects;
@@ -57,6 +65,7 @@ import eu.nordtal.s2.networkcontrol.playtime.PlaytimeWriter;
 import eu.nordtal.s2.networkcontrol.routing.PhaseRouting;
 import eu.nordtal.s2.networkcontrol.routing.PhaseServers;
 import eu.nordtal.s2.networkcontrol.routing.PlayerRouter;
+import eu.nordtal.s2.networkcontrol.routing.RouteIntents;
 import eu.nordtal.s2.networkcontrol.update.RestartWatch;
 
 import org.slf4j.Logger;
@@ -124,6 +133,15 @@ public final class NetworkControlPlugin {
     private HikariDataSource pool;
     private AccessDirectory access;
     private NotificationListener phaseListener;
+
+    /**
+     * Assigned after the listener above is started, and read by it.
+     *
+     * <p>Volatile because the listener's own thread calls its refreshes the moment it connects,
+     * which is before this line is reached - the same window {@code commandInbox} has, answered the
+     * same way. The five-second poll covers it.</p>
+     */
+    private volatile RestartWatch restartWatch;
 
     /**
      * Commands another process asked this one to run.
@@ -231,8 +249,16 @@ public final class NetworkControlPlugin {
                 packMessages, packConfig, offer, book);
         packs.registerChannel();
 
+        // Every destination this plugin chooses is recorded, and every other one is refused - the
+        // layer underneath CommandGate, below. Routing was a decision nothing enforced: Velocity's
+        // own /server is open to every player, so /server hunger-games during the SMP phase put
+        // somebody there past the phase, past that backend's access check and past the pack.
+        final RouteIntents intents =
+                new RouteIntents(roster, gateConfig.serverLimbo(), logger);
+        proxy.getEventManager().register(this, intents);
+
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
-                roster, fallback, gateMessages, packs);
+                roster, fallback, gateMessages, packs, intents);
         routerRef.set(router);
         packs.onRelease(router::releaseFromLimbo);
         proxy.getEventManager().register(this, router);
@@ -303,7 +329,8 @@ public final class NetworkControlPlugin {
                             databaseConfig.username(), databaseConfig.password(),
                             databaseConfig.queryTimeoutSeconds(),
                             "network-control-notification-listener",
-                            java.util.List.of(Channels.PHASE, Channels.ADMIN, Channels.COMMAND)),
+                            java.util.List.of(Channels.PHASE, Channels.ADMIN, Channels.COMMAND,
+                                    Channels.UPDATE)),
                     "network-control-phase-listener",
                     java.util.List.of(
                             new NotificationListener.Refresh("the season phase", phaseWatch::refresh),
@@ -319,6 +346,16 @@ public final class NetworkControlPlugin {
                                 final CommandInbox inbox = commandInbox;
                                 if (inbox != null) {
                                     inbox.drain();
+                                }
+                            }),
+                            // The countdown, for the same reason and with the same null guard. On a
+                            // thirty-second warning, five seconds of poll latency is a sixth of it
+                            // spent before anybody is told - and the beats that passed in that
+                            // window are dropped, so the "30 seconds" line would simply not happen.
+                            new NotificationListener.Refresh("the restart countdown", () -> {
+                                final RestartWatch watch = restartWatch;
+                                if (watch != null) {
+                                    watch.check();
                                 }
                             })),
                     logger, pollInterval);
@@ -339,6 +376,10 @@ public final class NetworkControlPlugin {
         proxy.getEventManager().register(this, loginGate);
         proxy.getEventManager().register(this, roster);
         proxy.getEventManager().register(this, expiryWatch);
+        // Text only: a backend's own disconnect screen, without Velocity's English wrapper around
+        // it. It moves nobody - see BackendKick for the boundary and for the question it leaves
+        // open.
+        proxy.getEventManager().register(this, new BackendKick());
 
         proxy.getScheduler().buildTask(this, expiryWatch::check)
                 .delay(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))
@@ -379,12 +420,41 @@ public final class NetworkControlPlugin {
         // A restart is asked for in Discord or with /smp update restart; both write a row with an
         // absolute instant on it, and this counts towards that instant rather than towards a
         // duration of its own - see docs/updater.md#how-it-is-operated.
-        final RestartWatch restartWatch = new RestartWatch(proxy, logger,
+        this.restartWatch = new RestartWatch(this, proxy, logger,
                 UpdateDirectory.using(pool), roster, messages, Clock.systemUTC());
-        proxy.getScheduler().buildTask(this, restartWatch::check)
+        proxy.getScheduler().buildTask(this, this.restartWatch::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
+
+        // ------------------------------------------------------------ the command allowlist
+
+        // One list, in network.yml, for the whole network. This proxy enforces it directly - it
+        // sees every command a player types, including the ones bound for a backend - and
+        // publishes it for the three Paper servers, which need it for the one half a proxy cannot
+        // do: what a client is told exists. See CommandGate and :common's CommandFilter.
+        final CommandAllowlist allowlist =
+                CommandAllowlist.parse(networkConfig.commandAllowlist());
+        proxy.getEventManager().register(this, new CommandGate(roster, allowlist, messages, logger));
+        if (allowlist.entries().isEmpty()) {
+            logger.warn("network.yml#command-allowlist is empty: a player who is not an admin can "
+                    + "type no command at all, anywhere on this network. That is a valid setting "
+                    + "and almost certainly not the one that was meant.");
+        } else {
+            logger.info("Players who are not admins may use: {}", allowlist);
+        }
+        try {
+            if (AllowlistDirectory.using(pool).publish(allowlist)) {
+                logger.info("Published the command allowlist for the three Paper backends");
+            }
+        } catch (final RuntimeException failure) {
+            // Not fatal, and deliberately so. This proxy's own enforcement does not depend on the
+            // row - it reads the file. What a failure here costs is the backends' completion
+            // filter, which stays as it was until the next start; and the login gate behind this
+            // point is worth more than the tab list on three servers.
+            logger.warn("Could not publish the command allowlist; the Paper backends will keep "
+                    + "whatever list they last read. This proxy still enforces it.", failure);
+        }
 
         // ------------------------------------------------------------ the emergency command
 
@@ -403,20 +473,46 @@ public final class NetworkControlPlugin {
         NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
 
         // /update, folded 2026-09-08. Target.LOCAL, so the proxy writes the update_request row over
-        // the pool it already holds - and this is the surface where that matters most: an update is
-        // asked for when the network is misbehaving, and the proxy is what an admin can still reach
-        // when a backend cannot be joined. No watch: the proxy has no embed and its console has the
-        // log, so the answer is read where the run happens.
+        // the pool it already holds - and this is the surface that matters most, twice over: an
+        // update is asked for when the network is misbehaving, and the proxy is what an admin can
+        // still reach when a backend cannot be joined; and Velocity executes every command it
+        // knows itself, so for anybody PLAYING this is the only process that serves /update at
+        // all. The watcher is therefore not optional. It was wired as "(id, user) -> { }" the day
+        // the command was folded, on the reasoning that the proxy.s console has the log - and
+        // every admin in the network got the acknowledgement and never the answer.
+        final eu.nordtal.s2.networkcontrol.update.UpdateWatch updateWatch =
+                new eu.nordtal.s2.networkcontrol.update.UpdateWatch(this, proxy, logger,
+                        UpdateDirectory.using(pool), Clock.systemUTC());
         final eu.nordtal.s2.commands.update.UpdateEffects updateEffects =
                 new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                        eu.nordtal.s2.common.update.UpdateDirectory.using(pool),
-                        eu.nordtal.s2.common.update.UpdateSource.CONSOLE,
+                        UpdateDirectory.using(pool),
                         ProxyNetworkEffects.async(this, proxy)::execute,
                         (what, failure) -> logger.warn("An update command failed while "
                                 + what, failure),
-                        (id, user) -> { });
+                        updateWatch::watch);
         eu.nordtal.s2.commands.update.UpdateCommands.all()
                 .forEach(command -> tree.local(command, updateEffects));
+        // The network's own private messages, folded 2026-09-08. Target.PROXY and Surface.GAME
+        // only, and NOT admin-only: the command allowlist takes vanilla's /tell, /msg, /w and
+        // /teammsg away from players, and these are what replaces them. The proxy owns them because
+        // it is the only process that can see both people - vanilla's are per-server, and on this
+        // network crossing between servers is the ordinary case.
+        //
+        // The effects are a listener as well as an effect: they hold who last spoke to whom, for
+        // /r, and that has to be dropped when somebody leaves. Nothing about a private message is
+        // written down anywhere (owner, 2026-09-08).
+        final ProxyChatEffects chatEffects = new ProxyChatEffects(proxy, roster, messages,
+                ProxyNetworkEffects.async(this, proxy), logger);
+        proxy.getEventManager().register(this, chatEffects);
+        ChatCommands.all().forEach(command -> tree.local(command, chatEffects));
+
+        // /discord and /rules. On the proxy so that they work in the waiting room, which is where
+        // the player who most needs to be told how to reach us is standing. The invite is
+        // gate.yml's, the same string every login screen already uses.
+        final ProxyInfoEffects infoEffects = new ProxyInfoEffects(proxy, messages,
+                gateConfig.discordInviteUrl(), ProxyNetworkEffects.async(this, proxy), logger);
+        InfoCommands.all().forEach(command -> tree.local(command, infoEffects));
+
         // "clear" is not guessable and is the only value of this argument that is not a date.
         tree.suggest(PhaseCommands.LAUNCH, "when", () -> List.of(SeasonDates.CLEAR));
         tree.suggest(PhaseCommands.SMP_START, "when", () -> List.of(SeasonDates.CLEAR));

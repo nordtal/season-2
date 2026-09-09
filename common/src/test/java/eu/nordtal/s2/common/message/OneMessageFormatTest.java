@@ -76,15 +76,31 @@ class OneMessageFormatTest {
                     "glyphs and player names - the nametag, the tab entry and the chat prefix"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/npc/SpawnNpc.java",
                     "the NPC's name out of config.yml, which is a name and not a message"),
+            Map.entry("smp/src/main/java/eu/nordtal/s2/smp/welcome/SeasonWelcome.java",
+                    "the frames of the season's opening moment, which are pictures rather than"
+                            + " sentences - text today because the art is a placeholder, private-use"
+                            + " code points once it exists, and a glyph may never be written into a"
+                            + " .properties file. The one part of that moment that IS language, its"
+                            + " subtitle, goes through MessageRenderer in the same file"),
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/body/PlayerBodies.java",
                     "a disconnected player's name on their body"),
-            Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/lobby/Lobby.java",
-                    "one space between the broadcast and the clickable link"),
+            Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/player/ArenaComposition.java",
+                    "a flag glyph and a player name - this server's half of the shared system"
+                            + " lines, the same exemption smp's PlayerComposition has"),
+            // hunger-games' Lobby was here until 2026-09-09, for "one space between the broadcast
+            // and the clickable link". That space is gone with the append that needed it: the
+            // bundle places the link through a <_link> component slot now, which is what a slot is
+            // for and is also what fixed the literal "{link}" every player in the lobby was reading.
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/ping/NetworkPing.java",
                     "the MOTD, which NetworkPing parses itself with its own placeholder resolver"),
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityUser.java",
                     "NordtalUser#replyLiteral - text that IS already the answer and must not be"
                             + " rendered twice, which is docs/updater.md's rule about its report"),
+            Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/ProxyChatEffects.java",
+                    "a private message's own text, wrapped so that it can be handed to"
+                            + " MessageRenderer's COMPONENT slot - which is what keeps a player"
+                            + " called <red> from colouring somebody else's chat. The line around"
+                            + " it is a bundle key like any other"),
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/ConsoleUser.java",
                     "the same NordtalUser#replyLiteral, for the proxy console - plus a plain-text"
                             + " serialiser, because a raw <green> in a container log is a thing"

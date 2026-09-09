@@ -5,6 +5,8 @@ import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.ConfigValidator;
 import eu.nordtal.jcore.config.exception.ConfigException;
 
+import eu.nordtal.s2.common.command.CommandAllowlist;
+
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
@@ -86,6 +88,31 @@ public final class Configs {
         return load(directory, logger, "network", NetworkSpec.class, "NORDTAL_NETWORK_CONTROL_NETWORK", config -> {
             requirePositive("max-players", config.maxPlayers());
             requirePositive("snapshot-refresh-seconds", config.snapshotRefreshSeconds());
+            if (config.commandAllowlist() == null) {
+                throw new IllegalArgumentException("command-allowlist is missing; an absent list is"
+                        + " not the same as an empty one and this proxy will not guess which was"
+                        + " meant");
+            }
+            for (final String entry : config.commandAllowlist()) {
+                // A blank line in the list is dropped when it is parsed, which is exactly the shape
+                // of mistake nothing else would ever report: the file looks like it has ten entries
+                // and the network behaves as though it had nine.
+                if (entry == null || entry.isBlank()) {
+                    throw new IllegalArgumentException("command-allowlist has a blank entry. Delete"
+                            + " the line rather than emptying it - an empty one allows nothing and"
+                            + " would be silently ignored");
+                }
+                // Blank is not the only way to write nothing. CommandAllowlist#parse strips a
+                // leading slash and a namespace, so "/" and "minecraft:" normalise to the empty
+                // path: they pass the check above, match no command, and sit in the file looking
+                // like an entry that does something.
+                if (!CommandAllowlist.names(entry)) {
+                    throw new IllegalArgumentException("command-allowlist entry '" + entry + "' is"
+                            + " nothing once the leading slash and namespace are taken off, so it"
+                            + " allows no command at all. Write the command's path, like"
+                            + " 'smp status'");
+                }
+            }
             final NetworkSpec.MotdSpec motd = config.motd();
             if (motd == null) {
                 throw new IllegalArgumentException("motd is missing; it needs one entry per season phase");

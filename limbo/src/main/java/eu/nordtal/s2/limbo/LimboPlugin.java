@@ -12,9 +12,11 @@ import eu.nordtal.s2.commands.limbo.LimboEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.limbo.command.BukkitLimboEffects;
 import eu.nordtal.s2.papercommon.access.AdminWatch;
+import eu.nordtal.s2.papercommon.command.CommandFilter;
 import eu.nordtal.s2.papercommon.command.PaperCommandInbox;
 import eu.nordtal.s2.papercommon.access.BukkitOps;
 import eu.nordtal.s2.common.access.FullServerAdmission;
+import eu.nordtal.s2.common.command.AllowlistDirectory;
 import eu.nordtal.s2.common.health.Readiness;
 import eu.nordtal.s2.common.limbo.LimboProtocol;
 import eu.nordtal.s2.common.message.Messages;
@@ -70,6 +72,9 @@ public final class LimboPlugin extends JavaPlugin {
     private HikariDataSource pool;
     private AccessDirectory access;
     private AdminWatch adminWatch;
+
+    /** What a non-admin may type here, and what their client is told exists. */
+    private CommandFilter commandFilter;
 
     /** The thread a command sent to another process waits on. Shut down before the pool. */
     private java.util.concurrent.ScheduledExecutorService commandWaiter;
@@ -208,13 +213,27 @@ public final class LimboPlugin extends JavaPlugin {
                         shared)));
         inbox.start(this);
 
+        // The command allowlist. The proxy refuses a command before it reaches this server, which
+        // is the enforcement; this is the half the proxy cannot do - what this server tells a
+        // client exists at all. Same poll rhythm as the admin roster, and its notification rides
+        // the same connection. See CommandFilter, which fails OPEN and says so if no list has been
+        // published yet.
+        commandFilter = new CommandFilter(this,
+                CommandFilter.Source.of(AllowlistDirectory.using(pool)),
+                adminWatch::isAdmin, locales, messages, slf4j());
+        getServer().getPluginManager().registerEvents(commandFilter, this);
+        commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
+
         adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
                 config.adminListenEnabled()
                         ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
                                 databaseHandle.get().username(), databaseHandle.get().password(),
                                 databaseHandle.get().queryTimeoutSeconds())
                         : null,
-                inbox.refreshes(), inbox.channels());
+                java.util.stream.Stream.concat(inbox.refreshes().stream(),
+                        commandFilter.refreshes().stream()).toList(),
+                java.util.stream.Stream.concat(inbox.channels().stream(),
+                        commandFilter.channels().stream()).toList());
 
         getLifecycleManager().registerEventHandler(
                 io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS,

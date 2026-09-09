@@ -1,6 +1,10 @@
 package eu.nordtal.s2.hungergames.listener;
 
+import net.kyori.adventure.text.Component;
+import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.hungergames.player.ArenaComposition;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.border.BorderController;
 import eu.nordtal.s2.hungergames.db.HgMember;
@@ -27,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,9 +73,21 @@ public final class CombatListener implements Listener {
      */
     private final Consumer<Ceremony.Decision> onGameDecided;
 
+    /**
+     * The kill feed, for the one death vanilla does not announce.
+     *
+     * <p>A body's marker dying is an {@code EntityDeathEvent}, which carries no death message - so
+     * {@link SystemLines#onDeath} never sees it and the elimination happened in silence. That is
+     * precisely the elimination the victim is not there for (owner, 2026-09-09).</p>
+     */
+    private final SystemLines systemLines;
+
+    private final ArenaComposition composition;
+
     public CombatListener(final Plugin plugin, final HungerGamesDao dao, final GameState state,
                           final PlayerBodies bodies, final BorderController border, final WinTracker winTracker,
-                          final HungerGamesSounds sounds,
+                          final HungerGamesSounds sounds, final SystemLines systemLines,
+                          final ArenaComposition composition,
                           final Consumer<Ceremony.Decision> onGameDecided) {
         this.plugin = plugin;
         this.dao = dao;
@@ -79,6 +96,8 @@ public final class CombatListener implements Listener {
         this.border = border;
         this.winTracker = winTracker;
         this.sounds = sounds;
+        this.systemLines = systemLines;
+        this.composition = composition;
         this.onGameDecided = onGameDecided;
     }
 
@@ -122,7 +141,27 @@ public final class CombatListener implements Listener {
         }
         final UUID killerUuid = participantUuid(resolveAttacker(event.getDamageSource().getCausingEntity()));
         bodies.removeByMarker(event.getEntity().getUniqueId());
+        announceBodyDeath(event.getEntity(), owner, killerUuid);
         handleDeath(owner, killerUuid);
+    }
+
+    /**
+     * The kill feed line for a body's death, which vanilla writes for nobody.
+     *
+     * <p>The victim's name comes off the marker rather than off a {@code Player}: its owner is
+     * offline, which is the whole reason a body is standing there. Two keys rather than one with an
+     * empty slot - "fell to the border" and "was killed by nobody" are different sentences, and a
+     * bundle cannot make that choice.</p>
+     */
+    private void announceBodyDeath(final Entity marker, final UUID owner, final UUID killerUuid) {
+        final Component victim = composition.ofName(marker.getName(), owner);
+        final Player killer = killerUuid == null ? null : plugin.getServer().getPlayer(killerUuid);
+        if (killer == null) {
+            systemLines.announce("hg.death.body", Glyphs.ICON_DEATH, Map.of("_player", victim));
+            return;
+        }
+        systemLines.announce("hg.death.body.by", Glyphs.ICON_DEATH,
+                Map.of("_player", victim, "_killer", composition.of(killer)));
     }
 
     private void handleDeath(final UUID victimMcUuid, final UUID killerMcUuid) {

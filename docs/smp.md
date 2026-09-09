@@ -541,6 +541,45 @@ progress, the player's own contribution, and the hand-in interface.
 A milestone unlocking is a **server-wide event** — title and chat announcement in every player's
 language, announced in Discord as well, and the moment the balloon's greyed-out entry lights up.
 
+## What the four windows look like
+
+Built 2026-09-09 to the owner's drawings; the panel technique itself is
+[presentation.md](presentation.md).
+
+**The objective window shows what *you* did.** Four cards on a six-row panel, each with its type
+icon, its name, a progress bar and its numbers; a heading plate above them carries the milestone and
+`1/4`; the bottom row carries your own share and the spins it has earned you. That last line is new
+data rather than a new drawing - the concept has asked for it since the first draft and nothing had
+ever shown it. It comes from `smp_contribution` on the same async hop that already reads the
+objectives, and the arithmetic has a trap in it worth naming: **the percentage is summed per
+milestone and the spins are summed per objective**, because that is how `ObjectiveEngine` grants
+them. A contributor of 30 % to one objective has earned three spins, not one.
+
+**A milestone with five objectives pages.** Three of the seven shipped milestones have five and the
+drawing has four cards. Dropping the fifth was the one outcome not worth building, so two small
+arrows appear when there is a second page. That is a reading of a conflict between the chosen layout
+and the shipped content rather than a decision anybody took - `todo.md` A18 carries the
+alternatives.
+
+**Handing in is one tray; a grave is a recess per slot.** The difference is a statement and not a
+style, and both files say so in a comment: a tray is a surface you throw things into, an inventory
+is one you take things out of. The grave gained a footer row - the dead player's head, the
+experience waiting, and a button that empties it - and three behaviours came with that row because a
+footer is nine cells that are not loot: the settle serialises only the content slots, every footer
+cell is occupied so a shift-click cannot land in one, and a click there is cancelled rather than
+handled as an item move. Without the first of those the grave would have been refilled from its own
+furniture on the next start.
+
+**The wheel is twelve cells in a ring** on the left five columns, with the spins, the rule and an
+"again" button in the space that frees up on the right. "Again" re-enters `spin`, and during the
+animation the button *is a different item* - one that says wait and refuses with a sound - because
+the guard against a double click buying two spins has to be visible rather than merely present.
+
+**The pointer became a frame, and that half was not a choice.** The drawing puts a triangle in the
+title bar above the resting cell, which works at x 85 because it is right of the readable title and
+does not work at x 49, which is where the ring's centre now is. The resting cell wears the white
+"you are here" frame instead.
+
 ## The balloon GUI
 
 **Re-settled 2026-09-05** (owner's call; it was "the other overworld, wide, above Nether | End"
@@ -648,6 +687,21 @@ Three decisions the implementation had to take, none of which the concept had re
   tick after their own join — logs the player, the exact items and the one `UPDATE` that offers it
   again, rather than a warning nobody can act on.
 
+**The trap that follows from the first decision, written down 2026-09-08 so nobody rediscovers it on
+opening day:** the prize goes to the winner of the **earliest** `DECIDED` game. A practice game run to
+`DECIDED` before the real start event therefore owns the head start for good. If that happens:
+`DELETE FROM hg_game WHERE id = '<the practice game>'` before the SMP phase opens. **Deleting the
+practice row is the whole of the fix, and it comes first in every case** - the reward follows
+whichever `DECIDED` game is earliest, so while that row exists nothing done to `smp_player` can
+move the head start to the real winner.
+
+If the practice winner was already paid, the order is: delete the practice game, then
+`UPDATE smp_player SET hg_winner_reward_granted = false WHERE discord_id = '<the real winner>'` so
+the real one can still be granted, and then take the practice winner's aura back by hand with
+`/smp aura <player> -<amount>` - it writes its reason like every other aura change. Resetting the
+flag without deleting the row pays nobody; deleting the row without taking the aura back pays
+twice.
+
 ### Deaths cost aura
 
 Decided 2026-08-31. Aura is meant to be a number with risk in it, not a collection meter that only
@@ -700,6 +754,24 @@ overspend by construction:
 Every change is written to an aura ledger with its reason, so a leaderboard position can always be
 explained.
 
+## The season's first join
+
+A player's very first arrival on the SMP gets a staged moment: blindness, a short run of pictures in
+the title slot, and nothing else. It runs once per player per season, claimed through
+`smp_player.welcome_shown` (V16) so that two simultaneous joins cannot both play it, and it runs from
+the locale callback rather than from the join handler - that is where a join has finished settling.
+
+**Three things about it are deliberately absent.** There is no text: the owner struck the subtitle
+on 2026-09-09, so the pictures carry the moment alone. There is no sound yet: `Feedback.STAGING` is
+the eleventh sound category, added the same day rather than borrowed, and it ships blank because no
+vanilla sound is a staged moment - it arrives with the artwork as one line of YAML. And there is no
+setting: no key turns it off or retunes it, which is a decision about what a config file is for.
+
+The pictures themselves are placeholders. The device under them is general on purpose - a sequence
+of frames, a tick spacing, optionally an effect, a sound and a subtitle, cancelled when the player
+leaves or dies - because the milestone completion, the hunger games start and winner, a phase
+opening and a prestige promotion are all the same shape.
+
 ## Prestige — a crest earned by time
 
 A **coat-of-arms glyph in 13 design tiers**, assigned by total online time. AFK time counts, on
@@ -737,7 +809,7 @@ One composition, shown in full where there is room and trimmed where there is no
 | element | source |
 |---|---|
 | language flag | `discord_user.locale` ([i18n.md](i18n.md)) |
-| player name, uniform light grey | — |
+| player name, uniform light grey | — . **Confirmed 2026-09-09**: colouring the name by prestige was asked for and then struck by the owner. It would have needed thirteen colour values that exist nowhere, and `chatPrefix`, the tab list and the nametag share one component - so "only in chat" would have made the same name grey one line lower. The chat *message* went from `<white>` to `#d0d0d8` instead |
 | admin `A` | the admin flag, mirrored from the Discord admin role |
 | donor star | the permanent donor role from [access-system.md](access-system.md) |
 | aura, green when positive, red at zero or below | `smp_player.aura` |
@@ -1315,6 +1387,12 @@ correcting it is a diff rather than an argument.
 so it has no AI, never despawns and never wanders. The three options this list used to weigh —
 a villager with its AI off, a custom entity, Citizens — were all worse than something the server
 already ships. A later 3D model can replace how it is *drawn* without touching how it is clicked.
+
+**`setInvulnerable(true)` is not enough, and that took a player to find** (finding 150). It does not
+stop a creative-mode hit and it does not stop the void, and the spawn protection covers blocks
+rather than entities - so the figure the whole objective system is reached through could simply be
+killed. A listener cancels damage, combustion and knockback for that one entity, by its remembered
+UUID rather than by type, so a mannequin somebody else places is not silently protected too.
 
 What is genuinely still open:
 

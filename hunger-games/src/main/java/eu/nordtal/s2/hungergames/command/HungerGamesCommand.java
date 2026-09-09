@@ -13,6 +13,7 @@ import eu.nordtal.s2.commands.hungergames.HungerGamesCommands;
 import eu.nordtal.s2.commands.hungergames.HungerGamesEffects;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.db.HungerGamesDao;
@@ -98,7 +99,6 @@ public final class HungerGamesCommand {
         eu.nordtal.s2.commands.update.UpdateCommands.all().forEach(command -> commands.local(command,
                 new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
                         updates.directory(),
-                        eu.nordtal.s2.common.update.UpdateSource.GAME,
                         work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
                         (what, failure) -> plugin.getLogger()
                                 .warning("An update command failed while " + what + ": " + failure),
@@ -132,13 +132,14 @@ public final class HungerGamesCommand {
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             if (gameId == null) {
-                user.reply("hg.lobby.not-registered", Map.of(), Feedback.REFUSED);
+                user.reply("hg.lobby.not-registered", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             final var discordId = dao.discordIdOf(player.getUniqueId());
             final boolean marked = discordId.isPresent() && lobby.markReady(gameId, discordId.get());
             user.reply(marked ? "hg.lobby.ready-set" : "hg.lobby.not-registered", Map.of(),
-                    marked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED);
+                    marked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED,
+                    marked ? Tone.GOOD : Tone.BAD);
         });
         return Command.SINGLE_SUCCESS;
     }

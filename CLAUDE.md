@@ -62,7 +62,10 @@ Deliberately **not** set up, so nobody adds it by accident thinking it was forgo
   described by a `@ConfigSpec` interface. It is the default for every new config in this repo.
   `network-control` (`database.yml`, `gate.yml`, `pack.yml`), `hunger-games` (`config.yml`,
   `database.yml`), `limbo` (`config.yml`, `database.yml`), `smp` (`config.yml`, `database.yml`,
-  `milestones.yml`, `sounds.yml`), `hunger-games` (`config.yml`, `database.yml`, `sounds.yml`) and
+  `milestones.yml`, `sounds.yml`; `config.yml` gained `backup-time` on 2026-09-09, default `04:45`,
+  blank meaning never - the network's backup clock lives in `smp` because `smp` already schedules the
+  farm reset, and `serve` is deliberately still not a scheduler), `hunger-games` (`config.yml`,
+  `database.yml`, `sounds.yml`) and
   `discord-bot` (`access.yml`, `bot.yml`, `database.yml`) all use it — read one of them, and
   "Configuration" below, before writing the next.
 - **No command framework, decided 2026-08-31.** Season 1 used Incendo Cloud; season 2 uses
@@ -96,6 +99,30 @@ own repo and is not built or released here.
 
 Minecraft **26.2** / Java **25** / Gradle **9.7.1**. Notes:
 
+- **The version is a constant in `:common` since 2026-09-09: `eu.nordtal.s2.common.Platform`.**
+  `MINECRAFT` is `26.2`, `VELOCITY_FAMILY` is `4.0.0`, `VELOCITY_API` is `4.1.1`, `PACK_FORMAT` is
+  `88` and `API_VERSION` is `26.2`. It is the one source for the Fill query, the Modrinth
+  `game_versions` filter and the `SERVER_VERSION` literals in `compose.yml`. Until that day the
+  updater read it out of `updater.yml`, fed from `PAPER_VERSION` in `.env` — so **the environment
+  won over the source tree** in the one place where it must not: an operator typing another number
+  there was not configuring the updater, they were pointing the network at a Minecraft nothing here
+  was compiled for. `PlatformTest` holds all five constants against their mirrors —
+  `gradle/libs.versions.toml`, `resource-pack/src/pack.mcmeta` and the three `paper-plugin.yml` —
+  and those files are declared through `repositoryRootTestInputs`, without which Gradle cannot see
+  them and the check silently stops running.
+- **Paper is an exact version and Velocity is a family, and the asymmetry is Fill's own.**
+  `GET /v3/projects/velocity` groups every 4.x under the key `4.0.0`, so that string is Fill's name
+  for the major. The proxy follows the newest release inside it; a new *Minecraft* version stays a
+  season decision, because it moves the API every plugin is compiled against. When the resolved
+  Velocity version differs from `VELOCITY_API`, the update report says so and does not block.
+- **There is no build pin any more, in any form** (owner, 2026-09-09). `paper-build`,
+  `velocity-build`, `UPDATER_PAPER_BUILD`, `UPDATER_VELOCITY_BUILD`, `PAPER_BUILD`, `VELOCITY_BUILD`
+  and `SERVER_BUILD` are all gone; the updater installs the newest `STABLE` build and
+  `entrypoint.sh` resolves the same one when `.server/` is empty. **There is no way back out of a
+  bad platform build, and that is the decision rather than an oversight** — do not reintroduce one,
+  documented or otherwise. `/v3/.../builds/latest` is *not* it: measured 2026-09-09, it answers the
+  newest build of *any* channel (`paper/1.21.11-rc3/builds/latest` → `ALPHA`), so both programs
+  filter the list themselves.
 - Minecraft moved to `year.drop.hotfix`. There is no "1.26.2".
 - **Paper dropped `-R0.1-SNAPSHOT`.** The coordinate is
   `io.papermc.paper:paper-api:26.2.build.NNN-stable`; the catalog pins `26.2.build.121-stable`.
@@ -105,7 +132,9 @@ Minecraft **26.2** / Java **25** / Gradle **9.7.1**. Notes:
 - Paper 26.2 and Velocity 4.1.1 both ship **Adventure 5.2.0**. Do not pin Adventure yourself;
   take it from the platform.
 - `api-version` in `paper-plugin.yml` accepts `1.13`–`26.2`.
-- Resource pack `pack_format` for 26.2 is **88** (26.1 was 84, 26.3 snapshots are 89). Season 1's
+- Resource pack `pack_format` for 26.2 is **88** (26.1 was 84, 26.3 snapshots are 89), and it is
+  `Platform.PACK_FORMAT` — a pack a format behind does not fail to load, the client warns and draws
+  it, so the way this goes wrong is a season running on art nobody noticed was stale. Season 1's
   pack was on 64.
 
 **SimpleCloud is gone, decided 2026-09-01.** It ran 26.2 — confirmed by the owner on 2026-08-31
@@ -569,12 +598,50 @@ Three rules ride on it, and the first two are what make it safe rather than mere
   `UpdateIsServedEverywhereTest` names all five wiring sites.
 
 It is not a general escape: a command belongs here only when its effect touches nothing but the
-database. The one that does is `/update`, whose four commands were folded on 2026-09-08 - `/update`,
-`/update now`, `/update restart`, `/update cancel`. What stayed with each surface is the *drawing*:
-Discord's live embed with a field per service, `smp`'s `UpdateWatcher` (all that is left of a class
-that used to own a Brigadier tree). The comment in `SmpCommand` saying `/smp update` "should not
-become a NordtalCommand" rested on the rule that the updater's report must never be rendered twice -
-which was deliberately rewritten the day before, and is now "nothing is *decided* twice".
+database. The one that does is `/update`, whose commands were folded on 2026-09-08 - `/update`,
+`/update now`, `/update restart`, `/update cancel`, and `/update check` since the next day. **`/backup
+now` is the sixth**, added 2026-09-09: a root of its own so it is not one tab-completion away from
+`/update now`, but declared in `UpdateCommands` and returned from its `all()`, so it rides the single
+wiring site all five processes already have rather than adding five more places to forget. There is
+one countdown in the network and one thing that stops it, so `/update cancel` cancels a backup too
+and there is no `/backup cancel`. What
+stayed with each surface is the *drawing*: Discord's live embed with a field per service, `smp`'s
+`UpdateWatcher` (all that is left of a class that used to own a Brigadier tree). The comment in
+`SmpCommand` saying `/smp update` "should not become a NordtalCommand" rested on the rule that the
+updater's report must never be rendered twice - which was deliberately rewritten the day before, and
+is now "nothing is *decided* twice".
+
+**Four things the fold found, all on 2026-09-08, and each was invisible from the surface it broke
+on** (findings 153 to 156):
+
+- **The proxy answers a command it knows, so a watcher is not enough.** Velocity executes every
+  command in its own dispatcher, so `/update` on the proxy acknowledged the player and then said
+  nothing for the whole run, while the identical Paper path worked. The decision half is
+  `UpdateFollower` in `:commands` - finished, gone, timed out, or a report, as a pure function - and
+  each surface drives it: `UpdateWatch` on the proxy's scheduler, `UpdateWatcher` in
+  `:paper-common`, now only for the console.
+- **A root with an all-admin subtree is gated at the root**, and reaching a root default by calling
+  the child's dispatch goes *around* `requires`. That is finding 102 on `/phase` arriving a second
+  time on `/update`, with a comment in both adapters claiming the child checked. Both adapters now
+  also check inside `run()`; `PaperCommandsRootGateTest` and `VelocityCommandsRootGateTest`.
+- **A console has no id, and `requested_by` must say so.** The source comes from `origin()`:
+  `null` for a console, the Discord id for Discord. Writing the asker's own id made the column claim
+  a person had asked for runs nobody asked for.
+- **Discord cannot execute a root that also has subcommands** - it becomes a menu. The read-only
+  report is therefore `/update check` there, `Catalogue.ROOT_DEFAULTS` keeps bare `/update` working
+  in game, and `DiscordCommandsTest#noRootIsBothACommandAndAMenu` fails the next command that would
+  reach Discord as an unusable root.
+
+**A shared command may name a tone, and only a tone** (2026-09-09). `:commands`' bundle carries no
+markup - that rule is not being relaxed - and what it cost was the one thing a wall of update output
+needs: finding the failed service among eleven lines of identical shape. So the *meaning* travels
+and the rendering does not. `NordtalUser#reply` takes a `Tone` (`NEUTRAL`, `GOOD`, `BAD`, `WARN`,
+`MUTED`); Paper and Velocity paint it through `:common`'s `Tones` with `colorIfAbsent`, so a process
+that rewords the key in its own bundle *with* colour still wins; Discord ignores it, because an
+embed has one colour for all of it. The palette is the pack's own and not `NamedTextColor` - a reply
+in vanilla green and red reads as a terminal standing next to a network drawn from
+`docs/presentation.md`. `Tone` is a bare enum in `:common`, apart from `Tones`, because two of the
+five processes load it through `NordtalUser`'s signature in a JVM with no Adventure at all.
 
 **`Surface.SYSTEM` is the surface nobody types on, since 2026-09-06.** `announce <language> <text>`
 is a `Target.BOT` command declared on it alone: the SMP renders a milestone's completion and each
@@ -588,12 +655,81 @@ already built, which is what the owner asked to be checked before a second one w
 same day `/smp status` became the one `/smp` command a player may run, and `CatalogueTest` names
 it and `announce` as the only two declarations that are not admin-only.
 
+**Every reply carries a `Tone`, and `:paper-common` owns what a server says about a player** - both
+since 2026-09-09. `NordtalUser#reply` has a fourth overload taking a tone beside the `Feedback`; the
+two stay separate arguments because `Feedback` is nine *sounds*, five of which imply no colour at all,
+and `Tone` is five *outcomes*. `ReplyToneTest` walks six modules and fails a `reply(` without one.
+The palette is the pack's, never `NamedTextColor`, and `NEUTRAL` is actively grey rather than
+unpainted - see `docs/presentation.md`.
+
+`SystemLines` and the chat renderer moved out of `smp` into `:paper-common`, with a bundle root of
+their own (`messages/paper-common/`); a Paper plugin now loads **three** roots, most general first.
+That is what gave `hunger-games` its five system lines for the first time (finding 149) - and it is
+the rule about `:paper-common` working as intended: those classes need a Paper type, so they belong
+there, and the moment they were there the second server got them for nothing.
+
+**A glyph named in `minecraft/lang/*.json` is a glyph like any other, and `ResourcePackTest` now
+checks it.** The pause menu drew a missing-glyph box in both languages for five days because
+`menu.game` still pointed at `U+E021` after the pack moved to the Supplementary Private Use Area-A
+(finding 161). The check **parses** the JSON rather than reading it as text - the first version did
+read it as text and was therefore green on the very file it was written for.
+
+**A player types what `network.yml#command-allowlist` names, and nothing else, since 2026-09-09.**
+`:common`'s `CommandAllowlist` is the matching rule and the only one: an entry is a path, a typed
+command matches when either is a prefix of the other (so `smp status` still lets a bare `/smp` reach
+its own help), case and a leading namespace are normalised away, and a **blank entry is refused**
+rather than read as "allow everything". The proxy enforces it three times over - Velocity's own
+permission function, the execution event, and the tree the client is sent - and `ServerPreConnectEvent`
+underneath refuses any destination `PlayerRouter` did not choose. `:paper-common`'s `CommandFilter`
+is the same list on all three backends, distributed through `network_setting` (V15) and
+`Channels.ALLOWLIST` on the connection `AdminWatch` already holds.
+
+Three rules ride on it:
+
+- **A refused command answers exactly like a typo**, one key for both, and that includes admin
+  commands: a player who types `/phase` is told it does not exist, not that they are not an admin
+  (owner, 2026-09-09).
+- **The backend filter fails open and says so.** It is the deliberate exception to this repository's
+  usual direction: a backend refusing every command because no proxy has published yet looks
+  identical to commands being broken, and the proxy's own enforcement is neither delayed nor
+  optional. An *unpublished* list warns once and allows; a published **empty** list is a value and is
+  obeyed. `AllowlistDirectory#published()` keeps the two apart all the way down to the SQL.
+- **A player command that is not on the list does not exist**, which is a silent way to lose one -
+  nobody reports a command they were told is not a command. `CommandGateTest` holds every non-admin
+  declaration in `Catalogue` against the shipped default, in both directions.
+
+**A command whose text needs markup keeps its key in `:commands` and its value in the owning
+process's bundle.** The shared bundle carries none, because Discord reads it; `/discord` and
+`/rules` want colour and a click event, so the proxy owns the strings and a test on each side pins
+the half it can see. And **a player's own text is inserted through `MessageRenderer`'s component
+slot, never as a parameter** - otherwise one player could colour another player's private message.
+
 **A `PaperCommands` subtree hung on with `extra()` is admin-gated; `extraOpen()` is the named
 exception.** The roots themselves carry no `requires` - gating `/hg` at the root hid `/hg ready`,
 which every participant needs - so the check sits on every node below, and a subtree this adapter did
 not build has to be told which it is. It defaults to gated because the one subtree that exists is
 `/smp update`, and the day the root check moved down it silently lost its own. That subtree is
 gone as of 2026-09-08 - `/update` is a root of its own - but the rule it taught is not.
+
+**A staged moment is `:common`'s `stage` package and `:paper-common`'s, since 2026-09-09.** A
+sequence of pictures with a tick spacing, optionally a potion effect, a sound and a subtitle,
+cancelled when the player leaves or dies. The split is the one this repository already has:
+`Cinematic`, `CinematicStage` and `Cinematics` hold the arithmetic and touch no platform type, and
+`PlayerStage` / `BukkitCinematics` are the packets. Two rules ride on it. **A frame is a
+`Component`, never a code point** - the four fonts allocate independently, so a code point that has
+lost its font draws whatever another font put there, which is finding 41 waiting to happen again.
+And **an effect is a namespaced key string, not a Bukkit type**, for the reason `FeedbackSound`
+gives.
+
+The one thing pointed at it so far is the season's opening on a player's first join: blindness, a
+run of placeholder pictures, and `Feedback.STAGING`. **That eleventh sound category is the owner's
+decision of 2026-09-09 and it ships blank** - no vanilla sound is a staged moment, and borrowing
+`NETWORK_EVENT` would have given the season's opening the phase-switch chime. The exhaustive
+`switch` in both sound adapters is what forced the question rather than letting somebody guess;
+both `SoundDefaultsTest`s now name `STAGING` as the one category allowed to be silent, and assert
+that it *is*, so filling it in becomes visible. **The moment carries no text at all** - the owner
+struck its subtitle the same day - and it still runs from the locale callback, now because that is
+where a join has finished settling rather than for the language.
 
 **`:paper-common` is new on 2026-09-04, and it is a layer this repository did not have.** `:common`
 is compiled against no platform at all, on purpose - that rule is what lets one shared module serve
@@ -836,6 +972,24 @@ are kept because the reasoning is what a future change has to argue with:
     two `smp_aura_event` rows and forgets the duel, so there was no history for the constraint to
     disagree with. Dropped rather than filled in, decided by the owner 2026-09-04
     (`docs/state-of-play.md` finding 49). The aura side of a duel is untouched.
+  - `V11__command_request.sql` (2026-09-04): the transport a shared command travels on when its
+    effect lives in another process. Its six constraints and why it is not `update_request` are
+    argued at length in the file itself; see ":commands" above.
+  - `V12__update_report.sql` (2026-09-07): the structured report in `update_request.result`, and the
+    reversal of V7's "a request is never amended" - a run that stops servers and waits five minutes
+    for healthchecks has to say so while it waits.
+  - `V13__countdown_after_resolving.sql` (2026-09-09): widens the partial index to
+    `status IN ('PENDING','RUNNING')`, because the countdown is now written by the run itself once
+    it knows there is work, rather than by whoever submitted the request.
+  - `V14__backup_request.sql` (2026-09-09): widens `update_request_kind_check` to accept `BACKUP`,
+    `NOT VALID`, the shape V12 established.
+  - `V15__network_setting.sql` (2026-09-09): the **proxy's** own settings table, holding the command
+    allowlist. It exists because the row spent an afternoon in `bot_setting`, whose own migration
+    calls itself "values the bot decides once and must never decide again" - and this row is
+    neither. A table whose comment describes something other than what is in it costs more than a
+    migration, because the next reader believes the comment. **No row is seeded**: an absent row and
+    an empty list are different answers, and the backends' filter fails open on the first and closed
+    on the second.
 - **Money is integer cents** in Java and in the database. `Money` is the only place that converts
   to and from bunq's decimal strings, and it goes through `BigDecimal`. Season 1 used
   `Float.parseFloat` and `<`.
@@ -847,6 +1001,12 @@ are kept because the reasoning is what a future change has to argue with:
   2026-08-30.
 - The Dockerfile is runtime-only: Gradle builds the jar, `docker build --build-arg JAR=...` wraps
   it. A self-contained build stage would have to copy this whole multi-module repo.
+  - `V16__smp_welcome.sql` (2026-09-09): `smp_player.welcome_shown`, the flag the season's opening
+    moment is claimed through. A flag rather than the `created` column that is already there,
+    because that column answers a different question - the row appears when somebody *earns*
+    something, not when they join - and a timestamp cannot be **claimed**: two simultaneous joins
+    read the same value and both play the moment. The number skips 13-15 in no way that matters;
+    it is 16 because the branch it was written on did not yet carry them, and Flyway allows gaps.
 
 ### Configuration
 
@@ -871,9 +1031,13 @@ deliberately not used: generic keys such as `password` would collide across file
 - **The ids default to empty and the bot refuses to start until they are filled in.** Season 1
   shipped real channel and role ids as defaults, so a config that failed to load wrote into a
   production channel. Prices do have real defaults; ids never will.
-- `bot.yml` gained `bunq.environment` (`PRODUCTION` / `SANDBOX`). It was hardcoded, which made the
-  sandbox test in the concept impossible to run. The bunq context file belongs to one environment:
-  switching also means pointing `bunq.context-path` at a fresh file.
+- `bot.yml` **had** `bunq.environment` (`PRODUCTION` / `SANDBOX`) from 2026-08-30, so the sandbox
+  test in the concept could be run without editing code. It is retired as of 2026-09-09, because the
+  test is: the owner has no sandbox key and a real 3 € purchase with a cancel-and-restart replaces
+  the run (finding 152). A switch nobody will ever throw again, on the one path in this repository
+  that moves other people's money, is a trap rather than an option. `ConfigsTest` pins that a
+  deployed `bot.yml` carrying the line **loses it** on the next start; do not re-declare it without
+  a sandbox key in somebody's hand.
 - **The tiers are a list**, so a fourth tier is a config edit and not a release. The obstacle was
   that jcore initialises a `List<NestedSpec>` to empty, which would ship a fresh install with no
   prices — solved with `Specs.createUnsafe` in `DefaultTiers`, which builds real default entries
@@ -907,8 +1071,9 @@ the stack has `depends_on: updater: service_healthy`, and it becomes healthy the
 is current (it touches `/tmp/updater-ready`).
 
 It resolves the newest version of every jar the network runs — the six season-2 jars and the pack
-from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents and Chunky from
-Modrinth filtered to `26.2`/`paper`, Paper and Velocity from the PaperMC Fill API — compares that
+from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents, Chunky, Simple
+Voice Chat and CoreProtect from Modrinth filtered to `26.2` and a loader, Paper and Velocity from
+the PaperMC Fill API — compares that
 against the jars in the mounted volumes, and prints the difference. **`/update now`** then stops the
 services whose jars change, applies the schema, installs what differs, writes the proxy's `pack.yml`
 and starts each service again — the migration running with those servers *down*, which is stronger
@@ -931,6 +1096,38 @@ updater fills, and fall back to the jar baked into their image only while that v
 which is a first deployment and nothing else. So `SEASON_VERSION` and `BOT_VERSION` are a floor
 rather than a version, and the updater's own version moves the same way everything else's does: the
 new jar is placed, the running process carries on with the old one, and the restart picks it up.
+
+**Three rules came out of the two third-party plugins added on 2026-09-09**, and each of them is a
+seam somebody will otherwise widen by accident:
+
+- **One Modrinth project can be two artefacts.** Simple Voice Chat ships a Paper build and a Velocity
+  build under one project id; the *loader* tells them apart, so `Resolver#resolveModrinth` takes it
+  as a parameter and `updater.yml` carries one `voicechat-project` rather than two copies of one
+  fact. `voicechat` lands on `smp` and `hunger-games`, `voicechat-velocity` on the proxy.
+- **The pre-release rule holds, and the exception is a named constant rather than a setting.**
+  `Modrinth#newest` takes only `version_type: release` - an updater that pulls somebody's alpha onto
+  a server people paid to play on is what this module is arranged to prevent.
+  `Modrinth.PRE_RELEASE_EXCEPTIONS` is exactly `["voicechat-velocity"]`, derived from the artefact id
+  alone, with no parameter, overload or config key that could point it elsewhere. The bar for a
+  second entry is **"a stable build has never existed and there is no reason to expect one"** - that
+  project has published thirteen Velocity versions since 2022 and not one release - and never
+  "a pre-release is available". `ModrinthTest` pins the set to one member *and* feeds the same
+  pre-release payload to the other four artefacts, all of which must still refuse it. A config key
+  gets widened at three in the morning and nothing afterwards records that it was ever narrow.
+- **`Service#optional` now carries two kinds of optional, and the comment keeps them apart.**
+  CoreProtect *cannot* be installed (no 26.2 build exists); voice chat *can* and is left out because
+  it is optional for a player. Both stay out of `guarded()`, which is what `EXPECTED_PLUGINS`
+  mirrors - so a Modrinth outage during a bootstrap costs voice chat and not the server. That
+  includes the proxy: the one place where a refused start locks everybody out (owner, 2026-09-09).
+
+**Voice chat is one UDP port on the proxy, not one per backend.** The Velocity plugin detects each
+backend's address and port itself, so only `25565/udp` is published, beside the TCP line it mirrors.
+`TopologyTest#voiceChatIsOneUdpPortOnTheProxy` asserts the two lines agree on bind and container port
+and that no backend publishes UDP at all. The mapping is a **literal** 25565 rather than
+`${PROXY_PORT}` and that rests on an unverified premise - that the plugin advertises the port it
+hears on *inside* the container. The two readings are identical while `PROXY_PORT` is 25565, so
+moving that port is what would separate them; the escape hatch is `voice_host` in
+`voicechat-proxy.properties`, and the probe that settles it is in `todo.md`.
 
 Seven rules that are easy to break and expensive to break:
 
@@ -984,13 +1181,26 @@ Seven rules that are easy to break and expensive to break:
 - **`Topology` and `compose.yml` are two copies of one fact.** A fifth backend server is a
   change to both in the same commit; `TopologyTest` reads the real compose file and fails otherwise.
   It also fails if `SEASON_PLUGINS`, `EXTRA_PLUGIN_URLS` or the two `PACK_*` variables come back.
-- **`plugins/` is a directory on the host and not part of the volume, since 2026-09-05**
-  (`compose.yml`, `${SERVERS_ROOT:-./deploy/servers}/<service>/plugins`). Everything else about a
-  server — the world, the `.server/` jar cache, `logs/` — stays in `mc-<service>`, and that split is
-  the decision: Arcane's volume backup is the only thing that saves a world and a bind mount is not
-  a volume, so the worlds do not come out. Nothing makes that claim on `plugins/`, and what keeping
-  it inside cost was a `docker compose cp` in both directions for every config edit and a third for
-  every jar — which is why there was no local development stack at all until that day.
+- **`plugins/` is a volume of its own, and a bind mount only where somebody asked for one — since
+  2026-09-09** (`compose.yml`, `${SMP_PLUGINS:-mc-smp-plugins}:/data/plugins` and three like it).
+  Everything else about a server — the world, the `.server/` jar cache, `logs/` — stays in
+  `mc-<service>`. The split is still the decision it was: a config edit and a jar swap should not
+  need `docker compose cp` in both directions, which is why there was no local development stack at
+  all before 2026-09-05.
+
+  **What changed is the default, and it changed because the old one could delete the season's
+  configuration.** From 2026-09-05 the expression was `${SERVERS_ROOT:-./deploy/servers}/<service>/
+  plugins`, so a deployment that set nothing got a *bind mount into the checkout Arcane's GitOps
+  sync pulls* — and that sync deletes ignored files (owner, 2026-09-08, finding 151). Production had
+  the variable unset the whole time: `config.yml`, `milestones.yml`, `sounds.yml` and `pack.yml` were
+  all sitting where the next sync would take them. The comment in `compose.yml` named exactly this
+  risk and left it as something to set.
+
+  So the default is now a **volume name** and never a path. Four variables, one per service, and
+  `TopologyTest#thePluginDirectoryIsOneDirectory` asserts that each default contains neither `/` nor
+  `.` — a default with a path character in it is the old trap wearing a new name. The bind is what
+  `deploy/dev.env` opts into, and `deploy/dev` refuses a `<SERVICE>_PLUGINS` with no `/` in it
+  rather than writing jars into a directory no container mounts.
 
   **The updater mounts the same four directories** at `/volumes/<service>/plugins`. Without them it
   installs into the named volume while every server reads the host directory, and *nothing anywhere
@@ -1004,9 +1214,10 @@ Seven rules that are easy to break and expensive to break:
   copy-and-delete across devices, silently — and what would have been lost, silently, is the
   property the class exists for. Staging is resolved **per destination directory** now
   (`plugins/.nordtal-staging`, `.server/.nordtal-staging`); `Installation` only takes regular files,
-  so neither is ever read back as a plugin. `SERVERS_ROOT` is a variable rather than a constant
-  because its default sits inside the directory Arcane's GitOps sync pulls — if that sync ever
-  removes ignored files, it becomes an absolute path outside the checkout and nothing else changes.
+  so neither is ever read back as a plugin. The escape hatch that sentence described - "if that sync
+  ever removes ignored files, `SERVERS_ROOT` becomes an absolute path outside the checkout" - was
+  written as a contingency and turned out to be the situation. It is why the default is a volume
+  now: an escape hatch nobody knows they need is not one.
 - **There is exactly one player number, since 2026-09-04, and `TopologyTest` is what keeps it one.**
   `NETWORK_MAX_PLAYERS` in `.env` reaches the proxy as `network.yml#max-players` *and* all three
   Paper backends as `MAX_PLAYERS`, which the entrypoint writes into `server.properties`; the test
@@ -1101,8 +1312,9 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1351 in total, none skipped, all green** (`./gradlew build` with a
-Docker daemon present, 2026-09-08, on `release/0.7.0`). The counts
+**Nine modules have tests: 1633 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-09, on `release/0.7.1`, after the platform-version,
+menu and staging work landed). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
 **Thirty-five are from 2026-09-07/08 and they arrive in three groups.** Four are `smp`'s
@@ -1174,15 +1386,15 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 345 |
-| `smp` | 227 |
-| `network-control` | 195 |
-| `commands` | 184 |
-| `updater` | 164 |
-| `discord-bot` | 148 |
-| `hunger-games` | 72 |
+| `common` | 415 |
+| `smp` | 326 |
+| `network-control` | 219 |
+| `commands` | 219 |
+| `updater` | 201 |
+| `discord-bot` | 161 |
+| `hunger-games` | 74 |
 | `limbo` | 11 |
-| `paper-common` | 5 |
+| `paper-common` | 7 |
 
 **Sixteen are from the local stack, 2026-09-05, and fourteen of them are in `:updater`.** Eight are
 `ArcaneDiagnosisTest`, and what they pin is a *message* rather than a behaviour — see "The restart"
@@ -1299,7 +1511,9 @@ non-chest inventory" from the day the style sheet was written, and no such test 
 asserts that, and that every inventory title goes through `MenuTitle` - with a named allowlist of
 the menus still waiting for their panel, so the remaining work is in the build instead of in
 a document. **That allowlist has been empty since 2026-09-04**, when the last of the four -
-`ObjectiveGui`, `HandInGui`, `BalloonGui` and the grave - was converted; the sentence above kept
+`ObjectiveGui`, `HandInGui`, `BalloonGui` and the grave - was converted to the plain panel; all four
+have art of their own since 2026-09-09 (`ObjectivePanel`, `HandInPanel`, `GravePanel`,
+`WheelPanel`). The sentence above kept
 saying "the four menus still waiting" for two days after none was waiting, and on 2026-09-06 an
 agent read it, looked at a rendered panel on a real client and reported it as an unframed vanilla
 GUI. A list that empties itself is only worth having if the prose around it empties with it.
@@ -1606,10 +1820,10 @@ stand-in. `DocumentedCommandsTest` reads six documents rather than any code, bec
 guards was in the documents.
 
 **What none of it proves.** Nothing here touches bunq, Discord, or a running Velocity proxy. Tab
-creation, cancellation and result inquiries need the **bunq sandbox**
-(`bunq.environment: SANDBOX`); buttons, ephemeral messages, DMs, role assignment and the managed
-messages need the **real guild** in an admin-only channel; a 3 € real purchase is the last step,
-never the development loop. **The login path is a third gap of the same shape**: the login gate
+creation, cancellation and result inquiries can now only be exercised by a **real 3 € purchase**,
+cancelled and started again - the sandbox that used to stand in front of it was struck on
+2026-09-08 for want of a key; buttons, ephemeral messages, DMs, role assignment and the managed
+messages need the **real guild** in an admin-only channel. **The login path is a third gap of the same shape**: the login gate
 (`LoginGate`), the kick messages it produces, the routing that moves players on a phase change, and
 code redemption through the actual Discord modal all need a **running Velocity proxy with a real
 client** plus a **real Discord guild** to be verified at all - nothing in this repository's test

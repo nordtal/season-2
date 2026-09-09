@@ -115,6 +115,55 @@ public interface NetworkSpec {
     }
 
     @Order(3)
+    @Key("command-allowlist")
+    @Comment({
+            "Every command a player who is NOT an admin may type, anywhere on the network.",
+            "",
+            "Nothing else can be typed and nothing else is offered in tab completion - not by the",
+            "proxy, not by any of the three Paper servers, and not by Velocity itself. Admins are",
+            "exempt from all of it and see the network exactly as they did before this list",
+            "existed.",
+            "",
+            "WHY THIS IS A LIST AND NOT A SET OF PERMISSIONS: Velocity's own /server is open to",
+            "every player - its permission check only refuses on an explicit FALSE, and nothing",
+            "ever set one - so a player could type '/server hunger-games' during the SMP phase and",
+            "land there, past every routing decision this proxy takes. A list of what IS allowed",
+            "cannot have that shape of hole, because a command nobody thought about is refused",
+            "rather than permitted.",
+            "",
+            "AN ENTRY IS A PATH, without the slash: 'smp status', 'hg ready', 'msg'. A leading",
+            "slash, extra spaces and capitals are accepted and ignored, and so is a namespace",
+            "('minecraft:me' is 'me'). Everything under an allowed path is allowed, so 'msg'",
+            "covers '/msg Someone hello'; and a path ABOVE an allowed one is allowed too, so",
+            "'smp status' still lets '/smp' print its own help. Which subcommands an admin-only",
+            "tree offers is not this list's business - Brigadier's own check decides that.",
+            "",
+            "A REFUSED COMMAND GETS THE SAME LINE AS A MISTYPED ONE (\"That command does not",
+            "exist\"), so nobody learns what exists by being refused it.",
+            "",
+            "The three Paper servers read this list out of the database, where this proxy",
+            "publishes it on every start: it is one truth and an edit here reaches all four",
+            "processes. Until a proxy has published it once, a backend filters nothing and says so",
+            "in its log - this proxy's own enforcement never waits for anything."
+    })
+    default java.util.List<String> commandAllowlist() {
+        return java.util.List.of(
+                // Ours, and only ours. Every vanilla command is deliberately absent, including the
+                // harmless-looking ones: /help lists what a player may not run, /trigger and /me
+                // are surfaces this season has no answer for, and /tell is replaced by /msg below.
+                "smp status",
+                "navigate",
+                "poi",
+                "hg ready",
+                "aura",
+                "msg",
+                "whisper",
+                "r",
+                "discord",
+                "rules");
+    }
+
+    @Order(4)
     @Key("motd")
     @Comment({
             "What the server browser shows, per season phase. MiniMessage, so <gradient>,",
@@ -150,6 +199,21 @@ public interface NetworkSpec {
     @ConfigSpec
     interface MotdSpec {
 
+        // The name is the brand and never changes colour. It used to carry a gradient per phase -
+        // light blue before the start, orange in the event, green on the SMP, grey in maintenance -
+        // which is four different marks rather than one seen four times (owner, 2026-09-09). The
+        // phase is what the SECOND line is for, and it already says it.
+        //
+        // NORDTAL_BLUE is the logo's own blue, measured off resource-pack/src/pack.png: the mark
+        // is built from #24357d down through #1d2a62 and #1b285e to #13182f on near-black, and
+        // #24357d is the one a person would name. That value is the brand wherever the ground is
+        // light. This is not such a place: the server browser paints an almost black list, and
+        // #24357d on it is a dark blue on a dark grey. So the name is rendered in a lightened tone
+        // of the same hue - one brand, two applications, both written down in
+        // docs/presentation.md#the-palette. A future MOTD writes NORDTAL_BLUE and nothing else;
+        // BrandColourTest fails a phase that colours the name for itself again.
+        String NORDTAL_BLUE = "<#4a63d8><bold>nordtal.eu</bold></#4a63d8>";
+
         @Order(1)
         @Key("pre-launch")
         @Comment({
@@ -162,7 +226,7 @@ public interface NetworkSpec {
                 "phase on its own."
         })
         default String preLaunch() {
-            return "<gradient:#5ec2ff:#a8e6ff><bold>nordtal.eu</bold></gradient>"
+            return NORDTAL_BLUE
                     + "<newline><gray>Season 2 opens in <white>{countdown}</white></gray>";
         }
 
@@ -173,9 +237,9 @@ public interface NetworkSpec {
                 "{hg-teams} is what registration has produced so far."
         })
         default String preEvent() {
-            return "<gradient:#5ec2ff:#a8e6ff><bold>nordtal.eu</bold></gradient>"
-                    + "<newline><gray>Hunger Games: <white>{hg-teams}</white> teams,"
-                    + " <white>{hg-participants}</white> players registered</gray>";
+            return NORDTAL_BLUE
+                    + "<newline><gray>Hunger Games: <white>{hg-participants}</white> players"
+                    + " in <white>{hg-teams}</white> teams</gray>";
         }
 
         @Order(3)
@@ -185,32 +249,46 @@ public interface NetworkSpec {
                 "{hg-participants}; both come from the running game and drop to 0 between games."
         })
         default String startEvent() {
-            return "<gradient:#ffb457:#ff7a45><bold>nordtal.eu</bold></gradient>"
-                    + "<newline><gray>Hunger Games running: <white>{hg-alive}</white> of"
-                    + " <white>{hg-participants}</white> alive</gray>";
+            return NORDTAL_BLUE
+                    + "<newline><gray>Hunger Games: <white>{hg-alive}</white> of"
+                    + " <white>{hg-participants}</white> still alive</gray>";
         }
 
         @Order(4)
         @Key("smp")
         @Comment({
-                "The season proper. {smp-milestone} is the milestone the whole server is working",
-                "on right now and {smp-milestone-progress} how far it has got, in percent."
+                "The season proper.",
+                "",
+                "IT COUNTS MILESTONES AND NOT PLAYERS, and neither half of that is an accident.",
+                "The player count is drawn by the client itself, next to the ping bars, so a MOTD",
+                "that repeats it spends its one short line saying something already on screen.",
+                "",
+                "And it counts FINISHED milestones rather than naming the current one, because",
+                "{smp-milestone} is the milestone's KEY out of milestones.yml - 'departure',",
+                "lowercase, untranslated. The display names live in smp's message bundle, which",
+                "this proxy does not load; until that changes, naming the milestone here puts a",
+                "config identifier in the server browser. 'Three of eight done' also says more to",
+                "a stranger than a word they have never seen."
         })
         default String smp() {
-            return "<gradient:#7ee081:#38b000><bold>nordtal.eu</bold></gradient>"
-                    + "<newline><gray>Working on <white>{smp-milestone}</white>"
-                    + " (<white>{smp-milestone-progress}%</white>) - <white>{online}</white>/{max} online</gray>";
+            return NORDTAL_BLUE
+                    + "<newline><gray>Season 2 running - <white>{smp-milestones-done}</white> of"
+                    + " <white>{smp-milestones-total}</white> milestones done</gray>";
         }
 
         @Order(5)
         @Key("maintenance")
         @Comment({
                 "Planned work. Players are still let onto the proxy and held in limbo, so this is",
-                "not a closed sign - it is a \"we are working, come back shortly\" sign."
+                "not a closed sign - it is a \"we are working, come back shortly\" sign.",
+                "",
+                "The second half of the sentence is doing the work: 'Maintenance' on its own, in a",
+                "server list, is what a dead server looks like, and somebody scrolling past has no",
+                "way to tell a Tuesday evening's restart from a season that ended."
         })
         default String maintenance() {
-            return "<gradient:#c0c0c0:#8a8a8a><bold>nordtal.eu</bold></gradient>"
-                    + "<newline><gray>Maintenance - back shortly</gray>";
+            return NORDTAL_BLUE
+                    + "<newline><gray>Maintenance - back shortly, the season is not over</gray>";
         }
     }
 }

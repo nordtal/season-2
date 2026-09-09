@@ -86,6 +86,23 @@ reads the panel PNG back and asserts every card is exactly where the Java says.
 **A further menu in this style is a panel, its overlays and a slot map**, and nothing in `:common`
 changes for it. That is the shape the balloon was built to establish.
 
+### Art that spans more than one row (2026-09-09)
+
+A row glyph is drawn in one of the six `nordtal:gui_rN` fonts and lands inside that row's
+furniture, icon or text band. **Anything taller than one row is a `nordtal:gui` glyph with its own
+ascent** - the objective card is the worked example: the plate and the painted bar fill are `gui`,
+the type icon, the name and the numbers are row glyphs laid over them. Deciding by *height* rather
+than by what the thing is keeps the two fonts from becoming a matter of taste.
+
+**A tray and a recess per slot are different statements, not two styles.** The hand-in window is
+one sunken tray across its deposit rows; the grave is a recess under every slot. A tray is a
+surface you throw things into and an inventory is one you take things out of, and both files carry
+that sentence so the next reader does not tidy one into the other.
+
+**A string drawn by `MenuFont` carries no MiniMessage.** The five-pixel sheet has one colour and the
+renderer is not a message renderer; a tag written into one of those keys reaches the player as the
+literal text `<GRAY>`. Each panel test pins its own keys in both languages.
+
 ### The numbers
 
 | quantity | value | note |
@@ -257,6 +274,14 @@ session does not "finish" it:
 - **an admin command whose effect the admin can see** — `/smp reload`, `/smp farmreset`. The chat
   line is the confirmation, and the world in front of them is the rest of it.
 
+**And one whole category is silent, which is different from a call site being silent.**
+`Feedback.STAGING` was added on 2026-09-09 for staged moments and ships with an empty key. The other
+ten name a vanilla sound because a vanilla sound is what they *are* - a pickup, a level-up, a click.
+A staged moment is not one of those: its sound is this project's own and arrives with the artwork.
+Borrowing `NETWORK_EVENT` would have given the season's opening the phase-switch chime, which reads
+as a bug rather than as a welcome. Both `SoundDefaultsTest`s name it as the one category allowed to
+be silent and assert that it is, so filling it in is a visible decision rather than a quiet one.
+
 The one admin command that *does* get a sound is `/hg start`, and the line is worth stating because
 it looks like an exception and is not: **a command whose whole effect happens to other people,
 somewhere else, gets a confirmation the admin can hear.** Starting the games teleports forty
@@ -336,9 +361,87 @@ actually typed. **The icons are drawn white on purpose**, because Minecraft mult
 the component's colour: white art can be tinted to whatever the bundle asks for, black art cannot be
 tinted lighter. That is the same lesson the board frame taught the hard way (section 3).
 
+### Every reply carries a tone, since 2026-09-09
+
+A command's answer names a `Tone` - `NEUTRAL`, `GOOD`, `BAD`, `WARN`, `MUTED` - and the adapter paints
+it; Discord ignores it, because an embed has one colour for all of it. The values are the palette
+above and **not** `NamedTextColor`: a reply in vanilla green and red reads as a terminal standing next
+to a network drawn from this document. `NEUTRAL` is **grey rather than unpainted** (owner,
+2026-09-09) - "leave it alone" is not a colour but whatever the client defaults to on that surface,
+so the tone used most often would be the only one that looked different depending on where it landed.
+
+Two of the five are worth stating outright because they were got wrong across 158 call sites before
+this: a command that answers "there is nothing to settle", "the phase is already that one" or "nobody
+has any aura" is **`WARN`, not `BAD`** - nothing failed. And a read-only answer is a `NEUTRAL` head,
+exactly one coloured line, and `MUTED` for the rest, so a list of eleven lines has one place for the
+eye to land. `ReplyToneTest` fails a `reply(` without a tone.
+
+### Vanilla texts: what is ours, and what cannot be
+
+Taken as an inventory on 2026-09-09 rather than as a list of things to get round to. Three groups,
+and the third is the one worth writing down.
+
+**Ours now.** Chat, join and leave (`SystemLines`, both Paper servers); the death message and the
+advancement line, ours *around* vanilla's own component - a `TranslatableComponent`, so every reader's
+client still renders mob and weapon names in their own language; "unknown or incomplete command",
+which is the **same** key a refused command gets; server-full, on all three backends and on the proxy;
+the envelope Velocity wraps a backend kick in; and `/list`, `/me`, `/help`, `/trigger`, `/tell`, which
+are gone from the tree and from the input.
+
+**The client's, and no server can touch them.** The respawn screen ("You died!", its buttons, and the
+death message drawn on it). The advancement toast. Every item, block, mob, effect and enchantment
+name. "Connection lost" and "Timed out". Velocity's own login refusals. Vanilla container titles are
+in this group by decision rather than by force - section 2 keeps them vanilla on purpose. The only
+lever on any of it is the pack's `minecraft/lang/*.json`, which changes the text in the **client's**
+language rather than the reader's, and is the one documented exception to the i18n rule.
+
+**Replaceable and deliberately not replaced.** Sleep messages: `PlayerDeepSleepEvent` carries no
+message at all, "you may not rest now" is an actionbar the server sends, and whether denying
+`PlayerBedEnterEvent` suppresses it is a question only a running server answers - and the answer would
+be a *gameplay* decision, not a wording one. `spigot.yml messages` is unreachable in this deployment,
+which is why the entrypoint is right not to seed it: whitelist is off, server-full is answered by an
+event, unknown-command is answered by our filter, and a client with the wrong version meets the proxy
+first.
+
+### Nordtal blue, the one colour that is not a mood
+
+The five above say what a line *is*. This one says who is speaking, and it never varies with the
+occasion: **the name Nordtal is always the blue of the logo.**
+
+The value is measured, not chosen. `resource-pack/src/pack.png` builds the mark out of one blue
+family on near-black - `#24357d` at its brightest, then `#1d2a62`, `#1b285e`, `#1b254d` and
+`#13182f`, with `#fffcf6` for the lights. **`#24357d` is the brand**, and it is what to write
+wherever the ground is light: a menu panel, a board, a document, the website.
+
+On a dark ground `#24357d` is a dark blue on a dark grey and barely legible - the server browser's
+list and a Minecraft chat are both such grounds. There the same hue is used **lightened**, today
+`#4a63d8`. One brand, two applications; a line that needs the name never picks a third value.
+
+This is written down because it was got wrong in the obvious way. Until 2026-09-09 each of the five
+MOTDs coloured the name for itself - a light blue gradient before the opening, orange during the
+hunger games, green on the SMP, grey in maintenance. Every one of those was defensible on its own,
+and together they meant the server browser showed four different marks depending on the day. A name
+that changes colour is not one mark seen four times; it is four marks. The phase is what the
+*second* line is for, and it already says it. `NetworkSpec.MotdSpec#NORDTAL_BLUE` is now the single
+literal and `BrandColourTest` fails a phase that colours the name again.
+
 ---
 
 ## 6. Moments
+
+**A staged moment is the fourth form, next to the menu, the HUD and the board** (2026-09-09). Where
+those three are surfaces a player reads, a staging *takes the screen*: a sequence of pictures in the
+title slot, at a tick spacing, with the world blinded behind them for exactly as long as they run.
+It is `:common`'s `stage` package and `:paper-common`'s, and the one thing pointed at it so far is a
+player's first arrival of the season.
+
+The reason it is a device rather than one moment is that the same shape is wanted in five more
+places - a milestone closing, the hunger games starting, its winner, a phase opening, a prestige
+promotion - and every one of those is a sequence of pictures with an effect and a sound. What it is
+*not* is a replacement for section 6's four world moments below: those happen in the world, where
+everybody nearby sees them. A staging happens to one player and takes their screen, which is why it
+is reserved for things that happen once.
+
 
 Four places where something happens in the world rather than on a screen, **built 2026-09-04**
 (`smp`'s `WorldEffects`). Before that date `spawnParticle` and `Particle.` returned zero hits across

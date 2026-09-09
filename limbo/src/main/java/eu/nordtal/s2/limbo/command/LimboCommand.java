@@ -77,7 +77,6 @@ public final class LimboCommand {
         eu.nordtal.s2.commands.update.UpdateCommands.all().forEach(command -> commands.local(command,
                 new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
                         updates.directory(),
-                        eu.nordtal.s2.common.update.UpdateSource.GAME,
                         work -> org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, work),
                         (what, failure) -> plugin.getLogger()
                                 .warning("An update command failed while " + what + ": " + failure),

@@ -333,9 +333,20 @@ The Minecraft UUID is not duplicated here: it hangs off `discord_user` through t
   be corrected in a diff.
 - ~~**Quiet period and passive shrink rate.**~~ **Proposed 2026-08-31**: 600 seconds of quiet, then
   15 blocks of diameter per hour, both in `HungerGamesSpec`.
-- **Simple Voice Chat** is planned as an optional extra **under reservation**: it requires a client
-  mod, so vanilla players cannot use it at all, and whether a build for Minecraft 26.2 exists is
-  unconfirmed. Check before the event; if there is none, it is dropped without replacement.
+- **Chat, join, leave, deaths and the winner's line are ours since 2026-09-09.** They were vanilla
+  here - yellow, no flag, no icon - while the SMP had its own for eight days (finding 149).
+  `SystemLines` lives in `:paper-common` now and this server uses it, with an `ArenaComposition`
+  that carries a flag and a name and deliberately **no team colour**: a team is a row in
+  `hg_member`, and this is called on the main thread and on Paper's chat thread, where this
+  repository does not query. A team colour needs a cached roster first, which is a decision and not
+  a lookup to slip in. A body killed while its owner is offline gets its own kill feed line, because
+  vanilla writes none.
+- ~~**Simple Voice Chat** is planned as an optional extra **under reservation**.~~ **Installed
+  2026-09-09.** The reservation was whether a 26.2 build exists; `bukkit-2.6.23` does, and the
+  updater owns it on this server and on `smp`. It stays optional in both senses: a player without
+  the client mod notices nothing, and the jar is not in the entrypoint guard, so a server whose
+  voice plugin is missing still starts. It reaches players through **one** UDP port on the proxy -
+  see `deploy/README.md`. Nobody has yet heard audio through it.
 
 ## Event-day runbook
 

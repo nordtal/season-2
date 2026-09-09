@@ -23,6 +23,7 @@ import eu.nordtal.s2.discordbot.discord.BotAccessEffects;
 import eu.nordtal.s2.discordbot.discord.BotPhaseEffects;
 import eu.nordtal.s2.discordbot.discord.DiscordCommands;
 import eu.nordtal.s2.discordbot.discord.UpdateCommand;
+import eu.nordtal.s2.discordbot.discord.UpdateFeed;
 import eu.nordtal.s2.discordbot.access.discord.PurchaseFlow;
 import eu.nordtal.s2.discordbot.access.payment.PaymentProcessor;
 import eu.nordtal.s2.discordbot.access.payment.PaymentRequests;
@@ -182,7 +183,8 @@ public class AccessBot implements AutoCloseable {
             // Built before the listener list because the command effects below hand it the
             // watch: the declaration decides, this draws.
             final UpdateCommand updateCommand =
-                    new UpdateCommand(updates, admin, database.jdbi(), worker, timers);
+                    new UpdateCommand(updates, admin, database.jdbi(), messages, worker,
+                            timers);
 
             jda.addEventListener(
                     guildState,
@@ -223,7 +225,7 @@ public class AccessBot implements AutoCloseable {
             // keeps editing while the run works, which no other surface has an equivalent for.
             final eu.nordtal.s2.commands.update.UpdateEffects updateEffects =
                     new eu.nordtal.s2.commands.update.DirectoryUpdateEffects(
-                            updates, eu.nordtal.s2.common.update.UpdateSource.DISCORD,
+                            updates,
                             worker::execute,
                             (what, failure) -> log.warn("An update command failed while {}", what,
                                     failure),
@@ -275,7 +277,15 @@ public class AccessBot implements AutoCloseable {
             final StatusChannels status = new StatusChannels(jda, languages, messages, phases,
                     SnapshotDirectory.using(database.dataSource()), Clock.systemUTC(), announcements);
 
-            schedule(accessConfig, processor, roles, status);
+            // Every update run in the admin channel, including the ones nobody in Discord started.
+            // Started here rather than inside schedule() because start() reads the table once, to
+            // decide where the feed begins - and a restart that began at zero would post a season
+            // of history into the channel.
+            final UpdateFeed updateFeed =
+                    new UpdateFeed(updates, UpdateFeed.Board.of(admin), messages);
+            updateFeed.start();
+
+            schedule(accessConfig, processor, roles, status, updateFeed);
 
             // The container readiness marker, and note where this line sits: after JDA is ready,
             // after the managed messages are published and after both reconciles - so a marker on
@@ -309,7 +319,8 @@ public class AccessBot implements AutoCloseable {
      * </p>
      */
     private void schedule(final AccessSpec config, final PaymentProcessor processor,
-                          final AccessRoles roles, final StatusChannels status) {
+                          final AccessRoles roles, final StatusChannels status,
+                          final UpdateFeed updateFeed) {
         final int poll = config.payment().pollIntervalSeconds();
         timers.scheduleWithFixedDelay(guarded("payment poll", processor::poll), poll, poll, TimeUnit.SECONDS);
 
@@ -333,6 +344,22 @@ public class AccessBot implements AutoCloseable {
         } else {
             log.info("No language has a status-channel; the sidebar status is off");
         }
+
+        // One indexed lookup every two seconds, and almost always none at all: `id > lastSeen`
+        // answers nothing for the whole of a season except while somebody is updating. Two seconds
+        // because a run moves stage by stage and the channel is where the rest of the admins watch
+        // it - the same interval the asker's own embed redraws on.
+        // The timer thread only hands the work over. Everything else on this scheduler - the
+        // payment poll, the reconcile, the expiry sweep, the status channels, the readiness marker
+        // - shares one thread, and the feed is the only tick here that reads the database on every
+        // pass. A database that has stopped answering would otherwise stall all of them for the
+        // pool's whole connection timeout. UpdateFeed#submit carries the single-flight guard and
+        // takes it BEFORE the hand-over - a pass that outlives its interval is skipped rather than
+        // queued, which is the difference between one outstanding pass and thirty of them waiting
+        // on four busy workers.
+        timers.scheduleWithFixedDelay(
+                guarded("update feed", () -> updateFeed.submit(worker)),
+                UpdateFeed.INTERVAL.toSeconds(), UpdateFeed.INTERVAL.toSeconds(), TimeUnit.SECONDS);
     }
 
     private Runnable guarded(final String name, final Runnable task) {

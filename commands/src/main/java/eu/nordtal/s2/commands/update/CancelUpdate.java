@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Map;
 
@@ -29,10 +30,13 @@ public final class CancelUpdate implements NordtalCommand<UpdateEffects> {
             try {
                 effects.cancel("Cancelled by " + user.name()).ifPresentOrElse(
                         cancelled -> user.reply("update.cancelled", Map.of(),
-                                Feedback.SMALL_SUCCESS),
-                        () -> user.reply("update.too-late", Map.of(), Feedback.REFUSED));
+                                Feedback.SMALL_SUCCESS, Tone.GOOD),
+                        // WARN: the run is already past the point of calling it off, which is not
+                        // a failure of anything and is what somebody has to be told apart from one.
+                        () -> user.reply("update.too-late", Map.of(), Feedback.REFUSED,
+                                Tone.WARN));
             } catch (final RuntimeException failure) {
-                user.reply("update.write-failed", Map.of(), Feedback.REFUSED);
+                user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

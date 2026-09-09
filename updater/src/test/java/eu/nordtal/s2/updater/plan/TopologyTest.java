@@ -1,5 +1,6 @@
 package eu.nordtal.s2.updater.plan;
 
+import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.updater.config.UpdaterSpec;
 
 import org.junit.jupiter.api.DisplayName;
@@ -80,13 +81,178 @@ class TopologyTest {
                     + " on it start and report healthy");
 
             final List<String> expected = List.of(defaultOf(String.valueOf(raw)).split("\\s+"));
-            assertEquals(service.plugins().size(), expected.size(),
-                    service.name() + " runs " + service.plugins() + " but its guard asks for "
-                            + expected + ". A plugin added to the topology and not to compose.yml is"
-                            + " one the container will happily start without.");
+            assertEquals(service.guarded().size(), expected.size(),
+                    service.name() + " runs " + service.plugins() + " (of which " + service.optional()
+                            + " is optional) but its guard asks for " + expected + ". A plugin added"
+                            + " to the topology and not to compose.yml is one the container will"
+                            + " happily start without.");
             assertTrue(expected.contains(service.name()),
                     service.name() + "'s own season jar is not in its EXPECTED_PLUGINS: " + expected);
         }
+    }
+
+    @Test
+    @DisplayName("an artefact that may have no build for this version is not one the guard demands")
+    void anOptionalPluginIsNotGuarded() {
+        // The other direction of the test above, and the reason Service#optional exists at all.
+        // EXPECTED_PLUGINS is a list of jars the container REFUSES TO START WITHOUT. Pointing it at
+        // an artefact whose publisher has not built for this Minecraft version would hand somebody
+        // else's release schedule the power to keep the SMP down - and there is one such artefact
+        // today: CoreProtect's newest release, 24.0, stops at 26.1.2 (checked 2026-09-08).
+        //
+        // It stays in the plan while it waits, which is the half worth having: the run that follows
+        // the day a build appears installs it, and nobody has to remember to add it back.
+        final Topology.Service smp = Topology.SERVICES.stream()
+                .filter(service -> service.name().equals(Topology.SMP))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(smp.plugins().contains(Topology.CORE_PROTECT),
+                "smp no longer carries a CoreProtect row - if that was deliberate, this test and"
+                        + " the artefact go together");
+        assertTrue(smp.optional().contains(Topology.CORE_PROTECT),
+                "CoreProtect is guarded again. Until a 26.2 build exists that is an SMP that will"
+                        + " not start, every start, for a reason nobody here can act on.");
+        assertFalse(smp.guarded().contains(Topology.CORE_PROTECT), "guarded() ignores optional()");
+
+        // And it really is absent from the string an operator would edit, not merely absent from a
+        // count. `${file%-*.jar}` on CoreProtect-CE-24.0.jar is CoreProtect-CE, so that - and not
+        // the artefact id - is what a guard entry for it would look like.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment =
+                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.SMP))
+                        .get("environment");
+        final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
+        assertFalse(guard.toLowerCase(java.util.Locale.ROOT).contains("coreprotect"),
+                "smp's EXPECTED_PLUGINS asks for CoreProtect: " + guard);
+    }
+
+    @Test
+    @DisplayName("voice chat is one UDP port, on the proxy, and no backend publishes one")
+    void voiceChatIsOneUdpPortOnTheProxy() {
+        // This replaced a per-backend rule on 2026-09-09, and the two are worth contrasting because
+        // the earlier one described a working arrangement too. Without Simple Voice Chat's Velocity
+        // plugin, audio never touches the proxy: every backend publishes its own UDP port, each
+        // needs a different number, each needs voice_host set by hand, and every one of those ports
+        // has to be open to the internet. With the plugin the proxy detects each backend's voice
+        // address and port itself and forwards to it over the internal network, so the whole of
+        // what the outside world needs is ONE port (Simple Voice Chat wiki, "Proxy Setup" and
+        // "Proxy Config File", read 2026-09-09).
+        //
+        // What this asserts is therefore the shape of the second arrangement, and the failure it
+        // catches is a partial return to the first: a backend that grows a UDP port again is one
+        // whose audio is expected to arrive somewhere the proxy is not looking.
+        final List<String> proxyUdp = udpPorts(Topology.NETWORK_CONTROL);
+        assertEquals(1, proxyUdp.size(), "the proxy publishes " + proxyUdp + " UDP. Voice chat needs"
+                + " exactly one, because voicechat-proxy.properties ships port: -1 and therefore"
+                + " binds the proxy's own port.");
+
+        // "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
+        final String mapping = proxyUdp.getFirst();
+        final List<String> parts = fields(mapping.substring(0, mapping.length() - "/udp".length()));
+        assertEquals(3, parts.size(), mapping + " is not bind:host:container");
+        assertEquals(parts.get(1), parts.get(2), "the proxy maps UDP " + parts.get(1) + " to "
+                + parts.get(2) + ". Simple Voice Chat hands the client the port it is bound to"
+                + " INSIDE the container, so a remapped port answers the handshake and then times"
+                + " out every packet after it.");
+
+        // The same bind as the Minecraft port and the same number the TCP line ends on: the voice
+        // endpoint is the Minecraft endpoint with a different protocol, and if those two ever
+        // separate the client is told to talk to a port compose does not publish.
+        final List<String> tcp = ports(Topology.NETWORK_CONTROL).stream()
+                .filter(port -> !port.endsWith("/udp"))
+                .toList();
+        assertEquals(1, tcp.size(), "the proxy publishes " + tcp + " TCP");
+        final List<String> tcpParts = fields(tcp.getFirst());
+        assertEquals(tcpParts.getFirst(), parts.getFirst(), "voice is bound to " + parts.getFirst()
+                + " and Minecraft to " + tcpParts.getFirst() + ". One endpoint, one address.");
+        assertEquals(tcpParts.get(2), parts.get(2), "Velocity listens on " + tcpParts.get(2)
+                + " inside the container and voice chat is published from " + parts.get(2)
+                + ". port: -1 means they are the same port, so these cannot differ.");
+
+        // And nobody else has one. A backend publishing UDP is either the old arrangement half
+        // restored, or a port left behind by a plugin that moved.
+        for (final Topology.Service service : Topology.SERVICES) {
+            if (service.name().equals(Topology.NETWORK_CONTROL)) {
+                continue;
+            }
+            assertEquals(List.of(), udpPorts(service.name()), service.name() + " publishes a UDP"
+                    + " port. With voice chat's proxy plugin installed the backends are reached"
+                    + " over the compose network and publish nothing; a port here is either a"
+                    + " leftover or a second, disagreeing arrangement.");
+        }
+    }
+
+    @Test
+    @DisplayName("the proxy runs voice chat's proxy half, and it is not one the proxy refuses to start without")
+    void theProxyVoicePluginIsOptional() {
+        // The rule is Service#optional, and the reason here is stronger than anywhere else it is
+        // used: this container is the network. voicechat-velocity is resolved from a pre-release
+        // (Modrinth has never published a Velocity release of it), and a plugin on that footing is
+        // exactly the one whose next version may fail to resolve or fail to load. Guarding on it
+        // would turn that into a proxy that will not start - which is nobody being able to play,
+        // for a feature that is optional for a player in the first place.
+        final Topology.Service proxy = Topology.SERVICES.stream()
+                .filter(service -> service.name().equals(Topology.NETWORK_CONTROL))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(proxy.plugins().contains(Topology.VOICE_CHAT_PROXY),
+                "the proxy carries no voicechat-velocity row - without it every backend needs its"
+                        + " own public UDP port back, and compose.yml publishes none");
+        assertTrue(proxy.optional().contains(Topology.VOICE_CHAT_PROXY),
+                "voicechat-velocity is guarded again");
+        assertFalse(proxy.guarded().contains(Topology.VOICE_CHAT_PROXY), "guarded() ignores optional()");
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment =
+                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.NETWORK_CONTROL))
+                        .get("environment");
+        final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
+        assertFalse(guard.toLowerCase(java.util.Locale.ROOT).contains("voicechat"),
+                "the proxy's EXPECTED_PLUGINS asks for voice chat: " + guard);
+    }
+
+    @Test
+    @DisplayName("neither backend refuses to start over a missing voice chat jar")
+    void voiceChatIsOptionalOnTheBackends() {
+        // Owner, 2026-09-09, and it reverses what was built the day before. Voice chat is optional
+        // for a player - the audio needs a client mod - so a missing jar costs a quiet evening,
+        // while a guard entry for it costs the server. The two are not close.
+        for (final String name : List.of(Topology.SMP, Topology.HUNGER_GAMES)) {
+            final Topology.Service service = Topology.SERVICES.stream()
+                    .filter(candidate -> candidate.name().equals(name))
+                    .findFirst()
+                    .orElseThrow();
+
+            assertTrue(service.plugins().contains(Topology.VOICE_CHAT),
+                    name + " no longer runs voice chat at all");
+            assertFalse(service.guarded().contains(Topology.VOICE_CHAT),
+                    name + " refuses to start without voice chat");
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment =
+                    (Map<String, Object>) ((Map<String, Object>) services.get(name)).get("environment");
+            // `${file%-*.jar}` on voicechat-bukkit-2.6.23.jar is voicechat-bukkit, so that - not
+            // the artefact id - is what a guard entry for it would look like.
+            final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
+            assertFalse(guard.toLowerCase(java.util.Locale.ROOT).contains("voicechat"),
+                    name + "'s EXPECTED_PLUGINS asks for voice chat: " + guard);
+        }
+    }
+
+    /** Every published port of a compose service, as written. */
+    private List<String> ports(final String service) {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> defined = (Map<String, Object>) services.get(service);
+        assertNotNull(defined, "compose.yml has no service '" + service + "'");
+        @SuppressWarnings("unchecked")
+        final List<Object> ports = (List<Object>) defined.get("ports");
+        return ports == null ? List.of() : ports.stream().map(String::valueOf).toList();
+    }
+
+    private List<String> udpPorts(final String service) {
+        return ports(service).stream().filter(port -> port.endsWith("/udp")).toList();
     }
 
     @Test
@@ -155,12 +321,84 @@ class TopologyTest {
                         + ". .env.example, deploy/README.md and NetworkSpec all name it.");
     }
 
+    /**
+     * A {@code bind:host:container} mapping split on the colons that separate it - not on the ones
+     * inside a {@code ${VAR:-default}}, of which every field here has one.
+     */
+    private static List<String> fields(final String mapping) {
+        final List<String> parts = new java.util.ArrayList<>();
+        final StringBuilder current = new StringBuilder();
+        int depth = 0;
+        for (int i = 0; i < mapping.length(); i++) {
+            final char c = mapping.charAt(i);
+            if (c == '$' && i + 1 < mapping.length() && mapping.charAt(i + 1) == '{') {
+                depth++;
+            } else if (c == '}' && depth > 0) {
+                depth--;
+            } else if (c == ':' && depth == 0) {
+                parts.add(current.toString());
+                current.setLength(0);
+                continue;
+            }
+            current.append(c);
+        }
+        parts.add(current.toString());
+        return List.copyOf(parts);
+    }
+
     /** {@code ${SMP_EXPECTED_PLUGINS:-smp …}} - what compose uses when .env says nothing. */
     private static String defaultOf(final String value) {
         final java.util.regex.Matcher matcher =
                 java.util.regex.Pattern.compile("^\\$\\{[A-Z0-9_]+:-(.*)}$").matcher(value);
         assertTrue(matcher.matches(), value + " has no default an unfilled .env would fall back to");
         return matcher.group(1);
+    }
+
+    @Test
+    @DisplayName("the server version in compose.yml is the one :common declares, as a literal")
+    void oneSourceForThePlatformVersion() {
+        // Until 2026-09-09 every one of these read ${PAPER_VERSION:-26.2} or ${VELOCITY_VERSION:-
+        // 4.1.1}, and the updater was fed the same two variables. So an .env could point the whole
+        // network at a Minecraft version nothing in this repository was compiled for, and the first
+        // sign of it would have been plugins refusing to load on a running server.
+        //
+        // The literal is asserted rather than merely required to exist: a `${…:-26.2}` here would
+        // pass a shape check and reintroduce exactly the override that was removed.
+        for (final Topology.Service service : Topology.SERVICES) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
+            assertNotNull(defined, "compose.yml has no service '" + service.name() + "'");
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
+
+            final Object version = environment.get("SERVER_VERSION");
+            assertNotNull(version, service.name() + " sets no SERVER_VERSION, so its entrypoint"
+                    + " cannot name the jar it runs");
+
+            // Paper is an exact Minecraft version and the proxy is Fill's name for Velocity's
+            // major - the asymmetry is Fill's own and Platform explains it.
+            final String expected = "velocity".equals(service.kind().fillProject())
+                    ? Platform.VELOCITY_FAMILY
+                    : Platform.MINECRAFT;
+            assertEquals(expected, String.valueOf(version),
+                    service.name() + "'s SERVER_VERSION is '" + version + "' and eu.nordtal.s2"
+                            + ".common.Platform says '" + expected + "'. Those are the version the"
+                            + " container runs and the version every plugin in it was compiled"
+                            + " against; a deployment where they differ loads no plugins.");
+        }
+
+        // And nothing feeds the updater a version any more - it reads Platform directly.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment = (Map<String, Object>) updater.get("environment");
+        for (final String retired : List.of("NORDTAL_UPDATER_MINECRAFT_VERSION",
+                "NORDTAL_UPDATER_VELOCITY_VERSION", "NORDTAL_UPDATER_PAPER_BUILD",
+                "NORDTAL_UPDATER_VELOCITY_BUILD")) {
+            assertNull(environment.get(retired), "compose.yml sets " + retired + " again. The two"
+                    + " versions are constants in :common and there is no build pin anywhere -"
+                    + " see the comment in UpdaterSpec where those four keys stood.");
+        }
     }
 
     @Test
@@ -222,29 +460,44 @@ class TopologyTest {
             final String onTheServer = mountsOf(definition).stream()
                     .filter(mount -> mount.endsWith(":/data/plugins"))
                     .findFirst()
-                    .orElseThrow(() -> new AssertionError(service.name() + " does not bind a host"
-                            + " directory onto /data/plugins. Since 2026-09-05 plugins/ is a"
-                            + " directory next to compose.yml and not part of the named volume;"
-                            + " without this line the server reads an empty folder and the"
-                            + " entrypoint stops the container."));
+                    .orElseThrow(() -> new AssertionError(service.name() + " mounts nothing onto"
+                            + " /data/plugins. Since 2026-09-05 plugins/ is separate from the"
+                            + " server's own volume; without this line the server reads an empty"
+                            + " folder and the entrypoint stops the container."));
 
             final String onTheUpdater = updaterMounts.stream()
                     .filter(mount -> mount.endsWith(":/volumes/" + service.name() + "/plugins"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("the updater does not mount "
-                            + service.name() + "'s plugins/ directory. It would then install into"
-                            + " the named volume while the server reads the host directory - and"
-                            + " nothing would say so: `apply` reports success, the jars are on"
-                            + " disk, and no server runs a single one of them."));
+                            + service.name() + "'s plugins/. It would then install into one place"
+                            + " while the server reads another - and nothing would say so:"
+                            + " `apply` reports success, the jars are on disk, and no server runs"
+                            + " a single one of them."));
 
-            // The two have to be the SAME source, expression for expression. A SERVERS_ROOT that
-            // is spelt differently in the two places is exactly the silent split above.
+            // The two have to be the SAME source, expression for expression. A variable spelt
+            // differently in the two places, or one side copying the default rather than the
+            // variable, is exactly the silent split above.
             assertEquals(sourceOf(onTheServer), sourceOf(onTheUpdater),
                     service.name() + ": the server and the updater are pointed at two different"
-                            + " host directories");
-            assertTrue(sourceOf(onTheServer).endsWith("/" + service.name() + "/plugins"),
-                    service.name() + " reads a plugins/ directory belonging to another service: "
-                            + sourceOf(onTheServer));
+                            + " plugin sources");
+
+            // AND THE DEFAULT HAS TO BE A VOLUME NAME (2026-09-08, finding 151). It was
+            // ${SERVERS_ROOT:-./deploy/servers}/<service>/plugins for three days, which put every
+            // deployed config.yml, milestones.yml, sounds.yml and pack.yml inside the directory
+            // Arcane's GitOps sync pulls - and that sync DELETES IGNORED FILES, so the first sync
+            // after a hand edit takes the lot and every server comes back writing fresh defaults.
+            //
+            // Docker distinguishes a bind mount from a volume by nothing but the shape of the
+            // string: anything containing a `/` is a path. A `.` is checked too because that is
+            // what a relative path starts with here and what a stray `./` leaves behind.
+            final String fallback = defaultOf(sourceOf(onTheServer));
+            assertFalse(fallback.contains("/") || fallback.contains("."),
+                    service.name() + "'s plugins/ defaults to '" + fallback + "', which Docker"
+                            + " reads as a PATH and not as a volume name. Production sets none of"
+                            + " these variables, so that default is what the host gets - and a"
+                            + " path inside this checkout is deleted by Arcane's GitOps sync with"
+                            + " every hand-edited plugin config in it. A local stack opts into the"
+                            + " bind by setting the variable; the default must not.");
         }
     }
 
@@ -455,6 +708,94 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("every volume a backup saves is a volume compose.yml declares, prefix included")
+    void theBackupNamesRealVolumes() {
+        // TWO COPIES OF ONE FACT, the same shape Topology and compose.yml already are. Arcane
+        // addresses a volume by its REAL Docker name, which is compose's `name:` plus an
+        // underscore plus the key under `volumes:` - so a volume renamed here and not there is a
+        // 404 from Arcane on the one night it matters, and a run that reports a failed backup for
+        // a volume that has not existed for weeks.
+        //
+        // A 404 is the GOOD version of getting this wrong. The bad one is a typo that happens to
+        // name a volume Docker will simply CREATE on first use: Arcane would snapshot an empty
+        // directory and report success for ever.
+        final String project = composeProject();
+        final Set<String> declared = composeVolumes();
+
+        for (final String volume : defaults().backup().volumes()) {
+            assertTrue(volume.startsWith(project + "_"),
+                    "backup.volumes lists '" + volume + "', which does not start with compose's own"
+                            + " project name '" + project + "_'. Docker prefixes every volume in a"
+                            + " compose project, and Arcane only knows the prefixed name.");
+            final String key = volume.substring(project.length() + 1);
+            assertTrue(declared.contains(key),
+                    "backup.volumes lists '" + volume + "', but compose.yml declares no volume '"
+                            + key + "'. Docker creates a volume it has never seen on first use, so"
+                            + " this would snapshot an empty directory and report success.");
+        }
+    }
+
+    @Test
+    @DisplayName("every service a backup stops is a service compose.yml runs")
+    void theBackupStopsRealServices() {
+        // A name Arcane does not list is reported as "Arcane does not list a container for this
+        // service" and aborts the run before anything is saved - which is the right direction to
+        // fail in, and still an outage for nothing at a quarter to five in the morning.
+        for (final String service : defaults().backup().stopServices()) {
+            assertNotNull(services.get(service), "backup.stop-services names '" + service
+                    + "', which is not a service in compose.yml. The run would stop nothing, save"
+                    + " nothing and report a failure.");
+        }
+    }
+
+    /** The compose project name, which is the prefix Docker puts on every volume in it. */
+    private static String composeProject() {
+        final Path compose = findUpwards("compose.yml");
+        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
+            final Object name = root.get("name");
+            assertNotNull(name, "compose.yml has no top-level name:, so the volume prefix is the"
+                    + " directory name and depends on where somebody cloned this repository");
+            return String.valueOf(name);
+        } catch (final IOException unreadable) {
+            throw new IllegalStateException("could not read " + compose, unreadable);
+        }
+    }
+
+    /** The keys under compose.yml's top-level {@code volumes:} block. */
+    private static Set<String> composeVolumes() {
+        final Path compose = findUpwards("compose.yml");
+        try (Reader reader = Files.newBufferedReader(compose, StandardCharsets.UTF_8)) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> root = (Map<String, Object>) new Yaml().load(reader);
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> volumes = (Map<String, Object>) root.get("volumes");
+            assertNotNull(volumes, compose + " has no volumes block");
+            return new LinkedHashSet<>(volumes.keySet());
+        } catch (final IOException unreadable) {
+            throw new IllegalStateException("could not read " + compose, unreadable);
+        }
+    }
+
+    /** {@link UpdaterSpec} answering nothing but its own defaults. */
+    private static UpdaterSpec defaults() {
+        return new UpdaterSpec() {
+            @Override
+            public BackupSpec backup() {
+                return new BackupSpec() {
+                };
+            }
+
+            @Override
+            public ArcaneSpec arcane() {
+                return new ArcaneSpec() {
+                };
+            }
+        };
+    }
+
+    @Test
     @DisplayName("the bootstrap default repeated in compose.yml still matches the spec's own")
     void theBootstrapDefaultAgreesWithTheSpec() {
         // Same reason as the two Arcane defaults above: an empty environment variable wins over the
@@ -467,6 +808,14 @@ class TopologyTest {
         // arcane() is the one member of UpdaterSpec without a default, so it has to be supplied
         // even though this test only reads bootstrap().
         final UpdaterSpec spec = new UpdaterSpec() {
+            @Override
+            public BackupSpec backup() {
+                // Defaults throughout: this test is not about a backup, and BackupSpec's own
+                // defaults are the production ones.
+                return new BackupSpec() {
+                };
+            }
+
             @Override
             public ArcaneSpec arcane() {
                 return new ArcaneSpec() {

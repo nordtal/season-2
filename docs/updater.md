@@ -72,7 +72,7 @@ a value that has to be carried by hand from a release to a config file:
 - The proxy's resource pack `url` and `sha1` were reachable only by editing `pack.yml` inside the
   `mc-network-control` volume. They are settings now (fixed 2026-09-01, before this module exists),
   but the sha1 still has to be copied out of the release by a person. The updater removes that.
-- `PAPER_BUILD` and `VELOCITY_BUILD` are pinned exactly, correctly, and nobody would notice them
+- ~~`PAPER_BUILD` and `VELOCITY_BUILD` are pinned exactly, correctly, and nobody would notice them going stale~~ — **answered by deletion on 2026-09-09.** Both variables are gone, and so are `paper-build`, `velocity-build` and `SERVER_BUILD`. There is no pin left to go stale, and no way back out of a bad platform build either; that trade is the owner's and is written down in `CLAUDE.md` under "Target platform"
   going a year stale. *(Since 2026-09-02 they seed an empty cache and nothing else — see below.)*
 
 ## What it owns
@@ -100,7 +100,7 @@ deployment starts with the updater, not with the database and the bot.
 | DisplayTags | GitHub releases API on `nordtal/papermc-display-tags` | our own fork, 2.0.0 on `main` |
 | PacketEvents | Modrinth API, `game_versions=["26.2"] loaders=["paper"]` | **exactly one** version: `2.13.0+spigot`, published 2026-06-22 |
 | Chunky | Modrinth API, same filter | **exactly one** version: `1.5.3`, published 2026-05-04 |
-| Paper, Velocity | PaperMC Fill API, newest `STABLE` of the pinned minor | the entrypoint speaks the same API, but only to seed an empty `.server/` from `PAPER_BUILD` / `VELOCITY_BUILD`; from then on it runs whatever build of the version this module put there |
+| Paper, Velocity | PaperMC Fill API. Paper: newest `STABLE` build of `Platform.MINECRAFT`, an exact version. Velocity: newest release version inside `Platform.VELOCITY_FAMILY` (Fill's own name for the major), then its newest `STABLE` build | the entrypoint speaks the same API and resolves the same build, but only to fill an *empty* `.server/`; from then on it runs the highest version-then-build it finds cached. **`/builds/latest` is not the newest stable** — measured 2026-09-09, it answers the newest build of any channel — so both programs filter the list |
 
 The Modrinth answers were queried against the live API on 2026-09-01 and the filenames come back
 identical to what `compose.yml` pins today — `packetevents-spigot-2.13.0.jar` and
@@ -264,11 +264,112 @@ the only thing that resolves a version, compares a volume or judges an outcome. 
 reasoning, including why the report lives as JSON in the existing column rather than in a table of
 its own.
 
+### Two third-party plugins, and a state that is neither work nor failure
+
+`voicechat` (Simple Voice Chat, Paper build) sits on `smp` and `hunger-games`, `voicechat-velocity`
+on the proxy, and `coreprotect` on `smp`. All three are **optional**: they are not in `guarded()`, so
+`EXPECTED_PLUGINS` does not ask for them and a run that cannot resolve one changes nothing about
+whether a server starts. The two reasons for that are different and the code keeps them apart -
+CoreProtect *cannot* be installed, voice chat *need not* be.
+
+**`UNSUPPORTED` is a fourth answer.** The source replied and has no build for this Minecraft version.
+It is neither work nor a failure: it does not skip the service, it stops no server, and a run in
+which nothing else is moving ends `NOTHING_TO_DO` rather than claiming an install. The artefact stays
+named in the plan, so the day a compatible release appears the next `/update now` installs it with
+nobody changing code. CoreProtect is the reason it exists - release 24.0 ends at 26.1.2, and the
+owner chose to carry it as waiting rather than to leave it out and forget it.
+
+**One project, two artefacts.** Simple Voice Chat publishes both builds under one Modrinth id; the
+loader distinguishes them, so `updater.yml` carries one `voicechat-project`.
+
+**The pre-release exception is one artefact wide.** `Modrinth#newest` takes only
+`version_type: release`. `voicechat-velocity` is the single exception, named in
+`Modrinth.PRE_RELEASE_EXCEPTIONS`, because that project has published thirteen Velocity versions
+since 2022 and not one release: waiting for a stable build is not a slower route to the same place,
+it is a route to nothing. Checked live on 2026-09-09 - eight `alpha`, five `beta`, zero `release`,
+and only `velocity-2.6.18` tagged for 26.2. It is a constant and not a setting on purpose.
+
+### The fifth kind: a volume backup
+
+Arcane can snapshot a volume to S3 on a schedule of its own, and it can stop the containers first.
+What it cannot do is tell anybody. A stop nobody announced is a stop that lands on whoever happened
+to be online at a quarter to five, so **the updater drives the backup the same way it drives an
+update**: countdown, stop, do the thing, start, verify, report.
+
+**`serve` is still not a scheduler, and this is not an exception to that rule.** The clock lives in
+`smp`, which already schedules the farm reset - `config.yml#backup-time`, default `04:45`, fifteen
+minutes ahead of the 05:00 reset, blank meaning never. At that time `smp` writes a `BACKUP` row and
+the updater executes it like any other request. The cost of that choice is named rather than hidden:
+**no `smp`, no backup, and nothing says so** (owner, 2026-09-09). What makes it bearable is that a
+failed run now mentions the admin role.
+
+The sequence, in `Runner#backup`:
+
+1. Check Arcane answers at all - the run refuses to start otherwise, the same as an update.
+2. Refuse an empty volume list. A backup that saves nothing and reports success is worse than none.
+3. Take the **same `RunLock`** as update and restart. The second asker is refused, never queued.
+4. Countdown, then stop `backup.stop-services` (`smp`, `network-control`, `bot`).
+5. `POST` every volume **first**, then poll. Starting and waiting one at a time would hold the
+   network down for the *sum* of the uploads instead of the longest one.
+6. Start again, wait for each service to report `running` and `healthy`.
+
+**A service that refuses to stop aborts the run before anything is saved**, and everything that did
+stop is started again - the same rule an update follows, for the same reason: a snapshot taken
+around a live server is torn, and the tear surfaces at *restore*, months later.
+
+**The Arcane API, read from v2.10.2's source on 2026-09-08 rather than from its docs.**
+`POST /api/environments/{id}/volumes/{name}/backups` starts one (202, permission
+`PermVolumesBackup`, `409` when one is already running for that volume). An **empty body** is
+deliberate: Arcane then loads the volume's own policy and uses its destination, so *where* a
+snapshot goes stays a decision taken once, in Arcane, and not a second time here.
+`GET` on the same path lists entries with `id` and `status` (`running` / `succeeded` / `failed`);
+there is no get-by-id, so the run polls the list for its own id.
+
+**An unreadable poll is `RUNNING`, never `FAILED`.** The snapshot is still being written on the far
+side, and calling it failed would start the servers on top of it. Only `backup.patience-minutes`
+ends a wait - **thirty** minutes per volume, and the volume line then says *gave up waiting* rather
+than claiming Arcane failed.
+
+Thirty rather than sixty because giving up stopped being silent on the same day: a run that ends
+`FAILED` mentions the admin role in the admin channel instead of only editing an embed. The two are
+one decision, and `ConfigsTest` says so where the number is.
+
+**What is never backed up is `postgres-data`.** PostgreSQL is saved through the `pg_dump` sidecar
+into `postgres-dumps`, and that volume is in the list; a filesystem snapshot of a live PGDATA is the
+kind of backup that restores into a corrupt cluster. `Configs` refuses any volume whose name ends in
+`postgres-data` **by name**, at load, rather than warning about it.
+
+### Every run reaches the admin channel, not only the ones started in Discord
+
+A run asked for in game, or from a console, used to be invisible in Discord: the embed existed only
+as the *reply* to a slash command. So the runs most worth seeing — the ones somebody started because
+the network was already misbehaving — were the ones nobody could follow.
+
+`UpdateFeed` is a two-second tick in the bot, alongside the other `guarded(...)` ticks. It picks up
+rows whose `source` is not `DISCORD` and whose id is above the last one it saw, posts the same embed
+the command draws, keeps the message id, and edits it as the report changes. On a restart it starts
+from `max(id)` — history is not re-announced — and separately posts a result for anything that
+finished in the last twelve minutes while the bot was down. `UpdateFeedTest` covers all four of
+those, because none of them can be exercised against a real guild without waiting for one.
+
+The channel's own lines stay **English** (owner, 2026-09-09), while the reply to whoever asked is
+rendered in their `discord_user.locale`. One channel with many readers has one text; a reply has one
+reader.
+
 ### The thirty-second countdown
 
-A run takes the affected servers down, so the request is written with `not_before` thirty seconds
-in the future and **network-control counts every player down towards it** — wherever they are, limbo
-and Hunger Games included. That is why the proxy owns the announcement and not the SMP plugin: the
+A run takes the affected servers down, so **once the updater knows there is something to take them
+down for**, it sets `not_before` thirty seconds in the future and **network-control counts every
+player down towards it** — wherever they are, limbo and Hunger Games included.
+
+**The order in that sentence is the whole of finding 157 and it was the other way round until
+2026-09-09.** The countdown used to be written by whoever *submitted* the request, before anything
+had been resolved — so a run that turned out to have nothing to do still took thirty seconds off
+everybody, in silence, and then did nothing. `Runner` now checks Arcane, resolves the plan, and only
+a plan with work in it writes `COUNTDOWN` and calls `startCountdown`. No work, no countdown, and the
+request settles as `NOTHING_TO_DO` in about a second. `CountdownComesAfterResolvingTest` reads
+`Runner`'s own source, because hoisting the countdown back above the `isWork()` guard is a
+one-line edit that looks like a tidy-up. That is why the proxy owns the announcement and not the SMP plugin: the
 proxy is the only process that sees everybody, and a restart asked for *in Discord* has to warn
 people too.
 
@@ -278,6 +379,23 @@ then do the thirty seconds everybody sees begin, which `/update cancel` (or the 
 length is a constant in `:common` rather than a setting, because three processes submit runs and a
 fourth renders the countdown: a value configured in four files is a counter that reaches zero while
 nothing happens.
+
+**Cancelling is a race and it is settled in SQL, not by looking.** `commitCountdown` is an
+`UPDATE … WHERE id AND status='RUNNING' RETURNING id`, so the run either takes the row and stops the
+servers, or comes back empty because `cancelCountdown` got there first — in which case nothing is
+stopped. `cancelCountdown` matches the same predicate with `FOR UPDATE SKIP LOCKED`, so a cancel
+typed while the commit holds the row is answered *too late* rather than left ambiguous. There is no
+window in which both a player sees "cancelled" and a server goes away.
+
+**And the number a player sees is the number.** The proxy used to draw the countdown off its
+five-second poll, so the figure on screen was up to five seconds behind the moment the servers
+actually went — on a thirty-second warning, a sixth of it. `Countdown` now schedules a beat on the
+exact millisecond of each threshold (chat at thirty and ten, then a **subtitle** carrying the bare
+number every second from ten to one, then the zero line), and the poll is left doing only what a
+poll is good for: noticing that the row was cancelled or has disappeared. The first row still
+arrives at once, because the proxy also holds `LISTEN nordtal_update`. `CountdownTest` drives all of
+it against a `MutableClock` — including a proxy that joins a countdown already in progress, which
+must not replay the beats it missed.
 
 ### Poll first, notify second
 
@@ -294,7 +412,9 @@ from two containers on a Docker network. What is still open is the *reconnect* b
 real dropped socket, which is the same open item the phase listener has.
 
 The bot and the SMP plugin **poll and do not listen** — the bot re-reads one indexed row every two
-seconds while an admin waits, and the proxy every five seconds for the countdown. A second dedicated
+seconds while an admin waits. The proxy is no longer in that sentence: it took `LISTEN
+nordtal_update` on 2026-09-09 so the first sight of a countdown is immediate rather than up to five
+seconds late, and its five-second poll now only watches for a cancellation. A second dedicated
 connection per backend would be real cost for a countdown that is already honest about the number of
 seconds it is showing.
 
@@ -309,7 +429,7 @@ seconds it is showing.
   is not a version to preserve. Anything already carrying a jar is left exactly as it is, so the
   sentence above stays literally true for every container that has ever run.
 - **It does not roll back by itself.** A run can be given an explicit tag instead of "newest" —
-  `season-release`, `display-tags-release`, and since 2026-09-02 `paper-build` / `velocity-build`
+  `season-release` and `display-tags-release`. The two platform pins that stood here until 2026-09-09 are gone
   for the platform — which is the rollback, and it is a person's decision.
 - **It does not touch worlds, configuration files inside volumes, or anything a player built.** It
   moves jars, one zip's URL and hash, and the schema.
@@ -344,7 +464,9 @@ the schema.
 installed build 125 into `.server/` and superseded 121, the entrypoint built the name
 `paper-26.2-121.jar` from `PAPER_BUILD`, found it gone, fetched it again and deleted 125 — on every
 restart after every apply, with a Fill API call in the middle of each one. The entrypoint now runs
-whichever build of `SERVER_VERSION` is in the cache and reads `SERVER_BUILD` only into an empty one.
+whichever build it finds in the cache. *(`SERVER_BUILD` is gone as of 2026-09-09; an empty cache is
+filled with the newest `STABLE` build the Fill API lists, and the match is by kind rather than by
+version so the proxy can follow Velocity's minors.)*
 
 **The pack's URL and hash live in `pack.yml`, not in the environment.** *(Carried out in step 3.)* They were made compose
 variables earlier the same day, for a good reason: they were reachable only by editing a file

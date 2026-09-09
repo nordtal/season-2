@@ -70,6 +70,28 @@ public final class Glyphs {
     /** The font the {@code GUI_*} code points below resolve in - same rule as {@link #FONT_BOSSBAR}. */
     public static final String FONT_GUI = "nordtal:gui";
 
+    /**
+     * The six row fonts, one per chest row, in which every {@code GUI_ROW_*} code point and all
+     * readable row text resolves.
+     *
+     * <h2>Why there are six of them</h2>
+     * A glyph's only vertical control is its font's {@code ascent}, and a list menu wants the same
+     * picture - a pill, an icon, a line of text - on any of the six rows. Carrying the row in the
+     * <em>code point</em> costs one code point per (picture, row) and is impossible for text, whose
+     * code points are not ours to choose. Carrying it in the <em>font</em> costs one font per row
+     * and nothing per picture: {@code nordtal:gui_r2} is "everything, drawn on chest row 2". All
+     * six declare exactly the same characters, at three ascents - furniture, icon and text - which
+     * {@code resource-pack/tools/generate_gui_rows.py} derives and writes.
+     *
+     * <p>Indexed by row, so {@code FONT_GUI_ROWS[0]} is the top chest row. A component drawn on a
+     * row names one of these instead of {@link #FONT_GUI}; naming the wrong one draws the right
+     * picture one or more rows out, which looks like a layout bug and not like a font mistake.</p>
+     */
+    public static final String[] FONT_GUI_ROWS = {
+            "nordtal:gui_r0", "nordtal:gui_r1", "nordtal:gui_r2",
+            "nordtal:gui_r3", "nordtal:gui_r4", "nordtal:gui_r5",
+    };
+
     // === minecraft:default ===
 
     // Player badges - U+FE000..U+FE00F
@@ -358,9 +380,14 @@ public final class Glyphs {
     // bossbar.json use, which is not a collision: the fonts allocate independently, and a menu
     // title composed in nordtal:gui can only ever reach nordtal:gui's own table.
     //
-    // There are deliberately no POSITIVE advances here. Nothing in a menu title moves right: the
-    // panel is drawn from the window's left edge and the readable title walks back to x = 8 behind
-    // it. Adding them the day a title needs to be centred is one line in gui.json and one here.
+    // POSITIVE advances arrived on 2026-09-09, at U+FF801..U+FF928 - the same decimal-digit
+    // convention one bit higher, so +16 is U+FF816 next to -16 at U+FF016. This paragraph used to
+    // say there were deliberately none, because nothing in a menu title ever moved right: a panel
+    // is drawn from the left edge and the readable title walks back behind it. A LIST row does
+    // move right. Its pill has to be drawn before the text on top of it, and its icon before the
+    // name beside it, so the composition is left-to-right within a row and the cursor has to be
+    // able to go back out to the next row's start. Without them a renderer can only ever lay the
+    // topmost thing down first, which for a pill means painting it over its own label.
     public static final String GUI_SPACE_MINUS_1 = cp(0xFF001);
     public static final String GUI_SPACE_MINUS_2 = cp(0xFF002);
     public static final String GUI_SPACE_MINUS_4 = cp(0xFF004);
@@ -369,6 +396,15 @@ public final class Glyphs {
     public static final String GUI_SPACE_MINUS_32 = cp(0xFF032);
     public static final String GUI_SPACE_MINUS_64 = cp(0xFF064);
     public static final String GUI_SPACE_MINUS_128 = cp(0xFF128);
+
+    public static final String GUI_SPACE_PLUS_1 = cp(0xFF801);
+    public static final String GUI_SPACE_PLUS_2 = cp(0xFF802);
+    public static final String GUI_SPACE_PLUS_4 = cp(0xFF804);
+    public static final String GUI_SPACE_PLUS_8 = cp(0xFF808);
+    public static final String GUI_SPACE_PLUS_16 = cp(0xFF816);
+    public static final String GUI_SPACE_PLUS_32 = cp(0xFF832);
+    public static final String GUI_SPACE_PLUS_64 = cp(0xFF864);
+    public static final String GUI_SPACE_PLUS_128 = cp(0xFF928);
 
     // Panels - U+FE060..U+FE065, one per chest size, ascent 13 and height = the window's own
     // pixel height so each renders 1:1.
@@ -397,5 +433,164 @@ public final class Glyphs {
     public static final String GUI_TRAVEL_LOCKED_BOTTOM = cp(0xFE068);
     public static final String GUI_TRAVEL_HERE_TOP = cp(0xFE069);
     public static final String GUI_TRAVEL_HERE_BOTTOM = cp(0xFE06A);
-    // U+FE06B..U+FE07F is this font's room to grow.
+
+    // The same six panels WITHOUT the container's own slot recesses - U+FE06B..U+FE070, 2026-09-09.
+    // A list menu draws a pill across a whole row, and a recess under it shows above, below and on
+    // both sides of every pill. The player's own three rows and the hotbar keep their recesses in
+    // both variants, because those slots hold real items whatever the menu above them is.
+    public static final String GUI_PANEL_PLAIN_1 = cp(0xFE06B);
+    public static final String GUI_PANEL_PLAIN_2 = cp(0xFE06C);
+    public static final String GUI_PANEL_PLAIN_3 = cp(0xFE06D);
+    public static final String GUI_PANEL_PLAIN_4 = cp(0xFE06E);
+    public static final String GUI_PANEL_PLAIN_5 = cp(0xFE06F);
+    public static final String GUI_PANEL_PLAIN_6 = cp(0xFE070);
+
+    /** The six recess-free panels, one row first, for {@code rows - 1} indexing. */
+    public static final String[] GUI_PANELS_PLAIN = {
+            GUI_PANEL_PLAIN_1, GUI_PANEL_PLAIN_2, GUI_PANEL_PLAIN_3,
+            GUI_PANEL_PLAIN_4, GUI_PANEL_PLAIN_5, GUI_PANEL_PLAIN_6,
+    };
+    // U+FE071..U+FE07F is this font's room to grow.
+
+    // === nordtal:gui_r0 .. nordtal:gui_r5 ===
+    //
+    // The row furniture - U+FE100..U+FE11F, the block reserved for it on 2026-09-08. Every one of
+    // these is declared in ALL SIX row fonts at that row's ascent, so the code point says WHAT is
+    // drawn and FONT_GUI_ROWS[row] says WHERE. A GUI_ROW_* constant in nordtal:gui itself draws
+    // nothing at all: that font declares none of them.
+    //
+    // Their advances are not written down here. They are a property of the PNGs, exported by
+    // resource-pack/tools/generate_gui_rows.py into :common's own resources and read by MenuFont -
+    // the same arrangement BossBarAdvances has, and for the same reason: a redrawn glyph whose
+    // rightmost column moved would otherwise be a row one pixel out on a client and nowhere else.
+
+    /** A list entry's plate, 158 px wide and 14 tall - the width of the slot area inset 2. */
+    public static final String GUI_ROW_PILL = cp(0xFE100);
+
+    /** The white 2 px frame that marks the one entry a player is currently navigating to. */
+    public static final String GUI_ROW_FRAME = cp(0xFE101);
+
+    /** A 52 px button plate in the refusing style - {@code /navigate}'s "stop". */
+    public static final String GUI_ROW_BUTTON_WIDE = cp(0xFE102);
+
+    /** A 14 px square button plate, one slot cell inset 2. */
+    public static final String GUI_ROW_BUTTON_SMALL = cp(0xFE103);
+
+    /** The same square plate, greyed - a page button with no page on the other side of it. */
+    public static final String GUI_ROW_BUTTON_SMALL_OFF = cp(0xFE104);
+
+    /**
+     * The same 158 px plate in a darker grey: a <em>heading</em> row rather than an entry.
+     *
+     * <p>The objective menu's top row names the milestone the cards below belong to. Drawn in the
+     * entry grey it would read as a fifth thing to click, which is the one thing a heading must
+     * not do.
+     */
+    public static final String GUI_ROW_PILL_DARK = cp(0xFE105);
+
+    /**
+     * A 50 px button plate in the affirming style: gold, the brand's own.
+     *
+     * <p>The only plate in the pack that is not neutral grey or refusing red, and it is one because
+     * it is the only button in these menus whose click cannot be undone by clicking again - the
+     * hand-in's confirm.
+     */
+    public static final String GUI_ROW_BUTTON_CONFIRM = cp(0xFE106);
+
+    /** A 68 px button plate in the affirming style - the grave's "take everything". */
+    public static final String GUI_ROW_BUTTON_TAKE = cp(0xFE107);
+
+    // Row icons - U+FE110..U+FE11A, 8 x 8, drawn white so a component's colour can tint them.
+    public static final String GUI_ROW_ICON_SPAWN = cp(0xFE110);
+    public static final String GUI_ROW_ICON_DEATH = cp(0xFE111);
+    public static final String GUI_ROW_ICON_POI = cp(0xFE112);
+    public static final String GUI_ROW_ICON_STOP = cp(0xFE113);
+    public static final String GUI_ROW_ICON_PREV = cp(0xFE114);
+    public static final String GUI_ROW_ICON_NEXT = cp(0xFE115);
+
+    // The objective card's four states. The icon IS the state on that card - a hand you can hand
+    // something to, a pickaxe that counts itself, a medal earned elsewhere, a tick when it is done -
+    // so these four are never drawn beside one another and one of them always is.
+    public static final String GUI_ROW_ICON_HAND_IN = cp(0xFE116);
+    public static final String GUI_ROW_ICON_STATISTIC = cp(0xFE117);
+    public static final String GUI_ROW_ICON_ADVANCEMENT = cp(0xFE118);
+    public static final String GUI_ROW_ICON_DONE = cp(0xFE119);
+
+    /** An experience orb - what the objective menu's share line is about. */
+    public static final String GUI_ROW_ICON_AURA = cp(0xFE11A);
+    // U+FE11B..U+FE1FF is this block's room to grow.
+
+    // === nordtal:gui, menu surfaces - U+FE200..U+FE2FF (2026-09-09) ===
+    //
+    // A menu whose art spans MORE THAN ONE chest row cannot be a row glyph: a row font's whole
+    // purpose is that it carries one ascent per layer per row, and a card two rows tall has no row.
+    // So these live in nordtal:gui with an ascent apiece, exactly as the balloon's overlays do -
+    // and, exactly as there, a picture that can land on two different rows is declared twice.
+    //
+    // The block is its own because U+FE060..U+FE07F was full. Nothing forced a NEW block - fonts
+    // allocate independently and U+FE090 was free in this one - but the numbers in this repository
+    // are kept globally distinct so that a code point read in a log or a screenshot names one thing,
+    // and U+FE080 is the system-line icons in minecraft:default.
+
+    /** The objective card, 68 x 32, on the upper of the two card rows (top y 37). */
+    public static final String GUI_CARD_TOP = cp(0xFE200);
+
+    /** The same card on the lower card row (top y 73). */
+    public static final String GUI_CARD_BOTTOM = cp(0xFE201);
+
+    /** The green wash over a finished card, upper row. */
+    public static final String GUI_CARD_DONE_TOP = cp(0xFE202);
+
+    /** The same wash, lower row. */
+    public static final String GUI_CARD_DONE_BOTTOM = cp(0xFE203);
+
+    /**
+     * The progress bar's fill, in powers of two, for the upper card row.
+     *
+     * <p>Indexed the way {@link #GUI_SPACE_MINUS_1} and friends are used: any fill from 0 to 60
+     * pixels is at most four of these laid side by side, because 60 is 32 + 16 + 8 + 4. The bar's
+     * <em>track</em> is baked into the card, so an empty bar costs nothing at all.
+     */
+    public static final String[] GUI_BAR_FILL_TOP = {
+            cp(0xFE210), cp(0xFE211), cp(0xFE212), cp(0xFE213), cp(0xFE214), cp(0xFE215),
+    };
+
+    /**
+     * The hand-in screen's tray: one sunken surface 162 x 54 over three chest rows.
+     *
+     * <p>One surface and not a recess per slot, which is design {@code H2} and is the deliberate
+     * opposite of the grave - see {@code HandInPanel}'s own comment for why the two must not be
+     * made the same.
+     */
+    public static final String GUI_HANDIN_TRAY = cp(0xFE204);
+
+    /**
+     * The grave's slab: a recess per slot on stone, one glyph per row count.
+     *
+     * <p>A recess per slot and <b>not</b> one surface, which is the deliberate opposite of
+     * {@link #GUI_HANDIN_TRAY} - see {@code GravePanel}'s own comment. Indexed from one row, so
+     * {@code GUI_GRAVE_SLAB[0]} is a single row; five is the most there can be, because a player
+     * carries at most forty-one stacks and the window's sixth row is the footer.
+     */
+    public static final String[] GUI_GRAVE_SLAB = {
+            cp(0xFE205), cp(0xFE206), cp(0xFE207), cp(0xFE208), cp(0xFE209),
+    };
+
+    /**
+     * The wheel's own panel: five rows with a ring of twelve prize cells and a hub.
+     *
+     * <p>A whole window like {@link #GUI_TRAVEL_PANEL} rather than an overlay, because a circle on a
+     * 9 x 5 grid is a band between the cells and not a thing that lands on any one of them. The
+     * winning cell wears the same two-pixel white frame {@code travel_here} does - see
+     * {@code WheelPanel} for why the design's pointer could not survive the ring moving left.
+     */
+    public static final String GUI_WHEEL_RING = cp(0xFE20A);
+
+    /** The same six, for the lower card row. */
+    public static final String[] GUI_BAR_FILL_BOTTOM = {
+            cp(0xFE218), cp(0xFE219), cp(0xFE21A), cp(0xFE21B), cp(0xFE21C), cp(0xFE21D),
+    };
+
+    /** The widths {@link #GUI_BAR_FILL_TOP} draws, in the same order. */
+    public static final int[] GUI_BAR_FILL_WIDTHS = {1, 2, 4, 8, 16, 32};
 }

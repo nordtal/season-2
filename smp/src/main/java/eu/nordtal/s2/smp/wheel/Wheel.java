@@ -103,7 +103,11 @@ public final class Wheel {
             final Runnable refund = free
                     ? () -> offThread(() -> dao.restoreFreeSpin(id, previousFree, today))
                     : () -> offThread(() -> dao.restoreEarnedSpin(id));
-            award(player, locale, refund);
+            // What is left AFTER this spin, which is what the window shows and what decides
+            // whether its "again" button is live. Read from the row this spin was taken out of
+            // rather than queried again: a second read would be a second round trip for a number
+            // that is already known, and it could disagree with the one just spent.
+            award(player, locale, refund, Math.max(0, spins.available(today) - 1));
         });
     }
 
@@ -123,7 +127,8 @@ public final class Wheel {
         });
     }
 
-    private void award(final Player player, final Locale locale, final Runnable refund) {
+    private void award(final Player player, final Locale locale, final Runnable refund,
+                       final int spinsLeft) {
         final List<SmpSpec.WheelPrizeSpec> pool = config.wheelPrizes();
         final List<Integer> weights = new ArrayList<>(pool.size());
         pool.forEach(prize -> weights.add(prize.weight()));
@@ -147,7 +152,8 @@ public final class Wheel {
         // Everything above is a decision and runs off the main thread; everything below is the
         // window, and has to be on it. The prize is already settled here - the animation shows it
         // arriving, it does not choose it. See WheelStrip.
-        final WheelStrip strip = WheelStrip.landingOn(pool.size(), index, random);
+        final WheelStrip strip = WheelStrip.landingOn(pool.size(), index, random,
+                WheelPanel.shape());
         final List<ItemStack> icons = icons(pool);
 
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -156,10 +162,31 @@ public final class Wheel {
                 give(player, material, prize.amount(), locale, refund);
                 return;
             }
-            new WheelGui(messages, locale, strip, icons, sounds,
+            new WheelGui(messages, locale, strip, icons, sounds, spinsLeft, earnAt(),
+                    // Another spin is the whole of spin() again, which spends its own row and
+                    // opens its own window. Null when there is nothing left to spend: the button
+                    // is still drawn - a control that vanishes leaves somebody wondering whether
+                    // it was ever there - and it refuses with a sound and says why.
+                    spinsLeft > 0 ? () -> spin(player) : null,
                     winner -> give(winner, material, prize.amount(), locale, refund))
                     .start(plugin, player);
         });
+    }
+
+    /**
+     * The lowest contribution share that earns an extra spin, which is what the window says.
+     *
+     * <p>The <em>lowest</em> and not the first entry: {@code wheel-extra-spin-percents} is
+     * documented as being in any order, and {@code PrizeDraw#extraSpinsFor} counts every threshold
+     * a share reaches - so the number a player needs to reach to earn anything at all is the
+     * smallest one. Zero when the list is empty, which is what "nothing earns a spin" looks like.
+     */
+    private int earnAt() {
+        return config.wheelExtraSpinPercents().stream()
+                .filter(java.util.Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .min()
+                .orElse(0);
     }
 
     /**

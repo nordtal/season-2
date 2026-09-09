@@ -1,14 +1,12 @@
 package eu.nordtal.s2.smp.npc;
 
-import eu.nordtal.s2.common.menu.MenuTitle;
+import eu.nordtal.s2.common.menu.SlotGeometry;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.papercommon.menu.BlankItem;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.milestone.Objective;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -36,9 +34,7 @@ import java.util.Set;
  */
 public final class HandInGui implements Surface {
 
-    private static final int ROWS = 4;
-    private static final int DEPOSIT_SLOTS = 27;
-    private static final int CONFIRM_SLOT = 31;
+    private static final int DEPOSIT_SLOTS = HandInPanel.DEPOSIT_SLOTS;
 
     private final Inventory inventory;
     private final Objective objective;
@@ -51,19 +47,55 @@ public final class HandInGui implements Surface {
         this.stillNeeded = Math.max(0L, target - amount);
         this.wanted = new LinkedHashSet<>(objective.items() == null ? List.of() : objective.items());
 
-        this.inventory = Bukkit.createInventory(this, ROWS * 9, MenuTitle.of(ROWS,
-                MessageRenderer.of(messages).get(locale, "smp.handin.title")));
+        this.inventory = Bukkit.createInventory(this,
+                HandInPanel.ROWS * SlotGeometry.COLUMNS,
+                HandInPanel.title(
+                        MessageRenderer.of(messages).get(locale, "smp.handin.title"),
+                        messages.format(locale, "smp.handin.still-needed",
+                                java.util.Map.of("amount", stillNeeded)),
+                        messages.get(locale, "smp.handin.confirm-button")));
 
-        final ItemStack confirm = new ItemStack(Material.LIME_CONCRETE);
-        confirm.editMeta(meta -> {
-            meta.displayName(MessageRenderer.of(messages).get(locale, "smp.handin.confirm")
-                    .color(NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
-            meta.lore(List.of(
-                    MessageRenderer.of(messages).format(locale, "smp.handin.needed",
-                                    "amount", stillNeeded, "items", String.join(", ", wanted))
-                            .color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
+        // A real item of the first wanted material: a sample, so the window says what it wants
+        // without a sentence. It is not takeable - every click outside the tray is cancelled - and
+        // it carries the full list, because "any log type counts" is exactly what a single icon
+        // cannot say.
+        sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT,
+                describe(messages, locale, item)));
+
+        final ItemStack confirm = BlankItem.of(
+                MessageRenderer.of(messages).get(locale, "smp.handin.confirm"),
+                List.of(MessageRenderer.of(messages).format(locale, "smp.handin.needed",
+                        "amount", stillNeeded, "items", String.join(", ", wanted))));
+        HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, confirm));
+    }
+
+    /**
+     * The first wanted material this server knows, as an item.
+     *
+     * <p>{@code Objective#items} carries names as they were written in {@code milestones.yml} and
+     * binds them at enable, so a name that reached here unbound is a configuration this server
+     * refused - the sample is simply left out rather than throwing inside a menu constructor.</p>
+     */
+    private java.util.Optional<Material> sample() {
+        return wanted.stream()
+                .map(name -> Material.matchMaterial(name))
+                .filter(java.util.Objects::nonNull)
+                .filter(material -> material.isItem())
+                .findFirst();
+    }
+
+    private ItemStack describe(final Messages messages, final Locale locale,
+                               final Material material) {
+        final ItemStack stack = new ItemStack(material);
+        stack.editMeta(meta -> {
+            meta.displayName(MessageRenderer.of(messages).get(locale, "smp.handin.wanted")
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            meta.lore(List.of(MessageRenderer.of(messages)
+                    .format(locale, "smp.handin.needed", "amount", stillNeeded,
+                            "items", String.join(", ", wanted))
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
         });
-        inventory.setItem(CONFIRM_SLOT, confirm);
+        return stack;
     }
 
     @Override
@@ -76,12 +108,12 @@ public final class HandInGui implements Surface {
     }
 
     public static boolean isConfirm(final int slot) {
-        return slot == CONFIRM_SLOT;
+        return HandInPanel.CONFIRM_SLOTS.contains(slot);
     }
 
     /** Whether a slot is one a player may put something into. */
     public static boolean isDeposit(final int slot) {
-        return slot >= 0 && slot < DEPOSIT_SLOTS;
+        return HandInPanel.isDeposit(slot);
     }
 
     /** What is currently sitting in the deposit slots, as plain values the sorter understands. */

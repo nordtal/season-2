@@ -44,11 +44,43 @@ public final class Topology {
     }
 
     /**
-     * @param name    the compose service name, which is also the directory under
-     *                {@code volumes-root} and the volume's own name minus the {@code mc-} prefix.
-     * @param plugins the artifact ids whose jars belong in this service's {@code plugins/} folder.
+     * @param name     the compose service name, which is also the directory under
+     *                 {@code volumes-root} and the volume's own name minus the {@code mc-} prefix.
+     * @param plugins  the artifact ids whose jars belong in this service's {@code plugins/} folder.
+     * @param optional the subset of {@code plugins} whose <b>absence must not stop the container</b>
+     *                 - see {@link #optional()}.
      */
-    public record Service(@NotNull String name, @NotNull Kind kind, @NotNull List<String> plugins) {
+    public record Service(@NotNull String name, @NotNull Kind kind, @NotNull List<String> plugins,
+                          @NotNull List<String> optional) {
+
+        /** A service every one of whose plugins the entrypoint guard demands. */
+        public Service(final @NotNull String name, final @NotNull Kind kind,
+                       final @NotNull List<String> plugins) {
+            this(name, kind, plugins, List.of());
+        }
+
+        public Service {
+            plugins = List.copyOf(plugins);
+            optional = List.copyOf(optional);
+            if (!plugins.containsAll(optional)) {
+                throw new IllegalArgumentException(name + " marks a plugin optional that it does"
+                        + " not run: " + optional + " is not inside " + plugins);
+            }
+        }
+
+        /**
+         * The plugins {@code EXPECTED_PLUGINS} in {@code compose.yml} has to ask for.
+         *
+         * <p><b>Every plugin here is one this container refuses to start without.</b> That guard
+         * exists because a {@code plugins/} folder holding <em>some</em> of a server's jars looks
+         * exactly like a healthy one - it is how an SMP with no season on it once started and
+         * reported healthy. What it cannot be pointed at is an artefact that <em>cannot be
+         * installed</em>: {@link Change.Status#UNSUPPORTED} is somebody else's release schedule,
+         * and turning that into a server that will not boot buys nothing and costs a season.</p>
+         */
+        public @NotNull List<String> guarded() {
+            return plugins.stream().filter(plugin -> !optional.contains(plugin)).toList();
+        }
     }
 
     // ---------------------------------------------------------------- artifact ids
@@ -67,6 +99,61 @@ public final class Topology {
     public static final String DISPLAY_TAGS = "display-tags";
     public static final String PACKETEVENTS = "packetevents";
     public static final String CHUNKY = "chunky";
+
+    /**
+     * Simple Voice Chat's Bukkit plugin - {@code voicechat-bukkit-<version>.jar}, so the filename
+     * prefix is {@code voicechat-bukkit} and not this id.
+     *
+     * <p><b>It is optional, and that is a decision about players rather than about the jar</b>
+     * (owner, 2026-09-09): voice chat is something a player either has a mod for or has not, and a
+     * network where nobody can talk is a worse evening than a network with no voice chat at all -
+     * so a missing jar must not be a server that refuses to start. It is therefore named in
+     * {@link Service#optional()} on both backends and absent from their {@code EXPECTED_PLUGINS}.
+     * The cost is real and is the price: a backend that came up without it looks healthy, and the
+     * only thing that says otherwise is the update report naming the row.</p>
+     */
+    public static final String VOICE_CHAT = "voicechat";
+
+    /**
+     * Simple Voice Chat's Velocity plugin - {@code voicechat-velocity-<version>.jar}, on the proxy
+     * and nowhere else. Here the artefact id and the filename prefix do coincide.
+     *
+     * <h2>What it buys, and why the proxy is in this at all</h2>
+     * Audio is UDP and does not travel inside the Minecraft connection. Without this plugin every
+     * backend's own voice port has to be published and reachable from the internet, each backend
+     * needs a distinct port number, and each one's {@code voice_host} has to be set by hand in a
+     * file nothing in this repository writes. With it, <b>one</b> UDP port on the proxy is the
+     * whole of it: the plugin detects the address and port of each backend itself and forwards to
+     * the right one, and each backend's {@code voice_host} is ignored (Simple Voice Chat wiki,
+     * "Proxy Setup" and "Proxy Config File", read 2026-09-09).
+     *
+     * <p>The backends therefore publish no host port at all any more. They are reached over the
+     * compose network by the proxy, which is a thing containers on one network can always do.</p>
+     *
+     * <h2>It is resolved from a pre-release, deliberately</h2>
+     * This is the one artefact in {@link eu.nordtal.s2.updater.source.Modrinth#PRE_RELEASE_EXCEPTIONS},
+     * because the project has never published a Velocity build marked {@code release} - not one, in
+     * thirteen versions. Waiting for one is not a slower path to the same place. The reasoning, and
+     * the reason it is a named constant instead of a setting, is on that field.
+     *
+     * <p>It is {@link Service#optional() optional} for the same reason {@link #VOICE_CHAT} is, and
+     * one more: an alpha is exactly the kind of artefact whose next version may fail to resolve or
+     * fail to load, and a proxy that will not start is the whole network.</p>
+     */
+    public static final String VOICE_CHAT_PROXY = "voicechat-velocity";
+
+    /**
+     * CoreProtect, the block logger - {@code CoreProtect-CE-<version>.jar}, so the filename prefix
+     * is {@code CoreProtect-CE}.
+     *
+     * <p><b>It has no build for this Minecraft version and it is in the plan anyway</b> (owner,
+     * 2026-09-08): the newest release, 24.0, stops at 26.1.2, checked against Modrinth on that
+     * date. The row resolves as {@link Change.Status#UNSUPPORTED} and stays named in every report
+     * until a compatible build appears, at which point the next run installs it and nobody edits
+     * any code. The alternative - leaving it out until then - is a thing somebody has to
+     * remember.</p>
+     */
+    public static final String CORE_PROTECT = "coreprotect";
 
     public static final String PAPER = "paper";
     public static final String VELOCITY = "velocity";
@@ -115,13 +202,29 @@ public final class Topology {
 
     /** The four Minecraft services, in the order the report reads best: proxy first, then backends. */
     public static final List<Service> SERVICES = List.of(
-            new Service(NETWORK_CONTROL, Kind.VELOCITY, List.of(NETWORK_CONTROL)),
+            // The proxy carries voice chat's proxy half, which is what makes one published UDP port
+            // enough for the whole network - see VOICE_CHAT_PROXY. It is optional here for the
+            // strongest reason anything on this list is: this container is the network.
+            new Service(NETWORK_CONTROL, Kind.VELOCITY, List.of(NETWORK_CONTROL, VOICE_CHAT_PROXY),
+                    List.of(VOICE_CHAT_PROXY)),
             new Service(LIMBO, Kind.PAPER, List.of(LIMBO)),
-            new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES)),
+            // Voice chat is on the two servers people play on and not on limbo: the waiting room
+            // is seconds long and holds nobody who could be talked to (owner, 2026-09-08).
+            new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES, VOICE_CHAT),
+                    List.of(VOICE_CHAT)),
             // The only service with required third-party plugins. DisplayTags is required by the
             // SMP plugin's own paper-plugin.yml; PacketEvents is required under DisplayTags;
             // Chunky pre-generates the world border and is loaded by :smp reflectively.
-            new Service(SMP, Kind.PAPER, List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY)));
+            //
+            // The two optional ones are optional for two different reasons and both are worth
+            // keeping straight. CoreProtect CANNOT be installed - no build for this Minecraft
+            // version exists - so guarding on it would hand somebody else's release schedule the
+            // power to keep the SMP down. Voice chat can be installed and usually will be; it is
+            // optional because a server nobody can talk on is better than a server nobody can join
+            // (owner, 2026-09-09).
+            new Service(SMP, Kind.PAPER,
+                    List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY, VOICE_CHAT, CORE_PROTECT),
+                    List.of(VOICE_CHAT, CORE_PROTECT)));
 
     private Topology() {
     }

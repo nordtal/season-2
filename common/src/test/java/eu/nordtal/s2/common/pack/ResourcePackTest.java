@@ -65,8 +65,22 @@ class ResourcePackTest {
     private static final FontFile GUI_FONT =
             FontFile.load(Glyphs.FONT_GUI, ASSETS + "/nordtal/font/gui.json");
 
-    private static final List<FontFile> FONTS =
-            List.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT);
+    /**
+     * The six row fonts, which declare exactly the same characters at six different ascents.
+     *
+     * <p>They are checked one by one rather than as one font, because "the same characters" is
+     * precisely what can stop being true: the six files are generated together and a hand edit to
+     * one of them is invisible from every other check here. {@link #theRowFontsAreSixCopies} is
+     * what asserts they still agree.</p>
+     */
+    private static final List<FontFile> GUI_ROW_FONTS = java.util.stream.IntStream.range(0, 6)
+            .mapToObj(row -> FontFile.load(Glyphs.FONT_GUI_ROWS[row],
+                    ASSETS + "/nordtal/font/gui_r" + row + ".json"))
+            .toList();
+
+    private static final List<FontFile> FONTS = Stream.concat(
+            Stream.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT),
+            GUI_ROW_FONTS.stream()).toList();
 
     /**
      * The message keys whose text is drawn inside a boss bar, mirroring what
@@ -179,6 +193,19 @@ class ResourcePackTest {
     }
 
     @Test
+    @DisplayName("the six row fonts declare the same characters, one row apart")
+    void theRowFontsAreSixCopies() {
+        final Set<Integer> first = GUI_ROW_FONTS.get(0).declared();
+        for (int row = 1; row < GUI_ROW_FONTS.size(); row++) {
+            assertEquals(new TreeSet<>(first), new TreeSet<>(GUI_ROW_FONTS.get(row).declared()),
+                    Glyphs.FONT_GUI_ROWS[row] + " declares a different set of characters from"
+                            + " nordtal:gui_r0. The six are one font drawn at six heights - a"
+                            + " character in five of them is a row that renders on five rows and"
+                            + " draws a missing-glyph box on the sixth");
+        }
+    }
+
+    @Test
     @DisplayName("the bossbar font can write German")
     void theBossbarFontCanWriteGerman() {
         final List<String> missing = new ArrayList<>();
@@ -261,6 +288,74 @@ class ResourcePackTest {
                 + " forgot or dead weight in the pack zip; both are worth knowing about");
     }
 
+    /**
+     * The vanilla screens the pack rewords, and the one of them that draws a glyph.
+     *
+     * <p>{@code minecraft/lang/*.json} is the single place in this repository where the
+     * <b>client's own</b> language setting decides what somebody reads - docs/i18n.md accepts that,
+     * because a JSON file in a zip cannot consult {@code discord_user.locale}. It is accepted only
+     * because what lives there is three cosmetic strings; this is the check that they stay three
+     * cosmetic strings that actually render.</p>
+     */
+    private static final List<String> LANG_FILES = List.of(
+            ASSETS + "/minecraft/lang/en_us.json",
+            ASSETS + "/minecraft/lang/de_de.json");
+
+    @Test
+    @DisplayName("every glyph a vanilla lang override draws is one the pack declares")
+    void everyLangGlyphIsDeclared() {
+        // It was not. Both files put the logo on the pause menu at U+E021, which is where it lived
+        // until the pack moved to Supplementary Private Use Area-A on 2026-09-04 (Glyphs#cp) - and
+        // nothing moved with it, because nothing compares a lang file to a font. The title of the
+        // one screen every player opens has been a missing-glyph box ever since, in both languages,
+        // and it looks exactly like art that was never drawn.
+        final List<String> undeclared = new ArrayList<>();
+        for (final String relative : LANG_FILES) {
+            final Path file = RepositoryRoot.resolve(relative);
+            assertTrue(Files.isRegularFile(file), relative + " no longer exists");
+            // PARSED, not read as text. A lang file writes a code point as a \\uXXXX escape - the
+            // whole reason it may hold one at all is that the escape keeps it greppable - so
+            // scanning the raw bytes finds the six characters of the escape and never the
+            // character, and the check passes on exactly the file it was written for.
+            //
+            // A lang override renders in minecraft:default and nowhere else - a screen title cannot
+            // name a font - so it is that one font the code point has to be in, not any of the four.
+            for (final Map.Entry<String, com.google.gson.JsonElement> entry
+                    : com.google.gson.JsonParser.parseString(readText(file)).getAsJsonObject()
+                            .entrySet()) {
+                entry.getValue().getAsString().codePoints()
+                        .filter(ResourcePackTest::isPrivateUse)
+                        .forEach(codePoint -> {
+                            if (!DEFAULT_FONT.covers(codePoint)) {
+                                undeclared.add(relative + " draws U+"
+                                        + Integer.toHexString(codePoint).toUpperCase()
+                                        + " for " + entry.getKey()
+                                        + ", which minecraft:default does not declare");
+                            }
+                        });
+            }
+        }
+        assertEquals(List.of(), undeclared,
+                "a lang override naming a code point no font carries is a missing-glyph box on a"
+                        + " vanilla screen - and it is invisible from every other check here,"
+                        + " because a lang file is not a font and not a message bundle");
+    }
+
+    private static boolean isPrivateUse(final int codePoint) {
+        return (codePoint >= 0xE000 && codePoint <= 0xF8FF)
+                || (codePoint >= 0xF0000 && codePoint <= 0xFFFFD)
+                || (codePoint >= 0x100000 && codePoint <= 0x10FFFD);
+    }
+
+    /** {@code readText}, not {@code read}: the other one in this class answers a PNG. */
+    private static String readText(final Path file) {
+        try {
+            return Files.readString(file, StandardCharsets.UTF_8);
+        } catch (final IOException e) {
+            throw new UncheckedIOException("cannot read " + file, e);
+        }
+    }
+
     // --- helpers ---------------------------------------------------------------------------
 
     /** Feeds every {@code public static final String} constant of {@link Glyphs} to the consumer. */
@@ -295,6 +390,11 @@ class ResourcePackTest {
         }
         if (constant.startsWith("BOARD_")) {
             return BOARD_FONT;
+        }
+        // GUI_ROW_* before GUI_*: a row glyph lives in the six row fonts and nordtal:gui declares
+        // none of them, so the prefix test has to be the more specific one first.
+        if (constant.startsWith("GUI_ROW_")) {
+            return GUI_ROW_FONTS.get(0);
         }
         if (constant.startsWith("GUI_")) {
             return GUI_FONT;

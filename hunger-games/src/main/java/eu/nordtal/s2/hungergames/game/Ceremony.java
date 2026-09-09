@@ -1,6 +1,7 @@
 package eu.nordtal.s2.hungergames.game;
 
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
@@ -116,7 +117,12 @@ public final class Ceremony {
                     "winner", winnerLabel(outcome.winnerMemberId(), allMembers),
                     "winnerKills", outcome.winnerKills(), "loserKills", outcome.loserKills()));
         } else if (outcome.winnerMemberId() != null) {
+            // The one line of the four that carries an icon, and it is the announcement icon the
+            // SMP uses for a milestone: the winner is the event's own headline, and it should read
+            // like one next to the kill feed that has been scrolling past for the last hour. The
+            // glyph is a parameter because Glyphs is the only place that names a code point.
             player.sendMessage(MessageRenderer.of(messages).format(locale, "hg.win.player",
+                    "icon", Glyphs.ICON_ANNOUNCE,
                     "winner", winnerLabel(outcome.winnerMemberId(), allMembers)));
         } else if (outcome.tie()) {
             player.sendMessage(MessageRenderer.of(messages).format(locale, "hg.win.no-winner",

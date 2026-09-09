@@ -39,6 +39,19 @@ volume() {
     printf '%s' "$dir"
 }
 
+# Runs newest_server_jar against a cache directory and leaves its answer in $output.
+#
+# Same `bash -c ... seeding-test` trick as seed() below, and for the same reason: $0 has to be a
+# name that is not the entrypoint's path, or the source guard concludes it was executed and runs
+# the whole container.
+pick() {
+    local cache="$1" kind="$2"
+    set +e
+    output=$(bash -c 'source "$1"; newest_server_jar "$2" "$3"' seeding-test "$ENTRYPOINT" "$cache" "$kind" 2>&1)
+    status=$?
+    set -e
+}
+
 # Runs seed_level_settings against a volume, in a subshell, and leaves the exit status in $status
 # and everything it printed in $output.
 #
@@ -226,6 +239,93 @@ expect_status 0
 [[ "$(cat "$data/server.properties")" == "$before" ]] \
     || bad "a second run rewrote server.properties"
 ok "idempotent"
+
+# ------------------------------------------------------------------------------------------------
+
+echo "entrypoint.sh: the cached server jar"
+
+# A cache directory holding the named files. Returns its path on stdout.
+cache() {
+    local dir name
+    dir="$WORK/cache-$1"
+    mkdir -p "$dir"
+    shift
+    for name in "$@"; do
+        : > "$dir/$name"
+    done
+    printf '%s' "$dir"
+}
+
+expect_pick() {
+    [[ "$output" == "$1" ]] || bad "expected '${1:-nothing}', got '${output:-nothing}'"
+}
+
+# ------------------------------------------------------------------------------------------------
+case_begin "the highest build of one version wins"
+dir=$(cache builds paper-26.2-119.jar paper-26.2-121.jar paper-26.2-9.jar)
+pick "$dir" paper
+expect_status 0
+# 9 beats 121 as text and loses as a number, which is the whole reason this is not a `sort`.
+expect_pick paper-26.2-121.jar
+ok "highest build"
+
+# ------------------------------------------------------------------------------------------------
+# WHY THIS CASE EXISTS. Until 2026-09-09 the glob carried the version - velocity-4.1.1-*.jar - so an
+# updater that moved the proxy to 4.2.0 left a cache this script read as EMPTY, and it fetched 4.1.1
+# back. Every update to the proxy would have been undone by the restart meant to apply it.
+case_begin "the highest version wins, not the version somebody asked for"
+dir=$(cache versions velocity-4.1.1-24.jar velocity-4.2.0-15.jar)
+pick "$dir" velocity
+expect_status 0
+expect_pick velocity-4.2.0-15.jar
+ok "highest version"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "4.10.0 beats 4.9.0, which sorting text gets wrong"
+dir=$(cache numeric velocity-4.9.0-3.jar velocity-4.10.0-1.jar)
+pick "$dir" velocity
+expect_status 0
+expect_pick velocity-4.10.0-1.jar
+ok "numeric version comparison"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "an empty cache answers with nothing, and does not fail"
+dir=$(cache empty)
+pick "$dir" paper
+expect_status 0
+expect_pick ""
+ok "empty cache"
+
+# ------------------------------------------------------------------------------------------------
+# The answers here are all "skip it", never "guess": a jar this function cannot read the version and
+# build out of is one the entrypoint would run without knowing what it is.
+case_begin "a file that does not fit the shape is skipped, not guessed at"
+dir=$(cache junk \
+    paper.jar \
+    paper-26.2.jar \
+    paper-26.2-rc-2-118.jar \
+    paper-26.2-latest.jar \
+    paper-26.2-121.jar)
+pick "$dir" paper
+expect_status 0
+expect_pick paper-26.2-121.jar
+ok "unmatched files skipped"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "only jars of this kind are considered"
+dir=$(cache kinds paper-26.2-121.jar velocity-4.1.1-24.jar)
+pick "$dir" velocity
+expect_status 0
+expect_pick velocity-4.1.1-24.jar
+ok "kind respected"
+
+# ------------------------------------------------------------------------------------------------
+case_begin "a cache holding nothing readable answers with nothing"
+dir=$(cache unreadable paper-26.2.jar notes.txt)
+pick "$dir" paper
+expect_status 0
+expect_pick ""
+ok "nothing readable"
 
 # ------------------------------------------------------------------------------------------------
 

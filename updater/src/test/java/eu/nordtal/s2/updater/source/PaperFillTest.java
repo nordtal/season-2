@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -61,34 +62,106 @@ class PaperFillTest {
     }
 
     @Test
-    @DisplayName("a pinned build is fetched as that build, STABLE or not, from the single-build endpoint")
-    void pinnedBuild() throws IOException {
-        // The same endpoint entrypoint.sh seeds an empty cache from: one object, not a list.
-        final String body = """
-                {"id":119,"channel":"STABLE","time":"2026-08-20T00:00:00Z","downloads":{
-                   "server:default":{"name":"paper-26.2-119.jar","url":"https://x/119",
-                                     "checksums":{"sha256":"cc"}}}}
-                """;
-        final FakeHttp http = new FakeHttp()
-                .answering("/builds/119", body)
-                .serving("/builds", "fill-paper-26.2.json");
-        final PaperFill fill = new PaperFill(http);
-
-        final RemoteFile pinned = fill.resolve("paper", "26.2", "119");
-        assertEquals("paper-26.2-119.jar", pinned.fileName());
-        assertEquals("119", pinned.version());
-        assertTrue(http.requested().getLast().toString().endsWith("/builds/119"));
-
-        // 'latest' goes to the list, as before.
-        assertEquals("paper-26.2-121.jar", fill.resolve("paper", "26.2", PaperFill.LATEST).fileName());
-    }
-
-    @Test
     @DisplayName("a version with no stable build at all is an error naming the version")
     void refusesWhenNothingIsStable() {
         final PaperFill fill = new PaperFill(new FakeHttp().answering("/builds", "[]"));
 
         final IOException failure = assertThrows(IOException.class, () -> fill.newestStable("paper", "27.0"));
         assertTrue(failure.getMessage().contains("27.0"), failure.getMessage());
+    }
+
+    // ------------------------------------------------------------------ version families
+
+    @Test
+    @DisplayName("Velocity's family 4.0.0 resolves to 4.1.1, the four SNAPSHOTs in it ignored")
+    void theFamilyResolvesToItsNewestRelease() throws IOException {
+        // The real answer of GET /v3/projects/velocity, recorded 2026-09-09. `4.0.0` is Fill's name
+        // for the whole 4.x line, so the family name is emphatically not a version anybody runs -
+        // 4.0.0 is also a member of it, and the oldest one.
+        final PaperFill fill = new PaperFill(
+                new FakeHttp().serving("/projects/velocity", "fill-velocity-project.json"));
+
+        assertEquals("4.1.1", fill.newestStableVersion("velocity", "4.0.0"));
+    }
+
+    @Test
+    @DisplayName("a newer release in the same family wins")
+    void aNewerReleaseWins() throws IOException {
+        final PaperFill fill = new PaperFill(new FakeHttp().answering("/projects/velocity", """
+                {"versions":{"4.0.0":["4.2.0-SNAPSHOT","4.2.0","4.1.1","4.1.0"]}}
+                """));
+
+        assertEquals("4.2.0", fill.newestStableVersion("velocity", "4.0.0"));
+    }
+
+    @Test
+    @DisplayName("4.10.0 is newer than 4.9.0, which is the one thing sorting text gets wrong")
+    void versionsAreComparedAsNumbers() throws IOException {
+        // Lexicographically "4.10.0" < "4.9.0", so a text sort silently installs the older proxy -
+        // and goes on doing it for as long as the minor stays two digits. Nothing about the run
+        // fails, so the only symptom is a version number nobody looks at.
+        final PaperFill fill = new PaperFill(new FakeHttp().answering("/projects/velocity", """
+                {"versions":{"4.0.0":["4.9.0","4.10.0","4.8.3"]}}
+                """));
+
+        assertEquals("4.10.0", fill.newestStableVersion("velocity", "4.0.0"));
+    }
+
+    @Test
+    @DisplayName("the position in the response decides nothing")
+    void theOrderOfTheResponseIsNotTrusted() throws IOException {
+        // Fill lists newest first today. That is an observation about one payload, and this is the
+        // one place where believing it means quietly running an older proxy.
+        final PaperFill fill = new PaperFill(new FakeHttp().answering("/projects/velocity", """
+                {"versions":{"4.0.0":["4.0.0","4.1.0","4.1.1"]}}
+                """));
+
+        assertEquals("4.1.1", fill.newestStableVersion("velocity", "4.0.0"));
+    }
+
+    @Test
+    @DisplayName("a family carrying only SNAPSHOTs fails, and never falls back to another family")
+    void aFamilyOfSnapshotsIsAFailure() {
+        // The failure that has to stay loud. A silent fallback onto 3.0.0 - which does carry
+        // releases - would move the network to a different Velocity major, on a proxy compiled
+        // against this one, without anybody asking for it.
+        final PaperFill fill = new PaperFill(new FakeHttp().answering("/projects/velocity", """
+                {"versions":{"4.0.0":["4.2.0-SNAPSHOT","4.1.2-SNAPSHOT"],"3.0.0":["3.5.1"]}}
+                """));
+
+        final IOException failure =
+                assertThrows(IOException.class, () -> fill.newestStableVersion("velocity", "4.0.0"));
+        assertTrue(failure.getMessage().contains("4.0.0"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("4.2.0-SNAPSHOT"),
+                "the message has to show what it did find, or it names no way forward: "
+                        + failure.getMessage());
+        assertFalse(failure.getMessage().contains("3.5.1"), failure.getMessage());
+    }
+
+    @Test
+    @DisplayName("an unknown family names the families that do exist")
+    void anUnknownFamilyIsRefused() {
+        final PaperFill fill = new PaperFill(new FakeHttp().answering("/projects/velocity", """
+                {"versions":{"3.0.0":["3.5.1"]}}
+                """));
+
+        final IOException failure =
+                assertThrows(IOException.class, () -> fill.newestStableVersion("velocity", "4.0.0"));
+        assertTrue(failure.getMessage().contains("4.0.0"), failure.getMessage());
+        assertTrue(failure.getMessage().contains("3.0.0"),
+                "a family name is easy to get wrong precisely because it is not a version, so the"
+                        + " message has to list the ones Fill knows: " + failure.getMessage());
+    }
+
+    @Test
+    @DisplayName("a release candidate is not a release, in either project")
+    void releaseCandidatesAreNotReleases() throws IOException {
+        // Paper's own 26.2 family carries 26.2 and 26.2-rc-2, which is why the Paper side is an
+        // exact version rather than a family - but the filter is the same one and is checked here.
+        final PaperFill fill = new PaperFill(new FakeHttp().answering("/projects/paper", """
+                {"versions":{"26.2":["26.2.1-pre1","26.2-rc-2","26.2"]}}
+                """));
+
+        assertEquals("26.2", fill.newestStableVersion("paper", "26.2"));
     }
 }

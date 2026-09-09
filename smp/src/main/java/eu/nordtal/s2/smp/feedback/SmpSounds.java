@@ -106,6 +106,7 @@ public final class SmpSounds {
             case TRAVEL -> spec.travel();
             case COUNTDOWN_TICK -> spec.countdownTick();
             case NETWORK_EVENT -> spec.networkEvent();
+            case STAGING -> spec.staging();
         };
     }
 

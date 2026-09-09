@@ -5,6 +5,8 @@ import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.Locales;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
+import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.common.message.Tones;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -179,13 +181,28 @@ public final class PaperUser implements NordtalUser {
 
     @Override
     public void reply(final String messageKey, final Map<String, ?> placeholders) {
-        reply(messageKey, placeholders, null);
+        // send(..., null) rather than delegating to an overload: with both a Feedback and a Tone
+        // overload in scope, reply(key, map, null) is ambiguous and does not compile.
+        send(render(messageKey, placeholders), null);
     }
 
     @Override
     public void reply(final String messageKey, final Map<String, ?> placeholders,
                       final Feedback feedback) {
         send(render(messageKey, placeholders), feedback);
+    }
+
+    @Override
+    public void reply(final String messageKey, final Map<String, ?> placeholders, final Tone tone) {
+        send(Tones.paint(render(messageKey, placeholders), tone), null);
+    }
+
+    @Override
+    public void reply(final String messageKey, final Map<String, ?> placeholders,
+                      final Feedback feedback, final Tone tone) {
+        // One hop, carrying all three: the line, its colour and its chime. Painting before the hop
+        // rather than inside it keeps everything that touches Adventure off the main thread.
+        send(Tones.paint(render(messageKey, placeholders), tone), feedback);
     }
 
     @Override

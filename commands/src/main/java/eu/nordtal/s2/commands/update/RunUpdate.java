@@ -46,9 +46,14 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
                 // Everybody else is told by the proxy, which is the only process that sees every
                 // player. This line is for the person who typed it, and its job is to name the way
                 // back out while there still is one.
+                //
+                // Accepted, not started - the same correction RunBackup carries. submit() writes a
+                // row; the updater can still find nothing to do, or refuse the run before any
+                // countdown. update.started already words it conditionally ("if there is
+                // anything"), so only the tone was overclaiming.
                 user.reply("update.started", Map.of(
                         "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
-                        Feedback.BIG_SUCCESS, Tone.GOOD);
+                        Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
             } catch (final RuntimeException failure) {
                 user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
             }

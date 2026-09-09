@@ -54,7 +54,18 @@ public final class BukkitSmpEffects implements SmpEffects {
 
     private final java.util.function.Function<java.util.Locale, Status> status;
 
-    public BukkitSmpEffects(final Plugin plugin, final Executor executor, final SmpDao dao,
+    /**
+     * The connection the three aura reads share, so they answer about one moment.
+     *
+     * <p>{@code dao} is on-demand: every call takes its own connection, so a single aura event
+     * between them can leave {@code /aura} printing a rank against a leaderboard from a different
+     * state. One handle in a {@code REPEATABLE READ} transaction is what makes the three one
+     * answer.</p>
+     */
+    private final org.jdbi.v3.core.Jdbi jdbi;
+
+    public BukkitSmpEffects(final Plugin plugin, final Executor executor,
+                            final org.jdbi.v3.core.Jdbi jdbi, final SmpDao dao,
                             final ObjectiveEngine engine, final FarmWorldReset farmReset,
                             final Identities identities, final AccessDirectory access,
                             final java.util.function.Supplier<java.util.List<String>> reload,
@@ -62,6 +73,7 @@ public final class BukkitSmpEffects implements SmpEffects {
         this.status = java.util.Objects.requireNonNull(status, "status");
         this.plugin = plugin;
         this.executor = executor;
+        this.jdbi = java.util.Objects.requireNonNull(jdbi, "jdbi");
         this.dao = dao;
         this.engine = engine;
         this.farmReset = farmReset;
@@ -201,12 +213,21 @@ public final class BukkitSmpEffects implements SmpEffects {
         if (discordId.isEmpty()) {
             return Optional.empty();
         }
-        // A player who has never been given aura has no smp_player row yet, and zero is the honest
-        // answer for them - the alternative is telling somebody their account cannot be read on
-        // their first day.
-        final int aura = dao.auraOf(discordId.get()).orElse(0);
-        final AuraPlace place = dao.auraPlace(aura);
-        final List<AuraRow> top = dao.topAura(10);
+        // All three in one REPEATABLE READ transaction: a rank, a total and a leaderboard read
+        // one after the other through an on-demand DAO are three separate snapshots, and a single
+        // aura event between them prints a place that the list underneath it contradicts.
+        final AuraSnapshot snapshot = jdbi.inTransaction(
+                org.jdbi.v3.core.transaction.TransactionIsolationLevel.REPEATABLE_READ, handle -> {
+                    final SmpDao attached = handle.attach(SmpDao.class);
+                    // A player who has never been given aura has no smp_player row yet, and zero is
+                    // the honest answer for them - the alternative is telling somebody their account
+                    // cannot be read on their first day.
+                    final int own = attached.auraOf(discordId.get()).orElse(0);
+                    return new AuraSnapshot(own, attached.auraPlace(own), attached.topAura(10));
+                });
+        final int aura = snapshot.aura();
+        final AuraPlace place = snapshot.place();
+        final List<AuraRow> top = snapshot.top();
 
         final List<String> names = onMainThread(() -> top.stream()
                 .map(row -> {
@@ -255,4 +276,9 @@ public final class BukkitSmpEffects implements SmpEffects {
                 ? unchecked
                 : new IllegalStateException(failure);
     }
+
+    /** The three aura reads, taken together. */
+    private record AuraSnapshot(int aura, AuraPlace place, List<AuraRow> top) {
+    }
+
 }

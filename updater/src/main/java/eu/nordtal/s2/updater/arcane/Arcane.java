@@ -581,6 +581,13 @@ public final class Arcane implements ArcaneOps {
         if (!configured()) {
             return BackupResult.refused("Arcane is not configured.");
         }
+        // Before get(uri), which puts X-Api-Key on the wire. Today this is only reached after
+        // backup() has already refused a cleartext origin, so the key never leaves - but that is
+        // a property of one caller and not of this method, and the next caller would not know.
+        final java.util.Optional<String> refused = refusedForCleartext();
+        if (refused.isPresent()) {
+            return BackupResult.refused(refused.get());
+        }
         final URI uri = backupUri(volume);
         if (uri == null) {
             return BackupResult.running(backupId, "the backup URL for " + volume + " is not valid");

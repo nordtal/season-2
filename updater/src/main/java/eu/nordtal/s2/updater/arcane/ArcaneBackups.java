@@ -2,6 +2,7 @@ package eu.nordtal.s2.updater.arcane;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -34,12 +35,37 @@ final class ArcaneBackups {
     private static final List<String> WRAPPERS = List.of("data", "body", "backup", "result");
 
     /**
+     * The body as JSON, or {@code JsonNull} when it is not JSON at all.
+     *
+     * <p>{@code JsonParser.parseString} throws {@code JsonSyntaxException}, which is unchecked.
+     * Both callers sit behind {@code Arcane}, whose {@code catch} lists {@code IOException} and
+     * {@code InterruptedException} - so a 2xx carrying a proxy's HTML error page would have thrown
+     * straight out of {@code UpdateRun#save}, past the {@code run.start(...)} in
+     * {@code Runner#backupUnderLock} that brings the network back. A malformed body would have left
+     * the servers stopped.</p>
+     *
+     * <p>Answering {@code JsonNull} instead lets the two readers fall through their existing "this
+     * payload carried none" branches, which the run already treats as "keep waiting" rather than as
+     * a failure.</p>
+     */
+    private static JsonElement parse(final @Nullable String body) {
+        if (body == null || body.isBlank()) {
+            return JsonNull.INSTANCE;
+        }
+        try {
+            return JsonParser.parseString(body);
+        } catch (final RuntimeException malformed) {
+            return JsonNull.INSTANCE;
+        }
+    }
+
+    /**
      * The entry a {@code POST .../backups} answered with.
      *
      * @return the backup's id, or {@code null} when the payload carried none
      */
     static @Nullable String startedId(final String body) {
-        final JsonObject entry = firstObject(JsonParser.parseString(body == null ? "" : body), 0);
+        final JsonObject entry = firstObject(parse(body), 0);
         return entry == null ? null : text(entry, "id", "backupId", "backup_id");
     }
 
@@ -52,7 +78,7 @@ final class ArcaneBackups {
      *         that id is not in the page at all
      */
     static @Nullable Entry find(final String body, final @NotNull String id) {
-        final JsonArray array = firstArray(JsonParser.parseString(body == null ? "" : body), 0);
+        final JsonArray array = firstArray(parse(body), 0);
         if (array == null) {
             return null;
         }

@@ -78,8 +78,10 @@ class OneMessageFormatTest {
                     "the NPC's name out of config.yml, which is a name and not a message"),
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/body/PlayerBodies.java",
                     "a disconnected player's name on their body"),
-            Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/lobby/Lobby.java",
-                    "one space between the broadcast and the clickable link"),
+            // hunger-games' Lobby was here until 2026-09-09, for "one space between the broadcast
+            // and the clickable link". That space is gone with the append that needed it: the
+            // bundle places the link through a <_link> component slot now, which is what a slot is
+            // for and is also what fixed the literal "{link}" every player in the lobby was reading.
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/ping/NetworkPing.java",
                     "the MOTD, which NetworkPing parses itself with its own placeholder resolver"),
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityUser.java",

@@ -426,6 +426,218 @@ def here_overlay():
     return TILE_WIDTH, TILE_HEIGHT, bytes(buf)
 
 
+# --- The objective card, and its progress bar ----------------------------------------
+#
+# The NPC menu (design O3) draws four cards on a six-row panel: a heading row, two rows of
+# two cards, and a share line. A card is 68 x 32 - four slot columns and TWO slot rows,
+# inset 2 - so it is the balloon's card at half the height, and it is drawn from the same
+# numbers for exactly that reason.
+#
+# WHY THE CARD IS A gui GLYPH AND EVERYTHING ON IT IS A ROW GLYPH. A card spans two chest
+# rows, so no single row font can carry it; it gets a code point per card row, at the
+# ascent that lands it there. What sits ON the card - the type icon, the name, the numbers -
+# all falls inside one row band or the other, so those are row glyphs and cost nothing per
+# card. The bar is the one thing in between: it lands in the four-pixel gap between two row
+# bands and therefore needs its own ascent as well.
+CARD_WIDTH = TILE_COLUMNS * ROW_PITCH - 2 * TILE_INSET      # 68
+CARD_HEIGHT = 2 * ROW_PITCH - 2 * TILE_INSET                # 32
+CARD_BAR_X = 3
+CARD_BAR_Y = 14
+CARD_BAR_WIDTH = CARD_WIDTH - 2 * CARD_BAR_X                # 62
+CARD_BAR_HEIGHT = 5
+
+# The fill is drawn one pixel inside the track on every side, which is what makes an empty
+# bar look like a track and a full one look full rather than merely dark.
+CARD_FILL_WIDTH = CARD_BAR_WIDTH - 2                        # 60
+CARD_FILL_HEIGHT = CARD_BAR_HEIGHT - 2                      # 3
+
+# Powers of two up to the widest that fits, so any fill 0..60 is at most four glyphs -
+# 60 is 32 + 16 + 8 + 4. The same trick the board frame's edges use.
+CARD_FILL_STEPS = (1, 2, 4, 8, 16, 32)
+
+CARD_FILL = (214, 214, 218, 255)
+CARD_LINE = (150, 150, 156, 255)
+CARD_LIGHT = (232, 232, 236, 255)
+CARD_TRACK = (46, 46, 52, 255)
+CARD_BAR_COLOUR = (82, 168, 84, 255)      # the same green the Nordtal card is
+CARD_DONE_VEIL = (82, 168, 84, 71)        # 0.28 alpha, the artifact's own
+
+
+def objective_card():
+    """One objective's plate: a pill the size of two slot rows with a bar track sunk into it."""
+    buf = blank(CARD_WIDTH, CARD_HEIGHT, CARD_FILL)
+    x1, y1 = CARD_WIDTH - 1, CARD_HEIGHT - 1
+    outline(buf, CARD_WIDTH, 0, 0, x1, y1, CARD_LINE)
+    rect(buf, CARD_WIDTH, 1, 1, x1 - 1, 1, CARD_LIGHT)
+    rect(buf, CARD_WIDTH, CARD_BAR_X, CARD_BAR_Y,
+         CARD_BAR_X + CARD_BAR_WIDTH - 1, CARD_BAR_Y + CARD_BAR_HEIGHT - 1, CARD_TRACK)
+    chamfer(buf, CARD_WIDTH, CARD_HEIGHT, 0, 0, x1, y1, TILE_CHAMFER, CARD_LINE)
+    return CARD_WIDTH, CARD_HEIGHT, bytes(buf)
+
+
+def objective_card_done():
+    """The green wash over a finished card.
+
+    A wash rather than a different card, for the reason every overlay in this pack exists:
+    "finished" is a state, and a state gets a glyph rather than doubling the number of
+    plates. It is laid over the bar too, on purpose - a finished objective's bar is full,
+    and tinting it says the whole card is settled rather than only its heading.
+    """
+    buf = blank(CARD_WIDTH, CARD_HEIGHT, CARD_DONE_VEIL)
+    chamfer(buf, CARD_WIDTH, CARD_HEIGHT, 0, 0, CARD_WIDTH - 1, CARD_HEIGHT - 1, TILE_CHAMFER,
+            (0, 0, 0, 0))
+    return CARD_WIDTH, CARD_HEIGHT, bytes(buf)
+
+
+def bar_fill(width):
+    """One power-of-two slice of a progress bar's fill: solid, three pixels tall."""
+    return width, CARD_FILL_HEIGHT, bytes(blank(width, CARD_FILL_HEIGHT, CARD_BAR_COLOUR))
+
+
+# --- The hand-in tray -----------------------------------------------------------------
+#
+# Design H2 (owner, 2026-09-08): the deposit area is ONE surface, not a recess per slot.
+# The difference against the grave is deliberate and it is the difference between the two
+# actions - a tray is a thing you throw into, a grave is an inventory you take out of, and
+# an inventory that looks like an inventory is what says "these are separate stacks and you
+# may take any of them". Do not make the two the same by tidying.
+#
+# The cost is a ghost square: vanilla's 16x16 hover highlight still snaps to the 18px grid
+# the surface is hiding. That was the owner's call with the drawing in front of them.
+TRAY_INNER_DARK = (35, 35, 40, 255)
+
+
+def sunken(width, height):
+    """A recessed surface: dark along the top and left, lit along the bottom and right.
+
+    The same shading a single slot cell has, at any size - which is what makes a 162 x 54
+    tray read as one deep tray rather than as a flat grey rectangle. The corners are cut
+    transparent because this is a glyph laid OVER a panel, so the panel's ground shows.
+    """
+    buf = blank(width, height, PALETTE["slot"])
+    rect(buf, width, 0, 0, width - 1, 0, TRAY_INNER_DARK)
+    rect(buf, width, 0, 0, 0, height - 1, TRAY_INNER_DARK)
+    rect(buf, width, width - 1, 0, width - 1, height - 1, PALETTE["slot_edge"])
+    rect(buf, width, 0, height - 1, width - 1, height - 1, PALETTE["slot_edge"])
+    chamfer(buf, width, height, 0, 0, width - 1, height - 1, TILE_CHAMFER, PALETTE["slot_edge"])
+    return width, height, bytes(buf)
+
+
+# The deposit area: the whole slot area of three chest rows, drawn from the slot cell's own
+# corner rather than inset, because it IS the slots.
+TRAY_WIDTH = SLOT_COLUMNS * ROW_PITCH                     # 162
+TRAY_ROWS = 3
+TRAY_HEIGHT = TRAY_ROWS * ROW_PITCH                       # 54
+
+
+# --- The grave slab -------------------------------------------------------------------
+#
+# Design G1 (owner, 2026-09-08): a recess per slot, on stone. The deliberate OPPOSITE of the
+# hand-in tray above, and the difference is the difference between the two actions - see the
+# comment on the tray. A grave is an inventory you take out of, so the separate cells are the
+# information: they say these are distinct stacks and any one of them may be taken.
+#
+# One glyph per row count rather than one row tiled, because a glyph has one height and the
+# grave's is decided by how much the dead player was carrying. Five is the most there can be:
+# thirty-six inventory slots, four of armour and one off-hand is forty-one stacks, which is
+# five rows, and the sixth row of the window is the footer.
+GRAVE_STONE = (142, 140, 146, 255)
+GRAVE_RECESS = (44, 42, 48, 255)          # darker than a panel's own slot: this is a grave
+GRAVE_MAX_ROWS = 5
+
+
+def grave_slab(rows):
+    """`rows` slot rows of dark recesses on stone, at the slot area's own origin."""
+    width, height = SLOT_COLUMNS * ROW_PITCH, rows * ROW_PITCH
+    buf = blank(width, height, GRAVE_STONE)
+    for row in range(rows):
+        for column in range(SLOT_COLUMNS):
+            x, y = column * ROW_PITCH, row * ROW_PITCH
+            rect(buf, width, x, y, x + 17, y + 17, GRAVE_RECESS)
+            for i in range(ROW_PITCH):
+                px(buf, width, x + 17, y + i, PALETTE["slot_edge"])
+                px(buf, width, x + i, y + 17, PALETTE["slot_edge"])
+    return width, height, bytes(buf)
+
+
+# --- The wheel's ring -----------------------------------------------------------------
+#
+# Design W3 (owner, 2026-09-08), with the ring moved TWO SLOT COLUMNS LEFT so the four
+# columns it frees carry the controls. Twelve prize cells around a hub, on five rows: three
+# along the top, three down each side, three along the bottom. On a 9 x 5 grid a circle is a
+# rounded square and the corner cells stay frame, which is why the ring is drawn as a band
+# rather than fitted to the cells.
+#
+# THE POINTER IS A FRAME, and that is a change forced by the move rather than a preference.
+# W3 draws a triangle above the top cell at y 13-16, in the title bar, to the right of the
+# readable title - which works at x 85 and does not at x 49: the window's own title runs to
+# about x 58 in both languages, so the two would overlap on the title's last pixel row and
+# only a client could say by how much. The pack already has a word for "this one" - the two
+# pixel white frame travel_here uses - so the winning cell wears that, over the lighter
+# backing W3 gives it anyway. Both cues, no collision, and nothing outside the window.
+WHEEL_ROWS = 5
+WHEEL_CENTRE_COLUMN = 2
+WHEEL_CENTRE_ROW = 2
+WHEEL_OUTER_RADIUS = 46
+WHEEL_INNER_RADIUS = 26
+WHEEL_HUB_RADIUS = 18
+
+# Clockwise from the top-left of the three top cells, which is also the order WheelStrip
+# travels them in. Cell 0 is where the winner stops.
+WHEEL_CELLS = ((2, 0), (3, 0), (4, 1), (4, 2), (4, 3),
+               (3, 4), (2, 4), (1, 4), (0, 3), (0, 2), (0, 1), (1, 0))
+
+WHEEL_BAND = (44, 44, 50, 255)
+WHEEL_BAND_EDGE = (35, 35, 40, 255)
+WHEEL_HUB = (178, 178, 182, 255)
+WHEEL_HUB_FACE = (214, 214, 218, 255)
+WHEEL_CELL = (58, 58, 64, 255)
+WHEEL_CELL_WINNER = (72, 72, 79, 255)
+
+
+def ring(buf, width, cx, cy, outer, inner, colour):
+    """A filled annulus, by distance - the same brute force the artifact's own renderer uses."""
+    for y in range(cy - outer, cy + outer + 1):
+        for x in range(cx - outer, cx + outer + 1):
+            distance = ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2) ** 0.5
+            if inner <= distance <= outer:
+                px(buf, width, x, y, colour)
+
+
+def wheel_ring():
+    """The wheel's own panel: five rows, a ring of twelve cells, and a hub."""
+    height = HEIGHT_BASE + ROW_PITCH * WHEEL_ROWS
+    buf = blank(WIDTH, height, PALETTE["ground"])
+    frame(buf, WIDTH, height)
+    rect(buf, WIDTH, SLOT_ORIGIN_X, TITLE_BAR_HEIGHT - 1,
+         WIDTH - SLOT_ORIGIN_X - 1, TITLE_BAR_HEIGHT - 1, PALETTE["hairline"])
+    player_inventory(buf, WIDTH, height)
+
+    cx = SLOT_ORIGIN_X + ROW_PITCH * WHEEL_CENTRE_COLUMN + ROW_PITCH // 2
+    cy = SLOT_ORIGIN_Y + ROW_PITCH * WHEEL_CENTRE_ROW + ROW_PITCH // 2
+
+    ring(buf, WIDTH, cx, cy, WHEEL_OUTER_RADIUS, WHEEL_INNER_RADIUS, WHEEL_BAND)
+    ring(buf, WIDTH, cx, cy, WHEEL_OUTER_RADIUS, WHEEL_OUTER_RADIUS - 1, WHEEL_BAND_EDGE)
+    ring(buf, WIDTH, cx, cy, WHEEL_INNER_RADIUS + 1, WHEEL_INNER_RADIUS, PALETTE["slot_edge"])
+    ring(buf, WIDTH, cx, cy, WHEEL_HUB_RADIUS, 0, WHEEL_HUB)
+    ring(buf, WIDTH, cx, cy, WHEEL_HUB_RADIUS - 1, 0, WHEEL_HUB_FACE)
+
+    for index, (column, row) in enumerate(WHEEL_CELLS):
+        x = SLOT_ORIGIN_X + ROW_PITCH * column
+        y = SLOT_ORIGIN_Y + ROW_PITCH * row
+        # The 16 x 16 the item is drawn in, not the whole cell: the ring is what sits between
+        # the cells, and painting the cell edge over it would square the circle off.
+        rect(buf, WIDTH, x + 1, y + 1, x + 16, y + 16,
+             WHEEL_CELL_WINNER if index == 0 else WHEEL_CELL)
+
+    # "The winner stops here", in the pack's own word for it.
+    winner_x = SLOT_ORIGIN_X + ROW_PITCH * WHEEL_CELLS[0][0]
+    winner_y = SLOT_ORIGIN_Y + ROW_PITCH * WHEEL_CELLS[0][1]
+    outline(buf, WIDTH, winner_x, winner_y, winner_x + 17, winner_y + 17, HERE_FRAME)
+    outline(buf, WIDTH, winner_x + 1, winner_y + 1, winner_x + 16, winner_y + 16, HERE_FRAME)
+    return WIDTH, height, bytes(buf)
+
+
 def assert_advance(path, expected_width):
     """A glyph advances by its rightmost drawn column + 2; the Java side assumes width + 1.
 
@@ -452,9 +664,18 @@ def main():
             write_png(path, width, height, data, REPO_ROOT)
             assert_advance(path, WIDTH)
 
-    for name, (width, height, data) in (("travel", travel_panel()),
-                                        ("travel_locked", locked_overlay()),
-                                        ("travel_here", here_overlay())):
+    surfaces = [("travel", travel_panel()),
+                ("travel_locked", locked_overlay()),
+                ("travel_here", here_overlay()),
+                ("objective_card", objective_card()),
+                ("objective_card_done", objective_card_done()),
+                ("handin_tray", sunken(TRAY_WIDTH, TRAY_HEIGHT))]
+    surfaces += [(f"grave_slab_{rows}", grave_slab(rows))
+                 for rows in range(1, GRAVE_MAX_ROWS + 1)]
+    surfaces.append(("wheel_ring", wheel_ring()))
+    surfaces += [(f"bar_fill_{step}", bar_fill(step)) for step in CARD_FILL_STEPS]
+
+    for name, (width, height, data) in surfaces:
         path = os.path.join(arguments.out, f"{name}.png")
         write_png(path, width, height, data, REPO_ROOT)
         assert_advance(path, width)

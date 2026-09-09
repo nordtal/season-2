@@ -192,6 +192,27 @@ public interface SmpDao {
     List<ContributionRow> contributionsOf(@Bind("objectiveId") UUID objectiveId);
 
     /**
+     * What one player has put into each objective of one milestone.
+     *
+     * <p>A <b>left</b> join, so an objective this player has never touched comes back at zero
+     * rather than not coming back: the menu that reads this draws one line per objective and a
+     * missing row would silently become a shorter list. Off the main thread like everything else
+     * here - it is read once when the spawn NPC's menu is opened.</p>
+     */
+    @SqlQuery("""
+            SELECT obj.key               AS key,
+                   coalesce(con.amount, 0) AS mine,
+                   obj.target            AS target
+            FROM smp_objective obj
+            LEFT JOIN smp_contribution con
+                   ON con.objective_id = obj.id AND con.discord_id = :discordId
+            WHERE obj.milestone_key = :milestoneKey
+            """)
+    @RegisterConstructorMapper(OwnContributionRow.class)
+    List<OwnContributionRow> ownContributions(@Bind("milestoneKey") String milestoneKey,
+                                              @Bind("discordId") String discordId);
+
+    /**
      * Marks an objective finished, once.
      *
      * <p>The {@code completed IS NULL} guard is what makes the payout happen exactly once: two

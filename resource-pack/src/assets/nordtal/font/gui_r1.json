@@ -69,11 +69,38 @@
         },
         {
             "type": "bitmap",
+            "file": "nordtal:ui/gui/row_pill_dark.png",
+            "ascent": -24,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd05"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/row_button_confirm.png",
+            "ascent": -24,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd06"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/row_button_take.png",
+            "ascent": -24,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd07"
+            ]
+        },
+        {
+            "type": "bitmap",
             "file": "nordtal:ui/gui/row_icons.png",
             "ascent": -27,
             "height": 8,
             "chars": [
-                "\udbb8\udd10\udbb8\udd11\udbb8\udd12\udbb8\udd13\udbb8\udd14\udbb8\udd15"
+                "\udbb8\udd10\udbb8\udd11\udbb8\udd12\udbb8\udd13\udbb8\udd14\udbb8\udd15\udbb8\udd16\udbb8\udd17\udbb8\udd18\udbb8\udd19\udbb8\udd1a"
             ]
         },
         {

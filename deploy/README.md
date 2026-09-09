@@ -289,8 +289,38 @@ anybody. Once confirmed, **every player on the network is counted down** at 30, 
 the proxy announces, because it is the only process that sees everybody. Inside those thirty seconds
 the **Stop the countdown** button or `/update cancel` still stops it.
 
+**Players on a server that is about to stop are moved into `limbo`, eight seconds before it goes.**
+The waiting room shows *"Update läuft / Gleich geht es automatisch weiter"* rather than the
+"waiting for the server" screen it shows when a backend is merely down — the proxy reads that from
+the update row, because from outside the two are the same fact. Bringing them back needs nothing of
+its own: the pack station's five-second sweep already releases a held player the moment their
+backend takes a connection again.
+
+Two cases where it does not happen, and both are in the proxy's log rather than silent: an update
+that moves **`limbo` itself** has nowhere to put anybody, and a run whose report the proxy cannot
+read moves nobody. In both, everyone connected is disconnected when the servers stop and the
+countdown is all the warning they get — which is what happened on every update before 2026-09-09.
+
 **If a service refuses to stop, an update installs nothing.** It migrates nothing, moves no jar,
 starts every service that did stop, and comes back `FAILED` naming the ones that refused.
+
+### The images
+
+A jar update hands each container back to Docker with `start`, which recreates nothing — so
+`entrypoint.sh`, the JRE under it and every change to `compose.yml` would stay on whatever image was
+pulled at the last deploy. Since 2026-09-09 a run closes that itself: it reads which services run an
+image the registry has moved past, and **recreates** those instead of starting them, pulling the
+image on the way. The volumes are not touched, so a world is never at risk from it.
+
+**Arcane's image update check has to be on.** It answers the updater from results its own check has
+persisted rather than asking a registry when asked, so with the check off every run prints *"Arcane
+holds no image-update result for any service"* and nothing is ever recreated. That sentence in a
+report is the symptom.
+
+Two things a run will not renew, and both are named in the report rather than done quietly: **its own
+image**, because the recreate would end the run from inside it, and **anything it does not own** —
+`postgres` and the backup sidecar, which it never stops. Both need **Redeploy** in Arcane, by hand,
+which is now the only thing in this deployment that does.
 
 **It is not the Docker socket, deliberately** — a container holding `/var/run/docker.sock` can do
 anything on the host, and the updater's whole job is downloading files from the internet and putting

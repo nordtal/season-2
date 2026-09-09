@@ -487,7 +487,7 @@ class ApplierTest {
 
     private static UpdatePlan plan(final Change... changes) {
         return new UpdatePlan(Instant.parse("2026-09-01T18:00:00Z"), "v0.2.0", false,
-                List.of(changes), List.of());
+                List.of(changes), List.of(), List.of());
     }
 
     private static Change outdated(final String service, final String artifact,

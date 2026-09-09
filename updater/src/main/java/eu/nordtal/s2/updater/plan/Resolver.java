@@ -1,5 +1,6 @@
 package eu.nordtal.s2.updater.plan;
 
+import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.updater.config.UpdaterSpec;
 import eu.nordtal.s2.updater.source.Checksum;
 import eu.nordtal.s2.updater.source.GitHubReleases;
@@ -68,6 +69,7 @@ public final class Resolver {
         // Kept apart from `failures` on purpose. Both mean "there is no file to install", and only
         // one of them means the report is untrustworthy - see Change.Status.UNSUPPORTED.
         final Map<String, String> unsupported = new HashMap<>();
+        final List<String> notes = new ArrayList<>();
 
         final GitHubReleases.Release season = resolveSeason(newest, failures);
         resolveDisplayTags(newest, failures);
@@ -79,8 +81,8 @@ public final class Resolver {
         // separately - and the loader is what tells them apart, not the id.
         resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT_PROXY, config.voiceChatProject(), "velocity");
         resolveModrinth(newest, failures, unsupported, Topology.CORE_PROTECT, config.coreProtectProject(), "paper");
-        resolveFill(newest, failures, Topology.PAPER, config.minecraftVersion(), config.paperBuild());
-        resolveFill(newest, failures, Topology.VELOCITY, config.velocityVersion(), config.velocityBuild());
+        resolvePaper(newest, failures);
+        resolveVelocity(newest, failures, notes);
 
         final List<Change> changes = new ArrayList<>();
         final List<UpdatePlan.Unclaimed> unclaimed = new ArrayList<>();
@@ -120,7 +122,8 @@ public final class Resolver {
                 season == null ? null : season.tag(),
                 season != null && season.prerelease(),
                 List.copyOf(changes),
-                List.copyOf(unclaimed));
+                List.copyOf(unclaimed),
+                List.copyOf(notes));
     }
 
     // ---------------------------------------------------------------- sources
@@ -237,10 +240,10 @@ public final class Resolver {
                                  final Map<String, String> unsupported,
                                  final String artifact, final String projectId, final String loader) {
         try {
-            newest.put(artifact, modrinth.newest(artifact, projectId, config.minecraftVersion(), loader));
+            newest.put(artifact, modrinth.newest(artifact, projectId, Platform.MINECRAFT, loader));
         } catch (final Modrinth.Unsupported none) {
             log.info("{} has no build for Minecraft {} - the row stays in the plan and installs"
-                    + " itself when one appears", artifact, config.minecraftVersion());
+                    + " itself when one appears", artifact, Platform.MINECRAFT);
             unsupported.put(artifact, none.getMessage());
         } catch (final IOException failed) {
             failures.put(artifact, failed.getMessage());
@@ -248,17 +251,47 @@ public final class Resolver {
     }
 
     /**
-     * Newest STABLE build of the pinned version - or, when {@code paper-build} /
-     * {@code velocity-build} names one, exactly that build. A pin that is older than what is
-     * installed comes out of {@code compare} as OUTDATED like any other difference, which is what
-     * makes it a rollback: the report shows {@code 125 -> 121} and the apply does it.
+     * The newest STABLE build of {@link Platform#MINECRAFT}, which is an <em>exact</em> version and
+     * not a family.
+     *
+     * <p>A new Minecraft version is a season decision and never this module's: it moves the API
+     * every plugin in the organisation is compiled against, the resource pack's {@code pack_format}
+     * and the world underneath all of it. Fill's {@code 26.2} family also lists {@code 26.2-rc-2},
+     * so following the family here would have been a road to a release candidate.</p>
      */
-    private void resolveFill(final Map<String, RemoteFile> newest, final Map<String, String> failures,
-                             final String project, final String version, final String build) {
+    private void resolvePaper(final Map<String, RemoteFile> newest, final Map<String, String> failures) {
         try {
-            newest.put(project, fill.resolve(project, version, build));
+            newest.put(Topology.PAPER, fill.newestStable(Topology.PAPER, Platform.MINECRAFT));
         } catch (final IOException failed) {
-            failures.put(project, failed.getMessage());
+            failures.put(Topology.PAPER, failed.getMessage());
+        }
+    }
+
+    /**
+     * The newest STABLE build of the newest released version inside {@link Platform#VELOCITY_FAMILY}
+     * - so the proxy follows Velocity's minors, unlike Paper, which stays on one exact version.
+     *
+     * <p><b>And that is worth one line in the report.</b> {@code network-control} is compiled
+     * against {@link Platform#VELOCITY_API} out of {@code gradle/libs.versions.toml}, so a run that
+     * moves the proxy past it leaves a plugin built for an older API running on a newer one. It is
+     * named rather than refused, exactly the way {@code UpdaterSpec} describes the same trap for
+     * Chunky: blocking the proxy's own update over a skew that is usually harmless is the worse
+     * failure, and an operator who is told can decide.</p>
+     */
+    private void resolveVelocity(final Map<String, RemoteFile> newest, final Map<String, String> failures,
+                                 final List<String> notes) {
+        try {
+            final String version = fill.newestStableVersion(Topology.VELOCITY, Platform.VELOCITY_FAMILY);
+            newest.put(Topology.VELOCITY, fill.newestStable(Topology.VELOCITY, version));
+
+            if (!Platform.VELOCITY_API.equals(version)) {
+                notes.add("the proxy resolves to Velocity " + version + ", and network-control is"
+                        + " compiled against " + Platform.VELOCITY_API + " - a plugin running on an"
+                        + " API it was not built for. Nothing is blocked; the fix is one line in"
+                        + " gradle/libs.versions.toml and a release.");
+            }
+        } catch (final IOException failed) {
+            failures.put(Topology.VELOCITY, failed.getMessage());
         }
     }
 

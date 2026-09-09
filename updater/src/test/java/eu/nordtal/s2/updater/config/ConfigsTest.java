@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -151,6 +152,44 @@ class ConfigsTest {
 
         assertEquals("db21959d-4067-4b79-991f-9b489ede02a6", config.arcane().environment());
         assertEquals("51b523fe-21aa-49ea-93b6-74b5217e14c1", config.arcane().project());
+    }
+
+    @Test
+    @DisplayName("a deployed updater.yml still carrying the four retired platform keys loses them and starts")
+    void theRetiredPlatformKeysAreDroppedRatherThanFatal() throws Exception {
+        // The four keys that were retired on 2026-09-09: two versions that became constants in
+        // :common and two build pins that became nothing at all. Every deployed volume in existence
+        // carries all four, and the only move an operator has when a load refuses is to delete four
+        // lines that mean nothing any more - which is why jcore 3.1.0 answers a RETIRED key
+        // differently from a MISSPELLED one: the line goes, with a WARN and a .bak, and the process
+        // starts. Named here rather than merely tolerated, because the half that is the actual
+        // point is that nobody re-declares one as a quiet no-op to make an upgrade smoother.
+        Configs.updater(directory, LOGGER);
+
+        final Path file = directory.resolve("updater.yml");
+        Files.writeString(file, Files.readString(file, StandardCharsets.UTF_8)
+                + """
+
+                minecraft-version: '26.2'
+                velocity-version: '4.1.1'
+                paper-build: latest
+                velocity-build: '24'
+                """, StandardCharsets.UTF_8);
+
+        final UpdaterSpec config = Configs.updater(directory, LOGGER).get();
+        assertEquals("nordtal/season-2", config.seasonRepo(), "the updater refused to start");
+
+        final String written = Files.readString(file, StandardCharsets.UTF_8);
+        for (final String retired : new String[] {
+                "minecraft-version", "velocity-version", "paper-build", "velocity-build"}) {
+            assertFalse(written.contains(retired),
+                    "updater.yml still carries '" + retired + "' after a load. Either it was"
+                            + " re-declared - which makes an operator believe a value nothing"
+                            + " reads - or jcore stopped trimming retired keys.");
+        }
+        assertTrue(Files.isRegularFile(directory.resolve("updater.yml.bak")),
+                "the old content is not in a .bak, so an operator who wanted those lines back has"
+                        + " nowhere to read them from");
     }
 
     /**

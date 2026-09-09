@@ -629,6 +629,25 @@ already built, which is what the owner asked to be checked before a second one w
 same day `/smp status` became the one `/smp` command a player may run, and `CatalogueTest` names
 it and `announce` as the only two declarations that are not admin-only.
 
+**Every reply carries a `Tone`, and `:paper-common` owns what a server says about a player** - both
+since 2026-09-09. `NordtalUser#reply` has a fourth overload taking a tone beside the `Feedback`; the
+two stay separate arguments because `Feedback` is nine *sounds*, five of which imply no colour at all,
+and `Tone` is five *outcomes*. `ReplyToneTest` walks six modules and fails a `reply(` without one.
+The palette is the pack's, never `NamedTextColor`, and `NEUTRAL` is actively grey rather than
+unpainted - see `docs/presentation.md`.
+
+`SystemLines` and the chat renderer moved out of `smp` into `:paper-common`, with a bundle root of
+their own (`messages/paper-common/`); a Paper plugin now loads **three** roots, most general first.
+That is what gave `hunger-games` its five system lines for the first time (finding 149) - and it is
+the rule about `:paper-common` working as intended: those classes need a Paper type, so they belong
+there, and the moment they were there the second server got them for nothing.
+
+**A glyph named in `minecraft/lang/*.json` is a glyph like any other, and `ResourcePackTest` now
+checks it.** The pause menu drew a missing-glyph box in both languages for five days because
+`menu.game` still pointed at `U+E021` after the pack moved to the Supplementary Private Use Area-A
+(finding 161). The check **parses** the JSON rather than reading it as text - the first version did
+read it as text and was therefore green on the very file it was written for.
+
 **A player types what `network.yml#command-allowlist` names, and nothing else, since 2026-09-09.**
 `:common`'s `CommandAllowlist` is the matching rule and the only one: an entry is a path, a typed
 command matches when either is a prefix of the other (so `smp status` still lets a bare `/smp` reach
@@ -1241,7 +1260,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1478 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1498 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-09, on `release/0.7.1`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1314,13 +1333,13 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 374 |
+| `common` | 385 |
 | `smp` | 235 |
-| `network-control` | 211 |
-| `commands` | 218 |
+| `network-control` | 217 |
+| `commands` | 219 |
 | `updater` | 192 |
 | `discord-bot` | 158 |
-| `hunger-games` | 72 |
+| `hunger-games` | 74 |
 | `limbo` | 11 |
 | `paper-common` | 7 |
 

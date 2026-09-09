@@ -177,9 +177,11 @@ class MenuTitleTest {
         assertEquals(List.of(0), landed.get(Glyphs.GUI_TRAVEL_PANEL.codePointAt(0)),
                 "the panel has to start on the window's left edge");
         assertEquals(List.of(9), landed.get(Glyphs.GUI_TRAVEL_HERE_TOP.codePointAt(0)));
-        assertEquals(List.of(99, 9), landed.get(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM.codePointAt(0)),
-                "overlays are laid down right to left, whatever order they were added in - the"
-                        + " font has no positive advance, so the cursor can only ever walk back");
+        assertEquals(List.of(9, 99), landed.get(Glyphs.GUI_TRAVEL_LOCKED_BOTTOM.codePointAt(0)),
+                "a canvas draws in the order things were added to it, and the two at x = 9 came"
+                        + " before the one at 99. Until 2026-09-09 it sorted right to left, because"
+                        + " the font had no positive advance - which paints a list row's plate over"
+                        + " its own label");
         assertEquals(MenuTitle.ANCHOR_X, cursor,
                 "the surface has to end on the title anchor, or the readable title moves");
     }
@@ -313,14 +315,21 @@ class MenuTitleTest {
     }
 
     /**
-     * The component's own literal, without a serializer.
+     * The component's own literal, without a serializer - the whole tree, in draw order.
      *
      * <p>Deliberately not {@code PlainTextComponentSerializer}: that lives in its own artifact,
-     * which nothing in this module needs, and the panel is a single {@code TextComponent} whose
-     * content <em>is</em> the composition under test.
+     * which nothing in this module needs. It walks the children since 2026-09-09, when a surface
+     * stopped being one {@code TextComponent}: a row's text is drawn in a row font and a row font
+     * is a different component, so the composition under test is now the concatenation of the
+     * root's content and every descendant's.</p>
      */
     private static String plain(final Component component) {
-        return ((TextComponent) component).content();
+        final StringBuilder out = new StringBuilder();
+        if (component instanceof TextComponent text) {
+            out.append(text.content());
+        }
+        component.children().forEach(child -> out.append(plain(child)));
+        return out.toString();
     }
 
     private static BufferedImage read(final String textureId) {

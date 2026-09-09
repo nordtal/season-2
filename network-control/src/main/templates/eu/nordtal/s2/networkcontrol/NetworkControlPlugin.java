@@ -36,6 +36,7 @@ import eu.nordtal.s2.networkcontrol.pack.PackOffer;
 import eu.nordtal.s2.networkcontrol.pack.PackStation;
 import eu.nordtal.s2.networkcontrol.pack.WaitingBook;
 import eu.nordtal.s2.commands.Target;
+import eu.nordtal.s2.commands.chat.ChatCommands;
 import eu.nordtal.s2.commands.network.NetworkCommands;
 import eu.nordtal.s2.commands.network.NetworkEffects;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
@@ -46,6 +47,7 @@ import eu.nordtal.s2.common.phase.SeasonDates;
 import eu.nordtal.s2.common.command.AllowlistDirectory;
 import eu.nordtal.s2.common.command.CommandAllowlist;
 import eu.nordtal.s2.networkcontrol.command.CommandGate;
+import eu.nordtal.s2.networkcontrol.command.ProxyChatEffects;
 import eu.nordtal.s2.networkcontrol.command.ProxyNetworkEffects;
 import eu.nordtal.s2.networkcontrol.command.VelocityCommands;
 import eu.nordtal.s2.networkcontrol.phase.ProxyPhaseEffects;
@@ -483,6 +485,20 @@ public final class NetworkControlPlugin {
                         updateWatch::watch);
         eu.nordtal.s2.commands.update.UpdateCommands.all()
                 .forEach(command -> tree.local(command, updateEffects));
+        // The network's own private messages, folded 2026-09-08. Target.PROXY and Surface.GAME
+        // only, and NOT admin-only: the command allowlist takes vanilla's /tell, /msg, /w and
+        // /teammsg away from players, and these are what replaces them. The proxy owns them because
+        // it is the only process that can see both people - vanilla's are per-server, and on this
+        // network crossing between servers is the ordinary case.
+        //
+        // The effects are a listener as well as an effect: they hold who last spoke to whom, for
+        // /r, and that has to be dropped when somebody leaves. Nothing about a private message is
+        // written down anywhere (owner, 2026-09-08).
+        final ProxyChatEffects chatEffects = new ProxyChatEffects(proxy, roster, messages,
+                ProxyNetworkEffects.async(this, proxy), logger);
+        proxy.getEventManager().register(this, chatEffects);
+        ChatCommands.all().forEach(command -> tree.local(command, chatEffects));
+
         // "clear" is not guessable and is the only value of this argument that is not a date.
         tree.suggest(PhaseCommands.LAUNCH, "when", () -> List.of(SeasonDates.CLEAR));
         tree.suggest(PhaseCommands.SMP_START, "when", () -> List.of(SeasonDates.CLEAR));

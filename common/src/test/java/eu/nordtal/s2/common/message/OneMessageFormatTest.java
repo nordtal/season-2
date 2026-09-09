@@ -85,6 +85,11 @@ class OneMessageFormatTest {
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityUser.java",
                     "NordtalUser#replyLiteral - text that IS already the answer and must not be"
                             + " rendered twice, which is docs/updater.md's rule about its report"),
+            Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/ProxyChatEffects.java",
+                    "a private message's own text, wrapped so that it can be handed to"
+                            + " MessageRenderer's COMPONENT slot - which is what keeps a player"
+                            + " called <red> from colouring somebody else's chat. The line around"
+                            + " it is a bundle key like any other"),
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/ConsoleUser.java",
                     "the same NordtalUser#replyLiteral, for the proxy console - plus a plain-text"
                             + " serialiser, because a raw <green> in a container log is a thing"

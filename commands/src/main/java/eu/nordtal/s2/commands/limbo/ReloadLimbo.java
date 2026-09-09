@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Map;
 
@@ -24,7 +25,8 @@ public final class ReloadLimbo implements NordtalCommand<LimboEffects> {
             // operator hears without reading.
             final boolean reloaded = effects.reloadMessages();
             user.reply(reloaded ? "limbo.admin.reloaded" : "limbo.admin.reload-failed", Map.of(),
-                    reloaded ? Feedback.SMALL_SUCCESS : Feedback.REFUSED);
+                    reloaded ? Feedback.SMALL_SUCCESS : Feedback.REFUSED,
+                    reloaded ? Tone.GOOD : Tone.BAD);
         });
     }
 }

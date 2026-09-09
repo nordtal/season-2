@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Map;
 
@@ -31,7 +32,7 @@ public final class ReloadSmp implements NordtalCommand<SmpEffects> {
                 refused = effects.reload();
             } catch (final RuntimeException failure) {
                 effects.warn("/smp reload failed", failure);
-                user.reply("smp.admin.reload-failed", Map.of(), Feedback.REFUSED);
+                user.reply("smp.admin.reload-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (!refused.isEmpty()) {
@@ -39,10 +40,11 @@ public final class ReloadSmp implements NordtalCommand<SmpEffects> {
                 // running season, and "you renamed a key that has rows against it" is the only
                 // form of the answer they can act on.
                 user.reply("smp.admin.track-refused",
-                        Map.of("problems", String.join("\n", refused)), Feedback.REFUSED);
+                        Map.of("problems", String.join("\n", refused)), Feedback.REFUSED,
+                        Tone.BAD);
                 return;
             }
-            user.reply("smp.admin.reloaded", Map.of(), Feedback.SMALL_SUCCESS);
+            user.reply("smp.admin.reloaded", Map.of(), Feedback.SMALL_SUCCESS, Tone.GOOD);
         });
     }
 }

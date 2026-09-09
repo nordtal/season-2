@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.phase;
 
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -62,7 +63,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
         final Optional<SeasonPhase> target = parse(requested);
         if (target.isEmpty()) {
             user.reply("phase.unknown",
-                    Map.of("value", requested, "phases", PhaseCommands.names()));
+                    Map.of("value", requested, "phases", PhaseCommands.names()), Tone.BAD);
             return;
         }
 
@@ -75,7 +76,7 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
                 change = effects.phases().switchPhase(target.get(), actor, reason);
             } catch (final RuntimeException failure) {
                 effects.warn("switching the season phase to " + target.get(), failure);
-                user.reply("phase.failed");
+                user.reply("phase.failed", Map.of(), Tone.BAD);
                 return;
             }
 
@@ -88,7 +89,10 @@ public final class SetPhase implements NordtalCommand<PhaseEffects> {
                     change.unchanged()
                             ? Map.of("phase", change.current().name())
                             : Map.of("previous", String.valueOf(change.previous()),
-                                    "current", change.current().name()));
+                                    "current", change.current().name()),
+                    // "already in that phase" is WARN: nothing was written, and an admin who typed
+                    // this while the network is misbehaving has to see that at a glance.
+                    change.unchanged() ? Tone.WARN : Tone.GOOD);
         });
     }
 

@@ -132,6 +132,31 @@ public interface NordtalUser {
     }
 
     /**
+     * Say something, make a noise about it, and colour it - the overload nearly every command uses.
+     *
+     * <h2>Why the sound and the colour are two arguments and not one</h2>
+     * They agree at most call sites and they are not the same fact, and collapsing them would have
+     * to pick which one loses. {@link Feedback} is a nine-entry <em>vocabulary of noises</em> whose
+     * whole design (see its javadoc) is that a call site cannot name a sound; five of its entries -
+     * {@code SURFACE_OPEN}, {@code SELECT}, {@code TRAVEL} and the rest - describe an action rather
+     * than an outcome and imply no colour at all. {@link Tone} is five outcomes and implies no
+     * sound: a line of supporting detail under a report is {@link Tone#MUTED} and makes no noise
+     * whatever, and a command that says four things in a row wants one chime and four colours.
+     *
+     * <p>Deriving one from the other was the alternative, and what it costs is that the colour
+     * becomes invisible at the call site - the thing this repository has twice paid for by having a
+     * mechanism nobody could see was missing. Two arguments are read in the diff.</p>
+     *
+     * <p>The default drops the sound rather than the colour: a surface that cannot make a noise is
+     * ordinary here (Velocity, Discord, the console, a remote request row), and a surface that
+     * cannot colour already implements the {@link Tone} overload as a no-op.</p>
+     */
+    default void reply(final String messageKey, final Map<String, ?> placeholders,
+                       final Feedback feedback, final Tone tone) {
+        reply(messageKey, placeholders, tone);
+    }
+
+    /**
      * One message key, rendered in their language, as plain text meant to go <em>inside</em> another
      * message.
      *

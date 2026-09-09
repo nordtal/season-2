@@ -198,6 +198,14 @@ public final class PaperUser implements NordtalUser {
     }
 
     @Override
+    public void reply(final String messageKey, final Map<String, ?> placeholders,
+                      final Feedback feedback, final Tone tone) {
+        // One hop, carrying all three: the line, its colour and its chime. Painting before the hop
+        // rather than inside it keeps everything that touches Adventure off the main thread.
+        send(Tones.paint(render(messageKey, placeholders), tone), feedback);
+    }
+
+    @Override
     public String phrase(final String messageKey) {
         // Plain text: the result is substituted into another message that is itself parsed as
         // MiniMessage, and a component serialised back into that string would arrive as tags.

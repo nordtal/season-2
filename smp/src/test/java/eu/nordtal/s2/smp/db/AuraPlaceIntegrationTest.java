@@ -90,14 +90,36 @@ class AuraPlaceIntegrationTest {
     }
 
     @Test
-    @DisplayName("an empty board puts the only possible answer at first of nobody")
+    @DisplayName("an empty board puts the asker first of one, not first of nobody")
     void anEmptyBoard() {
-        // The season's first day, before anybody has earned anything. "1 of 0" is odd to read and
-        // is the honest answer; the command prints "nobody has any aura yet" underneath it rather
-        // than a list of nothing.
-        final AuraPlace place = dao.auraPlace(0);
+        // The season's first day, before anybody has earned anything. This used to answer "1 of 0",
+        // which is not odd-but-honest - it is wrong: the place counted the asker and the total did
+        // not, because the total is a count of smp_player rows and the asker has none yet. The
+        // command still prints "nobody has any aura yet" underneath, and the list is still empty.
+        final AuraPlace place = dao.auraPlace(0, "100000000000000001");
         assertEquals(1, place.place());
-        assertEquals(0, place.total());
+        assertEquals(1, place.total());
+    }
+
+    @Test
+    @DisplayName("a linked player with no aura row is counted in the total, once")
+    void theAskerWithNoRow() {
+        player("100000000000000001", 400);
+        player("100000000000000002", 200);
+        // Linked, because that is what the caller resolves the id through - and with no
+        // smp_player row, because nothing has ever given them a point.
+        linkedWithoutAura("100000000000000009");
+
+        // The defect this argument exists for: five people on the board and a sixth asking makes
+        // "6 of 6", never "6 of 5". The asker is at the bottom because zero is below everybody.
+        final AuraPlace newcomer = dao.auraPlace(0, "100000000000000009");
+        assertEquals(3, newcomer.place());
+        assertEquals(3, newcomer.total());
+
+        // And somebody who does have a row is not counted twice by the same expression.
+        final AuraPlace established = dao.auraPlace(400, "100000000000000001");
+        assertEquals(1, established.place());
+        assertEquals(2, established.total());
     }
 
     @Test
@@ -108,11 +130,13 @@ class AuraPlaceIntegrationTest {
         player("100000000000000003", 200);
         player("100000000000000004", 10);
 
-        assertEquals(1, dao.auraPlace(400).place());
+        assertEquals(1, dao.auraPlace(400, "100000000000000001").place());
         // Both people on 200 are told the same thing, which is what a leaderboard means by a place.
-        assertEquals(2, dao.auraPlace(200).place());
-        assertEquals(4, dao.auraPlace(10).place());
-        assertEquals(4, dao.auraPlace(4).total(), "the total is everybody on the board");
+        assertEquals(2, dao.auraPlace(200, "100000000000000002").place());
+        assertEquals(2, dao.auraPlace(200, "100000000000000003").place());
+        assertEquals(4, dao.auraPlace(10, "100000000000000004").place());
+        assertEquals(4, dao.auraPlace(10, "100000000000000004").total(),
+                "the total is everybody on the board");
     }
 
     @Test
@@ -125,11 +149,17 @@ class AuraPlaceIntegrationTest {
         execute("INSERT INTO discord_user (discord_id) VALUES ('100000000000000009')");
         execute("INSERT INTO smp_player (discord_id, aura) VALUES ('100000000000000009', 999)");
 
-        assertEquals(2, dao.auraPlace(400).total());
-        assertEquals(1, dao.auraPlace(400).place(),
+        assertEquals(2, dao.auraPlace(400, "100000000000000001").total());
+        assertEquals(1, dao.auraPlace(400, "100000000000000001").place(),
                 "the unlinked account has more aura than anybody and must not push a real player"
                         + " down a place they cannot see");
         assertEquals(2, dao.topAura(10).size(), "the list this sentence sits above");
+    }
+
+    private void linkedWithoutAura(final String discordId) {
+        execute("INSERT INTO discord_user (discord_id) VALUES ('" + discordId + "')");
+        execute("INSERT INTO account_link (discord_id, mc_uuid) VALUES ('" + discordId + "', '"
+                + UUID.nameUUIDFromBytes(discordId.getBytes()) + "')");
     }
 
     private void player(final String discordId, final int aura) {

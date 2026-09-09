@@ -963,8 +963,9 @@ the stack has `depends_on: updater: service_healthy`, and it becomes healthy the
 is current (it touches `/tmp/updater-ready`).
 
 It resolves the newest version of every jar the network runs — the six season-2 jars and the pack
-from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents and Chunky from
-Modrinth filtered to `26.2`/`paper`, Paper and Velocity from the PaperMC Fill API — compares that
+from the GitHub releases API, DisplayTags from the fork's releases, PacketEvents, Chunky, Simple
+Voice Chat and CoreProtect from Modrinth filtered to `26.2` and a loader, Paper and Velocity from
+the PaperMC Fill API — compares that
 against the jars in the mounted volumes, and prints the difference. **`/update now`** then stops the
 services whose jars change, applies the schema, installs what differs, writes the proxy's `pack.yml`
 and starts each service again — the migration running with those servers *down*, which is stronger
@@ -987,6 +988,38 @@ updater fills, and fall back to the jar baked into their image only while that v
 which is a first deployment and nothing else. So `SEASON_VERSION` and `BOT_VERSION` are a floor
 rather than a version, and the updater's own version moves the same way everything else's does: the
 new jar is placed, the running process carries on with the old one, and the restart picks it up.
+
+**Three rules came out of the two third-party plugins added on 2026-09-09**, and each of them is a
+seam somebody will otherwise widen by accident:
+
+- **One Modrinth project can be two artefacts.** Simple Voice Chat ships a Paper build and a Velocity
+  build under one project id; the *loader* tells them apart, so `Resolver#resolveModrinth` takes it
+  as a parameter and `updater.yml` carries one `voicechat-project` rather than two copies of one
+  fact. `voicechat` lands on `smp` and `hunger-games`, `voicechat-velocity` on the proxy.
+- **The pre-release rule holds, and the exception is a named constant rather than a setting.**
+  `Modrinth#newest` takes only `version_type: release` - an updater that pulls somebody's alpha onto
+  a server people paid to play on is what this module is arranged to prevent.
+  `Modrinth.PRE_RELEASE_EXCEPTIONS` is exactly `["voicechat-velocity"]`, derived from the artefact id
+  alone, with no parameter, overload or config key that could point it elsewhere. The bar for a
+  second entry is **"a stable build has never existed and there is no reason to expect one"** - that
+  project has published thirteen Velocity versions since 2022 and not one release - and never
+  "a pre-release is available". `ModrinthTest` pins the set to one member *and* feeds the same
+  pre-release payload to the other four artefacts, all of which must still refuse it. A config key
+  gets widened at three in the morning and nothing afterwards records that it was ever narrow.
+- **`Service#optional` now carries two kinds of optional, and the comment keeps them apart.**
+  CoreProtect *cannot* be installed (no 26.2 build exists); voice chat *can* and is left out because
+  it is optional for a player. Both stay out of `guarded()`, which is what `EXPECTED_PLUGINS`
+  mirrors - so a Modrinth outage during a bootstrap costs voice chat and not the server. That
+  includes the proxy: the one place where a refused start locks everybody out (owner, 2026-09-09).
+
+**Voice chat is one UDP port on the proxy, not one per backend.** The Velocity plugin detects each
+backend's address and port itself, so only `25565/udp` is published, beside the TCP line it mirrors.
+`TopologyTest#voiceChatIsOneUdpPortOnTheProxy` asserts the two lines agree on bind and container port
+and that no backend publishes UDP at all. The mapping is a **literal** 25565 rather than
+`${PROXY_PORT}` and that rests on an unverified premise - that the plugin advertises the port it
+hears on *inside* the container. The two readings are identical while `PROXY_PORT` is 25565, so
+moving that port is what would separate them; the escape hatch is `voice_host` in
+`voicechat-proxy.properties`, and the probe that settles it is in `todo.md`.
 
 Seven rules that are easy to break and expensive to break:
 
@@ -1171,7 +1204,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1410 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1430 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-09, on `release/0.7.1`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1244,11 +1277,11 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 352 |
+| `common` | 355 |
 | `smp` | 232 |
 | `network-control` | 201 |
-| `commands` | 201 |
-| `updater` | 176 |
+| `commands` | 202 |
+| `updater` | 192 |
 | `discord-bot` | 158 |
 | `hunger-games` | 72 |
 | `limbo` | 11 |

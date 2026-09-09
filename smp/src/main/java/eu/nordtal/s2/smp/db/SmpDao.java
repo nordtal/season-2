@@ -385,6 +385,32 @@ public interface SmpDao {
     @SqlQuery("SELECT aura FROM smp_player WHERE discord_id = :discordId")
     Optional<Integer> auraOf(@Bind("discordId") String discordId);
 
+    /**
+     * Where an amount of aura places somebody, and how many people it is out of.
+     *
+     * <h2>One statement, because two would describe two instants</h2>
+     * {@code /aura} prints the asker's place and the top ten under it. Read separately, a duel
+     * settled between the two reads makes the line about somebody disagree with the line about them
+     * in the list below it - which nobody reports as a bug and everybody notices.
+     *
+     * <h2>The same population as the board</h2>
+     * Joined through {@code account_link}, exactly like {@link #topAura}: somebody with an
+     * {@code smp_player} row and no link cannot be on a Minecraft server to be counted on a board in
+     * one. Counting them here and not there would make "number 4 of 37" sit above a list drawn from
+     * thirty-six people.
+     *
+     * <p>Ties share a place - the count is of everybody with <em>strictly</em> more - so two people
+     * on the same number are not told different things about it.</p>
+     */
+    @SqlQuery("""
+            SELECT count(*) FILTER (WHERE player.aura > :aura) + 1 AS place,
+                   count(*)                                       AS total
+            FROM smp_player player
+                     JOIN account_link link ON link.discord_id = player.discord_id
+            """)
+    @RegisterConstructorMapper(AuraPlace.class)
+    AuraPlace auraPlace(@Bind("aura") int aura);
+
     // ---------------------------------------------------------------- the start event's winner
 
     /**

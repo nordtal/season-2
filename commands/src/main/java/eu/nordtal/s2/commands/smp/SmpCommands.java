@@ -87,10 +87,28 @@ public final class SmpCommands {
             List.of("smp", "access"), Target.SMP, EVERYWHERE, true, false,
             List.of(Argument.player("player")));
 
+    /**
+     * {@code /aura} - your own standing and the ten highest, for any player.
+     *
+     * <h2>Why it is a root of its own rather than {@code /smp aura}</h2>
+     * Because {@code /smp aura} is already an admin correction with two arguments, and the two are
+     * not the same command wearing different clothes: one reads, one writes, and one of them is
+     * typed by everybody. Brigadier could not express both anyway - {@code /smp aura} takes a player
+     * name where this would take nothing, so the second would be unreachable behind the first.
+     *
+     * <h2>It is on the SMP even though it is typed everywhere</h2>
+     * The numbers are in {@code smp_player}, which is the SMP's. Typed on {@code limbo} or on the
+     * hunger games it becomes a request row like every other travelling command; typed on the SMP it
+     * runs where it stands.
+     */
+    public static final Declaration OWN_AURA = new Declaration(
+            List.of("aura"), Target.SMP, java.util.Set.of(Surface.GAME), false, false, List.of());
+
     /** Every {@code /smp} command, for an adapter to register and for the catalogue. */
     public static List<NordtalCommand<SmpEffects>> all() {
         return List.of(new ReloadSmp(), new ResetFarmWorld(), new CompleteObjective(),
-                new UnlockMilestone(), new ChangeAura(), new ShowAccess(), new ShowStatus());
+                new UnlockMilestone(), new ChangeAura(), new ShowAccess(), new ShowStatus(),
+                new ShowAura());
     }
 
     /** Every {@code /smp} declaration. */

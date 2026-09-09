@@ -2,7 +2,7 @@
 #
 # PID 1 for every Minecraft service. Four jobs, in order:
 #
-#   1. resolve and cache the pinned server jar (PaperMC Fill API)
+#   1. run the newest server jar in the cache, or resolve one (PaperMC Fill API) if it is empty
 #   2. refuse to start on an empty plugins folder - the `updater` container fills it
 #   3. start the server inside a tmux session, so that `docker exec` has a writable console
 #   4. translate SIGTERM into a graceful shutdown and wait for the JVM to finish saving
@@ -174,6 +174,78 @@ Two ways out, and only you can pick:
     set_property "$file" level-seed "$LEVEL_SEED"
 }
 
+# --- the cached server jar ----------------------------------------------------------------------
+# Which jar in .server/ is the one to run. Deliberately above the source guard, because it is the
+# second piece of this script whose failure mode is invisible: choosing wrong does not error, it
+# runs an old server, and nothing anywhere says which one it picked except one log line nobody
+# reads. entrypoint-test.sh drives both functions below against fixture directories.
+
+# Whether version $1 build $2 is newer than version $3 build $4.
+#
+# COMPARED COMPONENT BY COMPONENT AS NUMBERS, and that is the whole reason this is a function.
+# Lexicographically "4.10.0" sorts below "4.9.0", and since 2026-09-09 the proxy's version is
+# allowed to move inside its major - so a text comparison would quietly keep running the older jar
+# for as long as Velocity stayed on a two-digit minor, with nothing failing anywhere.
+newer_server_jar() {
+    local -a mine theirs
+    IFS='.' read -r -a mine <<<"$1"
+    IFS='.' read -r -a theirs <<<"$3"
+
+    local i max=${#mine[@]} l r
+    (( ${#theirs[@]} > max )) && max=${#theirs[@]}
+    for (( i = 0; i < max; i++ )); do
+        l=$(( 10#${mine[i]:-0} ))
+        r=$(( 10#${theirs[i]:-0} ))
+        if (( l != r )); then
+            return $(( l > r ? 0 : 1 ))
+        fi
+    done
+    (( 10#$2 > 10#$4 ))
+}
+
+# Prints the filename of the newest `<kind>-<version>-<build>.jar` in directory $1, or nothing.
+#
+# IT GLOBS ON THE KIND ALONE, not on the version. Until 2026-09-09 it looked for
+# "${SERVER_KIND}-${SERVER_VERSION}-*.jar", which was right while the version was a pinned constant
+# and became a trap the moment the proxy started following Velocity's minors: the updater would put
+# velocity-4.2.0-15.jar there, this script would find no velocity-4.1.1-*.jar, decide the cache was
+# empty and fetch 4.1.1 back. Every update to the proxy would have been undone by the very restart
+# that was meant to apply it - which is finding 147's shape exactly, one layer down.
+#
+# A file that does not match the shape is skipped rather than guessed at: no build number
+# (paper-26.2.jar), a non-numeric build, or a version carrying anything but digits and dots - which
+# is how a hand-copied velocity-4.1.2-SNAPSHOT-30.jar stays out of a production proxy.
+newest_server_jar() {
+    local cache="$1" kind="$2"
+    local best="" best_version="" best_build=""
+    local jar name stem version build
+
+    shopt -s nullglob
+    for jar in "$cache/${kind}-"*.jar; do
+        name="${jar##*/}"
+        stem="${name%.jar}"
+        stem="${stem#"${kind}-"}"
+
+        [[ "$stem" == *-* ]] || continue
+        build="${stem##*-}"
+        version="${stem%-*}"
+        [[ "$build" =~ ^[0-9]+$ ]] || continue
+        [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]] || continue
+
+        if [[ -z "$best" ]] || newer_server_jar "$version" "$build" "$best_version" "$best_build"; then
+            best="$name"
+            best_version="$version"
+            best_build="$build"
+        fi
+    done
+    shopt -u nullglob
+
+    if [[ -n "$best" ]]; then
+        printf '%s\n' "$best"
+    fi
+    return 0
+}
+
 # --- sourced rather than executed ---------------------------------------------------------------
 # Everything ABOVE this line is definitions and can be pulled into another shell; everything BELOW
 # it is this container's own run and reaches for the network, the volume and tmux. entrypoint-test.sh
@@ -187,8 +259,13 @@ Two ways out, and only you can pick:
 
 # --- inputs ----------------------------------------------------------------------------------
 : "${SERVER_KIND:?set SERVER_KIND to paper or velocity}"
-: "${SERVER_VERSION:?set SERVER_VERSION (paper: 26.2, velocity: 4.1.1)}"
-: "${SERVER_BUILD:?set SERVER_BUILD - the exact build fetched into an empty cache; the updater moves it from there}"
+# For paper an exact Minecraft version (26.2); for velocity FILL'S NAME FOR THE MAJOR (4.0.0),
+# which is not a version anybody runs - the newest release inside it is resolved below. compose.yml
+# writes both as literals taken from eu.nordtal.s2.common.Platform.
+: "${SERVER_VERSION:?set SERVER_VERSION (paper: the Minecraft version, e.g. 26.2; velocity: the Fill version family, e.g. 4.0.0)}"
+# SERVER_BUILD is gone (2026-09-09). An empty cache is filled with the newest STABLE build the Fill
+# API lists, resolved here rather than read from a number in .env that somebody had to keep current
+# - and that nobody did between the day it was written and the day it was removed.
 
 case "$SERVER_KIND" in
     paper|velocity) ;;
@@ -208,12 +285,17 @@ FILL_UA="nordtal-season-2/deploy (+https://github.com/nordtal/season-2)"
 mkdir -p "$CACHE" "$PLUGINS" "$(dirname "$SOCK")"
 
 # --- the server jar --------------------------------------------------------------------------
-# THE UPDATER OWNS THIS JAR (since 2026-09-02). What runs is whichever build of SERVER_VERSION is
-# lying in the cache: the `updater` container puts the newest STABLE build there and supersedes
-# the previous one by filename prefix. SERVER_BUILD is consulted only when the cache holds no jar
-# of this version at all - the first start of a fresh volume, or a version bump before the updater
-# has run against it - and is then fetched once, exactly, through the Fill API. It is a floor for
-# the first start, the same role the image tag plays for the bot and the updater, not the version.
+# THE UPDATER OWNS THIS JAR (since 2026-09-02). What runs is whatever `<kind>-<version>-<build>.jar`
+# is lying in the cache: the `updater` container puts the newest STABLE build there, and
+# newest_server_jar above picks the highest version-then-build of them. The Fill API is only asked
+# when the cache holds no jar of this kind at all - the first start of a fresh volume, or a volume
+# the updater has never run against.
+#
+# NOTHING IS PINNED ANY MORE (2026-09-09). SERVER_BUILD used to name the build an empty cache was
+# seeded with; it was a number in .env that had to be kept current by hand and never was, so an
+# empty cache was filled with whatever was newest on the day somebody last edited that file. The
+# newest STABLE build is resolved here instead. There is no way back out of a bad platform build in
+# this deployment, and that is the decision rather than an oversight - do not add one here.
 #
 # Until 2026-09-02 this section fetched SERVER_BUILD unconditionally and deleted every other jar,
 # which undid each updater run on the next restart: the updater installed build 125 and removed
@@ -223,31 +305,50 @@ mkdir -p "$CACHE" "$PLUGINS" "$(dirname "$SOCK")"
 #
 # Fill's download URLs are content-addressed (fill-data.papermc.io/v1/objects/<sha256>) and cannot
 # be constructed by hand, so the bootstrap is an API call. A cached jar means no network at all.
-shopt -s nullglob
-present=("$CACHE/${SERVER_KIND}-${SERVER_VERSION}-"*.jar)
-shopt -u nullglob
+JAR_NAME=$(newest_server_jar "$CACHE" "$SERVER_KIND")
 
-if (( ${#present[@]} > 0 )); then
-    # Highest build wins. Fill numbers builds as plain integers, and the updater leaves exactly one
-    # per version - two means a jar was copied in by hand, which is worth saying but not stopping for.
-    JAR_NAME=$(for jar in "${present[@]}"; do printf '%s\n' "${jar##*/}"; done | sort -t- -k3,3n | tail -n1)
+if [[ -n "$JAR_NAME" ]]; then
     JAR_PATH="$CACHE/$JAR_NAME"
-    (( ${#present[@]} > 1 )) && warn "${#present[@]} ${SERVER_KIND} ${SERVER_VERSION} jars in ${CACHE}; running the highest build, ${JAR_NAME}"
-    log "server jar from cache: ${JAR_NAME} (SERVER_BUILD=${SERVER_BUILD} is the bootstrap floor and was not consulted)"
+    log "server jar from cache: ${JAR_NAME} (the Fill API was not consulted)"
 else
-    JAR_NAME="${SERVER_KIND}-${SERVER_VERSION}-${SERVER_BUILD}.jar"
-    JAR_PATH="$CACHE/$JAR_NAME"
-    log "no ${SERVER_KIND} ${SERVER_VERSION} jar cached - bootstrapping build ${SERVER_BUILD} through the Fill API"
-    meta=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" \
-        "${FILL_API}/${SERVER_KIND}/versions/${SERVER_VERSION}/builds/${SERVER_BUILD}") \
-        || die "could not reach the Fill API, and no ${SERVER_KIND} ${SERVER_VERSION} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
+    # For velocity SERVER_VERSION is Fill's family name and not a version, so the version is looked
+    # up first: the newest member of the family carrying no -SNAPSHOT, -rc or -pre. For paper the
+    # family and the version are the same string (Fill's `26.2` family holds `26.2` and
+    # `26.2-rc-2`), so this resolves to SERVER_VERSION itself and the branch is one code path.
+    log "no ${SERVER_KIND} jar cached - resolving the newest stable build through the Fill API"
+    project=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" "${FILL_API}/${SERVER_KIND}") \
+        || die "could not reach the Fill API, and no ${SERVER_KIND} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
 
+    version=$(jq -er --arg family "$SERVER_VERSION" '
+            (.versions[$family] // empty)
+            | map(select(test("^[0-9]+(\\.[0-9]+)*$")))
+            | sort_by(split(".") | map(tonumber))
+            | last // empty' <<<"$project") \
+        || die "the Fill API lists no released version in ${SERVER_KIND} family '${SERVER_VERSION}'. A family is Fill's name for a major and is NOT a version - check it against ${FILL_API}/${SERVER_KIND}"
+    [[ "$version" == "$SERVER_VERSION" ]] \
+        || log "${SERVER_KIND} family ${SERVER_VERSION} resolves to version ${version}"
+
+    # `/builds/latest` exists and is NOT what is wanted: measured against the live API on
+    # 2026-09-09, it answers the newest build of any channel - paper 1.21.11-rc3 returns build 31,
+    # channel ALPHA. The list is read and filtered instead, the same way the updater does it.
+    builds=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" \
+        "${FILL_API}/${SERVER_KIND}/versions/${version}/builds") \
+        || die "could not read the ${SERVER_KIND} ${version} builds from the Fill API, and no ${SERVER_KIND} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
+
+    meta=$(jq -er '[.[] | select(.channel == "STABLE" and .downloads."server:default")] | max_by(.id)' <<<"$builds") \
+        || die "the Fill API lists no STABLE build with a 'server:default' download for ${SERVER_KIND} ${version}. Check ${FILL_API}/${SERVER_KIND}/versions/${version}/builds"
+
+    # The filename comes from the API rather than being built from three variables: it is the same
+    # name the updater installs under, and two programs constructing it separately is how a server
+    # ends up running one jar while another thinks it installed a different one.
+    JAR_NAME=$(jq -er '.downloads."server:default".name' <<<"$meta") \
+        || die "the Fill API returned a download with no filename"
+    JAR_PATH="$CACHE/$JAR_NAME"
     url=$(jq -er '.downloads."server:default".url' <<<"$meta") \
-        || die "the Fill API knows no 'server:default' download for ${SERVER_KIND} ${SERVER_VERSION} build ${SERVER_BUILD}. Check the pin in .env against https://fill.papermc.io/v3/projects/${SERVER_KIND}"
+        || die "the Fill API returned a download with no url"
     sha=$(jq -er '.downloads."server:default".checksums.sha256' <<<"$meta") \
         || die "the Fill API returned a download without a sha256 checksum"
-    channel=$(jq -r '.channel // "UNKNOWN"' <<<"$meta")
-    [[ "$channel" == "STABLE" ]] || warn "build ${SERVER_BUILD} is channel ${channel}, not STABLE"
+    log "bootstrapping ${JAR_NAME} (build $(jq -r '.id' <<<"$meta"), channel STABLE)"
 
     tmp="${JAR_PATH}.partial"
     curl -fsSL --max-time 600 -H "User-Agent: ${FILL_UA}" -o "$tmp" "$url" \
@@ -261,17 +362,24 @@ else
     log "downloaded and verified ${JAR_NAME}"
 fi
 
-# One server jar per kind. What this removes is a jar of ANOTHER version - the updater supersedes
-# within a version (paper-26.2-121 -> paper-26.2-125) but never across one, so after a version bump
-# the old jar would otherwise sit here forever at 40-70 MB. A second build of the running version
-# was warned about above and goes the same way.
+# One server jar per kind. What this removes is every jar this start did not choose: an older build,
+# an older version the updater superseded across a version bump (it supersedes by filename prefix,
+# so paper-26.2-121 -> paper-26.2-125 replaces in place but velocity-4.1.1-24 -> velocity-4.2.0-31
+# does not), and anything hand-copied in that newest_server_jar refused to read. They would
+# otherwise sit here forever at 40-70 MB each.
 shopt -s nullglob
 for old in "$CACHE/${SERVER_KIND}-"*.jar; do
     [[ "$old" != "$JAR_PATH" ]] && { rm -f "$old"; log "removed superseded ${old##*/}"; }
 done
 shopt -u nullglob
-SERVER_BUILD_RUNNING="${JAR_NAME%.jar}"
-SERVER_BUILD_RUNNING="${SERVER_BUILD_RUNNING##*-}"
+
+# What is actually running, read back out of the filename rather than out of the two variables that
+# asked for it - SERVER_VERSION is a family on the proxy, so it is not the answer to "which version
+# is this".
+SERVER_VERSION_RUNNING="${JAR_NAME%.jar}"
+SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING#"${SERVER_KIND}-"}"
+SERVER_BUILD_RUNNING="${SERVER_VERSION_RUNNING##*-}"
+SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 
 # --- plugins ---------------------------------------------------------------------------------
 # THIS SCRIPT NO LONGER FETCHES PLUGINS. It did until 2026-09-01, pulling `<module>-$SEASON_VERSION
@@ -608,7 +716,7 @@ JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+Parallel
 # --- start it inside tmux --------------------------------------------------------------------
 # Arcane's per-container shell is a `docker exec` and therefore cannot reach PID 1's stdin. tmux
 # is what makes the console writable from there; `console` attaches, `mc <cmd>` sends one command.
-log "starting ${SERVER_KIND} ${SERVER_VERSION} build ${SERVER_BUILD_RUNNING}"
+log "starting ${SERVER_KIND} ${SERVER_VERSION_RUNNING} build ${SERVER_BUILD_RUNNING}"
 log "console: run 'console' in this container to attach, or 'mc <command>' to send one command"
 
 LOG_FILE="$DATA/logs/latest.log"

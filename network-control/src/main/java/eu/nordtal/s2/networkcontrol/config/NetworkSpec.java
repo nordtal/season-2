@@ -238,8 +238,8 @@ public interface NetworkSpec {
         })
         default String preEvent() {
             return NORDTAL_BLUE
-                    + "<newline><gray>Hunger Games: <white>{hg-teams}</white> teams,"
-                    + " <white>{hg-participants}</white> players registered</gray>";
+                    + "<newline><gray>Hunger Games: <white>{hg-participants}</white> players"
+                    + " in <white>{hg-teams}</white> teams</gray>";
         }
 
         @Order(3)
@@ -250,31 +250,45 @@ public interface NetworkSpec {
         })
         default String startEvent() {
             return NORDTAL_BLUE
-                    + "<newline><gray>Hunger Games running: <white>{hg-alive}</white> of"
-                    + " <white>{hg-participants}</white> alive</gray>";
+                    + "<newline><gray>Hunger Games: <white>{hg-alive}</white> of"
+                    + " <white>{hg-participants}</white> still alive</gray>";
         }
 
         @Order(4)
         @Key("smp")
         @Comment({
-                "The season proper. {smp-milestone} is the milestone the whole server is working",
-                "on right now and {smp-milestone-progress} how far it has got, in percent."
+                "The season proper.",
+                "",
+                "IT COUNTS MILESTONES AND NOT PLAYERS, and neither half of that is an accident.",
+                "The player count is drawn by the client itself, next to the ping bars, so a MOTD",
+                "that repeats it spends its one short line saying something already on screen.",
+                "",
+                "And it counts FINISHED milestones rather than naming the current one, because",
+                "{smp-milestone} is the milestone's KEY out of milestones.yml - 'departure',",
+                "lowercase, untranslated. The display names live in smp's message bundle, which",
+                "this proxy does not load; until that changes, naming the milestone here puts a",
+                "config identifier in the server browser. 'Three of eight done' also says more to",
+                "a stranger than a word they have never seen."
         })
         default String smp() {
             return NORDTAL_BLUE
-                    + "<newline><gray>Working on <white>{smp-milestone}</white>"
-                    + " (<white>{smp-milestone-progress}%</white>) - <white>{online}</white>/{max} online</gray>";
+                    + "<newline><gray>Season 2 running - <white>{smp-milestones-done}</white> of"
+                    + " <white>{smp-milestones-total}</white> milestones done</gray>";
         }
 
         @Order(5)
         @Key("maintenance")
         @Comment({
                 "Planned work. Players are still let onto the proxy and held in limbo, so this is",
-                "not a closed sign - it is a \"we are working, come back shortly\" sign."
+                "not a closed sign - it is a \"we are working, come back shortly\" sign.",
+                "",
+                "The second half of the sentence is doing the work: 'Maintenance' on its own, in a",
+                "server list, is what a dead server looks like, and somebody scrolling past has no",
+                "way to tell a Tuesday evening's restart from a season that ended."
         })
         default String maintenance() {
             return NORDTAL_BLUE
-                    + "<newline><gray>Maintenance - back shortly</gray>";
+                    + "<newline><gray>Maintenance - back shortly, the season is not over</gray>";
         }
     }
 }

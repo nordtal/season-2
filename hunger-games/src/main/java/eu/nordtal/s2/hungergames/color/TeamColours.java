@@ -6,31 +6,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Generates a palette of {@code n} evenly spaced hues at fixed saturation/lightness, and maps any
- * RGB colour to its nearest named Minecraft colour - see
- * {@code docs/hunger-games.md#teams-colours-and-hearts}: "evenly spaced hues at a fixed saturation
- * and lightness, which is the arrangement that separates n colours best."
- * <p>
- * No Bukkit or Adventure type appears here on purpose: {@code java.awt.Color} is the JDK's own RGB
- * type and is enough to generate and reason about a palette in a plain unit test. The plugin's
- * game code converts the {@code int} RGB this class produces into
- * {@code net.kyori.adventure.text.format.TextColor} at the point it is actually rendered.
- * </p>
+ * Generates a palette of {@code n} evenly spaced hues at fixed saturation and brightness - the
+ * arrangement that separates n colours best - and maps any RGB colour to its nearest named
+ * Minecraft colour. No Bukkit or Adventure type appears here on purpose, so it is unit-testable.
  */
 public final class TeamColours {
 
-    /** Fixed per docs/hunger-games.md - "a fixed saturation and lightness". */
     public static final float SATURATION = 0.85f;
 
-    /** Fixed per docs/hunger-games.md - "a fixed saturation and lightness". */
     public static final float BRIGHTNESS = 0.95f;
 
     /**
-     * The sixteen named Minecraft colours, as their {@code net.kyori.adventure.text.format.NamedTextColor}
-     * RGB values (which match {@code org.bukkit.ChatColor}'s colours exactly - both describe the
-     * same sixteen chat colours). Hardcoded rather than resolved reflectively: these sixteen values
-     * are part of the Minecraft protocol and do not change between versions, and hardcoding keeps
-     * this class free of any platform dependency, adventure included.
+     * The sixteen named Minecraft chat colours. Hardcoded rather than read off Adventure: they are
+     * part of the protocol, and this keeps the class free of any platform dependency.
      */
     private static final Map<String, Integer> NAMED_COLOURS = Map.ofEntries(
             Map.entry("BLACK", 0x000000),
@@ -77,8 +65,7 @@ public final class TeamColours {
 
     /**
      * The nearest of the sixteen named Minecraft colours to an exact RGB colour, by Euclidean
-     * distance in RGB space - what {@code docs/hunger-games.md#teams-colours-and-hearts} calls the
-     * "nearest named colour" for the vanilla surfaces (scoreboard team, tab list) that cannot take
+     * distance in RGB space, for the vanilla surfaces (scoreboard team, tab list) that cannot take
      * an exact one.
      *
      * @param rgb a packed {@code 0xRRGGBB} colour

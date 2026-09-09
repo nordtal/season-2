@@ -22,16 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The fail-fast for {@code network-control}'s own config files - same philosophy as
- * {@code access-bot}'s {@code ConfigsTest}: everything here is a value that must stop the gate
- * from starting rather than surface as a confusing failure later (a query timeout of zero, a
- * negative cache window).
- * <p>
- * Unlike the bot's version, {@link Configs#database(Path, Logger)} and
- * {@link Configs#gate(Path, Logger)} take the directory directly rather than through a system
- * property - Velocity hands the plugin its data directory via {@code @DataDirectory}, so there is
- * no equivalent of the bot's {@code -Daccess.config.dir} test hook to begin with.
- * </p>
+ * The fail-fast for {@code network-control}'s own config files: every value here must stop the gate
+ * from starting rather than surface as a confusing failure later.
  */
 class ConfigsTest {
 
@@ -97,7 +89,7 @@ class ConfigsTest {
         assertEquals(60, config.expiryCheckIntervalSeconds());
         assertEquals(5, config.expiryWarningLeadMinutes());
         assertEquals(30, config.phasePollIntervalSeconds(),
-                "thirty seconds is the decided poll interval, docs/season-phases.md 2026-08-31");
+                "thirty seconds is the decided poll interval");
         assertTrue(config.phaseListenEnabled(),
                 "LISTEN/NOTIFY is built in the first pass rather than deferred, so it is on by default");
         assertEquals(300, config.playtimeFlushIntervalSeconds(),
@@ -110,9 +102,8 @@ class ConfigsTest {
 
     @Test
     void theServerNamesDefaultToTheModuleDirectoryNames() throws Exception {
-        // Nothing in docs/ says what velocity.toml calls the three backends. The defaults are the
-        // module directory names, which are already the runtime identity of the three Paper
-        // plugins; if the proxy calls them something else, these are the keys to change.
+        // The defaults are the module directory names, which are already the runtime identity of
+        // the three Paper plugins; if velocity.toml calls them something else, these keys change.
         final GateSpec config = Configs.gate(directory, LOGGER).get();
 
         assertEquals("limbo", config.serverLimbo(), "MAINTENANCE routes here");
@@ -174,14 +165,12 @@ class ConfigsTest {
         writeGate("phase-listen-enabled: false");
 
         assertFalse(Configs.gate(directory, LOGGER).get().phaseListenEnabled(),
-                "the row in docs/state-of-play.md#the-unverified-assumptions fallback is to drop NOTIFY and keep the poll");
+                "the fallback is to drop NOTIFY and keep the poll");
     }
 
     /**
      * Writes a complete, valid {@code gate.yml} with one line replaced. A key jcore does not
-     * recognise is either refused (a misspelling) or deleted (a retirement), and neither is what
-     * these tests are about, so every one of them needs the whole file rather than the one value
-     * it cares about.
+     * recognise is refused or deleted, so every test needs the whole file rather than one value.
      */
     // ------------------------------------------------------------- pack.yml
 
@@ -189,11 +178,9 @@ class ConfigsTest {
 
     @Test
     void aFreshPackConfigIsEnabledButRefusesToStartUntilItIsFilledIn() throws Exception {
-        // The standing rule for every value nobody can guess (docs/README.md, "Ids never get real
-        // defaults"), applied to the pack: enabled by default because a production network has one,
-        // and empty by default because a default pointing at somebody's release would be worse than
-        // none. The proxy therefore fails closed on a fresh install rather than letting everybody in
-        // without the pack, which is exactly the outcome limbo exists to prevent.
+        // Enabled by default because a production network has a pack, and empty by default because
+        // a default pointing at somebody's release would be worse than none. So a fresh install
+        // fails closed rather than letting everybody in without the pack.
         assertThrows(ConfigValidationException.class, () -> Configs.pack(directory, LOGGER));
         assertTrue(Files.isRegularFile(directory.resolve("pack.yml")),
                 "the defaults must still be written out, or there is nothing to fill in");
@@ -207,16 +194,15 @@ class ConfigsTest {
         final PackSpec config = Configs.pack(directory, LOGGER).get();
 
         assertTrue(config.enabled());
-        assertTrue(config.force(), "docs/architecture.md: the offer is forced, decided 2026-09-01");
+        assertTrue(config.force(), "the pack offer is forced");
         assertEquals(REAL_LOOKING_SHA1, config.sha1());
         assertEquals(180, config.applyTimeoutSeconds());
     }
 
     @Test
     void aDisabledPackIsAllowedToLeaveTheUrlAndHashEmpty() throws Exception {
-        // The escape hatch for a development proxy and for the hours between "the network is up" and
-        // "the first pack release exists". Refusing to start over values nothing reads would make
-        // the escape hatch harder to use than the thing it escapes.
+        // The escape hatch for a development proxy: refusing to start over values nothing reads
+        // would make it harder to use than the thing it escapes.
         writePack("", "", false, true, 180);
 
         final PackSpec config = Configs.pack(directory, LOGGER).get();
@@ -247,10 +233,9 @@ class ConfigsTest {
 
     @Test
     void aHashThatIsNotFortyHexCharactersIsRejected() throws Exception {
-        // The mistake this file exists to prevent: a hash typed by hand, truncated in a copy, or
-        // left behind from the previous release. Length and alphabet are all that can be checked
-        // here - whether it is the hash of the zip at `url` is a question only the client answers,
-        // and it answers it with FAILED_DOWNLOAD, which reads as a network problem and is not one.
+        // Length and alphabet are all that can be checked here. Whether it is the hash of the zip
+        // at `url` only the client answers, with FAILED_DOWNLOAD - which reads as a network problem
+        // and is not one.
         for (final String wrong : new String[]{"deadbeef", REAL_LOOKING_SHA1 + "0", "sha1-" + REAL_LOOKING_SHA1,
                 "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3g"}) {
             writePack("https://example.invalid/pack.zip", wrong, true, true, 180);
@@ -305,10 +290,9 @@ class ConfigsTest {
                 "a fresh load must write the defaults out - and this file is also the only place the"
                         + " placeholder list is documented");
 
-        // The nested MotdSpec is the part that has to survive the round trip. A nested spec without
-        // its own @ConfigSpec fails as a Gson error about java.lang.reflect.Proxy#h, which names
-        // nothing useful - and it fails on the first WRITE, which is what a fresh load does. This is
-        // the module's standing check for that; see the repository CLAUDE.md, "Configuration".
+        // The nested MotdSpec has to survive the round trip: without its own @ConfigSpec it fails
+        // as a Gson error about java.lang.reflect.Proxy#h, on the first write, which is what a
+        // fresh load does.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             assertFalse(motdFor(config, phase).isBlank(), "no MOTD for " + phase);
         }
@@ -329,17 +313,9 @@ class ConfigsTest {
 
     @Test
     void aNetworkConfigStillCarryingBackendLimitLosesTheLineRatherThanTheProxy() throws Exception {
-        // The two tests this replaces asserted that max-players had to stay strictly below
-        // backend-limit - a copy, in this file, of what the entrypoint wrote into another
-        // container's server.properties. Both numbers are gone as of 2026-09-04: the backends are
-        // written from NETWORK_MAX_PLAYERS, the same variable that overrides max-players here, so
-        // there is no pair left that can cross.
-        //
-        // What replaces them is this. network.yml lives in a volume, and a deployed one still
-        // carries `backend-limit: 1000`. This test asserted the proxy refused to start and named
-        // the key, with "delete the line" written down in deploy/README.md as the operator's move.
-        // As of jcore 3.1.0 the loader makes that move itself: there was never a second thing an
-        // operator could do about it, and a proxy that will not start is how nobody can join.
+        // network.yml lives in a volume, and a deployed one may still carry `backend-limit`. The
+        // loader drops a retired key itself rather than refusing to start: there was never a second
+        // thing an operator could do about it, and a proxy that will not start is how nobody joins.
         Files.writeString(directory.resolve("network.yml"), """
                 max-players: 500
                 backend-limit: 1000
@@ -366,10 +342,9 @@ class ConfigsTest {
 
     @Test
     void aFreshNetworkConfigCarriesTheAllowlistOfOurOwnPlayerCommands() throws Exception {
-        // The default is the assertion here, the way smp's pregeneration-on-start is: this list is
-        // what every player on the network can type, and a convenient-looking addition to it is how
-        // a vanilla command comes back. Vanilla is deliberately absent in full - /help lists what a
-        // player may not run, and /tell is replaced by the proxy's own /msg.
+        // The default is the assertion: this list is what every player on the network can type, and
+        // a convenient-looking addition is how a vanilla command comes back. Vanilla is absent in
+        // full - /help lists what a player may not run, and /tell is replaced by /msg.
         final NetworkSpec config = Configs.network(directory, LOGGER).get();
 
         assertEquals(List.of("smp status", "navigate", "poi", "hg ready", "aura",

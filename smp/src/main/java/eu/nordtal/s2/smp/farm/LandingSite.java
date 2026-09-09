@@ -8,11 +8,10 @@ import org.bukkit.block.Block;
 /**
  * Finds somewhere in a freshly generated farm world that a person can be put down without dying.
  *
- * <p>A new seed every day means the point 0/0 is a lottery: it can be the middle of a lava lake, the
- * roof of a ravine, or a hundred blocks of ocean. docs/smp.md#spawns says the farm world's arrival
- * point is found programmatically for exactly that reason, and this is that search - a square
- * spiral outwards from the border centre, taking the first column with solid ground, two blocks of
- * air above it and nothing dangerous underfoot.
+ * <p>A new seed every day means the point 0/0 is a lottery - a lava lake, the roof of a ravine, a
+ * hundred blocks of ocean - so the arrival point is searched for: a square spiral outwards from the
+ * border centre, taking the first column with solid ground, two blocks of air above it and nothing
+ * dangerous underfoot.
  *
  * <p>Runs on the main thread against a world that Chunky has already filled, so every chunk it
  * touches is on disk and no generation happens here.
@@ -28,9 +27,8 @@ public final class LandingSite {
     /**
      * The first safe spot at or near the world centre.
      *
-     * <p>Falls back to the world's own spawn when the search finds nothing, which on a normal
-     * overworld seed does not happen - and if it ever does, an unsafe arrival is still better than
-     * a farm world nobody can enter.
+     * <p>Falls back to the world's own spawn when the search finds nothing: an unsafe arrival is
+     * still better than a farm world nobody can enter.
      */
     public static Location find(final World world) {
         final Location found = find(world, 0, 0);
@@ -67,16 +65,9 @@ public final class LandingSite {
     /**
      * A spot a player can be put down at, as close to {@code preferred} as possible.
      *
-     * <p>Written for the end of a duel, which puts both fighters at the spawn (owner, 2026-09-06).
-     * On Nordtal the spawn is a built square and this returns it unchanged; on the generated world
-     * of a local stack it is whatever the seed put at those coordinates, and the first version of
-     * that teleport buried both fighters in stone and suffocated them - two {@code DEATH -5} rows
-     * one second after a duel that had just been settled as costing nothing.</p>
-     *
-     * <p>The preferred spot wins whenever it is habitable, because a built spawn is a decision
-     * somebody took and moving a player four blocks off it is worse than landing them on a slab
-     * this check happens to dislike. Only when it is not does this search outwards from that
-     * column, and only then does {@link #isGoodGround} get a say.</p>
+     * <p>The preferred spot wins whenever it is habitable: a built spawn is a decision somebody
+     * took, and moving a player off it is worse than landing them on a slab this check happens to
+     * dislike. Only when it is uninhabitable does this search outwards from that column.</p>
      *
      * @param world     the world
      * @param preferred where the caller would like them
@@ -90,18 +81,10 @@ public final class LandingSite {
     /**
      * The same search, for a caller that is allowed to say no.
      *
-     * <p>{@link #safeAt} ends with {@code preferred} when the search finds nothing, and that
-     * fallback is deliberate everywhere it is used: a duel has to end even if the spawn is
-     * hostile, and the farm-world reset has to empty a world that is about to be deleted. Not
-     * arriving is worse than arriving badly in both.</p>
-     *
-     * <p>The balloon is the one caller where it is not. It already has a branch for "this
-     * destination is not available", it is reached from a menu the player chose to open, and its
-     * success path ends by telling them they arrived - so a fallback there is a message saying
-     * somebody landed safely somewhere they cannot survive. This is the same shape of mistake the
-     * balloon has already made once, when it took the Nether's world spawn at face value and
-     * suffocated the first player to use it (finding 134); the difference is only how rare the
-     * remaining case is.</p>
+     * <p>{@link #safeAt}'s fallback to {@code preferred} is right where not arriving is worse than
+     * arriving badly - a duel has to end, the farm-world reset has to empty a world. The balloon is
+     * the one caller where it is not: it already has a "destination unavailable" branch, and its
+     * success path tells the player they arrived somewhere they may not survive.</p>
      *
      * @param world     the world
      * @param preferred where the caller would like them
@@ -120,11 +103,8 @@ public final class LandingSite {
     /**
      * Whether two <b>air</b> blocks stand at this spot with ground worth standing on underneath.
      *
-     * <p>Air rather than "passable", and {@link #isGoodGround} rather than "solid", because the
-     * first version asked the loose question and the answer was yes for a world spawn sitting in
-     * lava: a liquid is passable, so both fighters were put into it and were dead a second after a
-     * duel that had just been settled as costing nothing (finding 124). The same two questions the
-     * column search asks, asked about one spot.</p>
+     * <p>Air rather than "passable", and {@link #isGoodGround} rather than "solid": a liquid is
+     * passable, so a world spawn sitting in lava would pass the loose test.</p>
      */
     private static boolean fits(final World world, final Location at) {
         final Block feet = world.getBlockAt(at.getBlockX(), at.getBlockY(), at.getBlockZ());
@@ -136,10 +116,8 @@ public final class LandingSite {
     private static Location safeColumn(final World world, final int x, final int z) {
         final Block highest = world.getHighestBlockAt(x, z);
         // A column with nothing in it answers with the block at the bottom of the world, and
-        // bedrock is solid and on no exclusion list - so the search happily reported "safe ground"
-        // at y=-63 and the duel that ended there dropped both fighters out of the world with
-        // "left the confines of this world" (finding 124). Anything within a few blocks of the
-        // floor is not a landing site, it is the absence of one.
+        // bedrock is solid and on no exclusion list - so without this the search reports "safe
+        // ground" at the world floor. That is the absence of a landing site, not one.
         if (highest.getY() <= world.getMinHeight() + 4) {
             return null;
         }

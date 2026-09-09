@@ -6,20 +6,12 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code config/bot.yml} - the Discord token and the bunq credentials.
- * <p>
- * These used to be read with bare {@code System.getenv} calls scattered through the code, with no
- * check that they were set: a missing {@code BUNQ_ACCOUNT_ID} surfaced as a
- * {@code NumberFormatException} inside the poll loop, long after startup. They are declared here
- * so they are validated once, at startup, like everything else.
- * <p>
- * <b>They are still meant to come from the environment.</b> The defaults are empty and the bot
- * refuses to start while they are, so writing a real token into this file is a choice, not the
- * default path.
- * <p>
- * <b>Deploy change:</b> the variables are now {@code NORDTAL_BOT_TOKEN},
- * {@code NORDTAL_BOT_BUNQ_API_KEY} and {@code NORDTAL_BOT_BUNQ_ACCOUNT_ID}, replacing
- * {@code BOT_TOKEN}, {@code BUNQ_API_KEY} and {@code BUNQ_ACCOUNT_ID}.
+ * {@code config/bot.yml} - the Discord token and the bunq credentials, declared here so they are
+ * validated once at startup rather than surfacing as a failure inside the poll loop.
+ *
+ * <p>They are still meant to come from the environment ({@code NORDTAL_BOT_TOKEN},
+ * {@code NORDTAL_BOT_BUNQ_API_KEY}, {@code NORDTAL_BOT_BUNQ_ACCOUNT_ID}): the defaults are empty
+ * and the bot refuses to start while they are.</p>
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",
@@ -72,16 +64,9 @@ public interface BotSpec {
             return "";
         }
 
-        // `environment` was here, PRODUCTION or SANDBOX, added on 2026-08-30 so the sandbox
-        // end-to-end test in docs/access-system.md could be run without editing code. It is gone
-        // as of 2026-09-09, and the reason is that the test it existed for is gone: the owner has
-        // no sandbox key and decided a real 3 EUR purchase with a cancel-and-restart replaces the
-        // run (finding 152). What was left was a switch nobody would ever throw again, sitting on
-        // the one code path in this repository that moves other people's money - and a setting
-        // whose only remaining purpose is to be set wrongly is a trap, not an option. jcore 3.1.0
-        // drops the retired key from a deployed bot.yml with a WARN and a .bak, so nothing has to
-        // be edited by hand; ConfigsTest pins that it really is dropped rather than quietly
-        // accepted. Do not reintroduce it without a sandbox key in somebody's hand.
+        // A PRODUCTION/SANDBOX `environment` key deliberately does not exist: there is no sandbox
+        // key, so it would be a switch on the one code path that moves other people's money whose
+        // only remaining use is to be set wrongly. Do not reintroduce it without a sandbox key.
 
         @Order(4)
         @Key("context-path")

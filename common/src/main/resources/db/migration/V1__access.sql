@@ -1,24 +1,16 @@
--- Season 2's access schema. It replaces season 1's `contribution` table outright: there is no
--- ladder of contribution tiers any more, only paid access periods bound to a Discord account.
--- See docs/access-system.md.
---
--- This file was V1__contribution.sql until 2026-08-30 and was rewritten in place rather than
--- superseded by a V2 - nothing has ever run it in production, and season 2 starts empty by rule
--- (see the workspace CLAUDE.md: nothing is migrated between seasons). Any local dev database from
--- before that date must be dropped, not migrated.
+-- Season 2's access schema: no contribution tiers, only paid access periods bound to a Discord
+-- account.
 --
 -- PostgreSQL dialect. gen_random_uuid() is built in from PostgreSQL 13 onwards; no extension.
 --
--- Every point in time is `timestamptz`, not `timestamp`. The append rule and the expiry check are
--- evaluated by the database (see AccessDirectory), so the database's clock is the authority; a
--- naive `timestamp` would silently mean "whatever time zone the writing JVM happened to be in"
--- and an access period would grow or shrink by an hour across a DST change. Java-side these
--- columns are `java.time.Instant`.
+-- Every point in time is `timestamptz`, never `timestamp`. The append rule and the expiry check are
+-- evaluated by the database, so its clock is the authority; a naive `timestamp` would mean whatever
+-- time zone the writing JVM happened to be in, and a period would shift by an hour across a DST
+-- change. Java-side these columns are `java.time.Instant`.
 
 
--- Everything the bot knows about a Discord account. One row per Discord user the bot has ever
--- had a reason to write about; `member_state` and `locale` are projections of Discord state the
--- bot maintains from guild events, because the proxy cannot query Discord.
+-- Everything the bot knows about a Discord account. `member_state` and `locale` are projections of
+-- Discord state the bot maintains from guild events, because the proxy cannot query Discord.
 CREATE TABLE discord_user
 (
     -- Discord snowflake. Text, because that is what JDA hands out; varchar(32) leaves room well
@@ -42,12 +34,9 @@ CREATE TABLE discord_user
 );
 
 
--- The 1:1 link between a Discord account and a Minecraft account.
---
--- Both sides of the 1:1 are enforced here, by the database, and nowhere else: `discord_id` is the
--- primary key and `mc_uuid` is UNIQUE, so neither a second Minecraft account on one Discord user
--- nor a shared Minecraft account across two Discord users can be written, whatever the
--- application layer believes.
+-- The 1:1 link between a Discord account and a Minecraft account. Both sides are enforced here, by
+-- the database, and nowhere else: `discord_id` is the primary key and `mc_uuid` is UNIQUE, whatever
+-- the application layer believes.
 CREATE TABLE account_link
 (
     discord_id varchar(32) PRIMARY KEY
@@ -60,10 +49,8 @@ CREATE TABLE account_link
 
 
 -- A short-lived code shown to an unlinked player on the login screen, typed back into Discord.
---
--- `mc_uuid` is UNIQUE on purpose: one live code per Minecraft account. A repeated join attempt is
--- an upsert on that constraint and hands out the *same* code again, which is what makes join-spam
--- pointless without a rate limiter.
+-- `mc_uuid` is UNIQUE on purpose: one live code per Minecraft account, so a repeated join attempt
+-- upserts and hands out the same code instead of minting another.
 CREATE TABLE link_code
 (
     code    varchar(16) PRIMARY KEY,
@@ -94,7 +81,7 @@ CREATE TABLE payment_request
     days               int         NOT NULL CHECK (days > 0),
 
     -- What the tab asks for, in cents. The payer can edit the amount on the bunq.me page, so this
-    -- is what was requested, not what arrived - see the "pay what you get" rule in the concept.
+    -- is what was requested, not what arrived.
     amount_cents       int         NOT NULL CHECK (amount_cents > 0),
     donation_cents     int         NOT NULL DEFAULT 0 CHECK (donation_cents >= 0),
 
@@ -116,9 +103,9 @@ CREATE TABLE payment_request
         CHECK ((status = 'PAID') = (settled IS NOT NULL))
 );
 
--- The only thing that actually prevents booking one bunq payment twice. The poll loop diffs
--- against what it has already seen, but that check is read-then-write and two overlapping polls
--- would both pass it. Partial, because every unsettled request has a NULL here.
+-- The only thing that actually prevents booking one bunq payment twice: the poll loop's own diff is
+-- read-then-write, so two overlapping polls would both pass it. Partial, because every unsettled
+-- request has a NULL here.
 CREATE UNIQUE INDEX payment_request_bunq_payment_id_key
     ON payment_request (bunq_payment_id)
     WHERE bunq_payment_id IS NOT NULL;
@@ -134,8 +121,8 @@ CREATE INDEX payment_request_status_idx ON payment_request (status);
 
 
 -- A period of access. Buying while access is still running appends a new row starting where the
--- current one ends; the rule lives in AccessDirectory#grantAccess as a single statement, never in
--- a caller.
+-- current one ends; that rule is a single statement in AccessDirectory#grantAccess, never in a
+-- caller.
 CREATE TABLE access_grant
 (
     id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -161,9 +148,8 @@ CREATE TABLE access_grant
     CONSTRAINT access_grant_positive_window CHECK (valid_until > valid_from)
 );
 
--- One payment request can produce at most one grant. Together with the unique bunq payment id
--- above this is the second half of the double-booking guard: even a request settled twice through
--- two different code paths cannot hand out two periods.
+-- One payment request can produce at most one grant - with the unique bunq payment id above, this
+-- is what stops a request settled twice from handing out two periods.
 CREATE UNIQUE INDEX access_grant_payment_request_id_key
     ON access_grant (payment_request_id)
     WHERE payment_request_id IS NOT NULL;
@@ -173,10 +159,9 @@ CREATE INDEX access_grant_discord_id_valid_until_idx
     ON access_grant (discord_id, valid_until);
 
 
--- Append-only record of everything a human needs to be able to reconstruct: links, unlinks, admin
--- grants and revokes, manual settlements. Append-only by discipline - nothing in the codebase
--- issues an UPDATE or DELETE against it - not by trigger; the bot's database role is the same one
--- that owns the schema, so a trigger would only be documentation with a runtime cost.
+-- Append-only record of everything a human needs to reconstruct: links, unlinks, admin grants and
+-- revokes, manual settlements. Append-only by discipline rather than by trigger, since the bot's
+-- role owns the schema anyway.
 CREATE TABLE audit_log
 (
     id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),

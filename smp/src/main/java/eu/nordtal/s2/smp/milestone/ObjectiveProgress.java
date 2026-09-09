@@ -3,16 +3,12 @@ package eu.nordtal.s2.smp.milestone;
 /**
  * Advancing one objective's progress, and deciding when it is finished.
  *
- * <p>Small, and separate from the DAO on purpose: "did that hand-in complete the objective" is the
- * question that fires the payout, the announcement, the milestone unlock and possibly the border
- * move, and it is one comparison that must not be written twice.
+ * <p>Separate from the DAO so that "did that hand-in complete the objective" - the question that
+ * fires the payout, the announcement, the milestone unlock and possibly the border move - is
+ * written exactly once.
  *
- * <h2>Progress is monotonic and is never recomputed</h2>
- * Every type accumulates. A {@code HAND_IN} adds what was delivered, a {@code STATISTIC} adds the
- * increase since the objective started, and an {@code ADVANCEMENT} adds one the first time each
- * player earns it. Nothing is ever recalculated from the world, which is what makes a player who
- * earned an advancement and never logged in again stay counted
- * (docs/smp.md#the-rules-the-content-has-to-obey).
+ * <p>Progress is monotonic and never recomputed from the world: every type only ever accumulates.
+ * That is what keeps a player who earned an advancement and never logged in again counted.
  */
 public final class ObjectiveProgress {
 
@@ -52,10 +48,9 @@ public final class ObjectiveProgress {
     /**
      * Whether lowering a target has just finished an objective.
      *
-     * <p>The first and finest escape hatch (docs/smp.md#when-an-objective-turns-out-to-be-impossible):
-     * "if the progress already collected is at or above the new target, the objective completes at
-     * once and pays normally" - <b>the full pot</b>, not the scaled one, because nothing was
-     * rescued and nobody was short-changed; the number was simply wrong when it was written.
+     * <p>If the progress already collected is at or above the new target the objective completes at
+     * once and pays <b>the full pot</b>, not the scaled one: nothing was rescued, the number was
+     * simply wrong when it was written.
      *
      * @param amount    the progress already collected
      * @param newTarget the target the reloaded file now asks for
@@ -69,8 +64,7 @@ public final class ObjectiveProgress {
      * @param amount the progress collected
      * @param target the target
      * @return how far along the objective is, as a whole percentage capped at 100 - what the
-     *         objective board and the HUD print. Integer arithmetic, because a board that reads
-     *         "99.7 %" for two hours is worse than one that reads "99 %"
+     *         objective board and the HUD print
      */
     public static int percentOf(final long amount, final long target) {
         if (target <= 0) {

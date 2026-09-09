@@ -1,50 +1,26 @@
 # Every external version used anywhere in this build lives here.
-# Verified 2026-08-29 against the publishing repository's maven-metadata.xml — re-check before bumping.
 [versions]
 # Paper dropped the -R0.1-SNAPSHOT suffix with the 26.x version scheme.
 paper = "26.2.build.121-stable"
 # velocity-api 4.1.1 is compiled for Java 25 and ships the @Plugin annotation processor
 # that generates velocity-plugin.json.
 velocity = "4.1.1"
-# jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the
-# git tag. Only payments-bot uses it — see CLAUDE.md before adding it to a plugin.
-# 2.0.0 dropped Hibernate/Morphia for JDBI 3 + HikariCP + Flyway on PostgreSQL and no longer
-# exports a logging backend, so consumers declare logback themselves.
-# 3.0.0 replaced the JSON config loader with commented YAML (a vendored, hardened Spec) and
-# dropped jackson-databind entirely, adding gson and snakeyaml instead. Verified 2026-08-30.
-# 3.1.0 splits the strict load in two: a key that reads as a MISSPELLING of a declared one still
-# stops the start with the file untouched, and a key that resembles nothing declared - which is
-# what a setting we have retired looks like - is deleted from the file with a WARN and a .bak.
-# Taken 2026-09-05, because the old answer took a whole network down over a line nobody could fix
-# by editing it. See CLAUDE.md, "Configuration".
+# jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the git
+# tag. It exports no logging backend, so consumers declare logback themselves.
 jcore = "3.1.0"
-# Our own Paper plugin, published from github.com/nordtal/papermc-display-tags via JitPack. `smp`
-# takes it compileOnly and NEVER shades it - the api module is an interface over the running plugin,
-# so DisplayTags (and PacketEvents under it) has to be installed on the SMP server. Checked against
-# the repository's own api/README.md on 2026-09-01.
+# Our own Paper plugin, via JitPack. `smp` takes it compileOnly and NEVER shades it - the api
+# module is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to
+# be installed on the SMP server.
 #
-# NOT A FIXED VERSION, and that is deliberate (2026-09-04). `updater.yml` ships
-# `display-tags-release: latest`, so the jar that actually runs on the SMP is whatever the fork
-# released most recently - and a pinned compile version can only agree with that by accident. It
-# had already stopped agreeing: this line read "2.0.0" while the fork was on 2.1.1, so every method
-# added in 2.1 was invisible to this build and nothing anywhere said so.
-#
-# The trade is real and it is the smaller one. A dynamic version means a build today and a build in
-# three weeks can compile against different APIs with no commit in between, so a DisplayTags release
-# that removes something turns CI red with nothing to blame it on. Against that: this is compileOnly
-# and never shaded, so no shipped byte depends on it; the runtime version was ALREADY dynamic; and
-# a break found by a red build is a break found before a server sees it. If a release does break us,
-# pin this line to the last good version and say why - do not un-pin it silently.
-#
-# `latest.release` reads JitPack's own maven-metadata.xml, which lists only versions JitPack has
-# actually built - 1.1.5, 2.0.0 and 2.1.1 as of 2026-09-04. 2.1.0 is absent from it, which is
-# correct: that release failed twice over a lost `gradlew` executable bit and went out as 2.1.1.
+# NOT A FIXED VERSION, deliberately: `updater.yml` ships `display-tags-release: latest`, so the jar
+# that runs on the SMP is whatever the fork released most recently, and a pinned compile version
+# can only agree with that by accident. The cost is that a DisplayTags release can turn CI red with
+# no commit in between; if one does, pin this line to the last good version and say why - do not
+# un-pin it silently.
 displaytags = "latest.release"
-# Chunky, the chunk pre-generator. Published by pop4959 to repo.codemc.io, NOT to Maven Central -
-# the two "chunky" artefacts on Central are unrelated projects. The version is pinned to 1.5.3
-# rather than the 1.5.4 that codemc also carries, because 1.5.3 is what Modrinth tags for `paper`
-# on Minecraft 26.2 (checked against the Modrinth v2 API, 2026-09-01) and therefore what actually
-# runs on the server. A compileOnly version ahead of the installed jar is how you get a
+# Chunky, the chunk pre-generator. Published to repo.codemc.io, NOT to Maven Central - the two
+# "chunky" artefacts on Central are unrelated projects. Pinned to what Modrinth tags for `paper` on
+# this Minecraft version, because a compileOnly version ahead of the installed jar is how you get a
 # NoSuchMethodError in production and nowhere else.
 chunky = "1.5.3"
 jda = "6.0.0-rc.4"
@@ -54,14 +30,12 @@ logback = "1.5.18"
 adventure = "5.2.0"
 lombok = "1.18.40"
 annotations = "26.0.2"
-# PostgreSQL JDBC driver. jcore already carries it as a runtime dependency; payments-bot
-# declares it so the version is visible here rather than implied by jcore's POM.
+# PostgreSQL JDBC driver. jcore carries it at runtime; declared so the version is visible here
+# rather than implied by jcore's POM.
 postgresql = "42.7.13"
-# JDBI, HikariCP and Flyway are pinned to exactly what jcore 3.0.0 depends on (checked against
-# jcore's build.gradle.kts on 2026-08-30). :common needs the first two directly for the access
-# API and must NOT pull jcore in to get them - a Paper plugin cannot carry the bot's ~33 MB
-# dependency block. Keeping the versions identical means the bot, which has both on its
-# classpath, resolves one copy rather than two.
+# JDBI, HikariCP and Flyway are pinned to exactly what jcore depends on. :common needs the first
+# two directly for the access API and must NOT pull jcore in to get them - a Paper plugin cannot
+# carry the bot's ~33 MB dependency block - and identical versions mean the bot resolves one copy.
 jdbi = "3.54.0"
 hikaricp = "7.1.0"
 # Flyway is a test-only dependency of :common: the .sql files live here (src/main/resources/db/
@@ -77,9 +51,8 @@ slf4j = "2.0.18"
 testcontainers = "1.21.4"
 # Gson, and only :common's tests use it - the resource-pack consistency test parses the three
 # font JSON files, and hand-rolling a JSON reader for that is 80 lines nobody would ever review.
-# Pinned to what Paper 26.2 ships in libraries/ (CLAUDE.md, verified on a running server
-# 2026-08-30) so the parser reading the fonts is the one the client-facing platform uses. It is
-# never shaded: Paper and Velocity both provide it, and :common's jar does not change.
+# Pinned to what Paper ships in libraries/, so the parser reading the fonts is the one the
+# client-facing platform uses. Never shaded: Paper and Velocity both provide it.
 gson = "2.14.0"
 junit = "6.0.0"
 shadow = "9.6.1"

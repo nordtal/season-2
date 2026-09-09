@@ -16,13 +16,8 @@ import java.util.UUID;
 /**
  * The figure in the tavern: click it to open the objective list and hand items in.
  *
- * <h2>It is a vanilla entity, and that was the whole answer</h2>
- * Paper 26.2 ships {@link Mannequin} - a player-shaped entity with a real skin, settable equipment
- * and poses, that is a {@code LivingEntity} rather than a {@code Mob}. No AI, no despawning, no
- * wandering, nothing to be pushed by a boat or struck by lightning. docs/smp.md weighed three
- * options for this - a villager with its AI off, a custom entity, Citizens - and every one of them
- * was worse than something the server already had. Citizens in particular would have been a fourth
- * mandatory third-party dependency after DisplayTags, PacketEvents and Chunky.
+ * <p>A vanilla {@link Mannequin}: a player-shaped {@code LivingEntity} with no AI, no despawning
+ * and no wandering, so no third-party NPC plugin is needed.
  *
  * <p>A later 3D model replaces how the NPC is <em>drawn</em> and nothing about how it is clicked,
  * which is why the interaction lives in its own listener rather than in here.
@@ -52,10 +47,9 @@ public final class SpawnNpc {
         }
         remove();
         final Location at = new Location(world, spec.x(), spec.y(), spec.z(), spec.yaw(), 0f);
-        // Loaded before the sweep, not after. getNearbyEntitiesByType searches loaded chunks only,
-        // and the figure is persistent since 2026-09-06 - so on a restart the chunk it was saved in
-        // is usually still on disk, the sweep finds nothing, and this spawns a second one on top of
-        // the first (finding 106). Loading it here also makes the spawn itself deterministic.
+        // Loaded before the sweep, not after: getNearbyEntitiesByType searches loaded chunks only,
+        // so an unloaded chunk means the sweep finds nothing and a second figure is spawned on top
+        // of the saved one.
         at.getChunk().load();
         sweep(world);
 
@@ -63,35 +57,18 @@ public final class SpawnNpc {
             mannequin.setImmovable(true);
             mannequin.setInvulnerable(true);
             mannequin.setSilent(true);
-            // Persistent since 2026-09-06: with false, Paper discards the figure the moment its
-            // chunk unloads - which on the local stack happened within minutes of the start (the
-            // placeholder coordinates are far from the world spawn) and left an empty spot where
-            // the NPC had been until the next restart. sweep() above removes whatever the last
-            // start left in the world before this one spawns its own, so persistence costs no
-            // duplicates.
+            // Persistent: otherwise Paper discards the figure the moment its chunk unloads and
+            // leaves an empty spot until the next restart. sweep() above is what keeps persistence
+            // from accumulating duplicates.
             mannequin.setPersistent(true);
             if (spec.name() != null && !spec.name().isBlank()) {
-                // The ordinary entity label, and DELIBERATELY NOT Mannequin#setDescription, which
-                // is what this used to set and only that.
-                //
-                // Both render, one above the other - measured on a real 26.2 client on 2026-09-06
-                // by renaming the live entity: the custom name is the large top line, the
-                // description a smaller line under it. Setting both gave the figure two labels.
-                //
-                // The custom name is the one kept because it is the one that was watched working.
-                // The description was set on the figure standing in the tavern that afternoon -
-                // `data get entity` reported description: "Nordtal" - and the client drew nothing
-                // at all above it; only a figure spawned fresh after the restart showed the text
-                // (finding 127). What exactly the older figure was missing was not established,
-                // and an ordinary custom name does not depend on the answer.
+                // The ordinary entity label, DELIBERATELY NOT Mannequin#setDescription: both
+                // render, one above the other, so setting both gives the figure two labels.
                 mannequin.customName(Component.text(spec.name()));
                 mannequin.setCustomNameVisible(true);
             }
-            // Vanilla draws a mannequin's description as a second, smaller line under whatever else
-            // is above it, and Mannequin.defaultDescription() is the literal English word "NPC".
-            // Leaving it alone therefore labels the figure twice - "Nordtal" over "NPC" - with the
-            // second line in one language for every reader. Emptied rather than set to the same
-            // text, because two identical lines is not better than one.
+            // Mannequin.defaultDescription() is the literal English word "NPC", drawn as a second
+            // smaller line, so leaving it alone labels the figure twice in one language.
             mannequin.setDescription(Component.empty());
             applySkin(mannequin, spec.skinName());
         });
@@ -101,8 +78,8 @@ public final class SpawnNpc {
     /**
      * Wears somebody's skin, resolved from Mojang.
      *
-     * <p>Deliberately not fatal and deliberately not blocking: a figure with the default skin is a
-     * cosmetic disappointment, and a server that will not start because Mojang is slow is an outage.
+     * <p>Deliberately neither fatal nor blocking: a default skin is cosmetic, a server that will
+     * not start because Mojang is slow is an outage.
      */
     private void applySkin(final Mannequin mannequin, final String skinName) {
         if (skinName == null || skinName.isBlank()) {

@@ -7,34 +7,14 @@ import org.jetbrains.annotations.NotNull;
 import javax.sql.DataSource;
 
 /**
- * The bot's answer to "is the schema the one I was built against?" - asked at startup, answered
- * before a Discord session exists.
+ * The bot refuses to start against a database it was not built against. The updater owns the
+ * migrations; without this check the bot would instead fail on its first query, minutes later,
+ * inside a Discord interaction.
  *
- * <h2>Why the bot stopped migrating, 2026-09-01</h2>
- * {@code AccessBot} carried the only {@code migrate()} call in this repository, and every plugin's
- * class comment said it never migrates. That worked, and it was held together by an operator rule
- * written in prose - <i>"after a schema change, bring the bot up first"</i> - which is a rule that
- * holds until the deployment where somebody does it in the other order. The call moved to the
- * {@code updater} module, because a release that adds a table is a release that adds a migration:
- * the schema and the versions are one thing and now have one owner.
- * See {@code docs/updater.md} and {@code docs/architecture.md#schema-ownership}.
- *
- * <h2>What is left here, and why it is not nothing</h2>
- * Without a check, a bot started against a database the updater has not migrated fails on its first
- * query - somewhere inside a Discord interaction, minutes later, as {@code relation "..." does not
- * exist}. This turns that into a refusal at startup with a sentence naming the command to run.
- *
- * <p>Flyway's own {@code validate()} is the check: it compares the migrations on this jar's
- * classpath - {@code :common} is shaded in, so they are the same files the updater applies -
- * against what the database says has been applied, and fails on a resolved migration that is not
- * there. It is the exact question, and it costs one query at startup.</p>
- *
- * <h2>The plugins do not do this, on purpose</h2>
- * Validating needs Flyway, and <b>Flyway must never be shaded into a Paper plugin</b> - a plugin jar
- * carrying a few KB of SQL text is fine, one carrying Flyway is not. The bot already has it through
- * jcore, so the check is free here and would be expensive anywhere else. A plugin against an old
- * schema still fails the way it always did, and the bot - which starts first - is what catches the
- * situation for the whole stack.
+ * <p>Flyway's {@code validate()} compares the migrations shaded into this jar - the same files the
+ * updater applies - against what the database says has been applied. The Paper plugins do not do
+ * this, because Flyway must never be shaded into a plugin jar; the bot starts first and catches it
+ * for the whole stack.</p>
  */
 @Slf4j
 final class SchemaCheck {
@@ -49,8 +29,8 @@ final class SchemaCheck {
      */
     static void validate(final @NotNull DataSource dataSource) {
         try {
-            // Resolved against this class's own class loader, the same way jcore's Database does
-            // it, so the migrations bundled inside the shaded jar are found.
+            // Resolved against this class's own class loader, so the migrations bundled inside
+            // the shaded jar are found.
             Flyway.configure(SchemaCheck.class.getClassLoader())
                     .dataSource(dataSource)
                     .locations("classpath:db/migration")

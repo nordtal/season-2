@@ -11,23 +11,15 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Team registration: {@code hg_game}/{@code hg_team}/{@code hg_member}, from the Discord side.
- * See {@code docs/hunger-games.md#registration} and {@code V5__hunger_games.sql}.
+ * Team registration over {@code hg_game}/{@code hg_team}/{@code hg_member}, from the Discord side.
  *
- * <h2>The open game</h2>
- * Registration does not need an admin to "start" anything first - the concept has it open through
- * all of {@code PRE_EVENT}. {@link #openGame()} therefore creates the one non-DECIDED
- * {@code hg_game} row lazily, on the first registration attempt, rather than requiring a separate
- * command nobody asked for. {@code hg_game_one_open_key} is what makes "lazily" safe under a race:
- * two overlapping first registrations can both try to create a game, and the loser of that race
- * simply re-reads the row the winner created.
+ * <p>Registration needs no admin to start anything: {@link #openGame()} creates the one non-DECIDED
+ * {@code hg_game} row lazily, on the first attempt. {@code hg_game_one_open_key} makes that safe
+ * under a race - the loser re-reads the row the winner created.</p>
  *
- * <h2>What is pre-checked here versus enforced by the schema</h2>
- * Every check below (name length, name taken, already registered, team full, one pending invite)
- * is also a schema constraint or is only reachable through one - see {@link HungerGamesDao}'s
- * class doc. The Java checks exist to answer with a specific {@link RegistrationResult}/
- * {@link InviteResult} rather than a generic failure; a race that slips past them still cannot
- * write a bad row, it just surfaces as a less specific outcome.
+ * <p>Every check here is also a schema constraint. The Java checks exist only to answer with a
+ * specific result rather than a generic failure; a race that slips past them still cannot write a
+ * bad row.</p>
  */
 public final class Teams {
 

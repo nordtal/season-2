@@ -7,33 +7,18 @@ import java.util.Set;
 /**
  * What a death costs.
  *
- * <p>docs/smp.md#deaths-cost-aura, decided 2026-08-31: <b>−5 ordinarily, −20 for a listed cause,
- * and nothing in the duel arena.</b> Aura is meant to be a number with risk in it rather than a
- * collection meter that only ever rises - otherwise carefulness counts for nothing and the
- * leaderboard measures diligence alone.
+ * <p><b>−5 ordinarily, −20 for a listed cause, and nothing in the duel arena.</b> Aura is meant to
+ * be a number with risk in it rather than a meter that only ever rises.
  *
- * <h2>One rule, and the exemptions that were rejected</h2>
- * The arena is the only exemption, and it is not really one: the ±10 stake already settles the
- * fight, so a death penalty on top would make every duel a net loss for both players. It is also
- * the one place with no grave, because nothing real was at stake.
- * <p>
- * Everything else costs - the world border, the void, and dying in the End during the dragon fight,
- * where until the dragon falls dying is the only way home. A list of exemptions was considered and
- * dropped: it is a list somebody has to maintain and argue about, and one rule that always applies
- * is easier to explain to a player than four that sometimes do.
- * </p>
- * <p>
- * There is also <b>no protection against a death drain</b>, deliberately. A daily cap and a
- * per-killer cooldown were both rejected: this server is peaceful by agreement, and the same
- * agreement that governs raiding governs this. What exists instead is the ledger.
- * </p>
+ * <p>The duel arena is the only exemption: the ±10 stake already settles the fight, so a death
+ * penalty on top would make every duel a net loss for both players. Everything else costs,
+ * including the world border, the void, and dying in the End during the dragon fight. There is
+ * deliberately <b>no protection against a death drain</b> - no daily cap, no per-killer cooldown;
+ * the ledger is what exists instead.
  *
- * <h2>Damage types are strings here</h2>
- * The listed causes are configured as damage-type keys and compared as lowercase strings rather
- * than as a Bukkit enum. Two reasons, and the second is the real one: the config is validated at
- * load, when no Bukkit registry is initialised, so a class that resolved them would not be testable
- * without a server - and a damage type the running platform does not have should be a startup
- * warning, not a load failure that takes the plugin down over a typo in a cosmetic list.
+ * <p>Listed causes are compared as lowercase strings rather than as a Bukkit enum, so that the
+ * config can be validated with no registry initialised and a damage type the platform does not have
+ * is a startup warning rather than a load failure.
  */
 public final class DeathPenalty {
 
@@ -51,8 +36,7 @@ public final class DeathPenalty {
      * @param ordinary     the ordinary penalty, as a positive number of aura
      * @param listed       the listed-cause penalty, as a positive number of aura
      * @param listedCauses the damage-type keys that cost {@code listed}; matched case-insensitively
-     *                     and with any {@code minecraft:} namespace stripped, because a config
-     *                     written either way means the same thing to the person writing it
+     *                     and with any {@code minecraft:} namespace stripped
      */
     public DeathPenalty(final int ordinary, final int listed, final Set<String> listedCauses) {
         if (ordinary < 0 || listed < 0) {

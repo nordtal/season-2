@@ -21,26 +21,12 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * One message format across the whole network: MiniMessage, with {@code {named}} placeholders.
+ * One message format across the whole network: MiniMessage, with {@code {named}} placeholders. A
+ * mismatch is invisible until a player reads {@code §l} or {@code <bold>} on their screen.
  *
- * <h2>What went wrong, and why prose was not enough to stop it</h2>
- * This repository ran three conventions at once until 2026-09-04, and nothing anywhere compared
- * them: {@code hunger-games}' bundles carried legacy section codes ({@code §l}), one
- * {@code network-control} key wrote MiniMessage tags, and the other five hundred lines were plain
- * text wrapped in {@code Component.text(...)}. Each of the three is invisible to the other two -
- * MiniMessage does not read a section code, and a section code is not a tag - so the way a mismatch
- * surfaces is a player reading {@code §l} or {@code <bold>} on their screen.
- *
- * <h2>The two rules this pins</h2>
- * <ol>
- *   <li>No message is wrapped in a bare {@code Component.text(messages...)} any more. That is the
- *       shape that renders a tag as literal text.</li>
- *   <li>No bundle carries a section code. That is the shape MiniMessage renders as literal text.</li>
- * </ol>
- *
- * <p>Both are checked against the source and the resources rather than against behaviour, because
- * behaviour needs a player: every one of these lines ends up on a disconnect screen, in a chat line
- * or on an item's lore, and none of that exists in a JVM with no server in it.</p>
+ * <p>Two rules: no message is wrapped in a bare {@code Component.text(messages...)}, which renders a
+ * tag as literal text, and no bundle carries a section code, which MiniMessage renders as literal
+ * text. Both are checked against the source and the resources, because behaviour needs a player.
  */
 class OneMessageFormatTest {
 
@@ -49,27 +35,13 @@ class OneMessageFormatTest {
             List.of("smp", "limbo", "hunger-games", "network-control");
 
     /**
-     * Every file in the four modules that still calls {@code Component.text(...)}, and why.
+     * Every file in the four modules that still calls {@code Component.text(...)}, and why. Three
+     * kinds of thing legitimately do: text that is not a message (a glyph, an entity's display
+     * name), text that must not be parsed (the updater's report), and a message composed in Java
+     * around arbitrary player-supplied text.
      *
-     * <p>This is an allowlist rather than a ban, because the boundary is genuinely uneven and
-     * saying so is better than pretending otherwise. Three kinds of thing legitimately go through
-     * {@code Component.text} and must keep doing so:</p>
-     *
-     * <ul>
-     *   <li><b>Text that is not a message at all</b> - a glyph, a composed progress bar, an
-     *       entity's display name. (The boss bar line was one of these until 2026-09-05; it is
-     *       composed in {@code :common}'s {@code BossBarLine} now, outside these four trees.)</li>
-     *   <li><b>Text that must not be parsed</b> - the updater's report, printed verbatim by module
-     *       rule, and the MOTD's own already-parsed fallback.</li>
-     *   <li><b>A message composed in Java with arbitrary text</b> - a GUI item name built from a
-     *       message plus a POI name a player typed. Parsing that would let a POI called
-     *       {@code <red>} colour the menu; the real fix is to pass the name as a parameter, which
-     *       escapes it, and let the bundle carry the styling. That work is outstanding and is on
-     *       the review's list, which is why these entries name a key rather than a reason.</li>
-     * </ul>
-     *
-     * <p>Adding a file here is cheap and deliberate. Adding one <em>without</em> noticing is what
-     * this list exists to prevent.</p>
+     * <p>Adding a file here is cheap and deliberate; adding one <em>without</em> noticing is what
+     * this list exists to prevent.
      */
     private static final Map<String, String> COMPONENT_TEXT_ALLOWED = Map.ofEntries(
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/player/PlayerComposition.java",
@@ -78,24 +50,18 @@ class OneMessageFormatTest {
                     "the NPC's name out of config.yml, which is a name and not a message"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/welcome/SeasonWelcome.java",
                     "the frames of the season's opening moment, which are pictures rather than"
-                            + " sentences - text today because the art is a placeholder, private-use"
-                            + " code points once it exists, and a glyph may never be written into a"
-                            + " .properties file. The one part of that moment that IS language, its"
-                            + " subtitle, goes through MessageRenderer in the same file"),
+                            + " sentences - a glyph may never be written into a .properties file."
+                            + " Its subtitle, which IS language, goes through MessageRenderer"),
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/body/PlayerBodies.java",
                     "a disconnected player's name on their body"),
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/player/ArenaComposition.java",
                     "a flag glyph and a player name - this server's half of the shared system"
                             + " lines, the same exemption smp's PlayerComposition has"),
-            // hunger-games' Lobby was here until 2026-09-09, for "one space between the broadcast
-            // and the clickable link". That space is gone with the append that needed it: the
-            // bundle places the link through a <_link> component slot now, which is what a slot is
-            // for and is also what fixed the literal "{link}" every player in the lobby was reading.
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/ping/NetworkPing.java",
                     "the MOTD, which NetworkPing parses itself with its own placeholder resolver"),
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/VelocityUser.java",
                     "NordtalUser#replyLiteral - text that IS already the answer and must not be"
-                            + " rendered twice, which is docs/updater.md's rule about its report"),
+                            + " rendered twice"),
             Map.entry("network-control/src/main/java/eu/nordtal/s2/networkcontrol/command/ProxyChatEffects.java",
                     "a private message's own text, wrapped so that it can be handed to"
                             + " MessageRenderer's COMPONENT slot - which is what keeps a player"

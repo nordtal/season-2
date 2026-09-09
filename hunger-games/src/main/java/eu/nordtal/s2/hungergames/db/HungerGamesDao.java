@@ -13,18 +13,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The whole SQL surface this plugin needs, as a JDBI SqlObject interface - the same style as
- * {@code common}'s {@code AccessDao}. This plugin does not modify {@code :common}'s access
- * package; it is a separate, small, read-mostly DAO over tables the bot's migrations own
- * (docs/architecture.md#schema-ownership) plus the {@code hg_*} tables this plugin itself owns the
- * game-state writes for (docs/hunger-games.md#data-model: "written by both the bot (registration)
- * and the plugin (game state)").
- * <p>
- * Package-private would match {@code AccessDao}'s style, but this interface is deliberately public
- * because, unlike {@code AccessDirectory}, there is no wrapping interface here - the plugin's own
- * managers hold a {@code HungerGamesDao} directly, the same way {@code PlaytimeStore} in
- * {@code network-control} holds its own JDBI SqlObject DAO with no extra interface layer.
- * </p>
+ * The whole SQL surface this plugin needs, as a JDBI SqlObject interface: a read-mostly DAO over
+ * tables the bot's migrations own, plus the {@code hg_*} tables the bot writes registrations into
+ * and this plugin writes game state into.
  */
 public interface HungerGamesDao {
 
@@ -75,11 +66,8 @@ public interface HungerGamesDao {
     int setReady(@Bind("gameId") UUID gameId, @Bind("discordId") String discordId, @Bind("ready") boolean ready);
 
     /**
-     * The full roster of one game: every active ({@code OWNER}/{@code ACCEPTED}) membership,
-     * joined through {@code account_link} to the Minecraft account it belongs to. This is the
-     * plugin's one query for "who is registered, on what team, with what colour, ready or not, and
-     * what is their Minecraft account" - the join {@code common}'s {@code AccessDirectory} does not
-     * offer because it knows nothing about {@code hg_*}.
+     * The full roster of one game: every active ({@code OWNER}/{@code ACCEPTED}) membership, joined
+     * through {@code account_link} to the Minecraft account it belongs to.
      */
     @SqlQuery("""
             SELECT m.id AS member_id, m.team_id, t.name AS team_name, t.colour_rgb, t.colour_named,
@@ -116,10 +104,8 @@ public interface HungerGamesDao {
     Optional<String> localeOf(@Bind("discordId") String discordId);
 
     /**
-     * Whether the account behind this Minecraft UUID currently holds the Discord admin flag - see
-     * {@code common}'s {@code AccessDirectory#setAdmin}, which is what mirrors it there in the
-     * first place. This plugin only reads it: LuckPerms is not involved anywhere in this repo
-     * (docs/smp.md#admins), and there is no second admin list.
+     * Whether the account behind this Minecraft UUID currently holds the Discord admin flag.
+     * {@code discord_user.admin} is the only admin list; this plugin only reads it.
      */
     @SqlQuery("""
             SELECT usr.admin
@@ -147,16 +133,9 @@ public interface HungerGamesDao {
     int killCount(@Bind("gameId") UUID gameId, @Bind("actorId") UUID actorId);
 
     /**
-     * The same tally for every member of a game, in <b>one</b> round trip.
-     *
-     * <p>{@link #killCount} answers the tiebreak, which asks about two members at most. The ceremony
-     * asks about all of them - and it used to ask with one query per member, inside a loop that ran
-     * once per <em>player</em>, on the main thread, at the single busiest moment of the event:
-     * forty participants in front of forty players is 1 600 blocking queries on the server thread.
-     * The tally does not depend on who is being told, which is what made the inner loop pure waste.
-     *
-     * <p>Members with no kills are simply absent from the map; the ceremony only prints the ones
-     * above zero anyway.
+     * The same tally for every member of a game in one round trip, for the ceremony - which needs
+     * all of them at the busiest moment of the event and must not query per member per player.
+     * Members with no kills are absent from the map.
      */
     @SqlQuery("""
             SELECT actor_id, count(*) AS kills FROM hg_event

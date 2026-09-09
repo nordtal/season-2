@@ -3,17 +3,14 @@
 dimensions, plus the balloon item-model scaffold and the hunger-games lobby map
 placeholders.
 
-Why this exists: resource-pack/README.md's code point allocation table (decided
-2026-08-31) fully specifies which code points, which font, and which pixel metrics
-every one of these glyphs gets - the only thing missing was the drawing itself. This
-script draws simple, deterministic, reproducible placeholder/candidate art so the pack,
-the font JSON and Glyphs can be wired up and tested against a running server before the
-real design pass happens. Re-run it whenever a metric in the README table changes.
+The code point allocation table already fixes which code points, which font and which
+pixel metrics every glyph gets; this draws deterministic placeholder art at those exact
+dimensions so the pack, the font JSON and Glyphs can be wired up and tested against a
+running server before the real design pass. Re-run it whenever a metric changes.
 
-Pure standard library - no Pillow, no ImageMagick (neither is installed on this
-machine, checked 2026-08-31). PNG encoding is a minimal RGBA/8 writer; shading is a
-supersampled polygon/line/circle rasterizer producing anti-aliased black-on-transparent
-icons, which is what "a simple black star" (or arrow, or crest) means at this size.
+Pure standard library - no Pillow, no ImageMagick. PNG encoding is a minimal RGBA/8
+writer; shading is a supersampled polygon/line/circle rasterizer producing anti-aliased
+black-on-transparent icons.
 
 Usage:
     python3 resource-pack/tools/generate_dummy_textures.py
@@ -31,33 +28,20 @@ HG_RES = os.path.join(REPO_ROOT, "hunger-games", "src", "main", "resources")
 
 BLACK = (0, 0, 0)
 
-# The board frame's two colours. They were taken verbatim from generate_gui_panels.py's PALETTE
-# on 2026-09-04 so the boards and the menus read as one server's furniture; on 2026-09-05 the
-# menus went light (owner's call, in the manner of Origin Realms) and the boards deliberately did
-# not - a board hangs in the world on a Text Display's dark translucent ground, where a light
-# frame would glare. So these are the boards' own now, the old slate values, and the two surfaces
-# share a shape rather than a palette. Two things changed here on the 4th, and only one of them
-# was about style:
-#
-#   * the frame was drawn BLACK, which is the module's default and was never a decision. A board
-#     hangs in the world on a Text Display's dark translucent background, so a black frame is a
-#     frame nobody can see. Nothing had ever rendered one, so nothing had ever noticed.
-#   * the divider is now the accent and the border is not. The pack has allocated the two
-#     separately since 2026-08-31 precisely so an interior rule could differ from the border, and
-#     the panels already spend their one saturated colour on exactly this - a single line under the
-#     title bar and nowhere else. Same rule on both surfaces.
+# The board frame's two colours, and deliberately not the menus': a board hangs in the world on
+# a Text Display's dark translucent ground, where the menus' light frame would glare and a black
+# one would be invisible. The two surfaces share a shape rather than a palette. The accent goes
+# on the divider and not the border, which is the same rule the menu panels follow.
 BOARD_LINE = (78, 86, 104)      # PALETTE["highlight"]
 BOARD_ACCENT = (176, 138, 74)   # PALETTE["accent"]
 
-# The system-line icons are drawn WHITE, and that is the whole trick rather than a taste in
-# colours. Minecraft multiplies a glyph's texture by the component's text colour, so white art can
-# be tinted to anything a message wants and black art cannot be tinted lighter than black. Every
-# one of these six sits in a chat line whose colour the bundle decides - and the board frame spent
-# four days invisible for exactly the opposite reason (2026-09-04).
+# The system-line icons are drawn WHITE because Minecraft multiplies a glyph's texture by the
+# component's text colour: white art takes any colour a message wants, black art cannot be
+# tinted lighter. Each of these sits in a chat line whose colour the bundle decides.
 SYSTEM_WHITE = (255, 255, 255)
 
 
-# --- The PNG writer lives in pngio.py since 2026-09-05; the name stays importable. ----
+# --- The PNG writer lives in pngio.py; the name stays importable here. ----------------
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pngio import write_png as _write_png  # noqa: E402
@@ -216,9 +200,8 @@ def board_frame():
         c = Canvas(w, 9, ss=10)
         c.stroke_line(0, LINE_Y, w, LINE_Y, LINE_THICKNESS)
         c.save(os.path.join(out, f"edge_h_{w}.png"), BOARD_LINE)
-        # Same geometry as the outer edge, different colour: the divider carries the accent,
-        # the way the menu panel's one accent line sits under its title bar. That is what the
-        # separate allocation of 2026-08-31 was reserved for.
+        # Same geometry as the outer edge, different colour: the divider carries the accent, the
+        # way the menu panel's one accent line sits under its title bar.
         c2 = Canvas(w, 9, ss=10)
         c2.stroke_line(0, LINE_Y, w, LINE_Y, LINE_THICKNESS)
         c2.save(os.path.join(out, f"divider_{w}.png"), BOARD_ACCENT)
@@ -326,7 +309,7 @@ def balloon_scaffold():
 
 
 BALLOON_MODEL_JSON = """{
-    "_comment": "Placeholder geometry only - two flat-shaded cuboids standing in for the envelope and the basket. The real hot-air-balloon model (docs/smp.md#the-nordtal-spawn) is a Blockbench modelling task; this scaffold exists so the item-model plumbing (assets/nordtal/items/balloon.json, an ItemDisplay entity spawning it) can be built and tested before that art exists.",
+    "_comment": "Placeholder geometry only - two flat-shaded cuboids standing in for the envelope and the basket. The real hot-air-balloon model is a Blockbench modelling task; this scaffold exists so the item-model plumbing (assets/nordtal/items/balloon.json, an ItemDisplay entity spawning it) can be built and tested before that art exists.",
     "parent": "minecraft:item/generated",
     "textures": {
         "envelope": "nordtal:item/balloon_envelope",
@@ -365,7 +348,7 @@ BALLOON_MODEL_JSON = """{
 """
 
 BALLOON_ITEM_DEFINITION_JSON = """{
-    "_comment": "Item model definition for the hot-air balloon (pack_format 88 / MC 26.2 items model system). Selected in-game by giving the placeholder item an item_model component of \\"nordtal:balloon\\" - the plugin is expected to spawn it on an ItemDisplay entity rather than hand it to a player, per docs/smp.md#the-nordtal-spawn (\\"custom 3D model, barrier-block floor; stepping in opens the travel GUI\\").",
+    "_comment": "Item model definition for the hot-air balloon (pack_format 88 / MC 26.2 items model system). Selected in-game by giving the placeholder item an item_model component of \\"nordtal:balloon\\"; the plugin spawns it on an ItemDisplay entity rather than handing it to a player.",
     "model": {
         "type": "minecraft:model",
         "model": "nordtal:item/balloon"
@@ -375,11 +358,9 @@ BALLOON_ITEM_DEFINITION_JSON = """{
 
 
 def lobby_maps():
-    # 3x3 grid @ 128px/map = 384x384, per the 2026-08-31 decision (overriding the
-    # code's previous 4x3 default - see HungerGamesSpec.LobbySpec, updated alongside
-    # this script). One flat background plus a visible 3x3 grid so frame boundaries
-    # are checkable in-game, and a corner swatch distinguishing en/de so the
-    # per-language slice in LobbyMaps#renderLanguage is verifiable at a glance.
+    # 3x3 grid @ 128px/map = 384x384, matching HungerGamesSpec.LobbySpec. One flat background
+    # plus a visible 3x3 grid so frame boundaries are checkable in-game, and a corner swatch
+    # distinguishing en/de so LobbyMaps#renderLanguage is verifiable at a glance.
     size = 384
     cell = 128
 
@@ -460,9 +441,8 @@ def main():
     donor_star()
     prestige_crests()
     board_frame()
-    # dimension_icons() and status_icons() left for generate_hud.py on 2026-09-05, which
-    # draws the real icons; the placeholder shapes below are kept only as the record of
-    # what the HUD was tested against before it had art.
+    # dimension_icons() and status_icons() are generate_hud.py's now; the placeholder shapes
+    # below are kept only as a record of what the HUD was tested against before it had art.
     bearing_arrows()
     system_icons()
     balloon_scaffold()

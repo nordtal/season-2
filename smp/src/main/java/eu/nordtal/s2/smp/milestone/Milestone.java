@@ -7,9 +7,8 @@ import java.util.Optional;
 /**
  * One milestone of the track, as the milestone file defines it.
  *
- * <p>All of its objectives must complete before it unlocks and the next one begins - there is no
- * timer anywhere in the track, and the "expected" column in docs/smp.md#the-track is an estimate
- * for planning, not a rule in the code.
+ * <p>All of its objectives must complete before it unlocks and the next one begins. There is no
+ * timer anywhere in the track.
  *
  * @param key            the YAML key and {@code smp_milestone.key}: {@code waiting},
  *                       {@code departure}, {@code foothold}, ... Renaming one orphans its stored
@@ -20,12 +19,9 @@ import java.util.Optional;
  *                       {@link Unlock#BORDER}
  * @param objectivePot   the aura pot of <b>each</b> of this milestone's objectives, not of the
  *                       milestone as a whole. One number rather than one per objective because it
- *                       is derived rather than chosen:
- *                       {@code pot = round((budget ÷ objectives) × 5, to 10)}, and a per-objective
- *                       pot would let that derivation drift silently
+ *                       is derived: {@code pot = round((budget ÷ objectives) × 5, to 10)}
  * @param adminUnlocked  whether this milestone is opened by an admin rather than by objectives.
- *                       True for {@code departure} alone, which is the opening expansion at the
- *                       start of the season
+ *                       True for {@code departure} alone
  * @param objectives     every objective, in file order; empty for the two opening milestones
  */
 public record Milestone(String key, Unlock unlock, int borderDiameter, int objectivePot,
@@ -46,9 +42,8 @@ public record Milestone(String key, Unlock unlock, int borderDiameter, int objec
     }
 
     /**
-     * @return whether this milestone has nothing to finish. True for {@code waiting} and
-     *         {@code departure}, and the engine treats it as "unlocks the moment it becomes active,
-     *         unless an admin has to open it"
+     * @return whether this milestone has nothing to finish. The engine unlocks such a milestone the
+     *         moment it becomes active, unless an admin has to open it
      */
     public boolean hasNoObjectives() {
         return objectives.isEmpty();

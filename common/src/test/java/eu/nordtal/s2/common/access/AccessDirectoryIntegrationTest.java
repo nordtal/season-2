@@ -91,10 +91,8 @@ class AccessDirectoryIntegrationTest {
                 + "player_playtime, discord_user CASCADE");
 
         // season_phase is NOT truncated - it is a singleton the migration seeds, and the login
-        // query now reads it (docs/season-phases.md: one round trip carries both). SMP is the
-        // baseline here on purpose: it is the one phase in which access decides anything, so every
-        // access assertion below keeps meaning exactly what it meant before the merge. The tests
-        // that are about the phase itself set their own.
+        // query reads it in the same round trip. SMP is the baseline because it is the one phase in
+        // which access decides anything; tests about the phase itself set their own.
         phase(SeasonPhase.SMP);
         // Nor is smp_start, for the same reason - so it is cleared explicitly here. A test that
         // sets it would otherwise anchor every test that ran after it, which is exactly the kind
@@ -392,9 +390,8 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void theLoginQueryCarriesThePhaseSoTheProxyNeverMakesASecondRoundTrip() {
-        // docs/season-phases.md:61 - "one database round trip on the login path carries both the
-        // access state and the phase". This is that requirement as an assertion: the phase comes
-        // back on the same record, for a linked account and for a UUID nobody has ever seen.
+        // One database round trip on the login path carries both the access state and the phase,
+        // for a linked account and for a UUID nobody has ever seen.
         directory.link(DISCORD_ID, MC_UUID);
         phase(SeasonPhase.START_EVENT);
 
@@ -405,8 +402,8 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void aLinkedMemberWithNoAccessGetsInBeforeTheSmpAndNotAfterIt() {
-        // The whole reason the phase model exists (docs/season-phases.md, the phase table): the
-        // pre-event and the start event are free for anyone who has linked their account.
+        // The whole reason the phase model exists: the pre-event and the start event are free for
+        // anyone who has linked their account.
         directory.link(DISCORD_ID, MC_UUID);
 
         phase(SeasonPhase.PRE_EVENT);

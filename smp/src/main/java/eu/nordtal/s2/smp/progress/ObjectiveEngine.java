@@ -39,16 +39,12 @@ import java.util.UUID;
  * The spine of the season: crediting progress, finishing an objective, paying it out, and unlocking
  * the milestone that was waiting on it.
  *
- * <h2>Everything here runs off the main thread</h2>
- * Every method that touches the database says so, and the only things that hop back are the world
- * border, the announcements and the surfaces. A milestone unlock is the moment the whole server is
- * watching, which makes it the worst possible moment to be holding the server thread on a query.
+ * <p>Everything here runs off the main thread; only the world border, the announcements and the
+ * surfaces hop back.
  *
- * <h2>Completing exactly once</h2>
- * Two players can finish the same objective in the same instant. What makes the payout happen once
- * is not a lock in Java but a guard in SQL: {@code UPDATE ... WHERE completed IS NULL} changes a row
- * for exactly one of them, and only the caller whose update changed something goes on to pay
- * anybody. The same shape guards the milestone itself.
+ * <p>Two players can finish the same objective in the same instant. What makes the payout happen
+ * once is a guard in SQL, not a lock in Java: {@code UPDATE ... WHERE completed IS NULL} changes a
+ * row for exactly one of them. The same shape guards the milestone itself.
  */
 public final class ObjectiveEngine {
 
@@ -57,10 +53,8 @@ public final class ObjectiveEngine {
     /**
      * The milestone track, <b>as a supplier</b>.
      *
-     * <p>{@code /smp reload} replaces the plugin's track with a new instance - that is the whole
-     * reason {@code milestones.yml} is a separate reloadable file, because a milestone is appended
-     * and a target lowered mid-season. A reference captured at enable would go on reading the
-     * definitions the server started with, for the rest of the season, and nothing would say so.</p>
+     * <p>{@code /smp reload} replaces the plugin's track with a new instance, so a reference
+     * captured at enable would silently go on reading the definitions the server started with.</p>
      */
     private final java.util.function.Supplier<MilestoneTrack> track;
     private final SeasonState season;
@@ -76,8 +70,7 @@ public final class ObjectiveEngine {
     /**
      * How the milestone title sits on the screen: in fast, held long, out slowly.
      *
-     * <p>Three seconds rather than one because it arrives unannounced - nobody pressed anything -
-     * and it has to survive being looked up at from whatever somebody was doing.
+     * <p>Held long because it arrives unannounced - nobody pressed anything.
      */
     private static final Title.Times CEREMONY = Title.Times.times(
             Duration.ofMillis(400), Duration.ofSeconds(3), Duration.ofSeconds(1));
@@ -112,10 +105,9 @@ public final class ObjectiveEngine {
      * @param discordId  who to credit
      * @param objectiveKey which objective of the active milestone
      * @param delta      how much, in the objective's own unit
-     * @param completedBy the player this credit came from, or null when nobody is standing behind
-     *                    it - an admin's escape hatch. Carried through only so that a milestone
-     *                    finished by this credit sounds different to the person who finished it
-     *                    than it does to everybody else
+     * @param completedBy the player this credit came from, or null for an admin's escape hatch;
+     *                    carried only so a milestone finished by this credit sounds different to
+     *                    the person who finished it
      * @return how much was actually credited, which is less than {@code delta} when the objective
      *         was finished by it
      */
@@ -183,10 +175,9 @@ public final class ObjectiveEngine {
      * qualifiers, 70 % in proportion, a 2 % qualifying threshold and a one-aura minimum share. What
      * is here is only the reading and the writing.
      *
-     * <p><b>The pot is scaled when the objective did not actually reach its target</b>, which
-     * happens when an admin completes one by hand or lowers a target below the collected amount.
-     * Paying the full pot for a partial objective would make the escape hatch worth more than doing
-     * the work.
+     * <p><b>The pot is scaled when the objective did not actually reach its target</b> - an admin
+     * completion, or a target lowered below the collected amount - so the escape hatch is never
+     * worth more than doing the work.
      */
     private void payOut(final ObjectiveRow objective, final int pot, final String milestoneKey) {
         if (pot <= 0) {
@@ -211,10 +202,8 @@ public final class ObjectiveEngine {
             }
             dao.addAura(share.contributorId(), share.total(), AuraReason.CONTRIBUTION.stored(), ref);
 
-            // The wheel's extra spins hang off the SAME thresholds as the aura share, on purpose:
-            // one rule to understand, one place to change it. That the biggest contributors collect
-            // both is accepted - it is the only place in this design where effort compounds, and it
-            // compounds into loot rather than into rank.
+            // The wheel's extra spins hang off the SAME thresholds as the aura share: one rule,
+            // one place to change it.
             final long contributed = contributions.getOrDefault(share.contributorId(), 0L);
             final double percent = objective.target() <= 0 ? 0.0
                     : (contributed * 100.0) / objective.target();
@@ -249,13 +238,9 @@ public final class ObjectiveEngine {
             return;
         }
 
-        // ONE snapshot for the whole transition. Three separate reads of the supplier can answer
-        // with three different tracks - /smp reload runs on another thread - and the two that
-        // matter disagree in a way nothing downstream can recover from: the successor written into
-        // the database would come from one file and the SeasonState built beside it from another,
-        // so the row would name a milestone the running state does not have as active, and
-        // progression would simply stop. Reading it once is what makes the unlock atomic with
-        // respect to the definitions it uses.
+        // ONE snapshot for the whole transition: /smp reload runs on another thread, so separate
+        // reads of the supplier can answer with different tracks - and the row would then name a
+        // milestone the running state does not have as active, stopping progression outright.
         final MilestoneTrack now = track.get();
         now.after(milestoneKey).ifPresent(next -> dao.activateMilestone(next.key()));
         season.refresh(dao.completedMilestoneKeys(), now);
@@ -263,8 +248,8 @@ public final class ObjectiveEngine {
         final Milestone milestone = now.milestone(milestoneKey).orElse(null);
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (milestone != null && milestone.unlock() == Unlock.BORDER) {
-                // Animated, unlike the one applied at start: this one is happening now, and the wall
-                // crawling outwards is the ceremony.
+                // Animated, unlike the one applied at start: the wall crawling outwards is the
+                // ceremony.
                 worlds.expandNordtal(milestone.borderDiameter(), true);
             }
             announceMilestone(milestoneKey, completedBy,
@@ -277,11 +262,9 @@ public final class ObjectiveEngine {
     /**
      * One objective of the active milestone is finished, said to everybody - and said silently.
      *
-     * <p>The silence is the middle rung of a ladder, not an omission. Handing something in is
-     * {@code SMALL_SUCCESS} for the one player who did it; a milestone is {@code BIG_SUCCESS} for
-     * whoever closed it and {@code NETWORK_EVENT} for the rest of the server. An objective sits
-     * between those two and there are several of them per milestone, so a network-wide sound here
-     * would be heard often enough to make the milestone's own sound mean less.
+     * <p>The silence is the middle rung of a ladder: a hand-in is {@code SMALL_SUCCESS} for the one
+     * player, a milestone is {@code BIG_SUCCESS} and {@code NETWORK_EVENT}. There are several
+     * objectives per milestone, so a network-wide sound here would devalue the milestone's own.
      */
     private void announceObjective(final String milestoneKey, final String objectiveKey) {
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -302,25 +285,15 @@ public final class ObjectiveEngine {
      * objective and {@code NETWORK_EVENT} for the rest of the server. An admin's hand-completion
      * passes null, so everybody hears the network event and nobody is congratulated for a command.
      *
-     * <h2>Four things happen here, and until 2026-09-04 only one of them did</h2>
-     * {@code docs/smp.md} has described a milestone as a server-wide event since the concept was
-     * written - "title and chat announcement in every player's language" - and what the code did was
-     * send a chat line. The German one said <i>Schau nach oben</i>, at a sky where nothing happened;
-     * that was finding 50 of the review. The line is unchanged and is now true: the rockets go up
-     * around every player, wherever they are standing, because the season has no one place
-     * everybody is.
-     *
-     * <p>Nothing here is scheduled or staggered. A milestone closes at most a handful of times in a
-     * season and the whole ceremony is one tick's work per online player, so a sequencer would be
-     * machinery in the path of the single moment it exists to protect.
+     * <p>The rockets go up around every player, wherever they are standing, because the season has
+     * no one place everybody is. Nothing here is scheduled or staggered: a milestone closes a
+     * handful of times a season and the whole ceremony is one tick's work per online player.
      */
     private void announceMilestone(final String milestoneKey, final UUID completedBy,
                                    final Unlock unlock) {
-        // Discord first, and off this thread: one row per language, rendered from the same
-        // bundle the chat line uses, with the name in that language (finding 52, 2026-09-06).
-        // The sentence follows the unlock rather than assuming one: the announcement said "the
-        // border grows" for every milestone, so a Nether or End one posted a growth that did not
-        // happen, into the one place nobody can check it against the world (finding 111).
+        // Discord first, and off this thread: one row per language, from the same bundle the chat
+        // line uses. The sentence follows the unlock rather than assuming a border step - a Nether
+        // or End milestone would otherwise announce a growth that did not happen.
         final String announcement = switch (unlock) {
             case BORDER -> "smp.announce.milestone.border";
             case NETHER -> "smp.announce.milestone.nether";

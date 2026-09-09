@@ -5,8 +5,8 @@ import eu.nordtal.s2.common.Glyphs;
 /**
  * Which of the SMP's four worlds a world is, and what each one is allowed to do.
  *
- * <p>The rules in docs/smp.md#travel are per role, not per name, so they live here rather than
- * being re-derived from a string comparison at every call site.
+ * <p>The travel rules are per role, not per world name, so they live here rather than being
+ * re-derived from a string comparison at every call site.
  */
 public enum WorldRole {
 

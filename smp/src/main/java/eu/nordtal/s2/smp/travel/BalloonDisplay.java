@@ -25,23 +25,15 @@ import java.util.UUID;
  * The balloon itself - the thing a player sees standing at the spawn, as opposed to the box they
  * step into.
  *
- * <h2>What it is</h2>
- * One {@link ItemDisplay} per configured balloon box, showing the pack's {@code nordtal:balloon}
- * item model, scaled to fill the box and centred in it. The model is the placeholder scaffold
- * from {@code resource-pack/tools/generate_dummy_textures.py} - two flat cuboids - until the real
- * Blockbench art replaces {@code assets/nordtal/models/item/balloon.json}; nothing here changes
- * when it does, because the entity only names the item model and the pack decides what that looks
- * like. That was the whole point of the item-model plumbing (docs/smp.md#the-nordtal-spawn), and
- * until 2026-09-05 nothing spawned the entity, so the plumbing existed and the balloon did not.
+ * <p>One {@link ItemDisplay} per configured balloon box, showing the pack's
+ * {@code nordtal:balloon} item model, scaled to fill the box. The entity only names the item model,
+ * so replacing the art is a pack change and no Java change.
  *
- * <h2>Why an item display and not a block</h2>
- * A display entity is rendered by the client from the pack, has no hitbox, no collision, no AI, no
- * drops and no despawn timer, and is scaled with one transformation rather than built out of
- * blocks. The box a player walks into is a barrier-block floor and air; the display floats in it.
+ * <p>An item display rather than blocks: it has no hitbox, no collision, no AI, no drops and no
+ * despawn timer, and one transformation scales it.
  *
- * <h2>Lifecycle</h2>
- * Spawned non-persistent and removed at disable, the way the spawn NPC is, so a restart never
- * leaves a second balloon behind - and any left by a crash are swept from the box at start.
+ * <p>Spawned non-persistent and removed at disable, so a restart never leaves a second balloon
+ * behind; any left by a crash are swept from the box at start.
  */
 public final class BalloonDisplay {
 

@@ -9,27 +9,16 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * {@code config/pack.yml} - the resource pack the proxy offers every player on their way through
  * the waiting room.
  *
- * <h2>Why this is its own file, decided 2026-09-01</h2>
- * resource-pack/README.md#hosting left the question open with the words "deciding which
- * file the URL and hash live in belongs to that session". The alternative was two more keys on
- * {@link GateSpec}, and the reason it lost is <b>change cadence</b>: these two values change on
- * <em>every</em> pack release, and {@code gate.yml} - which decides who may join a network that
- * sells access - should not be edited on that rhythm. A separate file also gets its own
- * environment namespace, so {@code url} cannot collide with a future {@code url} elsewhere.
+ * <p>Its own file rather than two more keys on {@link GateSpec}, because these values change on
+ * every pack release and {@code gate.yml} - which decides who may join - should not be edited on
+ * that rhythm.</p>
  *
- * <h2>The hash is never hardcoded</h2>
- * The release workflow builds the pack zip reproducibly and writes its SHA-1 next to it; the client
- * is sent the URL <em>and</em> the hash and refuses the pack if they disagree. That is why
- * {@link #sha1()} is a config value with no default, exactly like every id in this repository:
- * a wrong hash is a pack every player silently fails to download, and a <em>guessed</em> hash is
- * wrong by construction.
+ * <p>{@link #sha1()} has no default: the client is sent the URL and the hash and refuses the pack
+ * if they disagree, so a guessed hash is wrong by construction.</p>
  *
- * <h2>What happens when this file is wrong</h2>
- * The same thing that happens when any {@code network-control} config is wrong: the proxy fails
- * closed (../../../../../../../../../docs/architecture.md#failing-closed-on-a-bad-config). A pack the network cannot describe means
- * a login path with no pack station, and letting players in without the pack is exactly the
- * outcome {@code limbo} exists to prevent - so it is refused loudly rather than skipped quietly.
- * The escape hatch for a deployment that genuinely has no pack yet is {@link #enabled()}.
+ * <p>A config this module cannot make sense of fails the proxy closed, because letting players in
+ * without the pack is what the waiting room exists to prevent. The escape hatch for a deployment
+ * that genuinely has no pack yet is {@link #enabled()}.</p>
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",
@@ -66,12 +55,9 @@ public interface PackSpec {
             "away is the offer and the wait for it, so a player passes through limbo in the",
             "time it takes their client to load it.",
             "",
-            "It exists for a development proxy and for the hours between 'the network is up'",
-            "and 'the first pack release exists'. A production network runs with a pack: the",
-            "glyphs the tab list, the nametags, the boards and the whole hunger games HUD are",
-            "drawn with are in it, and without them those surfaces render as missing-glyph",
-            "boxes. There is no warning louder than this comment - the proxy logs it at start",
-            "and otherwise behaves."
+            "It exists for a development proxy. A production network runs with a pack: the",
+            "glyphs the tab list, the nametags, the boards and the hunger games HUD are drawn",
+            "with are in it, and without them those surfaces render as missing-glyph boxes."
     })
     default boolean enabled() {
         return true;
@@ -81,21 +67,16 @@ public interface PackSpec {
     @Key("url")
     @Comment({
             "Where the client downloads the pack from - the GitHub release asset built by",
-            ".github/workflows/release.yml (../../../../../../../../../resource-pack/README.md#hosting).",
+            ".github/workflows/release.yml.",
             "",
             "EMPTY BY DEFAULT AND THE PROXY REFUSES TO START WITHOUT IT while 'enabled' is",
             "true, which is this repository's standing rule for every value nobody can guess",
             "correctly. A default pointing at somebody's release would be worse than none.",
             "",
             "PUT THE github.com/.../releases/download/... URL HERE, NEVER THE ONE IT",
-            "REDIRECTS TO. Measured 2026-09-01: that URL answers a single 302 to",
-            "release-assets.githubusercontent.com, and the target is a SIGNED URL that",
-            "expires within the hour. Pasting the resolved address into this file gives a",
-            "pack that works this afternoon and fails tonight.",
-            "",
-            "Whether a Minecraft client follows that redirect at all is one of the open",
-            "verifications in docs/state-of-play.md#the-unverified-assumptions; if it turns out not to,",
-            "the written fallback is a small static host, which is a change to this one line."
+            "REDIRECTS TO: that URL answers a 302 to release-assets.githubusercontent.com, whose",
+            "target is a SIGNED URL that expires within the hour. Pasting the resolved address",
+            "here gives a pack that works this afternoon and fails tonight."
     })
     default String url() {
         return "";
@@ -127,14 +108,11 @@ public interface PackSpec {
             "off in their client; without it those players are auto-declined and disconnected",
             "without ever seeing what they were asked.",
             "",
-            "What it costs, and it is written here because it is not obvious: on 1.17 and",
-            "newer the CLIENT enforces a forced pack, and Velocity kicks a player who declines",
-            "with its own generic text - PlayerResourcePackStatusEvent#setOverwriteKick throws",
-            "on those versions rather than preventing it. Our own decline and failure screens",
-            "therefore work by disconnecting the player first, from inside that awaited event.",
-            "If a rehearsal shows that losing that race is common, the answer is the fallback",
-            "docs/state-of-play.md already records - offer the pack from limbo itself - not",
-            "flipping this to false."
+            "What it costs: on 1.17 and newer the CLIENT enforces a forced pack, and Velocity",
+            "kicks a player who declines with its own generic text -",
+            "PlayerResourcePackStatusEvent#setOverwriteKick throws on those versions rather than",
+            "preventing it. Our own decline and failure screens therefore work by disconnecting",
+            "the player first, from inside that awaited event."
     })
     default boolean force() {
         return true;
@@ -146,12 +124,11 @@ public interface PackSpec {
             "How long a player may sit in the waiting room with an unanswered pack offer",
             "before they are disconnected with an explanation.",
             "",
-            "A client that never reports a status at all is not a case the protocol has an",
-            "answer for, and the waiting room is the worst possible place to discover it: it",
-            "is a black screen with a title, so 'downloading' and 'hung forever' look",
-            "identical to the person staring at it. This turns the hang into a message and a",
-            "rejoin. Generous by design - a first download over a poor connection is slow, and",
-            "the cost of being too eager here is kicking somebody who was about to succeed."
+            "The protocol has no answer for a client that never reports a status, and the",
+            "waiting room is a black screen with a title, so 'downloading' and 'hung forever'",
+            "look identical to the person staring at it. This turns the hang into a message and",
+            "a rejoin. Generous by design: being too eager kicks somebody who was about to",
+            "succeed."
     })
     default int applyTimeoutSeconds() {
         return 180;

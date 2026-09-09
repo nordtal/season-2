@@ -19,13 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@link PhaseWatch} against a fake {@link PhaseDirectory} - the poll's arithmetic without a
- * database, which is all of it: the class is a value, a read and a comparison.
+ * database.
  * <p>
- * The fallback rule from docs/season-phases.md#the-gate is what most of these are about: "a phase
- * that cannot be read falls back to <b>the last known phase</b>, and if there is none, to
- * {@code MAINTENANCE}". Both halves of that are easy to get wrong in opposite directions - clearing
- * the value on a failed read locks everybody out during a database blip, and defaulting a
- * never-read value to {@code PRE_EVENT} opens the network.
+ * Most of these are about the fallback rule: a phase that cannot be read falls back to the last
+ * known one, and to {@code MAINTENANCE} when there is none. Both halves are easy to get wrong in
+ * opposite directions - clearing the value on a failed read locks everybody out during a database
+ * blip, and defaulting a never-read value to {@code PRE_EVENT} opens the network.
  * </p>
  */
 class PhaseWatchTest {
@@ -96,7 +95,7 @@ class PhaseWatchTest {
         assertFalse(watch.refresh(), "a failed read says so");
 
         assertEquals(SeasonPhase.SMP, watch.lastKnown(),
-                "docs/season-phases.md: a phase that cannot be read falls back to the last known one");
+                "a phase that cannot be read falls back to the last known one");
         assertTrue(watch.everRead());
     }
 

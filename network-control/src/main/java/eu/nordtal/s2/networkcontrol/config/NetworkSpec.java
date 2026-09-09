@@ -10,35 +10,15 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * {@code config/network.yml} - what the server browser shows, and how many players the network
  * takes.
  *
- * <h2>Why this is a config file and not {@code velocity.toml}</h2>
- * It used to be {@code velocity.toml}, seeded once by the entrypoint on a fresh volume and owned by
- * the operator ever after. That made the MOTD unchangeable in practice: editing {@code .env} did
- * nothing on a volume that already existed, and nothing said so. The proxy refuses to start without
- * this plugin ({@code EXPECTED_PLUGINS}), so nothing is lost by moving both values in here and
- * having {@code eu.nordtal.s2.networkcontrol.ping.NetworkPing} answer every ping - and the whole
- * "seeded once" trap goes with them. The entrypoint no longer writes {@code motd} or
- * {@code show-max-players} at all.
+ * <p>These live here rather than in {@code velocity.toml} because the entrypoint seeds that file
+ * only on a fresh volume, which made the MOTD unchangeable in practice.</p>
  *
- * <h2>{@link #maxPlayers()} is the only limit on the network, since 2026-09-03</h2>
- * Velocity enforces no limit of its own - {@code show-max-players} is a display value - so before
- * this the number that actually decided was {@code max-players} on whichever Paper backend the
- * player landed on, which is always {@code limbo} first. The proxy refuses, once, at the login
- * gate, where it can say why.
- *
- * <h2>How it reaches the backends, since 2026-09-04</h2>
- * <b>It is the same number, not a smaller one.</b> This file used to carry a second key,
- * {@code backend-limit}: a copy of {@code BACKEND_MAX_PLAYERS}, the deliberately unreachable
- * {@code server.properties#max-players} the three Paper backends were given so that the proxy would
- * be the only thing that ever refused a player. The proxy refused to start when the two crossed,
- * which made the arrangement safe without making it right - the backends' number is what every
- * screen <em>on</em> a backend can reach, so the browser advertised 500 while the tab list said
- * {@code 3/1000}. Two numbers were visible at once and only one of them was true.
- *
- * <p>{@code NETWORK_MAX_PLAYERS} in {@code .env} is now written into this file <em>and</em> into
- * every backend's {@code server.properties}, so there is nothing left to keep in step. What that
- * costs is the admin exemption below: a Paper server on the network's own limit will refuse the
- * admins this proxy deliberately lets past it, so each backend rebuilds the exemption at its own
- * login - see {@code eu.nordtal.s2.common.access.FullServerAdmission}.</p>
+ * <p>{@link #maxPlayers()} is the only limit on the network: Velocity enforces none of its own
+ * ({@code show-max-players} is a display value), so the proxy refuses once, at the login gate,
+ * where it can say why. The same number is written into every backend's {@code server.properties},
+ * so a Paper server on the network's limit would refuse the admins this proxy deliberately lets
+ * past it - each backend rebuilds that exemption at its own login, see
+ * {@code eu.nordtal.s2.common.access.FullServerAdmission}.</p>
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",
@@ -73,12 +53,10 @@ public interface NetworkSpec {
             "to go and fix it.",
             "",
             "It is also what every Paper backend's server.properties#max-players is set to, out of",
-            "the same NETWORK_MAX_PLAYERS in .env: this file is an environment override of it and",
-            "so is each backend. That is why a backend's tab list can say 3/500 rather than the",
-            "3/1000 it said while the backends carried a separate, unreachable number. Changing it",
-            "therefore needs the backends restarted as well as this proxy - the entrypoint writes",
-            "server.properties on every start, and `docker compose restart network-control` alone",
-            "moves the half that advertises and not the half that runs the servers.",
+            "the same NETWORK_MAX_PLAYERS in .env. Changing it therefore needs the backends",
+            "restarted as well as this proxy - the entrypoint writes server.properties on every",
+            "start, and restarting network-control alone moves the half that advertises and not",
+            "the half that runs the servers.",
             "",
             "Two logins arriving in the same instant can exceed this by one. That is accepted",
             "rather than fixed with a reservation scheme: the count is read live from the proxy,",
@@ -88,13 +66,8 @@ public interface NetworkSpec {
         return 500;
     }
 
-    // There is no backend-limit here any more, and this comment is the reason rather than a gap in
-    // the numbering. It held a copy of BACKEND_MAX_PLAYERS - the unreachable number the Paper
-    // backends were given so that only this proxy ever refused a player - and this proxy refused to
-    // start when max-players reached it. Retired 2026-09-04 together with the second number itself:
-    // the backends are written from NETWORK_MAX_PLAYERS now, so there is no pair left to cross. A
-    // network.yml in a volume that still carries the key stops the proxy with the key named, which
-    // is jcore's strict load doing exactly what it is for; ConfigsTest asserts that it does.
+    // backend-limit is retired: the backends are written from NETWORK_MAX_PLAYERS, so there is no
+    // second number left to cross. A network.yml still carrying the key loses the line on load.
 
     @Order(2)
     @Key("snapshot-refresh-seconds")
@@ -106,9 +79,7 @@ public interface NetworkSpec {
             "stranger can make the proxy do work for. So one query runs on this interval, its",
             "result is kept as an immutable snapshot, and every ping renders from that.",
             "",
-            "Ten seconds is chosen against what the numbers are for: a team count in a server",
-            "browser is a reason to look, not a scoreboard. A failed refresh keeps the previous",
-            "snapshot rather than blanking it - see NetworkSnapshot."
+            "A failed refresh keeps the previous snapshot rather than blanking it."
     })
     default int snapshotRefreshSeconds() {
         return 10;
@@ -124,12 +95,10 @@ public interface NetworkSpec {
             "exempt from all of it and see the network exactly as they did before this list",
             "existed.",
             "",
-            "WHY THIS IS A LIST AND NOT A SET OF PERMISSIONS: Velocity's own /server is open to",
-            "every player - its permission check only refuses on an explicit FALSE, and nothing",
-            "ever set one - so a player could type '/server hunger-games' during the SMP phase and",
-            "land there, past every routing decision this proxy takes. A list of what IS allowed",
-            "cannot have that shape of hole, because a command nobody thought about is refused",
-            "rather than permitted.",
+            "AN ALLOWLIST, NOT A SET OF PERMISSIONS: a command nobody thought about must be",
+            "refused rather than permitted. Velocity's own /server is open to every player - its",
+            "permission check only refuses on an explicit FALSE - so a denylist would let somebody",
+            "type '/server hunger-games' during the SMP phase, past every routing decision here.",
             "",
             "AN ENTRY IS A PATH, without the slash: 'smp status', 'hg ready', 'msg'. A leading",
             "slash, extra spaces and capitals are accepted and ignored, and so is a namespace",
@@ -142,15 +111,14 @@ public interface NetworkSpec {
             "exist\"), so nobody learns what exists by being refused it.",
             "",
             "The three Paper servers read this list out of the database, where this proxy",
-            "publishes it on every start: it is one truth and an edit here reaches all four",
-            "processes. Until a proxy has published it once, a backend filters nothing and says so",
-            "in its log - this proxy's own enforcement never waits for anything."
+            "publishes it on every start, so an edit here reaches all four processes. Until a proxy",
+            "has published it once a backend filters nothing and says so in its log; this proxy's",
+            "own enforcement never waits for anything."
     })
     default java.util.List<String> commandAllowlist() {
         return java.util.List.of(
-                // Ours, and only ours. Every vanilla command is deliberately absent, including the
-                // harmless-looking ones: /help lists what a player may not run, /trigger and /me
-                // are surfaces this season has no answer for, and /tell is replaced by /msg below.
+                // Ours, and only ours. Every vanilla command is deliberately absent, including
+                // the harmless-looking ones: /help lists what a player may not run.
                 "smp status",
                 "navigate",
                 "poi",
@@ -185,33 +153,22 @@ public interface NetworkSpec {
             "{players:smp}. The three the phases route to are limbo, hunger-games and smp."
     })
     default MotdSpec motd() {
-        // createDefault, not createUnsafe with a hand-written map: it fills the instance from
-        // MotdSpec's own default bodies, so the five strings exist exactly once. A createUnsafe map
-        // would be a second copy of them, and the copy that goes stale is always the one nobody
-        // reads.
+        // createDefault fills the instance from MotdSpec's own default bodies, so the strings
+        // exist exactly once; a createUnsafe map would be a second copy to keep in step.
         return Specs.createDefault(MotdSpec.class);
     }
 
-    /**
-     * One MOTD per phase. There is deliberately no shared default to fall back on: five values,
-     * five meanings, and no rule about empties to remember when reading the file.
-     */
+    /** One MOTD per phase, with no shared default to fall back on. */
     @ConfigSpec
     interface MotdSpec {
 
-        // The name is the brand and never changes colour. It used to carry a gradient per phase -
-        // light blue before the start, orange in the event, green on the SMP, grey in maintenance -
-        // which is four different marks rather than one seen four times (owner, 2026-09-09). The
-        // phase is what the SECOND line is for, and it already says it.
+        // The name is the brand and never changes colour; the phase is what the second line says.
         //
-        // NORDTAL_BLUE is the logo's own blue, measured off resource-pack/src/pack.png: the mark
-        // is built from #24357d down through #1d2a62 and #1b285e to #13182f on near-black, and
-        // #24357d is the one a person would name. That value is the brand wherever the ground is
-        // light. This is not such a place: the server browser paints an almost black list, and
-        // #24357d on it is a dark blue on a dark grey. So the name is rendered in a lightened tone
-        // of the same hue - one brand, two applications, both written down in
-        // docs/presentation.md#the-palette. A future MOTD writes NORDTAL_BLUE and nothing else;
-        // BrandColourTest fails a phase that colours the name for itself again.
+        // The logo's own blue is #24357d, measured off resource-pack/src/pack.png. That is the
+        // brand wherever the ground is light, and the server browser is not such a place - it
+        // paints an almost black list, on which #24357d is a dark blue on a dark grey. So the name
+        // uses a lightened tone of the same hue. Every MOTD writes NORDTAL_BLUE and nothing else;
+        // BrandColourTest fails a phase that colours the name for itself.
         String NORDTAL_BLUE = "<#4a63d8><bold>nordtal.eu</bold></#4a63d8>";
 
         @Order(1)
@@ -282,9 +239,8 @@ public interface NetworkSpec {
                 "Planned work. Players are still let onto the proxy and held in limbo, so this is",
                 "not a closed sign - it is a \"we are working, come back shortly\" sign.",
                 "",
-                "The second half of the sentence is doing the work: 'Maintenance' on its own, in a",
-                "server list, is what a dead server looks like, and somebody scrolling past has no",
-                "way to tell a Tuesday evening's restart from a season that ended."
+                "The second half of the sentence is doing the work: 'Maintenance' on its own, in",
+                "a server list, is what a dead server looks like."
         })
         default String maintenance() {
             return NORDTAL_BLUE

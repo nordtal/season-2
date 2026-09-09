@@ -1,38 +1,26 @@
 #!/usr/bin/env python3
 """Draws the row furniture the list menus are built from, and the six `nordtal:gui_rN` fonts.
 
-WHY SIX FONTS AND NOT SIX HUNDRED CODE POINTS. A menu panel is a glyph in the inventory
-title (docs/presentation.md section 2), and the only way a glyph moves vertically is its
-font's `ascent`. A list menu wants the *same* picture - a pill, an icon, a line of text -
-on any of the six chest rows, so the row has to be carried by something. Carrying it in
-the code point costs one code point per (picture, row) and is impossible for text, which
-is not a code point we choose. Carrying it in the FONT costs one font per row and nothing
-per picture: `nordtal:gui_r2` is "everything, drawn on chest row 2".
+SIX FONTS, NOT SIX HUNDRED CODE POINTS. A menu panel is a glyph in the inventory title, and
+the only way a glyph moves vertically is its font's `ascent`. A list menu wants the same
+picture on any of the six chest rows, so the row is carried by the FONT: one font per row
+and nothing per picture. `nordtal:gui_r2` is "everything, drawn on chest row 2".
 
-So each of the six files below declares exactly the same characters at the three ascents a
-row has, and a renderer picks the font instead of picking a glyph:
+Each of the six files declares the same characters at the three ascents a row has:
 
     furniture (14 px tall, top y = 19 + 18r)   ascent  -6 - 18r
     icons      (8 px tall, top y = 22 + 18r)   ascent  -9 - 18r
     text       (5 px tall, top y = 23 + 18r)   ascent -10 - 18r
 
-All three are centred in the same 18 px cell: 14 is the pill's own height inset 2 from the
-cell, and 8 and 5 are centred inside that pill. The one that surprises is the text: five
-rows centred in fourteen lands at 23 and not 22, which is the same "+1" the artifact's own
-renderer carries, and getting it wrong puts every line one pixel high in every menu at
-once.
+All three are centred in the same 18 px cell. The one that surprises is the text: five rows
+centred in fourteen lands at 23, not 22, and getting it wrong puts every line one pixel high
+in every menu at once.
 
-THE 5 PX SHEET IS NOT NEW ART, WITH THREE NAMED EXCEPTIONS. It is the table from the
-owner's design artifact (`bloecke/menue-entwuerfe.html`, `SMALL_SRC`), transcribed
-character for character - the decision on 2026-09-08 was "this sheet, unchanged", not "a
-sheet in this style". The exceptions are `0`, `O` and `8`, which the owner asked to be
-redrawn the same day because the artifact draws `0` and `O` with identical pixels and `8`
-one pixel away from both; see the comment on SMALL below for what each is now and why the
-three silhouettes cannot be confused. It is all capitals with no descenders: at 8 px almost
-every POI name was cut off, at 5 px thirty-eight characters fit across a window. Lower case
-is folded onto capitals on the way in, except ß, which has no single-character upper case;
-`MenuFont` in :common is the Java side of that fold and reads its widths from the table this
-tool exports.
+The 5 px sheet is a transcription of the owner's design table, not new art, except `0`, `O`
+and `8`, which were redrawn so the three silhouettes cannot be confused. All capitals, no
+descenders: at 5 px thirty-eight characters fit across a window. Lower case is folded onto
+capitals on the way in, except ss, which has no single-character upper case; `MenuFont` in
+:common is the Java side of that fold and reads the widths this tool exports.
 
 Pure standard library. The PNG codec is pngio.py, shared with the other generators.
 
@@ -103,9 +91,8 @@ BUTTON_TAKE_WIDTH = 4 * ROW_PITCH - 2 * INSET
 
 # --- The palette. Everything here is the panel's own, plus the three button styles. ---
 #
-# The buttons are art and not text, so they carry their own colours the way the balloon's
-# four world cards do; docs/presentation.md's five-colour rule is about what a *sentence*
-# is painted, and none of these is a sentence.
+# The buttons are art and not text, so they carry their own colours: the five-colour rule is
+# about what a *sentence* is painted, and none of these is a sentence.
 PILL_FILL = (214, 214, 218, 255)
 # A second, darker pill. It is a HEADING and not another entry: the objective menu's top row
 # names the milestone the four cards below belong to, and drawing it in the entry grey would
@@ -135,11 +122,9 @@ CHAMFER = (1,)              # one pixel off each corner, the size a 14 px tall t
 # one, which the client works out for itself from the pixels - so this table is the whole
 # specification of the font, and MenuFont's copy of the widths is exported from it below.
 #
-# THREE CHARACTERS ARE NOT THE ARTIFACT'S (owner, 2026-09-08). It drew `0` and `O` with
-# the same five rows and `8` one pixel from both, which on a menu that prints coordinates,
-# distances and "1240/2048" is not a cosmetic problem. The three are now told apart by
-# their SILHOUETTE and not by an interior pixel, because at 5 px an interior pixel is what
-# a reader has to go looking for:
+# `0`, `O` and `8` are told apart by their SILHOUETTE and not by an interior pixel: at 5 px
+# an interior pixel is what a reader has to go looking for, and this font prints coordinates
+# and distances.
 #
 #     O   .#.  round: the top and bottom rows are tapered, like C G Q and every other
 #         #.#  letter loop on this sheet - unchanged from the artifact
@@ -173,10 +158,8 @@ SMALL = {
     'M': '#...#|##.##|#.#.#|#...#|#...#', 'N': '#..#|##.#|#.##|#..#|#..#',
     'O': '.#.|#.#|#.#|#.#|.#.', 'P': '##.|#.#|##.|#..|#..', 'Q': '.#.|#.#|#.#|#.#|.##',
     'R': '##.|#.#|##.|#.#|#.#', 'S': '.##|#..|.#.|..#|##.', 'T': '###|.#.|.#.|.#.|.#.',
-    # U is flat-bottomed and V tapers - the conventional 3x5 pair. Both were the bowl until
-    # 2026-09-09: the artifact drew one shape and it was transcribed twice, so a player-named
-    # POI reading BURG and one reading BVRG drew the same five rows. Found in review of
-    # PR #10; same class of defect as 0/O/8 above and fixed the same way, on the outline.
+    # U is flat-bottomed and V tapers - the conventional 3x5 pair. Drawn as one shape, BURG and
+    # BVRG render identically.
     'U': '#.#|#.#|#.#|#.#|###', 'V': '#.#|#.#|#.#|#.#|.#.',
     'W': '#...#|#...#|#.#.#|#.#.#|.#.#.', 'X': '#.#|#.#|.#.|#.#|#.#',
     'Y': '#.#|#.#|.#.|.#.|.#.', 'Z': '###|..#|.#.|#..|###',
@@ -240,9 +223,8 @@ def icon(rows):
     return buf
 
 
-# The three entry kinds /navigate can point at, then the three controls. Drawn white and
-# tinted by the component, which is the rule section 5 of docs/presentation.md states: white
-# art can be painted any colour, dark art cannot be painted lighter.
+# The three entry kinds /navigate can point at, then the three controls. Drawn white and tinted
+# by the component: white art can be painted any colour, dark art cannot be painted lighter.
 ICONS = {
     # A house: the world's spawn, the one place everybody knows.
     "spawn": ('...##...', '..####..', '.######.', '########',
@@ -359,10 +341,9 @@ def button(width, style):
     return width, height, bytes(buf)
 
 
-# Every row plate, once. Three places need this list - the font providers, the exported
-# advance table and the writer below - and until 2026-09-09 each carried its own copy; a
-# plate added to two of the three is a code point the client draws and the server cannot
-# measure, which lays out the whole row on the wrong width.
+# Every row plate, once. Three places need this list - the font providers, the exported advance
+# table and the writer below - and a plate added to only two of them is a code point the client
+# draws and the server cannot measure, which lays out the whole row on the wrong width.
 #
 # `builder` takes the width and returns (width, height, pixels).
 PLATES = (

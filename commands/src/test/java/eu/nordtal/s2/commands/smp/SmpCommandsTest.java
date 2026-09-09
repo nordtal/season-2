@@ -187,10 +187,31 @@ class SmpCommandsTest {
         final FakeSmp smp = new FakeSmp();
         final FakeUser user = FakeUser.inDiscord();
         new ShowStatus().run(user, Values.none(SmpCommands.STATUS), smp);
-        assertEquals(List.of("phase.current", "smp.status.milestone", "smp.status.online"), user.keys());
+        assertEquals(List.of("phase.current", "smp.status.milestone", "smp.status.online"),
+                user.keys());
         assertEquals("Aufbruch", user.replies.get(1).placeholders().get("milestone"));
         assertEquals(42, user.replies.get(1).placeholders().get("percent"));
         assertEquals(3, user.replies.get(2).placeholders().get("online"));
+    }
+
+    @Test
+    @DisplayName("the third line is a sentence, and it picks a key rather than a bracketed plural")
+    void statusCountsPeopleInSentences() {
+        // Three keys and not "{online} player(s)". BundleContinuationTest refuses the bracketed
+        // shape in a bundle, so a plural that is not selected here cannot be written down anywhere
+        // - which is the point: the selection is the only place the rule can live.
+        for (final int[] counts : new int[][]{{0, 0}, {1, 1}, {2, 2}, {57, 2}}) {
+            final FakeSmp smp = new FakeSmp();
+            smp.status = new SmpEffects.Status("SMP", java.util.Optional.of("Aufbruch"), 42,
+                    counts[0]);
+            final FakeUser user = FakeUser.inDiscord();
+            new ShowStatus().run(user, Values.none(SmpCommands.STATUS), smp);
+
+            final String expected = List.of("smp.status.online.none", "smp.status.online.one",
+                    "smp.status.online").get(counts[1]);
+            assertEquals(expected, user.keys().get(2),
+                    counts[0] + " online should read as " + expected);
+        }
     }
 
     @Test

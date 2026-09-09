@@ -1,25 +1,12 @@
 # deploy
 
-The whole of season 2's production deployment: one `docker compose` stack on one host, driven
-through [Arcane](https://github.com/ofkm/arcane).
+Season 2's production deployment: one `docker compose` stack on one host, driven through
+[Arcane](https://github.com/ofkm/arcane). This file is the operator's runbook; the project overview
+is [`../README.md`](../README.md).
 
-This file is both the runbook and the record of why the stack has this shape; the design
-reasoning is at the bottom, under [Why it looks like this](#why-it-looks-like-this). SimpleCloud was
-dropped on 2026-09-01 — see [../docs/README.md](../docs/README.md#decisions-and-when-they-were-taken).
-
-**`compose.yml` and `.env.example` are at the repository root, not in here.** They moved out of
-`deploy/` on 2026-09-01: Arcane's GitOps sync pulls *"the entire directory the compose file lives
-in, not just the file itself"* (its own documentation, read 2026-09-01), so a compose file under
-`deploy/` would put `deploy/` on the host and nothing else. **Every command in this file therefore
-runs from the repository root**, not from `deploy/`.
-
-The original reason was that the `./updater` and `./discord-bot` build contexts would not exist in
-such a tree, and *that half is now weaker than it was*: since 2026-09-02 nothing on the host builds,
-so a deploy that only pulls never looks at a build context. What still argues for the root is the
-sync pulling one directory, and `docker compose build` working from a checkout — which is what the
-`build:` blocks are for. Worth knowing, because it means the file's location is a convention now
-rather than a hard requirement, and a future change should not be argued down with a reason that has
-expired.
+**`compose.yml` and `.env.example` are at the repository root, not in here**, because Arcane's
+GitOps sync pulls the entire directory the compose file lives in. **Every command in this file
+therefore runs from the repository root**, not from `deploy/`.
 
 ```
 compose.yml            seven services, five profiles: db · bot · mc · backup · devpack
@@ -36,24 +23,18 @@ deploy/
   dev                  the local stack: init · up · deploy · pack · reset - see Locally below
   dev-test.sh          the guard on `dev reset`, without Docker (runs on `check`)
   dev.env.example      every setting the local stack needs; copy to dev.env
-  servers/             NOT IN GIT. The four servers' plugins/ folders, bound in by compose.yml
+  servers/             NOT IN GIT. Local plugin directories for the dev stack
   pack/                NOT IN GIT. The locally built resource pack the devpack profile serves
 ```
 
 ## First deployment, in order
 
-**Since 2026-09-02 the host needs no shell, no JDK and no Gradle.** All four of our images —
-`minecraft`, `updater`, `discord-bot`, `postgres-backup` — are pushed to `ghcr.io/nordtal` by
+The host needs no shell, no JDK and no Gradle. All four of our images — `minecraft`, `updater`,
+`discord-bot`, `postgres-backup` — are pushed to `ghcr.io/nordtal` by
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) when a release is published, and
-compose pulls every one of them. The `build:` blocks that remain in `compose.yml` are for developing
-on your own machine.
-
-That was not a preference. **Arcane deploys by pulling and never builds** — building is a separate
-action in its interface ([its documentation](https://getarcane.app/docs/features/projects), read
-2026-09-02) — so an image that only ever existed in one host's Docker failed the deploy with
-`error from registry: denied`, which is also what a *private* package answers and therefore explains
-nothing. Two of the four could not have been built from a checkout in any case: they `COPY` a jar
-Gradle produces into a directory `.gitignore` excludes.
+compose pulls every one of them. The `build:` blocks in `compose.yml` are for developing on your own
+machine: **Arcane deploys by pulling and never builds**, so an image that only exists in one host's
+Docker fails the deploy with `error from registry: denied`.
 
 ### Once, before the first deployment
 
@@ -61,42 +42,29 @@ Gradle produces into a directory `.gitignore` excludes.
    eight assets and pushes four images, each tagged with the version and with `latest`.
 2. **Set all four packages to Public**, in their GitHub package settings. A package under an
    organisation is **private on its first push**, and a private package answers a pull with the same
-   `denied` as one that does not exist. The alternative is a registry credential in Arcane; the
-   trade is in [`../../todo.md`](../../todo.md).
+   `denied` as one that does not exist. The alternative is a registry credential in Arcane.
 
 ### From Arcane, with no shell on the host
 
-3. **Point the project at the repository root**, not at `deploy/`. Arcane's GitOps sync pulls the
-   whole directory the compose file lives in, which is why `compose.yml` is up there.
-4. **Type the environment into Arcane.** For a git-synced project Arcane keeps `.env.git` from the
-   repository, `project.env` for what you type, and writes the effective `.env` from both; a sync
-   never overwrites your values (its documentation, read 2026-09-02). Since `.env` is gitignored
-   here, `.env.git` is empty and **everything comes from what you type**.
-   [`../.env.example`](../.env.example) is the reference for what to type — every `REPLACE_ME` in it
-   is something only you know, and one is the forwarding secret (`openssl rand -hex 24`). Nothing
-   has a plausible default for a value nobody can guess, and `REPLACE_ME` is not one either: it
-   fails validation by name rather than starting something surprising.
-5. **Set Auto Sync on and Redeploy After Sync off**, with the pull policy on *always pull latest*.
-   A redeploy takes the four Minecraft servers down for minutes, and a commit must not do that to
-   people who are playing — the updater's restart button exists for that and gives them a countdown
-   first.
-6. **Deploy.** Nothing else is needed, and the reason is the `updater` service: on its first start
-   it applies the schema and **fills every empty volume** — the four `plugins/` folders, both jar
-   volumes, each server's `.server/` cache and the proxy's `pack.yml` — and only then writes the
-   readiness marker that every other service waits for. That used to be
-   `docker compose run --rm updater bootstrap`, typed by a person, which Arcane has no way to do.
-
-   It **cannot move a version**: only artefacts with *nothing* installed are fetched, so a restart
-   of a running network finds nothing missing and does nothing at all. Upgrades stay a request
-   somebody makes, from Discord or in game. `UPDATER_BOOTSTRAP=false` turns it off, and then the
-   servers refuse to start until `updater bootstrap` has run, and say so by name.
-
-   A first deployment downloads four server jars and every plugin before it goes healthy, which is
-   why the updater's healthcheck allows fifteen minutes.
-7. **Upload the hand-built worlds** — see below. **This is the one step that still needs a shell**,
-   because a world folder is not something a repository or a release carries.
-8. **Run the login-path rehearsal** — [`../../todo.md`](../../todo.md), section 1. Nothing above
-   proves a client can join.
+3. **Point the project at the repository root**, not at `deploy/`.
+4. **Type the environment into Arcane.** [`../.env.example`](../.env.example) is the reference —
+   every `REPLACE_ME` in it is something only you know, and one is the forwarding secret
+   (`openssl rand -hex 24`). `.env` is gitignored here, so Arcane's `.env.git` is empty and
+   everything comes from what you type; a sync never overwrites those values.
+5. **Set Auto Sync on and Redeploy After Sync off**, with the pull policy on *always pull latest*. A
+   redeploy takes the four Minecraft servers down for minutes, and a commit must not do that to
+   people who are playing — the updater's restart button gives them a countdown first.
+6. **Deploy.** On its first start the `updater` applies the schema and **fills every empty volume** —
+   the four `plugins/` folders, both jar volumes, each server's `.server/` cache and the proxy's
+   `pack.yml` — and only then writes the readiness marker every other service waits for. It
+   **cannot move a version**: only artefacts with nothing installed are fetched.
+   `UPDATER_BOOTSTRAP=false` turns it off, and the servers then refuse to start until
+   `updater bootstrap` has run, and say so by name. A first deployment downloads four server jars
+   and every plugin before it goes healthy, which is why the updater's healthcheck allows fifteen
+   minutes.
+7. **Upload the hand-built worlds** — see [Getting a world into a
+   volume](#getting-a-world-into-a-volume). **This is the one step that still needs a shell.**
+8. **Run the login-path rehearsal.** Nothing above proves a client can join.
 
 ### From a shell instead
 
@@ -106,13 +74,6 @@ Steps 3 to 6 collapse into one command from the repository root, and it still bu
 docker compose up -d
 ```
 
-`docker compose run --rm updater report` prints what is installed and changes nothing;
-`updater bootstrap` is the manual form of step 6 and is what to reach for when the automatic
-bootstrap is off, or when a volume has been emptied. **It fills gaps and never upgrades** — an
-artefact that already has a jar keeps it. An upgrade is `/update now`, from Discord or in game: it
-stops each server before its jars move and starts it again afterwards, which is the whole difference
-and the reason finding 147 exists.
-
 **Pinning a release** is one line of environment, and it is how a rollback is expressed:
 
 ```bash
@@ -121,9 +82,8 @@ IMAGE_TAG=0.2.1
 
 ## First-start seeding
 
-The container writes seven things, **only when they are not there already**, and a file that exists
-is never edited again. It is deliberately the minimum that makes a login work, not a set of
-opinions about how to run a server: everything else stays Paper's and Velocity's own default.
+The container writes seven things, **only when they are not there already**; a file that exists is
+never edited again. Everything else stays Paper's and Velocity's own default.
 
 | what | where | when |
 |---|---|---|
@@ -135,144 +95,71 @@ opinions about how to run a server: everything else stays Paper's and Velocity's
 | `forwarding.secret` | proxy | every start, from `VELOCITY_FORWARDING_SECRET` |
 | `max-players=$MAX_PLAYERS` | each Paper server, `server.properties` | **every start** — the network's own limit, out of the same `NETWORK_MAX_PLAYERS` the proxy gets, see below |
 
-**The MOTD and the player limit are deliberately not in that table** (2026-09-03). They used to be:
-the entrypoint seeded `motd` and `show-max-players` into `velocity.toml`, which meant a MOTD nobody
-could change afterwards — editing `.env` on a volume that had already started did nothing at all,
-silently. Both are `network-control` config now (`plugins/network-control/network.yml`), the plugin
-answers every ping with them, and `.env` reaches them through jcore environment overrides that win
-over the file on every start. See [Who limits the players](#who-limits-the-players).
+The MOTD and the player limit are deliberately not in that table: both are `network-control` config
+(`plugins/network-control/network.yml`), reachable from `.env` through jcore environment overrides
+that win over the file on every start. See [Who limits the players](#who-limits-the-players).
 
-**`level-name` was missing from this table and from the script until 2026-09-02, and that was the
-whole of the first deployment's worst finding.** `entrypoint.sh` fetched Terralith and Dungeons and
-Taverns into `/data/$LEVEL_NAME/datapacks` — the script's own comment even said *"LEVEL_NAME has to
-agree with `server.properties#level-name`"* — while nothing wrote the key, so Paper kept its default
-and generated `world`. The packs were never loaded, `smp` refused to start on a `nordtal` that did
-not exist, and `hunger-games` had no `LEVEL_NAME` at all while its plugin looked for
-`hunger_games`. Terrain is not re-rolled: had it gone unnoticed, the season would have been played
-on vanilla terrain permanently.
+**A disagreeing `level-name` stops the container rather than being corrected.** Pointing an existing
+volume at a new name moves nothing — Paper generates a second, empty world beside the first and runs
+the season on that, while the world with everything in it sits untouched in the same volume. The
+refusal names both values and the two ways out. **The one exception is the literal string `world`**,
+Paper's own default and therefore not a name anybody chose: it is deleted (with `world_nether` and
+`world_the_end`) and regenerated under the right name, but only when nobody has ever logged out in
+it — one `<world>/playerdata/<uuid>.dat` is enough to refuse, and the message then gives the
+volume-wipe command. Any other name was typed into `.env` by a person, and the container refuses.
 
-**A disagreeing `level-name` is fatal rather than enforced, and the asymmetry with `online-mode` is
-deliberate.** `online-mode=true` behind the proxy is a server that *cannot* work; a `level-name`
-that disagrees is a server that works perfectly, on the wrong world. Pointing an existing volume at
-a new name does not move anything — Paper generates a second, empty world beside the first and runs
-the season on that, while the world with everything in it sits untouched in the same volume. So the
-container refuses to start and names both values and the two ways out. `:smp`'s and
-`:hunger-games`' `ComposeWorldTest` compare the `LEVEL_NAME` in `compose.yml` against each plugin's
-own configured world name on every build.
+`online-mode` is enforced rather than seeded: a backend that authenticates players itself refuses
+every forwarded login, so `online-mode=true` there is a server that cannot work.
 
-**With one exception, added 2026-09-03, because the guard's own arrival was the first thing it
-stopped.** v0.2.3 shipped the fix above onto volumes that had already run without it — so every one
-of them said `level-name=world`, and `smp` and `hunger-games` went into a restart loop on the
-`FATAL` above from the moment the release landed. A check written to prevent a misconfiguration had
-become one, and it is worth naming as a shape: a guard that fires on its own migration is a guard
-people switch off.
+**`[forced-hosts]` is written empty on purpose.** Leave the table out of `velocity.toml` and
+Velocity falls back to its *default* one, which routes three hostnames at servers the file does not
+define — and then refuses to start with *"Your configuration is invalid"*.
 
-So `world`, **and only the literal string `world`**, is now repaired instead of refused. Two
-conditions, both narrow because this deletes a world folder in an automatic start:
+**None of this fixes a volume that already exists**, beyond the exception above. The manual
+equivalent is `online-mode=false` in `server.properties` and `proxies.velocity.enabled: true` in
+`config/paper-global.yml`.
 
-- **the old name is `world`** — Paper's own default, what it writes when nothing tells it
-  otherwise, and therefore not a name anybody chose. Any other name was typed into `.env` by a
-  person, and the container still refuses. `limbo` is the proof this is not arbitrary: it
-  deliberately has no `LEVEL_NAME`, so *its* `level-name` is `world`, it matches, and it never
-  reaches this path.
-- **nobody has ever logged out in it** — Paper writes `<world>/playerdata/<uuid>.dat` on quit, so
-  one file there is enough to refuse. The message then says so and gives the volume-wipe command.
-
-`world_nether` and `world_the_end` go with it: they are that same world's two dimensions, and
-keeping them would leave gigabytes belonging to a world nothing can reach. The repair happens at
-most once per volume — afterwards `level-name` is `nordtal` or `hunger_games`, and a later mismatch
-can only mean somebody edited `.env`, which is exactly what the refusal is for.
-
-**`deploy/minecraft/entrypoint-test.sh` is where that logic is verified**, on `./gradlew check` via
-the root build's `checkEntrypoint`. It sources `entrypoint.sh` — which carries a guard at the line
-where its definitions end and the container's run begins — and drives ten cases against fixture
-directories: no Docker, no network, no server jar. It is the only shell in this deployment with a
-test, and the reason is specific: everything else here is verified by running it and looking, while
-this one deletes a folder that on the SMP is the season.
-
-**The seed's "does this world exist yet" test is `level.dat` and not the directory**, corrected in
-the same pass. `fetch_datapacks` creates `/data/$LEVEL_NAME/datapacks` before Paper has generated
-anything, so on every volume that had ever fetched a datapack the directory test was already true
-and `level-seed` was never written — Nordtal would have generated from a random seed while `.env`
-named `1837371427`, permanently and silently.
-
-`online-mode` is the one thing enforced rather than seeded. It is not a preference: a backend that
-authenticates players itself refuses every forwarded login, so `online-mode=true` there is a server
-that cannot work, not a choice somebody might have made. The rest is seeded once and yours
-afterwards.
-
-**`[forced-hosts]` is written empty on purpose, and it is not tidiness.** Measured 2026-09-01 on
-Velocity 4.1.1 build 24: leave the table out of `velocity.toml` and Velocity falls back to its
-*default* one, which routes `lobby.example.com` and two others at servers the file does not define
-— and it then refuses to start at all with *"Your configuration is invalid"*. "Velocity defaults
-everything you leave out" is true per key, not per table.
-
-**What this does not do** is fix a volume that already exists — with the two exceptions above it
-now has. The seeding otherwise only ever fires on a first start, so a server that has run before
-keeps whatever is in its volume; the manual equivalent is `online-mode=false` in
-`server.properties` and `proxies.velocity.enabled: true` in `config/paper-global.yml`.
+`deploy/minecraft/entrypoint-test.sh` drives ten cases of this logic against fixture directories on
+`./gradlew check`, and `:smp`'s and `:hunger-games`' `ComposeWorldTest` compare the `LEVEL_NAME` in
+`compose.yml` against each plugin's own configured world name.
 
 ## Who limits the players
 
-**One number decides, and since 2026-09-04 it is the only one there is.** `NETWORK_MAX_PLAYERS` in
-`.env` is what the server browser advertises, what the proxy enforces at the login gate — where it
-can say why — *and* what every Paper backend's `server.properties#max-players` is set to. All four
-services read the same variable, so nothing is derived and nothing can drift.
+**One number decides.** `NETWORK_MAX_PLAYERS` in `.env` is what the server browser advertises, what
+the proxy enforces at the login gate, *and* what every Paper backend's
+`server.properties#max-players` is set to. All four services read the same variable.
 
-That last part is what changed. Between 2026-09-02 and 2026-09-04 there was a second number,
-`BACKEND_MAX_PLAYERS`, set far out of reach (1000 against 500) so that the proxy would be the only
-thing that ever refused a player; `network.yml` carried a copy of it and the proxy refused to start
-if the two crossed. It was safe and it was still wrong, because **the backends' number is the one
-every screen on a backend can reach**: `Bukkit.getMaxPlayers()` is what a tab list has, so the
-browser promised 500 while the tab list said `3/1000`. Two numbers were visible to players at once
-and only one of them was true.
+The proxy is the only thing that refuses, at the login gate, before the resource pack and before the
+wait in `limbo`. The backends' `max-players` only guarantees they are never a *smaller* limit than
+the advertised one — Paper's own default is 20.
 
-**The proxy is still the only thing that refuses.** It refuses at the login gate, before the
-resource pack and before the wait in `limbo`, which is the whole point of the gate. What the
-backends' `max-players` does now is guarantee they are never a *smaller* limit than the advertised
-one — Paper's own default is 20, and that is exactly how this failed the first time.
+**Admins are exempt from the proxy's limit**, so a full network holds `NETWORK_MAX_PLAYERS` plus
+whoever came to fix it. Each Paper plugin therefore answers Paper's own
+`PlayerServerFullCheckEvent` itself and lets an admin through; the flag is `discord_user.admin` in
+the database, not `ops.json`, which is why this cannot be a server setting. See
+`common/…/access/FullServerAdmission.java`.
 
-**Admins are the one thing that had to be rebuilt.** They are exempt from the proxy's limit — they
-are the people who have to come and fix a full network — so a full network holds
-`NETWORK_MAX_PLAYERS` plus whoever came to fix it, and a backend on the same number would refuse
-those logins with *"Server full"*. Each Paper plugin therefore answers Paper's own
-`PlayerServerFullCheckEvent` itself: the admin flag is read on the async pre-login thread (only when
-the server is near its cap, so an ordinary login costs nothing) and an admin is let through. The
-flag is `discord_user.admin` in the database, not `ops.json`, which is why this cannot be a server
-setting. See `common/…/access/FullServerAdmission.java` for the reasoning and for the one ordering
-assumption in it that a running server still has to confirm.
-
-**Changing the number means restarting the backends, not just the proxy.** It is written into each
-Paper server's `server.properties` by that container's own entrypoint, on every start — so
-`docker compose restart network-control` picks up the browser's half and leaves all three backends
-on the old one. The whole change is
+**Changing the number means restarting the backends, not just the proxy** — it is written into each
+`server.properties` by that container's own entrypoint on every start. The whole change is
 `docker compose restart network-control limbo hunger-games smp`, or a redeploy.
 
-**`network.yml` in an existing volume still carries `backend-limit`, and the proxy deletes the line
-on its next start.** The key meant something once and means nothing now, so there is nothing to
-decide: jcore 3.1.0 drops a setting the spec no longer declares, says which one in a `WARN` line,
-and leaves the file as it was in `network.yml.bak`. Nothing to do by hand. (Until 2026-09-05 the
-proxy *refused to start* until somebody removed the line — which is documented here because a
-deployment that has not been redeployed since then still behaves that way.) A **misspelled** key is
-a different matter and still stops the proxy with the key named: only you know what you meant by
-it.
+An existing `network.yml` may still carry `backend-limit`; the proxy deletes the line on its next
+start, says which key in a `WARN`, and leaves the old file as `network.yml.bak`. Nothing to do by
+hand. A **misspelled** key still stops the proxy with the key named: only you know what you meant.
 
 ## What the server browser shows
 
 `NETWORK_MOTD_PRE_LAUNCH`, `_PRE_EVENT`, `_START_EVENT`, `_SMP` and `_MAINTENANCE` in `.env` — one
 per season phase, MiniMessage, with placeholders in braces. The full placeholder list is in
-`network.yml` itself, which the proxy writes on first start with real defaults rather than
-placeholders. Anything left unset in `.env` keeps that default.
+`network.yml` itself, which the proxy writes on first start with real defaults; anything left unset
+in `.env` keeps that default.
 
-Read at **proxy start**. There is no reload command: the MOTD follows the phase on its own, live,
-but an edit to `network.yml` or to any `NETWORK_MOTD_*` in `.env` needs a restart of the
-`network-control` service — `docker compose restart network-control`. That restart is enough for
-the MOTD, and it is *not* enough for `NETWORK_MAX_PLAYERS` — that one also has to reach the three
-backends' `server.properties`; see [Who limits the players](#who-limits-the-players).
+Read at **proxy start**. The MOTD follows the phase on its own, live, but an edit to `network.yml`
+or to any `NETWORK_MOTD_*` needs `docker compose restart network-control`; there is no reload
+command. That restart is *not* enough for `NETWORK_MAX_PLAYERS` — see
+[Who limits the players](#who-limits-the-players).
 
-When `network-control` cannot start at all, the browser says so — the fail-closed handler answers
-the ping with a line from the plugin's own message bundle, because a network advertising its season
-while refusing every login is a worse lie than one that admits it is broken.
+When `network-control` cannot start at all, the fail-closed handler answers the ping saying so.
 
 ## The forwarding secret
 
@@ -283,30 +170,16 @@ it shows up as every login failing with *"Unable to connect you to the backend s
 openssl rand -hex 24
 ```
 
-Put it in `.env` as `VELOCITY_FORWARDING_SECRET` and that is the whole of it. `compose.yml` hands
-the same value to the proxy under that name and to each backend as `PAPER_VELOCITY_SECRET`; the
-proxy writes it to `/data/forwarding.secret`, and Paper reads its own copy straight from the
-environment ([PaperMC/Paper#10127](https://github.com/PaperMC/Paper/discussions/10524)). Since a
-mismatch can now only mean "one container did not get the variable", it is not really a class of
-failure any more.
+Put it in `.env` as `VELOCITY_FORWARDING_SECRET`. `compose.yml` hands the same value to the proxy
+under that name and to each backend as `PAPER_VELOCITY_SECRET`; the proxy writes it to
+`/data/forwarding.secret`, and Paper reads its own copy from the environment.
 
-**It does still land on disk.** Verified 2026-09-01 on Paper 26.2 build 121: Paper writes the value
-it took from the environment into `config/paper-global.yml` on first load. The environment variable
-removes the manual paste, not the copy in the volume — so **rotating** the secret is `.env` *plus*
-that one line in each of the three backend volumes.
-
-**Auto-generating it was considered and rejected.** All four containers would have to arrive at the
-same value, which means either a shared volume holding it or deriving it from something that is not
-random — new shared state, or a weaker secret, to save one `openssl` call that happens once per
-season. Its value here is admittedly limited: no backend publishes a port, so the secret protects
-against something already inside the compose network. But Paper will not run modern forwarding
-without one, and modern forwarding is what gives the backends real UUIDs.
+**It does still land on disk**: Paper writes the value into `config/paper-global.yml` on first load,
+so **rotating** the secret is `.env` *plus* that one line in each of the three backend volumes.
 
 ## Getting a world into a volume
 
-The hunger games map and the Nordtal spawn are hand-built and have to be uploaded. A world stays in
-its named volume by design — that is the half of the "no bind mounts" rule that did not change on
-2026-09-05, and the reason is Arcane's volume backup — so this goes through the volume:
+The hunger games map and the Nordtal spawn are hand-built and have to be uploaded:
 
 ```bash
 docker compose stop hunger-games
@@ -314,20 +187,18 @@ docker cp ./world-hunger-games/. nordtal-s2-hunger-games-1:/data/hunger_games/
 docker compose start hunger-games
 ```
 
-**The destination is `/data/hunger_games/`, not `/data/world/`.** It said `world` until 2026-09-02,
-and following it produced a world under the one name the plugin will not look for: `hunger-games`
-does not create its world, it disables itself when `config.yml#world-name` — default `hunger_games`
-— is not loaded. The service's `LEVEL_NAME` is what brings that folder up as the primary world, so
-the two have to be the same string; `:hunger-games`' `ComposeWorldTest` asserts they are.
+**The destination is `/data/hunger_games/`, not `/data/world/`.** `hunger-games` does not create its
+world; it disables itself when `config.yml#world-name` — default `hunger_games` — is not loaded, and
+the service's `LEVEL_NAME` is what brings that folder up as the primary world. The two have to be
+the same string; `ComposeWorldTest` asserts they are.
 
 In Arcane the same thing is a file upload into the volume. Either way: **stop the server first.**
 Copying into a world a running server has open produces corruption that surfaces days later.
 
 ## The console
 
-Arcane's per-container shell is a `docker exec`, which cannot reach PID 1's stdin — so a server
-started as a plain `java -jar` would have a console you can read and not write. The server runs
-inside a tmux session instead, and the image ships two commands:
+Arcane's per-container shell is a `docker exec`, which cannot reach PID 1's stdin — so the server
+runs inside a tmux session, and the image ships two commands:
 
 ```bash
 console            # attach to the real console, read and write. Detach with Ctrl-b then d.
@@ -335,138 +206,96 @@ mc <command>       # send one command, no TTY needed. Output goes to the contain
 ```
 
 `mc` is the one to reach for in a runbook or a script; `console` is for watching something happen.
-
-**Ctrl-C inside `console` goes to the server, not to your shell.** Use `mc stop` or
+**Ctrl-C inside `console` goes to the server, not to your shell** — use `mc stop` or
 `docker compose stop` to shut a server down.
 
-Reading is unaffected by any of this: the entrypoint tails the server's own `logs/latest.log` onto
-the container's stdout, so `docker logs` and Arcane's log view show everything, without terminal
-escape sequences.
+Reading is unaffected: the entrypoint tails the server's own `logs/latest.log` onto the container's
+stdout, so `docker logs` and Arcane's log view show everything.
 
 ## Updating
 
-**The normal way is `/update` in the admin channel on Discord.** It reports what is newer than what
-is running and changes nothing; an **Update now** button under it runs the whole thing, after a
-30-second countdown every player online is warned through. `/update` is the same command in game and
-on the proxy console — one declaration, three adapters, since 2026-09-08.
+**The normal way is `/update` in the admin channel on Discord** — the same command in game and on
+the proxy console. It reports what is newer than what is running and changes nothing; an **Update
+now** button under it runs the whole thing, after a 30-second countdown every player online is
+warned through.
 
-Both reach the updater the only way anything here can — a row in `update_request` and a
-notification, answered by the container that has the volumes. **The updater is still the only thing
-that decides anything**, but the answer is now data rather than a paragraph: it writes an
-`UpdateReport` into `update_request.result` as JSON, one line per service and one entry per artefact
-moving. Discord draws that as a field per service, edited in place while the run works; chat and the
-console print `UpdateReport#render()`, which is the only text form of it.
+Both reach the updater through a row in `update_request` and a notification, answered by the
+container that has the volumes; the result is an `UpdateReport` written into
+`update_request.result` as JSON, one line per service and one entry per artefact moving.
 
-On the host it is one command, and a second one to make it take effect:
+On the host:
 
 ```bash
-docker compose run --rm updater report   # what would change, changes nothing
+docker compose run --rm updater report      # what would change, changes nothing
 docker compose run --rm updater bootstrap   # migrate, then fill EMPTY slots. Upgrades nothing
 ```
 
-To move a version that is already installed, do not reach for a command here at all: `/update now`
-in Discord or in game stops the affected servers, swaps, starts them and waits until each reports
-healthy. Installing over a running server is what this deployment stopped doing on 2026-09-07.
+`bootstrap` is the manual form of the automatic first start and what to reach for when
+`UPDATER_BOOTSTRAP` is off or a volume has been emptied. **It fills gaps and never upgrades.** To
+move a version that is already installed, use `/update now` in Discord or in game: it stops the
+affected servers, swaps, starts them again and waits until each reports healthy.
 
-```bash
-```
-
-A `bootstrap` run by hand, an update and a restart cannot collide: **every one of them takes the
-same PostgreSQL advisory lock, and the second one to ask is refused rather than queued** — a plan
-resolved now would be stale by the time it got its turn. The refusal names both possibilities so you
-know which one you are waiting for.
+A `bootstrap` run by hand, an update and a restart cannot collide: **all three take the same
+PostgreSQL advisory lock, and the second one to ask is refused rather than queued**, naming which
+one is already running.
 
 An update applies the schema **with the affected servers stopped**, before a jar moves, so a plugin
 can never come up against a schema older than itself. A migration that fails stops the run there:
-nothing is fetched, nothing is written, every service that was stopped is started again, and a
-half-migrated database with new jars on top of it is the state nobody has to reason about.
+nothing is fetched, nothing is written, and every service that was stopped is started again.
 
 The updater asks GitHub, Modrinth and the PaperMC Fill API what the newest version of everything is,
-compares that against the jars lying in the volumes, and moves the ones that differ. Nothing is
-copied by hand and no version is written into a file — **what a server runs is the jar in its
-volume**, which is why `SEASON_RELEASE` no longer exists here. What the updater *follows* is
+compares that against the jars in the volumes, and moves the ones that differ. **What a server runs
+is the jar in its volume**; no version is written into a file. What the updater *follows* is
 `UPDATER_SEASON_RELEASE`, and setting it to an exact tag instead of `latest` is how a rollback is
 expressed.
 
-Three properties worth knowing, because each is a decision:
+Four properties worth knowing before reading a report:
 
-- **Two phases.** Everything a server needs is downloaded into a `.nordtal-staging` directory
-  inside the folder it is going to end up in — `plugins/` or `.server/` — and verified there; only when all of it is present does anything move into
-  `plugins/`. A download that fails half way leaves the server exactly as it was. Four servers on
-  two versions of the season is a worse state than four servers that did not update.
-- **A server moves together or not at all.** If one of a server's plugins cannot be resolved, that
-  whole server is skipped. "The new SMP jar with last week's PacketEvents" is a combination nobody
-  chose, and DisplayTags is a *required* plugin of `smp` whose own required plugin PacketEvents is.
-  The server jar is the one exception (2026-09-02): a Paper or Velocity build the Fill API could not
-  answer for is its own "skipped" row and the plugins move anyway — they are compiled against the
-  *version*, never a build, and the build already in `.server/` runs.
-- **The report restarts nothing, and the run restarts exactly what it stopped.** `/update` on its
-  own prints what would change and stops — read that before pressing anything, because a plan is the
-  one thing you can still act on freely. `/update now` then stops the affected servers, installs,
-  starts them again and waits until each reports healthy; it does not leave servers down, and a
-  server that does not come back makes the whole run fail by name. `bootstrap` on the host stops and
-  starts nothing at all, because it only fills slots that are empty.
+- **Two phases.** Everything is downloaded into a `.nordtal-staging` directory inside the folder it
+  will end up in and verified there; only when all of it is present does anything move.
+- **A server moves together or not at all**, so an unresolvable plugin skips that whole server. The
+  server jar is the exception: a build the Fill API could not answer for is its own "skipped" row
+  and the plugins move anyway, being compiled against the *version*, never a build.
+- **The report restarts nothing, and a run restarts exactly what it stopped.** A server that does
+  not come back makes the whole run fail by name. `bootstrap` stops and starts nothing at all.
 - **"Skipped" is not "up to date".** A run where nothing could be checked — an unmounted volume, a
-  source that did not answer — did no work and had no failure, and the report says so in as many
-  words rather than closing with "Nothing needed doing". That sentence on a run like this one is how
-  somebody comes away believing the network is current.
+  source that did not answer — says so rather than closing with "Nothing needed doing".
 
-Checksums are verified where a checksum exists: Modrinth publishes a sha512 per file and the Fill
-API a sha256 per build, and a mismatch deletes the download instead of installing it. **A GitHub
-release asset carries no digest of any kind**, so our own jars and the DisplayTags jar arrive
-unverified over TLS — the same way `entrypoint.sh` has always fetched them, and a real gap rather
-than an implied one.
+Checksums are verified where one exists (Modrinth sha512 per file, Fill sha256 per build) and a
+mismatch deletes the download instead of installing it. **A GitHub release asset carries no digest
+of any kind**, so our own jars and the DisplayTags jar arrive unverified over TLS.
 
-The **server jar** is the updater's too, since 2026-09-02. It installs the newest `STABLE` build of
-the version pinned in `.env` into each server's `.server/` cache, and `entrypoint.sh` runs whatever
-build of that version it finds there. **There is no build number anywhere in the deployment any
-more** (2026-09-09): the updater installs the newest `STABLE` build, and the entrypoint resolves
-the same one when `.server/` is empty rather than reading a variable somebody has to keep current.
-
-`SERVER_VERSION` is a literal in `compose.yml` and mirrors `eu.nordtal.s2.common.Platform`. On the
-three Paper backends it is the exact Minecraft version, `26.2`. **On the proxy it is `4.0.0`, which
-is not a version** — it is Fill's name for the whole Velocity 4 line, and the proxy follows the
-newest release inside it. The cache match is therefore by kind alone (`velocity-*.jar`), taking the
-highest version and then the highest build; a jar of another version is deleted at the next start.
-
-**Rolling back to an older platform build is not provided for.** That was `UPDATER_PAPER_BUILD`
-until 2026-09-09 and the owner removed it deliberately — a rollback path nobody had ever exercised,
-sitting in front of the one thing the updater does every day. A bad Paper build is healed by the
-next one.
+The **server jar** is the updater's too: it installs the newest `STABLE` build of the version pinned
+in `.env` into each server's `.server/` cache, and `entrypoint.sh` runs whatever build of that
+version it finds there. There is no build number anywhere in the deployment, and rolling back to an
+older platform build is not provided for. `SERVER_VERSION` is a literal in `compose.yml` mirroring
+`eu.nordtal.s2.common.Platform`: on the three Paper backends the exact Minecraft version, `26.2`,
+and **on the proxy `4.0.0`, which is not a version** but Fill's name for the whole Velocity 4 line,
+inside which the proxy follows the newest release. The cache match there is by kind alone
+(`velocity-*.jar`), highest version then highest build; a jar of another version is deleted at the
+next start.
 
 ### Restarting the network
 
 The restart is **the same sequence an update runs, with nothing installed** — stop each service,
-start it again, wait until it reports healthy — asked for by the button in Discord, by
-`/update restart` in game, or not at all. It is no longer one project-wide Arcane redeploy: that
-took the updater down with everything else, which is why nothing could ever report whether the
-network came back.
+start it again, wait until it reports healthy — asked for by the button in Discord or by
+`/update restart` in game. It is not a project-wide Arcane redeploy, which would take the updater
+down with everything else and leave nothing to report whether the network came back.
 
 **The confirmation comes first, and the countdown only after it.** `/update now` and
-`/update restart` are irreversible commands: in chat they have to be typed again inside thirty
-seconds, in Discord a button has to be pressed. Until that happens **nothing is scheduled at all** -
-no row, no countdown, no warning to anybody. An operator who types the command once and walks away
-has not started a restart.
-
-Once confirmed, the request is written with an instant **thirty seconds** out and **every player on
-the network is counted down towards it** — in limbo, in Hunger Games and on the SMP, at 30, 10 and 5
-seconds and then "restarting now". The proxy does the announcing, because it is the only process
-that sees everybody. Inside those thirty seconds the countdown can be stopped: the **Stop the
-countdown** button, or `/update cancel`. After it, "too late" is the honest answer and that is what
-you get.
+`/update restart` have to be typed again inside thirty seconds in chat, or confirmed with a button
+in Discord. Until that happens **nothing is scheduled at all** — no row, no countdown, no warning to
+anybody. Once confirmed, **every player on the network is counted down** at 30, 10 and 5 seconds;
+the proxy announces, because it is the only process that sees everybody. Inside those thirty seconds
+the **Stop the countdown** button or `/update cancel` still stops it.
 
 **If a service refuses to stop, an update installs nothing.** It migrates nothing, moves no jar,
-starts every service that did stop, and comes back `FAILED` naming the ones that refused — because
-installing into a server that is still running is the whole failure this sequence replaced. A
-restart has nothing to install and so nothing to abort: the service that refused stays up, the ones
-that stopped are started again, and the run is reported as failed.
+starts every service that did stop, and comes back `FAILED` naming the ones that refused.
 
-**It is not the Docker socket, deliberately.** A container holding `/var/run/docker.sock` can do
-anything on the host, and the updater is the container whose whole job is downloading files from the
-internet and putting them where servers will execute them. The socket is not mounted anywhere in
-`compose.yml` and must not be.
-
-Four variables turn it on, all optional together:
+**It is not the Docker socket, deliberately** — a container holding `/var/run/docker.sock` can do
+anything on the host, and the updater's whole job is downloading files from the internet and putting
+them where servers will execute them. The socket is not mounted anywhere in `compose.yml` and must
+not be. It drives Arcane's API instead; four variables turn that on, all optional together:
 
 ```
 ARCANE_URL=https://arcane.example.com       # origin, no trailing slash
@@ -475,115 +304,88 @@ ARCANE_ENVIRONMENT=0                        # the environment's ID; 0 is Arcane'
 ARCANE_PROJECT=51b523fe-21aa-…              # the project's ID. A UUID, NOT 'nordtal-s2'
 ```
 
-**Leave `ARCANE_URL` empty and updating stops working.** That was not true until 2026-09-08 and is
-now the deliberate design: an update stops each affected server before its jars move, so a run that
-cannot reach Arcane has no safe way to continue and **refuses before resolving a version or touching
-a file**. Both surfaces say so by name.
+**Leave `ARCANE_URL` empty and updating stops working.** An update stops each affected server before
+its jars move, so a run that cannot reach Arcane **refuses before resolving a version or touching a
+file**, and says so by name. What still works is
+`docker compose run --rm updater bootstrap` on the host — enough to bring a fresh deployment up, not
+enough to move a version. Clicking **Redeploy** in Arcane by hand is an out-of-band fallback: it
+recreates diverged containers, does not stop anything for a jar swap, and nothing then checks that
+the servers came back — and
+[getarcaneapp/arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943) reports a redeploy of
+an *already running* project doing nothing while answering success, so watch the containers actually
+cycle.
 
-What still works without Arcane is `docker compose run --rm updater bootstrap` on the host, which
-fills *empty* slots and stops nothing — enough to bring a fresh deployment up, not enough to move a
-version. Clicking **Redeploy** in Arcane by hand remains possible and is an out-of-band fallback, not
-part of the flow: it recreates diverged containers, it does not stop anything for a jar swap, and
-nothing then checks that the servers came back.
-
-**Both of those are IDs, and that is the trap.** The compose project is called `nordtal-s2` in every
-other file here, and putting that name in `ARCANE_PROJECT` answers 404. The project ID is a UUID
-Arcane generated: read it out of the browser URL with the project open, or ask for it —
+**`ARCANE_PROJECT` is an ID, and that is the trap.** The compose project is called `nordtal-s2` in
+every other file here, and putting that name in answers 404. Read the UUID out of the browser URL
+with the project open, or ask for it:
 
 ```bash
 curl -H "X-Api-Key: $ARCANE_API_KEY" "$ARCANE_URL/api/environments/0/projects"
 ```
 
-It has no default and the updater refuses to start without it once `ARCANE_URL` is set, because an
-ID is not something anybody can guess. `ARCANE_ENVIRONMENT` defaults to `0` and only changes if
-Arcane reaches this host through an agent, in which case it is a UUID too.
+It has no default and the updater refuses to start without it once `ARCANE_URL` is set.
+`ARCANE_ENVIRONMENT` defaults to `0` and only changes if Arcane reaches this host through an agent,
+in which case it is a UUID too.
 
-**Three path variables, and the one you have heard of is not the one that matters.**
-`ARCANE_RUNTIME_PATH` and `ARCANE_CONTAINER_PATH` are what a run uses: one read of the project's
-services — each with its container id, its status and its Docker health — and one `stop`/`start` per
-container. Container-level is not a detail: Arcane's project-wide calls do stop *and* start in a
-single request, and an update needs the **gap** between them, because that is where the jars are
-replaced. It is also why the updater survives its own update — it never stops itself, so it is still
-running to start the others and to say whether they came back.
-
-`ARCANE_REDEPLOY_PATH` is the third and is **no longer on any production path**. It redeployed the
-whole project, which took this container down with everything else and left nothing to report the
-outcome. The call still exists for a person who wants it by hand.
-
-All three were read from Arcane's own source rather than its documentation — `handler.go` at v2.10.0
-and v2.10.2 — and all three stay settings for that reason: the documentation does not publish them,
-so a version that moves a path is a line in `.env` and not a release of ours.
-
-**Watch the first press.** [getarcaneapp/arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943)
-reports a redeploy of an *already running* project doing nothing while still answering success —
-which is exactly this case, since the stack is up when the button is pressed. It was reported on one
-agent at v1.15.3 and closed as *not planned*. Nothing in the updater can detect it, because the
-stream that would say so is one the redeploy kills this container part way through reading. Watch
-the containers actually cycle.
+`ARCANE_RUNTIME_PATH` and `ARCANE_CONTAINER_PATH` are the two API paths a run uses: one read of the
+project's services and one `stop`/`start` per container. Container-level is not a detail — Arcane's
+project-wide calls stop *and* start in a single request, and an update needs the **gap** between
+them, which is also why the updater survives its own update. `ARCANE_REDEPLOY_PATH` is no longer on
+any production path. All three stay settings because Arcane does not publish them, so a version that
+moves a path is a line in `.env` and not a release of ours.
 
 ## Locally
 
-The same stack on your own machine: the same `compose.yml`, the same `Dockerfile`s, the same
-updater. What differs is a second env file and the fact that the jars come out of `build/libs`
-instead of a GitHub release — and that is deliberately the whole of the difference, because a local
-setup that is its own arrangement stops being evidence about the real one.
+The same `compose.yml`, the same `Dockerfile`s, the same updater. What differs is a second env file
+and jars out of `build/libs` instead of a GitHub release.
 
 ```bash
 deploy/dev init          # writes deploy/dev.env, generates the two secrets, makes the directories
 deploy/dev up            # builds the five jars and both images, then brings the stack up
+deploy/dev deploy smp    # rebuild :smp, replace the jar, restart that one container
 ```
 
 The first `up` takes a while: the `updater` fetches Paper, Velocity, DisplayTags, PacketEvents,
 Chunky and the SMP's two world-generation datapacks. It does **not** fetch our five jars, because
-`deploy/dev up` has already put them in `plugins/` and the bootstrap installs only what is *missing*
-(`UpdatePlan#onlyMissing()`). Then join `localhost` with a real client.
-
-The loop after that is one command:
-
-```bash
-deploy/dev deploy smp    # rebuild :smp, replace the jar, restart that one container
-```
+`deploy/dev up` has already put them in `plugins/` and the bootstrap installs only what is missing.
+Then join `localhost` with a real client.
 
 `deploy/dev` also carries `logs`, `console`, `mc`, `psql`, `ps`, `stop`, `down`, `pack` and `reset`;
-`deploy/dev help` prints the list. **After editing `deploy/dev.env`, run `deploy/dev up` and not
-`deploy` —** `deploy` restarts the existing container, which reuses the environment it was created
-with, and a setting that did not take effect looks exactly like a setting that does not work. Everything it does is `docker compose` with
-`--env-file deploy/dev.env`, so any of it can be typed by hand.
+`deploy/dev help` prints the list. Everything it does is `docker compose` with
+`--env-file deploy/dev.env`, so any of it can be typed by hand. **After editing `deploy/dev.env`,
+run `deploy/dev up` and not `deploy` —** `deploy` restarts the existing container, which reuses the
+environment it was created with, and a setting that did not take effect looks exactly like a setting
+that does not work.
 
 ### What is different, in full
 
 - **`deploy/dev.env` instead of `.env`.** Its own header explains every line. Every `${X:?}` in
-  `compose.yml` has to have a value even for services no profile selects — compose interpolates
-  before it filters — so the twelve the bot needs carry obvious placeholders. `TopologyTest` fails
-  if a required variable is ever added without one.
+  `compose.yml` needs a value even for services no profile selects — compose interpolates before it
+  filters — so the twelve the bot needs carry obvious placeholders. `TopologyTest` fails if a
+  required variable is ever added without one.
 - **`COMPOSE_PROFILES=db,mc,devpack`.** No bot: it needs a real guild and a real bunq key, and it
   cannot tell a test guild from the real one. Add `bot` once you have one.
 - **Images are built, never pulled** (`MC_IMAGE`, `UPDATER_IMAGE` on a `:dev` tag). A locally built
-  plugin needs the locally built updater: the migrations it applies are compiled into `:common` and
-  shaded into that jar, so a released updater would migrate to the released schema and the plugin
-  would come up against it.
-- **Four `<SERVICE>_PLUGINS` variables pointing at `./deploy/servers/<service>/plugins`.** This is
-  what turns each server's plugins folder from a named volume into a bind mount you can edit with an
-  ordinary text editor. `SERVERS_ROOT`, the single variable that used to do it, is gone (2026-09-09)
-  — its default was a *path*, so a deployment that set nothing got a bind mount into the directory
-  Arcane's GitOps sync pulls, and that sync deletes ignored files. An existing local `deploy/dev.env`
-  needs the four lines added by hand: the file is gitignored, so nothing migrated it. `deploy/dev`
-  refuses a value with no `/` in it rather than writing jars into a directory no container mounts.
-- **`SMP_BACKUP_TIME=` (empty), which turns the nightly volume backup off.** The interpolation in
-  `compose.yml` is `${SMP_BACKUP_TIME-04:45}` — a **single** dash, the only one in the file, and it
-  is what makes an empty value mean "off" rather than silently falling back to the default.
-- **`SMP_PREGENERATION_ON_START=false`.** `smp` starts pre-generating tomorrow's farm world
-  in its `onEnable` and Chunky takes every core it is given, so every `up` would spend its first
-  minutes at full load. What turning it off costs is one postponed reset — the first daily reset
-  finds no finished world, says so, and builds it then. `config.yml#pregeneration-on-start` carries
-  the same paragraph; the production default is `true`.
+  plugin needs the locally built updater: the migrations are compiled into `:common` and shaded into
+  that jar, so a released updater would migrate to the released schema.
+- **Four `<SERVICE>_PLUGINS` variables pointing at `./deploy/servers/<service>/plugins`**, which is
+  what turns each server's plugins folder into a bind mount you can edit with a text editor. An
+  existing `deploy/dev.env` needs those four lines added by hand — the file is gitignored, so
+  nothing migrated it. `deploy/dev` refuses a value with no `/` in it rather than writing jars into
+  a directory no container mounts.
+- **`SMP_BACKUP_TIME=` (empty), which turns the nightly volume backup off.** The interpolation is
+  `${SMP_BACKUP_TIME-04:45}` — a **single** dash, the only one in `compose.yml`, and what makes an
+  empty value mean "off" rather than falling back to the default.
+- **`SMP_PREGENERATION_ON_START=false`**, or every `up` spends its first minutes with Chunky on
+  every core. The cost is one postponed reset: the first daily reset finds no finished world, says
+  so, and builds it then. The production default is `true`.
 - **Small heaps and `NETWORK_MAX_PLAYERS=20`.**
 
 ### The resource pack
 
-The pack and the plugins are one change: a glyph code point is declared in `:common`'s `Glyphs`, in
-a font file and in a PNG, and every menu panel is a texture the Java arithmetic is derived from. So
-testing the drawn half against the *previous release's* pack answers nothing.
+The pack and the plugins are one change — a glyph code point is declared in `:common`'s `Glyphs`, in
+a font file and in a PNG — so testing the drawn half against the previous release's pack answers
+nothing.
 
 ```bash
 deploy/dev pack
@@ -591,46 +393,34 @@ deploy/dev pack
 
 builds the zip, puts it under `PACK_ROOT`, and writes `url` and `sha1` into the proxy's `pack.yml` —
 the same two lines the updater's `PackWriter` owns and no others. The `devpack` profile serves that
-directory on `http://localhost:8080`, which is the client's `localhost` too, because the client runs
-on this machine. `pack.yml` is an ordinary file on the host now (under `NETWORK_CONTROL_PLUGINS`), which is
-what makes this two lines of `perl -pi` rather than a container round trip.
+directory on `http://localhost:8080`, which is the client's `localhost` too. A `FAILED_DOWNLOAD` on
+the client is almost always the hash and not the network — rerun after any change under
+`resource-pack/src/`.
 
-A `FAILED_DOWNLOAD` on the client is almost always the hash and not the network — rerun
-`deploy/dev pack` after any change under `resource-pack/src/`.
-
-### The restart, and why it is worth setting up Arcane locally
+### Rehearsing the restart path locally
 
 `deploy/dev deploy` restarts one container and is what you want ninety-nine times out of a hundred.
-The hundredth is the **restart path itself** — the button in Discord, `/update restart` in game,
-the countdown every player sees, and the Arcane redeploy at the end of it. That path cannot be
-rehearsed anywhere but against a real Arcane, and the cost of not rehearsing it is on record: the
-production `ARCANE_URL` carried `docker.host.internal` — the three labels in the wrong order — and
-the failure printed `java.net.ConnectException` and nothing else, because the JDK wraps a DNS
-failure in an exception it gives no message to.
+The hundredth is the restart path itself — the button, the countdown, the Arcane calls — and that
+cannot be rehearsed anywhere but against a real Arcane. Run Arcane as its own compose project on
+this machine, point it at this project, and fill in `ARCANE_URL`, `ARCANE_API_KEY` and
+`ARCANE_PROJECT` in `deploy/dev.env`.
 
-So: run Arcane as its own compose project on this machine, point it at this project, and fill in
-`ARCANE_URL`, `ARCANE_API_KEY` and `ARCANE_PROJECT` in `deploy/dev.env`. `ARCANE_URL` is
-`http://host.docker.internal:<port>` — **not** `http://localhost:...`, which inside the updater
-container is the updater container. Both wrong values are now named by the updater at startup and
-again in the sentence written into `update_request.result`.
+`ARCANE_URL` is `http://host.docker.internal:<port>` — **not** `http://localhost:...`, which inside
+the updater container is the updater container. Both wrong values are named by the updater at
+startup and again in `update_request.result`. `http://` is right here and wrong in production: the
+API key travels as a header on every call, so **in production `ARCANE_URL` must be an `https://`
+origin**. The updater only warns about a key on `http://`, because it is the only process that
+migrates and refusing to start would trade a working schema for an optional button.
 
-`http://` is right *here* and wrong in production: the API key travels as a header on every
-redeploy, so on plain HTTP anything that can see the connection gets a key that redeploys every
-project in that Arcane. Locally the request goes from a container to this same host over Docker's
-own bridge and leaves no machine; in production `ARCANE_URL` is an `https://` origin. The updater
-warns at startup when it sees a key on an `http://` URL rather than refusing to start, for the
-reason the loopback warning next to it gives - it is the only process that migrates, and refusing
-to start would trade a working schema for an optional button.
+Leaving `ARCANE_URL` empty breaks nothing locally: every surface answers "Arcane is not configured".
 
-Leaving `ARCANE_URL` empty breaks nothing: every surface answers "Arcane is not configured".
-
-### What it still cannot tell you
+### What the local stack still cannot tell you
 
 A world. `smp` expects Nordtal and `hunger-games` expects its arena, and neither is in this
-repository — locally you get whatever Paper generates. Everything about spawn geometry, the duel
-platform, the balloon and the POIs is therefore untested here, exactly as it is on a fresh
-production volume. See [Getting a world into a volume](#getting-a-world-into-a-volume); the same
-`docker compose cp` works locally.
+repository — locally you get whatever Paper generates, so spawn geometry, the duel platform, the
+balloon and the POIs are untested here, exactly as on a fresh production volume. The same
+`docker compose cp` from [Getting a world into a volume](#getting-a-world-into-a-volume) works
+locally.
 
 ## Stopping
 
@@ -639,17 +429,15 @@ docker compose stop smp          # graceful: SIGTERM, the JVM saves, up to 180s
 docker compose down              # the whole stack; volumes survive
 ```
 
-`stop_grace_period` is 180 s on every Minecraft service. Measured 2026-09-01, a Paper server with a
-generated world stops in **3 s** and logs `All dimensions are saved`; the headroom is for a
-border-4000 Nordtal, not for the normal case. Do not lower it, and never use `docker kill`.
+`stop_grace_period` is 180 s on every Minecraft service — headroom for a border-4000 Nordtal, not
+for the normal case. Do not lower it, and never use `docker kill`.
 
 **`down` only acts on the profiles the current selection names, and that bites.** With
 `COMPOSE_PROFILES` set to anything that leaves `backup` out, `docker compose down` stops everything
-else and leaves the backup sidecar running — the network then cannot be removed (*"Resource is
-still in use"*), and what is still running is a backup job pointed at a database that no longer
-exists. Production is `db,bot,mc,backup`, which is what `.env.example` ships; `compose.yml`'s own
-comment said `db,bot,mc` until 2026-09-02 and was the wrong half of the disagreement. Whatever
-selection is used, **`up` and `down` have to use the same one.**
+else and leaves the backup sidecar running — the network then cannot be removed (*"Resource is still
+in use"*), and a backup job is left pointed at a database that no longer exists. Production is
+`db,bot,mc,backup`, which is what `.env.example` ships. Whatever selection is used, **`up` and
+`down` have to use the same one.**
 
 ## Backups
 
@@ -659,72 +447,30 @@ it is the only thing in this stack that cannot be rebuilt from the repository an
 **The `backup` profile dumps it.** `postgres-backup` runs `pg_dump --format=custom` into the
 `postgres-dumps` volume once a day at `BACKUP_AT` (04:00 by default) and again at start-up, keeps
 `BACKUP_KEEP` of them (14), and writes the outcome of the last run to `postgres-dumps/LAST_RESULT`
-as well as to the container log. A dump is written under a `.partial` name, checked by reading its
-own table of contents back with `pg_restore --list`, and only then renamed — a half-written file
-that looks like every other dump in the directory is the one the retention sweep keeps and the
-restore picks. It runs as `postgres`, not root, and stops on SIGTERM instead of waiting out the
-grace period.
+and to the container log. A dump is written under a `.partial` name, checked by reading its own
+table of contents back with `pg_restore --list`, and only then renamed.
 
-### Upgrading a deployment that still has `SERVERS_ROOT`
+### Point Arcane at `postgres-dumps`, never at `postgres-data`
 
-Until 2026-09-09 each server's `plugins/` was a bind mount at
-`${SERVERS_ROOT:-./deploy/servers}/<service>/plugins`. It is a **named volume** now, one per
-service, and Docker copies nothing between the two: bring the stack up on the new compose file
-without moving the data first and every server finds an empty `plugins/`, the entrypoint guard
-stops it, and the bootstrap then writes fresh default `config.yml`, `milestones.yml`, `sounds.yml`
-and `pack.yml` over the deployment's own.
+Arcane can snapshot a named volume to S3, and stops the containers using it **only when the backup
+policy's `Stop Containers` flag is set**. For a live PostgreSQL data directory both settings are
+wrong: **off**, it tars a running PGDATA, which raises no error at backup time and is a broken
+cluster at restore time; **on**, PostgreSQL goes down for the length of the tar every night, and
+every process in this stack fails fast on an unreachable database.
 
-Do this once, with the stack **stopped**:
-
-```
-docker compose stop
-for s in network-control limbo hunger-games smp; do
-  docker run --rm \
-    -v nordtal-s2_mc-$s-plugins:/dst \
-    -v "$PWD/deploy/servers/$s/plugins:/src:ro" \
-    alpine cp -a /src/. /dst/
-done
-docker compose up -d
-```
-
-Check `docker compose logs` for the four servers before deleting anything. **Keep a copy of
-`deploy/servers/` outside the checkout until you have seen a server come up with its own config** -
-that directory is inside the tree Arcane's GitOps sync pulls, and the sync deletes ignored files,
-which is the whole reason for this change (finding 151).
-
-To roll back, set the four `<SERVICE>_PLUGINS` variables to the old paths in `.env`; the volumes
-are left untouched and can be removed later with `docker volume rm`.
-
-### Voice chat: one UDP port, no file to edit
-
-Simple Voice Chat runs on `smp` and `hunger-games`, and the Velocity plugin on the proxy makes it
-**one** endpoint rather than one per backend. The firewall therefore needs **UDP 25565 in addition to
-TCP 25565**, and nothing else. Audio never travels over the Minecraft connection and never over the
-proxy's TCP port.
-
-The plugin detects each backend's address and port itself, so no `voicechat-server.properties` on any
-backend needs touching - the pair of ports 24454/24455 that an earlier design would have required
-never reached production. The one voice file an operator might ever open is
-`voicechat-proxy.properties` on the proxy, and only to set `voice_host` if the published port ever
-stops matching the one the plugin hears on inside the container.
-
-`PROXY_PORT` moves the Minecraft port only. While it is 25565 - the default - the voice mapping
-agrees with it either way; moving it is what would separate them.
-
-It is optional at every level: a player without the client mod notices nothing, and the jar is not in
-any `EXPECTED_PLUGINS`, so a Modrinth outage during a bootstrap costs voice chat rather than a
-server. On the proxy that is deliberate (owner, 2026-09-09): it is the one container whose refused
-start locks everybody out.
+`postgres-dumps` has neither problem — nothing holds it open between runs, so a policy with `Stop
+Containers` **off** is correct there, and what travels to S3 is megabytes rather than a whole data
+directory.
 
 ### The volume backup is a run, not a schedule
 
 **Arcane's own scheduler is not what takes the nightly snapshot, and its `Stop Containers` flag must
-stay off.** A stop nobody announced lands on whoever is online at a quarter to five. Since
-2026-09-09 the updater drives it: `/backup now` on any surface, and a nightly row `smp` writes at
-`config.yml#backup-time` (default `04:45`, fifteen minutes before the farm reset). The run is a
-thirty-second countdown every player sees, then `smp`, `network-control` and the bot are stopped,
-then every volume is snapshotted, then everything comes back and is checked. Update and backup take
-the same lock and never overlap.
+stay off** — a stop nobody announced lands on whoever is online at a quarter to five. The updater
+drives it: `/backup now` on any surface, and a nightly row `smp` writes at `config.yml#backup-time`
+(default `04:45`, fifteen minutes before the farm reset). The run is a thirty-second countdown every
+player sees, then `smp`, `network-control` and the bot are stopped, then every volume is
+snapshotted, then everything comes back and is checked. Update and backup take the same lock and
+never overlap.
 
 What Arcane's backup policy still decides is the **destination** — the updater posts with an empty
 body on purpose, so `local` / `s3` / `local_s3` is configured once, in Arcane, per volume.
@@ -732,34 +478,9 @@ body on purpose, so `local` / `s3` / `local_s3` is configured once, in Arcane, p
 The eight volumes, with the compose project prefix Arcane addresses them by: `nordtal-s2_mc-smp`,
 `nordtal-s2_mc-network-control`, `nordtal-s2_bot-config`, `nordtal-s2_postgres-dumps` and the four
 `*-plugins` volumes, which is where every hand edit to `config.yml`, `milestones.yml`, `sounds.yml`
-and `pack.yml` now lives. `postgres-data` is **never** in that list and is refused by name when the
-updater loads its config.
-
-A volume that has not finished after thirty minutes is given up on, the servers come back, and the
-run ends `FAILED` — which **mentions the admin role** in the admin channel rather than only turning
-an embed red on a screen nobody is looking at at five in the morning.
-
-Restoring is still Arcane's own restore, done by hand. Nothing in this repository drives it, and
-nobody has done it yet — see `todo.md` A3.
-
-### Point Arcane at `postgres-dumps`, never at `postgres-data`
-
-Arcane can snapshot a named volume to S3 with `rustic` (S3 backups shipped in v2.9.0, scheduled
-volume backups in v2.10.0). It stops the containers using that volume **only when the backup
-policy's `Stop Containers` flag is set** — read from `backend/internal/volume/backup.go` on
-2026-09-01, where the whole stop/restart block sits behind `if plan.policy != nil &&
-plan.policy.StopContainers`. For a live PostgreSQL data directory both settings are wrong:
-
-- **Off**, it tars a running PGDATA. That is a torn copy. It raises no error at backup time and is
-  a broken cluster at restore time, which is the worst possible order to find out in.
-- **On**, PostgreSQL goes down for the length of the tar, every night. Every process in this stack
-  fails fast on an unreachable database, so that is a nightly outage of logins and of payment
-  booking.
-
-`postgres-dumps` has neither problem. Nothing holds it open between runs, so a policy with `Stop
-Containers` **off** is correct there, and what travels to S3 is a few megabytes rather than a whole
-data directory — which matters, because Arcane runs at home and the host is at the far end of a
-tunnel.
+and `pack.yml` lives. `postgres-data` is **never** in that list and is refused by name when the
+updater loads its config. A volume that has not finished after thirty minutes is given up on, the
+servers come back, and the run ends `FAILED`, mentioning the admin role in the admin channel.
 
 ### Restoring
 
@@ -771,38 +492,62 @@ docker compose exec postgres-backup sh -c 'pg_restore --dbname=restored --no-own
 Restore into a *new* database and look at it before you point anything at it. `--no-owner` is what
 lets a dump taken as one role restore under another.
 
-### What was measured
-
-The whole cycle was run on 2026-09-01, on this compose file, from empty volumes — not inferred:
-
-| | |
-|---|---|
-| First run on a fresh named volume | **failed**, `Permission denied` on its own output file. Docker creates a named volume owned by root when the mount path is not in the image; the Dockerfile now creates `/dumps` owned by `postgres`, which is what Docker seeds an empty volume from |
-| A dump of a seeded database | 2,657 bytes, written, TOC-verified and renamed |
-| `pg_restore` into an empty database | both tables and both rows came back, timestamps intact |
-| Retention at `BACKUP_KEEP=2` | four dumps in, two kept, the two oldest pruned by name |
-| SIGTERM during the wait | trapped and exited, rather than sitting out an 18-hour `sleep` |
-
-**What it does not prove** is a restore of the real season database from a dump pulled back out of
-S3. That needs the host, and it is in [`../../todo.md`](../../todo.md).
+A restore of the real season database from a dump pulled back out of S3 has not been rehearsed; it
+needs the host.
 
 ### The world volumes are a different problem
 
-Nothing here backs up `mc-smp`, `mc-hunger-games`, `mc-limbo` or `mc-network-control`, and that is
-deliberate: a world is recreatable from a seed and a build, a payment record is not. Pointing an
-Arcane policy at a world volume also means streaming it over the tunnel from the rented host to a
-home connection, and after border 4000 that is potentially tens of gigabytes.
+Nothing here backs the four `mc-*` world volumes up to S3: a world is recreatable from a seed and a
+build, a payment record is not, and streaming a post-border-4000 world over the tunnel to a home
+connection is tens of gigabytes. The chosen path is season 1's — an installed plugin that zips the
+world and uploads it by SFTP — and it is an operator task. Two things worth having here:
 
-The chosen path is season 1's — an installed plugin that zips the world and a list of extra folders
-and uploads them by SFTP — and it is an **operator task, not a build**: it is in
-[`../../todo.md`](../../todo.md) with what was checked on 2026-09-01. Two things from that check are
-worth having here, because they are the kind that get rediscovered expensively:
-
-- **DriveBackupV2 has no 26.2 build.** It stops at 26.1.2 (Modrinth API, 2026-09-01).
+- **DriveBackupV2 has no 26.2 build.** It stops at 26.1.2.
 - **[Backuper](https://modrinth.com/plugin/backuper) does, and its `setWorldsReadOnly` defaults to
   `false`** while its own config comment says "True recommended". Left at the default it zips a
-  world folder the server is writing into — the same torn copy this whole section exists to avoid,
-  in the place nobody looks for it.
+  world folder the server is writing into — the same torn copy this section exists to avoid.
+
+### Moving an older deployment off `SERVERS_ROOT`
+
+Each server's `plugins/` used to be a bind mount at
+`${SERVERS_ROOT:-./deploy/servers}/<service>/plugins`; it is a **named volume** now, one per
+service, and Docker copies nothing between the two. Bring the stack up on the new compose file
+without moving the data first and every server finds an empty `plugins/`, the entrypoint guard stops
+it, and the bootstrap writes fresh defaults over the deployment's own config. Do this once, with the
+stack **stopped**:
+
+```bash
+docker compose stop
+for s in network-control limbo hunger-games smp; do
+  docker run --rm \
+    -v nordtal-s2_mc-$s-plugins:/dst \
+    -v "$PWD/deploy/servers/$s/plugins:/src:ro" \
+    alpine cp -a /src/. /dst/
+done
+docker compose up -d
+```
+
+Check `docker compose logs` for the four servers before deleting anything. **Keep a copy of
+`deploy/servers/` outside the checkout until you have seen a server come up with its own config** —
+that directory is inside the tree Arcane's GitOps sync pulls, and the sync deletes ignored files.
+
+To roll back, set the four `<SERVICE>_PLUGINS` variables to the old paths in `.env`; the volumes are
+left untouched and can be removed later with `docker volume rm`.
+
+## Voice chat: one UDP port, no file to edit
+
+Simple Voice Chat runs on `smp` and `hunger-games`, and the Velocity plugin on the proxy makes it
+**one** endpoint rather than one per backend. The firewall therefore needs **UDP 25565 in addition
+to TCP 25565**, and nothing else. Audio never travels over the Minecraft connection or the proxy's
+TCP port.
+
+The plugin detects each backend's address and port itself, so no `voicechat-server.properties` needs
+touching. The one voice file an operator might ever open is `voicechat-proxy.properties` on the
+proxy, and only to set `voice_host` if the published port stops matching the one the plugin hears on
+inside the container. `PROXY_PORT` moves the Minecraft port only.
+
+It is optional at every level: a player without the client mod notices nothing, and the jar is in no
+`EXPECTED_PLUGINS`, so a Modrinth outage during a bootstrap costs voice chat rather than a server.
 
 ## Troubleshooting
 
@@ -811,11 +556,11 @@ worth having here, because they are the kind that get rediscovered expensively:
 | Container will not start, log names a config key | jcore refused the config. The message names the file and the setting; it is not a container fault. |
 | `FATAL: set EULA=true` | Deliberate. The image does not accept Minecraft's EULA on your behalf. |
 | `FATAL: could not fetch <jar> … Refusing to start` | The release tag or the asset name in `.env` is wrong, or GitHub is down and this jar was never cached. It will not fall back to an older jar. |
-| Every login fails with *"Unable to connect you to the backend server"* | The forwarding secret does not match — which now means one container did not get `VELOCITY_FORWARDING_SECRET`, or the volume predates the automation and still carries an old one. |
+| Every login fails with *"Unable to connect you to the backend server"* | The forwarding secret does not match — one container did not get `VELOCITY_FORWARDING_SECRET`, or the volume predates the automation and still carries an old one. |
 | Velocity exits at once with *"Your configuration is invalid"* | `velocity.toml` names a server in `[forced-hosts]` or `try` that its `[servers]` does not define. |
 | A backend logs *"SERVER IS RUNNING IN OFFLINE/INSECURE MODE"* | Expected, and required. The proxy authenticates; a backend that also does refuses every forwarded login. |
 | Proxy starts but refuses every login with a "network misconfigured" screen | `network-control` failing closed on a bad `gate.yml`/`database.yml`/`pack.yml`/`network.yml`. Intended; the server browser says the same thing. Read the log. |
-| Log names `backend-limit` as a setting that no longer exists and was removed | `network.yml` in the volume predates 2026-09-04, when that key was retired along with the second player number. Nothing to do: the line is deleted for you and the old file is in `network.yml.bak`. A deployment older than 2026-09-05 refuses to start instead — delete the line by hand there, see [Who limits the players](#who-limits-the-players). |
+| Log names `backend-limit` as a setting that no longer exists | `network.yml` in the volume predates the retirement of that key. Nothing to do: the line is deleted for you and the old file is in `network.yml.bak`. A deployment older than 2026-09-05 refuses to start instead — delete the line by hand there, see [Who limits the players](#who-limits-the-players). |
 | A backend answers *"Server full"* | Only an admin should ever see this, and only if the exemption is not firing. Everybody else is refused by the proxy at the login gate. Check the backend's `max-players` really is `NETWORK_MAX_PLAYERS` (the container was restarted after the last change) and see [Who limits the players](#who-limits-the-players). |
 | The browser shows the old MOTD after editing `.env` | `network.yml` is read at proxy start. Restart the `network-control` service; there is no reload command. |
 | Everybody is refused with a countdown, and nobody asked for that | The phase is `PRE_LAUNCH`, which is the seeded initial state. `/phase set PRE_EVENT` opens the network. |
@@ -823,204 +568,61 @@ worth having here, because they are the kind that get rediscovered expensively:
 
 ## Third-party plugins
 
-Two kinds, and the distinction matters because one of them may be missing and the other may not.
-
-- **Required, on the `smp` service only: DisplayTags and PacketEvents underneath it.** Nametags come
-  from [`papermc-display-tags`](https://github.com/nordtal/papermc-display-tags) — our own fork —
-  through its API, which is an interface over the running plugin. `smp`'s `paper-plugin.yml`
-  declares it with `load: BEFORE` and `required: true`, so a server missing either fails loudly at
-  start instead of quietly rendering plain nametags. Two more jars to keep current with 26.2, one of
-  them ours.
-- **Required, on the `smp` service only: Chunky.** Added 2026-09-01, and it is required for a
-  mechanic rather than a rendering: the farm world is pre-generated every night — roughly 15 000
-  chunks beside a live server — and the daily reset waits for Chunky's completion event before it
-  swaps anything in. Without it the reset would not fail, it would postpone itself every night,
-  silently, which is why `required: true` turns that into a start-up failure instead.
-  `Chunky-Bukkit-1.5.3.jar`, which is the version Modrinth tags for `paper` on 26.2.
-
-**Where all three come from changed on 2026-09-01.** They used to be three full URLs in
-`SMP_EXTRA_PLUGIN_URLS`, with three versions written into `.env` by hand. The updater resolves them
-now — DisplayTags from its own repository's releases, PacketEvents and Chunky from Modrinth filtered
-to this Minecraft version and `paper` — so a version bump is a run of `/update now` and not an
-edit. `required: true` is unchanged, and the container refuses to start unless **every plugin the
-service is supposed to have** is in `plugins/`.
-
-**That guard used to count jars, and counting was not enough — it is the finding that would have
-lost the launch.** On the first deployment the GitHub releases API answered 403 while Modrinth
-answered fine, so PacketEvents and Chunky landed in the SMP's `plugins/` and the season jar did not.
-The folder was not empty, the count passed, and the SMP came up with no season on it and reported
-healthy. `limbo`, `hunger-games` and `network-control` were caught only because their folders
-happened to be *entirely* empty. Each service now names what it needs in `EXPECTED_PLUGINS`
-(filename prefixes, split the way the updater splits them), and a folder missing any of them stops
-the container with the missing prefixes in the message.
-
-**It is a minimum, never an exact set.** An extra jar is expected and fine — a hand-installed block
-logger is planned in [smp.md](../docs/smp.md#block-logging--checked-2026-08-31), and the updater's
-own rule for a jar it does not account for is that it is reported and left alone. `TopologyTest`
-asserts that every plugin the topology gives a service is one that service's guard asks for.
-
-**And two datapacks, which are not plugins but belong in the same conversation: Terralith and
-Dungeons and Taverns.** They are what the terrain of every world in this season is, they are pinned
-by sha512 in `.env` (`SMP_DATAPACK_URLS`), and the entrypoint fetches them into the `level-name`
-world's `datapacks/` folder *before* the server starts.
-
-Three facts about them, all measured on Paper 26.2 build 121 on 2026-09-01 rather than assumed:
-
-- **Datapacks are server-global.** They are read only from `<level-name>/datapacks/`. A probe pack
-  placed in a secondary world's own `datapacks/` folder was never listed — not at start, not after
-  that world was created, not after `refreshPacks()`. There is no per-world datapack API.
-- **They are read once, at start.** A pack dropped in afterwards changes no terrain, and terrain is
-  never re-rolled once it is on disk. That is why the entrypoint fetches them before Java runs.
-- **A world created through the Bukkit API lands at `<level-name>/dimensions/minecraft/<name>`**,
-  inside the primary world rather than beside it. Worth knowing before you go looking for the farm
-  world's folder, or size a volume for the two that exist during a swap.
-
-`smp` verifies both are enabled and refuses to start otherwise. That refusal is deliberate: a farm
-world generated without Terralith is one flat day, but Nordtal generated without it is the whole
-season, on a world with a spawn built on it that therefore cannot be thrown away.
+- **Required, `smp` only: DisplayTags, and PacketEvents underneath it.** Nametags come from
+  [`papermc-display-tags`](https://github.com/nordtal/papermc-display-tags) — our own fork — through
+  its API. `smp`'s `paper-plugin.yml` declares it with `load: BEFORE` and `required: true`, so a
+  server missing either fails loudly at start instead of quietly rendering plain nametags.
+- **Required, `smp` only: Chunky** (`Chunky-Bukkit-1.5.3.jar`, the version Modrinth tags for `paper`
+  on 26.2). The farm world is pre-generated every night and the daily reset waits for Chunky's
+  completion event before it swaps anything in. Without it the reset would postpone itself every
+  night, silently, which is why `required: true` turns that into a start-up failure instead.
 - **Optional: CoreProtect**, purely as insurance. Nothing in the design depends on it, and it gets
-  its own SQLite file rather than a schema in our PostgreSQL so that
-  "[exactly one process migrates](../docs/architecture.md#schema-ownership)" stays literally true.
+  its own SQLite file rather than a schema in our PostgreSQL so that exactly one process migrates.
   It had no 26.2 release as of 2026-08-31, only a `master` that builds against it; if it has not
   shipped when the phase is ready, the phase opens without block logging and Prism 4.4 is the
-  written fallback. The comparison is in [smp.md](../docs/smp.md#block-logging--checked-2026-08-31).
+  written fallback.
 
-## Why it looks like this
+The updater resolves all three — DisplayTags from its own repository's releases, PacketEvents and
+Chunky from Modrinth filtered to this Minecraft version and `paper` — so a version bump is a run of
+`/update now` and not an edit to `.env`.
 
-The runbook above is what to do; this is why, so that nobody re-opens a settled question by
-accident. Everything here was decided on 2026-09-01.
+**Each service names what it needs in `EXPECTED_PLUGINS`** (filename prefixes), and a folder missing
+any of them stops the container naming them — counting jars is not enough, because a source that
+answers 403 for one jar while another answers fine leaves a folder that is not empty and a server
+with no season on it, reporting healthy. It is a **minimum, never an exact set**: an extra jar is
+reported and left alone. `TopologyTest` asserts that every plugin the topology gives a service is one
+that service's guard asks for.
 
-- **One image for all four Minecraft services**, built from `minecraft/Dockerfile`: a JRE 25 base
-  and a wrapper as PID 1 — no jar of any kind; the server jar and the plugins are in the volume and
-  the updater owns them. `itzg/docker-minecraft-server` is the obvious candidate and was rejected —
-  it does not cover Velocity (that is a *second* image with its own vocabulary), neither image
-  solves the console problem for the proxy, and we want the build to move through one mechanism
-  rather than through an image's own version resolution at start. One Dockerfile covers all four
-  identically.
-- **The console is tmux, not RCON**, because RCON would not be uniform: Paper has it, **Velocity has
-  no RCON at all** (checked 2026-09-01 — the only option is the third-party Velocircon plugin).
-  That would mean one mechanism for three servers, another for the proxy, and a third-party plugin
-  on the single process whose whole job is deciding who may join. tmux costs two scripts.
-- **PID 1 traps SIGTERM**, sends `stop` into the session and waits for the JVM to exit. Not
-  optional: without it `docker stop` kills a wrapper and leaves the JVM to be SIGKILLed. That is
-  what `stop_grace_period: 180` is for — the compose default of 10 s does not save a border-4000
-  world, and a save cut off halfway stays invisible for days.
-- **Named volumes for the state, a directory for `plugins/`** (split on 2026-09-05; it read "named
-  volumes, no bind mounts" until then, and the half that is still true is the half about *worlds*).
-  Arcane reaches volumes directly and its volume backup is the only thing that saves a world, so
-  the world, the `.server/` jar cache and `logs/` stay in `mc-<service>` — a bind-mounted world
-  folder is also a uid/permission problem whose symptom is a corrupted save.
+**Two datapacks belong in the same conversation: Terralith and Dungeons and Taverns.** They are the
+terrain of every world in this season, pinned by sha512 in `.env` (`SMP_DATAPACK_URLS`), and the
+entrypoint fetches them into the `level-name` world's `datapacks/` folder *before* the server
+starts. Datapacks are server-global — read only from `<level-name>/datapacks/`, with no per-world
+API — and read **once, at start**: a pack dropped in afterwards changes no terrain, and terrain is
+never re-rolled once it is on disk. `smp` verifies both are enabled and refuses to start otherwise,
+because Nordtal generated without Terralith is the whole season on a world with a spawn built on it.
 
-  `plugins/` carries none of that. Nothing backs it up because everything in it is refetchable, and
-  keeping it inside the volume was paid for on every single edit: a `docker compose cp` out to read
-  `plugins/smp/config.yml`, another back in, and a third to put a freshly built jar somewhere a
-  server would load it. It is `${SERVERS_ROOT:-./deploy/servers}/<service>/plugins` now — a
-  directory beside `compose.yml`, in Arcane's file manager and in an editor. That is also what made
-  a local development stack possible at all; see [Locally](#locally).
+A world created through the Bukkit API lands at `<level-name>/dimensions/minecraft/<name>`, inside
+the primary world rather than beside it — worth knowing before you go looking for the farm world's
+folder, or size a volume for the two that exist during a swap.
 
-  **Two things came with it.** The `updater` mounts the same four directories at
-  `/volumes/<service>/plugins`, or it would install into the named volume while every server read
-  the host directory — success in the report, jars on disk, and no server running one; `TopologyTest`
-  fails if either half goes missing. And the updater's staging directory moved from the volume root
-  into each *destination* (`plugins/.nordtal-staging`, `.server/.nordtal-staging`), because a rename
-  across a mount boundary is a copy and `Files.move` falls back to one without saying so.
-- **Plugin jars are pulled from a GitHub release**, not from a dashboard. This is the job the
-  SimpleCloud dashboard could not do at all: its plugin management only understands Modrinth-hosted
-  jars, and every jar we deploy is either ours or a fork of ours. *(They were pulled by each
-  container at start until 2026-09-01; the `updater` pulls them now, and the argument against the
-  dashboard is unchanged.)*
-- **The updater is the only process that migrates**, so it runs before everything else. It was the
-  bot until 2026-09-01. Compose `depends_on` can express "PostgreSQL is healthy" and cannot express
-  "the schema is current", so this stays an operator rule — but it is no longer only a rule: the bot
-  validates the schema and refuses a database it was not built against, naming the command.
-- **The proxy needs database access**, which is a compose network rather than a firewall rule now.
-  The credentials exist in more than one config file because the database is the source of truth;
-  accepted. They are written **once** in `compose.yml`, as three YAML anchors, and handed to each
-  process under the prefix it reads — `NORDTAL_DATABASE_*` for the bot, `NORDTAL_SMP_DATABASE_*`
-  for the SMP plugin, and so on. `.env` therefore has one set of database settings and no
-  per-plugin anything; pointing the whole stack at an external PostgreSQL is `NORDTAL_DATABASE_*`
-  plus dropping the `db` profile.
-- **The container seeds its own first-start configuration**, rather than the runbook asking for
-  five hand edits across four volumes. Those edits were the largest remaining source of a stack
-  that comes up and cannot be joined, and three of them (the forwarding secret in three files) were
-  the same value typed three times. The rule that keeps this from becoming a config manager: a file
-  that exists is never touched, so the seeding is only ever the empty-volume case. The one
-  exception is `server.properties#online-mode`, which is not a preference — see
-  [First-start seeding](#first-start-seeding).
-- **No secrets are in this repository.** The Discord token, the bunq API key and the database
-  credentials arrive as environment variables; committed config files are examples.
-
-### What was measured, and what it cost
-
-A Velocity 4.1.1 build 24 and a Paper 26.2 build 121 container were run from this image on
-2026-09-01. Not inferred — run.
-
-| | |
-|---|---|
-| Fill API resolution, end to end | the pinned build is fetched, its sha256 checked against what the API reports, and a cached jar means no network call at all |
-| Cold boot | Paper 39 s from an empty volume, Velocity 9 s |
-| Console writable from a plain `docker exec` | `mc "list"` and `mc "glist"` both executed, output in the container log. That is the mechanism Arcane's shell uses |
-| `docker stop` | Paper 3 s, exit 143, `All dimensions are saved` and `All RegionFile I/O tasks to complete`. Velocity 2 s, exit 143 |
-| The EULA gate | fails closed, with the message that names it, before anything starts |
-
-Extended on 2026-09-01, when the first-start seeding was written — again run, not inferred:
-
-| | |
-|---|---|
-| A four-line `config/paper-global.yml` | comes back as Paper's full config with every other key defaulted, one warning that it had no version set, and `proxies.velocity.enabled: true` intact |
-| `PAPER_VELOCITY_SECRET` | is honoured — **and written into `paper-global.yml`**, so the variable saves the paste and not the on-disk copy |
-| `online-mode=false` seeded before first start | survives Paper writing its own `server.properties`; the server logs OFFLINE/INSECURE MODE, which is the wanted state behind a proxy |
-| A `velocity.toml` without `[forced-hosts]` | **fails**: Velocity applies its default table, whose three servers do not exist, and refuses to start. The table is now written empty |
-| The same file with it | boots in 0.8 s with modern forwarding on and no "forwarding is disabled" warning |
-
-Still untested: whether the *interactive* `console` attach behaves inside Arcane's browser terminal
-— see [`../../todo.md`](../../todo.md), section 3.
-
-### Never mirror the console with `tmux pipe-pane`
+## Never mirror the console with `tmux pipe-pane`
 
 `tmux pipe-pane … > /proc/1/fd/1` is the obvious way to get the tmux console into `docker logs`, and
-**it wedges the container**. Measured on Docker 29.4.1: with that line, SIGTERM never reaches PID 1,
-the shutdown trap never runs, the container survives the SIGKILL at the end of the grace period, and
-`docker rm -f` then fails with *"tried to kill container, but did not receive an exit event"* — a
-container only a Docker daemon restart can clear. Same image, that one line removed: `docker stop`
-finishes in **one second**.
+**it wedges the container**: SIGTERM never reaches PID 1, the shutdown trap never runs, the container
+survives the SIGKILL at the end of the grace period, and `docker rm -f` then fails with *"did not
+receive an exit event"* — only a Docker daemon restart clears it. The writer holds a second handle on
+the container's stdout pipe from a process whose lifetime the shim does not track.
 
-A pipe-pane writer holds a second handle on the container's stdout pipe from a process whose
-lifetime the shim does not track. `tail -F` on the server's own `logs/latest.log` is a plain child
-of PID 1 inheriting its stdout, does not do that, and gives a container log free of terminal escape
-sequences as a bonus. That is what `entrypoint.sh` does. An A/B of the identical image, one
-variable, both directions — written down because rediscovering it costs the same hour it cost the
-first time.
+**The rule is about `/proc/1/fd/1`, not about `pipe-pane`.** The entrypoint does use `pipe-pane`,
+into a *file* — an ordinary file in the volume is a different descriptor and holds nothing open. It
+captures the pane to `logs/console.log`, empties it at every start and switches it off again the
+moment `latest.log` exists, so it is a boot log with nothing to rotate; if the JVM dies before Paper
+starts logging, the entrypoint prints that file to stdout on the way out. Ordinary log reading is
+`tail -F` on `logs/latest.log`, a plain child of PID 1 inheriting its stdout.
 
-**The rule is about `/proc/1/fd/1`, not about `pipe-pane` — and since 2026-09-02 the entrypoint uses
-`pipe-pane` into a *file*.** What makes the forbidden form lethal is the second handle on the
-container's stdout *pipe*; an ordinary file in the volume is a different descriptor and holds
-nothing open. Two comments in this repository (the image's `Dockerfile` and `compose.yml`) claimed
-until that day that the console *was* mirrored to `/proc/1/fd/1`, which is the one sentence most
-likely to make somebody implement it.
-
-**Why a capture was needed at all.** `tail -F logs/latest.log` can show nothing that happens before
-Paper creates that file. A Paperclip that could not load `mojang_26.2.jar` printed a forty-line
-stack trace into the tmux pane, the pane died with the container, and what an operator saw — on a
-loop, because `restart: unless-stopped` — was:
-
-```
-[nordtal] starting paper 26.2 build 121
-[nordtal] server exited with status 1
-```
-
-So the pane is captured to `logs/console.log`, emptied at every start and **switched off again the
-moment `latest.log` exists**: it is a boot log, bounded by construction, and it stops being written
-before a player could join — no rotation policy, nothing to grow. If the JVM dies before Paper
-starts logging, the entrypoint prints that file to stdout on the way out, which is the only place
-it would ever be read.
-
-**Two ordering bugs came out of the same drill, and both are one line.** `remain-on-exit` was set
-*after* `new-session`, which works for every server that runs for a while and fails for the only
-one where it matters: a JVM that dies at once takes the session with it before the option applies,
-every `display-message` falls back to `|| echo 1`, and a real exit status of 3 is reported as 1.
-Setting it globally first needs `exit-empty off`, because a tmux server with no sessions exits
-immediately. And `pipe-pane` has to be attached in the *same* `tmux` invocation as `new-session` —
-a separate call against a pane that already exited fails with *"target pane has exited"*, taking
-the crash output with it. Both measured in a container on 2026-09-02, both directions;
-`:common`'s `EntrypointRulesTest` is what notices if either is undone.
+Two ordering rules go with it, both one line, both asserted by `:common`'s `EntrypointRulesTest`.
+`remain-on-exit` has to be set **globally, before** `new-session` — which needs `exit-empty off`,
+since a tmux server with no sessions exits immediately — or a JVM that dies at once takes the session
+with it before the option applies and a real exit status of 3 is reported as 1. And `pipe-pane` has
+to be attached in the *same* `tmux` invocation as `new-session`; a separate call against a pane that
+already exited fails with *"target pane has exited"*, taking the crash output with it.

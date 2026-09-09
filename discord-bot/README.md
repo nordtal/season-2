@@ -58,9 +58,10 @@ cp .env.example .env      # .env is gitignored and must never be committed
 COMPOSE_PROFILES=db,bot docker compose up -d
 ```
 
-**No Gradle step and no `--build`.** The image is pulled from `ghcr.io/nordtal/discord-bot`, pushed by
-`release.yml` when a release is published; `IMAGE_TAG` picks which one. That is not a convenience —
-Arcane deploys by pulling and never builds, so an image existing only on one host fails a deploy.
+**No Gradle step and no `--build`.** The image is pulled from `ghcr.io/nordtal/discord-bot:latest`,
+pushed by `release.yml` when a release is published. There is no tag to choose: `IMAGE_TAG` was
+removed on 2026-09-09. That is not a convenience — Arcane deploys by pulling and never builds, so an
+image existing only on one host fails a deploy.
 
 To build it here instead, which is what the `build:` block is for:
 
@@ -70,14 +71,17 @@ COMPOSE_PROFILES=db,bot docker compose up -d --build
 ```
 
 The image only copies a finished jar and Compose cannot run Gradle, so the jar has to exist first.
-`BOT_VERSION` names it and must match `gradle.properties`.
+Nothing names a version: the Dockerfile globs `build/libs` and takes whatever Gradle just produced,
+so a local build cannot pick up a jar from an older run of it. `BOT_VERSION` did name it until
+2026-09-09 and had been saying 0.2.3 against a repository on 0.8.1.
 
 **The image tag is a floor, not the version.** The bot runs whatever `discord-bot-*.jar` is in the
 `bot-jar` volume, which the updater fills exactly as it fills every `plugins/` folder — so the bot
-moves and rolls back by the same mechanism as every other module. The jar baked into the image is used
-only while that volume is empty, which is a first deployment and nothing else. `BOT_VERSION` going
-stale is therefore harmless, and reading it as "what is running" is wrong: the entrypoint prints the
-jar it picked on every start, and `docker compose run --rm updater report` says what is installed.
+moves by the same mechanism as every other module. It does not roll *back* by any mechanism: nothing
+pins a release any more, and the way out of a bad one is to publish a better one. The jar baked into
+the image is used only while that volume is empty, which is a first deployment and nothing else, and
+reading it as "what is running" is wrong: the entrypoint prints the jar it picked on every start, and
+`docker compose run --rm updater report` says what is installed.
 
 `COMPOSE_PROFILES` decides what comes up: `bot` alone against an existing database, `db,bot` with a
 PostgreSQL beside it, `db,bot,mc` for the full network. The `updater` service has no profile and comes

@@ -1,10 +1,14 @@
-# Runtime-only image. The jar is built by Gradle first (`./gradlew :discord-bot:shadowJar`)
-# and passed in, rather than building inside the image: this is a multi-module repo, so a
-# self-contained build stage would have to copy the whole tree and rebuild every module.
+# Runtime-only image. The jar is built by Gradle first (`./gradlew :discord-bot:shadowJar`) and
+# picked up out of build/libs, rather than being built inside the image: this is a multi-module repo,
+# so a self-contained build stage would have to copy the whole tree and rebuild every module.
 #
 #   ./gradlew :discord-bot:shadowJar
-#   docker build -t ghcr.io/nordtal/discord-bot:<version> \
-#     --build-arg JAR=build/libs/discord-bot-<version>.jar discord-bot
+#   docker build -t ghcr.io/nordtal/discord-bot:latest discord-bot
+#
+# THE VERSION IS NOT NAMED ANYWHERE IN THIS BUILD, and that is deliberate. It used to arrive as a
+# --build-arg fed from a variable in .env, which is a version number written down a second time and
+# therefore a version number that goes stale: .env.example still said 0.2.3 when gradle.properties
+# said 0.8.1, and the only thing that produced was a build looking for a jar nobody had built.
 FROM eclipse-temurin:25-jre
 
 WORKDIR /app
@@ -13,8 +17,15 @@ WORKDIR /app
 # discord-bot-*.jar is in /app/lib, which is a volume the updater fills; this copy is only what
 # makes a first deployment possible, before any updater run has happened. docker-entrypoint.sh
 # says the same thing at length and prints which one it picked on every start.
-ARG JAR
-COPY ${JAR} /app/app.jar
+#
+# THE .dockerignore IS LOAD-BEARING HERE. `shadowJar` leaves two jars side by side and this glob
+# matches both; .dockerignore keeps the -thin one out of the context so that exactly one does.
+# Measured on 2026-09-09 with Docker 29.7.2: with both in the context BuildKit does NOT fail on
+# several sources into one destination - it writes one of them and says nothing. It happened to be
+# the right one, because `-thin.jar` sorts before `.jar`, which is an ordering accident and not a
+# guarantee. So the failure this line prevents is a silent one: an image carrying the thin jar,
+# which starts and then dies on the first class it cannot find.
+COPY build/libs/discord-bot-*.jar /app/app.jar
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 RUN mkdir -p config bunq lib \

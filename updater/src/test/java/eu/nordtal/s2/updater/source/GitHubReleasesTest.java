@@ -21,7 +21,7 @@ class GitHubReleasesTest {
         final GitHubReleases github = new GitHubReleases(
                 new FakeHttp().serving("/releases/latest", "github-season-v0.1.0.json"));
 
-        final GitHubReleases.Release release = github.fetch("nordtal/season-2", GitHubReleases.LATEST);
+        final GitHubReleases.Release release = github.latest("nordtal/season-2");
 
         assertEquals("v0.1.0", release.tag());
         assertFalse(release.prerelease());
@@ -44,26 +44,28 @@ class GitHubReleasesTest {
         final GitHubReleases github = new GitHubReleases(
                 new FakeHttp().serving("/releases/latest", "github-display-tags.json"));
 
-        final GitHubReleases.Release release =
-                github.fetch("nordtal/papermc-display-tags", GitHubReleases.LATEST);
+        final GitHubReleases.Release release = github.latest("nordtal/papermc-display-tags");
 
         assertEquals("2.0.0", release.tag());
         assertNotNull(release.asset("papermc-display-tags-2.0.0.jar"));
     }
 
     @Test
-    @DisplayName("latest and a pinned tag are different endpoints")
-    void pinningATagUsesTheTagsEndpoint() throws IOException {
+    @DisplayName("there is one endpoint and it is /releases/latest - a tag cannot be asked for")
+    void thereIsOnlyTheLatestEndpoint() throws IOException {
+        // What this replaced was a test asserting that `latest` and a pinned tag reach two
+        // different endpoints. The tags endpoint is gone with the pin (2026-09-09): it existed only
+        // to serve `season-release`, and a release nobody can pin is a version number nobody can
+        // write down twice. This holds the remaining half - that the one call still goes to the
+        // endpoint which skips drafts and pre-releases, rather than to /releases, which does not.
         final FakeHttp http = new FakeHttp().serving("/releases/", "github-season-v0.1.0.json");
         final GitHubReleases github = new GitHubReleases(http);
 
-        github.fetch("nordtal/season-2", GitHubReleases.LATEST);
-        github.fetch("nordtal/season-2", "v0.1.0");
+        github.latest("nordtal/season-2");
 
+        assertEquals(1, http.requested().size());
         assertEquals("https://api.github.com/repos/nordtal/season-2/releases/latest",
                 http.requested().get(0).toString());
-        assertEquals("https://api.github.com/repos/nordtal/season-2/releases/tags/v0.1.0",
-                http.requested().get(1).toString());
     }
 
     @Test
@@ -74,7 +76,7 @@ class GitHubReleasesTest {
                 .answering(".zip.sha1", "  6f1ed002ab5595859014ebf0951522d9d0f2ee34\n");
         final GitHubReleases github = new GitHubReleases(http);
 
-        final GitHubReleases.Release release = github.fetch("nordtal/season-2", GitHubReleases.LATEST);
+        final GitHubReleases.Release release = github.latest("nordtal/season-2");
         final GitHubReleases.Asset sha1 = release.asset("nordtal-resource-pack-0.1.0.zip.sha1");
         assertNotNull(sha1);
 

@@ -3,8 +3,12 @@
 # and rebuild every module.
 #
 #   ./gradlew :updater:shadowJar
-#   docker build -t nordtal/updater:<version> \
-#     --build-arg JAR=build/libs/updater-<version>.jar updater
+#   docker build -t ghcr.io/nordtal/updater:latest updater
+#
+# THE VERSION IS NOT NAMED ANYWHERE IN THIS BUILD, and that is deliberate. It used to arrive as a
+# --build-arg fed from a variable in .env, which is a version number written down a second time and
+# therefore a version number that goes stale: .env.example still said 0.2.3 when gradle.properties
+# said 0.8.1, and the only thing that produced was a build looking for a jar nobody had built.
 #
 # release.yml PUSHES THIS IMAGE, and has since 2026-09-02: ghcr.io/nordtal/updater, tagged with the
 # version and with `latest`, alongside the bot, the minecraft image and the backup sidecar. The
@@ -19,8 +23,15 @@ WORKDIR /app
 # in /volumes/updater - a volume it fills itself, on the run that installs everything else - and
 # this copy is what makes the very first run possible, before that volume has anything in it.
 # docker-entrypoint.sh says the same thing at length and prints which one it picked on every start.
-ARG JAR
-COPY ${JAR} /app/app.jar
+#
+# THE .dockerignore IS LOAD-BEARING HERE. `shadowJar` leaves two jars side by side and this glob
+# matches both; .dockerignore keeps the -thin one out of the context so that exactly one does.
+# Measured on 2026-09-09 with Docker 29.7.2: with both in the context BuildKit does NOT fail on
+# several sources into one destination - it writes one of them and says nothing. It happened to be
+# the right one, because `-thin.jar` sorts before `.jar`, which is an ordering accident and not a
+# guarantee. So the failure this line prevents is a silent one: an image carrying the thin jar,
+# which starts and then dies on the first class it cannot find.
+COPY build/libs/updater-*.jar /app/app.jar
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 RUN mkdir -p config \
@@ -52,7 +63,9 @@ RUN mkdir -p config \
 # Unlike every other config in this repository, its defaults are the real values and a fresh file
 # is what you want: the repositories and project ids are facts about this project, not about a
 # deployment. The variable is the setting's path with '-' becoming '_', so the release to follow
-# is NORDTAL_UPDATER_SEASON_RELEASE. The environment wins over the file and is never written back.
+# is NORDTAL_UPDATER_SEASON_REPO. The environment wins over the file and is never written back.
+#
+# There is no setting for WHICH release to follow. It is always the newest published one.
 ENV NORDTAL_UPDATER_CONFIG_DIR=/app/config
 
 # The updater's own jar lives where it puts it: under volumes-root, beside the four Minecraft

@@ -317,6 +317,15 @@
             "chars": [
                 "\udbb8\ude1d"
             ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/handin_tray.png",
+            "ascent": -4,
+            "height": 54,
+            "chars": [
+                "\udbb8\ude04"
+            ]
         }
     ]
 }

@@ -494,6 +494,42 @@ def bar_fill(width):
     return width, CARD_FILL_HEIGHT, bytes(blank(width, CARD_FILL_HEIGHT, CARD_BAR_COLOUR))
 
 
+# --- The hand-in tray -----------------------------------------------------------------
+#
+# Design H2 (owner, 2026-09-08): the deposit area is ONE surface, not a recess per slot.
+# The difference against the grave is deliberate and it is the difference between the two
+# actions - a tray is a thing you throw into, a grave is an inventory you take out of, and
+# an inventory that looks like an inventory is what says "these are separate stacks and you
+# may take any of them". Do not make the two the same by tidying.
+#
+# The cost is a ghost square: vanilla's 16x16 hover highlight still snaps to the 18px grid
+# the surface is hiding. That was the owner's call with the drawing in front of them.
+TRAY_INNER_DARK = (35, 35, 40, 255)
+
+
+def sunken(width, height):
+    """A recessed surface: dark along the top and left, lit along the bottom and right.
+
+    The same shading a single slot cell has, at any size - which is what makes a 162 x 54
+    tray read as one deep tray rather than as a flat grey rectangle. The corners are cut
+    transparent because this is a glyph laid OVER a panel, so the panel's ground shows.
+    """
+    buf = blank(width, height, PALETTE["slot"])
+    rect(buf, width, 0, 0, width - 1, 0, TRAY_INNER_DARK)
+    rect(buf, width, 0, 0, 0, height - 1, TRAY_INNER_DARK)
+    rect(buf, width, width - 1, 0, width - 1, height - 1, PALETTE["slot_edge"])
+    rect(buf, width, 0, height - 1, width - 1, height - 1, PALETTE["slot_edge"])
+    chamfer(buf, width, height, 0, 0, width - 1, height - 1, TILE_CHAMFER, PALETTE["slot_edge"])
+    return width, height, bytes(buf)
+
+
+# The deposit area: the whole slot area of three chest rows, drawn from the slot cell's own
+# corner rather than inset, because it IS the slots.
+TRAY_WIDTH = SLOT_COLUMNS * ROW_PITCH                     # 162
+TRAY_ROWS = 3
+TRAY_HEIGHT = TRAY_ROWS * ROW_PITCH                       # 54
+
+
 def assert_advance(path, expected_width):
     """A glyph advances by its rightmost drawn column + 2; the Java side assumes width + 1.
 
@@ -524,7 +560,8 @@ def main():
                 ("travel_locked", locked_overlay()),
                 ("travel_here", here_overlay()),
                 ("objective_card", objective_card()),
-                ("objective_card_done", objective_card_done())]
+                ("objective_card_done", objective_card_done()),
+                ("handin_tray", sunken(TRAY_WIDTH, TRAY_HEIGHT))]
     surfaces += [(f"bar_fill_{step}", bar_fill(step)) for step in CARD_FILL_STEPS]
 
     for name, (width, height, data) in surfaces:

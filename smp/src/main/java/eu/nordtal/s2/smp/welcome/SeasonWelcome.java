@@ -1,8 +1,7 @@
 package eu.nordtal.s2.smp.welcome;
 
-import eu.nordtal.s2.common.message.MessageRenderer;
-import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.stage.Cinematic;
 import eu.nordtal.s2.papercommon.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -15,7 +14,6 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -72,17 +70,15 @@ public final class SeasonWelcome {
     private final Plugin plugin;
     private final SmpDao dao;
     private final Identities identities;
-    private final Messages messages;
     private final PlayerLocales locales;
     private final BukkitCinematics cinematics;
 
     public SeasonWelcome(final Plugin plugin, final SmpDao dao, final Identities identities,
-                         final Messages messages, final PlayerLocales locales,
+                         final PlayerLocales locales,
                          final BukkitCinematics cinematics) {
         this.plugin = plugin;
         this.dao = dao;
         this.identities = identities;
-        this.messages = messages;
         this.locales = locales;
         this.cinematics = cinematics;
     }
@@ -136,26 +132,32 @@ public final class SeasonWelcome {
                     + discordId + "';");
             return;
         }
-        cinematics.start(player, cinematic(locales.of(uuid)));
+        // Still run from the locale callback, even though nothing in the moment is language any
+        // more: it is the callback that fires once the player is fully arrived, and a staged moment
+        // is exactly the thing that must not begin while a join is still settling. If the moment
+        // ever regains a sentence, this is already the only place it could be right.
+        cinematics.start(player, cinematic());
     }
 
     /**
      * What the moment is made of.
      *
-     * <p><b>There is deliberately no sound yet.</b> The design is a sound of this project's own,
-     * arriving with the resource pack, reached through {@code sounds.yml} so that a blank key runs
-     * silently until it does. Every category in {@code sounds.yml} is a {@link
-     * eu.nordtal.s2.common.feedback.Feedback} constant, and that enum is the network's whole sound
-     * vocabulary - "if a call site cannot be expressed with one of them, that is a question for the
-     * owner and not a licence to add an eleventh". None of the ten is this moment, so the question
-     * is open rather than answered with the nearest fit: borrowing {@code NETWORK_EVENT} would give
-     * the season's opening the phase-switch chime, which is worse than the silence the design
-     * already expects. {@link Cinematic.Builder#sound} is where it goes on the day that is decided.
+     * <p><b>The sound is {@link Feedback#STAGING} and it ships blank</b> (owner, 2026-09-09). The
+     * question this used to leave open - none of the ten categories is a staged moment, and
+     * borrowing {@code NETWORK_EVENT} would give the season's opening the phase-switch chime - was
+     * answered by adding an eleventh rather than by guessing. The category exists, the path through
+     * {@code sounds.yml} exists, and the key is empty, which every module already treats as
+     * silence. The sound arrives with the artwork, as one line of YAML and no release.
+     *
+     * <p><b>And there is no subtitle</b>, also the owner's, the same day. The pictures carry the
+     * moment on their own; a sentence under them explains an image that is meant to need no
+     * explaining, and it would have been the one thing here that had to be written twice, in two
+     * languages, before anybody had seen the art it sits under.
      */
-    private Cinematic cinematic(final Locale locale) {
+    private Cinematic cinematic() {
         return Cinematic.builder()
                 .frames(frames(), FRAME_TICKS)
-                .subtitle(MessageRenderer.of(messages).get(locale, "smp.welcome.subtitle"))
+                .sound(Feedback.STAGING)
                 // Blindness for exactly as long as the pictures run, which is what makes them the
                 // only thing on the screen. Removed by the staging when it ends, when the player
                 // dies and when they log out - see BukkitCinematics.

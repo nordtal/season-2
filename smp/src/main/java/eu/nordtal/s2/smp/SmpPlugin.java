@@ -453,8 +453,8 @@ public final class SmpPlugin extends JavaPlugin {
         npc = new SpawnNpc(this, config);
         npc.spawn();
         getServer().getPluginManager().registerEvents(
-                new NpcListener(this, dao, npc, () -> track, engine, identities, messages, locales,
-                        sounds), this);
+                new NpcListener(this, dao, npc, () -> track, engine, identities,
+                        config::wheelExtraSpinPercents, messages, locales, sounds), this);
         // Separate from NpcListener on purpose: that one is what the figure is FOR, this one is
         // what keeps it standing. Invulnerable does not survive a creative-mode hit or the void,
         // and the spawn protection covers blocks rather than entities - see NpcProtection.

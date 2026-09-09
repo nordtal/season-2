@@ -30,11 +30,31 @@ import java.util.Random;
  */
 public final class WheelStrip {
 
-    /** Visible cells - one chest row, so the strip is what a row can hold. */
-    public static final int CELLS = 9;
+    /**
+     * Visible cells and the one the winner stops in, as a pair.
+     *
+     * <h2>Why these are not constants any more (2026-09-09)</h2>
+     * They were 9 and 4 - one chest row, marker in the middle - because that was the only shape a
+     * wheel had. The ring the owner chose has <b>twelve</b> cells laid round a hub and stops on the
+     * top one, so the window's width and the resting index are properties of the surface rather
+     * than of this class. Nothing else changes: the sequence, the anti-repeat rule and the
+     * deceleration table are the same, which is exactly what the design artifact says a ring mode
+     * costs.
+     *
+     * @param count  how many cells the surface shows at once
+     * @param centre which of them the winner stops in, counted from the first
+     */
+    public record Shape(int count, int centre) {
 
-    /** The cell the marker points at. The middle of nine. */
-    public static final int CENTRE = 4;
+        public Shape {
+            if (count < 1) {
+                throw new IllegalArgumentException("a wheel shows at least one cell, not " + count);
+            }
+            if (centre < 0 || centre >= count) {
+                throw new IllegalArgumentException("cell " + centre + " is not one of " + count);
+            }
+        }
+    }
 
     /**
      * Ticks to wait <em>after</em> drawing each frame.
@@ -50,20 +70,24 @@ public final class WheelStrip {
 
     private final int[] sequence;
     private final int winner;
+    private final Shape shape;
 
-    private WheelStrip(final int[] sequence, final int winner) {
+    private WheelStrip(final int[] sequence, final int winner, final Shape shape) {
         this.sequence = sequence;
         this.winner = winner;
+        this.shape = shape;
     }
 
     /**
-     * A strip for a pool of {@code poolSize} prizes whose last step centres {@code winner}.
+     * A strip for a pool of {@code poolSize} prizes whose last step rests {@code winner} on
+     * {@code shape}'s own resting cell.
      *
      * @throws IllegalArgumentException on an empty pool or a winner outside it - both are
      *                                  programming errors, and a wheel drawn from a pool it does not
      *                                  have would land on whatever index happened to be in range
      */
-    public static WheelStrip landingOn(final int poolSize, final int winner, final Random random) {
+    public static WheelStrip landingOn(final int poolSize, final int winner, final Random random,
+                                       final Shape shape) {
         if (poolSize < 1) {
             throw new IllegalArgumentException("a wheel needs at least one prize, not " + poolSize);
         }
@@ -76,8 +100,8 @@ public final class WheelStrip {
         // everything else is filled around it. The other order - fill, then overwrite - is the
         // obvious one and it is wrong: overwriting can drop the winner next to a copy of itself,
         // in the one frame every player is actually looking at.
-        final int landing = steps() - 1 + CENTRE;
-        final int[] sequence = new int[steps() + CELLS];
+        final int landing = steps() - 1 + shape.centre();
+        final int[] sequence = new int[steps() + shape.count()];
         sequence[landing] = winner;
 
         for (int index = 0; index < sequence.length; index++) {
@@ -100,7 +124,7 @@ public final class WheelStrip {
             }
             sequence[index] = pick;
         }
-        return new WheelStrip(sequence, winner);
+        return new WheelStrip(sequence, winner, shape);
     }
 
     /** How many frames the animation has. */
@@ -116,14 +140,19 @@ public final class WheelStrip {
         return DELAYS[step];
     }
 
-    /** The prize index in each of the nine cells at {@code step}, left to right. */
+    /** The prize index in each visible cell at {@code step}, in the surface's own cell order. */
     public int[] cells(final int step) {
         if (step < 0 || step >= steps()) {
             throw new IllegalArgumentException("step " + step + " is not one of " + steps());
         }
-        final int[] out = new int[CELLS];
-        System.arraycopy(sequence, step, out, 0, CELLS);
+        final int[] out = new int[shape.count()];
+        System.arraycopy(sequence, step, out, 0, shape.count());
         return out;
+    }
+
+    /** The surface this strip was built for. */
+    public Shape shape() {
+        return shape;
     }
 
     /** How long a whole spin takes, in ticks, including the pause before the strike. */

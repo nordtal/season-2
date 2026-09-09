@@ -594,6 +594,59 @@ shape and not a palette. The slot grid in it was read off the extracted 26.2 `ge
 starts at **(7, 17)**, not at the (8, 18) every tutorial quotes, which is the item area inside it.
 **Re-measure at every version bump:** 1.21.9 moved the villager trading result slot by one pixel.
 
+### `\uFE200` – `\uFE2FF` — menu surfaces (2026-09-09)
+
+Art that spans **more than one chest row**, and therefore cannot be a row glyph: a row font's whole
+purpose is one ascent per layer per row, and a card two rows tall has no row. These live in
+`nordtal:gui` with an ascent apiece, exactly as the balloon's overlays do — and, exactly as there, a
+picture that can land on two different rows is **declared twice**, once per ascent.
+
+Nothing forced a *new* block: fonts allocate independently and `\uFE090` was free in this one. The
+numbers in this repository are kept globally distinct so that a code point read in a log or a
+screenshot names one thing, and `\uFE080` is the system-line icons in `minecraft:default`.
+
+| Char code | File | Ascent | Description | Status |
+|---|---|---|---|---|
+| `\uFE200` | ![source](src/assets/nordtal/textures/ui/gui/objective_card.png) | −24 | An objective card, 68 × 32 — four slot columns and two slot rows, inset 2, with the progress bar's **track** sunk into it at (3, 14). The balloon's card at half the height. Upper card row, top y 37 | generated — placeholder |
+| `\uFE201` | the same file | −60 | The same card on the lower card row, top y 73 | — |
+| `\uFE202` | ![source](src/assets/nordtal/textures/ui/gui/objective_card_done.png) | −24 | The green wash over a finished card. Laid over the bar too, on purpose: a finished objective's bar is full, and washing only its heading would say the card was half settled | generated — placeholder |
+| `\uFE203` | the same file | −60 | The same wash, lower card row | — |
+| `\uFE204` | ![source](src/assets/nordtal/textures/ui/gui/handin_tray.png) | −4 | The hand-in screen's tray, 162 × 54 — **one** sunken surface over three chest rows, drawn from the slot cell's own corner rather than inset, because it *is* the cells | generated — placeholder |
+| `\uFE205` – `\uFE209` | `ui/gui/grave_slab_{1..5}.png` | −4 | The grave's slab: a dark recess **per slot** on stone, one glyph per row count. Five is the most there can be — a player carries at most forty-one stacks, and the window's sixth row is the grave's footer | generated — placeholder |
+| `\uFE210` – `\uFE215` | `ui/gui/bar_fill_{1,2,4,8,16,32}.png` | −39 | The progress bar's **fill**, in powers of two, 3px tall. Upper card row | generated — placeholder |
+| `\uFE218` – `\uFE21D` | the same six files | −75 | The same six, lower card row | — |
+| `\uFE20A` | ![source](src/assets/nordtal/textures/ui/gui/wheel_ring.png) | 13 | The wheel's own panel, 176 × 204 — a five-row window with a band round twelve prize cells, a hub, and a two-pixel white frame on the cell the winner rests in. A **whole panel** like the balloon's, because a circle on a nine-by-five grid is the band *between* the cells and belongs to no row | generated — placeholder |
+| `\uFE20B` – `\uFE20F`, `\uFE216` – `\uFE217`, `\uFE21E` – `\uFE2FF` | — | | reserved for this block's growth | — |
+
+**The wheel's ring sits two slot columns left of where the design artifact draws it** (owner,
+2026-09-08), which is what frees columns 5–8 for the "again" button and the two lines telling a
+player how many spins are left and what earns another. One thing had to move with it: `W3` marks the
+resting cell with a triangle at `y 13`–`16`, *inside the title bar*, and that works at x 85 because
+it sits to the right of the readable title. At x 49 it does not — the window's own title runs to
+about x 58 in both languages — so the resting cell wears the two-pixel white frame `travel_here`
+already uses, over the lighter backing `W3` gives it anyway. Both cues, no collision, nothing outside
+the window. **The frame is a decision for the owner to confirm; that the triangle could not stay is
+not.**
+
+**One tray and a recess per slot are two different statements, and the pack draws both on purpose.**
+The hand-in screen is a thing you throw into — the whole area accepts items, and nine drawn cells
+would suggest the cell you drop into means something, which it does not. A grave is an inventory you
+*take out of*, and there the separate cells are the information: they say these are distinct stacks
+and any one of them may be taken. Making the two look the same loses one of the two meanings
+whichever way it goes (owner, 2026-09-08). The tray's cost is a ghost square — vanilla's 16 × 16
+hover highlight still snaps to the 18px grid the surface is hiding — and that was the call taken with
+the drawing in front of it.
+
+**The track is baked in and the fill is six glyphs**, so an empty bar costs nothing at all and any
+fill from 0 to 60 pixels is at most four glyphs — 60 is 32 + 16 + 8 + 4. That is the same
+power-of-two tiling `nordtal:board`'s edges use, and for the same reason: a glyph has one width, and
+a bar does not.
+
+The alternative the design artifact offers — a text bar out of `ProgressBar`'s `████░░` — costs no
+code points and is what the objective menu's **heading** row uses, where there is no room for a
+painted bar beside the milestone's name and its counter. Both are in the same window on purpose:
+the heading is a summary and the cards are the thing itself.
+
 ## `nordtal:gui_r0` – `nordtal:gui_r5`
 
 **Six copies of one font, one per chest row.** A glyph's only vertical control is its font's
@@ -626,9 +679,27 @@ asserts each of the eighteen ascents lands where `SlotGeometry` says that row's 
 `space` provider at **+3** rather than a cell, because an empty cell has no rightmost drawn column
 and the client would advance it one pixel.
 
-**It is all capitals, and it is not new art.** The table is the owner's design artifact's own
-`SMALL_SRC`, transcribed character for character (decision 2026-09-08: *this* sheet, not a sheet in
-this style). At 8px almost every POI name was cut off on a card; at 5px thirty-eight characters fit
+**It is all capitals, and it is not new art — with three named exceptions.** The table is the
+owner's design artifact's own `SMALL_SRC`, transcribed character for character (decision 2026-09-08:
+*this* sheet, not a sheet in this style). The exceptions are **`0`, `O` and `8`**, redrawn on the
+owner's instruction the same day: the artifact drew `0` and `O` with identical pixels and `8` one
+pixel from both, which on a font whose whole job is coordinates, distances and `1240/2048` is not a
+cosmetic problem.
+
+| glyph | rows | what tells it apart |
+|---|---|---|
+| `O` | `.#. #.# #.# #.# .#.` | round, tapered top and bottom — the shape every other letter loop on this sheet has (`C G Q`). Unchanged from the artifact |
+| `0` | `### #.# #.# #.# ###` | square, flat top and bottom — the shape the other digits have (`1 2 3 5 7`), so a zero reads as a digit rather than as the letter beside it |
+| `8` | `### #.# .#. #.# ###` | square and **waisted**: two loops joined in the middle. Three pixels from the zero rather than one, and the waist is visible at 1× |
+
+All three stay three pixels wide, so **every advance in this font is unchanged** and a column of
+numbers still lines up — a four-pixel zero would have been easier to draw and would have made
+`2048` and `1240` different widths. `MenuFontTest` asserts the three pairwise distances on the PNG
+itself, and separately that no *other* two characters draw the same picture, with a named list of
+the pairs that do: today that list is `U`/`V`, which the artifact also draws identically and which
+the owner did not ask about.
+
+At 8px almost every POI name was cut off on a card; at 5px thirty-eight characters fit
 across a window, and five pixels only works without descenders. `:common`'s `MenuFont` folds lower
 case onto the capitals on the way in — **except `ß`**, whose upper case is two letters and therefore
 not a character — and turns anything the sheet has never heard of into `?`. A POI name is typed by a
@@ -642,7 +713,7 @@ after it wrong.
 know how wide a name is. **Re-run that tool after redrawing anything in these fonts** —
 `MenuFontTest` derives the table again from the pack and fails the build when the two disagree.
 
-### `\uFE100` – `\uFE104` — row plates
+### `\uFE100` – `\uFE107` — row plates
 
 | Char code | File | Size | Description | Status |
 |---|---|---|---|---|
@@ -651,11 +722,14 @@ know how wide a name is. **Re-run that tool after redrawing anything in these fo
 | `\uFE102` | ![source](src/assets/nordtal/textures/ui/gui/row_button_wide.png) | 52 × 14 | A refusing button plate, three slot cells wide — `/navigate`'s "stop" | generated — placeholder |
 | `\uFE103` | ![source](src/assets/nordtal/textures/ui/gui/row_button_small.png) | 14 × 14 | A square button plate, one slot cell inset 2 | generated — placeholder |
 | `\uFE104` | ![source](src/assets/nordtal/textures/ui/gui/row_button_small_off.png) | 14 × 14 | The same, greyed — a page button with no page on the other side of it | generated — placeholder |
-| `\uFE105` – `\uFE10F` | — | | reserved | — |
+| `\uFE105` | ![source](src/assets/nordtal/textures/ui/gui/row_pill_dark.png) | 158 × 14 | The same plate in a darker grey — a **heading** row rather than an entry. The objective menu's top row names the milestone the cards below belong to, and drawn in the entry grey it reads as a fifth thing to click | generated — placeholder |
+| `\uFE106` | ![source](src/assets/nordtal/textures/ui/gui/row_button_confirm.png) | 50 × 14 | A button plate in the **affirming** style — gold, the brand's own, three slot cells inset 2. The only plate here that is not neutral grey or refusing red, because it is the only button in these menus whose click cannot be undone by clicking again | generated — placeholder |
+| `\uFE107` | ![source](src/assets/nordtal/textures/ui/gui/row_button_take.png) | 68 × 14 | The same affirming plate, four slot cells wide — the grave's "take everything", which is a longer sentence in both languages than anything else on a plate here | generated — placeholder |
+| `\uFE108` – `\uFE10F` | — | | reserved | — |
 
-### `\uFE110` – `\uFE115` — row icons
+### `\uFE110` – `\uFE11A` — row icons
 
-One 48 × 8 sheet, `ui/gui/row_icons.png`, six cells. **Drawn white and tinted by the component**,
+One 88 × 8 sheet, `ui/gui/row_icons.png`, eleven cells. **Drawn white and tinted by the component**,
 the same rule the system-line icons follow: the client multiplies a glyph by its component's
 colour, so white art can be painted any colour and dark art cannot be painted lighter.
 
@@ -667,7 +741,15 @@ colour, so white art can be painted any colour and dark art cannot be painted li
 | `\uFE113` | 3 | A cross — stop | generated — placeholder |
 | `\uFE114` | 4 | A left arrow — the previous page | generated — placeholder |
 | `\uFE115` | 5 | A right arrow — the next page | generated — placeholder |
-| `\uFE116` – `\uFE1FF` | — | reserved for this block's growth | — |
+| `\uFE116` | 6 | A hand — a `HAND_IN` objective, the one kind you can click | generated — placeholder |
+| `\uFE117` | 7 | A pickaxe — a `STATISTIC` objective, which counts itself | generated — placeholder |
+| `\uFE118` | 8 | A medal — an `ADVANCEMENT` objective, earned somewhere else entirely | generated — placeholder |
+| `\uFE119` | 9 | A tick — a finished objective, whichever kind it was | generated — placeholder |
+| `\uFE11A` | 10 | An experience orb — the objective menu's share line | generated — placeholder |
+| `\uFE11B` – `\uFE1FF` | — | reserved for this block's growth | — |
+
+The four at `\uFE116`–`\uFE119` are one set and never stand beside each other: the icon on an
+objective card **is** that objective's state, so exactly one of them is drawn per card.
 
 Drawn by [`tools/generate_gui_rows.py`](tools/generate_gui_rows.py), which also writes the six font
 files themselves — they are generated and checked in, like the PNGs, because six files of eight

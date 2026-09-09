@@ -173,6 +173,213 @@
             "chars": [
                 "\udbb8\udc6a"
             ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/objective_card.png",
+            "ascent": -24,
+            "height": 32,
+            "chars": [
+                "\udbb8\ude00"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/objective_card.png",
+            "ascent": -60,
+            "height": 32,
+            "chars": [
+                "\udbb8\ude01"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/objective_card_done.png",
+            "ascent": -24,
+            "height": 32,
+            "chars": [
+                "\udbb8\ude02"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/objective_card_done.png",
+            "ascent": -60,
+            "height": 32,
+            "chars": [
+                "\udbb8\ude03"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_1.png",
+            "ascent": -39,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude10"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_2.png",
+            "ascent": -39,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude11"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_4.png",
+            "ascent": -39,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude12"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_8.png",
+            "ascent": -39,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude13"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_16.png",
+            "ascent": -39,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude14"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_32.png",
+            "ascent": -39,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude15"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_1.png",
+            "ascent": -75,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude18"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_2.png",
+            "ascent": -75,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude19"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_4.png",
+            "ascent": -75,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude1a"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_8.png",
+            "ascent": -75,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude1b"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_16.png",
+            "ascent": -75,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude1c"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/bar_fill_32.png",
+            "ascent": -75,
+            "height": 3,
+            "chars": [
+                "\udbb8\ude1d"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/handin_tray.png",
+            "ascent": -4,
+            "height": 54,
+            "chars": [
+                "\udbb8\ude04"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_1.png",
+            "ascent": -4,
+            "height": 18,
+            "chars": [
+                "\udbb8\ude05"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_2.png",
+            "ascent": -4,
+            "height": 36,
+            "chars": [
+                "\udbb8\ude06"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_3.png",
+            "ascent": -4,
+            "height": 54,
+            "chars": [
+                "\udbb8\ude07"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_4.png",
+            "ascent": -4,
+            "height": 72,
+            "chars": [
+                "\udbb8\ude08"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_5.png",
+            "ascent": -4,
+            "height": 90,
+            "chars": [
+                "\udbb8\ude09"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/wheel_ring.png",
+            "ascent": 13,
+            "height": 204,
+            "chars": [
+                "\udbb8\ude0a"
+            ]
         }
     ]
 }

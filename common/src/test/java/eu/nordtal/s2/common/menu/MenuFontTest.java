@@ -150,7 +150,98 @@ class MenuFontTest {
         }
     }
 
+    /**
+     * Pairs the sheet is allowed to draw with the same pixels, and why.
+     *
+     * <p>The list is short and it is a debt, not a licence. Every entry is a pair that renders
+     * identically at five pixels, so a reader cannot tell them apart at all - which is fine for a
+     * pair that never stands beside the other in a number, and not fine otherwise.</p>
+     */
+    private static final Map<String, String> LOOKALIKES = Map.of(
+            "UV", "the artifact draws both as a bowl; the owner asked for 0/O/8 on 2026-09-08 and"
+                    + " not for this pair, so it is recorded rather than changed");
+
+    @Test
+    @DisplayName("a zero, a letter O and an eight are three different silhouettes")
+    void theThreeRoundGlyphsAreTold() {
+        // The artifact drew 0 and O with the same five rows and 8 one pixel from both (owner,
+        // 2026-09-08). A distance of one interior pixel is not a difference a player reads on a
+        // coordinate or on "1240/2048" - it is a difference somebody finds by comparing. So this
+        // asserts a floor on the distance rather than mere inequality, and it asserts it on the
+        // PNG the client will draw rather than on the generator's table.
+        final Map<Character, boolean[]> sheet = sheetPixels();
+        for (final String pair : new String[] {"0O", "08", "O8"}) {
+            assertTrue(distance(sheet.get(pair.charAt(0)), sheet.get(pair.charAt(1))) >= 3,
+                    "'" + pair.charAt(0) + "' and '" + pair.charAt(1) + "' differ in fewer than"
+                            + " three pixels in ui/gui/row_text.png. They stand next to each other"
+                            + " in every distance, every coordinate and every progress number this"
+                            + " font draws, so telling them apart cannot be a hunt for one pixel."
+                            + " Re-run resource-pack/tools/generate_gui_rows.py after changing"
+                            + " SMALL, and keep the difference in the outline");
+        }
+    }
+
+    @Test
+    @DisplayName("no two characters draw the same pixels, apart from the pairs named here")
+    void theSheetHasNoUnnamedTwins() {
+        final Map<Character, boolean[]> sheet = sheetPixels();
+        final java.util.List<String> twins = new java.util.ArrayList<>();
+        final java.util.List<Character> characters = new java.util.ArrayList<>(sheet.keySet());
+        for (int a = 0; a < characters.size(); a++) {
+            for (int b = a + 1; b < characters.size(); b++) {
+                final String pair = "" + characters.get(a) + characters.get(b);
+                if (distance(sheet.get(characters.get(a)), sheet.get(characters.get(b))) == 0
+                        && !LOOKALIKES.containsKey(pair)) {
+                    twins.add(pair);
+                }
+            }
+        }
+        assertEquals(java.util.List.of(), twins,
+                "these characters are the same picture, so one of them is unreadable wherever the"
+                        + " other could stand. Either redraw one, or put the pair in LOOKALIKES"
+                        + " with the reason it is acceptable - the point of the list is that the"
+                        + " remaining ambiguity is in the build rather than in somebody's memory");
+    }
+
     // --- helpers ---------------------------------------------------------------------------
+
+    /** Every character of the five-pixel sheet, as the cell's own pixels, read off the PNG. */
+    private static Map<Character, boolean[]> sheetPixels() {
+        final Map<Integer, JsonObject> providers = bitmaps("gui_r0.json");
+        final JsonObject provider = providers.get((int) 'A');
+        final BufferedImage image = read(provider.get("file").getAsString());
+        final var rows = provider.getAsJsonArray("chars");
+        final int columns = rows.get(0).getAsString().length();
+        final int cellWidth = image.getWidth() / columns;
+        final int cellHeight = image.getHeight() / rows.size();
+
+        final Map<Character, boolean[]> out = new LinkedHashMap<>();
+        for (int row = 0; row < rows.size(); row++) {
+            final String line = rows.get(row).getAsString();
+            for (int column = 0; column < line.length(); column++) {
+                final boolean[] cell = new boolean[cellWidth * cellHeight];
+                for (int y = 0; y < cellHeight; y++) {
+                    for (int x = 0; x < cellWidth; x++) {
+                        cell[y * cellWidth + x] = (image.getRGB(column * cellWidth + x,
+                                row * cellHeight + y) >>> 24) != 0;
+                    }
+                }
+                out.put(line.charAt(column), cell);
+            }
+        }
+        return out;
+    }
+
+    /** How many of the cell's pixels the two disagree on. */
+    private static int distance(final boolean[] one, final boolean[] other) {
+        int differences = 0;
+        for (int index = 0; index < one.length; index++) {
+            if (one[index] != other[index]) {
+                differences++;
+            }
+        }
+        return differences;
+    }
 
     private static int top(final JsonObject provider) {
         assertTrue(provider != null, "the row font does not declare that glyph at all");

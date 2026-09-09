@@ -102,7 +102,11 @@ final class UpdateRun {
 
         final List<String> stopped = new ArrayList<>();
         for (final UpdateReport.ServiceLine line : planned.services()) {
-            if (line.changes().isEmpty()) {
+            // isMoving, not "has changes": an artefact with no build for this Minecraft version is
+            // a line in the report and no reason to take a server down. Taking the SMP offline
+            // every run because CoreProtect has not shipped yet is exactly the outage this class
+            // exists to avoid causing.
+            if (!line.isMoving()) {
                 continue;
             }
             if (Topology.UPDATER.equals(line.service())) {

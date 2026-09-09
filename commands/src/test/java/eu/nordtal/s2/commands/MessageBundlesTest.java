@@ -150,6 +150,19 @@ class MessageBundlesTest {
             check(english, german, "update.line." + state, missing);
             check(english, german, "update.state." + state, missing);
         }
+        for (final UpdateReport.Change.State state : UpdateReport.Change.State.values()) {
+            // MOVING is two keys rather than one - a first install has no version to move FROM -
+            // so the family is not simply "one key per constant" and is named by hand. What the
+            // build has to catch is a state added to UpdateReport with no line to say about it,
+            // which would reach an admin as the literal string update.change.SOMETHING.
+            switch (state) {
+                case MOVING -> {
+                    check(english, german, "update.change", missing);
+                    check(english, german, "update.change.new", missing);
+                }
+                case UNSUPPORTED -> check(english, german, "update.change.unsupported", missing);
+            }
+        }
         for (final UpdateKind kind : UpdateKind.values()) {
             // The heading for a row written before the report became structured. Those rows are
             // still in the deployed database and still readable, APPLY included.

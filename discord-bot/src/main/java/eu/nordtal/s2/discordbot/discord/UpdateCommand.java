@@ -518,12 +518,19 @@ public final class UpdateCommand extends ListenerAdapter {
         final StringBuilder text = new StringBuilder(marker(line.state())).append(' ')
                 .append(messages.format(locale, "update.state." + line.state(), Map.of()));
         for (final UpdateReport.Change change : line.changes()) {
-            text.append('\n').append(change.from() == null
-                    ? messages.format(locale, "update.change.new", Map.of(
-                            "artefact", change.artefact(), "to", change.to()))
-                    : messages.format(locale, "update.change", Map.of(
-                            "artefact", change.artefact(), "from", change.from(),
-                            "to", change.to())));
+            text.append('\n').append(switch (change.state()) {
+                // An artefact whose publisher has no build for this Minecraft version. Drawn as an
+                // ordinary line under the service and not as a failure, because it is not one: no
+                // server is stopped for it and nothing beside it is held back.
+                case UNSUPPORTED -> messages.format(locale, "update.change.unsupported",
+                        Map.of("artefact", change.artefact()));
+                case MOVING -> change.from() == null
+                        ? messages.format(locale, "update.change.new", Map.of(
+                                "artefact", change.artefact(), "to", change.to()))
+                        : messages.format(locale, "update.change", Map.of(
+                                "artefact", change.artefact(), "from", change.from(),
+                                "to", change.to()));
+            });
         }
         if (line.detail() != null && !line.detail().isBlank()) {
             text.append('\n').append(messages.format(locale, "update.detail",

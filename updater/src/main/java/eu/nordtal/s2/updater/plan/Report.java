@@ -214,6 +214,9 @@ public final class Report {
             case MISSING -> "not installed";
             case UNRESOLVED -> "UNRESOLVED";
             case MOUNT_MISSING -> "unknown";
+            // Lower case, unlike the two above it: nothing here needs a person. It is a fact about
+            // somebody else's release schedule, and shouting it every run trains people to skip it.
+            case UNSUPPORTED -> "no build yet";
         };
     }
 
@@ -225,6 +228,8 @@ public final class Report {
             case MISSING -> "->  " + identity(null, wanted);
             case UNRESOLVED -> "";
             case MOUNT_MISSING -> "(newest is " + identity(null, wanted) + ")";
+            // The note carries the sentence; the column would only repeat half of it.
+            case UNSUPPORTED -> "";
         };
     }
 
@@ -266,6 +271,19 @@ public final class Report {
         }
         if (work > 0) {
             return work + " artefact(s) would be updated.";
+        }
+
+        // "Everything is up to date" is a sentence about artefacts that HAVE a build for this
+        // Minecraft version. Saying it while one of them has none would be true and misread: the
+        // rows above already say "no build yet", and a summary that contradicts them by omission is
+        // the half people actually read.
+        final long waiting = plan.changes().stream()
+                .filter(change -> change.status() == Change.Status.UNSUPPORTED)
+                .count();
+        if (waiting > 0) {
+            return "Everything with a build for this Minecraft version is up to date. " + waiting
+                    + " artefact(s) have none yet - nothing is skipped for them, and the run that"
+                    + " follows the day one appears installs it.";
         }
         return "Everything is up to date.";
     }

@@ -158,6 +158,25 @@ public interface UpdaterSpec {
         return "9eGKb6K1";
     }
 
+    @Order(8)
+    @Key("coreprotect-project")
+    @Comment({
+            "The Modrinth project id of CoreProtect ('coreprotect'), the block logger, on smp.",
+            "The jar is CoreProtect-CE-<version>.jar.",
+            "",
+            "THERE IS NO BUILD FOR THIS MINECRAFT VERSION and the row is here anyway (checked",
+            "2026-09-08: 24.0 is the newest release and stops at 26.1.2). It resolves as",
+            "UNSUPPORTED, which is neither work nor a failure - nothing is installed, nothing is",
+            "skipped, and smp's other plugins are not held back for it. The day a compatible",
+            "release appears, the next `/update now` installs it and nobody edits any code.",
+            "",
+            "Blanking this key does NOT retire the artefact - it makes every run report the",
+            "project id '' as unresolvable. Retiring it is an edit to Topology.SERVICES."
+    })
+    default String coreProtectProject() {
+        return "Lu3KuzdV";
+    }
+
     @Order(9)
     @Key("minecraft-version")
     @Comment({

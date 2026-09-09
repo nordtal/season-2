@@ -239,11 +239,7 @@ public final class UpdateFollower {
             says.add(Say.key("update.line." + line.state(),
                     Map.of("service", line.service()), tone));
             for (final UpdateReport.Change change : line.changes()) {
-                says.add(change.from() == null
-                        ? Say.key("update.change.new", Map.of(
-                                "artefact", change.artefact(), "to", change.to()), Tone.MUTED)
-                        : Say.key("update.change", Map.of("artefact", change.artefact(),
-                                "from", change.from(), "to", change.to()), Tone.MUTED));
+                says.add(sayChange(change));
             }
             if (line.detail() != null && !line.detail().isBlank()) {
                 says.add(Say.key("update.detail", Map.of("detail", line.detail()), tone));
@@ -276,6 +272,26 @@ public final class UpdateFollower {
             says.add(Say.literal(line));
         }
         return says;
+    }
+
+    /**
+     * One artefact, as a key.
+     *
+     * <p>Which of the three it is comes off {@link UpdateReport.Change#state()} and off whether
+     * anything was installed before - both decided by the updater. Every one is {@code MUTED}: a
+     * version number under a service line is detail, including the one saying an artefact is still
+     * waiting for a build. Nothing here has gone wrong.</p>
+     */
+    private static Say sayChange(final UpdateReport.Change change) {
+        return switch (change.state()) {
+            case UNSUPPORTED -> Say.key("update.change.unsupported",
+                    Map.of("artefact", change.artefact()), Tone.MUTED);
+            case MOVING -> change.from() == null
+                    ? Say.key("update.change.new", Map.of(
+                            "artefact", change.artefact(), "to", change.to()), Tone.MUTED)
+                    : Say.key("update.change", Map.of("artefact", change.artefact(),
+                            "from", change.from(), "to", change.to()), Tone.MUTED);
+        };
     }
 
     private static Say headline(final UpdateReport.Stage stage) {

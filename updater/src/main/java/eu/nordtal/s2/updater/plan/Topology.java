@@ -44,11 +44,43 @@ public final class Topology {
     }
 
     /**
-     * @param name    the compose service name, which is also the directory under
-     *                {@code volumes-root} and the volume's own name minus the {@code mc-} prefix.
-     * @param plugins the artifact ids whose jars belong in this service's {@code plugins/} folder.
+     * @param name     the compose service name, which is also the directory under
+     *                 {@code volumes-root} and the volume's own name minus the {@code mc-} prefix.
+     * @param plugins  the artifact ids whose jars belong in this service's {@code plugins/} folder.
+     * @param optional the subset of {@code plugins} whose <b>absence must not stop the container</b>
+     *                 - see {@link #optional()}.
      */
-    public record Service(@NotNull String name, @NotNull Kind kind, @NotNull List<String> plugins) {
+    public record Service(@NotNull String name, @NotNull Kind kind, @NotNull List<String> plugins,
+                          @NotNull List<String> optional) {
+
+        /** A service every one of whose plugins the entrypoint guard demands. */
+        public Service(final @NotNull String name, final @NotNull Kind kind,
+                       final @NotNull List<String> plugins) {
+            this(name, kind, plugins, List.of());
+        }
+
+        public Service {
+            plugins = List.copyOf(plugins);
+            optional = List.copyOf(optional);
+            if (!plugins.containsAll(optional)) {
+                throw new IllegalArgumentException(name + " marks a plugin optional that it does"
+                        + " not run: " + optional + " is not inside " + plugins);
+            }
+        }
+
+        /**
+         * The plugins {@code EXPECTED_PLUGINS} in {@code compose.yml} has to ask for.
+         *
+         * <p><b>Every plugin here is one this container refuses to start without.</b> That guard
+         * exists because a {@code plugins/} folder holding <em>some</em> of a server's jars looks
+         * exactly like a healthy one - it is how an SMP with no season on it once started and
+         * reported healthy. What it cannot be pointed at is an artefact that <em>cannot be
+         * installed</em>: {@link Change.Status#UNSUPPORTED} is somebody else's release schedule,
+         * and turning that into a server that will not boot buys nothing and costs a season.</p>
+         */
+        public @NotNull List<String> guarded() {
+            return plugins.stream().filter(plugin -> !optional.contains(plugin)).toList();
+        }
     }
 
     // ---------------------------------------------------------------- artifact ids
@@ -79,6 +111,19 @@ public final class Topology {
      * nothing in the game says why.</p>
      */
     public static final String VOICE_CHAT = "voicechat";
+
+    /**
+     * CoreProtect, the block logger - {@code CoreProtect-CE-<version>.jar}, so the filename prefix
+     * is {@code CoreProtect-CE}.
+     *
+     * <p><b>It has no build for this Minecraft version and it is in the plan anyway</b> (owner,
+     * 2026-09-08): the newest release, 24.0, stops at 26.1.2, checked against Modrinth on that
+     * date. The row resolves as {@link Change.Status#UNSUPPORTED} and stays named in every report
+     * until a compatible build appears, at which point the next run installs it and nobody edits
+     * any code. The alternative - leaving it out until then - is a thing somebody has to
+     * remember.</p>
+     */
+    public static final String CORE_PROTECT = "coreprotect";
 
     public static final String PAPER = "paper";
     public static final String VELOCITY = "velocity";
@@ -135,7 +180,13 @@ public final class Topology {
             // The only service with required third-party plugins. DisplayTags is required by the
             // SMP plugin's own paper-plugin.yml; PacketEvents is required under DisplayTags;
             // Chunky pre-generates the world border and is loaded by :smp reflectively.
-            new Service(SMP, Kind.PAPER, List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY, VOICE_CHAT)));
+            // CoreProtect is optional here in the one sense this record means it: the guard does not
+            // ask for it. It cannot, while no build for this Minecraft version exists - a server
+            // that refuses to start until a third party ships is worse than a season with no block
+            // log on it.
+            new Service(SMP, Kind.PAPER,
+                    List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY, VOICE_CHAT, CORE_PROTECT),
+                    List.of(CORE_PROTECT)));
 
     private Topology() {
     }

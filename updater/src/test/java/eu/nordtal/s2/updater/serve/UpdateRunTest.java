@@ -68,6 +68,27 @@ class UpdateRunTest {
     }
 
     @Test
+    @DisplayName("a service is not stopped for an artefact that has no build to install")
+    void anUnsupportedArtefactIsNotAnOutage() {
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        // smp's only line is CoreProtect, which has no build for this Minecraft version. It has
+        // something to SAY and nothing to do - and the difference is measured in whether people
+        // playing get thrown off. `changes().isEmpty()` was the old test and would fail this one:
+        // the line is not empty, it is simply not moving.
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
+                .with(new UpdateReport.ServiceLine(Topology.SMP, UpdateReport.State.UNCHANGED,
+                        List.of(UpdateReport.Change.unsupported("coreprotect")), null));
+
+        final UpdateRun.Stopped stopped = run.stop(report, arcane.runtime());
+
+        assertEquals(List.of(), arcane.calls,
+                "the SMP was taken down because somebody else has not published a jar yet");
+        assertEquals(List.of(), stopped.services());
+    }
+
+    @Test
     @DisplayName("the updater never stops itself")
     void theUpdaterIsNotInItsOwnSequence() {
         final FakeArcane arcane = new FakeArcane().running(Topology.UPDATER, Topology.SMP);

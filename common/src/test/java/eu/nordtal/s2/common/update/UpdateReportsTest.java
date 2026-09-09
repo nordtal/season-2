@@ -152,6 +152,52 @@ class UpdateReportsTest {
     }
 
     @Test
+    @DisplayName("an artefact with no build for this version is news and never work")
+    void anUnsupportedArtefactIsNotWork() {
+        // The whole reason the state exists. A service line carrying only these must not make a run
+        // stop a server, install anything, or close as "installed" - and the deciding lives here,
+        // once, so that UpdateRun and Runner cannot each have their own opinion about it.
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.UNCHANGED,
+                        List.of(UpdateReport.Change.unsupported("coreprotect")), null));
+
+        assertFalse(report.isWork(), report.render());
+        assertFalse(report.line("smp").isMoving(), report.render());
+        assertTrue(report.render().contains("coreprotect"),
+                "an artefact waiting for a build has to stay NAMED: " + report.render());
+    }
+
+    @Test
+    @DisplayName("one artefact moving beside one that cannot makes the service work again")
+    void oneMovingArtefactIsEnough() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED,
+                        List.of(UpdateReport.Change.unsupported("coreprotect"),
+                                new UpdateReport.Change("smp", "0.6.0", "0.7.0")), null));
+
+        assertTrue(report.isWork(), report.render());
+        assertTrue(report.line("smp").isMoving(), report.render());
+    }
+
+    @Test
+    @DisplayName("an unsupported artefact survives the column, and an ordinary one writes no state")
+    void theArtefactStateSurvivesTheColumn() {
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.PLANNED,
+                        List.of(UpdateReport.Change.unsupported("coreprotect"),
+                                new UpdateReport.Change("smp", "0.6.0", "0.7.0")), null));
+
+        final String json = UpdateReports.toJson(report);
+        assertEquals(report, UpdateReports.parse(json).orElseThrow());
+
+        // Written only for the state that is not the default, which is what keeps a network
+        // mid-deployment readable: a reader older than this change throws on a key it does not
+        // know, and every ordinary report has to stay parseable by it.
+        assertEquals(1, json.split("\"state\":\"UNSUPPORTED\"", -1).length - 1, json);
+        assertFalse(json.contains("\"state\":\"MOVING\""), json);
+    }
+
+    @Test
     @DisplayName("a failure says which service and why, in the text too")
     void aFailedServiceCarriesItsReason() {
         final String rendered = UpdateReport.at(UpdateReport.Stage.FAILED)

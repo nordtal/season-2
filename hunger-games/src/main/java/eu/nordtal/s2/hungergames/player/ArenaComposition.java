@@ -10,6 +10,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.entity.Player;
 
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * What a player looks like in a line about them, on the hunger games.
@@ -44,12 +45,28 @@ public final class ArenaComposition {
      * @return their flag and their name, styled
      */
     public Component of(final Player player) {
-        return Component.text(Glyphs.flagFor(locales.of(player.getUniqueId())))
+        return ofName(player.getName(), player.getUniqueId());
+    }
+
+    /**
+     * The same line for somebody who is not here.
+     *
+     * <p>A participant who disconnects mid-game leaves an armor stand standing in for them, and a
+     * body can be killed. There is no {@link Player} to ask for either half then - the name comes
+     * off the marker and the uuid off the body's owner - and the language is still <em>theirs</em>,
+     * which is the whole point of the flag: it is a fact about the person, not about who is
+     * reading.</p>
+     *
+     * @param name whatever the line should call them
+     * @param uuid their Minecraft uuid, for the flag
+     */
+    public Component ofName(final String name, final UUID uuid) {
+        return Component.text(Glyphs.flagFor(locales.of(uuid)))
                 .decoration(TextDecoration.ITALIC, false)
                 .append(Component.text(" "))
                 // Uniform light grey, the same as the SMP's: the name is never a rank and is never
                 // coloured like one, and on this server a coloured name would read as a team.
-                .append(Component.text(player.getName()).color(NamedTextColor.GRAY)
+                .append(Component.text(name).color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
     }
 }

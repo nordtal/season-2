@@ -212,6 +212,34 @@ class TopologyTest {
                 "the proxy's EXPECTED_PLUGINS asks for voice chat: " + guard);
     }
 
+    @Test
+    @DisplayName("neither backend refuses to start over a missing voice chat jar")
+    void voiceChatIsOptionalOnTheBackends() {
+        // Owner, 2026-09-09, and it reverses what was built the day before. Voice chat is optional
+        // for a player - the audio needs a client mod - so a missing jar costs a quiet evening,
+        // while a guard entry for it costs the server. The two are not close.
+        for (final String name : List.of(Topology.SMP, Topology.HUNGER_GAMES)) {
+            final Topology.Service service = Topology.SERVICES.stream()
+                    .filter(candidate -> candidate.name().equals(name))
+                    .findFirst()
+                    .orElseThrow();
+
+            assertTrue(service.plugins().contains(Topology.VOICE_CHAT),
+                    name + " no longer runs voice chat at all");
+            assertFalse(service.guarded().contains(Topology.VOICE_CHAT),
+                    name + " refuses to start without voice chat");
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment =
+                    (Map<String, Object>) ((Map<String, Object>) services.get(name)).get("environment");
+            // `${file%-*.jar}` on voicechat-bukkit-2.6.23.jar is voicechat-bukkit, so that - not
+            // the artefact id - is what a guard entry for it would look like.
+            final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
+            assertFalse(guard.toLowerCase(java.util.Locale.ROOT).contains("voicechat"),
+                    name + "'s EXPECTED_PLUGINS asks for voice chat: " + guard);
+        }
+    }
+
     /** Every published port of a compose service, as written. */
     private List<String> ports(final String service) {
         @SuppressWarnings("unchecked")

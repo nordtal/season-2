@@ -127,57 +127,103 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("every service that runs voice chat publishes its own UDP port, and no two share one")
-    void voiceChatHasAPortPerBackend() {
-        // Voice audio does not go through the proxy - the client opens a UDP socket straight to the
-        // backend it is standing on (Simple Voice Chat wiki, "Proxy Setup", read 2026-09-08). So a
-        // service that runs the plugin and publishes no UDP port has voice chat installed and
-        // unreachable, which from inside the game is indistinguishable from not having it at all.
+    @DisplayName("voice chat is one UDP port, on the proxy, and no backend publishes one")
+    void voiceChatIsOneUdpPortOnTheProxy() {
+        // This replaced a per-backend rule on 2026-09-09, and the two are worth contrasting because
+        // the earlier one described a working arrangement too. Without Simple Voice Chat's Velocity
+        // plugin, audio never touches the proxy: every backend publishes its own UDP port, each
+        // needs a different number, each needs voice_host set by hand, and every one of those ports
+        // has to be open to the internet. With the plugin the proxy detects each backend's voice
+        // address and port itself and forwards to it over the internal network, so the whole of
+        // what the outside world needs is ONE port (Simple Voice Chat wiki, "Proxy Setup" and
+        // "Proxy Config File", read 2026-09-09).
         //
-        // The two rules asserted below are the ones a second backend would break silently. Two
-        // containers cannot publish one host UDP port, so the SECOND service to get the plugin is
-        // the one whose `up` fails - not the one whose port was taken. And the plugin tells the
-        // client the port it is listening on INSIDE the container, so a mapping of the shape
-        // 24460:24454/udp answers the handshake and then times out every packet after it.
-        final Map<String, String> published = new java.util.LinkedHashMap<>();
+        // What this asserts is therefore the shape of the second arrangement, and the failure it
+        // catches is a partial return to the first: a backend that grows a UDP port again is one
+        // whose audio is expected to arrive somewhere the proxy is not looking.
+        final List<String> proxyUdp = udpPorts(Topology.NETWORK_CONTROL);
+        assertEquals(1, proxyUdp.size(), "the proxy publishes " + proxyUdp + " UDP. Voice chat needs"
+                + " exactly one, because voicechat-proxy.properties ships port: -1 and therefore"
+                + " binds the proxy's own port.");
+
+        // "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
+        final String mapping = proxyUdp.getFirst();
+        final List<String> parts = fields(mapping.substring(0, mapping.length() - "/udp".length()));
+        assertEquals(3, parts.size(), mapping + " is not bind:host:container");
+        assertEquals(parts.get(1), parts.get(2), "the proxy maps UDP " + parts.get(1) + " to "
+                + parts.get(2) + ". Simple Voice Chat hands the client the port it is bound to"
+                + " INSIDE the container, so a remapped port answers the handshake and then times"
+                + " out every packet after it.");
+
+        // The same bind as the Minecraft port and the same number the TCP line ends on: the voice
+        // endpoint is the Minecraft endpoint with a different protocol, and if those two ever
+        // separate the client is told to talk to a port compose does not publish.
+        final List<String> tcp = ports(Topology.NETWORK_CONTROL).stream()
+                .filter(port -> !port.endsWith("/udp"))
+                .toList();
+        assertEquals(1, tcp.size(), "the proxy publishes " + tcp + " TCP");
+        final List<String> tcpParts = fields(tcp.getFirst());
+        assertEquals(tcpParts.getFirst(), parts.getFirst(), "voice is bound to " + parts.getFirst()
+                + " and Minecraft to " + tcpParts.getFirst() + ". One endpoint, one address.");
+        assertEquals(tcpParts.get(2), parts.get(2), "Velocity listens on " + tcpParts.get(2)
+                + " inside the container and voice chat is published from " + parts.get(2)
+                + ". port: -1 means they are the same port, so these cannot differ.");
+
+        // And nobody else has one. A backend publishing UDP is either the old arrangement half
+        // restored, or a port left behind by a plugin that moved.
         for (final Topology.Service service : Topology.SERVICES) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
-            @SuppressWarnings("unchecked")
-            final List<Object> ports = (List<Object>) defined.get("ports");
-
-            final List<String> udp = ports == null ? List.of() : ports.stream()
-                    .map(String::valueOf)
-                    .filter(port -> port.endsWith("/udp"))
-                    .toList();
-
-            if (!service.plugins().contains(Topology.VOICE_CHAT)) {
-                assertEquals(List.of(), udp, service.name() + " publishes a UDP port but runs no"
-                        + " voice chat. Either the plugin was taken off this service and the port"
-                        + " left behind, or the topology and compose.yml have drifted.");
+            if (service.name().equals(Topology.NETWORK_CONTROL)) {
                 continue;
             }
-
-            assertEquals(1, udp.size(), service.name() + " runs voice chat and publishes " + udp
-                    + ". It needs exactly one UDP port: the client talks to this container"
-                    + " directly, and the proxy carries none of it.");
-
-            // "${VOICE_BIND:-0.0.0.0}:${SMP_VOICE_PORT:-24454}:${SMP_VOICE_PORT:-24454}/udp"
-            final String mapping = udp.getFirst();
-            final List<String> parts = fields(mapping.substring(0, mapping.length() - "/udp".length()));
-            assertEquals(3, parts.size(), mapping + " is not bind:host:container");
-            assertEquals(parts.get(1), parts.get(2), service.name() + " maps " + parts.get(1)
-                    + " to " + parts.get(2) + ". Simple Voice Chat hands the client the port it is"
-                    + " bound to inside the container, so a remapped port is a voice chat that"
-                    + " connects and then never receives a packet.");
-
-            final String previous = published.put(defaultOf(parts.get(1)), service.name());
-            assertNull(previous, service.name() + " and " + previous + " both publish UDP "
-                    + defaultOf(parts.get(1)) + ". Two containers cannot, and the one that fails to"
-                    + " start is whichever compose brings up second.");
+            assertEquals(List.of(), udpPorts(service.name()), service.name() + " publishes a UDP"
+                    + " port. With voice chat's proxy plugin installed the backends are reached"
+                    + " over the compose network and publish nothing; a port here is either a"
+                    + " leftover or a second, disagreeing arrangement.");
         }
+    }
 
-        assertFalse(published.isEmpty(), "no service publishes a voice chat port at all");
+    @Test
+    @DisplayName("the proxy runs voice chat's proxy half, and it is not one the proxy refuses to start without")
+    void theProxyVoicePluginIsOptional() {
+        // The rule is Service#optional, and the reason here is stronger than anywhere else it is
+        // used: this container is the network. voicechat-velocity is resolved from a pre-release
+        // (Modrinth has never published a Velocity release of it), and a plugin on that footing is
+        // exactly the one whose next version may fail to resolve or fail to load. Guarding on it
+        // would turn that into a proxy that will not start - which is nobody being able to play,
+        // for a feature that is optional for a player in the first place.
+        final Topology.Service proxy = Topology.SERVICES.stream()
+                .filter(service -> service.name().equals(Topology.NETWORK_CONTROL))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(proxy.plugins().contains(Topology.VOICE_CHAT_PROXY),
+                "the proxy carries no voicechat-velocity row - without it every backend needs its"
+                        + " own public UDP port back, and compose.yml publishes none");
+        assertTrue(proxy.optional().contains(Topology.VOICE_CHAT_PROXY),
+                "voicechat-velocity is guarded again");
+        assertFalse(proxy.guarded().contains(Topology.VOICE_CHAT_PROXY), "guarded() ignores optional()");
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment =
+                (Map<String, Object>) ((Map<String, Object>) services.get(Topology.NETWORK_CONTROL))
+                        .get("environment");
+        final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
+        assertFalse(guard.toLowerCase(java.util.Locale.ROOT).contains("voicechat"),
+                "the proxy's EXPECTED_PLUGINS asks for voice chat: " + guard);
+    }
+
+    /** Every published port of a compose service, as written. */
+    private List<String> ports(final String service) {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> defined = (Map<String, Object>) services.get(service);
+        assertNotNull(defined, "compose.yml has no service '" + service + "'");
+        @SuppressWarnings("unchecked")
+        final List<Object> ports = (List<Object>) defined.get("ports");
+        return ports == null ? List.of() : ports.stream().map(String::valueOf).toList();
+    }
+
+    private List<String> udpPorts(final String service) {
+        return ports(service).stream().filter(port -> port.endsWith("/udp")).toList();
     }
 
     @Test

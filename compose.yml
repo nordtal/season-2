@@ -366,6 +366,13 @@ services:
       # the way the updater splits them (JarName, ${file%-*.jar}); a MINIMUM, never an exact set, so
       # a hand-installed extra is fine. Counting jars was not enough - see finding B4 and the long
       # note in deploy/minecraft/entrypoint.sh.
+      #
+      # SIMPLE VOICE CHAT'S PROXY PLUGIN IS DELIBERATELY NOT IN THIS LIST (owner, 2026-09-09). The
+      # updater installs voicechat-velocity-*.jar into this volume and carries the row in its
+      # Topology, but voice chat is optional for a player and this container is the whole network:
+      # a proxy refusing to start because an alpha of somebody else's plugin did not resolve is an
+      # outage bought for something nice to have. Topology marks it Service#optional, and
+      # TopologyTest asserts the guard asks for exactly the plugins that are not optional.
       EXPECTED_PLUGINS: ${NETWORK_CONTROL_EXPECTED_PLUGINS:-network-control}
       # THE PLAYER LIMIT AND THE MOTD, and they both belong to the plugin now (2026-09-03).
       #
@@ -421,6 +428,23 @@ services:
       NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD: *db-password
     ports:
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
+      # SIMPLE VOICE CHAT, AND THIS IS THE ONLY VOICE PORT ON THE NETWORK. Audio is UDP and does
+      # not travel inside the Minecraft connection. The proxy plugin detects the address and port
+      # of each backend's voice server itself and forwards to the right one, and each backend's own
+      # voice_host is ignored while it does (Simple Voice Chat wiki, "Proxy Setup", read
+      # 2026-09-09). So smp and hunger-games publish nothing at all: the proxy reaches them over
+      # this compose network, which is a thing containers on one network can always do. Without the
+      # proxy plugin it would be one public UDP port per backend, a distinct number for each, and a
+      # voice_host edited by hand in a file nothing in this repository writes.
+      #
+      # 25565 ON BOTH SIDES, AND NOT ${PROXY_PORT} - which is the one way this line differs from
+      # the one above it. voicechat-proxy.properties ships `port: -1`, meaning "whatever port the
+      # proxy uses", so the plugin binds 25565 inside this container and then hands the CLIENT that
+      # same number. A host mapping that renumbered it would answer the handshake and time out
+      # every packet after it. Moving PROXY_PORT therefore moves the Minecraft port and leaves
+      # voice on 25565; making voice follow it is `voice_host` in
+      # plugins/voicechat/voicechat-proxy.properties, not a second number here.
+      - "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
     volumes:
       - mc-network-control:/data
       # PLUGINS/ IS ITS OWN VOLUME, separate from the server's (2026-09-05, corrected 2026-09-08).
@@ -511,23 +535,6 @@ services:
       NORDTAL_HUNGER_GAMES_DATABASE_JDBC_URL: *db-url
       NORDTAL_HUNGER_GAMES_DATABASE_USERNAME: *db-username
       NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD: *db-password
-    ports:
-      # SIMPLE VOICE CHAT'S UDP PORT. Audio does not go through the Minecraft connection and does
-      # not go through the proxy: the client opens a UDP socket straight to the backend it is on,
-      # so this port is the whole of whether voice chat works from outside this machine (Simple
-      # Voice Chat wiki, "Proxy Setup" -> "Other Minecraft Proxies", read 2026-09-08).
-      #
-      # THE SAME NUMBER ON BOTH SIDES OF THE COLON, deliberately. The plugin tells the client which
-      # port to talk to, and it takes that number from its own `port` setting inside the container -
-      # so a host mapping that remaps it sends every client to a port nothing is listening on, and
-      # the failure is a voice chat that connects to the server and then times out. Changing this
-      # variable therefore means changing `port` in plugins/voicechat/voicechat-server.properties on
-      # this volume as well; nothing in this repository writes that file.
-      #
-      # ONE PORT PER BACKEND, and they must differ from smp's: two containers on one host cannot
-      # publish the same UDP port, and the wiki says outright that every instance behind one proxy
-      # needs its own.
-      - "${VOICE_BIND:-0.0.0.0}:${HUNGER_GAMES_VOICE_PORT:-24455}:${HUNGER_GAMES_VOICE_PORT:-24455}/udp"
     volumes:
       - mc-hunger-games:/data
       # plugins/ in its own volume, the rest in mc-hunger-games - see network-control above.
@@ -628,11 +635,6 @@ services:
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password
-    ports:
-      # Simple Voice Chat's UDP port - see hunger-games above for why the two numbers on either
-      # side of the colon are the same one and why this backend and that one cannot share it.
-      # 24454 is the plugin's own default, so this is the one of the two that needs no config edit.
-      - "${VOICE_BIND:-0.0.0.0}:${SMP_VOICE_PORT:-24454}:${SMP_VOICE_PORT:-24454}/udp"
     volumes:
       - mc-smp:/data
       # plugins/ in its own volume, the rest in mc-smp - see network-control above.

@@ -576,6 +576,16 @@ public final class Glyphs {
             cp(0xFE205), cp(0xFE206), cp(0xFE207), cp(0xFE208), cp(0xFE209),
     };
 
+    /**
+     * The wheel's own panel: five rows with a ring of twelve prize cells and a hub.
+     *
+     * <p>A whole window like {@link #GUI_TRAVEL_PANEL} rather than an overlay, because a circle on a
+     * 9 x 5 grid is a band between the cells and not a thing that lands on any one of them. The
+     * winning cell wears the same two-pixel white frame {@code travel_here} does - see
+     * {@code WheelPanel} for why the design's pointer could not survive the ring moving left.
+     */
+    public static final String GUI_WHEEL_RING = cp(0xFE20A);
+
     /** The same six, for the lower card row. */
     public static final String[] GUI_BAR_FILL_BOTTOM = {
             cp(0xFE218), cp(0xFE219), cp(0xFE21A), cp(0xFE21B), cp(0xFE21C), cp(0xFE21D),

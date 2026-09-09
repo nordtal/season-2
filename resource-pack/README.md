@@ -615,7 +615,18 @@ screenshot names one thing, and `\uFE080` is the system-line icons in `minecraft
 | `\uFE205` – `\uFE209` | `ui/gui/grave_slab_{1..5}.png` | −4 | The grave's slab: a dark recess **per slot** on stone, one glyph per row count. Five is the most there can be — a player carries at most forty-one stacks, and the window's sixth row is the grave's footer | generated — placeholder |
 | `\uFE210` – `\uFE215` | `ui/gui/bar_fill_{1,2,4,8,16,32}.png` | −39 | The progress bar's **fill**, in powers of two, 3px tall. Upper card row | generated — placeholder |
 | `\uFE218` – `\uFE21D` | the same six files | −75 | The same six, lower card row | — |
-| `\uFE20A` – `\uFE20F`, `\uFE216` – `\uFE217`, `\uFE21E` – `\uFE2FF` | — | | reserved for this block's growth | — |
+| `\uFE20A` | ![source](src/assets/nordtal/textures/ui/gui/wheel_ring.png) | 13 | The wheel's own panel, 176 × 204 — a five-row window with a band round twelve prize cells, a hub, and a two-pixel white frame on the cell the winner rests in. A **whole panel** like the balloon's, because a circle on a nine-by-five grid is the band *between* the cells and belongs to no row | generated — placeholder |
+| `\uFE20B` – `\uFE20F`, `\uFE216` – `\uFE217`, `\uFE21E` – `\uFE2FF` | — | | reserved for this block's growth | — |
+
+**The wheel's ring sits two slot columns left of where the design artifact draws it** (owner,
+2026-09-08), which is what frees columns 5–8 for the "again" button and the two lines telling a
+player how many spins are left and what earns another. One thing had to move with it: `W3` marks the
+resting cell with a triangle at `y 13`–`16`, *inside the title bar*, and that works at x 85 because
+it sits to the right of the readable title. At x 49 it does not — the window's own title runs to
+about x 58 in both languages — so the resting cell wears the two-pixel white frame `travel_here`
+already uses, over the lighter backing `W3` gives it anyway. Both cues, no collision, nothing outside
+the window. **The frame is a decision for the owner to confirm; that the triangle could not stay is
+not.**
 
 **One tray and a recess per slot are two different statements, and the pack draws both on purpose.**
 The hand-in screen is a thing you throw into — the whole area accepts items, and nine drawn cells

@@ -560,6 +560,84 @@ def grave_slab(rows):
     return width, height, bytes(buf)
 
 
+# --- The wheel's ring -----------------------------------------------------------------
+#
+# Design W3 (owner, 2026-09-08), with the ring moved TWO SLOT COLUMNS LEFT so the four
+# columns it frees carry the controls. Twelve prize cells around a hub, on five rows: three
+# along the top, three down each side, three along the bottom. On a 9 x 5 grid a circle is a
+# rounded square and the corner cells stay frame, which is why the ring is drawn as a band
+# rather than fitted to the cells.
+#
+# THE POINTER IS A FRAME, and that is a change forced by the move rather than a preference.
+# W3 draws a triangle above the top cell at y 13-16, in the title bar, to the right of the
+# readable title - which works at x 85 and does not at x 49: the window's own title runs to
+# about x 58 in both languages, so the two would overlap on the title's last pixel row and
+# only a client could say by how much. The pack already has a word for "this one" - the two
+# pixel white frame travel_here uses - so the winning cell wears that, over the lighter
+# backing W3 gives it anyway. Both cues, no collision, and nothing outside the window.
+WHEEL_ROWS = 5
+WHEEL_CENTRE_COLUMN = 2
+WHEEL_CENTRE_ROW = 2
+WHEEL_OUTER_RADIUS = 46
+WHEEL_INNER_RADIUS = 26
+WHEEL_HUB_RADIUS = 18
+
+# Clockwise from the top-left of the three top cells, which is also the order WheelStrip
+# travels them in. Cell 0 is where the winner stops.
+WHEEL_CELLS = ((2, 0), (3, 0), (4, 1), (4, 2), (4, 3),
+               (3, 4), (2, 4), (1, 4), (0, 3), (0, 2), (0, 1), (1, 0))
+
+WHEEL_BAND = (44, 44, 50, 255)
+WHEEL_BAND_EDGE = (35, 35, 40, 255)
+WHEEL_HUB = (178, 178, 182, 255)
+WHEEL_HUB_FACE = (214, 214, 218, 255)
+WHEEL_CELL = (58, 58, 64, 255)
+WHEEL_CELL_WINNER = (72, 72, 79, 255)
+
+
+def ring(buf, width, cx, cy, outer, inner, colour):
+    """A filled annulus, by distance - the same brute force the artifact's own renderer uses."""
+    for y in range(cy - outer, cy + outer + 1):
+        for x in range(cx - outer, cx + outer + 1):
+            distance = ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2) ** 0.5
+            if inner <= distance <= outer:
+                px(buf, width, x, y, colour)
+
+
+def wheel_ring():
+    """The wheel's own panel: five rows, a ring of twelve cells, and a hub."""
+    height = HEIGHT_BASE + ROW_PITCH * WHEEL_ROWS
+    buf = blank(WIDTH, height, PALETTE["ground"])
+    frame(buf, WIDTH, height)
+    rect(buf, WIDTH, SLOT_ORIGIN_X, TITLE_BAR_HEIGHT - 1,
+         WIDTH - SLOT_ORIGIN_X - 1, TITLE_BAR_HEIGHT - 1, PALETTE["hairline"])
+    player_inventory(buf, WIDTH, height)
+
+    cx = SLOT_ORIGIN_X + ROW_PITCH * WHEEL_CENTRE_COLUMN + ROW_PITCH // 2
+    cy = SLOT_ORIGIN_Y + ROW_PITCH * WHEEL_CENTRE_ROW + ROW_PITCH // 2
+
+    ring(buf, WIDTH, cx, cy, WHEEL_OUTER_RADIUS, WHEEL_INNER_RADIUS, WHEEL_BAND)
+    ring(buf, WIDTH, cx, cy, WHEEL_OUTER_RADIUS, WHEEL_OUTER_RADIUS - 1, WHEEL_BAND_EDGE)
+    ring(buf, WIDTH, cx, cy, WHEEL_INNER_RADIUS + 1, WHEEL_INNER_RADIUS, PALETTE["slot_edge"])
+    ring(buf, WIDTH, cx, cy, WHEEL_HUB_RADIUS, 0, WHEEL_HUB)
+    ring(buf, WIDTH, cx, cy, WHEEL_HUB_RADIUS - 1, 0, WHEEL_HUB_FACE)
+
+    for index, (column, row) in enumerate(WHEEL_CELLS):
+        x = SLOT_ORIGIN_X + ROW_PITCH * column
+        y = SLOT_ORIGIN_Y + ROW_PITCH * row
+        # The 16 x 16 the item is drawn in, not the whole cell: the ring is what sits between
+        # the cells, and painting the cell edge over it would square the circle off.
+        rect(buf, WIDTH, x + 1, y + 1, x + 16, y + 16,
+             WHEEL_CELL_WINNER if index == 0 else WHEEL_CELL)
+
+    # "The winner stops here", in the pack's own word for it.
+    winner_x = SLOT_ORIGIN_X + ROW_PITCH * WHEEL_CELLS[0][0]
+    winner_y = SLOT_ORIGIN_Y + ROW_PITCH * WHEEL_CELLS[0][1]
+    outline(buf, WIDTH, winner_x, winner_y, winner_x + 17, winner_y + 17, HERE_FRAME)
+    outline(buf, WIDTH, winner_x + 1, winner_y + 1, winner_x + 16, winner_y + 16, HERE_FRAME)
+    return WIDTH, height, bytes(buf)
+
+
 def assert_advance(path, expected_width):
     """A glyph advances by its rightmost drawn column + 2; the Java side assumes width + 1.
 
@@ -594,6 +672,7 @@ def main():
                 ("handin_tray", sunken(TRAY_WIDTH, TRAY_HEIGHT))]
     surfaces += [(f"grave_slab_{rows}", grave_slab(rows))
                  for rows in range(1, GRAVE_MAX_ROWS + 1)]
+    surfaces.append(("wheel_ring", wheel_ring()))
     surfaces += [(f"bar_fill_{step}", bar_fill(step)) for step in CARD_FILL_STEPS]
 
     for name, (width, height, data) in surfaces:

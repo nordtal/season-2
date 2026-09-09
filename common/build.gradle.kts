@@ -7,6 +7,12 @@ plugins {
 // in it. They are in no source set of this module, so without this Gradle cannot see them and an
 // edit to one would leave :common:test UP-TO-DATE.
 repositoryRootTestInputs {
+    // PlatformTest: one fact in five files - the catalog, the pack's mcmeta and three descriptors.
+    reads("resource-pack/src/pack.mcmeta")
+    reads("smp/src/main/resources/paper-plugin.yml")
+    reads("limbo/src/main/resources/paper-plugin.yml")
+    reads("hunger-games/src/main/resources/paper-plugin.yml")
+
     reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")

@@ -44,6 +44,7 @@ import eu.nordtal.s2.smp.command.NavigateCommand;
 import eu.nordtal.s2.smp.command.SmpCommand;
 import eu.nordtal.s2.papercommon.command.UpdateWatcher;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.papercommon.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -73,6 +74,7 @@ import eu.nordtal.s2.smp.region.Box;
 import eu.nordtal.s2.smp.region.Boxes;
 import eu.nordtal.s2.smp.region.ConfigBoxes;
 import eu.nordtal.s2.smp.state.SeasonState;
+import eu.nordtal.s2.smp.welcome.SeasonWelcome;
 import eu.nordtal.s2.smp.travel.BalloonDisplay;
 import eu.nordtal.s2.smp.travel.BalloonListener;
 import eu.nordtal.s2.smp.travel.PortalGate;
@@ -192,7 +194,7 @@ public final class SmpPlugin extends JavaPlugin {
     private Duels duels;
     private SpawnNpc npc;
     /** The staging device - see BukkitCinematics. Stopped at disable, while players are still here. */
-    private eu.nordtal.s2.papercommon.stage.BukkitCinematics cinematics;
+    private BukkitCinematics cinematics;
     private BalloonDisplay balloonDisplay;
     private org.bukkit.scheduler.BukkitTask heartbeat;
 
@@ -379,7 +381,6 @@ public final class SmpPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(
                 new JoinGate(identities, admission, messages, logger()), this);
-<<<<<<< HEAD
         // The composition is this server's half of the shared lines: flag, name and the prestige
         // crest a season earns. Everything around it - the five keys, the icons, the per-reader
         // language - is :paper-common's and is the same on the hunger games.
@@ -387,26 +388,19 @@ public final class SmpPlugin extends JavaPlugin {
                 player -> composition.chatPrefix(player.getName(),
                         identities.of(player.getUniqueId())),
                 messages, locales);
-        getServer().getPluginManager().registerEvents(
-                new PresenceListener(this, identities, surfaces, locales, operators, systemLines),
-                this);
-=======
-        final SystemLines systemLines = new SystemLines(identities, composition, messages, locales);
 
         // The staging device, and the one moment that uses it so far. Registered as a listener
         // because a staging ends when the player leaves or dies, and stopped at disable because
         // Paper disables plugins before it saves players - a blindness still running at that point
         // would be written to disk with them.
-        cinematics = new eu.nordtal.s2.papercommon.stage.BukkitCinematics(this, sounds::play);
+        cinematics = new BukkitCinematics(this, sounds::play);
         getServer().getPluginManager().registerEvents(cinematics, this);
-        final eu.nordtal.s2.smp.welcome.SeasonWelcome welcome =
-                new eu.nordtal.s2.smp.welcome.SeasonWelcome(this, dao, identities, messages,
-                        locales, cinematics);
+        final SeasonWelcome welcome =
+                new SeasonWelcome(this, dao, identities, messages, locales, cinematics);
 
         getServer().getPluginManager().registerEvents(
-                new PresenceListener(this, identities, surfaces, composition, config,
-                        messages, locales, operators, systemLines, welcome), this);
->>>>>>> ec778ca (feat: a staging device, and the season's opening moment on a player's first join)
+                new PresenceListener(this, identities, surfaces, locales, operators,
+                        systemLines, welcome), this);
         getServer().getPluginManager().registerEvents(systemLines, this);
         getServer().getPluginManager().registerEvents(
                 new NavigateListener(this, dao, navigation, identities, locales, sounds), this);

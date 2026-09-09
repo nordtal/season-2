@@ -191,6 +191,8 @@ public final class SmpPlugin extends JavaPlugin {
     private Graves graves;
     private Duels duels;
     private SpawnNpc npc;
+    /** The staging device - see BukkitCinematics. Stopped at disable, while players are still here. */
+    private eu.nordtal.s2.papercommon.stage.BukkitCinematics cinematics;
     private BalloonDisplay balloonDisplay;
     private org.bukkit.scheduler.BukkitTask heartbeat;
 
@@ -377,6 +379,7 @@ public final class SmpPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(
                 new JoinGate(identities, admission, messages, logger()), this);
+<<<<<<< HEAD
         // The composition is this server's half of the shared lines: flag, name and the prestige
         // crest a season earns. Everything around it - the five keys, the icons, the per-reader
         // language - is :paper-common's and is the same on the hunger games.
@@ -387,6 +390,23 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new PresenceListener(this, identities, surfaces, locales, operators, systemLines),
                 this);
+=======
+        final SystemLines systemLines = new SystemLines(identities, composition, messages, locales);
+
+        // The staging device, and the one moment that uses it so far. Registered as a listener
+        // because a staging ends when the player leaves or dies, and stopped at disable because
+        // Paper disables plugins before it saves players - a blindness still running at that point
+        // would be written to disk with them.
+        cinematics = new eu.nordtal.s2.papercommon.stage.BukkitCinematics(this, sounds::play);
+        getServer().getPluginManager().registerEvents(cinematics, this);
+        final eu.nordtal.s2.smp.welcome.SeasonWelcome welcome =
+                new eu.nordtal.s2.smp.welcome.SeasonWelcome(this, dao, identities, messages,
+                        locales, cinematics);
+
+        getServer().getPluginManager().registerEvents(
+                new PresenceListener(this, identities, surfaces, composition, config,
+                        messages, locales, operators, systemLines, welcome), this);
+>>>>>>> ec778ca (feat: a staging device, and the season's opening moment on a player's first join)
         getServer().getPluginManager().registerEvents(systemLines, this);
         getServer().getPluginManager().registerEvents(
                 new NavigateListener(this, dao, navigation, identities, locales, sounds), this);
@@ -595,6 +615,12 @@ public final class SmpPlugin extends JavaPlugin {
         // got nothing (finding 136). Here they are still online, so this hands over the prize
         // itself - and `Saving players`, three lines later, is what writes it to disk.
         quietly("wheel.payOutInFlight", this::payOutSpinsInFlight);
+        // Before anything else that touches players: a staging still running holds a potion effect
+        // on somebody who is about to be saved to disk, and `Saving players` comes several lines
+        // after `Disabling smp`. Same ordering argument as the wheel above.
+        if (cinematics != null) {
+            quietly("cinematics.stop", cinematics::stop);
+        }
         if (npc != null) {
             quietly("npc.remove", npc::remove);
         }

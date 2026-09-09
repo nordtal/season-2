@@ -76,6 +76,12 @@ class OneMessageFormatTest {
                     "glyphs and player names - the nametag, the tab entry and the chat prefix"),
             Map.entry("smp/src/main/java/eu/nordtal/s2/smp/npc/SpawnNpc.java",
                     "the NPC's name out of config.yml, which is a name and not a message"),
+            Map.entry("smp/src/main/java/eu/nordtal/s2/smp/welcome/SeasonWelcome.java",
+                    "the frames of the season's opening moment, which are pictures rather than"
+                            + " sentences - text today because the art is a placeholder, private-use"
+                            + " code points once it exists, and a glyph may never be written into a"
+                            + " .properties file. The one part of that moment that IS language, its"
+                            + " subtitle, goes through MessageRenderer in the same file"),
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/body/PlayerBodies.java",
                     "a disconnected player's name on their body"),
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/player/ArenaComposition.java",

@@ -29,6 +29,13 @@ repositoryRootTestInputs {
     // does not run.
     reads("smp/src/main/java/eu/nordtal/s2/smp/npc/SpawnNpc.java")
     reads("smp/src/main/java/eu/nordtal/s2/smp/npc/NpcProtection.java")
+
+    // SeasonWelcomeIsWiredTest reads these two the same way, and the half that matters is an
+    // ORDER: the season's opening moment has to be called from the callback that waits for the
+    // player's language, not from the join handler above it. Both files are read as text, so
+    // moving that call without changing any bytecode has to be able to fail the build.
+    reads("smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java")
+    reads("smp/src/main/java/eu/nordtal/s2/smp/welcome/SeasonWelcome.java")
 }
 
 repositories {

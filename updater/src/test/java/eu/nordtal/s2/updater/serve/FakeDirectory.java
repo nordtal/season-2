@@ -188,4 +188,9 @@ final class FakeDirectory implements UpdateDirectory {
         }
         return settled;
     }
+
+    @Override
+    public java.util.Optional<eu.nordtal.s2.common.update.UpdateRequest> running() {
+        return java.util.Optional.empty();
+    }
 }

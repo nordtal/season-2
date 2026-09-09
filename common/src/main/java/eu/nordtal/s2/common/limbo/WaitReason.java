@@ -35,6 +35,18 @@ public enum WaitReason {
     MAINTENANCE,
 
     /**
+     * An update run has the player's backend stopped, and will have it back in a few minutes.
+     *
+     * <p>Distinct from {@link #BACKEND} even though the proxy cannot tell the two apart by looking
+     * at the server - both are "the destination is not taking connections". The difference is the
+     * one the person on the black screen cares about: this one is somebody doing something on
+     * purpose and is nearly over, and the other is an accident of unknown length. Getting that
+     * wrong in either direction is what makes a waiting room feel broken, so the proxy decides it
+     * from the update row rather than from the connection.</p>
+     */
+    UPDATE,
+
+    /**
      * The player is in the waiting room and the proxy has not said why - the message has not arrived
      * yet, or there is no {@code network-control} on the proxy. It carries a real text because a
      * blank screen is indistinguishable from a crash to the person looking at it.

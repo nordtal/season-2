@@ -91,6 +91,16 @@ public final class PackStation {
 
     private volatile Consumer<Player> release = player -> { };
 
+    /**
+     * Whether an update run currently has that backend stopped.
+     *
+     * <p>A seam and not a lookup, so this class keeps knowing nothing about the update table. It
+     * answers false until {@link #whenUpdating} is called, which is what an evaluation during
+     * startup - or on a proxy with the update watch switched off - gets: the ordinary
+     * {@code BACKEND} title, exactly as before this existed.</p>
+     */
+    private volatile java.util.function.Predicate<String> updating = server -> false;
+
     public PackStation(final ProxyServer proxy, final Logger logger, final PhaseRouting routing,
                        final PhaseWatch phases, final LoginRoster roster, final PackMessages messages,
                        final PackSpec config, final PackOffer offer, final WaitingBook book) {
@@ -120,6 +130,16 @@ public final class PackStation {
      */
     public void onRelease(final Consumer<Player> release) {
         this.release = Objects.requireNonNull(release, "release");
+    }
+
+    /**
+     * @param updating asked, per destination, whether an update run has that backend stopped; in
+     *                 production this is {@code Evacuation::isMoving}. Set after construction for
+     *                 the same reason {@link #onRelease} is: the watch is built from a pool this
+     *                 class never sees
+     */
+    public void whenUpdating(final java.util.function.Predicate<String> updating) {
+        this.updating = Objects.requireNonNull(updating, "updating");
     }
 
     /**
@@ -303,7 +323,7 @@ public final class PackStation {
         final boolean admin = roster.isAdmin(uuid);
         final String destination = routing.servers().forAdmitted(phase, admin);
         final WaitingDecision decision = book.decide(uuid, phase, admin,
-                proxy.getServer(destination).isPresent(), destination);
+                proxy.getServer(destination).isPresent(), destination, updating.test(destination));
 
         switch (decision.action()) {
             case IDLE -> {

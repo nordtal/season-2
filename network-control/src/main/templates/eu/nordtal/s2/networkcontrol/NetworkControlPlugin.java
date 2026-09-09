@@ -66,6 +66,7 @@ import eu.nordtal.s2.networkcontrol.routing.PhaseRouting;
 import eu.nordtal.s2.networkcontrol.routing.PhaseServers;
 import eu.nordtal.s2.networkcontrol.routing.PlayerRouter;
 import eu.nordtal.s2.networkcontrol.routing.RouteIntents;
+import eu.nordtal.s2.networkcontrol.update.Evacuation;
 import eu.nordtal.s2.networkcontrol.update.RestartWatch;
 
 import org.slf4j.Logger;
@@ -130,6 +131,7 @@ public final class NetworkControlPlugin {
      * same way. The five-second poll covers it.</p>
      */
     private volatile RestartWatch restartWatch;
+    private volatile Evacuation evacuation;
 
     /**
      * Commands another process asked this one to run.
@@ -330,6 +332,16 @@ public final class NetworkControlPlugin {
                                 if (watch != null) {
                                     watch.check();
                                 }
+                            }),
+                            // And the evacuation on the same signal. It has eight seconds of window
+                            // to work in, so five seconds of poll latency is most of it - a
+                            // notification is what makes the move happen with time to complete
+                            // rather than in the same second as the stop.
+                            new NotificationListener.Refresh("the update evacuation", () -> {
+                                final Evacuation moving = evacuation;
+                                if (moving != null) {
+                                    moving.check();
+                                }
                             })),
                     logger, pollInterval);
             phaseListener.start();
@@ -396,6 +408,23 @@ public final class NetworkControlPlugin {
         this.restartWatch = new RestartWatch(this, proxy, logger,
                 UpdateDirectory.using(pool), roster, messages, Clock.systemUTC());
         proxy.getScheduler().buildTask(this, this.restartWatch::check)
+                .delay(RestartWatch.INTERVAL)
+                .repeat(RestartWatch.INTERVAL)
+                .schedule();
+
+        // Warning them is half of it; the other half is not disconnecting them. This moves the
+        // players off a backend the run is about to stop into the waiting room, and tells the
+        // waiting room to say "update" rather than "waiting for the server" while it holds them.
+        // Bringing them back needs nothing here: the sweep above already releases a held player the
+        // moment their backend takes a connection again.
+        //
+        // The same interval as the countdown, on its own task rather than chained to it: a watch
+        // that throws must not take the other one down with it, and these two are the only things
+        // standing between a player and a disconnect nobody explained.
+        this.evacuation = new Evacuation(proxy, logger,
+                UpdateDirectory.using(pool), gateConfig.serverLimbo(), Clock.systemUTC());
+        packs.whenUpdating(this.evacuation::isMoving);
+        proxy.getScheduler().buildTask(this, this.evacuation::check)
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();

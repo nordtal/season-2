@@ -256,6 +256,30 @@ interface UpdateDao {
     Optional<UpdateRequest> countingDown();
 
     /**
+     * The run that is happening right now - claimed, past its countdown, servers going down.
+     *
+     * <p>The complement of {@link #countingDown()}, which is the same rows <em>before</em>
+     * {@code not_before}. Together they are the whole of "an outage is under way", and the proxy
+     * needs both: the countdown is when it moves players out of the way, and this is the minutes
+     * afterwards during which the waiting room has to keep saying why they are sitting there.</p>
+     *
+     * <p>{@code RUNNING} alone, without a kind filter: a {@code BACKUP} stops the same servers for
+     * the same minutes, and a player held through one deserves the same sentence as a player held
+     * through an update. A {@code REPORT} never reaches {@code RUNNING} for long enough to matter
+     * and moves nothing, so including it costs nothing either.</p>
+     *
+     * @return the running request, or empty
+     */
+    @SqlQuery("""
+            SELECT * FROM update_request
+            WHERE status = 'RUNNING'
+              AND not_before <= now()
+            ORDER BY id
+            LIMIT 1
+            """)
+    Optional<UpdateRequest> running();
+
+    /**
      * Withdraws the countdown that is running, if there still is one.
      *
      * <p>Guarded by the status rather than by reading first and writing after: the whole point is a

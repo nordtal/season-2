@@ -95,4 +95,9 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     public int settleOrphans(final String failed) {
         throw new UnsupportedOperationException("only the updater settles");
     }
+
+    @Override
+    public java.util.Optional<eu.nordtal.s2.common.update.UpdateRequest> running() {
+        return java.util.Optional.empty();
+    }
 }

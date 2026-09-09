@@ -110,6 +110,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public Optional<UpdateRequest> running() {
+        return dao.running();
+    }
+
+    @Override
     public Optional<Instant> nextDue() {
         return dao.nextDue().map(OffsetDateTime::toInstant);
     }

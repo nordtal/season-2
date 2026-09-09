@@ -157,6 +157,19 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> countingDown();
 
     /**
+     * The run that is happening right now - claimed, past its countdown, servers down.
+     *
+     * <p>The other half of {@link #countingDown()}. The proxy needs both because the two together
+     * are the whole outage: the countdown is when it moves players out of the way, and this is the
+     * minutes afterwards during which the waiting room has to keep telling them why they are
+     * sitting in it. Reading only the countdown would put the right title on the screen for thirty
+     * seconds and the wrong one for the five minutes that matter.</p>
+     *
+     * @return the running request, or empty
+     */
+    Optional<UpdateRequest> running();
+
+    /**
      * Withdraws the countdown that is running.
      *
      * @param reason what to record, naming who cancelled

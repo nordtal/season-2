@@ -187,6 +187,25 @@ public final class SystemLines implements Listener {
     }
 
     /**
+     * One system line, from somewhere other than a Bukkit event.
+     *
+     * <p>The five handlers above cover everything vanilla announces. This is for the death vanilla
+     * does <em>not</em> announce: a hunger games participant killed through the armor stand standing
+     * in for them while they are offline. {@code EntityDeathEvent} carries no death message, so the
+     * one elimination the victim cannot see happening was also the one nobody else was told about
+     * (owner, 2026-09-09). The caller supplies the wording; the icon, the per-reader language and
+     * the shape stay here, so such a line cannot drift away from the ones beside it.</p>
+     *
+     * @param key        a key in the caller's own bundle
+     * @param icon       one of {@link Glyphs}' icons
+     * @param components the component slots the key names
+     */
+    public void announce(final String key, final String icon,
+                         final Map<String, Component> components) {
+        broadcast(key, icon, components, viewer -> true);
+    }
+
+    /**
      * Renders {@code key} once per reader, in that reader's language.
      *
      * <p>Per reader rather than once: a locale is a cache lookup and these fire a handful of times

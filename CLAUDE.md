@@ -99,6 +99,30 @@ own repo and is not built or released here.
 
 Minecraft **26.2** / Java **25** / Gradle **9.7.1**. Notes:
 
+- **The version is a constant in `:common` since 2026-09-09: `eu.nordtal.s2.common.Platform`.**
+  `MINECRAFT` is `26.2`, `VELOCITY_FAMILY` is `4.0.0`, `VELOCITY_API` is `4.1.1`, `PACK_FORMAT` is
+  `88` and `API_VERSION` is `26.2`. It is the one source for the Fill query, the Modrinth
+  `game_versions` filter and the `SERVER_VERSION` literals in `compose.yml`. Until that day the
+  updater read it out of `updater.yml`, fed from `PAPER_VERSION` in `.env` — so **the environment
+  won over the source tree** in the one place where it must not: an operator typing another number
+  there was not configuring the updater, they were pointing the network at a Minecraft nothing here
+  was compiled for. `PlatformTest` holds all five constants against their mirrors —
+  `gradle/libs.versions.toml`, `resource-pack/src/pack.mcmeta` and the three `paper-plugin.yml` —
+  and those files are declared through `repositoryRootTestInputs`, without which Gradle cannot see
+  them and the check silently stops running.
+- **Paper is an exact version and Velocity is a family, and the asymmetry is Fill's own.**
+  `GET /v3/projects/velocity` groups every 4.x under the key `4.0.0`, so that string is Fill's name
+  for the major. The proxy follows the newest release inside it; a new *Minecraft* version stays a
+  season decision, because it moves the API every plugin is compiled against. When the resolved
+  Velocity version differs from `VELOCITY_API`, the update report says so and does not block.
+- **There is no build pin any more, in any form** (owner, 2026-09-09). `paper-build`,
+  `velocity-build`, `UPDATER_PAPER_BUILD`, `UPDATER_VELOCITY_BUILD`, `PAPER_BUILD`, `VELOCITY_BUILD`
+  and `SERVER_BUILD` are all gone; the updater installs the newest `STABLE` build and
+  `entrypoint.sh` resolves the same one when `.server/` is empty. **There is no way back out of a
+  bad platform build, and that is the decision rather than an oversight** — do not reintroduce one,
+  documented or otherwise. `/v3/.../builds/latest` is *not* it: measured 2026-09-09, it answers the
+  newest build of *any* channel (`paper/1.21.11-rc3/builds/latest` → `ALPHA`), so both programs
+  filter the list themselves.
 - Minecraft moved to `year.drop.hotfix`. There is no "1.26.2".
 - **Paper dropped `-R0.1-SNAPSHOT`.** The coordinate is
   `io.papermc.paper:paper-api:26.2.build.NNN-stable`; the catalog pins `26.2.build.121-stable`.
@@ -108,7 +132,9 @@ Minecraft **26.2** / Java **25** / Gradle **9.7.1**. Notes:
 - Paper 26.2 and Velocity 4.1.1 both ship **Adventure 5.2.0**. Do not pin Adventure yourself;
   take it from the platform.
 - `api-version` in `paper-plugin.yml` accepts `1.13`–`26.2`.
-- Resource pack `pack_format` for 26.2 is **88** (26.1 was 84, 26.3 snapshots are 89). Season 1's
+- Resource pack `pack_format` for 26.2 is **88** (26.1 was 84, 26.3 snapshots are 89), and it is
+  `Platform.PACK_FORMAT` — a pack a format behind does not fail to load, the client warns and draws
+  it, so the way this goes wrong is a season running on art nobody noticed was stale. Season 1's
   pack was on 64.
 
 **SimpleCloud is gone, decided 2026-09-01.** It ran 26.2 — confirmed by the owner on 2026-08-31
@@ -685,6 +711,26 @@ not build has to be told which it is. It defaults to gated because the one subtr
 `/smp update`, and the day the root check moved down it silently lost its own. That subtree is
 gone as of 2026-09-08 - `/update` is a root of its own - but the rule it taught is not.
 
+**A staged moment is `:common`'s `stage` package and `:paper-common`'s, since 2026-09-09.** A
+sequence of pictures with a tick spacing, optionally a potion effect, a sound and a subtitle,
+cancelled when the player leaves or dies. The split is the one this repository already has:
+`Cinematic`, `CinematicStage` and `Cinematics` hold the arithmetic and touch no platform type, and
+`PlayerStage` / `BukkitCinematics` are the packets. Two rules ride on it. **A frame is a
+`Component`, never a code point** - the four fonts allocate independently, so a code point that has
+lost its font draws whatever another font put there, which is finding 41 waiting to happen again.
+And **an effect is a namespaced key string, not a Bukkit type**, for the reason `FeedbackSound`
+gives.
+
+The one thing pointed at it so far is the season's opening on a player's first join: blindness, a
+run of placeholder pictures, and `Feedback.STAGING`. **That eleventh sound category is the owner's
+decision of 2026-09-09 and it ships blank** - no vanilla sound is a staged moment, and borrowing
+`NETWORK_EVENT` would have given the season's opening the phase-switch chime. The exhaustive
+`switch` in both sound adapters is what forced the question rather than letting somebody guess;
+both `SoundDefaultsTest`s now name `STAGING` as the one category allowed to be silent, and assert
+that it *is*, so filling it in becomes visible. **The moment carries no text at all** - the owner
+struck its subtitle the same day - and it still runs from the locale callback, now because that is
+where a join has finished settling rather than for the language.
+
 **`:paper-common` is new on 2026-09-04, and it is a layer this repository did not have.** `:common`
 is compiled against no platform at all, on purpose - that rule is what lets one shared module serve
 Paper, Velocity and two plain JVM applications at once. What it cost, silently, was that anything the
@@ -955,6 +1001,12 @@ are kept because the reasoning is what a future change has to argue with:
   2026-08-30.
 - The Dockerfile is runtime-only: Gradle builds the jar, `docker build --build-arg JAR=...` wraps
   it. A self-contained build stage would have to copy this whole multi-module repo.
+  - `V16__smp_welcome.sql` (2026-09-09): `smp_player.welcome_shown`, the flag the season's opening
+    moment is claimed through. A flag rather than the `created` column that is already there,
+    because that column answers a different question - the row appears when somebody *earns*
+    something, not when they join - and a timestamp cannot be **claimed**: two simultaneous joins
+    read the same value and both play the moment. The number skips 13-15 in no way that matters;
+    it is 16 because the branch it was written on did not yet carry them, and Flyway allows gaps.
 
 ### Configuration
 
@@ -1260,8 +1312,9 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1528 in total, none skipped, all green** (`./gradlew build` with a
-Docker daemon present, 2026-09-09, on `release/0.7.1`). The counts
+**Nine modules have tests: 1633 in total, none skipped, all green** (`./gradlew build` with a
+Docker daemon present, 2026-09-09, on `release/0.7.1`, after the platform-version,
+menu and staging work landed). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
 **Thirty-five are from 2026-09-07/08 and they arrive in three groups.** Four are `smp`'s
@@ -1333,12 +1386,12 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 393 |
-| `smp` | 256 |
-| `network-control` | 217 |
+| `common` | 415 |
+| `smp` | 326 |
+| `network-control` | 219 |
 | `commands` | 219 |
-| `updater` | 192 |
-| `discord-bot` | 159 |
+| `updater` | 201 |
+| `discord-bot` | 161 |
 | `hunger-games` | 74 |
 | `limbo` | 11 |
 | `paper-common` | 7 |
@@ -1458,7 +1511,9 @@ non-chest inventory" from the day the style sheet was written, and no such test 
 asserts that, and that every inventory title goes through `MenuTitle` - with a named allowlist of
 the menus still waiting for their panel, so the remaining work is in the build instead of in
 a document. **That allowlist has been empty since 2026-09-04**, when the last of the four -
-`ObjectiveGui`, `HandInGui`, `BalloonGui` and the grave - was converted; the sentence above kept
+`ObjectiveGui`, `HandInGui`, `BalloonGui` and the grave - was converted to the plain panel; all four
+have art of their own since 2026-09-09 (`ObjectivePanel`, `HandInPanel`, `GravePanel`,
+`WheelPanel`). The sentence above kept
 saying "the four menus still waiting" for two days after none was waiting, and on 2026-09-06 an
 agent read it, looked at a rendered panel on a real client and reported it as an unframed vanilla
 GUI. A list that empties itself is only worth having if the prose around it empties with it.

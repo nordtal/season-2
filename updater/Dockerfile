@@ -6,9 +6,11 @@
 #   docker build -t nordtal/updater:<version> \
 #     --build-arg JAR=build/libs/updater-<version>.jar updater
 #
-# NOTHING PUBLISHES THIS IMAGE. .github/workflows/release.yml pushes the bot image to the GHCR and
-# no other image (checked 2026-09-01), so the host builds it from this repository - the same
-# arrangement deploy/minecraft/ has.
+# release.yml PUSHES THIS IMAGE, and has since 2026-09-02: ghcr.io/nordtal/updater, tagged with the
+# version and with `latest`, alongside the bot, the minecraft image and the backup sidecar. The
+# comment here said the opposite until 2026-09-09 and was simply out of date - the reason it changed
+# is that Arcane deploys by PULLING and never builds, so an image existing only in a host's local
+# daemon fails the deploy with `denied` from the registry.
 FROM eclipse-temurin:25-jre
 
 WORKDIR /app

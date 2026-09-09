@@ -562,6 +562,63 @@ public interface UpdaterSpec {
         }
 
         @Order(9)
+        @Key("updates-path")
+        @Comment({
+                "Where the updater reads which services are running an image the registry has",
+                "moved past. One GET, before anything is stopped.",
+                "",
+                "THIS IS WHAT A JAR UPDATE CANNOT DO. An update replaces jars inside the volumes",
+                "and hands each container back to Docker with `start`, which recreates nothing -",
+                "so entrypoint.sh, the JRE under it and every change to compose.yml stay on",
+                "whatever image was pulled at the last deploy, for ever. Reading this is how a",
+                "run finds out, and update-services-path below is how it acts on it.",
+                "",
+                "Read from Arcane's own source on 2026-09-09, v2.10.2 -",
+                "backend/internal/project/handler.go registers GET",
+                "/environments/{id}/projects/{projectId}/updates, which is the project details",
+                "with IncludeServiceConfigs and IncludeUpdateInfo. The answer carries services[]",
+                "(name and image) and updateInfo keyed by IMAGE reference, and the two are joined",
+                "here: all four Minecraft services share one image, so one stale reference is four",
+                "containers to recreate.",
+                "",
+                "ARCANE ANSWERS FROM ITS OWN PERSISTED CHECKS and does not ask a registry when it",
+                "is asked. A project it has never checked comes back with no results, which this",
+                "run reports as 'nobody has looked' rather than as 'up to date' - and then nothing",
+                "is ever recreated. Turn the image update check on in Arcane."
+        })
+        default String updatesPath() {
+            return "/api/environments/{environment}/projects/{project}/updates";
+        }
+
+        @Order(10)
+        @Key("update-services-path")
+        @Comment({
+                "Where the updater pulls one service's image and recreates its container from it.",
+                "The body names the service: {\"services\":[\"smp\"]}.",
+                "",
+                "Read from Arcane's own source on 2026-09-09, v2.10.2 - POST",
+                "/environments/{id}/projects/{projectId}/update-services, which reaches",
+                "UpdateProjectServices in backend/internal/project/project_lifecycle.go: it pulls",
+                "the images of the services named, stops THOSE services, and brings THOSE services",
+                "back up with a forced recreate. Volumes are not touched (recreateVolumes is",
+                "false), which is what makes it safe to point at a server carrying a world.",
+                "",
+                "ONE KNOWN HAZARD, and it is upstream's rather than ours: that call goes to compose",
+                "with RecreateDependencies = RecreateDiverged. Every backend depends on the updater",
+                "through depends_on, so if the synced compose.yml has changed the updater's own",
+                "definition, recreating a backend can recreate the updater as a diverged dependency",
+                "- which ends the run from the outside, with the servers already stopped. The run",
+                "reports each recreate before it asks for it, so the report names where it stopped.",
+                "See nordtal/todo.md, A19.",
+                "",
+                "A service is addressed by its NAME here, not by a container id: the id is what",
+                "container-path takes, and putting one here answers 400."
+        })
+        default String updateServicesPath() {
+            return "/api/environments/{environment}/projects/{project}/update-services";
+        }
+
+        @Order(11)
         @Key("timeout-seconds")
         @Comment({
                 "How long to wait for the redeploy call.",

@@ -2,6 +2,7 @@ package eu.nordtal.s2.updater.serve;
 
 import eu.nordtal.s2.updater.arcane.ArcaneOps;
 import eu.nordtal.s2.updater.arcane.BackupResult;
+import eu.nordtal.s2.updater.arcane.ImageResult;
 import eu.nordtal.s2.updater.arcane.RedeployResult;
 import eu.nordtal.s2.updater.arcane.RuntimeResult;
 import eu.nordtal.s2.updater.arcane.ServiceRuntime;
@@ -33,6 +34,12 @@ final class FakeArcane implements ArcaneOps {
     private boolean reachable = true;
     private boolean stopFails;
 
+    /** service -> what Arcane says about its image. Absent means UNKNOWN, which is never work. */
+    private final Map<String, ImageResult.State> images = new LinkedHashMap<>();
+
+    /** Services whose recreate is refused - a 404 on the project id, a pull that failed. */
+    private final java.util.Set<String> recreateRefused = new java.util.LinkedHashSet<>();
+
     /** volume -> how many polls it stays running before it settles. */
     private final Map<String, Integer> backupDelay = new LinkedHashMap<>();
 
@@ -49,6 +56,52 @@ final class FakeArcane implements ArcaneOps {
             services.put(name, new ServiceRuntime(name, name + "-container", "running", "healthy"));
         }
         return this;
+    }
+
+    /** Arcane reports a newer image for these services. */
+    FakeArcane imageOutdated(final String... names) {
+        for (final String name : names) {
+            images.put(name, ImageResult.State.OUTDATED);
+        }
+        return this;
+    }
+
+    /** Arcane has checked these and they are current - which is not the same as never checked. */
+    FakeArcane imageCurrent(final String... names) {
+        for (final String name : names) {
+            images.put(name, ImageResult.State.UP_TO_DATE);
+        }
+        return this;
+    }
+
+    /** The recreate of these services is refused, so they keep running their old image. */
+    FakeArcane recreateRefused(final String... names) {
+        recreateRefused.addAll(List.of(names));
+        return this;
+    }
+
+    @Override
+    public @NotNull ImageResult images() {
+        if (!reachable) {
+            return ImageResult.unreachable("no Arcane");
+        }
+        return ImageResult.of(images);
+    }
+
+    @Override
+    public @NotNull RedeployResult recreate(final @NotNull String service) {
+        calls.add("recreate:" + service);
+        if (!reachable) {
+            return RedeployResult.refused("no Arcane");
+        }
+        if (recreateRefused.contains(service)) {
+            return RedeployResult.refused("refused");
+        }
+        // A recreate is a new container, and the run has to keep working against the service name
+        // rather than the id it remembered. Handing back a different id is what makes a test that
+        // relies on the old one fail here rather than on the deployment.
+        services.put(service, new ServiceRuntime(service, service + "-container-2", "running", "healthy"));
+        return RedeployResult.triggered("HTTP 200");
     }
 
     /** Arcane is not answering at all - the case the whole run must refuse to start on. */

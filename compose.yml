@@ -650,6 +650,17 @@ services:
       # moves a path is a line here and not a release of ours.
       NORDTAL_UPDATER_ARCANE_RUNTIME_PATH: ${ARCANE_RUNTIME_PATH:-/api/environments/{environment}/projects/{project}/runtime}
       NORDTAL_UPDATER_ARCANE_CONTAINER_PATH: ${ARCANE_CONTAINER_PATH:-/api/environments/{environment}/containers/{container}/{action}}
+      # And the two the IMAGE path uses. A run replaces jars inside the volumes and hands each
+      # container back with `start`, which recreates nothing - so entrypoint.sh, the JRE under it and
+      # every change to this file stay on whatever image was pulled at the last deploy. The first
+      # reads which services have moved past their image; the second pulls one service's image and
+      # recreates its container from it, and touches no volume doing so.
+      #
+      # ARCANE ANSWERS THE FIRST FROM ITS OWN PERSISTED CHECKS. With its image update check switched
+      # off, every run reports "nobody has looked" and nothing is ever recreated - which is a line in
+      # the report and not a silence.
+      NORDTAL_UPDATER_ARCANE_UPDATES_PATH: ${ARCANE_UPDATES_PATH:-/api/environments/{environment}/projects/{project}/updates}
+      NORDTAL_UPDATER_ARCANE_UPDATE_SERVICES_PATH: ${ARCANE_UPDATE_SERVICES_PATH:-/api/environments/{environment}/projects/{project}/update-services}
     volumes:
       - updater-config:/app/config
       # Everything this module owns, under the names Topology expects beneath volumes-root. Writable,

@@ -97,17 +97,51 @@ A restart is written with an instant sixty seconds out and the proxy counts ever
 The updater refuses to claim the row before that instant, so the countdown is real and cancellable for
 its whole length.
 
-The restart itself is one Arcane redeploy over its REST API — not the Docker socket, which is mounted
-nowhere in this deployment:
+The restart itself is **one stop and one start per container** over Arcane's REST API — not the
+Docker socket, which is mounted nowhere in this deployment, and **not** a project-wide redeploy,
+which does both in a single request and would take this container down with everything else, leaving
+nothing to report whether the network came back:
 
 ```
-POST /api/environments/{environment}/projects/{project}/redeploy
+GET  /api/environments/{environment}/projects/{project}/runtime
+POST /api/environments/{environment}/containers/{container}/{start|stop}
 ```
 
-Both segments are IDs: the environment is `0` for Arcane's own host, and the project is a UUID, not
-the compose project name. The path stays a setting because Arcane does not publish it. An empty
-`arcane.base-url` is supported — everything else works and both surfaces say the restart has to be
-clicked in Arcane.
+Both path segments are IDs: the environment is `0` for Arcane's own host, and the project is a UUID,
+not the compose project name. They stay settings because Arcane does not publish them. An empty
+`arcane.base-url` refuses an update **before** a version is resolved or a file is touched, and says
+so by name.
+
+## The images
+
+A `start` hands a container back to Docker on exactly the image it was created from. So the jars move
+and `entrypoint.sh`, the JRE under it and every change to `compose.yml` stay on whatever was pulled
+at the last deploy — for ever, because nothing on the automatic path ever pulls. Two more calls close
+that:
+
+```
+GET  /api/environments/{environment}/projects/{project}/updates
+POST /api/environments/{environment}/projects/{project}/update-services   {"services":["smp"]}
+```
+
+The first is read **before anything is stopped**, so a stale image is a row in the plan a person
+confirms rather than a step discovered after they said yes to something else. A service it names is
+then **recreated** instead of started, one service per call, and the report says which. Volumes are
+not touched on that path.
+
+- **Arcane answers from its own persisted checks.** It does not ask a registry when asked, so a
+  project whose image update check is off reports *"nobody has looked"* — a note in the report, never
+  a quiet "up to date", and then nothing is recreated. Turn the check on.
+- **The updater never recreates itself**, for the reason it never stops itself: the call would end
+  the run from inside. Its own stale image is a note naming the Redeploy button.
+- **Nor anything it does not own.** `postgres` and the backup sidecar are named in a note and left
+  alone — a sequence that recreates a container it never stopped is one nobody can predict from the
+  report they confirmed.
+- **One hazard, upstream's:** Arcane recreates with `RecreateDependencies: RecreateDiverged`, and
+  every backend depends on this container. A `compose.yml` that has changed the updater's own
+  definition can therefore have it recreated as a diverged dependency, mid-run. Each recreate is
+  reported *before* it is asked for, so the last line written names where a run stopped. See
+  `nordtal/todo.md`, A19.
 
 ## Tests
 
@@ -116,10 +150,10 @@ recorded from the live GitHub, Modrinth and PaperMC APIs. `TopologyTest` reads t
 so a backend added there and not to `Topology` fails the build. The migration is covered from the
 other side by `:discord-bot`'s `SchemaCheckTest` against a real PostgreSQL.
 
-**A 2xx from a real Arcane has never been observed**, and
-[arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943) notes that a 2xx would not by itself
-prove the restart happened. Nothing here can detect that: the stream that would say so is killed part
-way through by the redeploy itself.
+**A 2xx from a real Arcane has never been observed.** Every Arcane path here was read out of its own
+Go source — v2.10.2, dates in `UpdaterSpec.ArcaneSpec` — and the update-payload shapes in
+`ArcaneImagesTest` are written from those type definitions rather than recorded from a live instance.
+Capturing a real one is an item in `nordtal/todo.md` (A19).
 
 ## Output
 

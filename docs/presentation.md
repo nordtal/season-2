@@ -336,6 +336,48 @@ actually typed. **The icons are drawn white on purpose**, because Minecraft mult
 the component's colour: white art can be tinted to whatever the bundle asks for, black art cannot be
 tinted lighter. That is the same lesson the board frame taught the hard way (section 3).
 
+### Every reply carries a tone, since 2026-09-09
+
+A command's answer names a `Tone` - `NEUTRAL`, `GOOD`, `BAD`, `WARN`, `MUTED` - and the adapter paints
+it; Discord ignores it, because an embed has one colour for all of it. The values are the palette
+above and **not** `NamedTextColor`: a reply in vanilla green and red reads as a terminal standing next
+to a network drawn from this document. `NEUTRAL` is **grey rather than unpainted** (owner,
+2026-09-09) - "leave it alone" is not a colour but whatever the client defaults to on that surface,
+so the tone used most often would be the only one that looked different depending on where it landed.
+
+Two of the five are worth stating outright because they were got wrong across 158 call sites before
+this: a command that answers "there is nothing to settle", "the phase is already that one" or "nobody
+has any aura" is **`WARN`, not `BAD`** - nothing failed. And a read-only answer is a `NEUTRAL` head,
+exactly one coloured line, and `MUTED` for the rest, so a list of eleven lines has one place for the
+eye to land. `ReplyToneTest` fails a `reply(` without a tone.
+
+### Vanilla texts: what is ours, and what cannot be
+
+Taken as an inventory on 2026-09-09 rather than as a list of things to get round to. Three groups,
+and the third is the one worth writing down.
+
+**Ours now.** Chat, join and leave (`SystemLines`, both Paper servers); the death message and the
+advancement line, ours *around* vanilla's own component - a `TranslatableComponent`, so every reader's
+client still renders mob and weapon names in their own language; "unknown or incomplete command",
+which is the **same** key a refused command gets; server-full, on all three backends and on the proxy;
+the envelope Velocity wraps a backend kick in; and `/list`, `/me`, `/help`, `/trigger`, `/tell`, which
+are gone from the tree and from the input.
+
+**The client's, and no server can touch them.** The respawn screen ("You died!", its buttons, and the
+death message drawn on it). The advancement toast. Every item, block, mob, effect and enchantment
+name. "Connection lost" and "Timed out". Velocity's own login refusals. Vanilla container titles are
+in this group by decision rather than by force - section 2 keeps them vanilla on purpose. The only
+lever on any of it is the pack's `minecraft/lang/*.json`, which changes the text in the **client's**
+language rather than the reader's, and is the one documented exception to the i18n rule.
+
+**Replaceable and deliberately not replaced.** Sleep messages: `PlayerDeepSleepEvent` carries no
+message at all, "you may not rest now" is an actionbar the server sends, and whether denying
+`PlayerBedEnterEvent` suppresses it is a question only a running server answers - and the answer would
+be a *gameplay* decision, not a wording one. `spigot.yml messages` is unreachable in this deployment,
+which is why the entrypoint is right not to seed it: whitelist is off, server-full is answered by an
+event, unknown-command is answered by our filter, and a client with the wrong version meets the proxy
+first.
+
 ### Nordtal blue, the one colour that is not a mood
 
 The five above say what a line *is*. This one says who is speaking, and it never varies with the

@@ -333,6 +333,14 @@ The Minecraft UUID is not duplicated here: it hangs off `discord_user` through t
   be corrected in a diff.
 - ~~**Quiet period and passive shrink rate.**~~ **Proposed 2026-08-31**: 600 seconds of quiet, then
   15 blocks of diameter per hour, both in `HungerGamesSpec`.
+- **Chat, join, leave, deaths and the winner's line are ours since 2026-09-09.** They were vanilla
+  here - yellow, no flag, no icon - while the SMP had its own for eight days (finding 149).
+  `SystemLines` lives in `:paper-common` now and this server uses it, with an `ArenaComposition`
+  that carries a flag and a name and deliberately **no team colour**: a team is a row in
+  `hg_member`, and this is called on the main thread and on Paper's chat thread, where this
+  repository does not query. A team colour needs a cached roster first, which is a decision and not
+  a lookup to slip in. A body killed while its owner is offline gets its own kill feed line, because
+  vanilla writes none.
 - ~~**Simple Voice Chat** is planned as an optional extra **under reservation**.~~ **Installed
   2026-09-09.** The reservation was whether a 26.2 build exists; `bukkit-2.6.23` does, and the
   updater owns it on this server and on `smp`. It stays optional in both senses: a player without

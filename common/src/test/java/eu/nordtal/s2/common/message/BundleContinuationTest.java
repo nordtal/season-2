@@ -52,7 +52,12 @@ class BundleContinuationTest {
             "hunger-games/src/main/resources/messages",
             "network-control/src/main/resources/messages",
             "discord-bot/src/main/resources/messages",
-            "commands/src/main/resources/messages");
+            "commands/src/main/resources/messages",
+            // :paper-common's, new 2026-09-09 with the five system lines. Added here in the same
+            // commit that created it, because the last root this list gained - commands' - was
+            // added two days after the bundle existed, and for two days the one bundle every
+            // surface loads was the one bundle outside these checks.
+            "paper-common/src/main/resources/messages");
 
     @Test
     @DisplayName("a continued line ends with a space, so the two words stay two words")

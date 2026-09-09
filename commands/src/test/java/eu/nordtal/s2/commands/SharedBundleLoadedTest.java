@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,8 +31,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * rather than remembered.</p>
  *
  * <h2>Order matters and is checked</h2>
- * Later roots win, so the shared one has to come <b>first</b>: a module that wants to reword a shared
- * line does it in its own bundle, and that only works if its own bundle is layered on top.
+ * Later roots win, so the shared one has to be layered <b>underneath</b> the module's own: a module
+ * that wants to reword a shared line does it in its own bundle, and that only works if its own
+ * bundle is on top.
+ *
+ * <p>Underneath, not <em>first</em>, and the difference stopped being academic on 2026-09-09. The
+ * check was "the shared root is the first element of the list" until the two Paper plugins gained a
+ * second shared root - {@code messages/paper-common}, the five system lines - which is more general
+ * still and therefore sits below this one. Asserting first place would have made adding a third
+ * layer a red build for no reason at all, which is how a test teaches somebody to delete it.</p>
  */
 class SharedBundleLoadedTest {
 
@@ -44,26 +53,49 @@ class SharedBundleLoadedTest {
             "network-control/src/main/templates/eu/nordtal/s2/networkcontrol/NetworkControlPlugin.java",
             "discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java");
 
+    /** A {@code "messages/..."} literal, in the order the source writes them. */
+    private static final Pattern ROOT = Pattern.compile("\"(messages/[a-z-]+)\"");
+
     @Test
     @DisplayName("every process loads the shared bundle, and loads it underneath its own")
-    void theSharedRootIsLayeredFirst() throws IOException {
+    void theSharedRootIsLayeredUnderneath() throws IOException {
         final List<String> wrong = new ArrayList<>();
 
         for (final String process : PROCESSES) {
-            final String source = read(process);
+            final List<String> roots = rootsOf(read(process));
 
-            // The shared root has to be the FIRST element of the root list, which pins presence and
-            // order in one check - and it survives a module naming its own root with a constant,
-            // which the bot does.
-            if (!source.contains("List.of(\"" + SHARED + "\"")) {
-                wrong.add(process + " does not load " + SHARED + " as its first message root."
-                        + " Either it does not load the shared bundle at all - in which case every"
-                        + " key a shared command names reaches somebody as the key itself - or it"
-                        + " loads it last, which would override every line the module reworded.");
+            if (!roots.contains(SHARED)) {
+                wrong.add(process + " does not load " + SHARED + " at all, so every key a shared"
+                        + " command names reaches somebody as the key itself - silently, because"
+                        + " Messages degrades to the key rather than throwing.");
+                continue;
+            }
+            // Not last: later roots win, so a shared line has to be underneath something. A process
+            // that loads it last overrides every line it has deliberately reworded, and nothing
+            // else in the build can see that.
+            if (roots.indexOf(SHARED) == roots.size() - 1) {
+                wrong.add(process + " loads " + SHARED + " last, so the shared bundle wins over its"
+                        + " own. Later roots win: the shared one goes underneath.");
             }
         }
 
         assertEquals(List.of(), wrong);
+    }
+
+    /**
+     * Every message root the source names, in order.
+     *
+     * <p>Read off the source rather than off a loaded {@code Messages}, for the reason this whole
+     * class exists: what is being checked is a line in a plugin's {@code onEnable}, and that line
+     * only runs on a server.</p>
+     */
+    private static List<String> rootsOf(final String source) {
+        final List<String> roots = new ArrayList<>();
+        final Matcher matcher = ROOT.matcher(source);
+        while (matcher.find()) {
+            roots.add(matcher.group(1));
+        }
+        return roots;
     }
 
     private static String read(final String relative) throws IOException {

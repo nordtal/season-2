@@ -54,14 +54,22 @@ public final class WheelListener implements Listener {
      *
      * <p>The strip is prize icons being drawn and redrawn twenty-two times, so a player who managed
      * to pick one up would be holding a real item the server never decided to give them - and the
-     * markers are decoration. Every click in this window is refused, including a shift-click from
-     * the player's own inventory, which would otherwise push an item into a slot the next frame
-     * overwrites.
+     * ring, the hub and the button are paint. Every click in this window is refused, including a
+     * shift-click from the player's own inventory, which would otherwise push an item into a slot
+     * the next frame overwrites.
+     *
+     * <p>The cancellation is unconditional and the window is asked afterwards what the click
+     * <em>meant</em> - which for exactly one group of slots is "spin again". Doing it the other way
+     * round, letting the button's own handler decide whether to cancel, is how a menu ends up
+     * handing somebody a prize icon on the day a slot map moves.</p>
      */
     @EventHandler
     public void onClick(final InventoryClickEvent event) {
-        if (event.getInventory().getHolder() instanceof WheelGui) {
+        if (event.getInventory().getHolder() instanceof WheelGui gui) {
             event.setCancelled(true);
+            if (event.getWhoClicked() instanceof Player player) {
+                gui.click(player, event.getRawSlot());
+            }
         }
     }
 

@@ -479,12 +479,118 @@ public final class Glyphs {
     /** The same square plate, greyed - a page button with no page on the other side of it. */
     public static final String GUI_ROW_BUTTON_SMALL_OFF = cp(0xFE104);
 
-    // Row icons - U+FE110..U+FE115, 8 x 8, drawn white so a component's colour can tint them.
+    /**
+     * The same 158 px plate in a darker grey: a <em>heading</em> row rather than an entry.
+     *
+     * <p>The objective menu's top row names the milestone the cards below belong to. Drawn in the
+     * entry grey it would read as a fifth thing to click, which is the one thing a heading must
+     * not do.
+     */
+    public static final String GUI_ROW_PILL_DARK = cp(0xFE105);
+
+    /**
+     * A 50 px button plate in the affirming style: gold, the brand's own.
+     *
+     * <p>The only plate in the pack that is not neutral grey or refusing red, and it is one because
+     * it is the only button in these menus whose click cannot be undone by clicking again - the
+     * hand-in's confirm.
+     */
+    public static final String GUI_ROW_BUTTON_CONFIRM = cp(0xFE106);
+
+    /** A 68 px button plate in the affirming style - the grave's "take everything". */
+    public static final String GUI_ROW_BUTTON_TAKE = cp(0xFE107);
+
+    // Row icons - U+FE110..U+FE11A, 8 x 8, drawn white so a component's colour can tint them.
     public static final String GUI_ROW_ICON_SPAWN = cp(0xFE110);
     public static final String GUI_ROW_ICON_DEATH = cp(0xFE111);
     public static final String GUI_ROW_ICON_POI = cp(0xFE112);
     public static final String GUI_ROW_ICON_STOP = cp(0xFE113);
     public static final String GUI_ROW_ICON_PREV = cp(0xFE114);
     public static final String GUI_ROW_ICON_NEXT = cp(0xFE115);
-    // U+FE116..U+FE1FF is this block's room to grow.
+
+    // The objective card's four states. The icon IS the state on that card - a hand you can hand
+    // something to, a pickaxe that counts itself, a medal earned elsewhere, a tick when it is done -
+    // so these four are never drawn beside one another and one of them always is.
+    public static final String GUI_ROW_ICON_HAND_IN = cp(0xFE116);
+    public static final String GUI_ROW_ICON_STATISTIC = cp(0xFE117);
+    public static final String GUI_ROW_ICON_ADVANCEMENT = cp(0xFE118);
+    public static final String GUI_ROW_ICON_DONE = cp(0xFE119);
+
+    /** An experience orb - what the objective menu's share line is about. */
+    public static final String GUI_ROW_ICON_AURA = cp(0xFE11A);
+    // U+FE11B..U+FE1FF is this block's room to grow.
+
+    // === nordtal:gui, menu surfaces - U+FE200..U+FE2FF (2026-09-09) ===
+    //
+    // A menu whose art spans MORE THAN ONE chest row cannot be a row glyph: a row font's whole
+    // purpose is that it carries one ascent per layer per row, and a card two rows tall has no row.
+    // So these live in nordtal:gui with an ascent apiece, exactly as the balloon's overlays do -
+    // and, exactly as there, a picture that can land on two different rows is declared twice.
+    //
+    // The block is its own because U+FE060..U+FE07F was full. Nothing forced a NEW block - fonts
+    // allocate independently and U+FE090 was free in this one - but the numbers in this repository
+    // are kept globally distinct so that a code point read in a log or a screenshot names one thing,
+    // and U+FE080 is the system-line icons in minecraft:default.
+
+    /** The objective card, 68 x 32, on the upper of the two card rows (top y 37). */
+    public static final String GUI_CARD_TOP = cp(0xFE200);
+
+    /** The same card on the lower card row (top y 73). */
+    public static final String GUI_CARD_BOTTOM = cp(0xFE201);
+
+    /** The green wash over a finished card, upper row. */
+    public static final String GUI_CARD_DONE_TOP = cp(0xFE202);
+
+    /** The same wash, lower row. */
+    public static final String GUI_CARD_DONE_BOTTOM = cp(0xFE203);
+
+    /**
+     * The progress bar's fill, in powers of two, for the upper card row.
+     *
+     * <p>Indexed the way {@link #GUI_SPACE_MINUS_1} and friends are used: any fill from 0 to 60
+     * pixels is at most four of these laid side by side, because 60 is 32 + 16 + 8 + 4. The bar's
+     * <em>track</em> is baked into the card, so an empty bar costs nothing at all.
+     */
+    public static final String[] GUI_BAR_FILL_TOP = {
+            cp(0xFE210), cp(0xFE211), cp(0xFE212), cp(0xFE213), cp(0xFE214), cp(0xFE215),
+    };
+
+    /**
+     * The hand-in screen's tray: one sunken surface 162 x 54 over three chest rows.
+     *
+     * <p>One surface and not a recess per slot, which is design {@code H2} and is the deliberate
+     * opposite of the grave - see {@code HandInPanel}'s own comment for why the two must not be
+     * made the same.
+     */
+    public static final String GUI_HANDIN_TRAY = cp(0xFE204);
+
+    /**
+     * The grave's slab: a recess per slot on stone, one glyph per row count.
+     *
+     * <p>A recess per slot and <b>not</b> one surface, which is the deliberate opposite of
+     * {@link #GUI_HANDIN_TRAY} - see {@code GravePanel}'s own comment. Indexed from one row, so
+     * {@code GUI_GRAVE_SLAB[0]} is a single row; five is the most there can be, because a player
+     * carries at most forty-one stacks and the window's sixth row is the footer.
+     */
+    public static final String[] GUI_GRAVE_SLAB = {
+            cp(0xFE205), cp(0xFE206), cp(0xFE207), cp(0xFE208), cp(0xFE209),
+    };
+
+    /**
+     * The wheel's own panel: five rows with a ring of twelve prize cells and a hub.
+     *
+     * <p>A whole window like {@link #GUI_TRAVEL_PANEL} rather than an overlay, because a circle on a
+     * 9 x 5 grid is a band between the cells and not a thing that lands on any one of them. The
+     * winning cell wears the same two-pixel white frame {@code travel_here} does - see
+     * {@code WheelPanel} for why the design's pointer could not survive the ring moving left.
+     */
+    public static final String GUI_WHEEL_RING = cp(0xFE20A);
+
+    /** The same six, for the lower card row. */
+    public static final String[] GUI_BAR_FILL_BOTTOM = {
+            cp(0xFE218), cp(0xFE219), cp(0xFE21A), cp(0xFE21B), cp(0xFE21C), cp(0xFE21D),
+    };
+
+    /** The widths {@link #GUI_BAR_FILL_TOP} draws, in the same order. */
+    public static final int[] GUI_BAR_FILL_WIDTHS = {1, 2, 4, 8, 16, 32};
 }

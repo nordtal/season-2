@@ -70,8 +70,14 @@ public final class HandInPanel {
     /** The slot holding a real item of the wanted material - a sample, and never takeable. */
     public static final int SAMPLE_SLOT = SlotGeometry.slot(0, FOOTER_ROW);
 
-    /** Where "808 left" starts: past the sample's own cell. */
-    private static final int NEEDED_X = SlotGeometry.x(1) + INSET + 8;
+    /**
+     * Where "808 left" starts: two pixels into the cell after the sample's.
+     *
+     * <p>The same x the grave's experience line uses, and that is the point - these two windows are
+     * the same footer with a different sentence on it, and a label starting eight pixels further
+     * right in one of them is the kind of difference nobody can name but everybody sees.</p>
+     */
+    private static final int NEEDED_X = SlotGeometry.x(1) + INSET;
 
     public static final int CONFIRM_X = SlotGeometry.x(6) + INSET;
     public static final int CONFIRM_WIDTH = 3 * SlotGeometry.PITCH - 2 * INSET;

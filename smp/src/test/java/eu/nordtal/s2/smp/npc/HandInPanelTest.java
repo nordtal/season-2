@@ -118,6 +118,22 @@ class HandInPanelTest {
     }
 
     @Test
+    @DisplayName("the count starts where the grave's experience line does")
+    void thetwoFootersLineUp() {
+        // These two windows are the same footer with a different sentence on it. A label eight
+        // pixels further right in one of them is the kind of difference nobody can name and
+        // everybody sees, and nothing else in either module compares the two.
+        final Run needed = PanelWalk.textRuns(
+                        PanelWalk.runs(surface("808 still needed", "Hand in")),
+                        Glyphs.FONT_GUI_ROWS[HandInPanel.FOOTER_ROW])
+                .get(0);
+        assertEquals(SlotGeometry.x(1) + HandInPanel.INSET, needed.x());
+        assertEquals(eu.nordtal.s2.smp.grave.GravePanel.INSET, HandInPanel.INSET,
+                "the two footers are inset by different amounts, so their plates do not line up"
+                        + " either");
+    }
+
+    @Test
     @DisplayName("the sample sits in the footer row, apart from every slot that accepts an item")
     void theSampleIsNotADepositSlot() {
         assertEquals(HandInPanel.FOOTER_ROW, SlotGeometry.row(HandInPanel.SAMPLE_SLOT));

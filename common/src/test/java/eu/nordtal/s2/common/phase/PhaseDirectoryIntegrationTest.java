@@ -104,9 +104,8 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void theMigrationSeedsTheSeasonsStartState() {
-        // V4 runs INSERT INTO season_phase (phase) VALUES ('PRE_EVENT'), which is the [*] ->
-        // PRE_EVENT edge in docs/season-phases.md. Read it off a database migrated by Flyway rather
-        // than off the row this class re-seeds.
+        // V4 seeds PRE_EVENT as the season's start state. Read it off a database migrated by
+        // Flyway rather than off the row this class re-seeds.
         execute("DELETE FROM season_phase");
         execute("INSERT INTO season_phase (phase) SELECT 'PRE_EVENT'");
 
@@ -156,7 +155,7 @@ class PhaseDirectoryIntegrationTest {
         execute("UPDATE season_phase SET phase = 'SMP' WHERE id");
 
         assertEquals(SeasonPhase.SMP, phases.currentPhase(),
-                "nobody caches the phase as truth - the escape hatch in docs/season-phases.md depends on it");
+                "nobody caches the phase as truth - the escape hatch depends on it");
     }
 
     // ---------------------------------------------------------------- switch and audit
@@ -274,9 +273,8 @@ class PhaseDirectoryIntegrationTest {
 
     @Test
     void aCommittedSwitchNotifiesTheChannelTheProxyListensOn() throws SQLException {
-        // The poll is the actual guarantee (30 seconds, docs/season-phases.md); this only proves
-        // that the NOTIFY half of the same statement really reaches a listener, so that the
-        // listener side can be built against something that is known to fire.
+        // The 30-second poll is the actual guarantee; this only proves that the NOTIFY half of the
+        // same statement reaches a listener at all.
         try (Connection listener = dataSource.getConnection()) {
             try (Statement statement = listener.createStatement()) {
                 statement.execute("LISTEN nordtal_phase");

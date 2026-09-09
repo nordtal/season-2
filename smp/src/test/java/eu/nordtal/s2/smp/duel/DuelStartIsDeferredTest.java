@@ -13,15 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * That a duel does not begin inside the move event that started it.
  *
- * <p>A text search, because the failure needs two real players on a real server and there is no
- * Bukkit here to fake. What it guards is a trap with no symptom: {@code PlayerMoveEvent} applies
- * {@code event.getTo()} to the player <em>after</em> every handler has returned, so a teleport
- * performed inside one is undone again - for that player only. The duel's own check does not see
- * it, because {@code Player#teleport} returned {@code true}.</p>
- *
- * <p>What it produced on the local stack on 2026-09-06: the fighter who was already waiting was
- * moved into the arena at y=201, the fighter who had just stepped onto the platform stayed at
- * y=68 in ADVENTURE mode holding the free loadout, and the duel ran on regardless. Finding 119.</p>
+ * <p>A text search, because the failure needs two real players on a real server. The trap has no
+ * symptom: {@code PlayerMoveEvent} applies {@code event.getTo()} <em>after</em> every handler has
+ * returned, so a teleport performed inside one is silently undone for that player -
+ * {@code Player#teleport} still returned {@code true}.</p>
  */
 class DuelStartIsDeferredTest {
 
@@ -43,11 +38,9 @@ class DuelStartIsDeferredTest {
     @Test
     @DisplayName("a duel death leaves the arena on the next tick, not inside the death event")
     void theEndIsScheduled() throws IOException {
-        // The mirror image of the case above, and it cost the loser twice. GraveListener asks
-        // "is this player in an arena?" at HIGH, to skip both the grave and the death penalty;
-        // DuelListener runs at LOWEST and used to end the duel there, so by the time the question
-        // was asked the answer was no. A duel death booked DUEL_LOSS -10 and DEATH -5 in the same
-        // millisecond, in the one place docs/smp.md says a death costs nothing. Finding 120.
+        // GraveListener asks "is this player in an arena?" at HIGH, to skip both the grave and the
+        // death penalty. DuelListener runs at LOWEST, so ending the duel there makes the answer no
+        // and books DUEL_LOSS and DEATH together - in the one place a death costs nothing.
         final String source = read("smp/src/main/java/eu/nordtal/s2/smp/duel/DuelListener.java");
         final int death = source.indexOf("public void onDeath(");
         assertTrue(death >= 0, "DuelListener has no onDeath");
@@ -60,11 +53,9 @@ class DuelStartIsDeferredTest {
     @Test
     @DisplayName("a dead fighter's own inventory waits for the respawn")
     void theLosersStateWaitsForTheRespawn() throws IOException {
-        // The worst of the four, and the one the rehearsal was told to watch for: the loser of a
-        // duel is DEAD when the duel is settled, and an inventory written onto a dead player is
-        // thrown away by the respawn, which hands back whatever they died holding - the arena's
-        // loadout. So the loser walked off with a free iron sword and a shield and their own
-        // inventory was gone. Thirteen emeralds, in the run that found it. Finding 122.
+        // The loser is DEAD when the duel is settled, and an inventory written onto a dead player
+        // is thrown away by the respawn, which hands back whatever they died holding - the arena's
+        // loadout. Their own inventory is then gone.
         final String duels = read("smp/src/main/java/eu/nordtal/s2/smp/duel/Duels.java");
         assertTrue(duels.contains("if (player.isDead()) {"),
                 "Duels#restore writes onto a dead player, and the respawn throws it away");
@@ -79,10 +70,8 @@ class DuelStartIsDeferredTest {
     @Test
     @DisplayName("a duel ends without a death screen, at the spawn, with a title")
     void theOutcomeIsShownWithoutADeath() throws IOException {
-        // Decided by the owner on 2026-09-06 after watching one: the loser saw the ordinary red
-        // "You Died!" screen for a sparring match that costs nothing. The only way to avoid it is
-        // to cancel the blow before it lands - a death cannot be un-shown - so the arena's lethal
-        // damage ends the duel instead of killing anybody.
+        // A death cannot be un-shown, so the only way to keep the red "You Died!" screen out of a
+        // sparring match is to cancel the lethal blow before it lands.
         final String listener = read("smp/src/main/java/eu/nordtal/s2/smp/duel/DuelListener.java");
         assertTrue(listener.contains("public void onDamage("),
                 "nothing catches the lethal blow, so every duel still ends on a death screen");

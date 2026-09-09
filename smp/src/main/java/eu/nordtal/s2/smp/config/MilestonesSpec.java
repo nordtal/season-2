@@ -11,17 +11,12 @@ import java.util.List;
  * {@code plugins/smp/milestones.yml} - the track, and the one file the rest of this module reads
  * the season's shape out of.
  *
- * <h2>Why a config file and not code</h2>
- * docs/smp.md#where-a-milestone-is-defined: "in a YAML config file, reloadable with a command. The
- * definition is versioned in the repository; the <em>progress</em> lives in the database. Adding a
- * milestone is a file edit plus {@code /smp reload} - no release, no restart." That is not a
- * convenience: appending a milestone is the <b>planned response to a track that finishes early</b>,
- * because scaling targets to the live player count was rejected on the grounds that a target which
- * moves overnight reads as a shifted goalpost.
+ * <p>A file rather than code because the definition is versioned here while the <em>progress</em>
+ * lives in the database: adding a milestone is a file edit plus {@code /smp reload}, with no release
+ * and no restart. Appending one is the <b>planned response to a track that finishes early</b>,
+ * since a target that moves overnight reads as a shifted goalpost.
  *
- * <h2>The file format, decided 2026-09-01</h2>
- * The table in docs/smp.md#the-track is the <em>content</em>, not a schema, so the shape below is
- * this session's choice. Three things about it are worth the sentence each:
+ * <p>Three things about the format:
  *
  * <ul>
  *   <li><b>A list of milestones, each with a list of objectives</b> - two levels of nesting through
@@ -39,11 +34,9 @@ import java.util.List;
  *       that derivation drift one objective at a time until nobody could say what the ramp was.</li>
  * </ul>
  *
- * <h2>Every number here is a default</h2>
- * docs/smp.md is explicit that the <em>rules</em> that produced the track are the decision and the
- * numbers they produced are defaults. The items and advancements in particular are one worked
- * example each and are <b>expected to be corrected in the diff</b>; what must survive a correction
- * is the shape - how many objectives a milestone has, which type each is, and which role it serves.
+ * <p>Every number here is a default: the <em>rules</em> that produced the track are the decision.
+ * The items and advancements are worked examples and are expected to be corrected; what must
+ * survive a correction is the shape.
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",

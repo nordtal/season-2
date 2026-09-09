@@ -1,80 +1,54 @@
 # nordtal.eu season 2 - the whole deployment.
 #
-# One stack, four profiles and one service that is in every one of them. SimpleCloud was dropped
-# on 2026-09-01; the reasoning is in deploy/README.md#why-it-looks-like-this.
-#
 #   cp .env.example .env        # fill it in; .env is gitignored and must never be committed
 #   docker compose up -d
 #
-# THIS FILE LIVES AT THE REPOSITORY ROOT. Arcane's GitOps sync pulls "the entire directory the
-# compose file lives in, not just the file itself" (its own documentation, read 2026-09-01), so a
-# compose file under deploy/ would put deploy/ on the host and nothing else. Everything else that
-# belongs to the deployment is still in deploy/; it is this one file and .env.example that are up
-# here.
+# THIS FILE LIVES AT THE REPOSITORY ROOT because Arcane's GitOps sync pulls the entire directory the
+# compose file lives in, so a compose file under deploy/ would put deploy/ on the host and nothing
+# else. Everything else that belongs to the deployment is still in deploy/.
 #
-# The second half of that reasoning has since weakened, and it is written down rather than quietly
-# left standing: it used to be that the `./updater` and `./discord-bot` build contexts would not
-# exist in such a tree. Since 2026-09-02 nothing on the host builds, so a deploy that only pulls
-# never looks at a build context. The location is a convention now, not a hard requirement.
-#
-# EVERY IMAGE IS PULLED, NOTHING IS BUILT ON THE HOST. Arcane's Redeploy pulls and never builds -
-# building is a separate action in its interface (Arcane's own documentation, read 2026-09-02) - and
+# EVERY IMAGE IS PULLED, NOTHING IS BUILT ON THE HOST. Arcane's Redeploy pulls and never builds, and
 # two of these images COPY a jar that Gradle produces and .gitignore excludes, so a host with only a
-# checkout could not build them even if it tried. All four therefore come from ghcr.io/nordtal,
-# pushed by .github/workflows/release.yml when a release is published. The `build:` blocks that
-# remain are for developing on this machine.
+# checkout could not build them. All four come from ghcr.io/nordtal, pushed by release.yml. The
+# `build:` blocks that remain are for developing on this machine.
 #
-# IMAGE_TAG picks which release runs, and defaults to `latest`. Pinning it is the rollback:
+# IMAGE_TAG picks which release runs and defaults to `latest`. Pinning it is the rollback:
 #
 #   IMAGE_TAG=0.2.1     every nordtal image at that release
 #   MC_IMAGE=...        one image somewhere else entirely, if it ever comes to that
 #
-# The images are a FLOOR, not the version of what runs. The updater replaces jars inside the volumes
-# at runtime, so `latest` here plus a pinned UPDATER_SEASON_RELEASE below is a legitimate and
-# deliberate combination - see docs/updater.md.
+# The images are a FLOOR, not the version of what runs: the updater replaces jars inside the volumes
+# at runtime, so `latest` here plus a pinned UPDATER_SEASON_RELEASE below is deliberate.
 #
-# COMPOSE_PROFILES in .env decides what "everything" means. Production is `db,bot,mc,backup`, and
-# that is what .env.example ships.
+# COMPOSE_PROFILES in .env decides what "everything" means. Production is `db,bot,mc,backup`:
 #
 #   COMPOSE_PROFILES=bot               just the Discord bot, against a database that already exists
 #   COMPOSE_PROFILES=db,bot            bot and database, no Minecraft at all
 #   COMPOSE_PROFILES=db,bot,mc,backup  the production network
 #
-# `backup` USED TO BE OUTSIDE THAT DEFAULT and this comment still said `db,bot,mc` on 2026-09-02,
-# while .env.example already said otherwise. Two reasons the fuller list is the right one. The
-# database is the only irreversible risk in this project (docs/README.md), so a stack whose backup
-# sidecar is opt-in is a stack that is one forgotten variable away from having none. And a profile
-# selection that omits it breaks `down`: the sidecar is not in the selection, so it is not stopped,
-# the network cannot be removed - "Resource is still in use" - and what is left running is a backup
-# job pointed at a database that no longer exists.
+# `backup` belongs in that default. The database is the only irreversible risk in this project, so
+# an opt-in backup sidecar is one forgotten variable away from none - and a selection that omits it
+# breaks `down`, because the sidecar is never stopped and the network cannot then be removed.
 #
 # WHATEVER IS CHOSEN, `up` AND `down` HAVE TO USE THE SAME SELECTION. Compose only acts on the
 # services the current selection names, in both directions.
 #
-# THE UPDATER HAS NO PROFILE, so it is in every selection including `COMPOSE_PROFILES=bot`. That is
-# not an oversight. It is the only process that applies the schema, so nothing else in this stack
-# can correctly start before it; and it is what answers /update in Discord and /smp update in game,
-# which needs it running rather than run. See docs/updater.md and its block below.
+# THE UPDATER HAS NO PROFILE, so it is in every selection. It is the only process that applies the
+# schema, so nothing else can correctly start before it; and it answers /update in Discord and
+# /smp update in game, which needs it running rather than run.
 #
-# The bot has no Minecraft dependency and never waits for a proxy or a backend; the `bot` profile
-# is what preserves that. It replaces discord-bot/docker-compose.yml.
+# The bot has no Minecraft dependency and never waits for a proxy or a backend; the `bot` profile is
+# what preserves that.
 #
-# THERE IS NO depends_on ON THE DATABASE, deliberately. Compose pulls a profiled dependency in
+# THERE IS NO depends_on ON THE DATABASE, deliberately: compose pulls a profiled dependency in
 # whether you asked for it or not, which would make "point at an external PostgreSQL" impossible
-# without editing this file. Every service here fails fast on an unreachable database and
-# `restart: unless-stopped` retries it, so start-up ordering resolves itself within seconds.
+# without editing this file. Every service fails fast on an unreachable database and
+# `restart: unless-stopped` retries it.
 #
-# THERE IS A depends_on ON THE UPDATER, and it is the one ordering rule this file can express.
-# The updater is the only process that applies the schema, and after a redeploy the whole stack
-# starts at once - so without it a plugin can come up against a schema older than itself, which is
-# the failure the arrangement exists to prevent. The updater becomes healthy the moment the schema
-# is current (it touches /tmp/updater-ready), and everything else waits for that. This is safe
-# where a database dependency would not be, because the updater has no profile: asking for it
-# cannot drag in a service you did not want.
-#
-# It used to be an operator rule written in prose - "bring the bot up first, it is the only process
-# that migrates" - and that stopped being true on 2026-09-01. See docs/updater.md and
-# deploy/README.md#first-deployment-in-order.
+# THERE IS A depends_on ON THE UPDATER, and it is the one ordering rule this file can express: after
+# a redeploy the whole stack starts at once, and without it a plugin can come up against a schema
+# older than itself. The updater becomes healthy the moment the schema is current. This is safe
+# where a database dependency would not be, because the updater has no profile.
 
 name: nordtal-s2
 
@@ -84,47 +58,33 @@ name: nordtal-s2
 # ---------------------------------------------------------------------------------------------
 x-minecraft: &minecraft
   profiles: ["mc"]
-  # ARCANE NEVER RUNS THIS. Its Redeploy pulls images and does not build; building is a separate
-  # action in its interface (its own documentation, read 2026-09-02). The block is kept because it
-  # is how this image is developed locally - `docker compose build network-control` after an edit to
-  # entrypoint.sh - and because build.yml runs the same build on every push, which is what catches a
-  # Dockerfile that COPYs a file .dockerignore excludes. What production runs is the pulled image.
+  # ARCANE NEVER RUNS THIS: its Redeploy pulls and does not build. The block is kept because it is
+  # how this image is developed locally, and because build.yml runs the same build on every push,
+  # which catches a Dockerfile that COPYs a file .dockerignore excludes.
   build:
     context: ./deploy/minecraft
   image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:${IMAGE_TAG:-latest}}
   restart: unless-stopped
   depends_on:
-    # The schema, and nothing else. Not the database - see the note at the top of this file about
-    # why that one is left to `restart: unless-stopped`.
+    # The schema, and nothing else. Not the database - see the note at the top of this file.
     updater:
       condition: service_healthy
   # The entrypoint MUST be PID 1: it traps SIGTERM and turns it into a graceful save, and it holds
   # the stdout that `docker logs` reads. `init: true` would put tini there instead and break both.
-  #
-  # It does NOT mirror the console to /proc/1/fd/1, which this comment said until 2026-09-02 -
-  # deploy/README.md#never-mirror-the-console-with-tmux-pipe-pane forbids exactly that, because a
-  # second handle on the container's stdout pipe wedges the container beyond even `docker rm -f`.
   init: false
   # 10s (the default) does not save a border-4000 world. The entrypoint forwards SIGTERM to the
   # JVM, whose shutdown hook saves and stops; this is the time it is given to finish.
   stop_grace_period: 180s
-  # HEALTHY MEANS "THE SEASON PLUGIN IS RUNNING", NOT "A JVM EXISTS" (new 2026-09-04, finding 55).
+  # HEALTHY MEANS "THE SEASON PLUGIN IS RUNNING", NOT "A JVM EXISTS". Both conditions are needed: a
+  # plugin that throws in onEnable leaves Paper running with an open port and every jar in plugins/,
+  # which is indistinguishable from health outside the JVM. The marker is written at the very end of
+  # onEnable and refreshed every 30s, so a process that stops ticking stops writing it.
   #
-  # Two conditions, and it needs both. The marker is written by the plugin at the very END of its
-  # onEnable and refreshed every 30s from there; the port is what Paper and Velocity open for
-  # players. THIS SUPERSEDES THE `HEALTHCHECK` IN deploy/minecraft/Dockerfile, whose TCP half is
-  # repeated here on purpose - a compose healthcheck replaces the image's outright, and dropping the
-  # port test would have traded one blind spot for another.
+  # THIS SUPERSEDES THE `HEALTHCHECK` IN deploy/minecraft/Dockerfile - a compose healthcheck replaces
+  # the image's outright - which is why the TCP half is repeated here.
   #
-  # Why the marker had to exist at all: on the first deployment smp's config threw, the plugin
-  # disabled itself, and Paper carried on. Every jar was in plugins/ so the entrypoint's guard
-  # passed, and the port was open so the port check passed - a Minecraft server with no season on
-  # it, green in Arcane. Nothing outside the JVM could tell that state from a healthy one. Now the
-  # only process that writes /tmp/nordtal-ready is one that finished starting, and one that stops
-  # ticking stops writing it.
-  #
-  # 90 SECONDS IS THREE MISSED BEATS, and it is a literal here because this is a shell test inside a
-  # YAML file - it cannot read Readiness.STALE_AFTER. :updater's TopologyTest holds the two equal.
+  # 90 SECONDS IS THREE MISSED BEATS, a literal because a shell test in a YAML file cannot read
+  # Readiness.STALE_AFTER. :updater's TopologyTest holds the two equal.
   #
   # `bash -c` and not CMD-SHELL: /bin/sh in this image is dash, which has no /dev/tcp.
   healthcheck:
@@ -132,33 +92,28 @@ x-minecraft: &minecraft
            "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/nordtal-ready) )) -lt 90 && exec 3<>/dev/tcp/127.0.0.1/$${SERVER_PORT:-25565}"]
     interval: 15s
     timeout: 5s
-    # 45s of consecutive failure after the start period, on top of the 90s the marker takes to go
-    # stale. Deliberately not 1: the accept queue can refuse a connection during a long tick, and a
-    # backend that flickers red on a lag spike is a signal people learn to ignore.
+    # 45s of consecutive failure on top of the 90s the marker takes to go stale. Deliberately not 1:
+    # the accept queue can refuse a connection during a long tick, and a backend that flickers red on
+    # a lag spike is a signal people learn to ignore.
     retries: 3
-    # FIVE MINUTES, and the temptation is to shorten it. The image's own check used 180s for the
-    # port alone; the marker lands strictly later than the port, because it is the last line of
-    # onEnable - after four worlds are loaded and the milestone track is read. Nothing in this stack
-    # waits on a Minecraft service being healthy, so a generous window costs only a longer "starting"
-    # in Arcane, while a short one makes every ordinary restart flap red first.
+    # FIVE MINUTES: the marker lands strictly later than the port, being the last line of onEnable
+    # after four worlds are loaded. Nothing waits on a Minecraft service being healthy, so a generous
+    # window costs a longer "starting" while a short one makes every restart flap red first.
     start_period: 300s
   environment: &minecraft-env
     TZ: ${TZ:-Europe/Berlin}
-    # SERVER_VERSION, set per service below, is a LITERAL and no longer comes from .env (since
-    # 2026-09-09). It is the Minecraft version for the three Paper backends and Fill's name for
-    # Velocity's major on the proxy; both are mirrored by eu.nordtal.s2.common.Platform, which is
-    # what the updater resolves against and what every plugin in this repository is compiled for.
+    # SERVER_VERSION, set per service below, is a LITERAL and deliberately not from .env: it is the
+    # Minecraft version for the three Paper backends and Fill's name for Velocity's major on the
+    # proxy, both mirrored by eu.nordtal.s2.common.Platform, which is what the updater resolves
+    # against and what every plugin here is compiled for.
     #
-    # There is no SERVER_BUILD any more either. The updater owns the server jar (since 2026-09-02)
-    # and the entrypoint runs whatever build is in .server/; when that cache is empty it now asks
-    # the Fill API for the newest STABLE build itself instead of reading a number somebody had to
-    # keep current. Nothing pins a build anywhere - see UpdaterSpec, where the two pins used to be.
+    # There is no SERVER_BUILD: the updater owns the server jar, the entrypoint runs whatever build
+    # is in .server/, and an empty cache is filled from the Fill API's newest STABLE build. Nothing
+    # pins a build anywhere.
     #
-    # SEASON_REPO and SEASON_RELEASE used to live here, because entrypoint.sh fetched the plugin
-    # jars. It does not any more (2026-09-01): the `updater` service owns the plugin jars, and two
-    # owners is one owner too many. What the updater follows is UPDATER_SEASON_RELEASE, on its own
-    # service below. What is left here is what this container still owns - the server jar, the
-    # datapacks and the seeded configuration.
+    # The plugin jars are the `updater` service's, not this container's - two owners is one too
+    # many. What this container still owns is the server jar, the datapacks and the seeded
+    # configuration.
   logging: &logging
     driver: json-file
     options:
@@ -193,9 +148,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       TZ: ${TZ:-Europe/Berlin}
     ports:
-      # Everything that reads this database is now in the same stack, so this publish exists only
-      # for backups and for a psql from the host. It binds to loopback until POSTGRES_BIND says
-      # otherwise: a PostgreSQL on 0.0.0.0 with a password from a .env file is a bad first day.
+      # Everything that reads this database is in the same stack, so this publish exists only for
+      # backups and for a psql from the host. Loopback until POSTGRES_BIND says otherwise.
       - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -208,16 +162,14 @@ services:
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
-  # The database backup. Its own profile, because it is the one service you might legitimately
-  # run against a database this compose does not own - and the one you must not silently lose by
-  # dropping the `db` profile.
+  # The database backup. Its own profile, because it is the one service you might legitimately run
+  # against a database this compose does not own.
   #
-  # It writes a pg_dump into `postgres-dumps` and touches nothing else. Point Arcane's volume
-  # backup policy at THAT volume, not at `postgres-data`: Arcane stops the containers using a
-  # volume only when the policy's `Stop Containers` flag is set, and for a live PGDATA both
-  # settings are wrong - off gives a torn copy that fails at restore rather than at backup, on
-  # gives a nightly outage of everything in this stack. `postgres-dumps` has neither problem,
-  # because nothing holds it open between runs. See deploy/README.md#backups.
+  # It writes a pg_dump into `postgres-dumps` and touches nothing else. Point Arcane's volume backup
+  # policy at THAT volume, not at `postgres-data`: for a live PGDATA both settings of the policy's
+  # `Stop Containers` flag are wrong - off gives a torn copy that fails at restore, on gives a
+  # nightly outage of the whole stack. Nothing holds `postgres-dumps` open between runs.
+  # See deploy/README.md#backups.
   postgres-backup:
     profiles: ["backup"]
     build:
@@ -236,9 +188,8 @@ services:
       PGDATABASE: ${BACKUP_PGDATABASE:-${POSTGRES_DB:?set POSTGRES_DB in .env}}
       PGUSER: ${BACKUP_PGUSER:-${POSTGRES_USER:?set POSTGRES_USER in .env}}
       PGPASSWORD: ${BACKUP_PGPASSWORD:-${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}}
-      # Time of day in TZ above, how many dumps to keep, and whether to dump once at start-up.
-      # The start-up dump is what turns a wrong password into an error you see while deploying
-      # instead of a gap you find at 04:00 tomorrow.
+      # Time of day in TZ above, how many dumps to keep, and whether to dump once at start-up. The
+      # start-up dump turns a wrong password into an error you see while deploying.
       BACKUP_AT: ${BACKUP_AT:-04:00}
       BACKUP_KEEP: ${BACKUP_KEEP:-14}
       BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-true}
@@ -247,50 +198,43 @@ services:
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
-  # The Discord bot. No Minecraft dependency: PostgreSQL, the Discord gateway and bunq. It applied
-  # the schema until 2026-09-01; the updater does now, and the bot validates it and refuses to start
-  # on a database nobody migrated. Its runbook is in discord-bot/README.md.
+  # The Discord bot. No Minecraft dependency: PostgreSQL, the Discord gateway and bunq. It validates
+  # the schema and refuses to start on a database nobody migrated. Runbook: discord-bot/README.md.
   bot:
     profiles: ["bot"]
-    # SINCE 2026-09-01 THE IMAGE TAG IS A FLOOR, NOT THE VERSION. The bot runs whatever
-    # discord-bot-*.jar is in the `bot-jar` volume, which the updater fills the same way it fills
-    # every plugins folder; the jar baked into the image is only what makes a first deployment
-    # possible, before any updater run has happened. What is actually running is printed by the
-    # entrypoint on every start and reported by `docker compose run --rm updater report`.
+    # THE IMAGE TAG IS A FLOOR, NOT THE VERSION. The bot runs whatever discord-bot-*.jar is in the
+    # `bot-jar` volume; the jar baked into the image only makes a first deployment possible. What is
+    # actually running is printed by the entrypoint on every start.
     #
-    # BOT_VERSION therefore still pins the image, and still has to match gradle.properties for a
-    # build - but it does not decide what the bot runs, and after the first `updater bootstrap` it
-    # never will again.
+    # BOT_VERSION still pins the image and still has to match gradle.properties for a build, but it
+    # does not decide what the bot runs.
     image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${IMAGE_TAG:-latest}}
     build:
       # Compose cannot run Gradle: `./gradlew :discord-bot:shadowJar` has to happen first, which is
-      # why a production host pulls this image and never builds it. BOT_VERSION is defaulted rather
-      # than required because compose interpolates build args even on a deploy that only pulls - a
-      # `:?` here would stop Arcane before it reached a single image.
+      # why a production host pulls this image. BOT_VERSION is defaulted rather than required because
+      # compose interpolates build args even on a deploy that only pulls - a `:?` here would stop
+      # Arcane before it reached a single image.
       context: ./discord-bot
       args:
         JAR: build/libs/discord-bot-${BOT_VERSION:-local}.jar
     restart: unless-stopped
     depends_on:
-      # The bot validates the schema and refuses a database it was not built against, so without
-      # this it would crash-loop until the updater got there. One dependency, one clear message.
+      # The bot refuses a database it was not built against, so without this it would crash-loop
+      # until the updater got there.
       updater:
         condition: service_healthy
-    # The same marker the four Minecraft services use, and for the same reason (finding 55): this
-    # container reported nothing at all until 2026-09-04, so a bot that was up, connected and no
-    # longer running any of its timers looked exactly like a working one. It is written after JDA is
-    # ready and both reconciles are done, and refreshed on the timer thread - so a wedged timer
-    # thread, which is a bot that has silently stopped booking payments, goes red.
+    # The same marker the four Minecraft services use. Written after JDA is ready and both reconciles
+    # are done, and refreshed on the timer thread - so a wedged timer thread, which is a bot that has
+    # silently stopped booking payments, goes red.
     #
-    # No port half here: this process listens on nothing. CMD-SHELL is enough for the same reason.
+    # No port half here: this process listens on nothing, so CMD-SHELL is enough.
     healthcheck:
       test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/nordtal-ready) )) -lt 90"]
       interval: 15s
       timeout: 5s
       retries: 3
-      # Three minutes. The bot's startup is a Discord login, a full member chunk of the guild, the
-      # managed messages and two reconciles - all before the marker - and a bad token deliberately
-      # sleeps 60s before exiting, which must not be reported as a health failure on the way.
+      # Three minutes: a Discord login, a full member chunk, the managed messages and two reconciles
+      # all land before the marker, and a bad token deliberately sleeps 60s before exiting.
       start_period: 180s
     environment:
       TZ: ${TZ:-Europe/Berlin}
@@ -319,17 +263,17 @@ services:
       NORDTAL_ACCESS_DONATION_CENTS: ${NORDTAL_ACCESS_DONATION_CENTS:-}
       NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS: ${NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS:-}
       NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS: ${NORDTAL_ACCESS_PAYMENT_REQUEST_TTL_HOURS:-}
-      # Leave empty on a fresh database. The first start stamps its own instant into bot_setting
-      # and no later start rewrites it. Without it, the first poll books up to 50 historical bunq
-      # payments - roles, DMs and public thank-yous included.
+      # Leave empty on a fresh database: the first start stamps its own instant into bot_setting and
+      # no later start rewrites it. Without it the first poll books up to 50 historical bunq
+      # payments, roles, DMs and public thank-yous included.
       NORDTAL_ACCESS_PAYMENT_WATERMARK: ${NORDTAL_ACCESS_PAYMENT_WATERMARK:-}
       NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT: ${NORDTAL_ACCESS_PAYMENT_RECENT_PAYMENT_COUNT:-}
       NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS: ${NORDTAL_ACCESS_EXPIRY_REMINDER_LEAD_DAYS:-}
       NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES: ${NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES:-}
     volumes:
       - bot-config:/app/config
-      # The jar itself. The updater writes into this same volume, mounted there as
-      # /volumes/discord-bot; here it is /app/lib, which is where the entrypoint looks.
+      # The jar itself. The updater writes into this same volume as /volumes/discord-bot; here it is
+      # /app/lib, where the entrypoint looks.
       - bot-jar:/app/lib
       # bunq binds an API context to the device it was registered from: this must be created on
       # the host that will use it, never copied over from a laptop.
@@ -337,20 +281,17 @@ services:
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
-  # The resource pack, served off this machine. NOT PART OF PRODUCTION: `devpack` is a profile,
-  # profiles are opt-in, and nothing on the production host selects it - there the pack is fetched
-  # by the client from the GitHub release URL the updater wrote into pack.yml.
+  # The resource pack, served off this machine. NOT PART OF PRODUCTION: `devpack` is a profile and
+  # nothing on the production host selects it - there the client fetches the pack from the GitHub
+  # release URL the updater wrote into pack.yml.
   #
   # It exists because the pack and the plugins are one change and not two: a glyph code point is
-  # declared in :common's Glyphs, in a font file and in a PNG, and every menu panel in this
-  # repository is a texture the Java arithmetic is derived from. Testing the drawn half of that
-  # against the PREVIOUS release's pack answers nothing at all. `deploy/dev pack` builds the zip
-  # into PACK_ROOT, computes its SHA-1 and writes exactly the two lines into the proxy's pack.yml
-  # that the updater's PackWriter owns - url and sha1 - and no others.
+  # declared in :common's Glyphs, in a font file and in a PNG, and every menu panel is a texture the
+  # Java arithmetic is derived from, so testing against the previous release's pack answers nothing.
+  # `deploy/dev pack` builds the zip into PACK_ROOT and writes exactly url and sha1 into pack.yml.
   #
-  # The Minecraft client runs on the machine that runs Docker in this setup, so the URL the proxy
-  # hands out is a plain http://localhost:${PACK_PORT}/<name>.zip. Minecraft accepts http for a
-  # server pack; the bind stays on loopback because nothing outside this machine needs it.
+  # The client runs on the machine that runs Docker here, so the URL is a plain
+  # http://localhost:${PACK_PORT}/<name>.zip; the bind stays on loopback.
   pack-host:
     profiles: ["devpack"]
     image: ${PACK_HOST_IMAGE:-nginx:alpine}
@@ -370,48 +311,34 @@ services:
       SERVER_KIND: velocity
       # What this volume has to hold before the proxy is allowed to start. Filename prefixes, split
       # the way the updater splits them (JarName, ${file%-*.jar}); a MINIMUM, never an exact set, so
-      # a hand-installed extra is fine. Counting jars was not enough - see finding B4 and the long
-      # note in deploy/minecraft/entrypoint.sh.
+      # a hand-installed extra is fine.
       #
-      # SIMPLE VOICE CHAT'S PROXY PLUGIN IS DELIBERATELY NOT IN THIS LIST (owner, 2026-09-09). The
-      # updater installs voicechat-velocity-*.jar into this volume and carries the row in its
-      # Topology, but voice chat is optional for a player and this container is the whole network:
-      # a proxy refusing to start because an alpha of somebody else's plugin did not resolve is an
-      # outage bought for something nice to have. Topology marks it Service#optional, and
-      # TopologyTest asserts the guard asks for exactly the plugins that are not optional.
+      # SIMPLE VOICE CHAT'S PROXY PLUGIN IS DELIBERATELY NOT IN THIS LIST. The updater installs it
+      # and carries the row in its Topology, but voice chat is optional for a player and this
+      # container is the whole network: a proxy refusing to start because an alpha of somebody
+      # else's plugin did not resolve is an outage bought for something nice to have.
       EXPECTED_PLUGINS: ${NETWORK_CONTROL_EXPECTED_PLUGINS:-network-control}
-      # THE PLAYER LIMIT AND THE MOTD, and they both belong to the plugin now (2026-09-03).
+      # THE PLAYER LIMIT AND THE MOTD both belong to the plugin: network-control answers every ping
+      # with the MOTD for the current phase and refuses the login that would exceed the limit. These
+      # are jcore environment overrides, so they win over network.yml and are never written back.
       #
-      # They used to be seeded into velocity.toml on a fresh volume, which meant a MOTD nobody could
-      # change afterwards and a limit that Velocity does not enforce anyway. Both are network.yml
-      # keys today: network-control answers every ping with the MOTD for the current phase and
-      # refuses the login that would exceed the limit. These are jcore environment overrides, so
-      # they win over the file and are never written back into it.
+      # NETWORK_MAX_PLAYERS is the ONLY number that decides who gets on the network: the same
+      # variable sets MAX_PLAYERS on all three Paper backends below, so what the browser advertises,
+      # what the login gate enforces and what a backend's tab list shows are one value. Raising it
+      # needs the backends restarted too, not just this proxy.
       #
-      # NETWORK_MAX_PLAYERS is the ONLY number that decides who gets on the network, and since
-      # 2026-09-04 it is the only one there is: the same variable sets MAX_PLAYERS on all three
-      # Paper backends below, so what the browser advertises, what the login gate enforces and what
-      # a backend's tab list shows are one value. It used to be two - a separate BACKEND_MAX_PLAYERS
-      # set far out of reach so that only the proxy refused anybody - and the second one was the one
-      # every screen ON a backend could actually reach: the browser said 500 and the tab list said
-      # 3/1000. Raising it needs the backends restarted too, not just this proxy.
-      #
-      # The five MOTDs are one per season phase and are only listed here so that .env can override
-      # them without anybody learning the NORDTAL_ naming rule. Leaving one unset keeps the default
-      # from network.yml, which is a real MOTD and not a placeholder.
+      # The five MOTDs are one per season phase, listed here so .env can override them without
+      # anybody learning the NORDTAL_ naming rule. Leaving one unset keeps network.yml's default.
       NORDTAL_NETWORK_CONTROL_NETWORK_MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_PRE_LAUNCH: ${NETWORK_MOTD_PRE_LAUNCH:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_PRE_EVENT: ${NETWORK_MOTD_PRE_EVENT:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_START_EVENT: ${NETWORK_MOTD_START_EVENT:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_SMP: ${NETWORK_MOTD_SMP:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_MAINTENANCE: ${NETWORK_MOTD_MAINTENANCE:-}
-      # FILL'S NAME FOR VELOCITY'S MAJOR, NOT A VERSION. The proxy follows the newest release
-      # inside the 4.x line, which Fill calls `4.0.0` - the entrypoint resolves it, and so does the
-      # updater, out of eu.nordtal.s2.common.Platform.VELOCITY_FAMILY. A literal rather than a
-      # variable since 2026-09-09: a platform version is a property of the season and not of a
-      # deployment, and an env file that could override it was the environment winning over the
-      # source tree every plugin here is compiled against. :updater's TopologyTest holds this
-      # string against the constant.
+      # FILL'S NAME FOR VELOCITY'S MAJOR, NOT A VERSION. The proxy follows the newest release inside
+      # the 4.x line, which Fill calls `4.0.0`; the entrypoint and the updater both resolve it out of
+      # Platform.VELOCITY_FAMILY. A literal and not a variable, because a platform version is a
+      # property of the season and not of a deployment. TopologyTest holds this against the constant.
       SERVER_VERSION: "4.0.0"
       HEAP: ${PROXY_HEAP:-1G}
       # Modern forwarding. The same value reaches the three backends below as
@@ -421,62 +348,47 @@ services:
       # what network-control's gate.yml#server-* keys expect; the hosts are these service names.
       VELOCITY_SERVERS: ${VELOCITY_SERVERS:-limbo=limbo:25565 hunger-games=hunger-games:25565 smp=smp:25565}
       VELOCITY_TRY: ${VELOCITY_TRY:-limbo}
-      # The resource pack the proxy offers used to be two variables here, PACK_URL and PACK_SHA1.
-      # They were removed on 2026-09-01, the same day they were added, and the reason is a property
-      # of jcore's config system: AN ENVIRONMENT OVERRIDE WINS OVER THE FILE AND IS NEVER WRITTEN
-      # BACK TO IT. So an updater writing a new sha1 into pack.yml while these were set would be
-      # writing into a value nothing reads - a swap that reports success and changes nothing.
+      # THE RESOURCE PACK IS NOT A VARIABLE HERE, and must not become one: a jcore environment
+      # override wins over the file and is never written back, so an updater writing a new sha1 into
+      # pack.yml while PACK_URL and PACK_SHA1 were set would write into a value nothing reads.
       #
-      # pack.yml in this volume is the place now, and `updater bootstrap` is what writes it, taking the
-      # URL from the release asset and the hash from the .sha1 asset beside it. Nobody copies a
-      # forty-character string out of a release page any more, which is what those two variables
-      # were for.
+      # pack.yml in this volume is the place, and `updater bootstrap` writes it, taking the URL from
+      # the release asset and the hash from the .sha1 asset beside it.
       #
-      # The proxy still refuses to start with an empty url or sha1 while pack.enabled is true. On a
-      # brand new volume that means: bring network-control up once so it writes its config, then
-      # run the updater, then start it for real. See docs/updater.md and deploy/README.md.
+      # The proxy refuses to start with an empty url or sha1 while pack.enabled is true. On a brand
+      # new volume that means: bring network-control up once so it writes its config, then run the
+      # updater, then start it for real. See deploy/README.md.
       NORDTAL_NETWORK_CONTROL_DATABASE_JDBC_URL: *db-url
       NORDTAL_NETWORK_CONTROL_DATABASE_USERNAME: *db-username
       NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD: *db-password
     ports:
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
-      # SIMPLE VOICE CHAT, AND THIS IS THE ONLY VOICE PORT ON THE NETWORK. Audio is UDP and does
-      # not travel inside the Minecraft connection. The proxy plugin detects the address and port
-      # of each backend's voice server itself and forwards to the right one, and each backend's own
-      # voice_host is ignored while it does (Simple Voice Chat wiki, "Proxy Setup", read
-      # 2026-09-09). So smp and hunger-games publish nothing at all: the proxy reaches them over
-      # this compose network, which is a thing containers on one network can always do. Without the
-      # proxy plugin it would be one public UDP port per backend, a distinct number for each, and a
-      # voice_host edited by hand in a file nothing in this repository writes.
+      # SIMPLE VOICE CHAT, AND THIS IS THE ONLY VOICE PORT ON THE NETWORK. Audio is UDP and does not
+      # travel inside the Minecraft connection. The proxy plugin detects each backend's voice address
+      # and port itself and forwards over this compose network, so smp and hunger-games publish
+      # nothing at all.
       #
-      # 25565 ON BOTH SIDES, AND NOT ${PROXY_PORT} - which is the one way this line differs from
-      # the one above it. voicechat-proxy.properties ships `port: -1`, meaning "whatever port the
-      # proxy uses", so the plugin binds 25565 inside this container and then hands the CLIENT that
-      # same number. A host mapping that renumbered it would answer the handshake and time out
-      # every packet after it. Moving PROXY_PORT therefore moves the Minecraft port and leaves
-      # voice on 25565; making voice follow it is `voice_host` in
-      # plugins/voicechat/voicechat-proxy.properties, not a second number here.
+      # 25565 ON BOTH SIDES, AND NOT ${PROXY_PORT}. voicechat-proxy.properties ships `port: -1`,
+      # meaning "whatever port the proxy uses", so the plugin binds 25565 inside this container and
+      # hands the CLIENT that same number; a host mapping that renumbered it would answer the
+      # handshake and time out every packet after it. Making voice follow PROXY_PORT is `voice_host`
+      # in plugins/voicechat/voicechat-proxy.properties, not a second number here.
       - "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
     volumes:
       - mc-network-control:/data
-      # PLUGINS/ IS ITS OWN VOLUME, separate from the server's (2026-09-05, corrected 2026-09-08).
-      # Everything else under /data - the world, the .server/ jar cache, logs/ - stays in mc-<name>,
-      # and that split is the whole of the decision: a plugin's config.yml, milestones.yml,
-      # sounds.yml and pack.yml are edited by hand and are worth backing up on their own schedule,
-      # while a world is 4 GB that must never come out of a volume Arcane can save.
+      # PLUGINS/ IS ITS OWN VOLUME, separate from the server's. Everything else under /data - the
+      # world, the .server/ jar cache, logs/ - stays in mc-<name>: a plugin's config.yml,
+      # milestones.yml, sounds.yml and pack.yml are hand-edited and worth backing up on their own
+      # schedule, while a world is 4 GB.
       #
-      # THE DEFAULT IS A VOLUME NAME AND THE BIND IS THE EXCEPTION, and that was the other way
-      # round for three days. `${SERVERS_ROOT:-./deploy/servers}/<service>/plugins` put every
-      # deployed config inside the directory Arcane's GitOps sync pulls - and that sync DELETES
-      # IGNORED FILES from the checkout (owner, 2026-09-08), so the first sync after a hand edit
-      # takes the whole of it with no warning and every server comes back up writing fresh
-      # defaults. Production sets none of these variables and therefore gets a named volume.
+      # THE DEFAULT MUST BE A VOLUME NAME AND THE BIND IS THE EXCEPTION. A path under the directory
+      # Arcane's GitOps sync pulls is deleted by that sync, taking every hand-edited config with it.
+      # Production sets none of these variables and therefore gets a named volume.
       #
-      # Setting one to a path is what the local stack does (deploy/dev.env), because reading
-      # plugins/smp/config.yml has to be opening a file rather than two `docker compose cp`s. A
-      # value with a `/` in it is a bind mount to Docker and a value without one is a volume name;
-      # nothing else distinguishes them, which is why :updater's TopologyTest asserts the default
-      # carries neither a slash nor a dot.
+      # Setting one to a path is what the local stack does, so that reading plugins/smp/config.yml is
+      # opening a file rather than two `docker compose cp`s. A value with a `/` in it is a bind mount
+      # to Docker and a value without one is a volume name; nothing else distinguishes them, which is
+      # why :updater's TopologyTest asserts the default carries neither a slash nor a dot.
       - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
@@ -488,19 +400,15 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
       EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
-      # THE SAME NUMBER THE PROXY IS GIVEN, out of the same .env variable - that is the whole
-      # point, and it is why this is not a second setting. The proxy still owns the decision: it
-      # refuses at the login gate, where it can say why, rather than here - after the player has
-      # passed that gate, downloaded the resource pack and waited in limbo. What this makes sure of
-      # is that a backend never becomes a SMALLER limit than the advertised one (Paper's own default
-      # is 20, which is exactly how that failed once) and never shows a bigger one on a tab list.
-      # The admins the proxy lets past a full network are let past here too, by the plugin - see
-      # common's FullServerAdmission.
+      # THE SAME NUMBER THE PROXY IS GIVEN, out of the same .env variable, which is why this is not a
+      # second setting. The proxy owns the decision and refuses at the login gate where it can say
+      # why; this only makes sure a backend is never a SMALLER limit than the advertised one (Paper's
+      # own default is 20) and never shows a bigger one on a tab list. Admins past a full network are
+      # admitted here by the plugin - see common's FullServerAdmission.
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${LIMBO_HEAP:-1G}
-      # No LEVEL_NAME and no LEVEL_SEED, deliberately. limbo builds its own empty world at enable
-      # (LimboSpec#world-name, default `limbo`) and moves every player into it before they are ever
-      # spawned, so whatever Paper generates as `world` here is never seen by anybody.
+      # No LEVEL_NAME and no LEVEL_SEED, deliberately: limbo builds its own empty world at enable and
+      # moves every player into it, so whatever Paper generates as `world` is never seen.
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
       # A Paper server given a forwarding secret is a backend: the entrypoint sets
       # online-mode=false and seeds modern forwarding for it. Paper reads the secret from
@@ -523,20 +431,16 @@ services:
       <<: *minecraft-env
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
-      # SIMPLE VOICE CHAT IS INSTALLED HERE AND IS NOT IN THIS LIST (owner, 2026-09-09). It runs on
-      # this server and on smp, and not on limbo: the waiting room is seconds long and holds nobody
-      # who could be talked to. It is left out of the guard because voice chat is optional for a
-      # player - the audio needs a mod the client either has or has not - so a missing jar is a
-      # quiet evening, while a guard entry for it would be a server that will not start. The row
-      # lives in :updater's Topology as Service#optional, and the update report is what names it.
+      # SIMPLE VOICE CHAT IS INSTALLED HERE AND IS NOT IN THIS LIST. It runs here and on smp, not on
+      # limbo, where the waiting room is seconds long. It is out of the guard because voice chat is
+      # optional for a player: a missing jar is a quiet evening, a guard entry for it is a server
+      # that will not start.
       EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
-      # The hand-built event world. HungerGamesSpec#world-name defaults to `hunger_games` and the
-      # plugin does NOT load a world of its own - it disables itself when that world is not there -
-      # so level-name is what has to bring it up, and deploy/README.md#getting-a-world-into-a-volume
-      # copies the folder to /data/hunger_games. The two defaults are asserted against each other by
-      # :hunger-games' ComposeWorldTest, which reads this file.
+      # The hand-built event world. The plugin does NOT load a world of its own - it disables itself
+      # when that world is not there - so level-name is what brings it up. The two defaults are
+      # asserted against each other by :hunger-games' ComposeWorldTest, which reads this file.
       LEVEL_NAME: ${HUNGER_GAMES_LEVEL_NAME:-hunger_games}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}
       # A Paper server given a forwarding secret is a backend: the entrypoint sets
@@ -560,52 +464,36 @@ services:
       <<: *minecraft-env
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
-      # DisplayTags, PacketEvents and Chunky used to be pinned here as three full URLs with three
-      # versions in them. The updater resolves all three now - DisplayTags from its own repository's
-      # releases, the other two from Modrinth filtered to this Minecraft version and `paper` - which
-      # is the whole reason this line was worth deleting: it was three versions maintained by hand
-      # in a file nobody opens between deployments.
+      # DisplayTags, PacketEvents and Chunky are resolved by the updater - DisplayTags from its own
+      # repository's releases, the other two from Modrinth filtered to this Minecraft version and
+      # `paper` - and are not pinned here.
       #
-      # They are still REQUIRED, and nothing about that changed: smp/src/main/resources/
-      # paper-plugin.yml declares DisplayTags load: BEFORE, required: true, and PacketEvents is
-      # required under it. The guard is now in entrypoint.sh - an empty plugins folder stops the
-      # container.
-      # Terralith and Dungeons and Taverns, pinned by sha512, fetched into the level-name
-      # world's datapacks/ folder BEFORE the server starts. Datapacks are server-global and
-      # read once at start (measured on Paper 26.2 build 121, 2026-09-01), so this one folder
-      # feeds every world - the nightly farm world included - and a pack added later changes
-      # no terrain.
+      # They are still REQUIRED: smp's paper-plugin.yml declares DisplayTags load: BEFORE,
+      # required: true, and PacketEvents is required under it. The guard is in entrypoint.sh.
+      # Terralith and Dungeons and Taverns, pinned by sha512, fetched into the level-name world's
+      # datapacks/ folder BEFORE the server starts. Datapacks are server-global and read once at
+      # start, so this one folder feeds every world including the nightly farm world - and a pack
+      # added later changes no terrain.
       DATAPACK_URLS: ${SMP_DATAPACK_URLS:-f5283548323149ecd3f218b8efbe03c1c582df3f40b6bb3b095ba9e4cac0c87108b98adabd6ebd3a8037ec239773a253f75b8bee7db52e6f5663bf9dc63c2ea3@https://cdn.modrinth.com/data/8oi3bsk5/versions/CzijfXJQ/Terralith_26.2_v2.6.4.zip cf026b67f4fc0f5ab15229995f11faf43fdd41b29777a6756151276e83da65f887fe03b6356c5011f8ba32371f98941778928e4258e81b4c97411a40af1635ca@https://cdn.modrinth.com/data/tpehi7ww/versions/CS77UwHE/Dungeons%20and%20Taverns%20v5.3.2.zip}
-      # SmpSpec#world-nordtal defaults to `nordtal`, and until 2026-09-02 nothing wrote this into
-      # server.properties: Paper generated `world`, the datapacks above went into a folder it never
-      # read, and the SMP refused to start on a season world that did not exist. Asserted against
-      # the spec default by :smp's ComposeWorldTest, which reads this file.
+      # Must match SmpSpec#world-nordtal: without it Paper generates `world`, the datapacks above go
+      # into a folder nothing reads, and the SMP refuses to start on a season world that does not
+      # exist. Asserted against the spec default by :smp's ComposeWorldTest, which reads this file.
       LEVEL_NAME: ${SMP_LEVEL_NAME:-nordtal}
-      # The seed Nordtal is pre-generated from, ONCE, to border 4000 - and then frozen for the
-      # whole season. Written into server.properties only while the world does not exist yet; a
-      # volume that already holds one is compared and warned about, never re-rolled. Terralith and
-      # Dungeons and Taverns decide the terrain on top of it, so this number does not produce the
-      # same landscape anywhere those packs are absent. See docs/smp.md#worlds.
+      # The seed Nordtal is pre-generated from, ONCE, to border 4000, then frozen for the season.
+      # Written into server.properties only while the world does not exist yet; a volume that already
+      # holds one is compared and warned about, never re-rolled. Terralith and Dungeons and Taverns
+      # decide the terrain on top of it, so this number produces a different landscape without them.
       LEVEL_SEED: ${SMP_LEVEL_SEED:-1837371427}
-      # All four, and this is the service the coarse guard let through: on the first deployment
-      # PacketEvents and Chunky resolved while the season release did not, so `plugins/` was not
-      # empty and the SMP started with no season on it. The two third-party prefixes are not the
-      # updater's artefact ids (`packetevents` resolves to packetevents-spigot-*.jar, `chunky` to
-      # Chunky-Bukkit-*.jar) - Topology reads those back off the resolved filename rather than
-      # assuming them, and this list does assume them. A publisher renaming a jar therefore stops
-      # this container with the prefix in the message, which is the right side to fail on.
+      # All four, by FILENAME PREFIX. The two third-party prefixes are not the updater's artefact ids
+      # (`packetevents` resolves to packetevents-spigot-*.jar, `chunky` to Chunky-Bukkit-*.jar):
+      # Topology reads those back off the resolved filename and this list assumes them, so a
+      # publisher renaming a jar stops this container with the prefix in the message.
       #
-      # TWO PLUGINS ARE DELIBERATELY NOT IN THIS LIST, for two different reasons.
-      #
-      # COREPROTECT cannot be installed at all: the updater carries a row for it and that row is
-      # UNSUPPORTED for as long as its publisher has no 26.2 build (there is none: 24.0 stops at
-      # 26.1.2, checked 2026-09-08). An artefact that cannot be installed must not be one this
-      # container refuses to start without - that would turn somebody else's release schedule into
-      # an outage here.
-      #
-      # SIMPLE VOICE CHAT can be installed and normally will be. It is out because voice chat is
-      # optional for a player (owner, 2026-09-09): the audio needs a client mod, and a server
-      # nobody can talk on is a far smaller thing than a server nobody can join.
+      # TWO PLUGINS ARE DELIBERATELY NOT IN THIS LIST. CoreProtect cannot be installed at all while
+      # its publisher has no build for this Minecraft version, and an artefact that cannot be
+      # installed must not be one this container refuses to start without. Simple Voice Chat can be,
+      # but voice chat is optional for a player: a server nobody can talk on is a far smaller thing
+      # than a server nobody can join.
       #
       # :updater's TopologyTest asserts the guard asks for exactly the artefacts that are not
       # optional, in both directions.
@@ -618,38 +506,31 @@ services:
       # this variable itself, which replaces pasting it into three config files - it does
       # NOT keep it out of the volume, Paper writes it into paper-global.yml on first load.
       PAPER_VELOCITY_SECRET: ${VELOCITY_FORWARDING_SECRET:?set VELOCITY_FORWARDING_SECRET in .env - generate one with `openssl rand -hex 24`}
-      # Whether smp starts pre-generating tomorrow's farm world in its onEnable. True is the
-      # production answer; a machine that is also being used for something else wants false,
-      # because Chunky takes every core it is given and the minutes after every start go with it.
-      # What that costs is one postponed reset - see smp's config.yml#pregeneration-on-start.
+      # Whether smp starts pre-generating tomorrow's farm world in its onEnable. True in production;
+      # a machine also used for something else wants false, because Chunky takes every core it is
+      # given. The cost is one postponed reset.
       #
-      # The default is REPEATED from SmpSpec rather than left empty, for the reason the updater's
-      # two Arcane defaults are: an environment variable set to the empty string still WINS over
-      # the file in jcore's config system, so `${VAR:-}` here would blank out the spec's own
-      # default rather than fall back to it. smp's ConfigsTest asserts the two copies agree.
+      # The default is REPEATED from SmpSpec rather than left empty: an environment variable set to
+      # the empty string still WINS over the file in jcore, so `${VAR:-}` would blank out the spec's
+      # own default. smp's ConfigsTest asserts the two copies agree.
       NORDTAL_SMP_PREGENERATION_ON_START: ${SMP_PREGENERATION_ON_START:-true}
-      # WHEN THIS SERVER ASKS FOR THE NETWORK'S NIGHTLY BACKUP, and it is on this service for a
-      # reason that has nothing to do with the SMP: the updater must not schedule its own work
-      # (docs/updater.md - `serve` is not a scheduler, so a crash restart at three in the morning
-      # cannot move a version), and this plugin is the one process in the network that already runs
-      # a daily clock. It writes an update_request row of kind BACKUP; the updater counts down,
-      # stops smp, network-control and the bot, asks Arcane for one snapshot per volume, starts
-      # them again and waits for every healthcheck.
+      # WHEN THIS SERVER ASKS FOR THE NETWORK'S NIGHTLY BACKUP. It lives on this service because the
+      # updater must not schedule its own work - `serve` is not a scheduler, so a crash restart at
+      # three in the morning cannot move a version - and this plugin is the one process that already
+      # runs a daily clock. It writes an update_request row of kind BACKUP; the updater counts down,
+      # stops smp, network-control and the bot, asks Arcane for one snapshot per volume, starts them
+      # again and waits for every healthcheck.
       #
       # 04:45 is a quarter of an hour before farm-reset-time. The other way round would snapshot a
       # farm world that is about to be deleted, on servers that had only just come back.
       #
-      # EMPTY MEANS NO NIGHTLY BACKUP AT ALL and nothing else asks for one - which is what a local
-      # stack wants, because there is no Arcane on a laptop. The default is REPEATED from SmpSpec
-      # rather than left empty, for the reason the line above it carries: an empty environment
-      # variable wins over the file, so `${VAR:-}` here would turn the backup off in production
-      # while config.yml still said 04:45 and nothing anywhere said otherwise.
+      # EMPTY MEANS NO NIGHTLY BACKUP AT ALL, which is what a local stack wants. The default is
+      # REPEATED from SmpSpec because an empty environment variable wins over the file.
       #
-      # NOTE THE SINGLE DASH, and it is the only one in this file. `${VAR:-x}` falls back when the
-      # variable is unset OR EMPTY, so `SMP_BACKUP_TIME=` in an env file would silently become
-      # 04:45 again and the local stack would ask for a backup every night against an Arcane that
-      # is not there. `${VAR-x}` falls back only when it is unset, which is what makes "set it to
-      # empty to turn it off" actually work. :smp's ComposeWorldTest asserts the dash.
+      # NOTE THE SINGLE DASH, the only one in this file. `${VAR:-x}` falls back when the variable is
+      # unset OR EMPTY, so `SMP_BACKUP_TIME=` would silently become 04:45 again; `${VAR-x}` falls
+      # back only when it is unset, which is what makes "set it to empty to turn it off" work.
+      # :smp's ComposeWorldTest asserts the dash.
       NORDTAL_SMP_BACKUP_TIME: ${SMP_BACKUP_TIME-04:45}
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
@@ -664,56 +545,49 @@ services:
   #
   # WHAT IT OWNS: the database schema, and the version of every jar that runs anywhere here - the
   # four servers' plugins, their Paper and Velocity jars, the proxy's resource-pack url and sha1,
-  # the bot's jar, and its own. See docs/updater.md.
+  # the bot's jar, and its own.
   #
-  # WHAT IT IS NOT: a scheduler. `serve` applies the schema once at startup and then does nothing
-  # at all until somebody writes a row into update_request - no timer, no watching, no "check for
-  # updates on boot". A crash restart at three in the morning must not move a version, and this is
-  # the container that makes sure it cannot.
+  # WHAT IT IS NOT: a scheduler. `serve` applies the schema once at startup and then does nothing at
+  # all until somebody writes a row into update_request - no timer, no watching, no "check for
+  # updates on boot". A crash restart at three in the morning must not move a version.
   #
-  # THE THREE ONE-SHOT COMMANDS still work beside the running one, and they are how a first
-  # deployment happens, because the servers refuse to start on an empty plugins folder:
+  # THE THREE ONE-SHOT COMMANDS work beside the running one, and are how a first deployment happens,
+  # because the servers refuse to start on an empty plugins folder:
   #
   #   docker compose run --rm updater report     # resolve and report. Writes no file a server reads.
   #   docker compose run --rm updater migrate    # the schema, and nothing else.
   #   docker compose run --rm updater bootstrap  # fill EMPTY volumes. Upgrades nothing.
   #
-  # Two of them cannot collide with the service: a bootstrap takes a PostgreSQL advisory lock, and the
-  # second one to ask is refused rather than queued.
+  # A bootstrap takes a PostgreSQL advisory lock, so it cannot collide with the service: the second
+  # one to ask is refused rather than queued.
   updater:
     build:
-      # Same as the bot: Gradle first, so production pulls. Defaulted for the same reason - a `:?`
-      # in a build arg is evaluated even by a deploy that builds nothing.
+      # Same as the bot: Gradle first, so production pulls. Defaulted for the same reason - a `:?` in
+      # a build arg is evaluated even by a deploy that builds nothing.
       context: ./updater
       args:
         JAR: build/libs/updater-${SEASON_VERSION:-local}.jar
     image: ${UPDATER_IMAGE:-ghcr.io/nordtal/updater:${IMAGE_TAG:-latest}}
     restart: unless-stopped
-    # `serve`. THIS LINE IS ALSO WHAT A `run` INHERITS: a `docker compose run` against this service
-    # that names no subcommand of its own is handed this one, so it starts a SECOND daemon rather
-    # than the read-only report five documents used to promise. Removing it does not help - a `run`
-    # against a service with no `command` takes the image's CMD instead (both measured 2026-09-02).
-    # The read-only run is `updater report`, by name, and that is why the name exists.
+    # `serve`. THIS LINE IS ALSO WHAT A `run` INHERITS: a `docker compose run` naming no subcommand
+    # is handed this one and starts a SECOND daemon. Removing it does not help - a `run` against a
+    # service with no `command` takes the image's CMD instead. The read-only run is `updater report`,
+    # by name, and that is why the name exists.
     command: ["serve"]
     # ARCANE IS ON THE HOST AND THIS IS A CONTAINER, so `localhost` in arcane.base-url is this
-    # container and nothing is listening on it. That is finding 40: the first restart anybody asked
-    # for failed 40 ms after the POST against http://localhost:3553, with Arcane running fine the
-    # whole time. This mapping is what makes the fix - http://host.docker.internal:<port> - work on
-    # Linux as well as on Docker Desktop, where it already resolves. It costs nothing when Arcane
-    # is reached some other way, and it is the only line that makes the documented answer true.
+    # container and nothing is listening on it. This mapping is what makes the answer -
+    # http://host.docker.internal:<port> - work on Linux as well as on Docker Desktop.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      # Written once the schema is current and the request loop is about to start. Everything else
-      # in this file waits for it.
+      # Written once the schema is current and the request loop is about to start. Everything else in
+      # this file waits for it.
       test: ["CMD-SHELL", "test -f /tmp/updater-ready"]
       interval: 10s
       timeout: 3s
-      # 15 minutes after start_period, not the 5 it used to be. On a FIRST deployment the marker is
-      # written only once the bootstrap has downloaded four server jars and every plugin, over
-      # whatever link the host has. Nothing acts on "unhealthy" here except the depends_on below,
-      # which simply keeps waiting - so a generous window costs a longer wait on a broken updater
-      # and buys a first deployment that does not fail half way through its own downloads.
+      # 15 minutes: on a FIRST deployment the marker is written only once the bootstrap has downloaded
+      # four server jars and every plugin. Nothing acts on "unhealthy" here except the depends_on
+      # below, which simply keeps waiting.
       retries: 90
       start_period: 120s
     environment:
@@ -721,94 +595,84 @@ services:
       # --- database.yml ------------------------------------------------------------------
       # THIS IS THE PROCESS THAT MIGRATES. `serve` applies the schema at startup and then becomes
       # healthy; `updater migrate` applies it and nothing else; `updater bootstrap` does it before it
-      # moves a single jar, so a plugin never comes up against a schema older than itself.
+      # moves a jar, so a plugin never comes up against a schema older than itself.
       NORDTAL_UPDATER_DATABASE_JDBC_URL: *db-url
       NORDTAL_UPDATER_DATABASE_USERNAME: *db-username
       NORDTAL_UPDATER_DATABASE_PASSWORD: *db-password
 
       # --- updater.yml -------------------------------------------------------------------
-      # Which release to follow: 'latest', or an exact tag to pin - which is how a rollback is
-      # expressed. SEASON_RELEASE is gone from this file entirely; what a server runs is now the
-      # jar lying in its volume, not a variable claiming to describe it.
+      # Which release to follow: 'latest', or an exact tag to pin, which is how a rollback is
+      # expressed. What a server runs is the jar lying in its volume, never a variable claiming to
+      # describe it.
       NORDTAL_UPDATER_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
       NORDTAL_UPDATER_SEASON_RELEASE: ${UPDATER_SEASON_RELEASE:-latest}
       NORDTAL_UPDATER_DISPLAY_TAGS_RELEASE: ${UPDATER_DISPLAY_TAGS_RELEASE:-latest}
-      # The platform versions used to be here, fed from PAPER_VERSION and VELOCITY_VERSION, and
-      # the two build pins with them. All four are gone (2026-09-09): the versions are constants in
+      # No platform version and no build pin here, deliberately: the versions are constants in
       # :common, because a Minecraft version is a property of the season rather than of an
-      # installation, and there is no build pin left anywhere - the newest STABLE build is what
-      # every one of the five processes installs and runs.
-      # Whether `serve` fills EMPTY volumes before it reports ready. This is what lets a stack come
-      # up with nobody typing anything on the host: a Minecraft server refuses to start on an empty
+      # installation, and the newest STABLE build is what all five processes install and run.
+      # Whether `serve` fills EMPTY volumes before it reports ready. This is what lets a stack come up
+      # with nobody typing anything on the host: a Minecraft server refuses to start on an empty
       # plugins folder, and Arcane cannot run `docker compose run --rm updater bootstrap`.
       #
-      # It cannot move a version - only artefacts with nothing installed at all are fetched, so a
+      # It cannot move a version - only artefacts with nothing installed at all are fetched - so a
       # restart of a live network finds nothing missing and does nothing. Repeated from
-      # UpdaterSpec#bootstrap for the reason given at ARCANE_ENVIRONMENT below: an env var set to
-      # the empty string still wins over the file, so `${VAR:-}` would blank the spec's own default.
+      # UpdaterSpec#bootstrap because an env var set to the empty string still wins over the file.
       NORDTAL_UPDATER_BOOTSTRAP: ${UPDATER_BOOTSTRAP:-true}
       # Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP; a run makes
-      # two GitHub calls, so it only matters on a host that shares its address with something busy.
+      # two GitHub calls, so it only matters on a host sharing its address with something busy.
       NORDTAL_UPDATER_GITHUB_TOKEN: ${UPDATER_GITHUB_TOKEN:-}
 
-      # The restart, through Arcane's REST API - NOT through the Docker socket, which is not
-      # mounted anywhere in this file and must not be: a container with it can do anything on the
-      # host, and this is the container whose job is downloading files from the internet.
+      # The restart, through Arcane's REST API - NOT through the Docker socket, which is not mounted
+      # anywhere in this file and must not be: a container with it can do anything on the host, and
+      # this is the container whose job is downloading files from the internet.
       #
-      # LEAVING ARCANE_URL EMPTY STOPS UPDATES, and since 2026-09-08 that is deliberate. An
-      # update stops each affected server before its jars move, so a run that cannot reach Arcane
-      # has no safe way to continue: it refuses before resolving a version or touching a file,
-      # rather than installing into servers that are still running. What still works without it is
-      # `docker compose run --rm updater bootstrap` on the host, which fills EMPTY slots and stops
-      # nothing - enough for a fresh deployment, not enough to move a version.
+      # LEAVING ARCANE_URL EMPTY STOPS UPDATES, deliberately. An update stops each affected server
+      # before its jars move, so a run that cannot reach Arcane refuses before resolving a version or
+      # touching a file rather than installing into servers that are still running. What still works
+      # is `docker compose run --rm updater bootstrap`, which fills EMPTY slots and stops nothing.
       #
-      # THE TWO IDS ARE IDS AND NOT NAMES. ARCANE_ENVIRONMENT is 0 for Arcane's own host and a
-      # UUID for a remote agent; ARCANE_PROJECT is a UUID Arcane generated for the project and is
-      # NOT the compose project name - putting `nordtal-s2` there answers 404. Read them from
+      # THE TWO IDS ARE IDS AND NOT NAMES. ARCANE_ENVIRONMENT is 0 for Arcane's own host and a UUID
+      # for a remote agent; ARCANE_PROJECT is a UUID Arcane generated and is NOT the compose project
+      # name - putting `nordtal-s2` there answers 404. Read them from
       # GET $ARCANE_URL/api/environments/0/projects with the same token.
       NORDTAL_UPDATER_ARCANE_BASE_URL: ${ARCANE_URL:-}
       NORDTAL_UPDATER_ARCANE_API_KEY: ${ARCANE_API_KEY:-}
       NORDTAL_UPDATER_ARCANE_PROJECT: ${ARCANE_PROJECT:-}
-      # These two defaults are repeated from UpdaterSpec.ArcaneSpec, and they have to be: an
-      # environment variable set to the empty string still WINS over the file in jcore's config
-      # system, so `${VAR:-}` here would blank out the spec's own default rather than fall back to
-      # it. TopologyTest asserts the two copies still say the same thing.
+      # Repeated from UpdaterSpec.ArcaneSpec, and they have to be: an environment variable set to the
+      # empty string still WINS over the file in jcore, so `${VAR:-}` would blank out the spec's own
+      # default. TopologyTest asserts the two copies still say the same thing.
       NORDTAL_UPDATER_ARCANE_ENVIRONMENT: ${ARCANE_ENVIRONMENT:-0}
       NORDTAL_UPDATER_ARCANE_REDEPLOY_PATH: ${ARCANE_REDEPLOY_PATH:-/api/environments/{environment}/projects/{project}/redeploy}
-      # The two paths a run actually uses. redeploy above is no longer on any production path -
-      # it took the updater down with everything else, so nothing was left to report whether the
-      # network came back - and these replaced it: one read of the project's services, and one
-      # stop/start per container. They are settings for the same reason redeploy-path is: read
-      # from Arcane's own source rather than from documentation that does not publish them, so a
-      # version that moves a path is a line here and not a release of ours.
+      # The two paths a run actually uses: one read of the project's services, and one stop/start per
+      # container. redeploy above is not on any production path - it took the updater down with
+      # everything else, leaving nothing to report whether the network came back. Settings for the
+      # same reason redeploy-path is: Arcane's documentation does not publish them, so a version that
+      # moves a path is a line here and not a release of ours.
       NORDTAL_UPDATER_ARCANE_RUNTIME_PATH: ${ARCANE_RUNTIME_PATH:-/api/environments/{environment}/projects/{project}/runtime}
       NORDTAL_UPDATER_ARCANE_CONTAINER_PATH: ${ARCANE_CONTAINER_PATH:-/api/environments/{environment}/containers/{container}/{action}}
     volumes:
       - updater-config:/app/config
-      # Everything this module owns, under the names Topology in :updater expects to find beneath
-      # volumes-root. Writable, because `apply` puts the jars here and writes network-control's
-      # pack.yml. A plain `updater` run still writes nothing into any of them - the commands are
-      # separated so that the read-only one is the default.
+      # Everything this module owns, under the names Topology expects beneath volumes-root. Writable,
+      # because `apply` puts the jars here and writes network-control's pack.yml.
       - mc-network-control:/volumes/network-control
       - mc-limbo:/volumes/limbo
       - mc-hunger-games:/volumes/hunger-games
       - mc-smp:/volumes/smp
-      # THE SAME FOUR plugins/ SOURCES THE SERVERS READ, EXPRESSION FOR EXPRESSION, mounted where
-      # Topology expects them beneath volumes-root. Copying the default rather than the variable,
-      # or spelling one of them differently, splits the two sides in the one way nothing can see:
-      # this container installs into its own volume while every server reads another, `apply`
-      # reports success, the jars are on disk, and no server runs a single one of them.
-      # TopologyTest holds the two halves together, character for character.
+      # THE SAME FOUR plugins/ SOURCES THE SERVERS READ, EXPRESSION FOR EXPRESSION. Copying the
+      # default rather than the variable, or spelling one differently, splits the two sides in the
+      # one way nothing can see: this container installs into its own volume, `apply` reports
+      # success, the jars are on disk, and no server runs one of them. TopologyTest holds the two
+      # halves together, character for character.
       - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/volumes/network-control/plugins
       - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/volumes/limbo/plugins
       - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/volumes/hunger-games/plugins
       - ${SMP_PLUGINS:-mc-smp-plugins}:/volumes/smp/plugins
-      # The bot's jar and this container's own. Both are the same shape as a plugins folder to the
-      # code above them: a directory with one jar in it that gets replaced.
+      # The bot's jar and this container's own: to the code above them both are the same shape as a
+      # plugins folder - a directory with one jar in it that gets replaced.
       - bot-jar:/volumes/discord-bot
       # Mounted at the path the entrypoint reads on the next start. This container installs its own
-      # new jar here and carries on running the old one - no process replaces the jar it is
-      # executing, so the new one takes effect at the restart and never during a run.
+      # new jar here and carries on running the old one: no process replaces the jar it is executing,
+      # so the new one takes effect at the restart and never during a run.
       - updater-jar:/volumes/updater
     logging: *logging
 
@@ -819,9 +683,8 @@ volumes:
   postgres-dumps:
   bot-config:
   updater-config:
-  # The two jars that are a whole container each. Written by the updater, read by the container
-  # they belong to; neither holds anything else and neither is worth backing up - a lost one is
-  # refilled by `docker compose run --rm updater bootstrap`.
+  # The two jars that are a whole container each. Written by the updater, read by the container they
+  # belong to; neither is worth backing up - a lost one is refilled by `updater bootstrap`.
   bot-jar:
   updater-jar:
   bunq-context:
@@ -829,12 +692,11 @@ volumes:
   mc-limbo:
   mc-hunger-games:
   mc-smp:
-  # The four plugins/ folders, one volume each and separate from the server volume beside them.
-  # THEY HOLD THE ONLY HAND-EDITED FILES IN THE DEPLOYMENT - every plugin's config.yml, smp's
-  # milestones.yml and sounds.yml, the proxy's pack.yml - so they are worth Arcane's backup policy
-  # in a way mc-limbo and mc-hunger-games are not, and they are separate from the worlds precisely
-  # so that saving them is not saving four gigabytes of terrain. The jars in them are replaced by
-  # the updater and are not worth saving at all; a lost one is refilled by `updater bootstrap`.
+  # The four plugins/ folders, one volume each and separate from the server volume beside them. THEY
+  # HOLD THE ONLY HAND-EDITED FILES IN THE DEPLOYMENT - every plugin's config.yml, smp's
+  # milestones.yml and sounds.yml, the proxy's pack.yml - so they are worth Arcane's backup policy,
+  # and they are separate from the worlds so that saving them is not saving four gigabytes of
+  # terrain. The jars in them are the updater's and are not worth saving.
   #
   # A local stack points the four variables above at directories instead and none of these is
   # created. See deploy/dev.env.example.

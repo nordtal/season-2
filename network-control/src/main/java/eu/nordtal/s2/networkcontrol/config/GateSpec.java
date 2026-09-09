@@ -7,21 +7,10 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
  * {@code config/gate.yml} - everything the login gate and the mid-session expiry check need that
- * is not a database credential. See docs/access-system.md.
+ * is not a database credential.
  * <p>
- * <b>{@link #linkCodeTtlMinutes()} is the only link-code TTL, decided 2026-08-31.</b> It used to be
- * duplicated by {@code access-bot}'s {@code access.yml#link-code-ttl-minutes}, whose own comment
- * claimed the value "lives [in access.yml] because the bot owns the sweep that deletes expired
- * ones" - but the bot's sweep ({@code ReconcileDao#deleteExpiredLinkCodes}) only ever compares
- * {@code link_code.expires} to {@code now()} and never read that setting. The proxy is the process
- * that calls {@code AccessDirectory#issueLinkCode}, so it is the only process that can act on a
- * TTL at all, and the bot's copy is to be deleted rather than wired through: removing a value
- * nobody reads is smaller than building a protocol for a number that never changes.
- * </p><p>
- * Deleting it from {@code AccessSpec} was free only while nothing was deployed, because a key the
- * interface does not declare used to stop the load. Since jcore 3.1.0 (2026-09-05) it does not: an
- * {@code access.yml} in the wild carrying the retired key loses the line on the next start, with a
- * warning and a {@code .bak}. A retirement costs nothing now; a misspelling still stops the load.
+ * {@link #linkCodeTtlMinutes()} is the only link-code TTL: the proxy calls
+ * {@code AccessDirectory#issueLinkCode}, so it is the only process that can act on one.
  * </p>
  */
 @ConfigSpec(header = {
@@ -44,13 +33,11 @@ public interface GateSpec {
             "Shown on every disconnect screen that points a player at Discord: not yet a member",
             "(or banned), not linked, and the 'buy your first month' screen before the opening.",
             "",
-            "IT IS THE WEBSITE, NOT AN INVITE LINK (decided 2026-09-03). nordtal.eu forwards to",
-            "the Discord and is expected to keep doing so, and an address that never changes is",
-            "worth more on a screen somebody reads once than an invite link that can expire and",
-            "then silently sends nobody anywhere.",
+            "THE WEBSITE, NOT AN INVITE LINK: nordtal.eu forwards to the Discord, and an address",
+            "that never changes is worth more on a screen somebody reads once than an invite link",
+            "that can expire and then silently sends nobody anywhere.",
             "",
-            "Empty is still allowed - every message makes sense without it - but there is no",
-            "reason to empty it."
+            "Empty is allowed - every message makes sense without it."
     })
     default String discordInviteUrl() {
         return "https://nordtal.eu";
@@ -62,8 +49,7 @@ public interface GateSpec {
             "How long a freshly issued link code stays valid. A repeated join attempt inside",
             "this window returns the same code rather than minting a new one.",
             "",
-            "This is the only place this value lives; access-bot's copy of it is retired.",
-            "See this file's class-level documentation."
+            "This is the only place this value lives."
     })
     default int linkCodeTtlMinutes() {
         return 10;
@@ -75,7 +61,7 @@ public interface GateSpec {
             "How long a player's last-known state stays usable once the database becomes",
             "unreachable. Only entries with active access at the moment they were cached are",
             "ever used to let somebody in; everyone else is refused outright. A long outage",
-            "closes the door rather than leaving it open forever - see docs/access-system.md."
+            "closes the door rather than leaving it open forever."
     })
     default int fallbackCacheWindowMinutes() {
         return 15;
@@ -107,15 +93,12 @@ public interface GateSpec {
     @Order(6)
     @Key("phase-poll-interval-seconds")
     @Comment({
-            "How often the season_phase row is re-read. THIRTY SECONDS IS THE DECIDED VALUE",
-            "(docs/season-phases.md, settled 2026-08-31) and this key exists to make an",
-            "emergency change possible, not to invite tuning.",
+            "How often the season_phase row is re-read. THIRTY SECONDS IS THE DECIDED VALUE;",
+            "this key exists to make an emergency change possible, not to invite tuning.",
             "",
-            "This poll - not the LISTEN/NOTIFY path below - is the actual guarantee. Thirty",
-            "seconds is the worst case a process can sit in the wrong phase after a listener",
-            "connection has silently died. Ten was rejected as triple the standing cost for a",
-            "case that happens three times a season; sixty as a full minute of players on the",
-            "wrong server after a switch to SMP.",
+            "This poll - not the LISTEN/NOTIFY path below - is the actual guarantee: it is the",
+            "worst case a process can sit in the wrong phase after a listener connection has",
+            "silently died.",
             "",
             "The login path does NOT use this: it reads the phase on the same row as the access",
             "state, in one round trip. This is for everything that is not a login."
@@ -131,11 +114,10 @@ public interface GateSpec {
             "outside the connection pool, so that a phase switch feels instant instead of taking",
             "up to one poll interval.",
             "",
-            "Turning this off is the documented fallback in docs/state-of-play.md#the-unverified-assumptions",
-            "if the listener turns out to be more trouble than it is worth: the poll above was",
-            "always the guarantee, and nothing else changes. Notifications carry no payload and",
-            "are lost while a process is disconnected, so every reconnect re-reads the row",
-            "unconditionally - the notification is an optimisation, never the state.",
+            "Turning this off is the supported fallback: the poll above is the guarantee, and",
+            "nothing else changes. Notifications carry no payload and are lost while a process is",
+            "disconnected, so every reconnect re-reads the row unconditionally - the notification",
+            "is an optimisation, never the state.",
             "",
             "The channel name is not configurable. It has to match the pg_notify() baked into",
             "the switch statement in :common, and a listener quietly pointed at a different",
@@ -152,17 +134,13 @@ public interface GateSpec {
             "still connected. It is also written on disconnect, always; this interval only bounds",
             "what a proxy crash costs.",
             "",
-            "FIVE MINUTES IS THE DECIDED VALUE (settled 2026-08-31). docs/smp.md only says the",
-            "proxy writes 'on disconnect and periodically in between, so a crash costs minutes",
-            "rather than a whole session'; the owner picked the number inside that sentence.",
-            "A proxy crash therefore costs each connected player up to five minutes of counted",
-            "play time, and that is the accepted trade: play time feeds a 13-tier prestige crest",
-            "earned over the length of a season, so five minutes is invisible in it, while a",
-            "write per connected player every minute is not.",
+            "A proxy crash costs each connected player up to this much counted play time, which",
+            "is the accepted trade: play time feeds a prestige crest earned over a whole season,",
+            "so five minutes is invisible in it, while a write per connected player every minute",
+            "is not.",
             "",
-            "This deliberately no longer matches expiry-check-interval-seconds. The two sweeps",
-            "are unrelated - one re-reads access from the database, the other writes accumulated",
-            "seconds - and running them on one cadence was never more than a coincidence.",
+            "It deliberately does not match expiry-check-interval-seconds: the two sweeps are",
+            "unrelated.",
             "",
             "Nothing is lost to rounding either way: a flush advances the session marker by",
             "exactly the whole seconds it wrote, so the remainder survives to the next one."
@@ -180,12 +158,11 @@ public interface GateSpec {
             "  SMP                      ->  server-smp",
             "  MAINTENANCE              ->  server-limbo",
             "",
-            "That mapping is docs/season-phases.md's phase table and is not configurable; only",
-            "the names are. NOTHING IN docs/ SAYS WHAT THE SERVERS ARE CALLED IN velocity.toml,",
-            "so these defaults are the module directory names, which are already the runtime",
-            "identity of the three Paper plugins. If velocity.toml calls them something else,",
-            "these are the keys to change - the proxy resolves them with",
-            "ProxyServer.getServer(name) and never discovers a backend any other way.",
+            "That mapping is not configurable; only the names are. The defaults are the module",
+            "directory names, which are already the runtime identity of the three Paper plugins.",
+            "If velocity.toml calls them something else, these are the keys to change - the proxy",
+            "resolves them with ProxyServer.getServer(name) and never discovers a backend any",
+            "other way.",
             "",
             "A name this proxy has no server for is not a startup failure, because the phase it",
             "belongs to may never be entered. It fails at the moment it is needed: the player is",
@@ -214,16 +191,13 @@ public interface GateSpec {
     @Comment({
             "How often the players currently held in the waiting room are re-examined.",
             "",
-            "Two of the three things that end a wait announce themselves and need no sweep: a",
-            "pack status arrives as an event, and a phase switch already re-routes everybody.",
-            "The third does not. 'The backend for this phase is now up' is not an event",
-            "Velocity has - a RegisteredServer that was refusing connections a moment ago looks",
-            "identical to one that was not - so a player waiting on a backend is only released",
-            "by somebody looking again. This is that.",
+            "A pack status arrives as an event and a phase switch re-routes everybody, but 'the",
+            "backend for this phase is now up' is not an event Velocity has - a RegisteredServer",
+            "that was refusing connections looks identical to one that was not - so a player",
+            "waiting on a backend is only released by looking again.",
             "",
-            "It is also what enforces pack.yml#apply-timeout-seconds, so it should stay well",
-            "below it. Five seconds against a set that is empty on an ordinary network costs",
-            "nothing; the sweep touches no database and makes no network call of its own."
+            "It is also what enforces pack.yml#apply-timeout-seconds, so it must stay well below",
+            "it. The sweep touches no database and makes no network call of its own."
     })
     default int limboSweepIntervalSeconds() {
         return 5;
@@ -236,21 +210,16 @@ public interface GateSpec {
             "confirmation that the player has finished joining it - before the player is",
             "released anyway.",
             "",
-            "THIS EXISTS BECAUSE A MISSING MESSAGE ONCE STRANDED A PLAYER FOR EVER, on the",
-            "first deployment (finding 38). limbo sends that confirmation exactly once per",
-            "join, over a plugin-message channel, and Velocity has a path that loses one: a",
-            "message decoded in the same read batch as the join is handled by the proxy's",
-            "transition handler, which writes it to the client and never asks whether a plugin",
-            "wanted it. Nothing retries, and no other condition can end the wait once the pack",
-            "is applied - so the player sits on a black screen with a title that is no longer",
-            "true, and no log line anywhere says so.",
+            "WITHOUT THIS GRACE A LOST MESSAGE STRANDS A PLAYER FOR EVER. limbo sends the",
+            "confirmation exactly once per join over a plugin-message channel, and Velocity can",
+            "lose it: a message decoded in the same read batch as the join is handled by the",
+            "proxy's transition handler, which writes it to the client without asking whether a",
+            "plugin wanted it. Nothing retries, and once the pack is applied no other condition",
+            "can end the wait.",
             "",
-            "The confirmation is worth keeping and is not worth waiting on for ever. It",
-            "normally arrives within a tick of the join, so anything above a second or two is",
-            "already generous; the release it guards only orders the player's arrival against",
-            "their onward connection, and the proxy has its own evidence of that arrival.",
-            "A release that runs out this clock is logged as a WARNING naming the channel,",
-            "because a network where it happens routinely has a broken one."
+            "The confirmation normally arrives within a tick of the join, so a second or two is",
+            "already generous. A release that runs out this clock is logged as a WARNING naming",
+            "the channel, because a network where it happens routinely has a broken one."
     })
     default int limboReadyGraceSeconds() {
         return 5;

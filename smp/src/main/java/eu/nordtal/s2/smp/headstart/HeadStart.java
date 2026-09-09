@@ -29,29 +29,15 @@ import java.util.Optional;
 /**
  * What the winner of the start event carries into the season.
  *
- * <h2>The SMP grants it, and {@code hunger-games} writes nothing</h2>
- * Decided 2026-09-01 (docs/smp.md#the-hunger-games-winners-head-start). The winner is recorded
- * exactly once, in {@code hg_game.winner_member_id}; this module reads that row, resolves it to a
- * Discord id through {@code hg_member}, and pays out from its own config the first time that player
- * joins the SMP. The alternative - the event plugin booking aura into {@code smp_aura_event} at the
- * moment of the decision - was dropped for two reasons that both still hold: it points a dependency
- * from the event at a module it otherwise shares only {@code :common} with, and it pays a winner who
- * never turns up for the season at all. The head start is meant to be <em>seen</em> by the people it
- * is a head start over.
+ * <p>The SMP grants it and {@code hunger-games} writes nothing: this module reads
+ * {@code hg_game.winner_member_id}, resolves it to a Discord id, and pays out from its own config
+ * the first time that player joins the SMP. Paying at the moment of the decision instead would let
+ * a winner who never turns up be paid, and the head start is meant to be seen.
  *
- * <h2>Aura buys nothing, so this is recognition and not power</h2>
- * The whole prize is a visible number in the tab list and at the top of the leaderboard, on a scale
- * where a top contributor finishes the season around 350. The items are the other half, and they
- * are deliberately things that are spent rather than things that compound.
- *
- * <h2>Spent before it is handed over</h2>
- * {@link SmpDao#grantHeadStart} claims the flag and books the aura in one transaction, and only
- * then are the items handed over - the same ordering the wheel uses, and for the same reason: a
- * player who reconnects twice in a second must not be able to win two elytras. The wheel can put a
- * spin back when the handover fails; this cannot, because {@code hg_winner_reward_granted} is a
- * single boolean and there is nothing to put back <em>to</em>. So the one path that can lose the
- * items - the winner logging off inside the tick after their own join - is logged loudly, by name,
- * with the exact items and the one {@code UPDATE} that lets it be tried again.
+ * <p>{@link SmpDao#grantHeadStart} claims the flag and books the aura in one transaction before the
+ * items are handed over, so a player reconnecting twice in a second cannot win two elytras. Unlike
+ * the wheel, this cannot be put back - {@code hg_winner_reward_granted} is a single boolean - so
+ * the one path that can lose the items is logged with the {@code UPDATE} that retries it.
  */
 public final class HeadStart implements Listener {
 
@@ -82,16 +68,13 @@ public final class HeadStart implements Listener {
      * as first.
      *
      * <p>{@link EventPriority#MONITOR} and off the main thread: nothing here changes the join, and
-     * the two queries behind it are exactly the kind {@code CLAUDE.md} forbids on the server
-     * thread. The cost on an ordinary join is one indexed lookup that returns a Discord id which is
-     * not this player's, and then nothing.</p>
+     * the two queries behind it must not run on the server thread.</p>
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
-        // Identities is filled at pre-login by JoinGate, on the thread that is allowed to wait,
-        // so this is a map read. An unlinked player cannot be the winner: a hunger games member row
-        // requires a discord_user, and the head start is booked against a Discord id.
+        // Identities is filled at pre-login by JoinGate, so this is a map read. An unlinked player
+        // cannot be the winner: the head start is booked against a Discord id.
         final Optional<String> discordId = identities.discordIdOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             return;
@@ -107,18 +90,15 @@ public final class HeadStart implements Listener {
         }
         final int aura = config.hgWinnerAura();
         if (!dao.grantHeadStart(discordId, aura, AuraReason.HG_WINNER.stored())) {
-            // Already paid. This is the ordinary answer on every join after the first, and on the
-            // losing side of a double join - it is not a failure and says nothing.
+            // Already paid - the ordinary answer on every join after the first.
             return;
         }
         final Integer balance = dao.auraOf(discordId).orElse(null);
         final List<ItemStack> items = items();
 
-        // By uuid, not the Player captured at join: between the claim committing and this task
-        // running the winner may have reconnected, and the captured instance of a reconnected
-        // player answers isOnline() false for ever. The head start would then be booked, the flag
-        // set, and the items left to the manual path below - for somebody who is standing right
-        // there. Found by review, 2026-09-08.
+        // By uuid, not the Player captured at join: the winner may have reconnected between the
+        // claim committing and this task running, and a captured instance of a reconnected player
+        // answers isOnline() false for ever.
         Bukkit.getScheduler().runTask(plugin, () -> hand(mcUuid, name, discordId, aura, balance, items));
     }
 
@@ -130,9 +110,8 @@ public final class HeadStart implements Listener {
         }
         final Player player = Bukkit.getPlayer(mcUuid);
         if (player == null) {
-            // See the class comment: there is nothing to give back to. Name everything a person
-            // needs in order to finish this by hand, because the alternative is a winner who was
-            // told nothing and got nothing.
+            // There is nothing to give back to, so the log names everything needed to finish this
+            // by hand.
             plugin.getLogger().warning(name + " left in the tick after their own join,"
                     + " so the start event's head start (" + aura + " aura and " + describe(items)
                     + ") was booked but the items were not handed over. The aura is in the books."
@@ -145,33 +124,29 @@ public final class HeadStart implements Listener {
             return;
         }
 
-        // Whatever does not fit goes on the floor at their feet, exactly as the wheel does it:
-        // this is the one payout in the season that cannot be earned again, and losing an elytra to
-        // a full inventory is the kind of thing that is remembered for a season.
+        // Whatever does not fit goes on the floor at their feet: this payout cannot be earned
+        // again, so a full inventory must not swallow it.
         for (final ItemStack stack : items) {
             player.getInventory().addItem(stack).values()
                     .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
         }
 
         final Locale locale = locales.of(mcUuid);
-        // Two lines, because items() drops any material this server does not know: telling the
-        // winner their spoils are in their inventory when every configured item was skipped is the
-        // one sentence here that could be simply untrue.
+        // Two lines, because items() drops any material this server does not know - the other
+        // wording would claim spoils that were never handed over.
         player.sendMessage(MessageRenderer.of(messages).format(locale, items.isEmpty()
                 ? "smp.headstart.granted-aura-only" : "smp.headstart.granted", "aura", aura));
         sounds.play(player, Feedback.BIG_SUCCESS);
-        // The number is on the nametag, in the tab list and on the leaderboard board, and the whole
-        // prize is that it is visible. Redrawing everybody is what makes it visible to everybody
-        // else in the same second rather than at their next relog.
+        // The prize is that the number is visible, so everybody is redrawn rather than only the
+        // winner.
         surfaces.refreshAll();
     }
 
     /**
      * The configured items, skipping any this server does not know.
      *
-     * <p>A material that does not resolve is a typo in {@code config.yml}, and it must not be able
-     * to stop the rest of the head start: the aura is already booked by the time this is read, and
-     * refusing here would hand over nothing at all because of one bad line.</p>
+     * <p>The aura is already booked by the time this is read, so one bad line must not stop the
+     * rest of the head start.</p>
      */
     private List<ItemStack> items() {
         final List<ItemStack> stacks = new ArrayList<>();

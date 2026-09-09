@@ -28,28 +28,16 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 /**
- * Stage C's half of account linking: the managed link message's button opens a modal for the
- * code, and {@code /unlink} lets a user remove their own link. See docs/access-system.md.
+ * Account linking on the Discord side: the managed link message's button opens a modal for the
+ * code, and {@code /unlink} removes the caller's own link.
  *
- * <h2>The code does the validating</h2>
- * Nothing here parses or checks the code beyond trimming and upper-casing it -
- * {@link AccessDirectory#redeemLinkCode(String, String)} owns expiry and the 1:1, the same way the
- * database owns the constraints behind it. This class only turns a
- * {@link LinkRedemption.Status} into the right message.
+ * <p>Nothing here validates the code beyond trimming and upper-casing it -
+ * {@link AccessDirectory#redeemLinkCode(String, String)} owns expiry and the 1:1. The one thing the
+ * database cannot see is how often somebody is guessing, which is what {@link RedemptionLimit} is
+ * for; it lives here because it counts Discord accounts, and the proxy has none.</p>
  *
- * <h2>Except for the one thing the database cannot see: how often somebody is guessing</h2>
- * A link code is four characters, and {@link RedemptionLimit} is what makes that a safe number
- * rather than a reckless one. It sits here rather than behind {@code AccessDirectory} because it
- * counts <em>Discord accounts</em>, and the proxy - the other user of that interface - has no
- * Discord account to count. Reaching the cap is written to the admin channel once, on the attempt
- * that reaches it: somebody grinding codes is a thing a human should see, and repeating it for
- * every later attempt would drown the channel the moment it mattered.
- *
- * <h2>Unlink has no waiting period, and is always reported</h2>
- * {@code /unlink} only ever touches the caller's own link - there is no target user parameter,
- * because the concept ("the user may unlink themselves") is self-service, not an admin action.
- * A link removed this way is written to the admin channel every time, unconditionally: without a
- * waiting period, that log is the only thing that makes a shared access visible.
+ * <p>{@code /unlink} is self-service and has no waiting period, so every unlink is written to the
+ * admin channel unconditionally - that log is the only thing that makes a shared access visible.</p>
  */
 @Slf4j
 public final class LinkFlow extends ListenerAdapter {
@@ -106,8 +94,8 @@ public final class LinkFlow extends ListenerAdapter {
         final Locale locale = roles.localeOf(event.getUser().getId());
         final String typed = event.getValue(Ids.LINK_CODE_INPUT) == null
                 ? "" : event.getValue(Ids.LINK_CODE_INPUT).getAsString();
-        // LinkCodes in :common generates upper-case codes; normalising here means a player who
-        // reads the code off a disconnect screen and types it in lower case is not punished for it.
+        // Codes are generated upper-case; normalising means a player who types one in lower case
+        // off a disconnect screen is not punished for it.
         final String code = typed.strip().toUpperCase(Locale.ROOT);
 
         event.deferReply(true).queue();
@@ -125,18 +113,16 @@ public final class LinkFlow extends ListenerAdapter {
     private void redeem(final ModalInteractionEvent event, final Locale locale, final String code) {
         final String discordId = event.getUser().getId();
 
-        // Taken before the database is touched, and taken atomically: a capped account does not get
-        // to ask whether its next guess happened to be right, and two workers cannot both be told
-        // there is room for the same last attempt.
+        // Taken before the database is touched, and atomically: a capped account does not get to
+        // ask whether its next guess was right, and two workers cannot share the last attempt.
         final int remaining = limit.acquire(discordId);
         if (remaining < 0) {
             event.getHook().editOriginal(messages.get(locale, "link.too-many")).queue();
             return;
         }
 
-        // Only a wrong guess keeps the attempt. Everything else gives it back in the finally, the
-        // exception path included - a redemption that failed on an unreachable database is not
-        // evidence that anybody was guessing.
+        // Only a wrong guess keeps the attempt: a redemption that failed on an unreachable
+        // database is not evidence that anybody was guessing.
         boolean wrongGuess = false;
         try {
             final LinkRedemption result = access.redeemLinkCode(discordId, code);
@@ -159,9 +145,8 @@ public final class LinkFlow extends ListenerAdapter {
                     }
                     event.getHook().editOriginal(messages.get(locale, "link.invalid-code")).queue();
                 }
-                // Not a failure and deliberately not counted: the code was real, the account simply
-                // already has a Minecraft account on it. Charging an attempt for that would punish a
-                // wrong click with the defence built for a guesser.
+                // Not counted: the code was real, the account simply already has one. Charging an
+                // attempt would punish a wrong click with the defence built for a guesser.
                 case ALREADY_LINKED ->
                         event.getHook().editOriginal(messages.get(locale, "link.already-linked")).queue();
             }

@@ -6,17 +6,13 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import java.util.UUID;
 
 /**
- * This module's writer of {@code audit_log}. The table is append-only by discipline - nothing in
- * this codebase issues an {@code UPDATE} or {@code DELETE} against it - and this interface is that
- * discipline made visible.
- * <p>
- * <b>It is not the only writer any more.</b> {@code :common}'s phase DAO
- * ({@code eu.nordtal.s2.common.phase.PhaseDao}) writes the row for a phase switch itself, in the
- * same statement that updates {@code season_phase} - deliberately, so that the phase cannot be
- * changed without the audit entry, by this bot or by the proxy's emergency command
- * ({@code docs/season-phases.md#who-may-switch-it}). A {@code /phase set} therefore records itself
- * and must not be passed through {@link AdminLog#record} as well, or the switch appears twice.
- * </p>
+ * This module's writer of {@code audit_log}, which is append-only by discipline: nothing in this
+ * codebase issues an {@code UPDATE} or {@code DELETE} against it.
+ *
+ * <p>Not the only writer: {@code :common}'s phase DAO writes the row for a phase switch in the same
+ * statement that updates {@code season_phase}, so the phase cannot be changed without the entry. A
+ * {@code /phase set} therefore records itself and must not also go through
+ * {@link AdminLog#record}, or the switch appears twice.</p>
  */
 interface AuditDao {
 

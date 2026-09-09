@@ -7,36 +7,20 @@ import eu.nordtal.s2.common.access.MemberState;
 /**
  * What the login gate decided, and therefore which screen the player gets.
  *
- * <p>This is docs/season-phases.md's gate flowchart as a single, total function of one
- * {@link AccessState} - the record the one login round trip returns, phase included. It exists
- * separately from {@link LoginGate} for two reasons:
+ * <p>A total function of one {@link AccessState} - the record the single login round trip returns,
+ * phase included - kept separate from {@link LoginGate} so the decision can be tested exhaustively
+ * without a running proxy. {@link AccessState#mayJoin()} collapses the same table to one boolean,
+ * which is enough for the fallback cache and the expiry sweep but cannot choose between four
+ * disconnect screens.</p>
  *
- * <ul>
- *   <li>The decision is the part worth testing, and it can be tested exhaustively - five phases
- *       times the account states - without a Velocity {@code LoginEvent} or a running proxy.</li>
- *   <li>{@link AccessState#mayJoin()} collapses the same table to one boolean, which is right for
- *       the fallback cache and the expiry sweep and useless for choosing between four different
- *       disconnect screens. Both derive from the same table; only one of them can be a boolean.</li>
- * </ul>
+ * <p>The order the questions are asked in matters: an unlinked account is refused as unlinked in
+ * every phase, because being handed a link code is more useful than anything else it could be
+ * told.</p>
  *
- * <p>The order below is the order the questions are asked in, and it matters: an unlinked account
- * is refused as unlinked in every phase including {@code MAINTENANCE}, because being handed a link
- * code is more useful than being told anything else.
- *
- * <h2>There is no maintenance refusal any more, decided 2026-08-31</h2>
- * This enum used to carry a fifth constant, {@code MAINTENANCE_CLOSED}, and
- * {@link SeasonPhase#MAINTENANCE} used to answer it for everybody but an admin.
- * docs/season-phases.md left "disconnect <b>or</b> hold in limbo" open while its own phase table
- * already said non-admins land in {@code limbo}; the owner settled it on <b>holding them</b>.
- * Maintenance is therefore not a gate decision at all now - it is a <em>routing</em> decision, made
- * by {@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting} after this class has already said
- * {@link #ALLOW}. The one place a maintenance screen still appears is that router's fallback for a
- * {@code limbo} server the proxy does not have.
- *
- * <p>{@link AccessState#admin()} consequently plays no part in this class <b>except in
- * {@link SeasonPhase#PRE_LAUNCH}</b>, where it is the entire admission rule: before the network has
- * ever opened, an admin is the only person allowed on it. In every other phase the flag still only
- * decides where a player goes during maintenance, not whether they get in.
+ * <p>Maintenance is not a gate decision: a non-admin is admitted and then held in {@code limbo} by
+ * {@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting}. {@link AccessState#admin()} therefore
+ * plays no part here except in {@link SeasonPhase#PRE_LAUNCH}, where it is the whole admission
+ * rule.</p>
  */
 public enum GateOutcome {
 
@@ -67,7 +51,7 @@ public enum GateOutcome {
     PRE_LAUNCH_READY;
 
     /**
-     * Walks docs/season-phases.md's phase table once.
+     * Walks the phase table once.
      *
      * @param state the answer to the one login query
      * @return what happens to this login
@@ -80,24 +64,20 @@ public enum GateOutcome {
             return NOT_MEMBER;
         }
         return switch (state.phase()) {
-            // Free for every linked member. For the two event phases this is the decision the whole
-            // phase mechanism exists to serve - the start event costs nothing but a linked account.
-            // For MAINTENANCE it is the 2026-08-31 reversal: they are let in and then held in limbo.
+            // Free for every linked member: the event costs nothing but a linked account, and
+            // during maintenance they are let in and then held in limbo.
             case PRE_EVENT, START_EVENT, MAINTENANCE -> ALLOW;
-            // The admin flag is a free pass here since 2026-09-05 (owner's decision, after the
-            // local stack showed what the old rule did: the admin who switched the phase to SMP was
-            // disconnected by their own switch, "no active access"). An admin is on the network to
-            // run it, not to play a bought period, and the flag already exempts them from the
-            // player limit for the same reason. A banned admin is still banned - member state is
+            // The admin flag is a free pass: an admin is on the network to run it, not to play a
+            // bought period, and without this the admin who switches the phase to SMP is
+            // disconnected by their own switch. A banned admin is still banned - member state is
             // asked first, above.
             case SMP -> state.accessActive() || state.admin() ? ALLOW : NO_ACCESS;
-            // Before the opening, an admin is the only person the network is for. Everybody else
-            // gets one of two waiting screens, and which one is the whole onboarding idea: the
-            // difference between them is a purchase, not a permission.
+            // Before the opening, an admin is the only person the network is for; everybody else
+            // gets one of two waiting screens.
             //
-            // accessBought(), NOT accessActive(): a period bought during PRE_LAUNCH is meant to sit
-            // and wait rather than burn (todo.md #9), so asking whether it is running right now
-            // would show the buy-it screen to the very people who just did.
+            // accessBought(), NOT accessActive(): a period bought during PRE_LAUNCH sits and waits
+            // rather than burning, so asking whether it is running right now would show the buy-it
+            // screen to the very people who just did.
             case PRE_LAUNCH -> {
                 if (state.admin()) {
                     yield ALLOW;

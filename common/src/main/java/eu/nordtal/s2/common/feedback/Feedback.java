@@ -3,19 +3,10 @@ package eu.nordtal.s2.common.feedback;
 /**
  * The whole sound vocabulary of the network. A call site picks one of these and nothing else.
  *
- * <p><b>This enum is the point of the design, and its emptiness is deliberate.</b> It carries no
- * sound name, no pitch, no volume and no method: a call site that could name a sound would
- * eventually name a different one for the same kind of event, and no amount of care prevents that -
- * it is what happened to season 1's chimes. What a category sounds like is a per-module
- * {@code config.yml} decision, parsed into {@link FeedbackSounds}, and changing it is an edit rather
- * than a release.
- *
- * <p>Nine categories, one of which has an open and a close half - so ten constants. If a call site
- * cannot be expressed with one of them, that is a question for the owner and not a licence to add an
- * eleventh: the moment the list grows to fit each new call site it stops being a vocabulary.
- *
- * <p>docs/presentation.md section 4 is where the categories are described in prose; that document is
- * the authority and this one is the code.
+ * <p>The emptiness is deliberate: no sound name, no pitch, no volume, no method. What a category
+ * sounds like is a per-module {@code config.yml} decision parsed into {@link FeedbackSounds}, so a
+ * call site can never name a sound of its own. The list is fixed - growing it to fit each new call
+ * site is what would stop it being a vocabulary.
  */
 public enum Feedback {
 
@@ -50,18 +41,9 @@ public enum Feedback {
     NETWORK_EVENT,
 
     /**
-     * A staged moment: the season's opening on a player's first join, and whatever else the
-     * staging device is later pointed at.
-     *
-     * <p><b>It ships blank, and that is the decision rather than an omission</b> (owner,
-     * 2026-09-09). The other ten categories name a vanilla sound because a vanilla sound is what
-     * they are - a pickup, a level-up, a click. A staged moment is not one of those, and the sound
-     * it wants does not exist yet: it comes into the resource pack with the art. Borrowing
-     * {@link #NETWORK_EVENT} would have given the season's opening the noise of a phase switch.
-     *
-     * <p>So the category exists, the path through {@code sounds.yml} exists, and the key is empty -
-     * which every module already treats as silence. Filling it in later is a line of YAML and no
-     * release.
+     * A staged moment: the season's opening on a player's first join, and whatever else the staging
+     * device is later pointed at. Its {@code sounds.yml} key ships empty - which every module treats
+     * as silence - because the sound it wants arrives with the art.
      */
     STAGING
 }

@@ -9,40 +9,20 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * One staged moment, described rather than performed.
+ * One staged moment, described rather than performed: a run of images shown one after another in the
+ * title slot, each for a number of ticks, plus an optional potion effect, sound and subtitle.
  *
- * <h2>What a staging is</h2>
- * A run of <b>images</b> shown one after another in the title slot, each for a number of ticks, plus
- * three optional things that belong to the same moment: a <b>potion effect</b> for as long as it
- * lasts, a <b>sound</b> at the start, and a <b>subtitle</b> under every image. That is the whole
- * vocabulary, and it is deliberately small: the first user is the welcome a player sees on the very
- * first join of the season, and the ones the owner has named for later - a milestone finished, the
- * start event opening, a hunger games winner, a prestige level - are the same five things with
- * different values in them.
+ * <p>Nothing here performs anything - this is a value, so the ordering and spacing can be asserted
+ * in a JVM with no client in it. {@link Cinematics} runs one and {@link CinematicStage} is what a
+ * surface has to be able to do.
  *
- * <p>Nothing here performs anything. This is a value: it can be built on any thread, compared,
- * logged, and asserted against without a server. {@link Cinematics} is what runs one and
- * {@link CinematicStage} is what a surface has to be able to do; the split is what makes the
- * ordering and the spacing testable in a JVM with no client in it.
+ * <p>An image is a {@link Component}, never a bare code point: the fonts allocate independently, so
+ * a code point in the wrong font draws another glyph rather than nothing, and a component carries
+ * its font with it.
  *
- * <h2>An image is a Component, never a code point</h2>
- * The obvious shape for "a sequence of pictures" is a list of code points, and it is wrong here:
- * this repository has four fonts that allocate independently, so a code point in the wrong font
- * draws <em>another glyph</em> rather than nothing (see {@code Glyphs} and CLAUDE.md). A
- * {@link Component} carries its font with it, so the caller that knows which font the frames were
- * drawn in is the one that says so - and a frame that is plain text, which is what a placeholder is,
- * costs nothing extra.
- *
- * <h2>An effect is a namespaced key, never a Bukkit type</h2>
- * The same reasoning {@code FeedbackSound} gives for sounds, for the same reason: {@code :common} is
- * compiled against neither Paper nor Velocity, and the registry key is the stable identifier while
- * the generated constants are documented as removable between versions. Resolving it is the platform
- * adapter's job, and a key that names nothing is one warning rather than a moment that throws.
- *
- * <h2>A sound is a category, never a key</h2>
- * {@link Feedback} is the network's whole sound vocabulary and a call site picks one of ten. That is
- * what makes "a blank key in {@code sounds.yml} plays nothing" true here for free, rather than being
- * a rule this class would have to re-implement.
+ * <p>An effect is a namespaced key rather than a Bukkit type, because {@code :common} is compiled
+ * against no platform; resolving it is the adapter's job, and a key that names nothing is a warning
+ * rather than a moment that throws. A sound is a {@link Feedback} category for the same reason.
  */
 public final class Cinematic {
 
@@ -138,11 +118,8 @@ public final class Cinematic {
     }
 
     /**
-     * Every image with the tick it appears on, first at zero.
-     *
-     * <p>Public because it is the arithmetic worth asserting: the order the frames run in and the
-     * gap between them is the whole of what "the sequence played correctly" means, and it is
-     * answerable here without a scheduler, a player or a client.
+     * Every image with the tick it appears on, first at zero. Public because it is the arithmetic
+     * worth asserting without a scheduler, a player or a client.
      */
     public List<Cue> cues() {
         final List<Cue> cues = new ArrayList<>(frames.size());

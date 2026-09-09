@@ -3,13 +3,9 @@ package eu.nordtal.s2.smp.region;
 /**
  * One axis-aligned box in one world, inclusive on both corners.
  *
- * <p>The shape behind both {@code spawn-regions} and {@code balloons}, and deliberately the same
- * one: a spawn is a box you may not build in, a balloon is a box that opens a GUI, and there was no
- * reason for two nearly identical records that drift apart. Neither needs a region system with
- * claims, flags and ownership - which is the whole argument in docs/smp.md#spawns for not taking
- * WorldGuard.
- *
- * <p>Pure, so it is tested without a server.
+ * <p>The shape behind both {@code spawn-regions} and {@code balloons}: a spawn is a box you may not
+ * build in, a balloon is a box that opens a GUI. Neither needs claims, flags or ownership, which is
+ * why there is no region system here.
  *
  * @param world the world name this box is in
  * @param minX  lowest x, inclusive
@@ -42,11 +38,9 @@ public record Box(String world, int minX, int minY, int minZ, int maxX, int maxY
     /**
      * The distance from a point on the horizontal plane to this box's centre, ignoring height.
      *
-     * <p>Only one caller needs it and it is the one that matters: Nordtal's balloon has to stand
-     * outside radius 10 and inside radius 21.5 of the border centre, because that is what makes the
-     * opening border of 20 withhold travel and the first expansion to 43 hand it over. Getting it
-     * wrong makes the season's first milestone mean nothing, which is why it is checked rather than
-     * trusted.
+     * <p>Nordtal's balloon must stand outside radius 10 and inside radius 21.5 of the border centre:
+     * that is what makes the opening border of 20 withhold travel and the first expansion to 43
+     * hand it over.
      */
     public double horizontalDistanceFrom(final double centreX, final double centreZ) {
         final double dx = (minX + maxX) / 2.0 - centreX;

@@ -21,28 +21,14 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * The one place in {@code smp} that names a particle or spawns a firework.
  *
- * <h2>Why one place, when there are only four moments</h2>
- * The same argument {@link eu.nordtal.s2.common.feedback.Feedback} makes about sound, made once
- * more while the answer is still small: a call site that can name a particle will eventually name a
- * different one for the same kind of moment. {@code WorldEffectVocabularyTest} in {@code :common} is
- * what keeps that true, and it was written when this file was the only one that existed - which is
- * the cheap moment, because after the first exception a rule like it is an argument rather than a
- * fact.
+ * <p>One place so that a call site cannot name its own particle;
+ * {@code WorldEffectVocabularyTest} in {@code :common} enforces it. Effects are code while sounds
+ * are config because four effects at four call sites would make a config file ceremony rather than
+ * compression.
  *
- * <h2>Why this is code and the sounds are config, which is not an oversight</h2>
- * Ten sound categories cover some forty call sites, so {@code sounds.yml} compresses; four effects
- * cover four call sites, so a config file for them would be four entries pointing one-to-one at
- * four methods - ceremony rather than compression. The escape hatch argument is also weaker: a
- * chime repeated in a crowded tavern is what {@code sounds.yml} exists for, and a puff of cloud is
- * not. If a fifth and a sixth moment appear, that is the point at which to take the decision out
- * loud, not a filter to relax quietly. Recorded in {@code docs/presentation.md} section 6.
- *
- * <h2>The fireworks cannot hurt anybody, and that took a listener</h2>
- * A rocket carrying explosion effects deals damage where it bursts, whoever launched it. So every
- * rocket this class spawns is stamped in its persistent data and {@link #onDamage} refuses damage
- * from a stamped one - rather than relying on the burst happening far enough above somebody's head,
- * which is true until the first player standing under a ceiling. A celebration that takes four
- * hearts off the person it is celebrating is the kind of thing a season is remembered for.
+ * <p>A rocket carrying explosion effects deals damage where it bursts, whoever launched it, so
+ * every rocket spawned here is stamped in its persistent data and {@link #onDamage} refuses damage
+ * from a stamped one. Burst height is not a safety measure - a player under a ceiling defeats it.
  */
 public final class WorldEffects implements Listener {
 
@@ -55,9 +41,8 @@ public final class WorldEffects implements Listener {
     /**
      * The palette the rockets burst in - the resource pack's own accent and highlight, plus white.
      *
-     * <p>Not random colours: everything else drawn in this season comes out of
-     * {@code resource-pack/tools/}'s two-colour palette, and a firework in nine unrelated hues would
-     * be the one moment that looks like it came from somewhere else.
+     * <p>Not random colours: everything else drawn this season comes out of the same two-colour
+     * palette.
      */
     private static final List<Color> PALETTE = List.of(
             Color.fromRGB(176, 138, 74),   // accent
@@ -73,8 +58,8 @@ public final class WorldEffects implements Listener {
     /**
      * A milestone, around one player. Main thread.
      *
-     * <p>Called once per online player rather than once for the server, because the season has no
-     * single place everybody is standing - the point is that it happens where <em>you</em> are.
+     * <p>Called once per online player rather than once for the server: the point is that it
+     * happens where <em>you</em> are.
      */
     public void celebrate(final Player player) {
         final Location at = player.getLocation();
@@ -127,8 +112,8 @@ public final class WorldEffects implements Listener {
                     .withFade(Color.WHITE)
                     .flicker(true)
                     .build());
-            // One, so it bursts a second or so up rather than out of sight. Power is not the safety
-            // measure here - onDamage is.
+            // One, so it bursts a second or so up rather than out of sight. onDamage, not the
+            // power, is what makes it safe.
             meta.setPower(1);
             rocket.setFireworkMeta(meta);
             rocket.getPersistentDataContainer().set(celebration, PersistentDataType.BYTE, (byte) 1);

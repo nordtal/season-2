@@ -39,11 +39,8 @@ import java.util.Objects;
  * screen. The world's gamerules and the player's own flags cover most of this already - these are
  * the cases where a rule exists but an event can still fire.
  *
- * <h2>No chat, decided 2026-08-31</h2>
- * docs/smp.md: "Chat is per Paper server; {@code limbo} has none, shows nothing and nobody, only a
- * title." A player who types here sees nothing happen, which is the intended outcome and not a
- * fault: there is nobody to talk to, because everybody in here is invisible to everybody else and
- * is about to leave.
+ * <p>There is no chat here. A player who types sees nothing happen, which is intended: everybody
+ * in the waiting room is invisible to everybody else and is about to leave.
  */
 public final class PresenceListener implements Listener {
 
@@ -222,7 +219,7 @@ public final class PresenceListener implements Listener {
      * <p>
      * Both directions, because {@code hidePlayer} is one-way. The proxy can have several people in
      * the waiting room at once - a restarting backend puts everybody in here at the same moment -
-     * and docs/architecture.md says they see "no other players".
+     * and none of them may see another.
      * </p>
      */
     private void hideEverybodyFromEachOther(final Player joining) {

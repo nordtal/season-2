@@ -21,24 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * One sound vocabulary across the whole network: a call site picks a {@link Feedback} category and
- * cannot name a sound.
+ * cannot name a sound. The rule only holds if breaking it fails the build.
  *
- * <h2>Why this is a test and not a paragraph</h2>
- * "Use the same sound for similar events" is a request, and a request is what every codebase with
- * nine different chimes for the same kind of event started with. The rule only holds if breaking it
- * fails the build - which is the same argument {@code OneMessageFormatTest} makes for message
- * formatting, and this class is deliberately built the same way, down to the named allowlist.
- *
- * <p>At the time it was written there was not a single {@code playSound} call anywhere in the four
- * client-facing modules, so it started true and its whole job is to keep it that way. That is the
- * cheap moment to write a rule down: after the first exception exists, the test is an argument
- * rather than a fact.
- *
- * <h2>What it cannot see</h2>
- * Whether the sounds are any good, whether two categories are distinguishable through a wall, or
- * whether a menu that closes and immediately opens another sounds like one thing or two. None of
- * that exists in a JVM with no server in it; it needs a person with headphones on and is in the
- * owner's checklist outside this repository.
+ * <p>It cannot see whether the sounds are any good or whether two categories are distinguishable -
+ * that needs a person with headphones on.
  */
 class SoundVocabularyTest {
 
@@ -47,11 +33,8 @@ class SoundVocabularyTest {
             List.of("smp", "limbo", "hunger-games", "network-control");
 
     /**
-     * Every way of naming a sound directly, and what to do instead.
-     *
-     * <p>Substrings and one small regex rather than a parser, for the same reason
-     * {@code OneMessageFormatTest} greps for {@code Component.text(}: the check has to be readable
-     * by whoever it fails on, and every one of these shapes is unambiguous in Java source.
+     * Every way of naming a sound directly, and what to do instead. Substrings and one small regex
+     * rather than a parser, so the check is readable by whoever it fails on.
      */
     private static final Map<String, String> FORBIDDEN = new LinkedHashMap<>(Map.of(
             "playSound(",
@@ -70,16 +53,8 @@ class SoundVocabularyTest {
             Pattern.compile("(?<![A-Za-z0-9_.])Sound\\.");
 
     /**
-     * The files that may name a sound, and why.
-     *
-     * <p>Two entries, which is what the design predicted: one adapter per Paper module that plays
-     * anything. {@code limbo} has none and is not expected to get one - a waiting room whose entire
-     * interface is one title has no event to chime at, and the module was reviewed for call sites on
-     * 2026-09-04 and found to have zero. A third would only appear if Velocity turns out to be able
-     * to play a sound at all, which needs a real client to answer (docs/presentation.md section 4).
-     * Each of those is a line added here on purpose, by somebody who has read this paragraph.
-     *
-     * <p>An entry that is <em>not</em> an adapter is the thing this list exists to make visible.
+     * The files that may name a sound, and why: one adapter per Paper module that plays anything.
+     * An entry that is <em>not</em> an adapter is the thing this list exists to make visible.
      */
     private static final Map<String, String> ALLOWED = Map.of(
             "smp/src/main/java/eu/nordtal/s2/smp/feedback/SmpSounds.java",
@@ -136,22 +111,17 @@ class SoundVocabularyTest {
     }
 
     /**
-     * The enum stays what it is: eleven constants, no members.
-     *
-     * <p>A method, a field or a constructor argument on {@link Feedback} would be the first step
-     * back towards a call site being able to say what it wants to hear - the category would start
-     * carrying a default sound, and the config file would stop being the only answer.
+     * The enum stays what it is: eleven constants, no members. A method, field or constructor
+     * argument would let a category carry a default sound, and the config file would stop being the
+     * only answer.
      */
     @Test
     @DisplayName("Feedback carries nothing but its constants")
     void theEnumCarriesNothingButConstants() {
         assertEquals(11, Feedback.values().length,
-                "ten categories, of which open/close is two constants, plus STAGING. That last one"
-                        + " is the eleventh this check used to refuse, and it was added on"
-                        + " 2026-09-09 by the owner rather than by a call site that wanted a noise:"
-                        + " no vanilla sound is a staged moment, so it ships blank and the pack"
-                        + " fills it in. A TWELFTH IS THE SAME DECISION AGAIN - a vocabulary that"
-                        + " grows to fit each new call site is not a vocabulary");
+                "ten categories, of which open/close is two constants, plus STAGING. A TWELFTH IS A"
+                        + " DECISION FOR THE OWNER - a vocabulary that grows to fit each new call"
+                        + " site is not a vocabulary");
         // values/valueOf are the enum's own API; $values is javac's array holder, which it does not
         // always flag as synthetic.
         assertEquals(List.of(), Stream.of(Feedback.class.getDeclaredMethods())

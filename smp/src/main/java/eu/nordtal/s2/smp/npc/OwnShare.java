@@ -8,28 +8,17 @@ import java.util.List;
 /**
  * What a player has put into the active milestone, as the one line the NPC menu shows them.
  *
- * <h2>Why this is its own class</h2>
- * {@code docs/smp.md} names "the player's own contribution" as content of this menu, and until
- * 2026-09-09 nothing in the repository showed it. The arithmetic below is the whole of what the
- * line says, so it lives apart from the menu and is asserted directly - a share drawn from a
- * database read is otherwise only checkable by contributing to an objective on a running server.
+ * <p>Kept apart from the menu so the arithmetic can be asserted without a running server.
  *
- * <h2>The two numbers, and why each is the one it is</h2>
- * <b>The percentage is per milestone, summed.</b> Everything else in this design is per objective -
- * the aura split, the qualifying threshold, the spins - but a single figure on one line has to be
- * about the whole thing a player is looking at, so it is what they contributed over what the
- * milestone asked for. That makes it a different number from any one card's share, which is why the
- * tooltip carries the per-objective figures beside it.
+ * <p>The two summary numbers are computed differently on purpose. <b>The percentage is per
+ * milestone, summed</b>: one figure has to be about the whole thing the player is looking at, so it
+ * differs from any single card's share. <b>The spin count is per objective, summed</b>, because
+ * that is how spins are granted - {@link PrizeDraw#extraSpinsFor} runs against each objective's own
+ * share as it completes, so a player at 30 % of one objective and nothing of three others earns
+ * three spins, not one.
  *
- * <p><b>The spin count is per objective, summed</b>, because that is how spins are actually granted:
- * {@code ObjectiveEngine} runs {@link PrizeDraw#extraSpinsFor} against each objective's own share
- * when that objective completes. Summing the objectives is therefore the true projection and an
- * aggregate percentage put through the thresholds once would not be - a player at 30 % of one
- * objective and nothing of three others earns three spins, not one.</p>
- *
- * <p><b>It is a projection and not a balance.</b> None of these spins has been granted; they arrive
- * when the objective completes, and an objective that never completes grants none. The menu's own
- * wording and its tooltip both have to say so, which is a thing only a bundle can do.</p>
+ * <p>It is a projection, not a balance: none of these spins has been granted, and an objective that
+ * never completes grants none.
  */
 public final class OwnShare {
 
@@ -40,9 +29,8 @@ public final class OwnShare {
      * One objective's line: what this player put in, against what was asked.
      *
      * @param key     the objective's key, for looking its name up in the bundle
-     * @param percent this player's share of that objective's target, 0 to 100 and not clamped above
-     *                - over-collection is real, and a player who delivered twice the target should
-     *                see that rather than a tidy 100
+     * @param percent this player's share of that objective's target, not clamped above 100 because
+     *                over-collection is real and should be visible
      * @param spins   how many extra spins that share is on track for, when it completes
      */
     public record Line(String key, double percent, int spins) {
@@ -81,9 +69,7 @@ public final class OwnShare {
     /**
      * A share as a percentage.
      *
-     * <p>A target of zero answers zero rather than dividing: the schema's CHECK makes a positive
-     * target the only legal one, so this is the case that cannot happen and would be a division by
-     * zero on the one screen every player opens if it ever did.</p>
+     * <p>A target of zero answers zero rather than dividing.</p>
      */
     public static double percentOf(final long mine, final long target) {
         if (target <= 0L || mine <= 0L) {
@@ -95,10 +81,9 @@ public final class OwnShare {
     /**
      * The percentage as a player reads it: one decimal, in their own language.
      *
-     * <p>One decimal because the qualifying threshold is 2 % and the first band above it is 10 %:
-     * a whole number would round a 2.4 % share to "2" and a 1.6 % one to "2" as well, and those two
-     * players are on opposite sides of whether they are paid at all. The locale is what puts a comma
-     * in German and a point in English, which is the whole reason this is not {@code String.valueOf}.
+     * <p>One decimal because the qualifying threshold is 2 %: whole numbers would round a 1.6 % and
+     * a 2.4 % share to the same "2", either side of being paid at all. The locale decides between a
+     * comma and a point.
      */
     public static String format(final double percent, final java.util.Locale locale) {
         return String.format(locale, "%.1f", percent);

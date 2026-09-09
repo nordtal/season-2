@@ -22,7 +22,7 @@ public record InviteResult(Status status, UUID memberId, UUID teamId, String tea
         return of(Status.NOT_OWNER);
     }
 
-    /** One partner maximum - docs/hunger-games.md#registration. */
+    /** One partner maximum. */
     public static InviteResult teamFull() {
         return of(Status.TEAM_FULL);
     }

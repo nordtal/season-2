@@ -8,14 +8,10 @@ import eu.nordtal.s2.networkcontrol.config.DatabaseSpec;
 /**
  * Builds the proxy's own HikariCP pool.
  * <p>
- * Not {@code AccessDirectory.open(String, String, String)}: that factory hands out a small, fixed
- * pool with no way to tune {@code connectionTimeout} or the PostgreSQL driver's own
- * {@code socketTimeout}, and both matter on the login path - "one query and a short timeout"
- * (docs/access-system.md) has to be an actual property of the connection, not a hope.
- * {@code AccessDirectory.using(DataSource)} accepts any pool, so this builds one with both
- * timeouts driven by {@link DatabaseSpec#queryTimeoutSeconds()} and hands it in; the proxy owns
- * and closes this pool itself, since a pool handed to {@code using(...)} is one
- * {@code AccessDirectory.close()} treats as borrowed and never touches.
+ * Not {@code AccessDirectory.open(String, String, String)}: that factory gives a fixed pool with no
+ * way to tune {@code connectionTimeout} or the driver's {@code socketTimeout}, and the login path
+ * needs both bounded. The proxy owns and closes this pool itself, because a pool handed to
+ * {@code AccessDirectory.using(DataSource)} is one {@code close()} treats as borrowed.
  * </p>
  */
 public final class AccessPool {
@@ -31,20 +27,13 @@ public final class AccessPool {
         hikari.setPoolName("network-control-access");
         hikari.setMaximumPoolSize(config.maximumPoolSize());
         hikari.setConnectionTimeout(config.queryTimeoutSeconds() * 1000L);
-        // Without this, HikariCP asks java.sql.DriverManager for a driver instead of loading the
-        // class itself - and DriverManager's automatic ServiceLoader discovery only sees drivers
-        // visible to whichever classloader happened to trigger its static init first, which on
-        // Velocity is not necessarily this plugin's own isolated classloader. Found and fixed for
-        // the same reason in hunger-games/db/HungerGamesPool.java (verified there with runServer
-        // against no running PostgreSQL: "No suitable driver" was thrown before any connection
-        // attempt, even though the driver is shaded in correctly) - not independently reproduced
-        // against a running Velocity proxy, since that needs its own smoke test.
+        // Without this, HikariCP asks java.sql.DriverManager, whose ServiceLoader discovery only
+        // sees drivers visible to whichever classloader triggered its static init first - not
+        // necessarily this plugin's own isolated one.
         hikari.setDriverClassName("org.postgresql.Driver");
 
-        // Bounds a query that is already running, not just connection acquisition - without this,
-        // a database that accepts a connection and then hangs on the query itself would not be
-        // caught by connectionTimeout at all, and a login would wait on it far longer than
-        // "short".
+        // Bounds a query that is already running: connectionTimeout alone does not catch a
+        // database that accepts the connection and then hangs.
         hikari.addDataSourceProperty("socketTimeout", String.valueOf(config.queryTimeoutSeconds()));
 
         return new HikariDataSource(hikari);

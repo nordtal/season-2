@@ -9,23 +9,16 @@ import eu.nordtal.jcore.config.spec.annotation.Reload;
 import java.util.List;
 
 /**
- * {@code config/config.yml} - everything the hunger games start event needs that is not a
- * database credential. See {@code docs/hunger-games.md} for the concept this implements.
- * <p>
- * <b>The hard minimum of two participants is not here.</b> It is {@link #HARD_MINIMUM_PARTICIPANTS},
- * a constant, because it is arithmetic and not taste: the border step is
- * {@code (borderStartDiameter - borderEndDiameter) / (participants - 1)}, which divides by zero at
- * one participant. {@link #softMinimumParticipants()} is the configurable one - the point below
- * which the game is not worth playing, but a start is still allowed after a confirmation
- * (see {@code docs/hunger-games.md#start}).
- * </p>
- * <p>
- * <b>World-data coordinates get real defaults; nothing Discord/guild-shaped does.</b> The lobby
- * box, the loot points and the spawn tower ring are all part of a hand-built world folder that
- * does not exist in this repository yet (docs/hunger-games.md, "World rules"). Their defaults are
- * therefore placeholders an operator fills in once the world is built - not secrets, so unlike a
- * Discord role or channel id there is nothing wrong with shipping a real-looking number here.
- * </p>
+ * {@code config/config.yml} - everything the hunger games start event needs that is not a database
+ * credential.
+ *
+ * <p>The hard minimum of two participants is {@link #HARD_MINIMUM_PARTICIPANTS}, a constant rather
+ * than a setting, because it is arithmetic: the border step divides by
+ * {@code participants - 1}. {@link #softMinimumParticipants()} is the configurable one, below which
+ * a start needs a confirmation.</p>
+ *
+ * <p>Coordinates get real placeholder defaults an operator fills in once the hand-built world
+ * exists; they are world data, not secrets, unlike anything Discord-shaped.</p>
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",
@@ -44,25 +37,16 @@ import java.util.List;
         "the plugin instead, because only you know what you meant by it.",
         "",
         "The loot point and lobby coordinates are placeholders: the actual",
-        "event world (docs/hunger-games.md#world-rules) is hand-built and",
-        "does not exist in this repository yet. Fill them in once it does."
+        "event world is hand-built and does not exist in this repository",
+        "yet. Fill them in once it does."
 })
 public interface HungerGamesSpec {
 
     /**
-     * The hard floor below which {@code /hg start} refuses outright. Not configurable: it is the
-     * point at which {@code step = (borderStartDiameter - borderEndDiameter) / (participants - 1)}
-     * divides by zero, so a lower value is not "strict", it is broken. See
-     * {@code docs/hunger-games.md#start}.
-     */
-    /**
-     * An alias for {@code HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS}, which moved there on
-     * 2026-09-05 with {@code /hg start}.
-     *
-     * <p>It is one number in one place, not two that agree: the command that refuses a game below it
-     * lives in {@code :commands}, which is compiled against no platform and cannot see this
-     * interface. Kept as a name here so that the validator below and {@code BorderMath}'s comment
-     * still read as they did.</p>
+     * The hard floor below which {@code /hg start} refuses outright: the border step divides by
+     * {@code participants - 1}, so a lower value is not strict, it is broken. An alias for the
+     * constant in {@code :commands}, which cannot see this interface - one number, not two that
+     * have to agree.
      */
     int HARD_MINIMUM_PARTICIPANTS =
             eu.nordtal.s2.commands.hungergames.HungerGamesCommands.HARD_MINIMUM_PARTICIPANTS;
@@ -78,12 +62,10 @@ public interface HungerGamesSpec {
     @Key("soft-minimum-participants")
     @Comment({
             "Below this many effective (post-demotion) participants, /hg start asks for",
-            "confirmation instead of starting outright - a rehearsal with a handful of real",
-            "clients is exactly what docs/hunger-games.md#verification demands, and it must not",
-            "be blocked by a rule meant to catch a mis-click. The hard floor of "
+            "confirmation instead of starting outright, so a rehearsal with a handful of real",
+            "clients is not blocked by a rule meant to catch a mis-click. The hard floor of "
                     + HARD_MINIMUM_PARTICIPANTS + " below which",
-            "the command refuses outright is arithmetic, not configurable - see",
-            "HungerGamesSpec#HARD_MINIMUM_PARTICIPANTS."
+            "the command refuses outright is arithmetic, not configurable."
     })
     default int softMinimumParticipants() {
         return 4;
@@ -106,18 +88,13 @@ public interface HungerGamesSpec {
     @Order(5)
     @Key("border-wall-speed-blocks-per-second")
     @Comment({
-            "How fast the border WALL moves once a death-triggered shrink starts, in diameter-",
-            "blocks per second of DIAMETER change - Minecraft's WorldBorder#setSize animates the",
-            "diameter, and the wall itself moves at half that rate, so this value is already",
-            "doubled from the wall speed docs/hunger-games.md asks for.",
+            "How fast the border moves once a death-triggered shrink starts, in blocks of",
+            "DIAMETER change per second - the wall itself moves at half that rate, so this value",
+            "is already doubled.",
             "",
-            "'Just under walking speed' (docs/hunger-games.md#the-border): a player's walk speed",
-            "is 4.317 blocks/s, so the wall must move under that. The default here is 6.0",
-            "diameter-blocks/s, i.e. a 3.0 blocks/s wall - about 70% of walking speed. Under the",
-            "theoretical ceiling of double walking speed (~8.6) on purpose: at exactly walking",
-            "speed a straight-line escape leaves no margin at all for a player who has to dodge",
-            "terrain or another player, and this event has both. Tune down further if playtesting",
-            "shows the border still feels impossible to outrun in practice."
+            "The wall must stay just under walking speed (4.317 blocks/s). The default 6.0",
+            "diameter-blocks/s is a 3.0 blocks/s wall, about 70% of that, leaving margin for a",
+            "player who has to dodge terrain or another player."
     })
     default double borderWallSpeedBlocksPerSecond() {
         return 6.0;
@@ -128,15 +105,9 @@ public interface HungerGamesSpec {
     @Comment({
             "How long the game can go with no death before the passive shrink kicks in.",
             "",
-            "Not decided by docs/hunger-games.md - it explicitly leaves this number open for an",
-            "implementation session to propose (see that file's 'Still open' section). Default:",
-            "600 seconds (10 minutes). Reasoning: this event runs for hours (the loot schedule's",
-            "own default reaches 2h30 - see RefillTierSpec), so a quiet period has to be long",
-            "enough that ordinary lulls in the fighting - looting, travelling between points,",
-            "waiting out another fight - do not trigger a shrink that then fights the very next",
-            "death-triggered one. Ten minutes is long relative to a fight (seconds to low minutes)",
-            "and short relative to the whole event (hours), which is what makes it 'a nicety that",
-            "resolves the two dead ends' rather than a constant pressure."
+            "Ten minutes is long relative to a fight and short relative to the whole event, so",
+            "ordinary lulls - looting, travelling, waiting out another fight - do not trigger a",
+            "shrink that then fights the next death-triggered one."
     })
     default int borderQuietPeriodSeconds() {
         return 600;
@@ -146,17 +117,12 @@ public interface HungerGamesSpec {
     @Key("border-passive-shrink-blocks-per-hour")
     @Comment({
             "How fast the border shrinks during a passive (quiet-period) shrink, in diameter-",
-            "blocks per hour - deliberately a much coarser unit than the death-triggered wall",
-            "speed above, because this is meant to be barely noticeable minute to minute.",
+            "blocks per hour - a much coarser unit than the death-triggered wall speed above,",
+            "because this is meant to be barely noticeable minute to minute.",
             "",
-            "Also not decided by docs/hunger-games.md; proposed here. Default: 15 diameter-",
-            "blocks/hour, i.e. 0.25 blocks/minute of diameter, an order of magnitude slower than",
-            "the death-triggered shrink (6.0 diameter-blocks/SECOND). Reasoning: this only has to",
-            "be fast enough that a field of stalemated disconnected bodies or a same-team final",
-            "two eventually gets forced together - it does not have to feel like pressure while",
-            "real fighting is already happening elsewhere, which is what a death-triggered shrink",
-            "is for. It is cancelled the instant a death resumes the death-triggered shrink, so",
-            "it never has to double as the 'real' shrink rate."
+            "It only has to be fast enough that a stalemate - a field of disconnected bodies, or a",
+            "same-team final two - eventually gets forced together. A death cancels it and resumes",
+            "the death-triggered shrink."
     })
     default double borderPassiveShrinkBlocksPerHour() {
         return 15.0;
@@ -164,7 +130,7 @@ public interface HungerGamesSpec {
 
     @Order(8)
     @Key("pvp-protection-seconds")
-    @Comment("How long after release everyone is protected from everyone, per docs/hunger-games.md#start.")
+    @Comment("How long after release everyone is protected from everyone.")
     default int pvpProtectionSeconds() {
         return 60;
     }
@@ -201,9 +167,8 @@ public interface HungerGamesSpec {
     @Order(13)
     @Key("loot-points")
     @Comment({
-            "Five loot points: the spawn plus four staggered locations, per",
-            "docs/hunger-games.md#loot. World-data, not secrets - see this interface's own",
-            "documentation for why coordinates default to real (placeholder) numbers.",
+            "Five loot points: the spawn plus four staggered locations. World data, not secrets,",
+            "so the coordinates default to real (placeholder) numbers.",
             "",
             "The list may not be empty and must contain exactly 5 entries with unique labels; see",
             "Configs' validator. If you have emptied it, this is the shape:",
@@ -223,10 +188,8 @@ public interface HungerGamesSpec {
     @Comment({
             "The loot refill schedule: how long after the start each tier's restock happens, and",
             "what items it stocks every loot point with. A list, so a schedule change is a config",
-            "edit and not a release - see docs/hunger-games.md#loot for the agreed default",
-            "schedule (basic at 0h, iron-level PvP gear at 1h, diamond-level at 2h, overpowered at",
-            "2h30) and its own note that the pool CONTENTS were explicitly left for an",
-            "implementation session to propose; DefaultRefillTiers is that proposal.",
+            "edit and not a release. The default schedule is basic at 0h, iron-level PvP gear at",
+            "1h, diamond-level at 2h and overpowered at 2h30.",
             "",
             "The list may not be empty and delays must be unique and ascending; see Configs'",
             "validator. A tier is identified by its delay, so changing 'delay-minutes' on an",
@@ -245,9 +208,8 @@ public interface HungerGamesSpec {
             "How often this server re-reads who is an admin, in seconds.",
             "",
             "An admin is a server operator for as long as they are an admin, and the flag lives in",
-            "discord_user.admin - nowhere else. Until 2026-09-04 it was read once, at join, so a",
-            "revoked admin kept operator until they chose to disconnect. An emergency revocation is",
-            "exactly the case where waiting for somebody to log off is the wrong direction.",
+            "discord_user.admin - nowhere else. Without re-reading it, a revoked admin would keep",
+            "operator until they chose to disconnect.",
             "",
             "THIS POLL IS THE GUARANTEE, not the LISTEN connection below. A tick on which nothing",
             "changed costs one indexed query and writes nothing to ops.json, which is what makes it",
@@ -310,11 +272,8 @@ public interface HungerGamesSpec {
         @Key("map-grid-columns")
         @Comment({
                 "How many Minecraft maps wide the sliced lobby image grid is. The image is sliced",
-                "from hunger-games/src/main/resources/lobby/map-<lang>.png (one per language, see",
-                "docs/i18n.md). 3x3 (384x384px) was decided 2026-08-31 alongside the dummy",
-                "map-en.png/map-de.png placeholders this default now matches - a missing file is",
-                "logged and skipped, not a startup failure, since the real artwork is still a",
-                "design task."
+                "from hunger-games/src/main/resources/lobby/map-<lang>.png, one per language, at",
+                "3x3 (384x384px). A missing file is logged and skipped, not a startup failure."
         })
         default int mapGridColumns() {
             return 3;

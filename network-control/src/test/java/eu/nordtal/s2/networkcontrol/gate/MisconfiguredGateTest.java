@@ -18,20 +18,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The fail-closed handler (docs/architecture.md#failing-closed-on-a-bad-config, finding 2 in
- * docs/state-of-play.md).
+ * The fail-closed handler.
  * <p>
- * There is deliberately very little to test here, and that is the property being asserted: this
- * class has no state to branch on, so it cannot be talked into letting somebody through. The one
- * thing worth writing down is that <b>there is no admin path</b> - the tests below refuse the same
- * player twice and a hundred players once, and nothing about who they are enters into it, because
- * the admin flag lives in the database a broken {@code database.yml} cannot reach.
+ * There is deliberately little to test, and that is the property being asserted: this class has no
+ * state to branch on, so it cannot be talked into letting somebody through. In particular there is
+ * <b>no admin path</b> - the admin flag lives in the database a broken {@code database.yml} cannot
+ * reach.
  * </p>
  * <p>
- * The {@code LoginEvent} wiring itself is not exercised: constructing one needs a
- * {@code com.velocitypowered.api.proxy.Player}, which only exists on a running proxy. That the
- * handler is registered at all when {@code Configs} throws is verified by reading
- * {@code NetworkControlPlugin} and, properly, by starting a proxy with a mistyped key in it.
+ * The {@code LoginEvent} wiring is not exercised: constructing one needs a Velocity
+ * {@code Player}, which only exists on a running proxy.
  * </p>
  */
 class MisconfiguredGateTest {
@@ -60,10 +56,8 @@ class MisconfiguredGateTest {
     void theScreenShowsBothLanguagesBecauseNobodyCanBeIdentified() {
         final String rendered = flatten(gate.refuse(UUID.randomUUID(), "someone"));
 
-        // Compared against the DRAWN text, not the raw bundle value. The two were the same string
-        // while this screen carried no markup; since the palette pass they are not, and a raw
-        // comparison would have made "a kick screen may have colour" fail as though it were a
-        // missing translation.
+        // Compared against the DRAWN text, not the raw bundle value: the screen carries markup, and
+        // a raw comparison would fail on colour as though it were a missing translation.
         assertTrue(rendered.contains(drawn(messages.get(Locale.ENGLISH, "gate.misconfigured"))),
                 rendered);
         assertTrue(rendered.contains(drawn(messages.get(Locale.GERMAN, "gate.misconfigured"))),
@@ -100,10 +94,7 @@ class MisconfiguredGateTest {
         return raw.replaceAll("</?[a-zA-Z_#][a-zA-Z0-9_:.#'\\-]*>", "");
     }
 
-    /**
-     * The component's text and every child's, concatenated. Adventure's plain-text serializer is
-     * not depended on for one assertion; this is the whole of what it would be used for.
-     */
+    /** The component's text and every child's, concatenated. */
     private static String flatten(final Component component) {
         final StringBuilder text = new StringBuilder();
         if (component instanceof TextComponent textComponent) {

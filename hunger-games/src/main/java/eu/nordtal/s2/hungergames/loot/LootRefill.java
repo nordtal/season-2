@@ -30,12 +30,8 @@ import java.util.List;
 
 /**
  * Schedules the loot refills configured under {@code refill-tiers}: at each tier's delay, every
- * loot point still inside the border is restocked - docs/hunger-games.md#loot.
- * <p>
- * "Restocking the same chest positions" (docs/hunger-games.md#loot) is implemented with
- * {@code Inventory#clear()} followed by populating it, never by replacing the block - the chest
- * itself is part of the hand-built world and is never touched.
- * </p>
+ * loot point still inside the border is restocked. The chest block itself is part of the hand-built
+ * world and is never replaced - only its inventory is cleared and repopulated.
  */
 public final class LootRefill {
 
@@ -68,11 +64,7 @@ public final class LootRefill {
 
     /**
      * When the next refill is due, or {@code null} when none is - read by the HUD's second line.
-     *
-     * <p>Derived rather than pushed. The HUD used to carry a {@code setNextRefillAt} for somebody to
-     * call, nobody ever did, and its second line therefore said "no further refills planned" for the
-     * whole of every game (finding 139). The same wire, and the same break, as the living count on
-     * the line above it.</p>
+     * Derived rather than pushed, so it cannot go stale.
      */
     public Instant nextRefillAt() {
         final Instant released = releasedAt;
@@ -116,7 +108,7 @@ public final class LootRefill {
         for (final HungerGamesSpec.LootPointSpec point : config.lootPoints()) {
             final Location location = new Location(world, point.x(), point.y(), point.z());
             if (!border.isInside(location)) {
-                // "A point that has been cut off by the border is simply gone" - docs/hunger-games.md#loot.
+                // A point the border has cut off is simply gone.
                 continue;
             }
 
@@ -147,11 +139,8 @@ public final class LootRefill {
     }
 
     /**
-     * {@code NETWORK_EVENT}: something happened to the whole world at once and nobody caused it.
-     *
-     * <p>It is also the one announcement in this module that a player is expected to <em>act</em>
-     * on - the chests they walked past an hour ago have something in them again - and a chat line
-     * is easy to miss in the middle of a fight.
+     * {@code NETWORK_EVENT}: it happens to the whole world at once, nobody caused it, and it is the
+     * one announcement here a player is expected to act on - so it is not chat alone.
      */
     private void announce() {
         for (final Player player : world.getPlayers()) {

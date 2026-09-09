@@ -20,24 +20,13 @@ import java.util.Set;
 
 /**
  * Where the bot's config files live, and every rule about what a valid value is.
- * <p>
- * Each file gets its own environment namespace - {@code NORDTAL_DATABASE_*}, {@code NORDTAL_BOT_*},
- * {@code NORDTAL_ACCESS_*}. A single shared {@code NORDTAL} prefix would make generic keys collide
- * across files: {@code password} in {@code database.yml} and a {@code password} anywhere else
- * would both be {@code NORDTAL_PASSWORD}.
- * </p>
- * <p>
- * <b>Every check here runs at startup and stops the process.</b> Season 1's bot loaded its config
- * inside the service that used it, caught the failure and carried on with hardcoded defaults, so a
- * broken file ran the bot against the wrong Discord channels. Nothing here is lenient.
- * </p>
- * <p>
- * The one-time jcore 1.x {@code config/*.json} conversion that lived here until stage B is gone.
- * It existed to carry season 1's deployed config volume forward, and season 2 does not carry
- * anything forward - new bot, new database, new Discord application, new config volume (see the
- * workspace {@code CLAUDE.md}: nothing is ever migrated between seasons). {@code access.yml} did
- * not exist in season 1, so there is nothing it could have converted anyway.
- * </p>
+ *
+ * <p>Each file gets its own environment namespace - {@code NORDTAL_DATABASE_*},
+ * {@code NORDTAL_BOT_*}, {@code NORDTAL_ACCESS_*} - because one shared prefix would make generic
+ * keys such as {@code password} collide across files.</p>
+ *
+ * <p>Every check here runs at startup and stops the process. Nothing is lenient: a broken file must
+ * not fall back to defaults and run the bot against the wrong Discord channels.</p>
  */
 @Slf4j
 public final class Configs {
@@ -50,25 +39,18 @@ public final class Configs {
      */
     static final String DIRECTORY_PROPERTY = "access.config.dir";
 
-    /** The one language {@code access.yml} may not leave out; see {@code docs/i18n.md}. */
+    /** The one language {@code access.yml} may not leave out. */
     private static final String FALLBACK_LANGUAGE = Languages.FALLBACK_TAG;
 
     /**
-     * How long a language tag may be.
-     * <p>
-     * Not a rule about languages - a rule about the schema. {@code managed_message.kind} is
-     * {@code varchar(32)} and the bot writes {@code "CONTRIBUTION_" + TAG} into it, so anything
-     * longer than this would be rejected by PostgreSQL at startup instead of here.
-     * </p>
+     * How long a language tag may be - a rule about the schema, not about languages:
+     * {@code managed_message.kind} is {@code varchar(32)} and holds {@code "CONTRIBUTION_" + TAG}.
      */
     private static final int MAX_TAG_LENGTH = 32 - "CONTRIBUTION_".length();
 
     /**
-     * What to write when the language list is unusable, with a slot for why it is.
-     * <p>
-     * The YAML is in the message rather than only in the file's comments because this is exactly
-     * the moment somebody has a file that does not load and no example to copy from.
-     * </p>
+     * What to write when the language list is unusable, with a slot for why. The YAML is in the
+     * message because this is the moment somebody has a file that does not load and no example.
      */
     private static final String SHAPE_OF_LANGUAGES = """
             %s Write at least the fallback:
@@ -84,9 +66,8 @@ public final class Configs {
     }
 
     /**
-     * Where an operator's message overrides go: {@code config/messages}, beside the three YAML
-     * files rather than in a directory of its own, because that is the volume a deployment already
-     * mounts and the place somebody editing this bot's configuration is already standing.
+     * Where an operator's message overrides go: beside the YAML files, in the volume a deployment
+     * already mounts.
      *
      * @return the override directory, which {@code Messages.load} creates if it is not there
      */
@@ -122,8 +103,7 @@ public final class Configs {
             try {
                 Long.parseLong(config.bunq().accountId().trim());
             } catch (final NumberFormatException e) {
-                // The season 1 code called Long.parseLong inside the poll loop, so a wrong value
-                // surfaced as a NumberFormatException minutes into a run.
+                // Parsed here so a wrong value cannot surface inside the poll loop minutes later.
                 throw new IllegalArgumentException("bunq.account-id must be a number");
             }
         });
@@ -135,10 +115,8 @@ public final class Configs {
 
     /**
      * Everything {@code access.yml} has to get right before the bot is allowed to touch a guild.
-     * <p>
-     * Snowflakes are checked for being numeric rather than merely non-empty: a role id with a
-     * stray character is otherwise a {@code null} role deep inside a role assignment, hours later.
-     * </p>
+     * Snowflakes are checked for being numeric, not merely non-empty: a stray character otherwise
+     * becomes a {@code null} role deep inside a role assignment, hours later.
      */
     private static void validateAccess(final AccessSpec config) {
         requireSnowflake("guild-id", config.guildId());
@@ -150,9 +128,8 @@ public final class Configs {
 
         requireSnowflake("channels.admin", config.channels().admin());
 
-        // The language roles and the four per-language channels are not checked here because they
-        // are not settings of their own any more: they live on the entries of `languages` and are
-        // checked by validateLanguages, which names the entry that is wrong.
+        // The per-language roles and channels live on the `languages` entries and are checked by
+        // validateLanguages, which names the entry that is wrong.
 
         validateTiers(config.tiers());
         validateLanguages(config.languages());
@@ -180,13 +157,8 @@ public final class Configs {
     }
 
     /**
-     * The price list.
-     * <p>
-     * The ordering is a validation rather than a sort, because the tiers are what the purchase
-     * buttons offer and what the downgrade rule walks. A list where a longer period is cheaper is
-     * not something to quietly reorder - it is a mistake, and the person who made it is the only
-     * one who knows which of the two numbers is wrong.
-     * </p>
+     * The price list. The ordering is validated rather than sorted: a list where a longer period is
+     * cheaper is a mistake, and only the person who made it knows which number is wrong.
      */
     private static void validateTiers(final List<AccessSpec.TierSpec> tiers) {
         if (tiers == null || tiers.isEmpty()) {
@@ -231,15 +203,10 @@ public final class Configs {
     }
 
     /**
-     * The language list.
-     * <p>
-     * The rules are {@code docs/i18n.md}'s, enforced by hand like every other rule here.
-     * {@code en} is mandatory because it is what a missing translation falls back to: a list
-     * without it has no floor, and the failure would surface as a message key on a disconnect
-     * screen rather than at startup. Tags are unique because a tag identifies a language
-     * everywhere else - it is the bundle file name and the value in {@code discord_user.locale} -
-     * and they are lower case for the same reason, since nothing downstream case-folds a file name.
-     * </p>
+     * The language list. {@code en} is mandatory because it is what a missing translation falls
+     * back to; without it the failure surfaces as a message key on a disconnect screen rather than
+     * at startup. Tags are unique and lower case because a tag is the bundle file name and the
+     * value in {@code discord_user.locale}, and nothing downstream case-folds a file name.
      */
     private static void validateLanguages(final List<AccessSpec.LanguageSpec> languages) {
         if (languages == null || languages.isEmpty()) {
@@ -261,9 +228,8 @@ public final class Configs {
                 throw new IllegalArgumentException(path + ".tag must be lower case, was: " + tag);
             }
             if (tag.length() > MAX_TAG_LENGTH) {
-                // managed_message.kind is varchar(32) and holds "CONTRIBUTION_<TAG>". A longer tag
-                // would load fine here and then fail on an INSERT once, per managed message, at
-                // startup - the kind of failure this whole class exists to move forward.
+                // managed_message.kind is varchar(32) and holds "CONTRIBUTION_<TAG>", so a longer
+                // tag would load fine here and fail on the INSERT instead.
                 throw new IllegalArgumentException(path + ".tag is longer than " + MAX_TAG_LENGTH
                         + " characters, which is as long as a managed message's key can be: " + tag);
             }
@@ -276,10 +242,8 @@ public final class Configs {
             requireSnowflake(path + ".contribution-channel", language.contributionChannel());
             requireSnowflake(path + ".link-channel", language.linkChannel());
             requireSnowflake(path + ".hunger-games-channel", language.hungerGamesChannel());
-            // The one optional id in the file: empty means this language has no status channel and
-            // the bot renames nothing. A value that is present still has to be a snowflake - the
-            // failure mode of a typo here is silence, because a channel that cannot be resolved
-            // looks exactly like a channel nobody configured.
+            // Optional: empty means no status channel. A value that is present still has to be a
+            // snowflake, because an unresolvable channel looks exactly like an unconfigured one.
             requireSnowflakeIfSet(path + ".status-channel", language.statusChannel());
             requireSnowflakeIfSet(path + ".announcement-channel", language.announcementChannel());
         }

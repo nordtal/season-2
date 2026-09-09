@@ -24,26 +24,17 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Step 1 of docs/updater.md: ask every source what is newest, look at what is on disk, and say
- * what the difference is. <b>Nothing here writes anything, anywhere.</b>
+ * Asks every source what is newest, looks at what is on disk, and says what the difference is.
+ * <b>Nothing here writes anything, anywhere.</b>
  *
- * <h2>One failure does not cost the whole report</h2>
- * Each source is asked inside its own try. A Modrinth outage turns its rows into
- * {@link Change.Status#UNRESOLVED} and leaves the rest answered - because the question an
- * operator is actually asking is usually about our own jars, and losing that answer to somebody
- * else's CDN would make the report worth less than the {@code .env} file it replaces.
+ * <p>Each source is asked inside its own try, so one outage costs only its own rows. An unreachable
+ * source never reads as "unchanged", though: {@link UpdatePlan#hasFailures()} exists so that
+ * "nothing to do" and "nothing could be asked" can be told apart.</p>
  *
- * <p>What is <em>not</em> done is the opposite mistake: an unreachable source never reads as
- * "unchanged". {@link UpdatePlan#hasFailures()} exists so that "nothing to do" can be distinguished
- * from "nothing could be asked", and the restart button in step 4 is meant to look different in
- * those two cases.</p>
- *
- * <h2>And "no build for this version" is neither of those</h2>
- * A source that answers, and has nothing tagged for the Minecraft version the network runs, is
- * {@link Change.Status#UNSUPPORTED}: not work, not a failure, and above all not a reason to skip
- * the whole service the artefact sits on. Both used to come out as one exception, so a plugin
- * merely lagging behind the platform would have stopped the season jar beside it from ever being
- * installed.
+ * <p>"No build for this Minecraft version" is a third answer -
+ * {@link Change.Status#UNSUPPORTED} - and not a failure, because a failure row makes the whole
+ * service skipped: one plugin lagging behind the platform must not stop the season jar beside it
+ * from ever being installed.</p>
  */
 @Slf4j
 public final class Resolver {
@@ -66,8 +57,8 @@ public final class Resolver {
     public @NotNull UpdatePlan resolve() {
         final Map<String, RemoteFile> newest = new LinkedHashMap<>();
         final Map<String, String> failures = new HashMap<>();
-        // Kept apart from `failures` on purpose. Both mean "there is no file to install", and only
-        // one of them means the report is untrustworthy - see Change.Status.UNSUPPORTED.
+        // Kept apart from `failures`: both mean "no file to install", only one means the report is
+        // untrustworthy.
         final Map<String, String> unsupported = new HashMap<>();
         final List<String> notes = new ArrayList<>();
 
@@ -76,9 +67,8 @@ public final class Resolver {
         resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject(), "paper");
         resolveModrinth(newest, failures, unsupported, Topology.CHUNKY, config.chunkyProject(), "paper");
         resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT, config.voiceChatProject(), "paper");
-        // The same Modrinth project, asked a second time for its Velocity build. One project id,
-        // two artefacts, because the proxy half and the server half are separate jars that move
-        // separately - and the loader is what tells them apart, not the id.
+        // The same Modrinth project, asked again for its Velocity build: one id, two jars that move
+        // separately, told apart by the loader.
         resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT_PROXY, config.voiceChatProject(), "velocity");
         resolveModrinth(newest, failures, unsupported, Topology.CORE_PROTECT, config.coreProtectProject(), "paper");
         resolvePaper(newest, failures);
@@ -134,8 +124,7 @@ public final class Resolver {
         try {
             release = github.fetch(config.seasonRepo(), config.seasonRelease());
         } catch (final IOException failed) {
-            // Our own six jars and the pack all come from this one call, so this is the failure
-            // that costs the most - named as one reason on every row rather than repeated on each.
+            // Our own jars and the pack all come from this one call, so one reason covers every row.
             final String why = "could not read " + config.seasonRepo() + "@" + config.seasonRelease()
                     + ": " + failed.getMessage();
             log.warn("Season release unresolved - {}", why);
@@ -146,9 +135,8 @@ public final class Resolver {
 
         for (final GitHubReleases.Asset asset : release.assets()) {
             final String prefix = JarName.prefixOf(asset.name());
-            // The asset's own prefix is the artifact id for all five of our jars - smp-0.2.0.jar
-            // is 'smp'. Matching that way rather than by a built name means a release carrying an
-            // extra asset is ignored instead of being a parse error.
+            // The asset's own prefix is the artifact id (smp-0.2.0.jar is 'smp'), so a release
+            // carrying an extra asset is ignored rather than being a parse error.
             if (prefix != null && Topology.SEASON_JARS.contains(prefix)) {
                 newest.put(prefix, new RemoteFile(prefix, versionOrTag(asset.name(), release.tag()),
                         asset.name(), asset.url(), null));
@@ -187,9 +175,8 @@ public final class Resolver {
             return;
         }
         if (sha1 == null) {
-            // Refused rather than worked around. The client is sent the URL and the hash together
-            // and rejects a pack whose hash disagrees; offering a pack with no hash is not a
-            // degraded mode, it is a different thing that does not work.
+            // Refused rather than worked around: the client is sent the URL and the hash together
+            // and rejects a pack whose hash disagrees.
             failures.put(Topology.RESOURCE_PACK, "release " + release.tag() + " carries " + zip.name()
                     + " but no " + zip.name() + ".sha1 next to it - the client is sent both or neither");
             return;
@@ -229,12 +216,8 @@ public final class Resolver {
 
     /**
      * One Modrinth-hosted plugin, with the two ways of having no file kept apart.
-     *
-     * <p>{@link Modrinth.Unsupported} means the API answered and the plugin has no stable build for
-     * this Minecraft version. That is not an outage and must not be reported as one: a failure row
-     * makes {@code Applier} skip the whole of the service it is on, so one plugin lagging behind
-     * the platform would stop the season jar beside it being installed at all, on every run, for as
-     * long as it lasted.</p>
+     * {@link Modrinth.Unsupported} is not an outage and must not be reported as one: a failure row
+     * makes {@code Applier} skip the whole service the plugin sits on.
      */
     private void resolveModrinth(final Map<String, RemoteFile> newest, final Map<String, String> failures,
                                  final Map<String, String> unsupported,
@@ -251,13 +234,9 @@ public final class Resolver {
     }
 
     /**
-     * The newest STABLE build of {@link Platform#MINECRAFT}, which is an <em>exact</em> version and
-     * not a family.
-     *
-     * <p>A new Minecraft version is a season decision and never this module's: it moves the API
-     * every plugin in the organisation is compiled against, the resource pack's {@code pack_format}
-     * and the world underneath all of it. Fill's {@code 26.2} family also lists {@code 26.2-rc-2},
-     * so following the family here would have been a road to a release candidate.</p>
+     * The newest stable build of {@link Platform#MINECRAFT}, which is an <em>exact</em> version and
+     * not a family: a new Minecraft version is a season decision, and a Fill family also lists its
+     * release candidates.
      */
     private void resolvePaper(final Map<String, RemoteFile> newest, final Map<String, String> failures) {
         try {
@@ -268,15 +247,12 @@ public final class Resolver {
     }
 
     /**
-     * The newest STABLE build of the newest released version inside {@link Platform#VELOCITY_FAMILY}
-     * - so the proxy follows Velocity's minors, unlike Paper, which stays on one exact version.
+     * The newest stable build inside {@link Platform#VELOCITY_FAMILY}, so the proxy follows
+     * Velocity's minors where Paper stays on one exact version.
      *
-     * <p><b>And that is worth one line in the report.</b> {@code network-control} is compiled
-     * against {@link Platform#VELOCITY_API} out of {@code gradle/libs.versions.toml}, so a run that
-     * moves the proxy past it leaves a plugin built for an older API running on a newer one. It is
-     * named rather than refused, exactly the way {@code UpdaterSpec} describes the same trap for
-     * Chunky: blocking the proxy's own update over a skew that is usually harmless is the worse
-     * failure, and an operator who is told can decide.</p>
+     * <p>A run that moves past {@link Platform#VELOCITY_API} leaves {@code network-control} running
+     * on an API it was not built for. That is noted rather than refused: the skew is usually
+     * harmless, and blocking the proxy's update over it is the worse failure.</p>
      */
     private void resolveVelocity(final Map<String, RemoteFile> newest, final Map<String, String> failures,
                                  final List<String> notes) {
@@ -304,10 +280,8 @@ public final class Resolver {
         if (wanted == null) {
             final String none = unsupported.get(artifact);
             if (none != null) {
-                // No filename to compare against, so nothing on disk is claimed for this row -
-                // which is deliberate rather than a gap. A jar somebody installed by hand comes out
-                // in UpdatePlan#unclaimed, where every jar this plan does not account for goes, and
-                // that is louder than a version comparison against a file that does not exist.
+                // Deliberately claims nothing on disk: a jar installed by hand then shows up in
+                // UpdatePlan#unclaimed, which is louder than comparing against a file that is absent.
                 return Change.unsupported(service, artifact, none);
             }
             return Change.unresolved(service, artifact,
@@ -336,17 +310,11 @@ public final class Resolver {
 
     /**
      * The bot and the updater: one jar each, in a volume of their own, with no {@code plugins/}
-     * folder and nothing else in it.
+     * folder. Both containers run whatever jar is in their volume and fall back to the one baked
+     * into the image only when the volume is empty, which is what makes a first deployment possible.
      *
-     * <p>Both used to be reported as unreachable - the bot because it ran as a GHCR image and the
-     * updater because it ran the jar baked into its own. Since 2026-09-01 neither is true: both
-     * containers run whatever jar is in their volume and fall back to the baked one only when the
-     * volume is empty, which is what makes a first deployment possible at all.</p>
-     *
-     * <p>The updater's own row is resolved and installed exactly like the bot's. It cannot take
-     * effect during the run that installs it - no process replaces the jar it is executing - so
-     * the new jar simply waits there for the next start. That start is the restart, which is the
-     * only way this module's version has ever been able to move.</p>
+     * <p>The updater's own row is installed like the bot's and cannot take effect during the run
+     * that installs it - the new jar waits for the next start, which is the restart.</p>
      */
     private Change resolveStandalone(final Path root, final String artifact,
                                      final Map<String, RemoteFile> newest,
@@ -362,9 +330,8 @@ public final class Resolver {
             return new Change(artifact, artifact, Change.Status.MOUNT_MISSING, null, wanted,
                     installed.directory() + " is not mounted in this container");
         }
-        // No unsupported map: the bot and the updater come from our own release, which either
-        // carries their jar or does not. "There is no build for this Minecraft version" is a
-        // sentence about somebody else's plugin and cannot be said about these two.
+        // No unsupported map: these two come from our own release, which either carries their jar
+        // or does not.
         return compare(artifact, artifact, installed, newest, failures, Map.of(), new HashSet<>());
     }
 
@@ -392,9 +359,8 @@ public final class Resolver {
                                     + " does not exist yet");
         }
 
-        // The hash is the identity, not the URL: two releases can serve the same bytes and the
-        // client keys its cache on the hash. Compared case-insensitively because a hash typed by a
-        // person is the case that ever differs, and Checksum has already lowercased ours.
+        // The hash is the identity, not the URL: the client keys its cache on it. Compared
+        // case-insensitively because a hash typed by a person is the one that differs in case.
         final Checksum checksum = wanted.checksum();
         final String wantedSha1 = checksum == null ? null : checksum.hex();
         if (wantedSha1 != null && wantedSha1.equalsIgnoreCase(state.sha1())) {
@@ -421,8 +387,8 @@ public final class Resolver {
         try {
             return Installation.scan(service, directory);
         } catch (final IOException failed) {
-            // A directory that exists but cannot be listed is a permissions problem on the mount,
-            // and it must not read as an empty server.
+            // A directory that exists but cannot be listed is a mount permissions problem, and it
+            // must not read as an empty server.
             log.warn("Could not read {} for {}: {}", directory, service, failed.getMessage());
             return Installation.absent(service, directory);
         }

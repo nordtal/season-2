@@ -15,11 +15,9 @@ import java.util.UUID;
 /**
  * Everything the SMP reads and writes, as one JDBI SqlObject.
  *
- * <p><b>Never called from the main thread.</b> That rule was written into this repository on
- * 2026-09-01 after {@code /hg start} was found doing exactly that: a Paper server blocked on a
- * database round trip is a server that has stopped ticking, and a slow query becomes a visible
- * freeze for everybody. Every caller here hops to an async task first and comes back to the main
- * thread only to touch the world.
+ * <p><b>Never called from the main thread.</b> A Paper server blocked on a database round trip has
+ * stopped ticking. Every caller hops to an async task first and comes back to the main thread only
+ * to touch the world.
  *
  * <p>The keys are {@code discord_id}, never the Minecraft UUID: the UUID reaches these tables
  * through {@code account_link}, and storing it twice would create a second answer to "whose account
@@ -63,8 +61,8 @@ public interface SmpDao {
     /**
      * Whether this account holds the Discord admin flag.
      *
-     * <p>Mirrored into {@code discord_user} by the bot and only read here. There is no LuckPerms
-     * anywhere in this repository and no second admin list (docs/smp.md#admins).
+     * <p>Mirrored into {@code discord_user} by the bot and only read here. There is no second
+     * admin list anywhere.
      */
     @SqlQuery("""
             SELECT usr.admin
@@ -84,25 +82,17 @@ public interface SmpDao {
      * here that the file no longer declares is exactly what {@code TrackValidation} exists to
      * catch.
      */
-    // 'UNLOCKED', which is what V6's CHECK and MilestoneState both say. This read 'COMPLETE' until
-    // 2026-09-05 - a value the constraint refuses - so completeMilestone() below threw on every
-    // call and this query never returned a row: escape hatch 2 had never worked, and the season's
-    // list of unlocked milestones was always empty. MilestoneStateIntegrationTest drives both
-    // against the real constraint now.
+    // 'UNLOCKED' is the only spelling V6's CHECK and MilestoneState accept; anything else silently
+    // matches no row. MilestoneStateIntegrationTest drives this against the real constraint.
     @SqlQuery("SELECT key FROM smp_milestone WHERE state = 'UNLOCKED' ORDER BY key")
     List<String> completedMilestoneKeys();
 
     /**
      * Every milestone row, for {@code TrackValidation}.
      *
-     * <h2>What this is for and why it reads everything</h2>
-     * {@code /smp reload} has to answer "may this file replace the running one", and that question
-     * is about the rows the file would <em>orphan</em>: a renamed milestone key, an objective that
-     * changed type with progress already recorded against it, a completed objective whose target
-     * moved after it paid out. None of those can be seen from the file alone, and a rename is only
-     * visible against the whole set rather than against one milestone.
-     *
-     * <p>It is a season's worth of rows, read once per reload, off the main thread.</p>
+     * <p>It reads everything because a rename is only visible against the whole set: the question
+     * is which rows the file would orphan. A season's worth of rows, read once per reload, off the
+     * main thread.</p>
      */
     @SqlQuery("SELECT key, state FROM smp_milestone ORDER BY key")
     @RegisterConstructorMapper(StoredProgress.StoredMilestone.class)
@@ -166,9 +156,9 @@ public interface SmpDao {
      * Adds to an objective's collected amount.
      *
      * <p>{@code amount = amount + :delta} in SQL rather than read-modify-write in Java, so two
-     * players handing in at the same moment cannot lose one of the two deliveries. There is no
-     * clamp to the target here on purpose: over-collection is real - a target lowered by a reload is
-     * one of the concept's escape hatches - and clamping would silently throw away somebody's items.
+     * players handing in at the same moment cannot lose one of the deliveries. Deliberately not
+     * clamped to the target: over-collection is real, and clamping would throw away somebody's
+     * items.
      */
     @SqlUpdate("UPDATE smp_objective SET amount = amount + :delta WHERE id = :id")
     int addObjectiveProgress(@Bind("id") UUID id, @Bind("delta") long delta);
@@ -194,10 +184,8 @@ public interface SmpDao {
     /**
      * What one player has put into each objective of one milestone.
      *
-     * <p>A <b>left</b> join, so an objective this player has never touched comes back at zero
-     * rather than not coming back: the menu that reads this draws one line per objective and a
-     * missing row would silently become a shorter list. Off the main thread like everything else
-     * here - it is read once when the spawn NPC's menu is opened.</p>
+     * <p>A <b>left</b> join, so an objective this player has never touched comes back at zero: the
+     * menu draws one line per objective, and a missing row would silently shorten the list.</p>
      */
     @SqlQuery("""
             SELECT obj.key               AS key,
@@ -227,10 +215,9 @@ public interface SmpDao {
     /**
      * Finishes a milestone and tells the rest of the network in the same statement.
      *
-     * <p>The row and the {@code pg_notify} are one statement, exactly as the phase switch is: not
-     * "remember to notify after updating", which is a rule somebody eventually forgets, but a thing
-     * that cannot happen in one order. An announcement can therefore never go out for an unlock the
-     * database does not hold, and the bot's {@code LISTEN nordtal_smp} is the whole transport.
+     * <p>The row and the {@code pg_notify} are one statement, so an announcement can never go out
+     * for an unlock the database does not hold. The bot's {@code LISTEN nordtal_smp} is the whole
+     * transport.
      *
      * <p>Returns empty when the milestone was already complete, which is what makes this safe to
      * call from two places at once.
@@ -247,14 +234,9 @@ public interface SmpDao {
      * Makes sure the objective the file declares has a row, and that the row's target is the
      * file's.
      *
-     * <p>Missing until 2026-09-06: {@code ensureMilestone} below was called for every milestone at
-     * enable, and nothing anywhere inserted an objective - so {@code smp_objective} stayed empty,
-     * every {@code objectivesOf} answered nothing, the objective board showed a milestone with no
-     * rows under it, and no hand-in, statistic or advancement could ever have booked a single unit
-     * of progress. Found on the local stack by looking at the board (finding 99). The target is
-     * updated on conflict because lowering it is the first escape hatch and {@code TrackValidation}
-     * has already said whether the file may replace the running track; {@code amount} and
-     * {@code completed} are never touched here.</p>
+     * <p>The target is updated on conflict because lowering it is the first escape hatch and
+     * {@code TrackValidation} has already decided whether the file may replace the running track.
+     * {@code amount} and {@code completed} are never touched here.</p>
      */
     @SqlUpdate("""
             INSERT INTO smp_objective (milestone_key, key, type, target)
@@ -272,10 +254,9 @@ public interface SmpDao {
     /**
      * Books an aura change and its audit row.
      *
-     * <p>Two statements that must not come apart, which is why they are one method and why every
-     * caller goes through it: {@code smp_player.aura} is the balance and {@code smp_aura_event} is
-     * the reason it is what it is. A balance nobody can explain is a balance nobody trusts, and the
-     * admin correction command exists precisely because somebody will need to explain one.
+     * <p>Two statements that must not come apart, which is why every caller goes through this one
+     * method: {@code smp_player.aura} is the balance and {@code smp_aura_event} is why it is what it
+     * is.
      */
     @Transaction
     default void addAura(final String discordId, final int delta, final String reason, final String ref) {
@@ -316,9 +297,8 @@ public interface SmpDao {
     /**
      * Every POI, in the order they were created.
      *
-     * <p>Public and unlimited by design (docs/smp.md#navigate): anyone may create one, everyone sees
-     * all of them, and admins can delete any. There is no per-player list because there is no
-     * ownership beyond the name of whoever put it there.
+     * <p>Public and unlimited: anyone may create one, everyone sees all of them, and admins can
+     * delete any. There is no ownership beyond the name of whoever put it there.
      */
     @SqlQuery("""
             SELECT poi.id         AS id,
@@ -347,9 +327,8 @@ public interface SmpDao {
     /**
      * Drops every POI in a world.
      *
-     * <p>Called for the farm world at every daily reset. Nothing in the farm world survives - chests,
-     * graves and POIs alike - and a POI pointing at terrain that no longer exists would be worse
-     * than none, because the arrow would still be confident about it.
+     * <p>Called for the farm world at every daily reset: an arrow pointing confidently at terrain
+     * that no longer exists is worse than none.
      */
     @SqlUpdate("DELETE FROM smp_poi WHERE world = :world")
     int deletePoisIn(@Bind("world") String world);
@@ -409,26 +388,15 @@ public interface SmpDao {
     /**
      * Where an amount of aura places somebody, and how many people it is out of.
      *
-     * <h2>One statement, because two would describe two instants</h2>
-     * {@code /aura} prints the asker's place and the top ten under it. Read separately, a duel
-     * settled between the two reads makes the line about somebody disagree with the line about them
-     * in the list below it - which nobody reports as a bug and everybody notices.
+     * <p>One statement, because two reads would describe two instants and let the asker's place
+     * disagree with the list printed under it.
      *
-     * <h2>The same population as the board</h2>
-     * Joined through {@code account_link}, exactly like {@link #topAura}: somebody with an
-     * {@code smp_player} row and no link cannot be on a Minecraft server to be counted on a board in
-     * one. Counting them here and not there would make "number 4 of 37" sit above a list drawn from
-     * thirty-six people.
+     * <p>Joined through {@code account_link}, the same population {@link #topAura} draws from, so
+     * "number 4 of 37" cannot sit above a list built from thirty-six people. Ties share a place -
+     * the count is of everybody with <em>strictly</em> more.
      *
-     * <p>Ties share a place - the count is of everybody with <em>strictly</em> more - so two people
-     * on the same number are not told different things about it.</p>
-     *
-     * <h2>The asker counts even with no row of their own</h2>
-     * A player who has never been given aura has no {@code smp_player} row, so the total counted
-     * everybody <em>but</em> them while the place still counted them: on a fresh season that printed
-     * <b>"1 of 0"</b>, and on a running one "6 of 5". The id is passed in for that one reason - to
-     * add the asker to the population when the population does not already contain them. It changes
-     * nothing for anybody who has ever earned or lost a point.
+     * <p>The id is passed in so that an asker with no {@code smp_player} row of their own is still
+     * counted in the population; otherwise a fresh season prints "1 of 0".
      */
     @SqlQuery("""
             SELECT count(*) FILTER (WHERE player.aura > :aura) + 1 AS place,
@@ -445,17 +413,12 @@ public interface SmpDao {
     /**
      * The Discord id of the player who won the start event, if one has been decided.
      *
-     * <h2>Why the earliest decided game and not the newest</h2>
-     * The head start belongs to the <b>start event</b>, and the start event is the first hunger
-     * games this season plays. Ordering the other way would let a practice game run later - during
-     * an SMP-phase rehearsal, say - move a reward that has very likely already been paid to
-     * somebody else, and there is no way to take one back. {@code created} rather than
-     * {@code ended} because it is {@code NOT NULL}: a game whose end was never written is still a
-     * game that was started first.
+     * <p>The <em>earliest</em> decided game, not the newest: a later practice game must not move a
+     * reward that has already been paid, and there is no way to take one back. {@code created}
+     * rather than {@code ended} because it is {@code NOT NULL}.
      *
-     * <p>The join is what makes this safe to call on every login: a game decided with no winner (a
-     * tiebreak that found none, or every participant dead) has {@code winner_member_id IS NULL} and
-     * drops out of the join rather than returning a row nobody can be paid.</p>
+     * <p>The join makes this safe to call on every login: a game decided with no winner has
+     * {@code winner_member_id IS NULL} and drops out rather than returning an unpayable row.</p>
      */
     @SqlQuery("""
             SELECT member.discord_id
@@ -470,20 +433,15 @@ public interface SmpDao {
     /**
      * Claims the winner's head start and books its aura, or answers that it is already gone.
      *
-     * <h2>The claim is the gate, and it is one statement</h2>
-     * Same shape the wheel uses for a spin: the thing that must happen once is spent in SQL
-     * <em>before</em> anything is handed over, so two of anything - a reconnect, a second server,
-     * a replayed join - cannot both win. The {@code WHERE} on the {@code DO UPDATE} is what does
-     * it: a row already carrying {@code true} matches nothing, the statement affects zero rows, and
-     * this method answers {@code false} without having written a thing.
+     * <p>The claim is the gate and it is one statement: the {@code WHERE} on the {@code DO UPDATE}
+     * matches nothing for a row already carrying {@code true}, so a reconnect or a replayed join
+     * answers {@code false} without writing anything.
      *
-     * <p>The {@code INSERT} half is not a formality. Aura is only ever written for somebody who has
-     * earned some, so the winner of the start event - who has by definition played no SMP yet -
-     * normally has no {@code smp_player} row at all on the join this runs on.</p>
+     * <p>The {@code INSERT} half matters: the winner has by definition played no SMP yet and so
+     * normally has no {@code smp_player} row at all.
      *
-     * <p>Aura is booked inside the same transaction rather than by a second call, because a claim
-     * that succeeded and a payout that did not is the one outcome nothing can repair: the flag says
-     * it has been granted and the balance says it has not.</p>
+     * <p>Aura is booked in the same transaction, because a claim that succeeded next to a payout
+     * that did not is the one outcome nothing can repair.
      *
      * @return whether this call is the one that granted it
      */
@@ -512,20 +470,13 @@ public interface SmpDao {
     /**
      * Takes this player's one welcome, if it is still there.
      *
-     * <p>Exactly {@link #claimHeadStart}'s shape and for exactly its reason: the flag is written
-     * <em>before</em> anything is shown, so two sessions racing each other - a reconnect inside a
-     * second, two proxies, a replayed join - cannot both win. The loser gets zero rows back and
-     * shows nothing.
+     * <p>{@link #claimHeadStart}'s shape and for its reason: the flag is written before anything is
+     * shown, so two racing sessions cannot both win. The {@code INSERT} half matters because this
+     * runs on the join of a player who has earned nothing yet.
      *
-     * <p>The {@code INSERT} half is not a formality. A row only appears in {@code smp_player} when
-     * somebody earns something, and this runs on the join of a player who by definition has not yet.
-     *
-     * <p>Deliberately <b>not</b> transactional and deliberately claiming before showing: the moment
-     * itself cannot fail in a way worth putting back, and the opposite ordering - show, then record
-     * - shows it twice to anybody whose server restarts mid-welcome. What it costs is the one path
-     * that loses it: a player who leaves in the tick after their own join. That is a picture rather
-     * than a payout, so it is logged and not repaired; {@code V16__smp_welcome.sql} carries the one
-     * {@code UPDATE} that gives it back.
+     * <p>Deliberately not transactional: showing before recording would show the moment twice to
+     * anybody whose server restarts mid-welcome. The cost is the one path that loses it - a player
+     * who leaves in the tick after their own join - which is logged rather than repaired.
      *
      * @return whether this call is the one that took it
      */
@@ -579,9 +530,8 @@ public interface SmpDao {
     /**
      * Marks a grave emptied, once.
      *
-     * <p>Anyone may open a grave - no timer, no ownership lock - so two people can empty the same one
-     * in the same instant. The {@code looted IS NULL} guard is what makes the experience credit
-     * happen exactly once, and it is the same shape that guards an objective's payout.
+     * <p>Anyone may open a grave, so two people can empty the same one in the same instant; the
+     * {@code looted IS NULL} guard is what credits the experience exactly once.
      */
     @SqlQuery("""
             UPDATE smp_grave
@@ -594,15 +544,12 @@ public interface SmpDao {
     /**
      * Writes back what is left in a grave somebody only half emptied.
      *
-     * <p><b>Without this a restart hands the contents out again.</b> A partial loot used to live in
-     * the plugin's own map and nowhere else, so the enable-time restore read the row's original
-     * {@code contents} and refilled the grave - while the items already taken sat in the looter's
-     * inventory. Measured on the local SMP, 2026-09-06: a grave emptied of seventeen emeralds and
-     * three golden apples came back holding seventeen emeralds and three golden apples after a
-     * restart, and the player still had theirs (finding 133).
+     * <p><b>Without this a restart hands the contents out again</b>: the enable-time restore reads
+     * the row, so a partial loot kept only in memory would be refilled while the items already taken
+     * sat in the looter's inventory.
      *
-     * <p>{@code looted IS NULL} for the same reason {@link #markGraveLooted} carries it: a grave
-     * that somebody else finished a moment ago must not be refilled by a late close.
+     * <p>{@code looted IS NULL} for {@link #markGraveLooted}'s reason: a grave somebody else
+     * finished must not be refilled by a late close.
      */
     @SqlUpdate("UPDATE smp_grave SET contents = :contents WHERE id = :id AND looted IS NULL")
     int updateGraveContents(@Bind("id") UUID id, @Bind("contents") byte[] contents);
@@ -610,9 +557,7 @@ public interface SmpDao {
     /**
      * Drops every grave in a world.
      *
-     * <p>The farm world at its daily reset. That everything there is destroyed, graves included, is
-     * intended and announced - it is the one real risk of going there - and it will be reported as a
-     * bug anyway.
+     * <p>The farm world at its daily reset. Everything there is destroyed, graves included.
      */
     @SqlUpdate("DELETE FROM smp_grave WHERE world = :world")
     int deleteGravesIn(@Bind("world") String world);
@@ -630,9 +575,8 @@ public interface SmpDao {
     /**
      * Takes today's free spin, once.
      *
-     * <p>The {@code last_free IS DISTINCT FROM :today} guard is what makes it once: two clicks in the
-     * same second both see a free spin, and only the update that changes a row gets a prize. Same
-     * shape as the objective payout and the grave loot, for the same reason.
+     * <p>The {@code last_free IS DISTINCT FROM :today} guard is what makes it once: two clicks in
+     * the same second both see a free spin, and only the update that changes a row gets a prize.
      */
     @SqlQuery("""
             INSERT INTO smp_spin (discord_id, last_free)
@@ -657,20 +601,14 @@ public interface SmpDao {
     /**
      * Puts back a free spin that was taken and paid out nothing.
      *
-     * <p>The spin is spent before the prize is drawn, on purpose - the animation shows a prize the
-     * database has already given away rather than choosing one itself. The cost of that ordering is
-     * that two paths end with a spent row and an empty hand: a player who disconnects between the
-     * commit and the next tick, and a {@code wheel-prizes} entry naming an item this server does not
-     * know. Both used to log a warning and leave the player one spin poorer for nothing.
+     * <p>The spin is spent before the prize is drawn, so two paths end with a spent row and an
+     * empty hand: a disconnect between the commit and the next tick, and a {@code wheel-prizes}
+     * entry naming an item this server does not know.
      *
-     * <p>{@code last_free = :today} is the same guard {@link #takeFreeSpin} uses in the other
-     * direction, and it makes this idempotent: a second call finds the row already restored and
-     * changes nothing. {@code previous} is the value the row held a millisecond earlier, and it is
-     * <b>null for a player's first ever free spin</b> - which is the case
-     * {@code SpinRefundIntegrationTest} exists for. The {@code CAST} is belt and braces, not the
-     * thing that makes it work: JDBI binds a typed null here and the statement was measured to pass
-     * without it (2026-09-04). It stays because a null date reaching PostgreSQL untyped is a
-     * "could not determine data type of parameter" away, and the cast costs nothing.
+     * <p>{@code last_free = :today} makes this idempotent - a second call finds the row already
+     * restored. {@code previous} is <b>null for a player's first ever free spin</b>; the
+     * {@code CAST} is there so an untyped null date cannot become "could not determine data type of
+     * parameter".
      */
     @SqlUpdate("""
             UPDATE smp_spin
@@ -685,9 +623,8 @@ public interface SmpDao {
      * Puts back an earned spin that paid out nothing. See {@link #restoreFreeSpin}.
      *
      * <p>{@code used > 0} keeps {@code smp_spin_used_not_negative} satisfied, but unlike the free
-     * one this is <b>not</b> idempotent - a second call for the same spin would hand back a second
-     * spin. It is safe because the two call sites are mutually exclusive and each runs at most once
-     * per spin; a third call site is a change that has to argue with this sentence first.
+     * one this is <b>not</b> idempotent: a second call hands back a second spin. It is safe only
+     * because the two call sites are mutually exclusive and each runs at most once per spin.
      */
     @SqlUpdate("UPDATE smp_spin SET used = used - 1 WHERE discord_id = :discordId AND used > 0")
     void restoreEarnedSpin(@Bind("discordId") String discordId);

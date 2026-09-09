@@ -26,64 +26,27 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Step 3 of docs/updater.md: turn an {@link UpdatePlan} into files on disk.
+ * Turns an {@link UpdatePlan} into files on disk.
  *
- * <h2>Two phases, and that is the whole design</h2>
- * Everything a server needs is downloaded into a staging directory <em>inside that server's own
- * volume</em> and verified there. Only when every one of them is present does anything move into
- * {@code plugins/} or {@code .server/}. A download that fails half way through leaves a staging
- * directory nobody will look at and a server exactly as it was.
+ * <p>Everything is downloaded into a staging directory first and only moved into place once every
+ * artefact of a service is present, so a run that fails half way leaves the server as it was. The
+ * staging directory is resolved <em>per destination directory</em> because it has to sit on the
+ * same filesystem: a cross-device move silently degrades to copy-and-delete, which is precisely
+ * the half-written jar in {@code plugins/} this class exists to prevent.</p>
  *
- * <p>{@code entrypoint.sh} does not work this way - it fetches and places one jar at a time - and
- * the difference matters here for a reason it did not there: this module moves <b>eight</b>
- * artefacts across four servers in one go, and a network running four servers on two versions of
- * the season is a worse state than a network that did not update.</p>
+ * <p>A service moves together or not at all - a partial swap of coupled plugins is a server that
+ * does not start. Two artefacts are exempt. A server jar: plugins are compiled against the
+ * version, never the build, and the build already in {@code .server/} runs. The resource pack: it
+ * is not a file in a volume at all, and leaving {@code pack.yml} alone keeps the previous URL and
+ * hash in force, which is a pack that works.</p>
  *
- * <p><b>The staging directory has to be on the same filesystem as the destination</b>, not in
- * {@code /tmp}: a rename across a mount boundary is a copy, and a copy is not atomic. Until
- * 2026-09-05 that was expressed as "in the same volume", and one staging directory per service sat
- * at the volume's root - which was the same thing right up to the day {@code plugins/} became a
- * bind mount of its own ({@code compose.yml}, {@code SERVERS_ROOT}). It would still have worked:
- * {@code Files.move} without {@code ATOMIC_MOVE} falls back to copy-and-delete across devices, so
- * nothing would have failed and nothing would have said anything. What would have been lost, in
- * silence, is the property this whole class is built on - a server reading {@code plugins/} while
- * a jar is half-copied into it. So the staging directory is now resolved <em>per destination
- * directory</em>: {@code plugins/.nordtal-staging} for plugin jars,
- * {@code .server/.nordtal-staging} for the server jar. Both are dot directories nothing lists and
- * neither is ever read as a plugin - {@code Installation} only takes regular files.</p>
- *
- * <h2>A server moves together or not at all</h2>
- * If any artefact of a service could not be resolved, that whole service is skipped. "The new SMP
- * jar with last week's PacketEvents" is a combination nobody chose and nobody tested, and
- * DisplayTags is a <em>required</em> plugin of {@code smp} whose own required plugin PacketEvents
- * is - so a partial swap there is a server that does not start.
- *
- * <p><b>Two things are outside that rule, both since 2026-09-02, and for different reasons.</b> A
- * Paper or Velocity build that could not be resolved is reported as skipped on its own row and the
- * plugins move anyway: plugins are compiled against the version, not the build, and the build
- * already in {@code .server/} runs.</p>
- *
- * <p>The <b>resource pack</b> is the other. It is not a file in a volume at all - what fails is
- * rewriting {@code pack.yml}, and not rewriting it leaves the previous URL and hash in force, which
- * is a pack that works. Until this change a release that published no {@code .sha1} beside the pack
- * zip skipped the whole proxy service, the {@code network-control} plugin and the Velocity jar with
- * it, while the three backends updated regardless - the split network the rule exists to prevent,
- * produced by the rule. The pack now falls back to the last one and says so on its own row, and
- * {@code applyPack} runs on every path rather than being skipped by the early return.</p>
- *
- * <h2>What is deleted</h2>
- * Only a jar in the target directory whose filename prefix matches the one just installed, and
- * only after the new jar is safely in place - the same rule {@code entrypoint.sh} has always used
- * ({@link JarName}). A jar nothing accounts for is never touched; it is reported and left alone.
+ * <p>Only a jar whose filename prefix matches the one just installed is deleted, and only after
+ * the new jar is in place ({@link JarName}). A jar nothing accounts for is reported and left.</p>
  */
 @Slf4j
 public final class Applier {
 
-    /**
-     * Where downloads land before they are moved. A dot directory inside the <em>destination</em>
-     * directory: same filesystem by construction, and invisible to anybody listing
-     * {@code plugins/}.
-     */
+    /** Dot directory inside the destination: same filesystem by construction, and nothing lists it. */
     public static final String STAGING = ".nordtal-staging";
 
     private final UpdaterSpec config;
@@ -110,8 +73,6 @@ public final class Applier {
             outcomes.addAll(applyService(root, entry.getKey(), entry.getValue()));
         }
 
-        // Nothing is left over: since 2026-09-01 the bot and the updater are services in this map
-        // too, each with one artefact and a volume whose root is where its jar goes.
         return new ApplyResult(List.copyOf(outcomes));
     }
 
@@ -135,21 +96,13 @@ public final class Applier {
                     .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
                     .forEach(change -> outcomes.add(new ApplyResult.Outcome(
                             service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
-            // The pack still gets its own row. On the early return it used to get none at all, so a
-            // run that skipped this service said nothing whatever about what the client is being
-            // sent - and that is the one thing here a player actually sees.
+            // The pack still gets its own row: a skipped service must still say what the client is sent.
             outcomes.addAll(applyPack(root, service, changes));
             return outcomes;
         }
 
-        // A server jar that could not be resolved does NOT block the plugins beside it (decided
-        // 2026-09-02). The all-or-nothing rule exists because DisplayTags is a required plugin of
-        // smp and PacketEvents is required under it - a partial swap there is a server that does
-        // not start. The server jar is outside that coupling: every plugin is compiled against the
-        // VERSION, which never moves here, and never against a build; and the build lying in
-        // .server/ is one that already runs. Blocking three servers' plugins because Fill was down
-        // for a minute would produce exactly the split network the rule is meant to prevent, with
-        // the bot and the updater - which have no Fill row - moving on regardless.
+        // A server jar that could not be resolved does not block the plugins beside it: plugins are
+        // compiled against the version, never the build, and the build in .server/ already runs.
         changes.stream()
                 .filter(change -> change.status().isFailure())
                 .filter(change -> isServerJar(change.artifact()))
@@ -158,18 +111,8 @@ public final class Applier {
                         "could not be checked" + (change.note() == null ? "" : " (" + change.note() + ")")
                                 + "; the build in .server/ stays, and the plugins were not held back for it")));
 
-        // The pack is NOT a file this module downloads. The proxy only describes it - url and
-        // sha1 - and the Minecraft client fetches the zip itself. Putting a 40 KB pack zip into a
-        // plugins folder would be harmless and completely pointless, and it is excluded here
-        // rather than special-cased three lines further down. applyPack handles it.
-        //
-        // IT IS ALSO THE SECOND EXCEPTION TO ALL-OR-NOTHING (2026-09-02), and for a different
-        // reason than the server jar. A release that publishes no .sha1 beside the pack zip used to
-        // skip the WHOLE proxy service - the network-control plugin and the Velocity jar with it -
-        // while smp, limbo and hunger-games updated regardless. That is the split network the rule
-        // exists to prevent, produced by the rule. The pack is not a jar in a volume: what fails is
-        // rewriting pack.yml, and not rewriting it leaves the PREVIOUS pack in force, which is a
-        // pack that works. So the jars move and the pack falls back, loudly.
+        // The pack is not a file this module downloads - the proxy only describes it and the client
+        // fetches the zip - so it is excluded here and handled by applyPack.
         final List<Change> work = changes.stream()
                 .filter(change -> change.status().isWork())
                 .filter(change -> change.wanted() != null)
@@ -181,9 +124,8 @@ public final class Applier {
                 .filter(change -> !change.status().isFailure())
                 .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
                 .forEach(change -> outcomes.add(change.status() == Change.Status.UNSUPPORTED
-                        // Not UNCHANGED, which is a statement about a file that is there. Nothing is
-                        // there and nothing was attempted; the row exists so the artefact stays
-                        // named until its publisher ships a build for this Minecraft version.
+                        // Not UNCHANGED: nothing is there and nothing was attempted. The row keeps the
+                        // artefact named until its publisher ships a build for this Minecraft version.
                         ? new ApplyResult.Outcome(service, change.artifact(),
                                 ApplyResult.Status.UNSUPPORTED,
                                 "no build for this Minecraft version yet")
@@ -197,17 +139,14 @@ public final class Applier {
 
         final Path volume = root.resolve(service);
 
-        // One staging directory per DESTINATION directory, not one per service - see the class
-        // comment. Two at most today (plugins/ and .server/), and the set is built as the work is
-        // walked so an empty one is never created.
+        // One staging directory per destination directory, built as the work is walked so an empty
+        // one is never created.
         final Map<Path, Path> stagingByDestination = new LinkedHashMap<>();
 
         // --- phase one: fetch everything, place nothing -----------------------------------
         final Map<String, Path> staged = new LinkedHashMap<>();
         try {
-            // The one place the old layout is still swept up: a volume that was applied to before
-            // 2026-09-05 carries a .nordtal-staging at its root, and nothing else would ever look
-            // at it again. Deleted rather than left as a puzzle for whoever finds it.
+            // Sweep up the old layout's staging directory at the volume root; nothing else reads it.
             deleteRecursively(volume.resolve(STAGING));
             for (final Change change : work) {
                 final RemoteFile wanted = change.wanted();
@@ -234,20 +173,16 @@ public final class Applier {
             final Path destination = directoryFor(volume, change.artifact()).resolve(wanted.fileName());
             try {
                 Files.createDirectories(destination.getParent());
-                // ATOMIC_MOVE, and a failure if the filesystem cannot do one. Without it a move
-                // across a device boundary silently degrades to copy-and-delete, which is exactly
-                // the half-written jar in plugins/ this class exists to prevent - and it would
-                // degrade in silence, on a machine nobody is looking at (finding 110). The staging
-                // directory sits inside the destination directory precisely so this can be asked
-                // for; an AtomicMoveNotSupportedException here means that stopped being true.
+                // ATOMIC_MOVE, and a failure if the filesystem cannot do one: without it a move
+                // across a device boundary degrades silently to copy-and-delete. An
+                // AtomicMoveNotSupportedException means staging is no longer on the same filesystem.
                 Files.move(staged.get(change.artifact()), destination,
                         StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
                 final List<String> removed = removeSuperseded(destination.getParent(), wanted.fileName());
                 outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.DONE,
                         describe(change, wanted, removed)));
             } catch (final IOException failed) {
-                // Phase two failing is a filesystem problem, not a network one, and it is the one
-                // case where a server can be left mixed. Said plainly rather than smoothed over.
+                // The one case where a server can be left mixed, so it is said plainly.
                 outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.FAILED,
                         "could not move " + wanted.fileName() + " into place: " + failed.getMessage()
                                 + ". This server may now be part-updated - check it before restarting."));
@@ -262,10 +197,9 @@ public final class Applier {
     // ---------------------------------------------------------------- the pack
 
     /**
-     * The proxy's {@code pack.yml}, written after its jars. The two values come from the release
-     * itself: the URL is the asset's own {@code github.com/.../releases/download/...} address, and
-     * the SHA-1 is the content of the {@code .sha1} asset beside the zip - never computed, never
-     * copied by a person.
+     * The proxy's {@code pack.yml}, written after its jars. Both values come from the release: the
+     * asset's own download URL and the content of the {@code .sha1} asset beside the zip - never
+     * computed here, never copied by a person.
      */
     private List<ApplyResult.Outcome> applyPack(final Path root, final String service,
                                                  final List<Change> changes) {
@@ -277,10 +211,8 @@ public final class Applier {
             return List.of();
         }
 
-        // "Could not be checked" is not "unchanged", and the difference is the whole of finding 26
-        // applied to this row: pack.yml keeps whatever it already said, so the client keeps being
-        // sent the previous pack - which is the wanted fallback, because a resource pack is not
-        // optional for this network. It has to READ as a fallback rather than as a no-op.
+        // "Could not be checked" is not "unchanged": pack.yml keeps what it said, so the client is
+        // still sent the previous pack. That has to read as a fallback, not as a no-op.
         if (pack.status().isFailure()) {
             return List.of(new ApplyResult.Outcome(service, Topology.RESOURCE_PACK,
                     ApplyResult.Status.SKIPPED,
@@ -319,21 +251,9 @@ public final class Applier {
     // ---------------------------------------------------------------- helpers
 
     /**
-     * Server jars live in the entrypoint's cache, the bot and the updater are the volume's whole
-     * contents, and everything else is a plugin.
-     *
-     * <p><b>The updater deleting its own superseded jar while running from it is safe, and only on
-     * Linux.</b> Unlinking an open file leaves the inode alive for whoever holds it, so the JVM
-     * keeps reading classes out of a jar that no longer has a name. On Windows the delete would
-     * fail outright. This only ever runs in a container, so the trade is one comment rather than a
-     * special case - but it is a real dependency and it is written down.</p>
-     */
-    /**
-     * The staging directory for one destination, created on first use and emptied first.
-     * <p>
-     * Emptying matters: a previous run that died between phase one and phase two leaves files
-     * here, and re-using them would install a jar nobody verified in this run.
-     * </p>
+     * The staging directory for one destination, created on first use and emptied first: a run that
+     * died between the two phases leaves files here, and re-using them would install a jar nobody
+     * verified in this run.
      */
     private static Path stagingFor(final Map<Path, Path> known, final Path destination)
             throws IOException {
@@ -361,6 +281,8 @@ public final class Applier {
         return Topology.PAPER.equals(artifact) || Topology.VELOCITY.equals(artifact);
     }
 
+    // The updater deleting its own superseded jar while running from it is safe only because Linux
+    // keeps an unlinked inode alive for whoever holds it open; on Windows the delete would fail.
     private static List<String> removeSuperseded(final Path directory, final String installed)
             throws IOException {
         final List<String> removed = new ArrayList<>();
@@ -405,8 +327,7 @@ public final class Applier {
         try {
             deleteRecursively(directory);
         } catch (final IOException leftBehind) {
-            // A staging directory nobody will read is worth a line and not a failure: the jars are
-            // already where they belong, and the next run empties it before using it again.
+            // Not a failure: the jars are in place and the next run empties this before using it.
             log.warn("Could not clean up {}: {}", directory, leftBehind.getMessage());
         }
     }

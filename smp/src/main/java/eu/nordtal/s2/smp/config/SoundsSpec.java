@@ -8,30 +8,21 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 /**
  * {@code sounds.yml} - what each feedback category sounds like.
  *
- * <h2>Why this is a file of its own and not a block in {@code config.yml}</h2>
- * Because it is the one config in this module an operator is expected to iterate on <b>by ear</b>,
- * with players online. That is the same argument {@code milestones.yml} is separate for, and
- * {@link Configs} states it: a reload has to be able to re-read this without also re-reading a duel
- * loadout, a world name or a database password - none of which the plugin would notice changing,
- * because it binds them once at enable.
- *
- * <p>It started as a block inside {@code config.yml} on 2026-09-04 and was moved out the same day,
- * before anything was deployed. The reason it had to move is the escape hatch below: "blank the key
- * to silence a category" is worth very little if using it costs a restart of the season, and
+ * <p>A file of its own rather than a block in {@code config.yml} because it is the one config an
+ * operator iterates on <b>by ear</b>, with players online: {@code /smp reload} re-reads it, while
  * {@code config.yml} is deliberately not reloadable.
  *
- * <p>Nine categories, ten entries - open and close are the two halves of one. A call site in the
- * plugin picks a category and nothing else; {@code SoundVocabularyTest} in {@code :common} fails the
- * build if one ever names a sound. docs/presentation.md section 4 is the concept.
+ * <p>Nine categories, ten entries - open and close are the two halves of one. A call site picks a
+ * category and nothing else; {@code SoundVocabularyTest} in {@code :common} fails the build if one
+ * ever names a sound directly.
  */
 @ConfigSpec(header = {
         "smp - sounds",
         "",
         "What each feedback category sounds like. Nine categories, ten entries - open and close are",
         "the two halves of one - and a call site in the plugin can pick a category and nothing else.",
-        "That is a structural rule and not a matter of discipline: a codebase where every call site",
-        "names its own sound drifts into nine different chimes for the same kind of event.",
-        "docs/presentation.md section 4 is the concept.",
+        "That is a structural rule: a codebase where every call site names its own sound drifts",
+        "into nine different chimes for the same kind of event.",
         "",
         "A KEY IS A NAMESPACED REGISTRY KEY, NOT A BUKKIT CONSTANT: minecraft:ui.button.click, never",
         "UI_BUTTON_CLICK. The constant names change between Minecraft versions and the registry keys",
@@ -50,8 +41,8 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
         "Volume 1.0 is the sound's own level - above 1 does not get louder, it widens the radius",
         "other players hear it from. Pitch is playback speed and the client clamps it to 0.5 - 2.0.",
         "",
-        "Every key below was resolved against Bukkit's own sound list as compiled for Paper 26.2",
-        "build 121 on 2026-09-04, and SoundDefaultsTest keeps doing so on every build."
+        "SoundDefaultsTest resolves every key below against Bukkit's own sound list on every",
+        "build."
 })
 public interface SoundsSpec {
 
@@ -99,11 +90,8 @@ public interface SoundsSpec {
     @Comment({
             "A staged moment - today only the season's opening on a player's first join.",
             "",
-            "SHIPS EMPTY, deliberately (owner, 2026-09-09). Every other key here names a vanilla",
-            "sound because a vanilla sound is what that category is; a staged moment's sound comes",
-            "into the resource pack with its artwork and does not exist yet. An empty key is",
-            "silence, which is what this is meant to be until then - so filling it in is one line",
-            "here and no release."
+            "SHIPS EMPTY, deliberately: a staged moment's sound arrives in the resource pack with",
+            "its artwork and does not exist yet. An empty key is silence until then."
     })
     default SoundSpec staging() { return DefaultSounds.STAGING; }
 
@@ -111,9 +99,8 @@ public interface SoundsSpec {
     @ConfigSpec
     interface SoundSpec {
 
-        // No @Comment: this interface is written out ten times over, and ten copies of the same
-        // sentence is what turns a config file into something nobody reads. The header above says
-        // what a key is and what an empty one does.
+        // No @Comment: this interface is written out ten times over, and the header above already
+        // says what a key is and what an empty one does.
         @Order(1) @Key("key")
         default String key() { return ""; }
 

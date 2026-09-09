@@ -21,17 +21,10 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * Slices a language-specific lobby image onto a grid of item-frame-mounted maps -
- * docs/hunger-games.md#the-lobby: "the plugin's job is only to slice a PNG onto a map grid and show
- * each player the image for their language; producing the image is design work, not code."
- * <p>
- * <b>The shipped {@code lobby/map-en.png} and {@code lobby/map-de.png} are dummy placeholders</b>
- * (2026-08-31 dummy-texture pass) - a flat 384x384 3x3 grid with gridlines and a language-accent
- * swatch, not the real hand-prepared aerial image, which is still a design task. {@link
- * #render(World)} still tolerates a missing file for a language that never gets one: logged once,
- * clearly, and skipped rather than failing {@code onEnable} - the whole reason this method never
- * throws for a missing resource.
- * </p>
+ * Slices a language-specific lobby image onto a grid of item-frame-mounted maps. The shipped
+ * {@code lobby/map-en.png} and {@code lobby/map-de.png} are placeholders; producing the real
+ * artwork is design work. A missing file is logged and skipped rather than failing
+ * {@code onEnable}, which is why {@link #render(World)} never throws for a missing resource.
  */
 public final class LobbyMaps {
 
@@ -63,8 +56,7 @@ public final class LobbyMaps {
         final BufferedImage image = loadImage(language);
         if (image == null) {
             LOGGER.warn("No lobby/map-{}.png found - the lobby map display for {} is unavailable "
-                    + "until the image is added. This is expected until the event world's artwork "
-                    + "ships; see this plugin's documentation.", language, language);
+                    + "until the image is added.", language, language);
             return;
         }
 

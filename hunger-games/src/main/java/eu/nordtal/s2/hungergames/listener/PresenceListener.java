@@ -26,9 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Wires {@link PlayerLocales} (join/quit, per docs/i18n.md) and the disconnected-body mechanism
- * (docs/hunger-games.md#disconnects): on quit mid-game, a body takes the player's place; on
- * reconnect, the body is removed and its gear (if it still has any) is returned.
+ * Wires {@link PlayerLocales} and the disconnected-body mechanism: on quit mid-game a body takes
+ * the player's place; on reconnect the body is removed and whatever gear it still has is returned.
  */
 public final class PresenceListener implements Listener {
 
@@ -65,12 +64,8 @@ public final class PresenceListener implements Listener {
     }
 
     /**
-     * Rewrites the tab list header and footer for everybody online.
-     *
-     * <p>For everybody, not just the player who moved: the footer carries the player count, so one
-     * join changes what every other player's screen should say. The composition itself is
-     * {@link TabList}, shared with limbo and the SMP - the tab list is the one surface a player
-     * carries unchanged across all three servers.</p>
+     * Rewrites the tab list header and footer for everybody online, not just the player who moved:
+     * the footer carries the player count.
      */
     private void refreshTabList() {
         for (final Player online : Bukkit.getOnlinePlayers()) {
@@ -87,13 +82,9 @@ public final class PresenceListener implements Listener {
         final Player player = event.getPlayer();
         operators.onJoin(player.getUniqueId(), admission.admits(player.getUniqueId()));
 
-        // Off the main thread, settled 2026-09-01. This used to be a blocking PlayerLocales#join
-        // right here, which on a healthy database is a millisecond and on a database that has
-        // stopped answering is the pool's whole connection timeout with the server stopped behind
-        // it - per join. Nothing renders from it synchronously: the HUD, the boss bar and every
-        // message go through PlayerLocales#of, which answers English until the real value lands and
-        // never queries. See limbo's PresenceListener for the same change on the login path, where
-        // the same freeze would take the network down rather than one backend.
+        // Off the main thread: a blocking lookup here costs the pool's whole connection timeout,
+        // per join, against a database that has stopped answering. Nothing renders from it
+        // synchronously - PlayerLocales#of answers English until the real value lands.
         locales.joinAsync(player.getUniqueId(), task -> plugin.getServer().getScheduler()
                         .runTaskAsynchronously(plugin, task))
                 .thenRun(() -> {
@@ -102,20 +93,17 @@ public final class PresenceListener implements Listener {
                         return;
                     }
                     // Only now: until the language lands, of() answers English, and a tab list
-                    // drawn here would be the English one for a German player until they relog.
+                    // drawn earlier would stay English for a German player until they relog.
                     Bukkit.getScheduler().runTask(plugin, () -> {
                         refreshTabList();
-                        // Asked again here, because everything above happened off the main thread:
-                        // a player who joined and left inside one database round trip would
-                        // otherwise be announced as having arrived, after they had gone. The tab
+                        // Asked again: a player who joined and left inside one database round trip
+                        // would otherwise be announced as arriving after they had gone. The tab
                         // list is refreshed either way - it is a fact about everybody else.
                         if (!player.isOnline()) {
                             return;
                         }
-                        // The join line, for the same reason and one moment later than a join
-                        // handler: it is the only message here with a single moment, so rendering
-                        // it before the language arrives tells the one German player in the arena,
-                        // in English, that they have arrived. See SystemLines#announceJoin.
+                        // The join line lands here rather than in the join handler: it is said
+                        // once, so rendering it before the language arrives says it in English.
                         lines.announceJoin(player);
                     });
                 });
@@ -142,12 +130,9 @@ public final class PresenceListener implements Listener {
         // counting here would tell everyone the number that was true a moment ago.
         Bukkit.getScheduler().runTask(plugin, this::refreshTabList);
 
-        // Only a disconnect once the game is actually RUNNING (state.isRunning() becomes true in
-        // HungerGamesManager#release, not at the start of the countdown) gets a body here. A
-        // disconnect during REGISTRATION/COUNTDOWN is instead handled by HungerGamesManager#start
-        // itself, which reads the roster and places a bare body for anyone not online at that exact
-        // moment - spawning a second body here for the same player during COUNTDOWN would double
-        // them up.
+        // Only a disconnect once the game is RUNNING gets a body here. During the countdown
+        // HungerGamesManager#start already places a bare body for anyone offline, and a second one
+        // from here would double them up.
         if (state.isRunning()) {
             LOGGER.info("Player {} disconnected mid-game - spawning a body to take their place", player.getName());
             bodies.spawn(player, player.getLocation());

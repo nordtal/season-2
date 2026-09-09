@@ -137,14 +137,10 @@ public final class NavigateCommand {
     /**
      * What can be typed here, and what each one is for.
      *
-     * <h2>Why this is duplicated from PaperCommands rather than shared</h2>
-     * {@code PaperCommands} gives every node of a {@link eu.nordtal.s2.commands.Declaration} tree
-     * this answer already, and until 2026-09-09 {@code /poi} had none - a bare {@code /poi} fell
-     * through to {@code UnknownCommandEvent} and told a player "That command does not exist" about
-     * a command that does. This is one of the two hand-built trees in the repository (see
-     * {@code SmpPlugin#registerCommands} for why they are hand-built), so it carries the answer
-     * itself. It uses the adapter's own four message keys, so the wording and the shape stay one
-     * decision and an operator's override reaches both.
+     * <p>{@code PaperCommands} supplies this answer for every {@link eu.nordtal.s2.commands.Declaration}
+     * tree, but this is one of the two trees built by hand, so it carries the answer itself. It uses
+     * the adapter's own four message keys, so the wording stays one decision and an operator's
+     * override reaches both.
      */
     private int poiHelp(final CommandContext<CommandSourceStack> context) {
         final NordtalUser user = user(context);

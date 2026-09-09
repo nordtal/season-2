@@ -7,30 +7,25 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * The whole answer to "what would a run do", and nothing more: <b>step 1 of docs/updater.md writes
- * nothing.</b>
+ * The whole answer to "what would a run do", and nothing more: resolving writes nothing.
  *
  * <p>Keeping the plan as a value, separate from anything that acts on it, is what makes the
- * dangerous half testable. Every trap in the sources - a {@code -sources.jar}, a pre-release, an
- * unmounted volume, a renamed asset - is a property of this object and is asserted against
- * recorded API responses, without a container, a network or a server.</p>
+ * dangerous half testable: every trap in the sources - a {@code -sources.jar}, a pre-release, an
+ * unmounted volume, a renamed asset - is a property of this object and is asserted against recorded
+ * API responses, without a container, a network or a server.</p>
  *
  * @param seasonTag        the release tag that was actually resolved. Printed even when nothing
  *                         changed, because "latest" resolving to last week's tag is what a
  *                         forgotten draft release looks like from in here.
  * @param seasonPrerelease true only when an operator pinned a pre-release by tag;
  *                         {@code /releases/latest} never returns one.
- * @param unclaimed        jars found in a {@code plugins/} folder that no row in this plan
- *                         accounts for. Never touched, always reported: an unclaimed jar is either
- *                         something installed by hand - which is fine and should be visible - or
- *                         the same plugin under a name that has changed, which is the one way this
- *                         module can end up installing a second copy of something.
- * @param notes            things the resolve worked out that belong to no single service and to no
- *                         single artefact - today, that the proxy is about to move to a Velocity
- *                         the plugin was not compiled against. They are <b>decided here</b> and
- *                         drawn by {@link PlanReport}, because "nothing is decided twice" is the
- *                         rule and a surface composing its own sentence about a version is a second
- *                         decision wearing a different hat.
+ * @param unclaimed        jars in a {@code plugins/} folder that no row accounts for. Never
+ *                         touched, always reported: an unclaimed jar is either installed by hand or
+ *                         the same plugin under a changed name, which is the one way this module
+ *                         can end up installing a second copy of something.
+ * @param notes            things the resolve worked out that belong to no single service or
+ *                         artefact. Decided here and only drawn by {@link PlanReport}, so that no
+ *                         surface composes a second opinion of its own.
  */
 public record UpdatePlan(@NotNull Instant resolvedAt,
                          @Nullable String seasonTag,
@@ -60,33 +55,18 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
      * The same plan reduced to what a bootstrap may install - {@link Change.Status#MISSING} - plus
      * every row that could not be resolved at all.
      *
-     * <p><b>Why MISSING and not {@code isWork()}.</b> {@code OUTDATED} is a version move, and this
-     * module's first rule is that a container coming back up comes back on exactly the jars it was
-     * running. Filtering here rather than in the caller is what makes that rule a property of the
-     * plan instead of a promise in a comment: a bootstrap literally cannot express "upgrade", so
-     * a crash restart at three in the morning has nothing to move. A volume that already has a jar
-     * for an artefact keeps it, however old it is; only an artefact with nothing installed at all
-     * is fetched.</p>
+     * <p>MISSING and not {@code isWork()}, because a container coming back up must come back on
+     * exactly the jars it was running: a bootstrap cannot express "upgrade", so a crash restart at
+     * three in the morning has nothing to move. Filtering here makes that a property of the plan
+     * rather than a promise in a caller.</p>
      *
-     * <p><b>Why the UNRESOLVED rows stay, since 2026-09-02.</b> They used to be dropped, and that
-     * turned a half-finished bootstrap into a report of unbroken success. On the first real
-     * deployment the GitHub releases API answered 403: eight artefacts went unresolved, the filter
-     * removed all eight before anything was rendered, and what was left was the six rows that had
-     * answered - closed with <em>"Everything asked for was done."</em> Not one season jar had been
-     * installed. Three servers were caught by the entrypoint's empty-plugins guard; {@code smp} was
-     * not, because PacketEvents and Chunky <em>had</em> resolved, so its folder was not empty and it
-     * came up with no season on it.
+     * <p>The unresolved rows stay. Dropping them turns a half-finished bootstrap into a report of
+     * unbroken success - an API outage would leave a service with no season jar on it and nothing
+     * saying so. Kept, the existing all-or-nothing rule empties that service's folder and the
+     * entrypoint's empty-plugins guard catches it.</p>
      *
-     * <p>Keeping the rows needs no new machinery, which is the point: {@code Applier.applyService}
-     * already skips a whole service when any row of it is a failure, so the same outage now leaves
-     * {@code smp}'s folder empty and the guard catches it, and {@code Report} already has the
-     * footer that says nothing was installed and not because everything was current. It is the
-     * module's own rule - <b>"skipped" is a third answer, not a quiet kind of "fine"</b> - applied
-     * to the one path that had lost it.</p>
-     *
-     * <p>{@code unclaimed} is carried over untouched. It describes files nobody claimed, an apply
-     * never acts on it, and a bootstrap dropping it would make the report it prints disagree with
-     * the one {@code updater apply} prints for the same volumes.</p>
+     * <p>{@code unclaimed} is carried over untouched, so a bootstrap's report agrees with an
+     * apply's for the same volumes.</p>
      */
     public @NotNull UpdatePlan onlyMissing() {
         final List<Change> keep = changes.stream()
@@ -97,11 +77,8 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
     }
 
     /**
-     * Whether anything here is actually absent - as opposed to merely unknown.
-     * <p>
-     * The distinction {@link #onlyMissing()} exists to preserve: a plan carrying nothing but
-     * UNRESOLVED rows has no work in it, and a bootstrap must not announce one.
-     * </p>
+     * Whether anything here is actually absent, as opposed to merely unknown: a plan carrying
+     * nothing but unresolved rows has no work in it, and a bootstrap must not announce one.
      */
     public boolean hasMissing() {
         return changes.stream().anyMatch(change -> change.status() == Change.Status.MISSING);

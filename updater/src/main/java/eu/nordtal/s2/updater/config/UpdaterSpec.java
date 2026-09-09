@@ -11,38 +11,21 @@ import java.util.List;
  * {@code config/updater.yml} - where every version comes from, and where the files it compares
  * against live.
  *
- * <h2>Everything here has a real default, and that is not this repository's habit</h2>
- * Every other config in season 2 leaves ids, tokens and URLs empty and refuses to start, because
- * a guessed id is somebody else's guild. This file is the opposite on purpose: the repositories
- * and the two Modrinth project ids are facts about <em>this</em> project, not about a deployment,
- * and an updater that cannot start until an operator retypes {@code nordtal/season-2} is an
- * updater that will be started with a typo in it.
+ * <p>Unlike the other configs in season 2, everything here has a real default: the repositories and
+ * the Modrinth project ids are facts about <em>this</em> project rather than about a deployment, and
+ * an updater that cannot start until somebody retypes {@code nordtal/season-2} is one that will be
+ * started with a typo in it. {@link #githubToken()} is the one optional value.</p>
  *
- * <p>The platform versions used to be here for the same reason and are not any more: a fact about
- * the project that <em>nothing</em> should be able to override does not belong in a file the
- * environment wins over. They are {@link eu.nordtal.s2.common.Platform} since 2026-09-09 - see the
- * comment where the four retired keys stood.</p>
+ * <p>Platform versions are deliberately <em>not</em> here: they live in
+ * {@link eu.nordtal.s2.common.Platform}, because a fact nothing should be able to override does not
+ * belong in a file the environment wins over.</p>
  *
- * <p>The one value that behaves the usual way is {@link #githubToken()}: empty, optional, and
- * only there for the rate limit.</p>
+ * <p>{@link #seasonRelease()} and {@link #displayTagsRelease()} take the word {@code latest} - which
+ * asks GitHub's {@code /releases/latest} and so skips drafts and pre-releases - or an exact tag,
+ * which is how a rollback is expressed and is always a person's decision.</p>
  *
- * <h2>What "latest" means, and why pinning is the rollback</h2>
- * {@link #seasonRelease()} and {@link #displayTagsRelease()} take either the word {@code latest}
- * or an exact tag. {@code latest} asks GitHub's {@code /releases/latest}, which by GitHub's own
- * definition skips drafts and pre-releases. An exact tag is how a run is turned into a rollback -
- * docs/updater.md#what-it-deliberately-does-not-do - and it is a person's decision, never this
- * module's.
- *
- * <h2>Every setting is overridable</h2>
- * The environment variable is the setting's path with {@code -} becoming {@code _}, under the
- * prefix {@code NORDTAL_UPDATER_}:
- *
- * <pre>
- *   season-release  -&gt;  NORDTAL_UPDATER_SEASON_RELEASE
- *   volumes-root    -&gt;  NORDTAL_UPDATER_VOLUMES_ROOT
- * </pre>
- *
- * The environment wins over the file and is never written back to it.
+ * <p>Every setting is overridable by {@code NORDTAL_UPDATER_<PATH>} with {@code -} becoming
+ * {@code _}; the environment wins over the file and is never written back to it.</p>
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",
@@ -145,23 +128,12 @@ public interface UpdaterSpec {
         return "fALzjamp";
     }
 
-    // minecraft-version, velocity-version, paper-build and velocity-build were here until
-    // 2026-09-09, and all four are retired rather than moved.
-    //
-    // THE TWO VERSIONS ARE eu.nordtal.s2.common.Platform NOW. A platform version is a property of
-    // the season, not of an installation: every plugin in the organisation is compiled against
-    // exactly one Paper API, and the resource pack's pack_format is chosen for the same version.
-    // An operator who typed a different number here was not configuring the updater, they were
-    // pointing the network at a Minecraft nothing in the repository was built for - and compose.yml
-    // fed both keys out of .env, so the environment won over the source tree in the one place where
-    // it must not. Platform.MINECRAFT is the exact Paper version and Platform.VELOCITY_FAMILY is
-    // Fill's name for Velocity's major, of which the newest release is installed.
-    //
-    // THE TWO BUILD PINS ARE GONE WITH NO REPLACEMENT, decided by the owner on 2026-09-09. What
-    // they bought was a way back out of a bad platform build, and what they cost was a rollback
-    // path nobody had ever exercised sitting in front of the one thing this module does every day.
-    // Do not reintroduce one, here or anywhere else: an undocumented emergency brake is worse than
-    // none, because the next person will believe the file rather than the code.
+    // There is deliberately no minecraft-version, velocity-version, paper-build or velocity-build
+    // key here. The two versions are eu.nordtal.s2.common.Platform: a platform version is a property
+    // of the season - every plugin is compiled against one Paper API and the pack_format matches it -
+    // so it must not be settable from an environment that wins over the source tree. The two build
+    // pins have no replacement on purpose; do not reintroduce one, because an emergency brake nobody
+    // has ever exercised is worse than none.
 
     @Order(7)
     @Key("voicechat-project")
@@ -207,24 +179,6 @@ public interface UpdaterSpec {
     default String coreProtectProject() {
         return "Lu3KuzdV";
     }
-
-    // minecraft-version, velocity-version, paper-build and velocity-build were here until
-    // 2026-09-09, and all four are retired rather than moved.
-    //
-    // THE TWO VERSIONS ARE eu.nordtal.s2.common.Platform NOW. A platform version is a property of
-    // the season, not of an installation: every plugin in the organisation is compiled against
-    // exactly one Paper API, and the resource pack's pack_format is chosen for the same version.
-    // An operator who typed a different number here was not configuring the updater, they were
-    // pointing the network at a Minecraft nothing in the repository was built for - and compose.yml
-    // fed both keys out of .env, so the environment won over the source tree in the one place where
-    // it must not. Platform.MINECRAFT is the exact Paper version and Platform.VELOCITY_FAMILY is
-    // Fill's name for Velocity's major, of which the newest release is installed.
-    //
-    // THE TWO BUILD PINS ARE GONE WITH NO REPLACEMENT, decided by the owner on 2026-09-09. What
-    // they bought was a way back out of a bad platform build, and what they cost was a rollback
-    // path nobody had ever exercised sitting in front of the one thing this module does every day.
-    // Do not reintroduce one, here or anywhere else: an undocumented emergency brake is worse than
-    // none, because the next person will believe the file rather than the code.
 
     @Order(9)
     @Key("volumes-root")

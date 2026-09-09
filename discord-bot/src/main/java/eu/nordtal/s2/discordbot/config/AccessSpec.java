@@ -10,18 +10,12 @@ import java.util.List;
 
 /**
  * {@code config/access.yml} - everything about the product, the guild and the poll loop.
- * <p>
- * <b>Nothing here is an enum.</b> Season 1 hard-coded four contribution tiers, their prices and
- * their role ids into {@code ContributionTier}, so a price change was a release. Prices, day
- * counts, role ids and channel ids all live in this file; the code only knows that there are
- * tiers, that a tier costs money and buys days, and that a donation is a surcharge.
- * </p>
- * <p>
- * <b>Every id defaults to empty and the bot refuses to start while one is.</b> The season 1 bot
- * shipped real channel and role ids as defaults, which meant a config the loader could not read
- * fell back to writing into somebody's production channel. An empty default cannot do that: the
- * bot stops with a message naming the setting.
- * </p>
+ *
+ * <p>Nothing here is an enum: prices, day counts, role ids and channel ids all live in this file,
+ * and the code only knows that a tier costs money and buys days.</p>
+ *
+ * <p>Every id defaults to empty and the bot refuses to start while one is - a real id as a default
+ * would mean an unreadable config falls back to writing into somebody's production channel.</p>
  *
  * @see Configs#access()
  */
@@ -84,8 +78,7 @@ public interface AccessSpec {
             "The optional surcharge that grants the permanent donor role, in cents.",
             "",
             "It is also how a payment larger than the order is read: money left over above the",
-            "ordered total is a donation once it reaches this amount, and is otherwise ignored.",
-            "See the settlement rule in docs/access-system.md."
+            "ordered total is a donation once it reaches this amount, and is otherwise ignored."
     })
     default int donationCents() {
         return 500;
@@ -138,11 +131,8 @@ public interface AccessSpec {
     @Comment("The bunq poll loop and the life cycle of a payment request.")
     PaymentSpec payment();
 
-    // There is deliberately no link-code-ttl-minutes here. It used to sit between `payment` and
-    // `expiry-reminder-lead-days` and nothing in this process ever read it - the sweep
-    // (ReconcileDao#deleteExpiredLinkCodes) compares `expires` to now(), and the proxy is the
-    // process that issues codes and therefore the only one that can act on a TTL at all.
-    // `network-control`'s gate.yml#link-code-ttl-minutes is the only one, decided 2026-08-31.
+    // There is deliberately no link-code-ttl-minutes here: the proxy issues the codes and is the
+    // only process that can act on a TTL. network-control's gate.yml owns the only one.
 
     @Order(8)
     @Key("expiry-reminder-lead-days")
@@ -172,16 +162,14 @@ public interface AccessSpec {
             "THIS IS HALF OF A SECURITY PROPERTY, NOT A COMFORT SETTING. A link code is four",
             "characters from a 31-symbol alphabet - 923 521 possibilities - and it is a bearer",
             "credential for taking over somebody's account link. Five guesses an hour turns the",
-            "space into decades; five hundred turns it into weeks. The code was shortened to four",
-            "characters ON CONDITION that this cap exists (see LinkCodes in :common), so raising",
-            "it far is not tuning, it is undoing the other half of a decision.",
+            "space into decades; five hundred turns it into weeks. The code is only four characters",
+            "BECAUSE this cap exists, so raising it far undoes the other half of that decision.",
             "",
-            "Raising it a little is fine and is why the key exists: a code lives ten minutes, so a",
-            "player who mistypes it repeatedly can reach five in one sitting, and the punishment",
-            "for that is an hour of waiting.",
+            "Raising it a little is why the key exists: a player who mistypes a code repeatedly can",
+            "reach five in one sitting, and the punishment is an hour of waiting.",
             "",
-            "The counter lives in the bot's memory and is lost on restart. Deliberate: it costs",
-            "nothing against a space this size, and nobody who is guessing can restart the bot."
+            "The counter lives in memory and is lost on restart - it costs nothing against a space",
+            "this size, and nobody who is guessing can restart the bot."
     })
     default int linkCodeAttemptsPerHour() {
         return 5;
@@ -191,13 +179,9 @@ public interface AccessSpec {
     void reload();
 
     /**
-     * One purchasable period: a number of days for a price.
-     * <p>
-     * A list of these rather than a fixed set of keys, because the owner has to be able to add a
-     * fourth tier without a release. jcore can carry a non-empty default for a list of nested
-     * specs - see {@link DefaultTiers} - so a fresh {@code access.yml} still ships with the agreed
-     * 3/5/7 EUR price list rather than an empty list nobody can buy from.
-     * </p>
+     * One purchasable period: a number of days for a price. A list rather than fixed keys, so a
+     * fourth tier is an edit and not a release; {@link DefaultTiers} keeps a fresh
+     * {@code access.yml} shipping a usable price list rather than an empty one.
      */
     @ConfigSpec
     interface TierSpec {
@@ -218,15 +202,9 @@ public interface AccessSpec {
     }
 
     /**
-     * One language: its tag, the onboarding role that chooses it, and the two channels that carry
-     * the managed messages in it.
-     * <p>
-     * A list of these rather than the fixed {@code roles.german} / {@code roles.english} pair and
-     * four fixed channel keys, because those made a third language a code change
-     * ({@code docs/i18n.md}). jcore can carry a non-empty default for a list of nested specs - see
-     * {@link DefaultLanguages} - so a fresh {@code access.yml} ships with {@code en} and {@code de}
-     * rather than with a list nobody can read a message out of.
-     * </p>
+     * One language: its tag, the onboarding role that chooses it, and the channels that carry the
+     * managed messages in it. A list rather than fixed per-language keys, so a third language is an
+     * edit and not a code change; {@link DefaultLanguages} ships {@code en} and {@code de}.
      */
     @ConfigSpec
     interface LanguageSpec {
@@ -272,8 +250,7 @@ public interface AccessSpec {
         @Comment({
                 "Carries the hunger games Register message in this language - a separate channel",
                 "from contribution-channel on purpose: registering for the start event and buying",
-                "paid access are different things, and access is not required to play",
-                "(docs/hunger-games.md)."
+                "paid access are different things, and access is not required to play."
         })
         default String hungerGamesChannel() {
             return "";
@@ -317,7 +294,7 @@ public interface AccessSpec {
                 "",
                 "The wording comes from the SERVER that had the moment (the SMP's own bundle, in",
                 "this language), not from the bot - the bot has no copy of the milestones and",
-                "must not need one. docs/state-of-play.md finding 52."
+                "must not need one."
         })
         default String announcementChannel() {
             return "";
@@ -348,9 +325,8 @@ public interface AccessSpec {
             return "";
         }
 
-        // There are deliberately no language roles here. `german` and `english` used to sit between
-        // `donor` and `admin`, and they made a third language a code change - the whole reason
-        // `languages` above is a list (docs/i18n.md). Each language carries its own role there.
+        // There are deliberately no language roles here - each language carries its own role on
+        // its `languages` entry, which is what keeps a third language out of the code.
 
         @Order(3)
         @Key("admin")
@@ -384,15 +360,9 @@ public interface AccessSpec {
     }
 
     /**
-     * Channel ids the bot writes to that are not per-language.
-     * <p>
-     * The four per-language channels - {@code contribution-en}, {@code contribution-de},
-     * {@code link-en} and {@code link-de} - used to sit here. They are gone: each entry of
-     * {@link #languages()} carries its own {@code contribution-channel} and {@code link-channel},
-     * which is what makes a third language an edit to this file rather than a release
-     * ({@code docs/i18n.md}). The admin channel stays here because there is exactly one of it,
+     * Channel ids the bot writes to that are not per-language. The per-language ones live on the
+     * {@link #languages()} entries; the admin channel is here because there is exactly one of it,
      * whatever languages the guild speaks.
-     * </p>
      */
     @ConfigSpec
     interface ChannelsSpec {

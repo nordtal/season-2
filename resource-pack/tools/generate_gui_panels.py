@@ -426,6 +426,74 @@ def here_overlay():
     return TILE_WIDTH, TILE_HEIGHT, bytes(buf)
 
 
+# --- The objective card, and its progress bar ----------------------------------------
+#
+# The NPC menu (design O3) draws four cards on a six-row panel: a heading row, two rows of
+# two cards, and a share line. A card is 68 x 32 - four slot columns and TWO slot rows,
+# inset 2 - so it is the balloon's card at half the height, and it is drawn from the same
+# numbers for exactly that reason.
+#
+# WHY THE CARD IS A gui GLYPH AND EVERYTHING ON IT IS A ROW GLYPH. A card spans two chest
+# rows, so no single row font can carry it; it gets a code point per card row, at the
+# ascent that lands it there. What sits ON the card - the type icon, the name, the numbers -
+# all falls inside one row band or the other, so those are row glyphs and cost nothing per
+# card. The bar is the one thing in between: it lands in the four-pixel gap between two row
+# bands and therefore needs its own ascent as well.
+CARD_WIDTH = TILE_COLUMNS * ROW_PITCH - 2 * TILE_INSET      # 68
+CARD_HEIGHT = 2 * ROW_PITCH - 2 * TILE_INSET                # 32
+CARD_BAR_X = 3
+CARD_BAR_Y = 14
+CARD_BAR_WIDTH = CARD_WIDTH - 2 * CARD_BAR_X                # 62
+CARD_BAR_HEIGHT = 5
+
+# The fill is drawn one pixel inside the track on every side, which is what makes an empty
+# bar look like a track and a full one look full rather than merely dark.
+CARD_FILL_WIDTH = CARD_BAR_WIDTH - 2                        # 60
+CARD_FILL_HEIGHT = CARD_BAR_HEIGHT - 2                      # 3
+
+# Powers of two up to the widest that fits, so any fill 0..60 is at most four glyphs -
+# 60 is 32 + 16 + 8 + 4. The same trick the board frame's edges use.
+CARD_FILL_STEPS = (1, 2, 4, 8, 16, 32)
+
+CARD_FILL = (214, 214, 218, 255)
+CARD_LINE = (150, 150, 156, 255)
+CARD_LIGHT = (232, 232, 236, 255)
+CARD_TRACK = (46, 46, 52, 255)
+CARD_BAR_COLOUR = (82, 168, 84, 255)      # the same green the Nordtal card is
+CARD_DONE_VEIL = (82, 168, 84, 71)        # 0.28 alpha, the artifact's own
+
+
+def objective_card():
+    """One objective's plate: a pill the size of two slot rows with a bar track sunk into it."""
+    buf = blank(CARD_WIDTH, CARD_HEIGHT, CARD_FILL)
+    x1, y1 = CARD_WIDTH - 1, CARD_HEIGHT - 1
+    outline(buf, CARD_WIDTH, 0, 0, x1, y1, CARD_LINE)
+    rect(buf, CARD_WIDTH, 1, 1, x1 - 1, 1, CARD_LIGHT)
+    rect(buf, CARD_WIDTH, CARD_BAR_X, CARD_BAR_Y,
+         CARD_BAR_X + CARD_BAR_WIDTH - 1, CARD_BAR_Y + CARD_BAR_HEIGHT - 1, CARD_TRACK)
+    chamfer(buf, CARD_WIDTH, CARD_HEIGHT, 0, 0, x1, y1, TILE_CHAMFER, CARD_LINE)
+    return CARD_WIDTH, CARD_HEIGHT, bytes(buf)
+
+
+def objective_card_done():
+    """The green wash over a finished card.
+
+    A wash rather than a different card, for the reason every overlay in this pack exists:
+    "finished" is a state, and a state gets a glyph rather than doubling the number of
+    plates. It is laid over the bar too, on purpose - a finished objective's bar is full,
+    and tinting it says the whole card is settled rather than only its heading.
+    """
+    buf = blank(CARD_WIDTH, CARD_HEIGHT, CARD_DONE_VEIL)
+    chamfer(buf, CARD_WIDTH, CARD_HEIGHT, 0, 0, CARD_WIDTH - 1, CARD_HEIGHT - 1, TILE_CHAMFER,
+            (0, 0, 0, 0))
+    return CARD_WIDTH, CARD_HEIGHT, bytes(buf)
+
+
+def bar_fill(width):
+    """One power-of-two slice of a progress bar's fill: solid, three pixels tall."""
+    return width, CARD_FILL_HEIGHT, bytes(blank(width, CARD_FILL_HEIGHT, CARD_BAR_COLOUR))
+
+
 def assert_advance(path, expected_width):
     """A glyph advances by its rightmost drawn column + 2; the Java side assumes width + 1.
 
@@ -452,9 +520,14 @@ def main():
             write_png(path, width, height, data, REPO_ROOT)
             assert_advance(path, WIDTH)
 
-    for name, (width, height, data) in (("travel", travel_panel()),
-                                        ("travel_locked", locked_overlay()),
-                                        ("travel_here", here_overlay())):
+    surfaces = [("travel", travel_panel()),
+                ("travel_locked", locked_overlay()),
+                ("travel_here", here_overlay()),
+                ("objective_card", objective_card()),
+                ("objective_card_done", objective_card_done())]
+    surfaces += [(f"bar_fill_{step}", bar_fill(step)) for step in CARD_FILL_STEPS]
+
+    for name, (width, height, data) in surfaces:
         path = os.path.join(arguments.out, f"{name}.png")
         write_png(path, width, height, data, REPO_ROOT)
         assert_advance(path, width)

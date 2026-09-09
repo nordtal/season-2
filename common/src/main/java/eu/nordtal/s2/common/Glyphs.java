@@ -479,12 +479,75 @@ public final class Glyphs {
     /** The same square plate, greyed - a page button with no page on the other side of it. */
     public static final String GUI_ROW_BUTTON_SMALL_OFF = cp(0xFE104);
 
-    // Row icons - U+FE110..U+FE115, 8 x 8, drawn white so a component's colour can tint them.
+    /**
+     * The same 158 px plate in a darker grey: a <em>heading</em> row rather than an entry.
+     *
+     * <p>The objective menu's top row names the milestone the cards below belong to. Drawn in the
+     * entry grey it would read as a fifth thing to click, which is the one thing a heading must
+     * not do.
+     */
+    public static final String GUI_ROW_PILL_DARK = cp(0xFE105);
+
+    // Row icons - U+FE110..U+FE11A, 8 x 8, drawn white so a component's colour can tint them.
     public static final String GUI_ROW_ICON_SPAWN = cp(0xFE110);
     public static final String GUI_ROW_ICON_DEATH = cp(0xFE111);
     public static final String GUI_ROW_ICON_POI = cp(0xFE112);
     public static final String GUI_ROW_ICON_STOP = cp(0xFE113);
     public static final String GUI_ROW_ICON_PREV = cp(0xFE114);
     public static final String GUI_ROW_ICON_NEXT = cp(0xFE115);
-    // U+FE116..U+FE1FF is this block's room to grow.
+
+    // The objective card's four states. The icon IS the state on that card - a hand you can hand
+    // something to, a pickaxe that counts itself, a medal earned elsewhere, a tick when it is done -
+    // so these four are never drawn beside one another and one of them always is.
+    public static final String GUI_ROW_ICON_HAND_IN = cp(0xFE116);
+    public static final String GUI_ROW_ICON_STATISTIC = cp(0xFE117);
+    public static final String GUI_ROW_ICON_ADVANCEMENT = cp(0xFE118);
+    public static final String GUI_ROW_ICON_DONE = cp(0xFE119);
+
+    /** An experience orb - what the objective menu's share line is about. */
+    public static final String GUI_ROW_ICON_AURA = cp(0xFE11A);
+    // U+FE11B..U+FE1FF is this block's room to grow.
+
+    // === nordtal:gui, menu surfaces - U+FE200..U+FE2FF (2026-09-09) ===
+    //
+    // A menu whose art spans MORE THAN ONE chest row cannot be a row glyph: a row font's whole
+    // purpose is that it carries one ascent per layer per row, and a card two rows tall has no row.
+    // So these live in nordtal:gui with an ascent apiece, exactly as the balloon's overlays do -
+    // and, exactly as there, a picture that can land on two different rows is declared twice.
+    //
+    // The block is its own because U+FE060..U+FE07F was full. Nothing forced a NEW block - fonts
+    // allocate independently and U+FE090 was free in this one - but the numbers in this repository
+    // are kept globally distinct so that a code point read in a log or a screenshot names one thing,
+    // and U+FE080 is the system-line icons in minecraft:default.
+
+    /** The objective card, 68 x 32, on the upper of the two card rows (top y 37). */
+    public static final String GUI_CARD_TOP = cp(0xFE200);
+
+    /** The same card on the lower card row (top y 73). */
+    public static final String GUI_CARD_BOTTOM = cp(0xFE201);
+
+    /** The green wash over a finished card, upper row. */
+    public static final String GUI_CARD_DONE_TOP = cp(0xFE202);
+
+    /** The same wash, lower row. */
+    public static final String GUI_CARD_DONE_BOTTOM = cp(0xFE203);
+
+    /**
+     * The progress bar's fill, in powers of two, for the upper card row.
+     *
+     * <p>Indexed the way {@link #GUI_SPACE_MINUS_1} and friends are used: any fill from 0 to 60
+     * pixels is at most four of these laid side by side, because 60 is 32 + 16 + 8 + 4. The bar's
+     * <em>track</em> is baked into the card, so an empty bar costs nothing at all.
+     */
+    public static final String[] GUI_BAR_FILL_TOP = {
+            cp(0xFE210), cp(0xFE211), cp(0xFE212), cp(0xFE213), cp(0xFE214), cp(0xFE215),
+    };
+
+    /** The same six, for the lower card row. */
+    public static final String[] GUI_BAR_FILL_BOTTOM = {
+            cp(0xFE218), cp(0xFE219), cp(0xFE21A), cp(0xFE21B), cp(0xFE21C), cp(0xFE21D),
+    };
+
+    /** The widths {@link #GUI_BAR_FILL_TOP} draws, in the same order. */
+    public static final int[] GUI_BAR_FILL_WIDTHS = {1, 2, 4, 8, 16, 32};
 }

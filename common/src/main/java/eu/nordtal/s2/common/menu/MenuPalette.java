@@ -3,7 +3,7 @@ package eu.nordtal.s2.common.menu;
 import net.kyori.adventure.text.format.TextColor;
 
 /**
- * The four colours a menu paints text and pictograms in.
+ * The five colours a menu paints text and pictograms in.
  *
  * <h2>Why these are not the five in docs/presentation.md</h2>
  * That palette says what a <em>sentence</em> is - good, bad, warning, furniture, quoted - and it is
@@ -35,6 +35,16 @@ public final class MenuPalette {
 
     /** A control that is there but cannot be used - a page button with no page behind it. */
     public static final TextColor DISABLED = TextColor.color(0x8C8C90);
+
+    /**
+     * A progress bar written as text - {@code ProgressBar}'s {@code ████░░} on a light plate.
+     *
+     * <p>The one place a menu does paint a mood, and it is not really one: this is the same green
+     * the painted bar and the balloon's Nordtal card are, darkened until it reads on 178-grey.
+     * Without it the bar is drawn in {@link #INK} and its full and empty halves are told apart only
+     * by the shape of two characters, which at five pixels is nothing at all.</p>
+     */
+    public static final TextColor PROGRESS = TextColor.color(0x3C6A3E);
 
     private MenuPalette() {
     }

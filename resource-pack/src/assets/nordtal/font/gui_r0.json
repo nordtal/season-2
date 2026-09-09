@@ -1,0 +1,95 @@
+{
+    "providers": [
+        {
+            "type": "space",
+            "advances": {
+                " ": 3,
+                "\udbbc\udc01": -1,
+                "\udbbe\udc01": 1,
+                "\udbbc\udc02": -2,
+                "\udbbe\udc02": 2,
+                "\udbbc\udc04": -4,
+                "\udbbe\udc04": 4,
+                "\udbbc\udc08": -8,
+                "\udbbe\udc08": 8,
+                "\udbbc\udc16": -16,
+                "\udbbe\udc16": 16,
+                "\udbbc\udc32": -32,
+                "\udbbe\udc32": 32,
+                "\udbbc\udc64": -64,
+                "\udbbe\udc64": 64,
+                "\udbbc\udd28": -128,
+                "\udbbe\udd28": 128
+            }
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/row_pill.png",
+            "ascent": -6,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd00"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/row_frame.png",
+            "ascent": -6,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd01"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/row_button_wide.png",
+            "ascent": -6,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd02"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/row_button_small.png",
+            "ascent": -6,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd03"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/row_button_small_off.png",
+            "ascent": -6,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd04"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/row_icons.png",
+            "ascent": -9,
+            "height": 8,
+            "chars": [
+                "\udbb8\udd10\udbb8\udd11\udbb8\udd12\udbb8\udd13\udbb8\udd14\udbb8\udd15"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/row_text.png",
+            "ascent": -10,
+            "height": 5,
+            "chars": [
+                "ABCDEFGH",
+                "IJKLMNOP",
+                "QRSTUVWX",
+                "YZ012345",
+                "6789.,:/",
+                "-+%()!?'",
+                "\"\u00c4\u00d6\u00dc\u00df\u2219\u2588\u2591"
+            ]
+        }
+    ]
+}

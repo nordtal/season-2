@@ -130,8 +130,7 @@ PALETTE = {
     "highlight":  (242, 242, 242, 255),   # 1 px light line inside the edge, top and left
     "shade":      (128, 128, 132, 255),   # 1 px dark line inside the edge, bottom and right
     "ground":     (198, 198, 198, 255),   # the panel's own field
-    "title_bar":  (178, 178, 182, 255),   # the strip the title text sits on, a shade darker
-    "accent":     (176, 138, 74, 255),    # one line under the title bar, and nothing else
+    "hairline":   (150, 150, 156, 255),   # one line under the title, the pill's own edge colour
     "slot":       (58, 58, 64, 255),      # a slot recess, dark - the Origin Realms cue
     "slot_edge":  (150, 150, 156, 255),   # its lit bottom-right
 }
@@ -254,22 +253,38 @@ def player_inventory(buf, width, height):
         slot_recess(buf, width, SLOT_ORIGIN_X + column * ROW_PITCH, hotbar_y)
 
 
-def panel(rows):
-    """One chest panel, 176 x (114 + 18*rows)."""
+def panel(rows, recessed=True):
+    """One chest panel, 176 x (114 + 18*rows).
+
+    THE HEADER IS F4b (owner, 2026-09-08). Flat ground all the way to the frame, the readable
+    title floating on it exactly as it does on the balloon, and one hairline under it. What
+    was there until then - a darker title strip inset by one pixel and a gold accent line
+    under that - is what made the header read as *floating*: the strip left a one-pixel
+    margin of ground between itself and the window's light edge on every side. The balloon
+    never had either, so the pack shipped two header styles at once and nothing said which
+    was the intended one.
+
+    `recessed=False` is the same panel without the container's own slot recesses. A list
+    menu draws a pill across a whole row and its own recesses would show above, below and
+    beside every pill; the player's three rows and the hotbar keep theirs, because those
+    slots are real slots holding real items whatever the menu is.
+    """
     height = HEIGHT_BASE + ROW_PITCH * rows
     buf = blank(WIDTH, height, PALETTE["ground"])
     frame(buf, WIDTH, height)
 
-    # The title strip, and the one accent line in the whole panel under it.
-    rect(buf, WIDTH, 3, 3, WIDTH - 4, TITLE_BAR_HEIGHT - 2, PALETTE["title_bar"])
-    rect(buf, WIDTH, 3, TITLE_BAR_HEIGHT - 1, WIDTH - 4, TITLE_BAR_HEIGHT - 1,
-         PALETTE["accent"])
+    # The hairline: the same 150-grey a pill and a recess have as their lit edge, so it adds
+    # no colour to the palette. It stops one pixel short of the frame on both sides, at the
+    # x the container's own slot area starts and ends.
+    rect(buf, WIDTH, SLOT_ORIGIN_X, TITLE_BAR_HEIGHT - 1,
+         WIDTH - SLOT_ORIGIN_X - 1, TITLE_BAR_HEIGHT - 1, PALETTE["hairline"])
 
-    for row in range(rows):
-        for column in range(SLOT_COLUMNS):
-            slot_recess(buf, WIDTH,
-                        SLOT_ORIGIN_X + column * ROW_PITCH,
-                        SLOT_ORIGIN_Y + row * ROW_PITCH)
+    if recessed:
+        for row in range(rows):
+            for column in range(SLOT_COLUMNS):
+                slot_recess(buf, WIDTH,
+                            SLOT_ORIGIN_X + column * ROW_PITCH,
+                            SLOT_ORIGIN_Y + row * ROW_PITCH)
     player_inventory(buf, WIDTH, height)
     return WIDTH, height, bytes(buf)
 
@@ -353,7 +368,11 @@ def tile(buf, width, x, y, colours, name):
 
 
 def travel_panel():
-    """The balloon's panel: a 6-row window with no title strip and four world cards."""
+    """The balloon's panel: a 6-row window with four world cards and no readable title.
+
+    No hairline either, and that is not an oversight: F4b's line separates a title from the
+    content under it, and this panel has no title at all.
+    """
     rows = 6
     height = HEIGHT_BASE + ROW_PITCH * rows
     buf = blank(WIDTH, height, PALETTE["ground"])
@@ -427,10 +446,11 @@ def main():
     arguments = parser.parse_args()
 
     for rows in range(1, 7):
-        width, height, data = panel(rows)
-        path = os.path.join(arguments.out, f"panel_{rows}.png")
-        write_png(path, width, height, data, REPO_ROOT)
-        assert_advance(path, WIDTH)
+        for suffix, recessed in (("", True), ("_plain", False)):
+            width, height, data = panel(rows, recessed)
+            path = os.path.join(arguments.out, f"panel_{rows}{suffix}.png")
+            write_png(path, width, height, data, REPO_ROOT)
+            assert_advance(path, WIDTH)
 
     for name, (width, height, data) in (("travel", travel_panel()),
                                         ("travel_locked", locked_overlay()),

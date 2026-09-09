@@ -3,14 +3,22 @@
         {
             "type": "space",
             "advances": {
-                "\uDBBC\uDC01": -1,
-                "\uDBBC\uDC02": -2,
-                "\uDBBC\uDC04": -4,
-                "\uDBBC\uDC08": -8,
-                "\uDBBC\uDC16": -16,
-                "\uDBBC\uDC32": -32,
-                "\uDBBC\uDC64": -64,
-                "\uDBBC\uDD28": -128
+                "\udbbc\udc01": -1,
+                "\udbbe\udc01": 1,
+                "\udbbc\udc02": -2,
+                "\udbbe\udc02": 2,
+                "\udbbc\udc04": -4,
+                "\udbbe\udc04": 4,
+                "\udbbc\udc08": -8,
+                "\udbbe\udc08": 8,
+                "\udbbc\udc16": -16,
+                "\udbbe\udc16": 16,
+                "\udbbc\udc32": -32,
+                "\udbbe\udc32": 32,
+                "\udbbc\udc64": -64,
+                "\udbbe\udc64": 64,
+                "\udbbc\udd28": -128,
+                "\udbbe\udd28": 128
             }
         },
         {
@@ -19,7 +27,7 @@
             "ascent": 13,
             "height": 132,
             "chars": [
-                "\uDBB8\uDC60"
+                "\udbb8\udc60"
             ]
         },
         {
@@ -28,7 +36,7 @@
             "ascent": 13,
             "height": 150,
             "chars": [
-                "\uDBB8\uDC61"
+                "\udbb8\udc61"
             ]
         },
         {
@@ -37,7 +45,7 @@
             "ascent": 13,
             "height": 168,
             "chars": [
-                "\uDBB8\uDC62"
+                "\udbb8\udc62"
             ]
         },
         {
@@ -46,7 +54,7 @@
             "ascent": 13,
             "height": 186,
             "chars": [
-                "\uDBB8\uDC63"
+                "\udbb8\udc63"
             ]
         },
         {
@@ -55,7 +63,7 @@
             "ascent": 13,
             "height": 204,
             "chars": [
-                "\uDBB8\uDC64"
+                "\udbb8\udc64"
             ]
         },
         {
@@ -64,7 +72,61 @@
             "ascent": 13,
             "height": 222,
             "chars": [
-                "\uDBB8\uDC65"
+                "\udbb8\udc65"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_1_plain.png",
+            "ascent": 13,
+            "height": 132,
+            "chars": [
+                "\udbb8\udc6b"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_2_plain.png",
+            "ascent": 13,
+            "height": 150,
+            "chars": [
+                "\udbb8\udc6c"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_3_plain.png",
+            "ascent": 13,
+            "height": 168,
+            "chars": [
+                "\udbb8\udc6d"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_4_plain.png",
+            "ascent": 13,
+            "height": 186,
+            "chars": [
+                "\udbb8\udc6e"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_5_plain.png",
+            "ascent": 13,
+            "height": 204,
+            "chars": [
+                "\udbb8\udc6f"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/panel_6_plain.png",
+            "ascent": 13,
+            "height": 222,
+            "chars": [
+                "\udbb8\udc70"
             ]
         },
         {
@@ -73,7 +135,7 @@
             "ascent": 13,
             "height": 222,
             "chars": [
-                "\uDBB8\uDC66"
+                "\udbb8\udc66"
             ]
         },
         {
@@ -82,7 +144,7 @@
             "ascent": -6,
             "height": 50,
             "chars": [
-                "\uDBB8\uDC67"
+                "\udbb8\udc67"
             ]
         },
         {
@@ -91,7 +153,7 @@
             "ascent": -60,
             "height": 50,
             "chars": [
-                "\uDBB8\uDC68"
+                "\udbb8\udc68"
             ]
         },
         {
@@ -100,7 +162,7 @@
             "ascent": -6,
             "height": 50,
             "chars": [
-                "\uDBB8\uDC69"
+                "\udbb8\udc69"
             ]
         },
         {
@@ -109,7 +171,7 @@
             "ascent": -60,
             "height": 50,
             "chars": [
-                "\uDBB8\uDC6A"
+                "\udbb8\udc6a"
             ]
         }
     ]

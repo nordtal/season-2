@@ -86,10 +86,16 @@ CP_BUTTON_WIDE = 0xFE102
 CP_BUTTON_SMALL = 0xFE103
 CP_BUTTON_SMALL_OFF = 0xFE104
 CP_PILL_DARK = 0xFE105
+CP_BUTTON_CONFIRM = 0xFE106
 CP_ICONS = 0xFE110          # the icon sheet's first cell; the rest follow in order
 
 BUTTON_WIDE_WIDTH = 52
 BUTTON_SMALL_WIDTH = 14
+# Three slot cells inset 2, the width the hand-in screen's one button gets. It is 50 and not
+# 52 because it starts on a cell boundary and BUTTON_WIDE starts on one too - the two are
+# the same three cells, and the difference is that the wide one is drawn from x(0) and
+# eats its own inset on the left only.
+BUTTON_CONFIRM_WIDTH = 3 * ROW_PITCH - 2 * INSET
 
 # --- The palette. Everything here is the panel's own, plus the three button styles. ---
 #
@@ -110,6 +116,10 @@ BUTTONS = {
     "wide": ((176, 74, 66, 255), (222, 130, 120, 255), (110, 40, 34, 255), (70, 20, 16, 255)),
     "small": ((172, 172, 178, 255), (206, 207, 212, 255), (118, 118, 124, 255), (60, 60, 66, 255)),
     "small_off": ((188, 188, 192, 255), (204, 205, 208, 255), (160, 160, 164, 255), (140, 140, 144, 255)),
+    # The one affirming plate in the pack: gold, the brand's own. It is the ONLY button in
+    # any of these menus that makes something happen that cannot be undone by clicking again,
+    # which is why it does not share the neutral grey every other control has.
+    "primary": ((176, 138, 74, 255), (222, 192, 120, 255), (120, 90, 40, 255), (70, 50, 26, 255)),
 }
 
 CHAMFER = (1,)              # one pixel off each corner, the size a 14 px tall tile can carry
@@ -355,6 +365,7 @@ PLATES = (
     (CP_BUTTON_SMALL_OFF, "row_button_small_off", BUTTON_SMALL_WIDTH,
      lambda w: button(w, "small_off")),
     (CP_PILL_DARK, "row_pill_dark", ROW_WIDTH, lambda w: pill(w, PILL_DARK_FILL)),
+    (CP_BUTTON_CONFIRM, "row_button_confirm", BUTTON_CONFIRM_WIDTH, lambda w: button(w, "primary")),
 )
 
 

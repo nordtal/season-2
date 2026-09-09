@@ -662,6 +662,27 @@ that looks like every other dump in the directory is the one the retention sweep
 restore picks. It runs as `postgres`, not root, and stops on SIGTERM instead of waiting out the
 grace period.
 
+### Voice chat: one UDP port, no file to edit
+
+Simple Voice Chat runs on `smp` and `hunger-games`, and the Velocity plugin on the proxy makes it
+**one** endpoint rather than one per backend. The firewall therefore needs **UDP 25565 in addition to
+TCP 25565**, and nothing else. Audio never travels over the Minecraft connection and never over the
+proxy's TCP port.
+
+The plugin detects each backend's address and port itself, so no `voicechat-server.properties` on any
+backend needs touching - the pair of ports 24454/24455 that an earlier design would have required
+never reached production. The one voice file an operator might ever open is
+`voicechat-proxy.properties` on the proxy, and only to set `voice_host` if the published port ever
+stops matching the one the plugin hears on inside the container.
+
+`PROXY_PORT` moves the Minecraft port only. While it is 25565 - the default - the voice mapping
+agrees with it either way; moving it is what would separate them.
+
+It is optional at every level: a player without the client mod notices nothing, and the jar is not in
+any `EXPECTED_PLUGINS`, so a Modrinth outage during a bootstrap costs voice chat rather than a
+server. On the proxy that is deliberate (owner, 2026-09-09): it is the one container whose refused
+start locks everybody out.
+
 ### The volume backup is a run, not a schedule
 
 **Arcane's own scheduler is not what takes the nightly snapshot, and its `Stop Containers` flag must

@@ -25,7 +25,7 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | module | main Java | tests | what actually runs |
 |---|---|---|---|
 | `smp` | 94 files, 13274 lines | 212 | Everything docs/smp.md describes. Rehearsed on the local stack 2026-09-05/06 with two real clients, which found findings 96 to 101; what is still unseen is the *world* - Nordtal, the arena, the spawn geometry - because it is in no repository |
-| `common` | 66 files, 7244 lines | 352 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, the notification listener, **the command request table**, V1-V11 |
+| `common` | 66 files, 7244 lines | 355 | Access API, messages, locales, phase, glyphs, the limbo protocol, readiness, the notification listener, **the command request table**, V1-V11 |
 | `network-control` | 40 files, 6177 lines | 195 | Login gate, phase, play time, routing, the pack station, **the Velocity command adapter** |
 | `discord-bot` | 51 files, 7846 lines | 145 | Access end to end, the admin mirror, the language list, hunger games registration, **every declared command as a slash command** |
 | `updater` | 38 files, 5179 lines | 151 | Resolve, report, apply, serve - and the schema every other process waits on |
@@ -35,9 +35,9 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `paper-common` | 5 files, 1221 lines | 5 | The operator adapter, the admin watcher, the Paper sender adapter and **the Paper command adapter** |
 | `resource-pack` | — | — | Four fonts, every code point allocated and drawn |
 
-1410 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-09,
+1430 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-09,
 on `release/0.7.1` after `/update` was folded onto every surface, the countdown rebuilt, the volume
-backup made a run and the bunq sandbox retired, PR #10),
+backup made a run, the bunq sandbox retired and voice chat installed, PR #10),
 across **nine** modules — `resource-pack` has no test source set of its own, and `paper-common`
 gained one on 2026-09-05 with the command adapter.
 
@@ -651,11 +651,24 @@ production host, so they are a checklist for the owner rather than a document, a
 | ~~**Operator actually covers what an admin needs**, including nodes belonging to third-party plugins nobody enumerated. Replaced `smp`'s six-node `PermissionAttachment` on 2026-09-04, and no test here can say anything about it: `AdminOperatorsTest` proves the *policy*, not that Paper's operator flag opens the doors we think it does~~ | **answered 2026-09-06/07 on `smp` and `hunger-games`** - `/difficulty`, a command in none of the six retired nodes, answers for the admin and is *Unknown or incomplete command* for a non-admin; the live revocation removes it within seconds on both. `limbo` is proven by its log line only, because since finding 141 a revoked admin is moved out of the waiting room in the same moment |
 | ~~**`ops.json` is empty after a restart on every Paper server.** The enable-time sweep is what makes an operator a property of the session rather than of the disk, and it is the half of this change that a crash can defeat~~ | **answered 2026-09-07 on `smp`** - a hand-`op`ed second entry and the admin both in the file, `docker compose restart smp`, `ops.json` is `[]` right after `Done`, and only the database admin comes back on reconnect. The same file on `limbo` and `hunger-games` is unseen but runs the identical code |
 | ~~**A second login in one client session leaves the waiting room.**~~ | **answered 2026-09-05, on the local stack with a real client** | It did not, and the reason was neither of the two guesses this row carried (a session outliving the disconnect, or the sweep not running): an admin's `STAY` at login was `velocity.toml`'s `try` list, which is the waiting room, and the release then pointed back at it. Finding 93. Three consecutive local joins now land on `smp` within eight seconds; the production check after 0.6.0 is in [`todo.md`](../../todo.md) |
-| ~~**Simple Voice Chat on 26.2**~~ | **answered 2026-09-08: a build exists** - `bukkit-2.6.23`, Modrinth, tagged 26.2 (2026-09-04). The owner chose to install it, optional for players with the mod; it becomes an updater artefact (`aufgaben.md` B14), and the Velocity half of it is the research question there |
+| ~~**Simple Voice Chat on 26.2**~~ | **answered 2026-09-08, and the Velocity half answered 2026-09-09.** `bukkit-2.6.23` is tagged 26.2; it is an updater artefact on `smp` and `hunger-games`. The proxy plugin is installed too, from an **alpha** - that project has published thirteen Velocity versions since 2022 and not one release, so `Modrinth.PRE_RELEASE_EXCEPTIONS` names this one artefact and nothing else. It buys one UDP port on the proxy instead of one per backend and no hand-edited file on any volume. All three jars are optional: none is in an `EXPECTED_PLUGINS`. **Nobody has heard audio through any of it** |
 | **Proxy-only pack enforcement**, which would make `limbo` unnecessary for packs | after the event, never on the critical path | Nothing changes — `limbo` stays, which is the current design. The one row that can only *save* work, which is why it is last |
 
 **When one of these is answered, move the row out of this table** and write what was actually
 observed, with the date. A *no* is a result, not a failure.
+
+**Three more since 2026-09-09, all about voice chat, and none of them can be answered from a JVM.**
+Audio has never travelled: no test here opens a UDP socket, so whether the Velocity alpha loads on
+Velocity 4.1.1 / Java 25 and whether a client with the mod actually hears anything is unknown.
+*If it does not work at all:* the three artefacts are optional and out of every guard, so nothing
+else is affected - remove them from `Topology` and the feature is simply absent. The second is the
+premise behind publishing a literal `25565:25565/udp` rather than `${PROXY_PORT}` - that the plugin
+advertises the port it hears on inside the container. The two readings are identical while
+`PROXY_PORT` is 25565, so this only matters the day that port moves; *if the premise is wrong:*
+`voice_host` in `voicechat-proxy.properties` names the public address and port by hand. The third is
+that both backends can keep the default 24454, because each container has its own network namespace
+- the wiki's warning about one port per instance is about a shared host stack. *If it is not:* give
+one of them a different internal port, which is the hand edit this design removed.
 
 ## 4. Recommendation
 

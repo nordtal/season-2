@@ -594,6 +594,37 @@ shape and not a palette. The slot grid in it was read off the extracted 26.2 `ge
 starts at **(7, 17)**, not at the (8, 18) every tutorial quotes, which is the item area inside it.
 **Re-measure at every version bump:** 1.21.9 moved the villager trading result slot by one pixel.
 
+### `\uFE200` – `\uFE2FF` — menu surfaces (2026-09-09)
+
+Art that spans **more than one chest row**, and therefore cannot be a row glyph: a row font's whole
+purpose is one ascent per layer per row, and a card two rows tall has no row. These live in
+`nordtal:gui` with an ascent apiece, exactly as the balloon's overlays do — and, exactly as there, a
+picture that can land on two different rows is **declared twice**, once per ascent.
+
+Nothing forced a *new* block: fonts allocate independently and `\uFE090` was free in this one. The
+numbers in this repository are kept globally distinct so that a code point read in a log or a
+screenshot names one thing, and `\uFE080` is the system-line icons in `minecraft:default`.
+
+| Char code | File | Ascent | Description | Status |
+|---|---|---|---|---|
+| `\uFE200` | ![source](src/assets/nordtal/textures/ui/gui/objective_card.png) | −24 | An objective card, 68 × 32 — four slot columns and two slot rows, inset 2, with the progress bar's **track** sunk into it at (3, 14). The balloon's card at half the height. Upper card row, top y 37 | generated — placeholder |
+| `\uFE201` | the same file | −60 | The same card on the lower card row, top y 73 | — |
+| `\uFE202` | ![source](src/assets/nordtal/textures/ui/gui/objective_card_done.png) | −24 | The green wash over a finished card. Laid over the bar too, on purpose: a finished objective's bar is full, and washing only its heading would say the card was half settled | generated — placeholder |
+| `\uFE203` | the same file | −60 | The same wash, lower card row | — |
+| `\uFE210` – `\uFE215` | `ui/gui/bar_fill_{1,2,4,8,16,32}.png` | −39 | The progress bar's **fill**, in powers of two, 3px tall. Upper card row | generated — placeholder |
+| `\uFE218` – `\uFE21D` | the same six files | −75 | The same six, lower card row | — |
+| `\uFE204` – `\uFE20F`, `\uFE216` – `\uFE217`, `\uFE21E` – `\uFE2FF` | — | | reserved for this block's growth | — |
+
+**The track is baked in and the fill is six glyphs**, so an empty bar costs nothing at all and any
+fill from 0 to 60 pixels is at most four glyphs — 60 is 32 + 16 + 8 + 4. That is the same
+power-of-two tiling `nordtal:board`'s edges use, and for the same reason: a glyph has one width, and
+a bar does not.
+
+The alternative the design artifact offers — a text bar out of `ProgressBar`'s `████░░` — costs no
+code points and is what the objective menu's **heading** row uses, where there is no room for a
+painted bar beside the milestone's name and its counter. Both are in the same window on purpose:
+the heading is a summary and the cards are the thing itself.
+
 ## `nordtal:gui_r0` – `nordtal:gui_r5`
 
 **Six copies of one font, one per chest row.** A glyph's only vertical control is its font's
@@ -660,7 +691,7 @@ after it wrong.
 know how wide a name is. **Re-run that tool after redrawing anything in these fonts** —
 `MenuFontTest` derives the table again from the pack and fails the build when the two disagree.
 
-### `\uFE100` – `\uFE104` — row plates
+### `\uFE100` – `\uFE105` — row plates
 
 | Char code | File | Size | Description | Status |
 |---|---|---|---|---|
@@ -669,11 +700,12 @@ know how wide a name is. **Re-run that tool after redrawing anything in these fo
 | `\uFE102` | ![source](src/assets/nordtal/textures/ui/gui/row_button_wide.png) | 52 × 14 | A refusing button plate, three slot cells wide — `/navigate`'s "stop" | generated — placeholder |
 | `\uFE103` | ![source](src/assets/nordtal/textures/ui/gui/row_button_small.png) | 14 × 14 | A square button plate, one slot cell inset 2 | generated — placeholder |
 | `\uFE104` | ![source](src/assets/nordtal/textures/ui/gui/row_button_small_off.png) | 14 × 14 | The same, greyed — a page button with no page on the other side of it | generated — placeholder |
-| `\uFE105` – `\uFE10F` | — | | reserved | — |
+| `\uFE105` | ![source](src/assets/nordtal/textures/ui/gui/row_pill_dark.png) | 158 × 14 | The same plate in a darker grey — a **heading** row rather than an entry. The objective menu's top row names the milestone the cards below belong to, and drawn in the entry grey it reads as a fifth thing to click | generated — placeholder |
+| `\uFE106` – `\uFE10F` | — | | reserved | — |
 
-### `\uFE110` – `\uFE115` — row icons
+### `\uFE110` – `\uFE11A` — row icons
 
-One 48 × 8 sheet, `ui/gui/row_icons.png`, six cells. **Drawn white and tinted by the component**,
+One 88 × 8 sheet, `ui/gui/row_icons.png`, eleven cells. **Drawn white and tinted by the component**,
 the same rule the system-line icons follow: the client multiplies a glyph by its component's
 colour, so white art can be painted any colour and dark art cannot be painted lighter.
 
@@ -685,7 +717,15 @@ colour, so white art can be painted any colour and dark art cannot be painted li
 | `\uFE113` | 3 | A cross — stop | generated — placeholder |
 | `\uFE114` | 4 | A left arrow — the previous page | generated — placeholder |
 | `\uFE115` | 5 | A right arrow — the next page | generated — placeholder |
-| `\uFE116` – `\uFE1FF` | — | reserved for this block's growth | — |
+| `\uFE116` | 6 | A hand — a `HAND_IN` objective, the one kind you can click | generated — placeholder |
+| `\uFE117` | 7 | A pickaxe — a `STATISTIC` objective, which counts itself | generated — placeholder |
+| `\uFE118` | 8 | A medal — an `ADVANCEMENT` objective, earned somewhere else entirely | generated — placeholder |
+| `\uFE119` | 9 | A tick — a finished objective, whichever kind it was | generated — placeholder |
+| `\uFE11A` | 10 | An experience orb — the objective menu's share line | generated — placeholder |
+| `\uFE11B` – `\uFE1FF` | — | reserved for this block's growth | — |
+
+The four at `\uFE116`–`\uFE119` are one set and never stand beside each other: the icon on an
+objective card **is** that objective's state, so exactly one of them is drawn per card.
 
 Drawn by [`tools/generate_gui_rows.py`](tools/generate_gui_rows.py), which also writes the six font
 files themselves — they are generated and checked in, like the PNGs, because six files of eight

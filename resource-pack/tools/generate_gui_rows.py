@@ -85,6 +85,7 @@ CP_FRAME = 0xFE101
 CP_BUTTON_WIDE = 0xFE102
 CP_BUTTON_SMALL = 0xFE103
 CP_BUTTON_SMALL_OFF = 0xFE104
+CP_PILL_DARK = 0xFE105
 CP_ICONS = 0xFE110          # the icon sheet's first cell; the rest follow in order
 
 BUTTON_WIDE_WIDTH = 52
@@ -96,6 +97,10 @@ BUTTON_SMALL_WIDTH = 14
 # four world cards do; docs/presentation.md's five-colour rule is about what a *sentence*
 # is painted, and none of these is a sentence.
 PILL_FILL = (214, 214, 218, 255)
+# A second, darker pill. It is a HEADING and not another entry: the objective menu's top row
+# names the milestone the four cards below belong to, and drawing it in the entry grey would
+# make it read as a fifth thing you can click. 178 is the artifact's own `titlebar`.
+PILL_DARK_FILL = (178, 178, 182, 255)
 PILL_LINE = (150, 150, 156, 255)
 PILL_LIGHT = (232, 232, 236, 255)
 HERE_FRAME = (255, 255, 255, 235)          # the same white travel_here uses
@@ -240,9 +245,25 @@ ICONS = {
              '..####..', '...###..', '....##..', '.....#..'),
     "next": ('..#.....', '..##....', '..###...', '..####..',
              '..####..', '..###...', '..##....', '..#.....'),
+    # The five below are the artifact's PICT table, verbatim, and they are the objective
+    # menu's whole state machine: the icon on a card IS what kind of objective it is and
+    # whether it is done. A hand you can hand something to, a pickaxe that counts itself,
+    # a medal earned somewhere else, a tick when it is finished.
+    "handin": ('...##...', '...##...', '.######.', '..####..',
+               '...##...', '........', '##....##', '########'),
+    "statistic": ('...#####', '..##...#', '.#.##...', '...##...',
+                  '..##....', '.##.....', '##......', '#.......'),
+    "advancement": ('.#....#.', '.##..##.', '..####..', '.######.',
+                    '##.##.##', '.######.', '..####..', '........'),
+    "done": ('.......#', '......##', '.....##.', '#...##..',
+             '##.##...', '.###....', '..#.....', '........'),
+    # An experience orb: what the share line is about, since a share is what pays aura.
+    "aura": ('..####..', '.##.####', '##...###', '##..####',
+             '########', '########', '.######.', '..####..'),
 }
 
-ICON_ORDER = ("spawn", "death", "poi", "stop", "prev", "next")
+ICON_ORDER = ("spawn", "death", "poi", "stop", "prev", "next",
+              "handin", "statistic", "advancement", "done", "aura")
 
 
 def text_sheet():
@@ -276,7 +297,7 @@ def icon_sheet():
     return width, height, bytes(buf)
 
 
-def pill(width):
+def pill(width, fill=PILL_FILL):
     """One list entry's plate: the panel's own pill, with transparent corners.
 
     The artifact paints the four chamfered corners in the panel's ground grey, because it
@@ -285,7 +306,7 @@ def pill(width):
     notch the day a pill lands on anything but flat ground.
     """
     height = FURNITURE_HEIGHT
-    buf = blank(width, height, PILL_FILL)
+    buf = blank(width, height, fill)
     outline(buf, width, 0, 0, width - 1, height - 1, PILL_LINE)
     rect(buf, width, 1, 1, width - 2, 1, PILL_LIGHT)
     chamfer(buf, width, height, 0, 0, width - 1, height - 1, CHAMFER, PILL_LINE)
@@ -320,6 +341,23 @@ def button(width, style):
     return width, height, bytes(buf)
 
 
+# Every row plate, once. Three places need this list - the font providers, the exported
+# advance table and the writer below - and until 2026-09-09 each carried its own copy; a
+# plate added to two of the three is a code point the client draws and the server cannot
+# measure, which lays out the whole row on the wrong width.
+#
+# `builder` takes the width and returns (width, height, pixels).
+PLATES = (
+    (CP_PILL, "row_pill", ROW_WIDTH, lambda w: pill(w)),
+    (CP_FRAME, "row_frame", ROW_WIDTH, lambda w: frame(w)),
+    (CP_BUTTON_WIDE, "row_button_wide", BUTTON_WIDE_WIDTH, lambda w: button(w, "wide")),
+    (CP_BUTTON_SMALL, "row_button_small", BUTTON_SMALL_WIDTH, lambda w: button(w, "small")),
+    (CP_BUTTON_SMALL_OFF, "row_button_small_off", BUTTON_SMALL_WIDTH,
+     lambda w: button(w, "small_off")),
+    (CP_PILL_DARK, "row_pill_dark", ROW_WIDTH, lambda w: pill(w, PILL_DARK_FILL)),
+)
+
+
 def assert_full_width(path, expected):
     """A glyph's advance is its rightmost drawn column plus two; the Java side assumes width + 1.
 
@@ -346,12 +384,7 @@ def font(row, out):
         advances[chr(shift_code_point(step, False))] = step
 
     providers = [{"type": "space", "advances": advances}]
-    for code_point, name, width in (
-            (CP_PILL, "row_pill", ROW_WIDTH),
-            (CP_FRAME, "row_frame", ROW_WIDTH),
-            (CP_BUTTON_WIDE, "row_button_wide", BUTTON_WIDE_WIDTH),
-            (CP_BUTTON_SMALL, "row_button_small", BUTTON_SMALL_WIDTH),
-            (CP_BUTTON_SMALL_OFF, "row_button_small_off", BUTTON_SMALL_WIDTH)):
+    for code_point, name, width, _ in PLATES:
         providers.append({
             "type": "bitmap",
             "file": f"nordtal:ui/gui/{name}.png",
@@ -406,12 +439,7 @@ def export_advances():
                                            ICON_SIZE, ICON_SIZE)
         table[CP_ICONS + index] = rightmost + 2
 
-    for code_point, name, plate in ((CP_PILL, "row_pill", ROW_WIDTH),
-                                    (CP_FRAME, "row_frame", ROW_WIDTH),
-                                    (CP_BUTTON_WIDE, "row_button_wide", BUTTON_WIDE_WIDTH),
-                                    (CP_BUTTON_SMALL, "row_button_small", BUTTON_SMALL_WIDTH),
-                                    (CP_BUTTON_SMALL_OFF, "row_button_small_off",
-                                     BUTTON_SMALL_WIDTH)):
+    for code_point, name, plate, _ in PLATES:
         table[code_point] = plate + 1
 
     for step in SHIFTS:
@@ -435,20 +463,13 @@ def main():
     parser.add_argument("--fonts", default=FONTS)
     arguments = parser.parse_args()
 
-    for name, (width, height, data) in (
-            ("row_text", text_sheet()),
-            ("row_icons", icon_sheet()),
-            ("row_pill", pill(ROW_WIDTH)),
-            ("row_frame", frame(ROW_WIDTH)),
-            ("row_button_wide", button(BUTTON_WIDE_WIDTH, "wide")),
-            ("row_button_small", button(BUTTON_SMALL_WIDTH, "small")),
-            ("row_button_small_off", button(BUTTON_SMALL_WIDTH, "small_off"))):
+    for name, (width, height, data) in (("row_text", text_sheet()),
+                                        ("row_icons", icon_sheet())):
         write_png(os.path.join(arguments.out, f"{name}.png"), width, height, data, REPO_ROOT)
 
-    for name, expected in (("row_pill", ROW_WIDTH), ("row_frame", ROW_WIDTH),
-                           ("row_button_wide", BUTTON_WIDE_WIDTH),
-                           ("row_button_small", BUTTON_SMALL_WIDTH),
-                           ("row_button_small_off", BUTTON_SMALL_WIDTH)):
+    for _, name, expected, builder in PLATES:
+        width, height, data = builder(expected)
+        write_png(os.path.join(arguments.out, f"{name}.png"), width, height, data, REPO_ROOT)
         assert_full_width(os.path.join(arguments.out, f"{name}.png"), expected)
 
     for row in range(ROWS):

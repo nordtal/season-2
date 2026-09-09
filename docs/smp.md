@@ -744,7 +744,7 @@ One composition, shown in full where there is room and trimmed where there is no
 | element | source |
 |---|---|
 | language flag | `discord_user.locale` ([i18n.md](i18n.md)) |
-| player name, uniform light grey | — |
+| player name, uniform light grey | — . **Confirmed 2026-09-09**: colouring the name by prestige was asked for and then struck by the owner. It would have needed thirteen colour values that exist nowhere, and `chatPrefix`, the tab list and the nametag share one component - so "only in chat" would have made the same name grey one line lower. The chat *message* went from `<white>` to `#d0d0d8` instead |
 | admin `A` | the admin flag, mirrored from the Discord admin role |
 | donor star | the permanent donor role from [access-system.md](access-system.md) |
 | aura, green when positive, red at zero or below | `smp_player.aura` |

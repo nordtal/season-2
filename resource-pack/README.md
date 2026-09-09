@@ -577,3 +577,17 @@ longer reads "Return to nordtal smp" from season 1, and now reads "Continue play
 language decides what they see** — a lang file is a static asset and cannot read `discord_user.locale`
 the way everything else does. It is confined to these three cosmetic pause-menu strings for exactly
 that reason; see [i18n.md](../docs/i18n.md#the-one-exception--the-resource-packs-lang-files).
+
+## A code point in a language file is a code point
+
+`minecraft/lang/*.json` may name a glyph - `menu.game` draws the logo instead of the word "Game
+Menu". That makes a language file a **fourth mirror** of the allocation table below, and it drifted
+out of line the moment the pack moved into the Supplementary Private Use Area-A on 2026-09-04: the
+logo went to `U+FE021`, `menu.game` kept `\uE021`, and for five days the one screen every player
+opens drew a missing-glyph box in both languages. It looks exactly like art nobody has drawn yet,
+which is why nobody reported it.
+
+`ResourcePackTest` holds the language files against `minecraft:default` now, and it **parses** them
+rather than reading them as text - a JSON file stores `\uE021` as an escape, so a text search for the
+character finds nothing and passes on the very file it was written for.
+

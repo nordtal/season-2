@@ -115,6 +115,25 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         }
 
         /**
+         * The same line with a sentence beside it, without touching the state.
+         *
+         * <p>Separate from {@link #failed(String)}, which sets both: a step that is going to take
+         * minutes and can end this process - pulling an image and recreating the container - has to
+         * be able to say what it is doing <em>before</em> it does it, and saying it through
+         * {@code failed} would publish a failure that has not happened.</p>
+         */
+        public ServiceLine withDetail(final String what) {
+            return new ServiceLine(service, state, changes, what);
+        }
+
+        /** The same line with one more change on it, keeping the order they were added in. */
+        public ServiceLine with(final Change change) {
+            final List<Change> combined = new ArrayList<>(changes);
+            combined.add(change);
+            return new ServiceLine(service, state, combined, detail);
+        }
+
+        /**
          * @return whether a run would stop this service and put a file into its volume - the one
          *         place that is decided. A line carrying only {@link Change.State#UNSUPPORTED} rows
          *         has something to say and nothing to do

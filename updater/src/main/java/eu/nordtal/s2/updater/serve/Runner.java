@@ -8,6 +8,8 @@ import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.updater.apply.ApplyResult;
 import eu.nordtal.s2.updater.arcane.Arcane;
+import eu.nordtal.s2.updater.arcane.ArcaneOps;
+import eu.nordtal.s2.updater.arcane.ImageResult;
 import eu.nordtal.s2.updater.config.UpdaterSpec;
 import eu.nordtal.s2.updater.arcane.RuntimeResult;
 import eu.nordtal.s2.updater.plan.PlanReport;
@@ -122,13 +124,92 @@ public final class Runner implements RequestRunner {
 
     private Outcome report() {
         final UpdatePlan plan = Runs.resolve(config);
-        final UpdateReport report = PlanReport.of(plan);
+        // The images too, or the two surfaces disagree: a report saying "nothing to do" followed by
+        // an update that stops four servers is the report being wrong, not the update.
+        final UpdateReport report = withImages(PlanReport.of(plan), arcane.images());
         // A plan full of rows that could not be checked is still a report, and the report says so
         // in the service lines. Marking the request FAILED would make "GitHub was briefly
         // unreachable" look like a broken updater.
         return Outcome.done(UpdateReports.toJson(report.withStage(report.isWork()
                 ? UpdateReport.Stage.PLANNED : UpdateReport.Stage.NOTHING_TO_DO)));
     }
+
+    // ---------------------------------------------------------------- images
+
+    /**
+     * Puts what Arcane says about the images into the plan, so that a stale image is work.
+     *
+     * <h2>Why it has to be in the plan and not in the starting step</h2>
+     * {@code isWork()} is what decides whether anybody is counted down and whether a server is
+     * stopped at all. A service whose jars are current and whose <em>image</em> is not would
+     * otherwise fall out at {@code NOTHING_TO_DO} - every run reporting the network current while
+     * {@code entrypoint.sh} and the JRE stayed on whatever was pulled at the last deploy, which is
+     * exactly the state this was written to end. Adding the row here also means the change is in
+     * the embed a person confirms, rather than appearing after they said yes to something else.
+     *
+     * <h2>What it will not claim</h2>
+     * <ul>
+     *   <li><b>The updater's own image.</b> The recreate would take this process down mid-run. It
+     *       is a note, and moving it needs a Redeploy in Arcane by hand - the one thing in this
+     *       deployment that still does.</li>
+     *   <li><b>A service this updater does not own.</b> {@code postgres} and the backup sidecar are
+     *       not in {@link Topology}, are never stopped by this sequence, and recreating one behind
+     *       a report that does not mention it would be the worst kind of surprise. They are named
+     *       in a note instead.</li>
+     *   <li><b>Anything Arcane has not actually checked.</b> {@link ImageResult} keeps "nobody has
+     *       looked" apart from "up to date", and only the first of those is ever silent here.</li>
+     * </ul>
+     */
+    private static UpdateReport withImages(final UpdateReport planned, final ImageResult images) {
+        UpdateReport report = planned;
+
+        final java.util.Optional<String> nothing = images.nothingChecked();
+        if (nothing.isPresent()) {
+            return report.withNote(nothing.get());
+        }
+
+        final List<String> foreign = new java.util.ArrayList<>();
+        for (final java.util.Map.Entry<String, ImageResult.State> entry : images.services().entrySet()) {
+            if (entry.getValue() != ImageResult.State.OUTDATED) {
+                continue;
+            }
+            final String service = entry.getKey();
+            if (Topology.UPDATER.equals(service)) {
+                report = report.withNote("The updater's own image is out of date. Nothing here can"
+                        + " renew it: the recreate would take this process down in the middle of"
+                        + " its own run. Click Redeploy on the project in Arcane when the network"
+                        + " is quiet - that is the one thing in this deployment which still needs a"
+                        + " hand.");
+                continue;
+            }
+            if (!RECREATABLE.contains(service)) {
+                foreign.add(service);
+                continue;
+            }
+            report = report.with(report.line(service)
+                    .with(new UpdateReport.Change("image", null, "newer image")));
+        }
+
+        if (!foreign.isEmpty()) {
+            report = report.withNote("Arcane reports a newer image for " + String.join(", ", foreign)
+                    + ", which this updater does not own and never stops. Renew "
+                    + (foreign.size() == 1 ? "it" : "them") + " with a Redeploy in Arcane.");
+        }
+        return report;
+    }
+
+    /**
+     * The services a run may pull an image for and recreate: everything it already stops, and
+     * nothing else.
+     *
+     * <p>The updater is absent for the reason {@link ArcaneOps#recreate} gives, and so is anything
+     * outside {@link Topology} - a sequence that recreates a container it never stopped and never
+     * mentioned is one nobody can predict from the report they confirmed.</p>
+     */
+    private static final java.util.Set<String> RECREATABLE = java.util.stream.Stream.concat(
+                    Topology.SERVICES.stream().map(Topology.Service::name),
+                    java.util.stream.Stream.of(Topology.DISCORD_BOT))
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     // ---------------------------------------------------------------- the update
 
@@ -169,9 +250,14 @@ public final class Runner implements RequestRunner {
                             + " ask again.")));
         }
 
+        // After the runtime check and before anything is resolved: an image update is a reason to
+        // take a server down, so it belongs in the plan a person confirms rather than in a step
+        // discovered halfway through a run that was counted down for something else.
+        final ImageResult images = arcane.images();
+
         try (RunLock held = lock.get()) {
             final UpdatePlan plan = Runs.resolve(config);
-            final UpdateReport planned = PlanReport.of(plan);
+            final UpdateReport planned = withImages(PlanReport.of(plan), images);
 
             if (!planned.isWork()) {
                 // A third answer, not a quiet kind of "fine": a run where nothing could be checked
@@ -249,7 +335,7 @@ public final class Runner implements RequestRunner {
             progress.accept(report);
 
             final UpdateReport started = run.start(
-                    new UpdateRun.Stopped(report, stopped.services(), runtime));
+                    new UpdateRun.Stopped(report, stopped.services(), runtime), images);
             final UpdateReport verified = run.verify(started, stopped.services(),
                     UpdateRun.Waiting.real());
 

@@ -25,6 +25,34 @@ public interface ArcaneOps {
     @NotNull RedeployResult start(@NotNull String containerId);
 
     /**
+     * Which services are running an image the registry has moved past.
+     *
+     * <p>Read before anything is stopped, because an image update is a reason to take a server
+     * down and therefore belongs in the plan a person confirms - not in a step discovered halfway
+     * through a run that was counted down for something else.</p>
+     */
+    @NotNull ImageResult images();
+
+    /**
+     * Pulls one service's image and recreates its container from it.
+     *
+     * <p><b>This is not {@link #start}.</b> A start hands a stopped container back to Docker on
+     * exactly the image it was created from, which is why an update of the jars alone never moves
+     * an image: {@code entrypoint.sh}, the JRE underneath it and every change to {@code compose.yml}
+     * stay on whatever was pulled at the last deploy. This asks Arcane for the one operation that
+     * changes that, scoped to one service.</p>
+     *
+     * <p><b>The updater must never ask this for itself.</b> The recreate takes the container down,
+     * and this sequence is running inside it - the same rule as {@link #stop}, for a sharper
+     * reason: a stop it survives because it never asks for one, and a recreate would end the run in
+     * the middle with the servers already down.</p>
+     *
+     * @param service the compose service name, not a container id - Arcane resolves it against the
+     *                project, and a container id here is a 404
+     */
+    @NotNull RedeployResult recreate(@NotNull String service);
+
+    /**
      * Asks Arcane to snapshot one volume, and answers with the backup's id.
      *
      * <p>Started is not saved: the POST answers 202 and the work happens on Arcane's side. What

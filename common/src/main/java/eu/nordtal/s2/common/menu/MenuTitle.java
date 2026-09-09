@@ -6,9 +6,9 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.ShadowColor;
+import net.kyori.adventure.text.format.TextColor;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -41,12 +41,20 @@ import java.util.List;
  * <h2>Overlays (2026-09-05)</h2>
  * A menu whose surface varies per player - the balloon, whose cards are locked or not - does not
  * get a panel per combination. It gets one panel and a small glyph per <em>state</em>, drawn on top
- * of the panel at the card's own x by a {@link Canvas}: after the panel the cursor sits at the
- * window's right edge, and every overlay is reached by walking left from wherever the cursor is,
- * so overlays are laid down right-to-left and the title walks back to its anchor at the end. The
- * vertical position is the glyph's own {@code ascent} in {@code gui.json}, which is why a state
- * that can land on two rows is declared twice. A fifth menu in this style is a panel, its overlays
- * and a slot map; nothing here changes.
+ * of the panel at the card's own x by a {@link Canvas}. The vertical position is the glyph's own
+ * {@code ascent} in {@code gui.json}, which is why a state that can land on two card rows is
+ * declared twice. A fifth menu in this style is a panel, its overlays and a slot map; nothing here
+ * changes.
+ *
+ * <h2>Rows, and the positive advance that made them possible (2026-09-09)</h2>
+ * A <em>list</em> menu draws the same furniture on any of the six chest rows, and a glyph's only
+ * vertical control is its font's {@code ascent} - so the row is carried by the font
+ * ({@link Glyphs#FONT_GUI_ROWS}) rather than by the code point, and a row is composed with
+ * {@link Canvas#rowArt} and {@link Canvas#rowText}. Until this change a canvas laid its overlays
+ * down <b>right to left</b>, because {@code nordtal:gui} carried negative advances and no positive
+ * ones; that is fine for four cards that never overlap and exactly wrong for a row, whose plate
+ * starts at the smallest x and has to be painted <em>under</em> the label on top of it. So the font
+ * gained {@code U+FF801..U+FF928}, and a canvas draws in the order things were added to it.
  *
  * <h2>Two things that are easy to get wrong</h2>
  * <b>The panel has to be white.</b> Vanilla draws an inventory title in hardcoded dark grey
@@ -76,6 +84,12 @@ public final class MenuTitle {
             Glyphs.GUI_SPACE_MINUS_128, Glyphs.GUI_SPACE_MINUS_64, Glyphs.GUI_SPACE_MINUS_32,
             Glyphs.GUI_SPACE_MINUS_16, Glyphs.GUI_SPACE_MINUS_8, Glyphs.GUI_SPACE_MINUS_4,
             Glyphs.GUI_SPACE_MINUS_2, Glyphs.GUI_SPACE_MINUS_1,
+    };
+
+    private static final String[] FORWARD_GLYPHS = {
+            Glyphs.GUI_SPACE_PLUS_128, Glyphs.GUI_SPACE_PLUS_64, Glyphs.GUI_SPACE_PLUS_32,
+            Glyphs.GUI_SPACE_PLUS_16, Glyphs.GUI_SPACE_PLUS_8, Glyphs.GUI_SPACE_PLUS_4,
+            Glyphs.GUI_SPACE_PLUS_2, Glyphs.GUI_SPACE_PLUS_1,
     };
 
     private MenuTitle() {
@@ -119,6 +133,26 @@ public final class MenuTitle {
     }
 
     /**
+     * The same, on the panel that has <b>no container slot recesses</b>.
+     *
+     * <p>For a menu that paints across whole rows - a list, where a pill runs the width of the
+     * window - because a recess under such a pill shows above it, below it and on both sides of it.
+     * The player's own three rows and the hotbar keep their recesses in both variants.
+     */
+    public static Component panelPlain(final int rows) {
+        return onPlain(rows).panel();
+    }
+
+    /** A canvas on the recess-free panel for {@code rows} rows. */
+    public static Canvas onPlain(final int rows) {
+        if (rows < 1 || rows > MAX_ROWS) {
+            throw new IllegalArgumentException(
+                    "a chest menu has 1 to " + MAX_ROWS + " rows, not " + rows);
+        }
+        return on(Glyphs.GUI_PANELS_PLAIN[rows - 1]);
+    }
+
+    /**
      * Starts a title on a full-window panel glyph - one of {@link Glyphs#GUI_PANELS}, or a menu's
      * own such as {@link Glyphs#GUI_TRAVEL_PANEL} - to which overlays can be added.
      *
@@ -151,19 +185,66 @@ public final class MenuTitle {
         return out.toString();
     }
 
-    /** One glyph drawn on top of the panel at a window x; its {@code ascent} in the font fixes y. */
-    private record Overlay(String glyph, int x, int width) {
+    /**
+     * The glyphs that move the cursor {@code pixels} to the <b>right</b>, largest advance first.
+     *
+     * <p>The mirror of {@link #shift(int)}, and it did not exist until 2026-09-09 because nothing
+     * in a menu title had ever moved right. A row does: its pill has to be drawn before the label
+     * on top of it, so a row is composed left to right and the cursor has to be able to come back
+     * out to the next row's start.
+     */
+    public static String forward(final int pixels) {
+        if (pixels < 0 || pixels > MAX_SHIFT) {
+            throw new IllegalArgumentException(
+                    "nordtal:gui carries advances for 1.." + MAX_SHIFT + " pixels, not " + pixels);
+        }
+        final StringBuilder out = new StringBuilder();
+        int left = pixels;
+        for (int index = 0; index < SHIFTS.length; index++) {
+            if (left >= SHIFTS[index]) {
+                out.append(FORWARD_GLYPHS[index]);
+                left -= SHIFTS[index];
+            }
+        }
+        return out.toString();
+    }
+
+    /** Moves the cursor by {@code pixels}, right when positive and left when negative. */
+    public static String move(final int pixels) {
+        return pixels < 0 ? shift(-pixels) : forward(pixels);
     }
 
     /**
-     * A panel with overlays, composed into one title.
+     * One thing drawn on top of the panel: art or text, at a window x, in a font of its own.
      *
-     * <p>Overlays are drawn right-to-left regardless of the order they were added in, because the
-     * font carries no positive advance: after the panel the cursor is at the window's right edge,
-     * and every overlay is reached by walking left. Two overlays at the same x - the two rows of
-     * the balloon's cards - are drawn one after the other, the second walking back over the first's
-     * advance. {@code MenuTitleTest} walks the result with the pack's own advances and asserts every
-     * overlay lands on the x it was given and the title lands back on its anchor.</p>
+     * @param x       the left edge in window pixels
+     * @param advance how far the cursor moves for the whole of {@code content}
+     * @param content the code points, already composed
+     * @param font    the font id to name, or null to inherit {@code nordtal:gui} from the panel
+     * @param colour  the colour to paint it, or null to inherit the panel's white
+     */
+    private record Overlay(int x, int advance, String content, String font, TextColor colour) {
+    }
+
+    /**
+     * A panel with things drawn on top of it, composed into one title.
+     *
+     * <h2>Draw order is insertion order</h2>
+     * Later wins, exactly as it does on any canvas: a pill added before its label is painted under
+     * that label. That is only possible because {@code nordtal:gui} and the six row fonts carry
+     * <em>positive</em> advances as well as negative ones since 2026-09-09. Until then the cursor
+     * could only ever walk left, so overlays were laid down right-to-left - which works for the
+     * balloon, whose four cards never overlap, and is exactly wrong for a row, whose plate starts
+     * at the smallest x and has to be drawn first.
+     *
+     * <h2>Fonts, and why a placement carries one</h2>
+     * A glyph's only vertical control is its font's {@code ascent}, so "on chest row 2" is a font
+     * and not a coordinate ({@link Glyphs#FONT_GUI_ROWS}). A placement that names no font inherits
+     * the panel's {@code nordtal:gui}, and one that names no colour inherits the panel's white -
+     * which is what a tinted white pictogram wants and what a line of readable text does not.
+     *
+     * <p>{@code MenuTitleTest} walks the composed result with the pack's own advances and asserts
+     * every placement lands on the x it was given and the surface ends back on the title anchor.</p>
      */
     public static final class Canvas {
 
@@ -182,32 +263,94 @@ public final class MenuTitle {
          * @param width the glyph's drawn width - its advance is one more
          */
         public Canvas overlay(final String glyph, final int x, final int width) {
-            if (x < 0 || width < 1 || x + width > PANEL_ADVANCE - 1) {
-                throw new IllegalArgumentException(
-                        "an overlay " + width + " wide at x = " + x + " does not fit a 176px window");
+            return place(x, width + 1, glyph, null, null);
+        }
+
+        /**
+         * Draws one row glyph - a pill, a frame, a button plate, a pictogram - on a chest row.
+         *
+         * <p>The row picks the font and the glyph picks the picture, which is the whole point of
+         * there being six row fonts; the advance comes from {@link MenuFont}, which reads it out of
+         * the same export the pack was generated with.</p>
+         *
+         * @param glyph  a {@code GUI_ROW_*} code point
+         * @param row    the chest row, 0 to {@code MAX_ROWS - 1}
+         * @param x      its left edge in window pixels
+         * @param colour null to leave it white, which is how the art is drawn
+         */
+        public Canvas rowArt(final String glyph, final int row, final int x, final TextColor colour) {
+            return place(x, MenuFont.advance(glyph.codePointAt(0)), glyph, rowFont(row), colour);
+        }
+
+        /**
+         * Draws readable text on a chest row, in the pack's five-pixel capitals.
+         *
+         * <p>The text is folded onto the sheet's alphabet by {@link MenuFont#fold(String)} first, so
+         * what is measured is what is drawn. A caller that needs it to fit somewhere should use
+         * {@link MenuFont#fit(String, int)} rather than passing the whole of a POI name and hoping.
+         *
+         * @param text   any string; folded to capitals here
+         * @param row    the chest row, 0 to {@code MAX_ROWS - 1}
+         * @param x      the text's left edge in window pixels
+         * @param colour what to paint it - never null, because the panel's white is unreadable on it
+         */
+        public Canvas rowText(final String text, final int row, final int x, final TextColor colour) {
+            final String folded = MenuFont.fold(text);
+            // Nothing to draw is not an error: a bundle key an operator has blanked, or a distance
+            // that does not apply, should leave the row alone rather than refuse the whole menu.
+            if (folded.isEmpty()) {
+                rowFont(row);
+                return this;
             }
-            overlays.add(new Overlay(glyph, x, width));
+            return place(x, MenuFont.width(folded), folded, rowFont(row), colour);
+        }
+
+        /** The same, with the text's <em>right</em> edge at {@code xRight}. */
+        public Canvas rowTextRight(final String text, final int row, final int xRight,
+                                   final TextColor colour) {
+            final String folded = MenuFont.fold(text);
+            return rowText(folded, row, xRight - MenuFont.width(folded), colour);
+        }
+
+        private static String rowFont(final int row) {
+            if (row < 0 || row >= MAX_ROWS) {
+                throw new IllegalArgumentException("there is no chest row " + row);
+            }
+            return Glyphs.FONT_GUI_ROWS[row];
+        }
+
+        private Canvas place(final int x, final int advance, final String content,
+                             final String font, final TextColor colour) {
+            if (x < 0 || advance < 1 || x + advance > PANEL_ADVANCE) {
+                throw new IllegalArgumentException("a placement advancing " + advance
+                        + " at x = " + x + " does not fit a 176px window");
+            }
+            overlays.add(new Overlay(x, advance, content, font, colour));
             return this;
         }
 
         /** The composed surface: panel and overlays, ending on the title anchor - no readable text. */
         public Component panel() {
-            final StringBuilder composed = new StringBuilder();
-            composed.append(shift(ANCHOR_X)).append(panelGlyph);
-            int cursor = PANEL_ADVANCE;
-
-            final List<Overlay> rightToLeft = new ArrayList<>(overlays);
-            rightToLeft.sort(Comparator.comparingInt(Overlay::x).reversed());
-            for (final Overlay overlay : rightToLeft) {
-                composed.append(shift(cursor - overlay.x())).append(overlay.glyph());
-                cursor = overlay.x() + overlay.width() + 1;
-            }
-            composed.append(shift(cursor - ANCHOR_X));
-
-            return Component.text(composed.toString())
+            Component surface = Component.text(shift(ANCHOR_X) + panelGlyph)
                     .font(Key.key(Glyphs.FONT_GUI))
                     .color(NamedTextColor.WHITE)
                     .shadowColor(ShadowColor.none());
+            int cursor = PANEL_ADVANCE;
+
+            for (final Overlay overlay : overlays) {
+                Component run = Component.text(move(overlay.x() - cursor) + overlay.content());
+                if (overlay.font() != null) {
+                    run = run.font(Key.key(overlay.font()));
+                }
+                if (overlay.colour() != null) {
+                    run = run.color(overlay.colour());
+                }
+                surface = surface.append(run);
+                cursor = overlay.x() + overlay.advance();
+            }
+            // The walk home names no font and no colour, so it inherits the panel's - which is why
+            // every row font carries the same eight advances nordtal:gui does.
+            return surface.append(Component.text(move(ANCHOR_X - cursor)));
         }
 
         /** The title to hand {@code Bukkit.createInventory}: the surface, then {@code title}. */

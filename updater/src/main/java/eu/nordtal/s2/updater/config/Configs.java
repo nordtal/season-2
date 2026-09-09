@@ -1,7 +1,5 @@
 package eu.nordtal.s2.updater.config;
 
-import eu.nordtal.s2.updater.source.PaperFill;
-
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
@@ -75,15 +73,16 @@ public final class Configs {
                     requireText("display-tags-release", config.displayTagsRelease());
                     requireModrinthId("packetevents-project", config.packetEventsProject());
                     requireModrinthId("chunky-project", config.chunkyProject());
-                    requireText("minecraft-version", config.minecraftVersion());
-                    requireText("velocity-version", config.velocityVersion());
-                    requireBuild("paper-build", config.paperBuild());
-                    requireBuild("velocity-build", config.velocityBuild());
+                    // minecraft-version, velocity-version, paper-build and velocity-build were
+                    // checked here until 2026-09-09. There is nothing left to check: the two
+                    // versions are constants in :common and the two build pins are retired. See
+                    // the comment in UpdaterSpec where they stood.
                     requireText("volumes-root", config.volumesRoot());
                     requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
                     requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
                     requirePositive("poll-interval-seconds", config.pollIntervalSeconds());
                     requireArcane(config.arcane());
+                    requireBackup(config.backup());
                 })
                 .load();
 
@@ -100,18 +99,25 @@ public final class Configs {
     // ------------------------------------------------------------------ validation helpers
 
     /**
-     * {@code latest} or a positive integer - the two things a Fill build pin can be. Anything else
-     * ({@code 'stable'}, {@code 'v121'}, {@code '121.jar'}) is refused here rather than turning
-     * into a 404 on the morning of an update.
+     * What a backup may and may not be pointed at.
+     *
+     * <h2>{@code postgres-data} is refused by name</h2>
+     * A snapshot of a live PGDATA is a torn one, and the way that surfaces is not an error here -
+     * it is a {@code pg_restore} that fails months later, on the one day somebody needs it. The
+     * pg_dump sidecar writes {@code postgres-dumps} for exactly this reason, and that is the volume
+     * that belongs in the list. Refusing the name outright rather than warning about it, because
+     * "the backup ran" is what a person will remember, not a line in a log they did not read.
      */
-    private static void requireBuild(final String key, final String value) {
-        requireText(key, value);
-        if (PaperFill.LATEST.equals(value)) {
-            return;
-        }
-        if (!value.matches("[1-9][0-9]*")) {
-            throw new IllegalArgumentException(key + " must be 'latest' or a build number such as 121,"
-                    + " not '" + value + "'");
+    private static void requireBackup(final UpdaterSpec.BackupSpec backup) {
+        requirePositive("backup.patience-minutes", backup.patienceMinutes());
+        for (final String volume : backup.volumes()) {
+            if (volume != null && volume.endsWith("postgres-data")) {
+                throw new IllegalArgumentException("backup.volumes lists '" + volume + "'. A"
+                        + " snapshot of a running PostgreSQL data directory is torn, and it fails"
+                        + " when somebody tries to RESTORE it rather than now - which is the worst"
+                        + " place for it to fail. The pg_dump sidecar writes postgres-dumps; list"
+                        + " that instead. See deploy/README.md#backups.");
+            }
         }
     }
 

@@ -58,14 +58,19 @@ class LocaleJoinWiringTest {
     }
 
     @Test
-    @DisplayName("the SMP's join line waits for the language it is about")
+    @DisplayName("the join line waits for the language it is about, on both servers that print one")
     void theJoinLineIsNotSentFromAJoinHandler() throws IOException {
         // The consequence of the rule above, and the one message it costs something. Every other
-        // surface on the SMP is redrawn on a timer and picks the language up by itself; the join
-        // line has exactly one moment, and at that moment the query is still in flight - so the
-        // German player on the local stack was told "hmtill joined." under a German HUD
-        // (finding 116). It is announced from the locale callback instead.
-        final String lines = read("smp/src/main/java/eu/nordtal/s2/smp/chat/SystemLines.java");
+        // surface is redrawn on a timer and picks the language up by itself; the join line has
+        // exactly one moment, and at that moment the query is still in flight - so the German
+        // player on the local stack was told "hmtill joined." under a German HUD (finding 116). It
+        // is announced from the locale callback instead.
+        //
+        // Both servers, since 2026-09-09: SystemLines moved into :paper-common and hunger-games
+        // gained the five lines it had never had (finding 149). A second caller is a second place
+        // that can announce one moment too early, and it is exactly the kind of thing a copy of an
+        // existing wiring gets wrong.
+        final String lines = read("paper-common/src/main/java/eu/nordtal/s2/papercommon/chat/SystemLines.java");
         final int join = lines.indexOf("public void onJoin(");
         assertTrue(join >= 0, "SystemLines has no onJoin");
         final String body = lines.substring(join, lines.indexOf("\n    }\n", join));
@@ -74,10 +79,21 @@ class LocaleJoinWiringTest {
                         + " the joining player's language is known");
         assertTrue(lines.contains("public void announceJoin("),
                 "SystemLines has no announceJoin for the callback to call");
-        assertTrue(read("smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java")
-                        .contains("lines.announceJoin("),
-                "nothing calls announceJoin, so the join line is never printed at all - which is"
-                        + " what makes this worth a test rather than a comment");
+
+        for (final String presence : List.of(
+                "smp/src/main/java/eu/nordtal/s2/smp/player/PresenceListener.java",
+                "hunger-games/src/main/java/eu/nordtal/s2/hungergames/listener/PresenceListener.java")) {
+            final String source = read(presence);
+            assertTrue(source.contains("lines.announceJoin("),
+                    presence + " never calls announceJoin, so that server prints no join line at"
+                            + " all - which is what makes this worth a test rather than a comment");
+            // Inside the locale callback, not in onJoin. Both files reach the callback through
+            // joinAsync, so "after it" in the file is the whole of what can be checked from here -
+            // and it is the ordering that was got wrong the first time.
+            assertTrue(source.indexOf("joinAsync(") < source.indexOf("lines.announceJoin("),
+                    presence + " announces the join line before joinAsync, which is the one moment"
+                            + " at which the joining player's own language is not known yet");
+        }
     }
 
     private static String read(final String relative) throws IOException {

@@ -25,12 +25,19 @@ import java.util.List;
  *                         something installed by hand - which is fine and should be visible - or
  *                         the same plugin under a name that has changed, which is the one way this
  *                         module can end up installing a second copy of something.
+ * @param notes            things the resolve worked out that belong to no single service and to no
+ *                         single artefact - today, that the proxy is about to move to a Velocity
+ *                         the plugin was not compiled against. They are <b>decided here</b> and
+ *                         drawn by {@link PlanReport}, because "nothing is decided twice" is the
+ *                         rule and a surface composing its own sentence about a version is a second
+ *                         decision wearing a different hat.
  */
 public record UpdatePlan(@NotNull Instant resolvedAt,
                          @Nullable String seasonTag,
                          boolean seasonPrerelease,
                          @NotNull List<Change> changes,
-                         @NotNull List<Unclaimed> unclaimed) {
+                         @NotNull List<Unclaimed> unclaimed,
+                         @NotNull List<String> notes) {
 
     public record Unclaimed(@NotNull String service, @NotNull String fileName) {
     }
@@ -86,7 +93,7 @@ public record UpdatePlan(@NotNull Instant resolvedAt,
                 .filter(change -> change.status() == Change.Status.MISSING
                         || change.status().isFailure())
                 .toList();
-        return new UpdatePlan(resolvedAt, seasonTag, seasonPrerelease, keep, unclaimed);
+        return new UpdatePlan(resolvedAt, seasonTag, seasonPrerelease, keep, unclaimed, notes);
     }
 
     /**

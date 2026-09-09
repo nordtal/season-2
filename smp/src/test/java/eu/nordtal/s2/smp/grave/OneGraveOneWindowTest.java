@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,11 +45,41 @@ class OneGraveOneWindowTest {
                 "opening a grave builds a fresh inventory from the stored contents, so two people"
                         + " looting one grave each take the whole of it");
 
+        // Counted rather than measured against the lookup's own offset. This was a distance check
+        // until 2026-09-09 - "the createInventory is within 800 characters of the computeIfAbsent" -
+        // and it broke the moment the window's construction moved into a method of its own, which
+        // it had to when the grave gained its painted footer. The distance was never the property;
+        // ONE construction site is, and a second one anywhere in this file is the shape that
+        // duplicated the loot however close it sits.
+        assertEquals(1, count(source, "Bukkit.createInventory("),
+                "a grave window is built in exactly one place. Two construction sites is how a"
+                        + " second viewer gets a second inventory filled from the same stored"
+                        + " contents, which is what paid out everything the dead player carried,"
+                        + " twice - and nothing about it is visible in the game");
+
+        // ...and that one place is what the lookup delegates to, so the construction is inside the
+        // reuse rather than beside it.
         final int lookup = source.indexOf("shown.computeIfAbsent(graveId");
-        final int built = source.indexOf("Bukkit.createInventory(", lookup);
-        assertTrue(built > lookup && built - lookup < 800,
-                "the only place a grave inventory is created has to sit inside the lookup that"
-                        + " reuses an existing one");
+        final String tail = source.substring(lookup);
+        final java.util.regex.Matcher call = java.util.regex.Pattern
+                .compile("computeIfAbsent\\(graveId, \\w+ -> (\\w+)\\(").matcher(tail);
+        assertTrue(call.find(), "the lookup no longer delegates to a named builder: "
+                + tail.substring(0, Math.min(120, tail.length())));
+        final int builder = source.indexOf("Inventory " + call.group(1) + "(");
+        assertTrue(builder >= 0, "there is no method called " + call.group(1));
+        assertTrue(source.indexOf("Bukkit.createInventory(") > builder,
+                "the one construction site is not inside " + call.group(1) + ", so a window can be"
+                        + " built without going through the lookup that reuses an existing one");
+    }
+
+    private static int count(final String source, final String needle) {
+        int found = 0;
+        int at = source.indexOf(needle);
+        while (at >= 0) {
+            found++;
+            at = source.indexOf(needle, at + 1);
+        }
+        return found;
     }
 
     @Test

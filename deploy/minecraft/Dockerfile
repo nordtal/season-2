@@ -1,6 +1,8 @@
 # One image for all four Minecraft services - the Velocity proxy and the three Paper backends.
-# The difference between them is entirely environment: SERVER_KIND and SERVER_VERSION, plus a
-# SERVER_BUILD that only seeds an empty cache. Nothing about a specific server is baked in here,
+# The difference between them is entirely environment: SERVER_KIND and SERVER_VERSION, and since
+# 2026-09-09 nothing else - there is no build pin anywhere in this deployment, and an empty cache
+# is filled with the newest STABLE build the Fill API lists. Nothing about a specific server is
+# baked in here,
 # and no jar is either: the server jar and the plugin jars live in the volume, and the `updater`
 # service owns both (plugins since 2026-09-01, the server jar since 2026-09-02).
 #

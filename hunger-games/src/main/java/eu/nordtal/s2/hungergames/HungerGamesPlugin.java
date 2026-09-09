@@ -40,6 +40,8 @@ import eu.nordtal.s2.hungergames.hud.HudRenderer;
 import eu.nordtal.s2.hungergames.listener.CombatListener;
 import eu.nordtal.s2.hungergames.listener.FreezeListener;
 import eu.nordtal.s2.hungergames.listener.PresenceListener;
+import eu.nordtal.s2.hungergames.player.ArenaComposition;
+import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.hungergames.lobby.Lobby;
 import eu.nordtal.s2.hungergames.lobby.LobbyMaps;
 import eu.nordtal.s2.hungergames.loot.LootRefill;
@@ -83,6 +85,9 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private ConfigHandle<SoundsSpec> soundsHandle;
     private HikariDataSource pool;
     private AdminWatch adminWatch;
+
+    /** What a non-admin may type here, and what their client is told exists. */
+    private eu.nordtal.s2.papercommon.command.CommandFilter commandFilter;
 
     /**
      * The command layer. Two effects instances, and the difference is the executor: the chat one
@@ -169,12 +174,15 @@ public final class HungerGamesPlugin extends JavaPlugin {
         final Jdbi jdbi = Jdbi.create(pool).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         dao = jdbi.onDemand(HungerGamesDao.class);
 
-        // Two roots, shared first: :commands' bundle holds every string a SHARED command says, and
-        // this module's own wins where both declare a key. Loading only this module's would leave
-        // /hg start printing the literal string hg.start.started - Messages degrades to the key
-        // rather than throwing, so it fails silently and only in chat.
+        // Three roots, most general first: :paper-common's five system lines (chat, join, leave,
+        // death, advancement - which this server had none of until 2026-09-09), then :commands'
+        // bundle of every string a SHARED command says, then this module's own. Later roots win,
+        // so this module's keys beat both. Loading only this module's would leave /hg start
+        // printing the literal string hg.start.started - Messages degrades to the key rather than
+        // throwing, so it fails silently and only in chat.
         messages = Messages.load(getClass().getClassLoader(),
-                java.util.List.of("messages/commands", "messages/hunger-games"),
+                java.util.List.of("messages/paper-common", "messages/commands",
+                        "messages/hunger-games"),
                 getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
                 "the message override names " + key + ", which no bundle declares - it is stored"
@@ -232,11 +240,21 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(
                 new FullServerGate(dao, admission, getLogger0()), this);
+        // The five lines every Paper server writes - chat, join, leave, death, advancement. This
+        // server had none of them until 2026-09-09: vanilla's own, in yellow, in the server's
+        // language, with no flag on anybody, at the one event every player on the network attends
+        // at the same moment (finding 149). The death line is what makes a kill feed of it, and it
+        // keeps vanilla's own component so that each reader's client names the killer and the
+        // weapon in that reader's language.
+        final ArenaComposition composition = new ArenaComposition(locales);
+        final SystemLines systemLines = new SystemLines(composition::of, messages, locales);
+        getServer().getPluginManager().registerEvents(systemLines, this);
         getServer().getPluginManager().registerEvents(
-                new PresenceListener(this, locales, bodies, state, messages, operators, admission), this);
+                new PresenceListener(this, locales, bodies, state, messages, operators, admission,
+                        systemLines), this);
         getServer().getPluginManager().registerEvents(
                 new CombatListener(this, dao, state, bodies, border, winTracker, sounds,
-                        this::onGameDecided), this);
+                        systemLines, composition, this::onGameDecided), this);
 
         // ...and keeps being one only for as long as the database says so. Without this the flag is
         // read once per session and a revoked admin keeps operator until they disconnect; see
@@ -278,13 +296,28 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         registerCommands(config, world);
 
+        // The command allowlist. The proxy refuses a command before it reaches this server, which
+        // is the enforcement; this is the half the proxy cannot do - what this server tells a
+        // client exists at all. Same poll rhythm as the admin roster, and its notification rides
+        // the same connection. See CommandFilter, which fails OPEN and says so if no list has been
+        // published yet.
+        commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(this,
+                eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
+                        eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
+                adminWatch::isAdmin, locales, messages, getLogger0());
+        getServer().getPluginManager().registerEvents(commandFilter, this);
+        commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
+
         adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
                 config.adminListenEnabled()
                         ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
                                 databaseHandle.get().username(), databaseHandle.get().password(),
                                 databaseHandle.get().queryTimeoutSeconds())
                         : null,
-                inbox.refreshes(), inbox.channels());
+                java.util.stream.Stream.concat(inbox.refreshes().stream(),
+                        commandFilter.refreshes().stream()).toList(),
+                java.util.stream.Stream.concat(inbox.channels().stream(),
+                        commandFilter.channels().stream()).toList());
 
         startHeartbeat();
 

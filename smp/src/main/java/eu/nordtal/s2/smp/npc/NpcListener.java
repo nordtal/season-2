@@ -52,13 +52,22 @@ public final class NpcListener implements Listener {
     private final java.util.function.Supplier<MilestoneTrack> track;
     private final ObjectiveEngine engine;
     private final Identities identities;
+    /**
+     * {@code config.yml#wheel-extra-spin-percents}, <b>as a supplier</b>, for the same reason the
+     * track is one: the share line projects how many extra spins a contribution is on track for,
+     * and it has to project them against the thresholds {@code ObjectiveEngine} will actually pay
+     * out on rather than the ones the server started with.
+     */
+    private final java.util.function.Supplier<List<Integer>> extraSpinPercents;
     private final Messages messages;
     private final PlayerLocales locales;
     private final SmpSounds sounds;
 
     public NpcListener(final Plugin plugin, final SmpDao dao, final SpawnNpc npc,
                        final java.util.function.Supplier<MilestoneTrack> track, final ObjectiveEngine engine,
-                       final Identities identities, final Messages messages,
+                       final Identities identities,
+                       final java.util.function.Supplier<List<Integer>> extraSpinPercents,
+                       final Messages messages,
                        final PlayerLocales locales, final SmpSounds sounds) {
         this.plugin = plugin;
         this.dao = dao;
@@ -66,6 +75,7 @@ public final class NpcListener implements Listener {
         this.track = track;
         this.engine = engine;
         this.identities = identities;
+        this.extraSpinPercents = extraSpinPercents;
         this.messages = messages;
         this.locales = locales;
         this.sounds = sounds;
@@ -97,10 +107,19 @@ public final class NpcListener implements Listener {
             }
             final List<ObjectiveRow> rows = dao.objectivesOf(activeKey.get());
 
+            // The player's own share, on the SAME async hop that read the objectives - one round
+            // trip more, none of it on the main thread. A player with no account link (which the
+            // login gate makes impossible, so this is the defensive branch) gets an empty summary
+            // rather than a query with a null id.
+            final OwnShare.Summary share = identities.discordIdOf(player.getUniqueId())
+                    .map(discordId -> OwnShare.of(dao.ownContributions(activeKey.get(), discordId),
+                            extraSpinPercents.get()))
+                    .orElseGet(() -> OwnShare.of(List.of(), List.of()));
+
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (player.isOnline()) {
-                    player.openInventory(
-                            new ObjectiveGui(messages, locale, milestone, rows).getInventory());
+                    player.openInventory(new ObjectiveGui(messages, locale, milestone, rows, share)
+                            .getInventory());
                 }
             });
         });
@@ -116,7 +135,19 @@ public final class NpcListener implements Listener {
         if (holder instanceof ObjectiveGui gui) {
             // Nothing in the list is ever picked up.
             event.setCancelled(true);
-            gui.at(event.getRawSlot()).ifPresent(entry -> {
+            final int slot = event.getRawSlot();
+            if (slot < 0 || slot >= event.getInventory().getSize()) {
+                return;
+            }
+            // The page buttons first: they sit on the share plate's own two cells, so a click there
+            // is a page turn and never the share line.
+            if (gui.isPrevious(slot) || gui.isNext(slot)) {
+                sounds.play(player, Feedback.SELECT);
+                player.openInventory(
+                        gui.onPage(gui.page() + (gui.isPrevious(slot) ? -1 : 1)).getInventory());
+                return;
+            }
+            gui.at(slot).ifPresent(entry -> {
                 if (entry.isHandIn()) {
                     sounds.play(player, Feedback.SELECT);
                     player.openInventory(new HandInGui(messages,

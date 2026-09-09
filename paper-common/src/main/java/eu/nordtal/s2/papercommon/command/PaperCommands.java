@@ -17,6 +17,7 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.Messages;
 
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -290,16 +291,25 @@ public final class PaperCommands {
         return roots.values().stream()
                 .map(root -> {
                     final LiteralArgumentBuilder<CommandSourceStack> builder = materialise(root);
+                    // The root is gated when everything under it is admin-only - and that is a
+                    // real case since 2026-09-08, because /update is a root of its own whose bare
+                    // form IS a command. Without this the report ran for any player: requires sat
+                    // on the first-level children alone, and a root-level command has none above
+                    // it. An open extra keeps the root open, the way /hg ready keeps /hg open.
+                    if (adminOnly(root) && !openExtras.containsKey(root.literal)) {
+                        builder.requires(this::mayUse);
+                    }
                     // Gated, like every node this adapter builds below a root. The root itself
-                    // carries no requires, so an extra that is not gated here is not gated at all.
+                    // carries no requires unless the line above put one there, so an extra that
+                    // is not gated here is not gated at all.
                     extras.getOrDefault(root.literal, List.of())
                             .forEach(extra -> builder.then(extra.requires(this::mayUse)));
                     openExtras.getOrDefault(root.literal, List.of()).forEach(builder::then);
-                    // NO requires on the root, deliberately. Brigadier's requires gates a whole
-                    // subtree, and a root is shared: /hg carries `ready`, which any player may run
-                    // and which this adapter does not own. Gating the root would hide it. Every
-                    // node this adapter creates below the root carries the check instead, so what a
-                    // non-admin sees under /hg is exactly `ready`.
+                    // No requires on a root that carries anything open, deliberately. Brigadier.s
+                    // requires gates a whole subtree, and a root is shared: /hg carries `ready`,
+                    // which any player may run and which this adapter does not own. Gating that
+                    // root would hide it. Every node this adapter creates below the root carries
+                    // the check instead, so what a non-admin sees under /hg is exactly `ready`.
                     return builder.build();
                 })
                 .toList();
@@ -450,7 +460,7 @@ public final class PaperCommands {
         if (!mayUse(context.getSource())) {
             below.removeIf(Declaration::adminOnly);
             if (below.isEmpty()) {
-                user.reply("command.not-admin", Map.of(), Feedback.REFUSED);
+                user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -458,19 +468,19 @@ public final class PaperCommands {
         if (below.isEmpty()) {
             // Only reachable for a root whose every command was skipped by remote(), which today
             // cannot happen - a root exists because something was added under it.
-            user.reply("command.help.nothing", Map.of(), Feedback.REFUSED);
+            user.reply("command.help.nothing", Map.of(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         if (below.size() == 1) {
             return usage(context, below.getFirst());
         }
 
-        user.reply("command.help.header", Map.of("command", "/" + node.literal));
+        user.reply("command.help.header", Map.of("command", "/" + node.literal), Tone.NEUTRAL);
         below.stream()
                 .sorted(java.util.Comparator.comparing(Declaration::name))
                 .forEach(declaration -> user.reply("command.help.line",
                         Map.of("usage", declaration.usage(),
-                                "what", user.phrase(declaration.describeKey()))));
+                                "what", user.phrase(declaration.describeKey())), Tone.MUTED));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -478,8 +488,10 @@ public final class PaperCommands {
     private int usage(final CommandContext<CommandSourceStack> context,
                       final Declaration declaration) {
         final NordtalUser user = user(context.getSource().getSender());
-        user.reply("command.help.usage", Map.of("usage", declaration.usage()), Feedback.REFUSED);
-        user.reply("command.help.what", Map.of("what", user.phrase(declaration.describeKey())));
+        user.reply("command.help.usage", Map.of("usage", declaration.usage()),
+                Feedback.REFUSED, Tone.NEUTRAL);
+        user.reply("command.help.what", Map.of("what", user.phrase(declaration.describeKey())),
+                Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -621,7 +633,7 @@ public final class PaperCommands {
                     plugin.getLogger().log(java.util.logging.Level.WARNING,
                             "Could not read the account link for " + account.getValue(), failure);
                     back(() -> user(sender).reply("command.account-unreachable", Map.of(),
-                            Feedback.REFUSED));
+                            Feedback.REFUSED, Tone.BAD));
                     return;
                 }
                 if (linked.isEmpty()) {
@@ -655,7 +667,16 @@ public final class PaperCommands {
         // it differently.
         if (user.origin() == NordtalUser.Origin.CONSOLE
                 && !entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.CONSOLE)) {
-            user.reply("command.not-from-console", Map.of(), Feedback.REFUSED);
+            user.reply("command.not-from-console", Map.of(), Feedback.REFUSED, Tone.BAD);
+            return Command.SINGLE_SUCCESS;
+        }
+
+        // The tree.s requires is the gate and this is the lock behind it. Brigadier.s requires
+        // sits on nodes, and until 2026-09-08 no node above a root-level command had one: /update
+        // typed bare ran for every player. A check that lives on the decision itself cannot be
+        // skipped by the shape of the tree.
+        if (entry.declaration().adminOnly() && !mayUse(sender, isAdmin)) {
+            user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -667,13 +688,13 @@ public final class PaperCommands {
                 continue;
             }
             if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.PLAYER) {
-                user.reply("command.player-offline", Map.of(), Feedback.REFUSED);
+                user.reply("command.player-offline", Map.of(), Feedback.REFUSED, Tone.WARN);
                 return Command.SINGLE_SUCCESS;
             }
             if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.ACCOUNT) {
                 // Either not online, or online and not linked. Both mean "there is no Discord
                 // account this name reaches", which is one answer from where the admin is standing.
-                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED);
+                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -683,7 +704,8 @@ public final class PaperCommands {
         // does not exist.
         final var problem = entry.problem().apply(new Values(entry.declaration(), values));
         if (problem.isPresent()) {
-            user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED);
+            user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED,
+                    Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -707,7 +729,8 @@ public final class PaperCommands {
         }
         user.reply("command.confirm.retype", Map.of(
                 "command", what,
-                "seconds", String.valueOf(Confirmations.WINDOW.toSeconds())), Feedback.REFUSED);
+                "seconds", String.valueOf(Confirmations.WINDOW.toSeconds())),
+                Feedback.REFUSED, Tone.WARN);
         return false;
     }
 

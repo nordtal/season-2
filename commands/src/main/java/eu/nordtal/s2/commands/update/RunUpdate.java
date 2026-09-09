@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 
@@ -40,16 +41,21 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
 
         effects.async(() -> {
             try {
-                final long id = effects.submit(kind, user.name()).id();
+                final long id = effects.submit(kind, user).id();
                 effects.watch(id, user);
                 // Everybody else is told by the proxy, which is the only process that sees every
                 // player. This line is for the person who typed it, and its job is to name the way
                 // back out while there still is one.
+                //
+                // Accepted, not started - the same correction RunBackup carries. submit() writes a
+                // row; the updater can still find nothing to do, or refuse the run before any
+                // countdown. update.started already words it conditionally ("if there is
+                // anything"), so only the tone was overclaiming.
                 user.reply("update.started", Map.of(
-                        "id", id,
-                        "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()), Feedback.BIG_SUCCESS);
+                        "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
+                        Feedback.SMALL_SUCCESS, Tone.NEUTRAL);
             } catch (final RuntimeException failure) {
-                user.reply("update.write-failed", Map.of(), Feedback.REFUSED);
+                user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

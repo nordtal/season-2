@@ -144,9 +144,15 @@ x-minecraft: &minecraft
     start_period: 300s
   environment: &minecraft-env
     TZ: ${TZ:-Europe/Berlin}
-    # SERVER_BUILD, set per service below, is a FLOOR: the updater owns the server jar too (since
-    # 2026-09-02) and the entrypoint runs whatever build of SERVER_VERSION is in .server/. The
-    # build from .env is fetched only into an empty cache - see .env.example.
+    # SERVER_VERSION, set per service below, is a LITERAL and no longer comes from .env (since
+    # 2026-09-09). It is the Minecraft version for the three Paper backends and Fill's name for
+    # Velocity's major on the proxy; both are mirrored by eu.nordtal.s2.common.Platform, which is
+    # what the updater resolves against and what every plugin in this repository is compiled for.
+    #
+    # There is no SERVER_BUILD any more either. The updater owns the server jar (since 2026-09-02)
+    # and the entrypoint runs whatever build is in .server/; when that cache is empty it now asks
+    # the Fill API for the newest STABLE build itself instead of reading a number somebody had to
+    # keep current. Nothing pins a build anywhere - see UpdaterSpec, where the two pins used to be.
     #
     # SEASON_REPO and SEASON_RELEASE used to live here, because entrypoint.sh fetched the plugin
     # jars. It does not any more (2026-09-01): the `updater` service owns the plugin jars, and two
@@ -300,7 +306,6 @@ services:
       NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
       NORDTAL_BOT_BUNQ_API_KEY: ${NORDTAL_BOT_BUNQ_API_KEY:?set NORDTAL_BOT_BUNQ_API_KEY in .env}
       NORDTAL_BOT_BUNQ_ACCOUNT_ID: ${NORDTAL_BOT_BUNQ_ACCOUNT_ID:?set NORDTAL_BOT_BUNQ_ACCOUNT_ID in .env}
-      NORDTAL_BOT_BUNQ_ENVIRONMENT: ${NORDTAL_BOT_BUNQ_ENVIRONMENT:?SANDBOX or PRODUCTION}
 
       # --- access.yml --------------------------------------------------------------------
       NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in .env}
@@ -367,6 +372,13 @@ services:
       # the way the updater splits them (JarName, ${file%-*.jar}); a MINIMUM, never an exact set, so
       # a hand-installed extra is fine. Counting jars was not enough - see finding B4 and the long
       # note in deploy/minecraft/entrypoint.sh.
+      #
+      # SIMPLE VOICE CHAT'S PROXY PLUGIN IS DELIBERATELY NOT IN THIS LIST (owner, 2026-09-09). The
+      # updater installs voicechat-velocity-*.jar into this volume and carries the row in its
+      # Topology, but voice chat is optional for a player and this container is the whole network:
+      # a proxy refusing to start because an alpha of somebody else's plugin did not resolve is an
+      # outage bought for something nice to have. Topology marks it Service#optional, and
+      # TopologyTest asserts the guard asks for exactly the plugins that are not optional.
       EXPECTED_PLUGINS: ${NETWORK_CONTROL_EXPECTED_PLUGINS:-network-control}
       # THE PLAYER LIMIT AND THE MOTD, and they both belong to the plugin now (2026-09-03).
       #
@@ -393,8 +405,14 @@ services:
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_START_EVENT: ${NETWORK_MOTD_START_EVENT:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_SMP: ${NETWORK_MOTD_SMP:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_MAINTENANCE: ${NETWORK_MOTD_MAINTENANCE:-}
-      SERVER_VERSION: ${VELOCITY_VERSION:-4.1.1}
-      SERVER_BUILD: ${VELOCITY_BUILD:-24}
+      # FILL'S NAME FOR VELOCITY'S MAJOR, NOT A VERSION. The proxy follows the newest release
+      # inside the 4.x line, which Fill calls `4.0.0` - the entrypoint resolves it, and so does the
+      # updater, out of eu.nordtal.s2.common.Platform.VELOCITY_FAMILY. A literal rather than a
+      # variable since 2026-09-09: a platform version is a property of the season and not of a
+      # deployment, and an env file that could override it was the environment winning over the
+      # source tree every plugin here is compiled against. :updater's TopologyTest holds this
+      # string against the constant.
+      SERVER_VERSION: "4.0.0"
       HEAP: ${PROXY_HEAP:-1G}
       # Modern forwarding. The same value reaches the three backends below as
       # PAPER_VELOCITY_SECRET, so there is nothing to paste into a config file any more.
@@ -422,22 +440,44 @@ services:
       NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD: *db-password
     ports:
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
+      # SIMPLE VOICE CHAT, AND THIS IS THE ONLY VOICE PORT ON THE NETWORK. Audio is UDP and does
+      # not travel inside the Minecraft connection. The proxy plugin detects the address and port
+      # of each backend's voice server itself and forwards to the right one, and each backend's own
+      # voice_host is ignored while it does (Simple Voice Chat wiki, "Proxy Setup", read
+      # 2026-09-09). So smp and hunger-games publish nothing at all: the proxy reaches them over
+      # this compose network, which is a thing containers on one network can always do. Without the
+      # proxy plugin it would be one public UDP port per backend, a distinct number for each, and a
+      # voice_host edited by hand in a file nothing in this repository writes.
+      #
+      # 25565 ON BOTH SIDES, AND NOT ${PROXY_PORT} - which is the one way this line differs from
+      # the one above it. voicechat-proxy.properties ships `port: -1`, meaning "whatever port the
+      # proxy uses", so the plugin binds 25565 inside this container and then hands the CLIENT that
+      # same number. A host mapping that renumbered it would answer the handshake and time out
+      # every packet after it. Moving PROXY_PORT therefore moves the Minecraft port and leaves
+      # voice on 25565; making voice follow it is `voice_host` in
+      # plugins/voicechat/voicechat-proxy.properties, not a second number here.
+      - "${PROXY_BIND:-0.0.0.0}:25565:25565/udp"
     volumes:
       - mc-network-control:/data
-      # PLUGINS/ IS A DIRECTORY ON THE HOST, not part of the volume (2026-09-05). Everything else
-      # under /data - the world, the .server/ jar cache, logs/ - stays in the named volume, and
-      # that split is the whole of the decision. Arcane's volume backup is the only thing that
-      # saves a world (../deploy/README.md#the-world-volumes-are-a-different-problem) and a bind
-      # mount is not a volume, so the worlds must not come out. Nothing makes the same claim on
-      # plugins/, and what leaving it inside cost was paid every single time: a `docker compose cp`
-      # in one direction to read plugins/<name>/config.yml, another to put it back, and a third to
-      # drop in a freshly built jar. That is why there was no local development setup at all.
+      # PLUGINS/ IS ITS OWN VOLUME, separate from the server's (2026-09-05, corrected 2026-09-08).
+      # Everything else under /data - the world, the .server/ jar cache, logs/ - stays in mc-<name>,
+      # and that split is the whole of the decision: a plugin's config.yml, milestones.yml,
+      # sounds.yml and pack.yml are edited by hand and are worth backing up on their own schedule,
+      # while a world is 4 GB that must never come out of a volume Arcane can save.
       #
-      # SERVERS_ROOT is a variable rather than a constant because its default sits inside the
-      # directory Arcane's GitOps sync pulls. If that sync ever removes ignored files, point this
-      # at an absolute path outside the checkout and nothing else changes - see ../todo.md, where
-      # the check and its fallback are written down.
-      - ${SERVERS_ROOT:-./deploy/servers}/network-control/plugins:/data/plugins
+      # THE DEFAULT IS A VOLUME NAME AND THE BIND IS THE EXCEPTION, and that was the other way
+      # round for three days. `${SERVERS_ROOT:-./deploy/servers}/<service>/plugins` put every
+      # deployed config inside the directory Arcane's GitOps sync pulls - and that sync DELETES
+      # IGNORED FILES from the checkout (owner, 2026-09-08), so the first sync after a hand edit
+      # takes the whole of it with no warning and every server comes back up writing fresh
+      # defaults. Production sets none of these variables and therefore gets a named volume.
+      #
+      # Setting one to a path is what the local stack does (deploy/dev.env), because reading
+      # plugins/smp/config.yml has to be opening a file rather than two `docker compose cp`s. A
+      # value with a `/` in it is a bind mount to Docker and a value without one is a volume name;
+      # nothing else distinguishes them, which is why :updater's TopologyTest asserts the default
+      # carries neither a slash nor a dot.
+      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The waiting room. Needs the database for one thing only: the player's language.
@@ -446,8 +486,7 @@ services:
     environment:
       <<: *minecraft-env
       SERVER_KIND: paper
-      SERVER_VERSION: ${PAPER_VERSION:-26.2}
-      SERVER_BUILD: ${PAPER_BUILD:-121}
+      SERVER_VERSION: "26.2"
       EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
       # THE SAME NUMBER THE PROXY IS GIVEN, out of the same .env variable - that is the whole
       # point, and it is why this is not a second setting. The proxy still owns the decision: it
@@ -473,8 +512,8 @@ services:
       NORDTAL_LIMBO_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-limbo:/data
-      # plugins/ on the host, the rest in the volume - see network-control above.
-      - ${SERVERS_ROOT:-./deploy/servers}/limbo/plugins:/data/plugins
+      # plugins/ in its own volume, the rest in mc-limbo - see network-control above.
+      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The start event. Runs once, then the phase turns to SMP and this can be stopped.
@@ -483,8 +522,13 @@ services:
     environment:
       <<: *minecraft-env
       SERVER_KIND: paper
-      SERVER_VERSION: ${PAPER_VERSION:-26.2}
-      SERVER_BUILD: ${PAPER_BUILD:-121}
+      SERVER_VERSION: "26.2"
+      # SIMPLE VOICE CHAT IS INSTALLED HERE AND IS NOT IN THIS LIST (owner, 2026-09-09). It runs on
+      # this server and on smp, and not on limbo: the waiting room is seconds long and holds nobody
+      # who could be talked to. It is left out of the guard because voice chat is optional for a
+      # player - the audio needs a mod the client either has or has not - so a missing jar is a
+      # quiet evening, while a guard entry for it would be a server that will not start. The row
+      # lives in :updater's Topology as Service#optional, and the update report is what names it.
       EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
@@ -505,8 +549,8 @@ services:
       NORDTAL_HUNGER_GAMES_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-hunger-games:/data
-      # plugins/ on the host, the rest in the volume - see network-control above.
-      - ${SERVERS_ROOT:-./deploy/servers}/hunger-games/plugins:/data/plugins
+      # plugins/ in its own volume, the rest in mc-hunger-games - see network-control above.
+      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The SMP - four worlds, and the only service with required third-party plugins.
@@ -515,8 +559,7 @@ services:
     environment:
       <<: *minecraft-env
       SERVER_KIND: paper
-      SERVER_VERSION: ${PAPER_VERSION:-26.2}
-      SERVER_BUILD: ${PAPER_BUILD:-121}
+      SERVER_VERSION: "26.2"
       # DisplayTags, PacketEvents and Chunky used to be pinned here as three full URLs with three
       # versions in them. The updater resolves all three now - DisplayTags from its own repository's
       # releases, the other two from Modrinth filtered to this Minecraft version and `paper` - which
@@ -551,6 +594,21 @@ services:
       # Chunky-Bukkit-*.jar) - Topology reads those back off the resolved filename rather than
       # assuming them, and this list does assume them. A publisher renaming a jar therefore stops
       # this container with the prefix in the message, which is the right side to fail on.
+      #
+      # TWO PLUGINS ARE DELIBERATELY NOT IN THIS LIST, for two different reasons.
+      #
+      # COREPROTECT cannot be installed at all: the updater carries a row for it and that row is
+      # UNSUPPORTED for as long as its publisher has no 26.2 build (there is none: 24.0 stops at
+      # 26.1.2, checked 2026-09-08). An artefact that cannot be installed must not be one this
+      # container refuses to start without - that would turn somebody else's release schedule into
+      # an outage here.
+      #
+      # SIMPLE VOICE CHAT can be installed and normally will be. It is out because voice chat is
+      # optional for a player (owner, 2026-09-09): the audio needs a client mod, and a server
+      # nobody can talk on is a far smaller thing than a server nobody can join.
+      #
+      # :updater's TopologyTest asserts the guard asks for exactly the artefacts that are not
+      # optional, in both directions.
       EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${SMP_HEAP:-6G}
@@ -570,13 +628,36 @@ services:
       # the file in jcore's config system, so `${VAR:-}` here would blank out the spec's own
       # default rather than fall back to it. smp's ConfigsTest asserts the two copies agree.
       NORDTAL_SMP_PREGENERATION_ON_START: ${SMP_PREGENERATION_ON_START:-true}
+      # WHEN THIS SERVER ASKS FOR THE NETWORK'S NIGHTLY BACKUP, and it is on this service for a
+      # reason that has nothing to do with the SMP: the updater must not schedule its own work
+      # (docs/updater.md - `serve` is not a scheduler, so a crash restart at three in the morning
+      # cannot move a version), and this plugin is the one process in the network that already runs
+      # a daily clock. It writes an update_request row of kind BACKUP; the updater counts down,
+      # stops smp, network-control and the bot, asks Arcane for one snapshot per volume, starts
+      # them again and waits for every healthcheck.
+      #
+      # 04:45 is a quarter of an hour before farm-reset-time. The other way round would snapshot a
+      # farm world that is about to be deleted, on servers that had only just come back.
+      #
+      # EMPTY MEANS NO NIGHTLY BACKUP AT ALL and nothing else asks for one - which is what a local
+      # stack wants, because there is no Arcane on a laptop. The default is REPEATED from SmpSpec
+      # rather than left empty, for the reason the line above it carries: an empty environment
+      # variable wins over the file, so `${VAR:-}` here would turn the backup off in production
+      # while config.yml still said 04:45 and nothing anywhere said otherwise.
+      #
+      # NOTE THE SINGLE DASH, and it is the only one in this file. `${VAR:-x}` falls back when the
+      # variable is unset OR EMPTY, so `SMP_BACKUP_TIME=` in an env file would silently become
+      # 04:45 again and the local stack would ask for a backup every night against an Arcane that
+      # is not there. `${VAR-x}` falls back only when it is unset, which is what makes "set it to
+      # empty to turn it off" actually work. :smp's ComposeWorldTest asserts the dash.
+      NORDTAL_SMP_BACKUP_TIME: ${SMP_BACKUP_TIME-04:45}
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password
     volumes:
       - mc-smp:/data
-      # plugins/ on the host, the rest in the volume - see network-control above.
-      - ${SERVERS_ROOT:-./deploy/servers}/smp/plugins:/data/plugins
+      # plugins/ in its own volume, the rest in mc-smp - see network-control above.
+      - ${SMP_PLUGINS:-mc-smp-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
   # The updater. No profile, because everything else in this stack depends on it.
@@ -652,12 +733,11 @@ services:
       NORDTAL_UPDATER_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
       NORDTAL_UPDATER_SEASON_RELEASE: ${UPDATER_SEASON_RELEASE:-latest}
       NORDTAL_UPDATER_DISPLAY_TAGS_RELEASE: ${UPDATER_DISPLAY_TAGS_RELEASE:-latest}
-      NORDTAL_UPDATER_MINECRAFT_VERSION: ${PAPER_VERSION:-26.2}
-      NORDTAL_UPDATER_VELOCITY_VERSION: ${VELOCITY_VERSION:-4.1.1}
-      # Which BUILD of those versions to install: 'latest' STABLE, or an exact number - which is
-      # the rollback, and deliberately not PAPER_BUILD: that one only seeds an empty cache.
-      NORDTAL_UPDATER_PAPER_BUILD: ${UPDATER_PAPER_BUILD:-latest}
-      NORDTAL_UPDATER_VELOCITY_BUILD: ${UPDATER_VELOCITY_BUILD:-latest}
+      # The platform versions used to be here, fed from PAPER_VERSION and VELOCITY_VERSION, and
+      # the two build pins with them. All four are gone (2026-09-09): the versions are constants in
+      # :common, because a Minecraft version is a property of the season rather than of an
+      # installation, and there is no build pin left anywhere - the newest STABLE build is what
+      # every one of the five processes installs and runs.
       # Whether `serve` fills EMPTY volumes before it reports ready. This is what lets a stack come
       # up with nobody typing anything on the host: a Minecraft server refuses to start on an empty
       # plugins folder, and Arcane cannot run `docker compose run --rm updater bootstrap`.
@@ -713,15 +793,16 @@ services:
       - mc-limbo:/volumes/limbo
       - mc-hunger-games:/volumes/hunger-games
       - mc-smp:/volumes/smp
-      # THE SAME FOUR plugins/ DIRECTORIES THE SERVERS READ, mounted where Topology expects them
-      # beneath volumes-root. Without these four lines this container installs into the named
-      # volume while every server reads the host directory - and nothing anywhere would say so:
-      # `apply` would report success, the jars would be on disk, and no server would be running
-      # a single one of them. TopologyTest holds the two halves together.
-      - ${SERVERS_ROOT:-./deploy/servers}/network-control/plugins:/volumes/network-control/plugins
-      - ${SERVERS_ROOT:-./deploy/servers}/limbo/plugins:/volumes/limbo/plugins
-      - ${SERVERS_ROOT:-./deploy/servers}/hunger-games/plugins:/volumes/hunger-games/plugins
-      - ${SERVERS_ROOT:-./deploy/servers}/smp/plugins:/volumes/smp/plugins
+      # THE SAME FOUR plugins/ SOURCES THE SERVERS READ, EXPRESSION FOR EXPRESSION, mounted where
+      # Topology expects them beneath volumes-root. Copying the default rather than the variable,
+      # or spelling one of them differently, splits the two sides in the one way nothing can see:
+      # this container installs into its own volume while every server reads another, `apply`
+      # reports success, the jars are on disk, and no server runs a single one of them.
+      # TopologyTest holds the two halves together, character for character.
+      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/volumes/network-control/plugins
+      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/volumes/limbo/plugins
+      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/volumes/hunger-games/plugins
+      - ${SMP_PLUGINS:-mc-smp-plugins}:/volumes/smp/plugins
       # The bot's jar and this container's own. Both are the same shape as a plugins folder to the
       # code above them: a directory with one jar in it that gets replaced.
       - bot-jar:/volumes/discord-bot
@@ -748,3 +829,16 @@ volumes:
   mc-limbo:
   mc-hunger-games:
   mc-smp:
+  # The four plugins/ folders, one volume each and separate from the server volume beside them.
+  # THEY HOLD THE ONLY HAND-EDITED FILES IN THE DEPLOYMENT - every plugin's config.yml, smp's
+  # milestones.yml and sounds.yml, the proxy's pack.yml - so they are worth Arcane's backup policy
+  # in a way mc-limbo and mc-hunger-games are not, and they are separate from the worlds precisely
+  # so that saving them is not saving four gigabytes of terrain. The jars in them are replaced by
+  # the updater and are not worth saving at all; a lost one is refilled by `updater bootstrap`.
+  #
+  # A local stack points the four variables above at directories instead and none of these is
+  # created. See deploy/dev.env.example.
+  mc-network-control-plugins:
+  mc-limbo-plugins:
+  mc-hunger-games-plugins:
+  mc-smp-plugins:

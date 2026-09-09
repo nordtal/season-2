@@ -17,10 +17,24 @@ import java.util.Optional;
  * <p>The one surface of the first impression that needs no resource pack: a ping carries the icon
  * itself, base64, so it is seen by everybody who has the address and by nobody who has joined.
  * The file is {@code plugins/network-control/icon.png}; a first start copies the built-in one
- * there so that the operator finds a file to replace rather than a setting to discover. The
- * built-in is the pack's wordmark on a dark square, made with {@code sips} on 2026-09-06 - a
- * placeholder in the sense docs/presentation.md uses the word, and the point where "the logo at
- * 64 px" turns out unreadable is the point where a reduced mark replaces it, from the brush.</p>
+ * there so that the operator finds a file to replace rather than a setting to discover.</p>
+ *
+ * <h2>The built-in one is the pack's own logo, reduced without a resampler</h2>
+ * {@code resource-pack/src/pack.png} measured 128 x 128 with 21 distinct colours, no partially
+ * transparent pixel and <b>every 2 x 2 block uniform</b> - so the artwork is 64 x 64 pixel art that
+ * was doubled, and 64 x 64 is exactly what the protocol takes. The icon is therefore every second
+ * pixel of it: nearest neighbour at a whole-number ratio, which restores the original pixels rather
+ * than approximating them (checked by doubling the result back and comparing pixel for pixel).
+ *
+ * <p>Which resampler is used is not a detail here. The file that shipped until 2026-09-09 was made
+ * with {@code sips}, whose smoothing turned those 21 colours into 454 - a pixel logo with soft
+ * edges, which in a list of server entries reads as a low-resolution photograph rather than as a
+ * mark. The opposite mistake costs the same: a photographic logo scaled with nearest neighbour
+ * comes out jagged. The rule is the artwork's kind, not a preference.
+ *
+ * <p>It is still a <em>placeholder</em> in the sense docs/presentation.md uses the word: the point
+ * where "the logo at 64 px" turns out unreadable in a server list is the point where a reduced mark
+ * replaces it, from the brush. What is no longer placeholder is the reduction.</p>
  *
  * <p>Velocity refuses anything but 64 x 64 (`Favicon.create` throws), and a ping without an icon
  * is a perfectly good ping - so every failure here is a warning and an empty answer, never a proxy

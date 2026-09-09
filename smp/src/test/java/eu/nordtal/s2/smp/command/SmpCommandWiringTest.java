@@ -67,8 +67,16 @@ class SmpCommandWiringTest {
     void oneConnectionCarriesBothChannels() {
         // NotificationListener takes several channels and several refreshes and never inspects
         // which one woke it, which is what makes sharing strictly cheaper than not.
+        //
+        // Asked as "after adminWatch.start(" rather than as one literal argument pair, because the
+        // pair stopped being adjacent on 2026-09-09: the command allowlist puts its own refresh and
+        // its own channel on the same connection, so both lists are concatenated. What this test is
+        // about is which connection they end up on, and that is unchanged.
         final String source = readOrFail();
-        assertTrue(source.contains("inbox.refreshes(), inbox.channels()"),
+        final int start = source.indexOf("adminWatch.start(");
+        assertTrue(start > 0, "this plugin no longer starts the admin watch at all");
+        assertTrue(source.indexOf("inbox.refreshes()", start) > 0
+                        && source.indexOf("inbox.channels()", start) > 0,
                 "the command inbox is not on the admin watch's listener, so this plugin opens two"
                         + " dedicated LISTEN connections where one would do");
     }

@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.remote;
 
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.commands.CommandEffects;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
@@ -239,7 +240,7 @@ public final class CommandInbox {
             // Not a duplicate of the asking side's check: this is the revocation that happened while
             // the row waited. It settles DONE rather than FAILED - the command was answered, and
             // the answer is no.
-            user.reply("command.not-admin");
+            user.reply("command.not-admin", Map.of(), Tone.BAD);
             settle(request, true, user.text());
             return;
         }

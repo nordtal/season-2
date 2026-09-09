@@ -16,6 +16,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -92,6 +93,44 @@ class ComposeWorldTest {
                 "compose.yml's fallback for pregeneration-on-start is '" + composed + "' while"
                         + " SmpSpec defaults to something else. An empty environment variable wins"
                         + " over the file, so this fallback is the effective production value.");
+    }
+
+    /**
+     * The backup clock reaches the container, and compose's fallback is the spec's own.
+     *
+     * <p>The same two traps {@code pregeneration-on-start} above carries, and this key is worse off
+     * for one of them. An empty environment variable wins over the file, and empty here means
+     * <b>never</b> - so a {@code ${VAR:-}} fallback would not merely change a default, it would
+     * turn the network's only backup clock off in production, silently, with the correct value
+     * still sitting in {@code config.yml} where anybody looking would find it.</p>
+     */
+    @Test
+    void theBackupClockIsPassedThroughAndDefaultsToTheSpec() throws Exception {
+        final String expression =
+                String.valueOf(environmentOf("smp").get("NORDTAL_SMP_BACKUP_TIME"));
+        // `${VAR:-x}` falls back when the variable is unset OR empty; `${VAR-x}` only when it is
+        // unset. This is the one setting whose empty value MEANS something - "never" - so `:-`
+        // here would make `SMP_BACKUP_TIME=` in deploy/dev.env silently become 04:45, and the
+        // local stack would ask for a nightly backup against an Arcane that does not exist.
+        //
+        // THE SINGLE DASH IS THE ASSERTION, and it comes first because the pattern below rejects
+        // a colon: with `${VAR:-x}` the match fails, and the test would then report the generic
+        // "no default" message about an expression that has one. Naming the actual regression is
+        // the whole point of a test that guards one character.
+        assertFalse(expression.contains(":-"),
+                "smp.NORDTAL_SMP_BACKUP_TIME uses `:-`, so setting it to an empty value falls back"
+                        + " to the default instead of turning the nightly backup off");
+
+        final Matcher matcher =
+                Pattern.compile("^\\$\\{[A-Z0-9_]+-(.*)}$").matcher(expression);
+        assertTrue(matcher.matches(), "smp.NORDTAL_SMP_BACKUP_TIME is '" + expression + "', which"
+                + " has no default an unfilled .env would fall back to");
+
+        assertEquals(Configs.load(directory, LOGGER).get().backupTime(), matcher.group(1),
+                "compose.yml's fallback for backup-time is '" + matcher.group(1) + "' while SmpSpec"
+                        + " defaults to something else. An empty value here means no nightly"
+                        + " backup anywhere in the network, and nothing would say so.");
+
     }
 
     /** The datapacks have to land in the world Paper actually generates, not beside it. */

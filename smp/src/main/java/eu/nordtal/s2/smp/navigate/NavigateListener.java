@@ -52,8 +52,15 @@ public final class NavigateListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        if (gui.click(player, event.getRawSlot(), locales.of(player.getUniqueId()))) {
-            sounds.play(player, Feedback.SELECT);
+        final NavigateGui.Click click = gui.click(player, event.getRawSlot());
+        if (click.sound() != null) {
+            sounds.play(player, click.sound());
+        }
+        // A page turn is an OPEN and not a redraw: a chest's title is fixed when the window opens,
+        // and the whole surface of this menu is drawn out of that title.
+        if (click.open() != null) {
+            player.openInventory(click.open().getInventory());
+        } else if (click.close()) {
             player.closeInventory();
         }
     }

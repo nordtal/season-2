@@ -180,8 +180,15 @@ public final class Applier {
                 .filter(change -> !change.status().isWork())
                 .filter(change -> !change.status().isFailure())
                 .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
-                .forEach(change -> outcomes.add(new ApplyResult.Outcome(
-                        service, change.artifact(), ApplyResult.Status.UNCHANGED, change.installed())));
+                .forEach(change -> outcomes.add(change.status() == Change.Status.UNSUPPORTED
+                        // Not UNCHANGED, which is a statement about a file that is there. Nothing is
+                        // there and nothing was attempted; the row exists so the artefact stays
+                        // named until its publisher ships a build for this Minecraft version.
+                        ? new ApplyResult.Outcome(service, change.artifact(),
+                                ApplyResult.Status.UNSUPPORTED,
+                                "no build for this Minecraft version yet")
+                        : new ApplyResult.Outcome(service, change.artifact(),
+                                ApplyResult.Status.UNCHANGED, change.installed())));
 
         if (work.isEmpty()) {
             outcomes.addAll(applyPack(root, service, changes));

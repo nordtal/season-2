@@ -1,160 +1,214 @@
 package eu.nordtal.s2.networkcontrol.update;
 
+import eu.nordtal.s2.common.update.UpdateKind;
+import eu.nordtal.s2.common.update.UpdateRequest;
+import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.common.update.UpdateStatus;
+import eu.nordtal.s2.networkcontrol.MutableClock;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The rules about when a player is spoken to before the network goes down.
- * <p>
- * All of them are here rather than in {@link RestartWatch} because they are the part that can be
- * wrong in a way nobody notices until a restart happens: too many messages, a number that is not
- * the truth, or a countdown that replays itself from the top when a proxy reconnects mid-way.
- * </p>
+ *
+ * <p>All of them are here rather than in {@link RestartWatch} because they are the part that can be
+ * wrong in a way nobody notices until an outage happens: too many messages, a number that is not the
+ * truth, or a countdown that replays itself from the top when a proxy reconnects mid-way.</p>
+ *
+ * <h2>Rewritten 2026-09-08 with the schedule</h2>
+ * The class used to be asked "here is what is left, is there anything to say?" once per five-second
+ * poll, so the number it spoke was whatever that poll happened to observe - {@code 27} where 30 was
+ * asked for - and the last ten seconds could be spoken at most twice. It now plans the whole
+ * countdown once and hands back a delay per beat, which is a thing a test can walk against a real
+ * clock rather than against the poll interval it was written next to.
  */
 class CountdownTest {
 
+    private static final Instant NOW = Instant.parse("2026-09-08T20:00:00Z");
+
+    private final MutableClock clock = new MutableClock(NOW);
     private final Countdown countdown = new Countdown();
 
+    /** A row due {@code in} from the clock's current instant. */
+    private UpdateRequest due(final long id, final Duration in) {
+        return new UpdateRequest(id, UpdateKind.UPDATE, UpdateStatus.RUNNING, UpdateSource.DISCORD,
+                "a", NOW, clock.instant().plus(in), NOW, null, null);
+    }
+
+    private List<Countdown.Beat> beatsFor(final UpdateRequest request) {
+        return countdown.beats(request.id(), request.untilDue(clock.instant())).orElseThrow();
+    }
+
     @Test
-    @DisplayName("a full minute produces exactly five announcements")
-    void aFullCountdownSpeaksFiveTimes() {
-        // Polled every five seconds, which is what RestartWatch does.
-        final List<Announcement> said = new ArrayList<>();
-        for (long left = 60; left >= 0; left -= 5) {
-            countdown.pending(1L, left).ifPresent(said::add);
+    @DisplayName("a full countdown is three chat lines and ten subtitles, and nothing else")
+    void aFullCountdownIsPlannedOnce() {
+        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(30)));
+
+        assertEquals(2, kinds(beats, Announcement.Kind.COUNTDOWN).size(),
+                "chat gets thirty and ten; twelve chat lines in half a minute is how a warning"
+                        + " becomes something people learn to ignore");
+        assertEquals(List.of(30L, 10L), seconds(kinds(beats, Announcement.Kind.COUNTDOWN)));
+        assertEquals(List.of(10L, 9L, 8L, 7L, 6L, 5L, 4L, 3L, 2L, 1L),
+                seconds(kinds(beats, Announcement.Kind.TICK)));
+        assertEquals(1, kinds(beats, Announcement.Kind.NOW).size(),
+                "and exactly one 'it is happening'");
+        assertEquals(13, beats.size());
+    }
+
+    @Test
+    @DisplayName("every beat is scheduled on the exact instant its own number is true")
+    void theNumberSpokenIsTheNumberLeft() {
+        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofMillis(30_000)));
+
+        for (final Countdown.Beat beat : beats) {
+            if (beat.announcement().kind() == Announcement.Kind.NOW) {
+                assertEquals(Duration.ofSeconds(30), beat.delay(), "zero is at the end");
+                continue;
+            }
+            assertEquals(Duration.ofSeconds(30 - beat.announcement().seconds()), beat.delay(),
+                    beat.announcement() + " does not fire when its own number is true");
         }
-
-        assertEquals(5, said.size(), said.toString());
-        assertEquals(List.of(60L, 30L, 10L, 5L, 0L),
-                said.stream().map(Announcement::seconds).toList());
-        assertEquals(Announcement.Kind.NOW, said.get(4).kind(),
-                "the last one is the restart itself, not another number");
     }
 
     @Test
-    @DisplayName("the number spoken is what is left, not the threshold that triggered it")
-    void itSaysTheTruthAndNotTheRoundNumber() {
-        // The poll does not land on exact seconds. Saying "60" at 57 would be a lie by three
-        // seconds about the one thing this exists to be believed about.
-        final Announcement first = countdown.pending(1L, 57L).orElseThrow();
+    @DisplayName("a countdown that is not a whole number of seconds still lands on the second")
+    void theOddMillisecondsAreTheReasonThisIsNotSeconds() {
+        // The updater writes now() + 30s on the database's clock and the proxy reads the row some
+        // milliseconds later, so a countdown is never a round number here. Truncating to whole
+        // seconds first would put every beat up to 999 ms out - the counter would read 3 with 2.1
+        // seconds to go, on the one number that has to be believed.
+        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofMillis(29_640)));
 
-        assertEquals(Announcement.Kind.COUNTDOWN, first.kind());
-        assertEquals(57L, first.seconds());
+        final Countdown.Beat five = kinds(beats, Announcement.Kind.TICK).stream()
+                .filter(beat -> beat.announcement().seconds() == 5L)
+                .findFirst().orElseThrow();
+        assertEquals(Duration.ofMillis(24_640), five.delay(),
+                "the '5' is shown 5.000 seconds before the servers go, not 5.640");
     }
 
     @Test
-    @DisplayName("a countdown joined late does not replay the announcements it missed")
-    void joiningLateDoesNotReplay() {
-        // A proxy that restarts with forty seconds already gone. Without this it would say
-        // "60 seconds" and then "40 seconds" in the same breath.
-        final Announcement first = countdown.pending(1L, 40L).orElseThrow();
-        assertEquals(40L, first.seconds());
+    @DisplayName("a countdown joined late gets the beats still ahead of it and no others")
+    void aCountdownJoinedLateDoesNotReplay() {
+        // A proxy that comes up with seven seconds left must not say "30 seconds" twenty-three
+        // seconds after that stopped being true.
+        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ofSeconds(7)));
 
-        assertTrue(countdown.pending(1L, 35L).isEmpty());
-        assertEquals(28L, countdown.pending(1L, 28L).orElseThrow().seconds(),
-                "and the next threshold it has NOT passed still fires");
+        assertTrue(kinds(beats, Announcement.Kind.COUNTDOWN).isEmpty(),
+                "both chat thresholds are behind us");
+        assertEquals(List.of(7L, 6L, 5L, 4L, 3L, 2L, 1L),
+                seconds(kinds(beats, Announcement.Kind.TICK)));
+        assertEquals(Duration.ofSeconds(7), kinds(beats, Announcement.Kind.NOW).getFirst().delay());
     }
 
     @Test
-    @DisplayName("nothing is repeated while the seconds tick down between thresholds")
-    void quietBetweenThresholds() {
-        countdown.pending(1L, 60L);
+    @DisplayName("a countdown already at zero says only that it is happening")
+    void zeroIsStillWorthOneLine() {
+        final List<Countdown.Beat> beats = beatsFor(due(1L, Duration.ZERO));
 
-        assertTrue(countdown.pending(1L, 55L).isEmpty());
-        assertTrue(countdown.pending(1L, 50L).isEmpty());
-        assertTrue(countdown.pending(1L, 31L).isEmpty());
-        assertTrue(countdown.pending(1L, 30L).isPresent());
-    }
-
-    // ---------------------------------------------------------------- cancelling
-
-    @Test
-    @DisplayName("a withdrawn countdown is announced as cancelled")
-    void aStoppedCountdownIsAnnounced() {
-        countdown.pending(1L, 60L);
-        countdown.pending(1L, 30L);
-
-        final Announcement gone = countdown.gone(UpdateStatus.CANCELLED).orElseThrow();
-        assertEquals(Announcement.Kind.CANCELLED, gone.kind());
+        assertEquals(1, beats.size());
+        assertEquals(Announcement.Kind.NOW, beats.getFirst().announcement().kind());
+        assertEquals(Duration.ZERO, beats.getFirst().delay());
     }
 
     @Test
-    @DisplayName("FINDING 39: a claimed restart is announced as happening, not as called off")
-    void aClaimedRestartIsNotACancellation() {
-        // The case that actually occurs, every single time, and the one nothing here covered.
-        // The proxy polls every five seconds; the updater sleeps to the exact instant and claims
-        // the row on it. So the last thing the countdown ever sees is a second or two left, and
-        // then the row is gone from the pending set - which the old rule read as a cancellation.
-        // Everybody watching a working restart was told it had been called off.
-        countdown.pending(1L, 30L);
-        countdown.pending(1L, 1L);
+    @DisplayName("the same row seen again is not planned twice")
+    void theSecondSightingOfOneRowChangesNothing() {
+        final UpdateRequest request = due(1L, Duration.ofSeconds(30));
+        assertTrue(countdown.beats(request.id(), request.untilDue(clock.instant())).isPresent());
+
+        clock.advance(Duration.ofSeconds(5));
+        assertTrue(countdown.beats(request.id(), request.untilDue(clock.instant())).isEmpty(),
+                "the beats are already on the scheduler; re-planning would double every line");
+    }
+
+    @Test
+    @DisplayName("a second request replaces the plan rather than adding to it")
+    void aNewRowStartsOver() {
+        beatsFor(due(1L, Duration.ofSeconds(30)));
+
+        final Optional<List<Countdown.Beat>> second =
+                countdown.beats(2L, Duration.ofSeconds(30));
+        assertTrue(second.isPresent());
+        assertEquals(2L, countdown.watching());
+    }
+
+    // ---------------------------------------------------------------- the row stops counting down
+
+    @Test
+    @DisplayName("a withdrawn countdown says it was called off")
+    void cancelledSaysCancelled() {
+        beatsFor(due(1L, Duration.ofSeconds(30)));
+
+        assertEquals(Announcement.Kind.CANCELLED,
+                countdown.gone(UpdateStatus.CANCELLED).orElseThrow().kind());
+    }
+
+    @Test
+    @DisplayName("a row that reached zero and ran is not announced as called off - finding 39")
+    void reachingZeroIsNotCancelling() {
+        // The failure this exists for: the row does not vanish when the countdown runs out, it
+        // stops being in the counting-down set - and reading that as a withdrawal announced EVERY
+        // successful run as called off.
+        beatsFor(due(1L, Duration.ofSeconds(30)));
 
         assertEquals(Announcement.Kind.NOW, countdown.gone(UpdateStatus.RUNNING).orElseThrow().kind());
     }
 
     @Test
-    @DisplayName("a restart that failed after the countdown says so, and is not a cancellation")
-    void aFailedRestartIsItsOwnLine() {
-        // What happened on 2026-09-03: the countdown ran, the updater claimed the row on time, and
-        // the redeploy failed because arcane.base-url pointed at the updater's own container. One
-        // of those is somebody's decision and the other went wrong; a player can tell.
-        countdown.pending(1L, 10L);
-        countdown.pending(1L, 1L);
+    @DisplayName("once the zero beat has been delivered, the poll behind it stays quiet")
+    void theZeroBeatIsNotRepeatedByThePoll() {
+        // Both paths can reach "it is happening": the scheduled beat, and a poll landing in the
+        // milliseconds after the row left the counting-down set. Saying it twice is the one
+        // duplicate a player would definitely notice.
+        beatsFor(due(1L, Duration.ofSeconds(30)));
+        countdown.zeroReached();
 
-        assertEquals(Announcement.Kind.FAILED, countdown.gone(UpdateStatus.FAILED).orElseThrow().kind());
+        assertTrue(countdown.gone(UpdateStatus.RUNNING).isEmpty());
     }
 
     @Test
-    @DisplayName("a row that is gone from the table entirely reads as cancelled")
-    void aDeletedRowIsACancellation() {
-        countdown.pending(1L, 30L);
+    @DisplayName("a run that failed after the countdown gets its own line, not the cancel one")
+    void failedIsItsOwnAnswer() {
+        beatsFor(due(1L, Duration.ofSeconds(30)));
+
+        assertEquals(Announcement.Kind.FAILED,
+                countdown.gone(UpdateStatus.FAILED).orElseThrow().kind());
+    }
+
+    @Test
+    @DisplayName("a row deleted by hand is a cancellation, because nothing is going to happen")
+    void aVanishedRowIsACancellation() {
+        beatsFor(due(1L, Duration.ofSeconds(30)));
+
         assertEquals(Announcement.Kind.CANCELLED, countdown.gone(null).orElseThrow().kind());
     }
 
     @Test
-    @DisplayName("a countdown that ran out has already spoken and does not speak twice")
-    void reachingZeroIsNotAnnouncedAgain() {
-        countdown.pending(1L, 5L);
-        countdown.pending(1L, 0L);
-
-        assertEquals(Optional.empty(), countdown.gone(UpdateStatus.RUNNING));
+    @DisplayName("nothing was being counted down, so nothing is said")
+    void goneWithoutACountdownIsSilent() {
+        assertTrue(countdown.gone(UpdateStatus.CANCELLED).isEmpty());
+        assertFalse(countdown.beats(1L, Duration.ofSeconds(30)).isEmpty(),
+                "and the bookkeeping is clean enough for the next one");
     }
 
-    @Test
-    @DisplayName("a quiet network says nothing at all")
-    void nothingPendingSaysNothing() {
-        assertEquals(Optional.empty(), countdown.gone(null));
-        assertEquals(Optional.empty(), countdown.gone(UpdateStatus.RUNNING));
+    // ---------------------------------------------------------------- helpers
+
+    private static List<Countdown.Beat> kinds(final List<Countdown.Beat> beats,
+                                              final Announcement.Kind kind) {
+        return beats.stream().filter(beat -> beat.announcement().kind() == kind).toList();
     }
 
-    @Test
-    @DisplayName("the countdown names the row it is following, so the caller can read it back")
-    void theWatchedRequestIsVisible() {
-        assertEquals(null, countdown.watching());
-        countdown.pending(7L, 60L);
-        assertEquals(7L, countdown.watching());
-        countdown.gone(UpdateStatus.DONE);
-        assertEquals(null, countdown.watching());
-    }
-
-    @Test
-    @DisplayName("a second restart starts its own countdown")
-    void aNewRequestStartsFresh() {
-        countdown.pending(1L, 60L);
-        countdown.pending(1L, 30L);
-
-        // Cancelled and asked for again, or asked for twice - either way the announcements for the
-        // new one must not be suppressed by the old one's bookkeeping.
-        final Announcement first = countdown.pending(2L, 60L).orElseThrow();
-        assertEquals(60L, first.seconds());
+    private static List<Long> seconds(final List<Countdown.Beat> beats) {
+        return beats.stream().map(beat -> beat.announcement().seconds()).toList();
     }
 }

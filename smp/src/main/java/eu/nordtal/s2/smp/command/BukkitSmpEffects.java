@@ -5,6 +5,8 @@ import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.OpenPayment;
 import eu.nordtal.s2.smp.aura.AuraReason;
+import eu.nordtal.s2.smp.db.AuraPlace;
+import eu.nordtal.s2.smp.db.AuraRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.farm.FarmWorldReset;
@@ -15,6 +17,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -51,7 +54,18 @@ public final class BukkitSmpEffects implements SmpEffects {
 
     private final java.util.function.Function<java.util.Locale, Status> status;
 
-    public BukkitSmpEffects(final Plugin plugin, final Executor executor, final SmpDao dao,
+    /**
+     * The connection the three aura reads share, so they answer about one moment.
+     *
+     * <p>{@code dao} is on-demand: every call takes its own connection, so a single aura event
+     * between them can leave {@code /aura} printing a rank against a leaderboard from a different
+     * state. One handle in a {@code REPEATABLE READ} transaction is what makes the three one
+     * answer.</p>
+     */
+    private final org.jdbi.v3.core.Jdbi jdbi;
+
+    public BukkitSmpEffects(final Plugin plugin, final Executor executor,
+                            final org.jdbi.v3.core.Jdbi jdbi, final SmpDao dao,
                             final ObjectiveEngine engine, final FarmWorldReset farmReset,
                             final Identities identities, final AccessDirectory access,
                             final java.util.function.Supplier<java.util.List<String>> reload,
@@ -59,6 +73,7 @@ public final class BukkitSmpEffects implements SmpEffects {
         this.status = java.util.Objects.requireNonNull(status, "status");
         this.plugin = plugin;
         this.executor = executor;
+        this.jdbi = java.util.Objects.requireNonNull(jdbi, "jdbi");
         this.dao = dao;
         this.engine = engine;
         this.farmReset = farmReset;
@@ -180,6 +195,62 @@ public final class BukkitSmpEffects implements SmpEffects {
         return access.openPayment(discordId);
     }
 
+    /**
+     * {@code /aura}: three reads and one hop to the server thread for the names.
+     *
+     * <h2>Why the names are resolved in one hop and not one each</h2>
+     * {@link #nameOf} waits for the server thread per call, which is the right shape for a command
+     * that names one person and the wrong one for a list of ten - ten round trips through the
+     * scheduler, on a command any player can type as often as they like. So the whole list is
+     * resolved inside a single {@code callSyncMethod}.
+     *
+     * <p>The database reads stay on this thread, which is an async one by construction: everything
+     * that reaches this class comes through {@code CommandEffects#async}.</p>
+     */
+    @Override
+    public Optional<AuraStanding> auraStanding(final UUID player) {
+        final Optional<String> discordId = discordIdOf(player);
+        if (discordId.isEmpty()) {
+            return Optional.empty();
+        }
+        // All three in one REPEATABLE READ transaction: a rank, a total and a leaderboard read
+        // one after the other through an on-demand DAO are three separate snapshots, and a single
+        // aura event between them prints a place that the list underneath it contradicts.
+        final AuraSnapshot snapshot = jdbi.inTransaction(
+                org.jdbi.v3.core.transaction.TransactionIsolationLevel.REPEATABLE_READ, handle -> {
+                    final SmpDao attached = handle.attach(SmpDao.class);
+                    // A player who has never been given aura has no smp_player row yet, and zero is
+                    // the honest answer for them - the alternative is telling somebody their account
+                    // cannot be read on their first day.
+                    final int own = attached.auraOf(discordId.get()).orElse(0);
+                    return new AuraSnapshot(own, attached.auraPlace(own, discordId.get()),
+                            attached.topAura(10));
+                });
+        final int aura = snapshot.aura();
+        final AuraPlace place = snapshot.place();
+        final List<AuraRow> top = snapshot.top();
+
+        final List<String> names = onMainThread(() -> top.stream()
+                .map(row -> {
+                    final Player online = Bukkit.getPlayer(row.mcUuid());
+                    final String name = online != null
+                            ? online.getName()
+                            : Bukkit.getOfflinePlayer(row.mcUuid()).getName();
+                    // The board in the world falls back to the first eight characters of the UUID
+                    // for the same reason: a name this server has never seen is still a line, and a
+                    // blank one on a leaderboard reads as a bug in the leaderboard.
+                    return name == null ? row.mcUuid().toString().substring(0, 8) : name;
+                })
+                .toList());
+
+        final List<AuraLine> lines = new java.util.ArrayList<>(top.size());
+        for (int at = 0; at < top.size(); at++) {
+            lines.add(new AuraLine(at + 1, names.get(at), top.get(at).aura(),
+                    top.get(at).mcUuid().equals(player)));
+        }
+        return Optional.of(new AuraStanding(aura, place.place(), place.total(), List.copyOf(lines)));
+    }
+
     private <T> T onMainThread(final Callable<T> work) {
         if (Bukkit.isPrimaryThread()) {
             // Nothing in this class is called from the main thread today. The branch is here so
@@ -206,4 +277,9 @@ public final class BukkitSmpEffects implements SmpEffects {
                 ? unchecked
                 : new IllegalStateException(failure);
     }
+
+    /** The three aura reads, taken together. */
+    private record AuraSnapshot(int aura, AuraPlace place, List<AuraRow> top) {
+    }
+
 }

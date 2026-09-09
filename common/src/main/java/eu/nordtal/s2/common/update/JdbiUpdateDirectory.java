@@ -48,6 +48,22 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public java.util.List<UpdateRequest> since(final long id) {
+        return dao.since(id);
+    }
+
+    @Override
+    public long latestId() {
+        return dao.latestId();
+    }
+
+    @Override
+    public java.util.List<UpdateRequest> finishedWithin(final Duration window) {
+        Objects.requireNonNull(window, "window");
+        return dao.finishedWithin(Math.max(0L, window.toSeconds()));
+    }
+
+    @Override
     public Optional<UpdateRequest> claimNext() {
         return dao.claimNext();
     }
@@ -56,8 +72,9 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
         Objects.requireNonNull(status, "status");
         if (!status.isFinished() || status == UpdateStatus.CANCELLED) {
-            // CANCELLED is reachable only from PENDING and only through cancelPendingRestart.
-            // Letting it in here would mean an updater could "cancel" work it had already started.
+            // CANCELLED is reachable only through cancelCountdown, which is a person withdrawing
+            // a countdown. Letting it in here would mean an updater could report work it had
+            // already started as somebody else's cancellation.
             throw new IllegalArgumentException(
                     "A claimed request finishes as DONE or FAILED, not as " + status);
         }
@@ -70,13 +87,26 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public Optional<UpdateRequest> pendingRestart() {
-        return dao.pendingRestart();
+    public Optional<UpdateRequest> startCountdown(final long id, final Duration length) {
+        Objects.requireNonNull(length, "length");
+        // Clamped like submit's delay, and for the same reason: a caller computing a countdown from
+        // two clocks should get "now", not an exception on the path that is taking servers down.
+        return dao.startCountdown(id, Math.max(0L, length.toSeconds()));
     }
 
     @Override
-    public Optional<UpdateRequest> cancelPendingRestart(final String reason) {
-        return dao.cancelPendingRestart(reason);
+    public boolean commitCountdown(final long id) {
+        return dao.commitCountdown(id).isPresent();
+    }
+
+    @Override
+    public Optional<UpdateRequest> countingDown() {
+        return dao.countingDown();
+    }
+
+    @Override
+    public Optional<UpdateRequest> cancelCountdown(final String reason) {
+        return dao.cancelCountdown(reason);
     }
 
     @Override
@@ -85,9 +115,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public int settleOrphans(final String restarted, final String failed) {
-        // Restarts first: the other statement excludes them, so the order only decides which
-        // message a restart gets, and getting that wrong is the whole point of having two.
-        return dao.completeOrphanedRestarts(restarted) + dao.failOrphans(failed);
+    public int settleOrphans(final String failed) {
+        return dao.failOrphans(failed);
     }
 }

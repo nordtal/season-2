@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands.update;
 
 import eu.nordtal.s2.commands.CommandEffects;
+import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateRequest;
 
@@ -23,11 +24,16 @@ public interface UpdateEffects extends CommandEffects {
     /**
      * Writes the request.
      *
-     * @param kind      what is being asked for
-     * @param requester the Discord id or Minecraft name to record, or {@code null} for the console
+     * <p>The user and not a name: which surface asked and who is recorded as asking are both read
+     * off {@link NordtalUser#origin()}, in one place, since 2026-09-08. The proxy handed in a fixed
+     * {@code CONSOLE} for every player who typed there, and the console arrived as the literal word
+     * "console" where the column means "nobody in particular".</p>
+     *
+     * @param kind what is being asked for
+     * @param user who is asking
      * @return the row, whose id is what a surface watches
      */
-    UpdateRequest submit(UpdateKind kind, String requester);
+    UpdateRequest submit(UpdateKind kind, NordtalUser user);
 
     /** @return the row, if it is still there */
     Optional<UpdateRequest> find(long id);
@@ -42,12 +48,20 @@ public interface UpdateEffects extends CommandEffects {
      * because it already has the log. None of that is a decision, so none of it belongs in the
      * command; all of it is bound to the process, which is what this interface is for.
      *
+     * <h2>The proxy is a surface with players on it</h2>
+     * Velocity executes every command it knows itself and never forwards it to a backend. So for
+     * anybody <em>playing</em>, the process that serves {@code /update} is the proxy - not the
+     * server they are standing on - and a proxy wired with a watcher that draws nothing left every
+     * admin in the network with the acknowledgement and never the answer (2026-09-08). The Paper
+     * watchers are reached by the Paper consoles alone.
+     *
      * @param id   the request just written
      * @param user who to show it to
      */
-    default void watch(long id, eu.nordtal.s2.commands.NordtalUser user) {
-        // A surface with nothing to draw - the console - is the honest default rather than an
-        // abstract method three processes would implement as an empty body.
+    default void watch(long id, NordtalUser user) {
+        // A surface with nothing to draw is the honest default rather than an abstract method
+        // several processes would implement as an empty body. Today only the bot's console-less
+        // effects use it, and the bot has no console.
     }
 
     /**

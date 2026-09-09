@@ -68,8 +68,19 @@ class ChestOnlyMenuTest {
      * {@code TravelPanel}. The rule below is unchanged: the helper's source has to reach
      * {@code MenuTitle.} itself, and {@link #everyComposerGoesThroughMenuTitle} checks that it does.
      */
-    private static final Map<String, String> COMPOSERS = Map.of(
-            "TravelPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/travel/TravelPanel.java");
+    private static final Map<String, String> COMPOSERS = Map.ofEntries(
+            Map.entry("TravelPanel.title(",
+                    "smp/src/main/java/eu/nordtal/s2/smp/travel/TravelPanel.java"),
+            Map.entry("NavigatePanel.title(",
+                    "smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigatePanel.java"),
+            Map.entry("ObjectivePanel.title(",
+                    "smp/src/main/java/eu/nordtal/s2/smp/npc/ObjectivePanel.java"),
+            Map.entry("HandInPanel.title(",
+                    "smp/src/main/java/eu/nordtal/s2/smp/npc/HandInPanel.java"),
+            Map.entry("GravePanel.title(",
+                    "smp/src/main/java/eu/nordtal/s2/smp/grave/GravePanel.java"),
+            Map.entry("WheelPanel.title(",
+                    "smp/src/main/java/eu/nordtal/s2/smp/wheel/WheelPanel.java"));
 
     @Test
     @DisplayName("no menu opens anything but a chest")

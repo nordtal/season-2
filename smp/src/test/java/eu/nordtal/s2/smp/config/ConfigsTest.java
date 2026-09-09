@@ -90,6 +90,30 @@ class ConfigsTest {
     }
 
     /**
+     * The nightly backup is scheduled by default, and it is scheduled before the farm reset.
+     *
+     * <p>Both halves are the assertion. A backup nobody switched on is a season with no backup, and
+     * the only place that would ever show is Arcane's list of snapshots months later; a backup
+     * scheduled <em>after</em> the reset would save a farm world that is about to be deleted, on
+     * servers it had only just brought back up. Written by name here because neither is visible
+     * from {@link SmpSpec} - the two keys sit next to each other and nothing in the interface says
+     * their order matters.</p>
+     */
+    @Test
+    void theNightlyBackupIsOnAndComesBeforeTheReset() throws Exception {
+        final SmpSpec config = Configs.load(directory, LOGGER).get();
+
+        assertEquals("04:45", config.backupTime(),
+                "an empty backup-time means no nightly backup at all, and nothing else in the"
+                        + " network asks for one");
+        assertTrue(java.time.LocalTime.parse(config.backupTime())
+                        .isBefore(java.time.LocalTime.parse(config.farmResetTime())),
+                "backup-time has to be before farm-reset-time");
+        assertTrue(Files.readString(directory.resolve("config.yml")).contains("backup-time:"),
+                "the key is not written into a fresh config.yml, so nobody would find it");
+    }
+
+    /**
      * {@code config.yml} does not carry the sounds, and a config that still does loses the block
      * rather than keeping something that looks like a working setting.
      *

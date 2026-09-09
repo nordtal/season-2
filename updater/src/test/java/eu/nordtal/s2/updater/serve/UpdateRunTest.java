@@ -68,6 +68,27 @@ class UpdateRunTest {
     }
 
     @Test
+    @DisplayName("a service is not stopped for an artefact that has no build to install")
+    void anUnsupportedArtefactIsNotAnOutage() {
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        // smp's only line is CoreProtect, which has no build for this Minecraft version. It has
+        // something to SAY and nothing to do - and the difference is measured in whether people
+        // playing get thrown off. `changes().isEmpty()` was the old test and would fail this one:
+        // the line is not empty, it is simply not moving.
+        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.PLANNED)
+                .with(new UpdateReport.ServiceLine(Topology.SMP, UpdateReport.State.UNCHANGED,
+                        List.of(UpdateReport.Change.unsupported("coreprotect")), null));
+
+        final UpdateRun.Stopped stopped = run.stop(report, arcane.runtime());
+
+        assertEquals(List.of(), arcane.calls,
+                "the SMP was taken down because somebody else has not published a jar yet");
+        assertEquals(List.of(), stopped.services());
+    }
+
+    @Test
     @DisplayName("the updater never stops itself")
     void theUpdaterIsNotInItsOwnSequence() {
         final FakeArcane arcane = new FakeArcane().running(Topology.UPDATER, Topology.SMP);
@@ -217,6 +238,93 @@ class UpdateRunTest {
                 "and both had work, which is what makes the difference detectable at all");
     }
 
+    // ---------------------------------------------------------------- the backup
+
+    @Test
+    @DisplayName("a volume is snapshotted with the servers already stopped, and started after")
+    void theSnapshotSitsInTheGap() {
+        // The whole correctness of a backup run is this ordering, and it is the one thing no
+        // amount of watching a successful run can confirm: a snapshot taken of a server that is
+        // still writing to the volume produces an archive that fails at RESTORE, months later,
+        // on the day somebody needs it. Nothing at backup time complains.
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), arcane.runtime());
+        final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp"),
+                Duration.ofMinutes(60), patient());
+        run.start(new UpdateRun.Stopped(saved, stopped.services(), arcane.runtime()));
+
+        assertEquals(List.of("stop:smp-container", "backup:mc-smp", "poll:mc-smp",
+                        "start:smp-container"),
+                arcane.calls,
+                "stopped, then saved, then started - a snapshot outside that gap is a torn one");
+        assertEquals(UpdateReport.State.SAVED, saved.line("mc-smp").state());
+    }
+
+    @Test
+    @DisplayName("every volume is asked for before any of them is waited on")
+    void theSnapshotsRunTogether() {
+        // Start-and-wait per volume would hold the network down for the SUM of the uploads rather
+        // than the longest of them, and Nordtal's first S3 upload is measured in gigabytes.
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
+                List.of("mc-smp", "bot-config"), Duration.ofMinutes(60), patient());
+
+        assertEquals(List.of("backup:mc-smp", "backup:bot-config"), arcane.calls.subList(0, 2),
+                "both POSTs go out before the first poll");
+        assertTrue(arcane.calls.stream().anyMatch(call -> call.startsWith("poll:")),
+                "nothing was polled at all, so the assertion above proves nothing: " + arcane.calls);
+    }
+
+    @Test
+    @DisplayName("a refused snapshot fails its own line and leaves the others alone")
+    void oneRefusedVolumeIsNotAllOfThem() {
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP).backupRefused("mc-smp");
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
+                List.of("mc-smp", "bot-config"), Duration.ofMinutes(60), patient());
+
+        assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
+        assertEquals(UpdateReport.State.SAVED, saved.line("bot-config").state(),
+                "one volume Arcane will not touch must not cost the run the volumes it will");
+    }
+
+    @Test
+    @DisplayName("a snapshot Arcane reports as failed is a failed line, not a saved one")
+    void arcaneSayingNoIsBelieved() {
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP).backupFails("mc-smp");
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
+                List.of("mc-smp"), Duration.ofMinutes(60), patient());
+
+        assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
+        assertTrue(saved.line("mc-smp").detail().contains("archive"),
+                "and the reason Arcane gave is what a person reads, not a generic sentence");
+    }
+
+    @Test
+    @DisplayName("a snapshot that never finishes ends the wait rather than the network")
+    void thePatienceIsWhatEndsAWait() {
+        // The alternative is worse than a failed backup: the servers are already stopped, so a
+        // snapshot that hangs would hold the whole network down until somebody noticed.
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP)
+                .backupNeverFinishes("mc-smp");
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
+                List.of("mc-smp"), Duration.ofMinutes(60), impatient());
+
+        assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
+        assertTrue(saved.line("mc-smp").detail().contains("gave up waiting"),
+                "the snapshot may still be being written, and the sentence has to say that rather"
+                        + " than claim Arcane failed");
+    }
+
     // ---------------------------------------------------------------- the live report
 
     @Test
@@ -251,6 +359,21 @@ class UpdateRunTest {
     private static UpdateReport.ServiceLine work(final String service) {
         return new UpdateReport.ServiceLine(service, UpdateReport.State.PLANNED,
                 List.of(new UpdateReport.Change(service, "0.6.0", "0.7.0")), null);
+    }
+
+    /** A clock that never runs out, so a wait ends only because the work finished. */
+    private static UpdateRun.Waiting patient() {
+        return new UpdateRun.Waiting() {
+            @Override
+            public Instant now() {
+                return Instant.parse("2026-09-08T04:45:00Z");
+            }
+
+            @Override
+            public boolean sleep(final Duration duration) {
+                return true;
+            }
+        };
     }
 
     /** A clock already past the deadline, so the timeout branch is reached on the first look. */

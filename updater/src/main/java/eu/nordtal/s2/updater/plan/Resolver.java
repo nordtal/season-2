@@ -1,5 +1,6 @@
 package eu.nordtal.s2.updater.plan;
 
+import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.updater.config.UpdaterSpec;
 import eu.nordtal.s2.updater.source.Checksum;
 import eu.nordtal.s2.updater.source.GitHubReleases;
@@ -27,8 +28,8 @@ import java.util.Set;
  * what the difference is. <b>Nothing here writes anything, anywhere.</b>
  *
  * <h2>One failure does not cost the whole report</h2>
- * Each source is asked inside its own try. A Modrinth outage turns two rows into
- * {@link Change.Status#UNRESOLVED} and leaves the other eight answered - because the question an
+ * Each source is asked inside its own try. A Modrinth outage turns its rows into
+ * {@link Change.Status#UNRESOLVED} and leaves the rest answered - because the question an
  * operator is actually asking is usually about our own jars, and losing that answer to somebody
  * else's CDN would make the report worth less than the {@code .env} file it replaces.
  *
@@ -36,6 +37,13 @@ import java.util.Set;
  * "unchanged". {@link UpdatePlan#hasFailures()} exists so that "nothing to do" can be distinguished
  * from "nothing could be asked", and the restart button in step 4 is meant to look different in
  * those two cases.</p>
+ *
+ * <h2>And "no build for this version" is neither of those</h2>
+ * A source that answers, and has nothing tagged for the Minecraft version the network runs, is
+ * {@link Change.Status#UNSUPPORTED}: not work, not a failure, and above all not a reason to skip
+ * the whole service the artefact sits on. Both used to come out as one exception, so a plugin
+ * merely lagging behind the platform would have stopped the season jar beside it from ever being
+ * installed.
  */
 @Slf4j
 public final class Resolver {
@@ -58,13 +66,23 @@ public final class Resolver {
     public @NotNull UpdatePlan resolve() {
         final Map<String, RemoteFile> newest = new LinkedHashMap<>();
         final Map<String, String> failures = new HashMap<>();
+        // Kept apart from `failures` on purpose. Both mean "there is no file to install", and only
+        // one of them means the report is untrustworthy - see Change.Status.UNSUPPORTED.
+        final Map<String, String> unsupported = new HashMap<>();
+        final List<String> notes = new ArrayList<>();
 
         final GitHubReleases.Release season = resolveSeason(newest, failures);
         resolveDisplayTags(newest, failures);
-        resolveModrinth(newest, failures, Topology.PACKETEVENTS, config.packetEventsProject());
-        resolveModrinth(newest, failures, Topology.CHUNKY, config.chunkyProject());
-        resolveFill(newest, failures, Topology.PAPER, config.minecraftVersion(), config.paperBuild());
-        resolveFill(newest, failures, Topology.VELOCITY, config.velocityVersion(), config.velocityBuild());
+        resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject(), "paper");
+        resolveModrinth(newest, failures, unsupported, Topology.CHUNKY, config.chunkyProject(), "paper");
+        resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT, config.voiceChatProject(), "paper");
+        // The same Modrinth project, asked a second time for its Velocity build. One project id,
+        // two artefacts, because the proxy half and the server half are separate jars that move
+        // separately - and the loader is what tells them apart, not the id.
+        resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT_PROXY, config.voiceChatProject(), "velocity");
+        resolveModrinth(newest, failures, unsupported, Topology.CORE_PROTECT, config.coreProtectProject(), "paper");
+        resolvePaper(newest, failures);
+        resolveVelocity(newest, failures, notes);
 
         final List<Change> changes = new ArrayList<>();
         final List<UpdatePlan.Unclaimed> unclaimed = new ArrayList<>();
@@ -81,7 +99,8 @@ public final class Resolver {
             artifacts.add(service.kind().fillProject());
 
             for (final String artifact : artifacts) {
-                changes.add(compare(service.name(), artifact, installed, newest, failures, claimed));
+                changes.add(compare(service.name(), artifact, installed, newest, failures,
+                        unsupported, claimed));
             }
 
             if (installed.mounted()) {
@@ -103,7 +122,8 @@ public final class Resolver {
                 season == null ? null : season.tag(),
                 season != null && season.prerelease(),
                 List.copyOf(changes),
-                List.copyOf(unclaimed));
+                List.copyOf(unclaimed),
+                List.copyOf(notes));
     }
 
     // ---------------------------------------------------------------- sources
@@ -207,27 +227,71 @@ public final class Resolver {
         }
     }
 
+    /**
+     * One Modrinth-hosted plugin, with the two ways of having no file kept apart.
+     *
+     * <p>{@link Modrinth.Unsupported} means the API answered and the plugin has no stable build for
+     * this Minecraft version. That is not an outage and must not be reported as one: a failure row
+     * makes {@code Applier} skip the whole of the service it is on, so one plugin lagging behind
+     * the platform would stop the season jar beside it being installed at all, on every run, for as
+     * long as it lasted.</p>
+     */
     private void resolveModrinth(final Map<String, RemoteFile> newest, final Map<String, String> failures,
-                                 final String artifact, final String projectId) {
+                                 final Map<String, String> unsupported,
+                                 final String artifact, final String projectId, final String loader) {
         try {
-            newest.put(artifact, modrinth.newest(artifact, projectId, config.minecraftVersion(), "paper"));
+            newest.put(artifact, modrinth.newest(artifact, projectId, Platform.MINECRAFT, loader));
+        } catch (final Modrinth.Unsupported none) {
+            log.info("{} has no build for Minecraft {} - the row stays in the plan and installs"
+                    + " itself when one appears", artifact, Platform.MINECRAFT);
+            unsupported.put(artifact, none.getMessage());
         } catch (final IOException failed) {
             failures.put(artifact, failed.getMessage());
         }
     }
 
     /**
-     * Newest STABLE build of the pinned version - or, when {@code paper-build} /
-     * {@code velocity-build} names one, exactly that build. A pin that is older than what is
-     * installed comes out of {@code compare} as OUTDATED like any other difference, which is what
-     * makes it a rollback: the report shows {@code 125 -> 121} and the apply does it.
+     * The newest STABLE build of {@link Platform#MINECRAFT}, which is an <em>exact</em> version and
+     * not a family.
+     *
+     * <p>A new Minecraft version is a season decision and never this module's: it moves the API
+     * every plugin in the organisation is compiled against, the resource pack's {@code pack_format}
+     * and the world underneath all of it. Fill's {@code 26.2} family also lists {@code 26.2-rc-2},
+     * so following the family here would have been a road to a release candidate.</p>
      */
-    private void resolveFill(final Map<String, RemoteFile> newest, final Map<String, String> failures,
-                             final String project, final String version, final String build) {
+    private void resolvePaper(final Map<String, RemoteFile> newest, final Map<String, String> failures) {
         try {
-            newest.put(project, fill.resolve(project, version, build));
+            newest.put(Topology.PAPER, fill.newestStable(Topology.PAPER, Platform.MINECRAFT));
         } catch (final IOException failed) {
-            failures.put(project, failed.getMessage());
+            failures.put(Topology.PAPER, failed.getMessage());
+        }
+    }
+
+    /**
+     * The newest STABLE build of the newest released version inside {@link Platform#VELOCITY_FAMILY}
+     * - so the proxy follows Velocity's minors, unlike Paper, which stays on one exact version.
+     *
+     * <p><b>And that is worth one line in the report.</b> {@code network-control} is compiled
+     * against {@link Platform#VELOCITY_API} out of {@code gradle/libs.versions.toml}, so a run that
+     * moves the proxy past it leaves a plugin built for an older API running on a newer one. It is
+     * named rather than refused, exactly the way {@code UpdaterSpec} describes the same trap for
+     * Chunky: blocking the proxy's own update over a skew that is usually harmless is the worse
+     * failure, and an operator who is told can decide.</p>
+     */
+    private void resolveVelocity(final Map<String, RemoteFile> newest, final Map<String, String> failures,
+                                 final List<String> notes) {
+        try {
+            final String version = fill.newestStableVersion(Topology.VELOCITY, Platform.VELOCITY_FAMILY);
+            newest.put(Topology.VELOCITY, fill.newestStable(Topology.VELOCITY, version));
+
+            if (!Platform.VELOCITY_API.equals(version)) {
+                notes.add("the proxy resolves to Velocity " + version + ", and network-control is"
+                        + " compiled against " + Platform.VELOCITY_API + " - a plugin running on an"
+                        + " API it was not built for. Nothing is blocked; the fix is one line in"
+                        + " gradle/libs.versions.toml and a release.");
+            }
+        } catch (final IOException failed) {
+            failures.put(Topology.VELOCITY, failed.getMessage());
         }
     }
 
@@ -235,9 +299,17 @@ public final class Resolver {
 
     private Change compare(final String service, final String artifact, final Installation installed,
                            final Map<String, RemoteFile> newest, final Map<String, String> failures,
-                           final Set<String> claimed) {
+                           final Map<String, String> unsupported, final Set<String> claimed) {
         final RemoteFile wanted = newest.get(artifact);
         if (wanted == null) {
+            final String none = unsupported.get(artifact);
+            if (none != null) {
+                // No filename to compare against, so nothing on disk is claimed for this row -
+                // which is deliberate rather than a gap. A jar somebody installed by hand comes out
+                // in UpdatePlan#unclaimed, where every jar this plan does not account for goes, and
+                // that is louder than a version comparison against a file that does not exist.
+                return Change.unsupported(service, artifact, none);
+            }
             return Change.unresolved(service, artifact,
                     failures.getOrDefault(artifact, "no source answered for this artefact"));
         }
@@ -290,7 +362,10 @@ public final class Resolver {
             return new Change(artifact, artifact, Change.Status.MOUNT_MISSING, null, wanted,
                     installed.directory() + " is not mounted in this container");
         }
-        return compare(artifact, artifact, installed, newest, failures, new HashSet<>());
+        // No unsupported map: the bot and the updater come from our own release, which either
+        // carries their jar or does not. "There is no build for this Minecraft version" is a
+        // sentence about somebody else's plugin and cannot be said about these two.
+        return compare(artifact, artifact, installed, newest, failures, Map.of(), new HashSet<>());
     }
 
     private Change resolvePack(final Path root, final Map<String, RemoteFile> newest,

@@ -1,5 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
+import eu.nordtal.s2.common.message.Locales;
+import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReport;
@@ -12,13 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.InteractionHook;
-import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
-import net.dv8tion.jda.api.interactions.commands.build.CommandData;
-import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.jdbi.v3.core.Jdbi;
@@ -28,6 +26,9 @@ import java.awt.Color;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -40,24 +41,30 @@ import java.util.concurrent.TimeUnit;
  * It cannot: the updater is a different container with the volumes mounted, and this one has
  * neither the jars nor the schema. What this class does is <b>write a row into
  * {@code update_request} and read the answer back</b> (docs/updater.md#how-it-is-operated). Every
- * word an admin sees here is the updater's own report, rendered once, by the process that did the
- * work - not a second rendering that could disagree with the first.
+ * fact an admin sees here is the updater's own report - not a second opinion that could disagree
+ * with the first.
  *
  * <h2>Two clicks: look, then confirm</h2>
- * {@code /update} reports and changes nothing. <b>Update now</b> is the confirmation, and behind it
- * is one run: a countdown every player on the network sees, then the servers whose jars change are
- * stopped, the schema and the jars are moved with nothing running on them, and each server is
- * started again and watched until it reports healthy.
+ * {@code /update check} reports and changes nothing. <b>Update now</b> is the confirmation, and
+ * behind it is one run: the updater resolves what is new, and only if there is anything does a
+ * countdown every player on the network sees begin. Then the servers whose jars change are stopped,
+ * the schema and the jars are moved with nothing running on them, and each server is started again
+ * and watched until it reports healthy.
  *
  * <p>It used to be three clicks, the middle one being <em>install</em> - which swapped jars into
  * running servers and is finding 147. There is no button for that any more, because the button was
  * the defect.</p>
-
- * <h2>The report is drawn, not quoted</h2>
+ *
+ * <h2>The report is drawn, not quoted - and it is drawn in the admin's language</h2>
  * Until 2026-09-07 the updater's whole report went into the embed inside a code fence, which is
  * unreadable at a glance and says nothing while a run is working. The updater now answers with an
- * {@code UpdateReport}, and this class draws it as one field per service. It still decides
- * nothing - every version, every comparison and every outcome in those fields is the updater's.
+ * {@code UpdateReport}, and this class draws it as one field per service.
+ *
+ * <p><b>Every word around it comes from the message bundle since 2026-09-08.</b> It did not: the
+ * headings, the state labels, the buttons, the waiting lines and the failure sentences were all
+ * hardcoded English in this file, so an admin whose {@code discord_user.locale} is German got
+ * German for {@code /phase} and English for {@code /update}. The keys are {@code :commands}' own,
+ * which is what makes the same run read the same way here and in chat.</p>
  *
  * <h2>Waiting without holding a thread</h2>
  * An install downloads a Paper jar and seven plugins; it takes minutes, not seconds. So nothing
@@ -97,21 +104,24 @@ public final class UpdateCommand extends ListenerAdapter {
      */
     private static final int EMBED_BUDGET = 6000;
 
-    private static final String NOT_AN_ADMIN =
-            "You are not an admin. Updates are run by whoever holds the admin role in this guild, "
-                    + "and nothing else.";
-
     private final UpdateDirectory updates;
     private final AdminLog admin;
     private final AdminFlagDao dao;
+    private final Messages messages;
     private final ExecutorService worker;
     private final ScheduledExecutorService timers;
 
+    /**
+     * @param messages the bot's layered bundle - {@code :commands}' shared file underneath this
+     *                 module's own, which is what every {@code update.*} key below is declared in
+     */
     public UpdateCommand(final UpdateDirectory updates, final AdminLog admin, final Jdbi jdbi,
-                         final ExecutorService worker, final ScheduledExecutorService timers) {
+                         final Messages messages, final ExecutorService worker,
+                         final ScheduledExecutorService timers) {
         this.updates = updates;
         this.admin = admin;
         this.dao = jdbi.onDemand(AdminFlagDao.class);
+        this.messages = Objects.requireNonNull(messages, "messages");
         this.worker = worker;
         this.timers = timers;
     }
@@ -145,7 +155,7 @@ public final class UpdateCommand extends ListenerAdapter {
             return;
         }
         updates.find(id).ifPresent(request ->
-                watch(discord.hook(), request, Instant.now().plus(PATIENCE)));
+                watch(discord.hook(), discord.locale(), request, Instant.now().plus(PATIENCE)));
     }
 
     // ---------------------------------------------------------------- the buttons
@@ -161,83 +171,94 @@ public final class UpdateCommand extends ListenerAdapter {
 
         event.deferEdit().queue();
         worker.execute(() -> {
+            // The language of whoever clicked, not of whoever ran the command that put the button
+            // there: an admin's own message has to be in their own language even when a colleague
+            // opened it. Same read DiscordCommands#resolve makes, one indexed lookup.
+            final Locale locale = localeOf(event.getUser().getId());
             if (Ids.UPDATE_CANCEL.equals(id)) {
-                cancel(event.getHook(), event.getUser());
+                cancel(event.getHook(), locale, event.getUser());
                 return;
             }
-            submit(event.getHook(), event.getUser().getId(),
+            submit(event.getHook(), locale, event.getUser().getId(),
                     Ids.UPDATE_INSTALL.equals(id) ? UpdateKind.UPDATE : UpdateKind.RESTART);
         });
     }
 
     // ---------------------------------------------------------------- writing the row
 
-    private void submit(final InteractionHook hook, final String userId, final UpdateKind kind) {
+    private void submit(final InteractionHook hook, final Locale locale, final String userId,
+                        final UpdateKind kind) {
         try {
             // Checked on every click and not only on the command: a confirmation can sit on screen
             // while the role is taken away, and these are the clicks that change something.
             if (!dao.isAdmin(userId).orElse(false)) {
-                hook.editOriginal(NOT_AN_ADMIN).setEmbeds(List.of()).setComponents(List.of()).queue();
+                plain(hook, say(locale, "command.not-admin"));
                 return;
             }
 
-            // Both kinds that take servers down get the countdown; a report takes nothing down
-            // and waiting thirty seconds to be told what is new would be theatre.
-            final Duration delay = kind.stopsServers()
-                    ? UpdateDirectory.UPDATE_COUNTDOWN : Duration.ZERO;
+            // Due immediately, whatever the kind: the countdown is the updater's now, started on
+            // the row it has claimed once it knows there is work to do. Setting it here meant the
+            // ordinary run - the one where nothing is new - counted thirty seconds down to every
+            // player on the network before answering "everything is already current".
             final UpdateRequest request =
-                    updates.submit(kind, UpdateSource.DISCORD, userId, delay);
+                    updates.submit(kind, UpdateSource.DISCORD, userId, Duration.ZERO);
 
             if (kind.stopsServers()) {
-                announceCountdown(hook, userId, request);
+                announceCountdown(hook, locale, userId, request);
             } else {
-                hook.editOriginal(waiting(kind)).setEmbeds(List.of()).setComponents(List.of()).queue();
+                plain(hook, say(locale, "update.waiting.check"));
             }
-            watch(hook, request, Instant.now().plus(PATIENCE));
+            watch(hook, locale, request, Instant.now().plus(PATIENCE));
         } catch (final RuntimeException failure) {
-            fail(hook, "writing the " + kind + " request", failure);
+            fail(hook, locale, "writing the " + kind + " request", failure);
         }
     }
 
     /**
      * What an admin sees for the thirty seconds before anything moves.
      *
-     * <h2>The wording, and why it changed</h2>
-     * This used to read <em>"Everybody online is being counted down and it happens in 60
-     * seconds"</em>, which says a thing to a person rather than about one, and promised a restart
-     * of "the whole network" that the run no longer performs - only the servers whose jars actually
-     * change are stopped. It also ended with a sentence about this message dying with the bot,
-     * which was true when a redeploy took the whole project down and is not any more: the bot is
-     * not stopped unless its own jar changes, so the embed below keeps updating through the run.
+     * <h2>The wording, and why it changed twice</h2>
+     * It read <em>"Everybody online is being counted down and it happens in 60 seconds"</em>, which
+     * says a thing to a person rather than about one, and promised a restart of "the whole network"
+     * that the run no longer performs - only the servers whose jars actually change are stopped.
+     *
+     * <p>It is now a message key, and the sentence says <em>if</em> there is anything to install,
+     * because as of 2026-09-08 the updater resolves first and only starts a countdown when the plan
+     * has work in it. A run that finds nothing new takes nothing down and counts nothing down.</p>
+     *
+     * <p>The admin-channel line beside it stays hardcoded English, like every other
+     * {@code AdminLog} line in this bot: that channel is an operational record read by whoever is
+     * on, not a surface with one reader's language.</p>
      */
-    private void announceCountdown(final InteractionHook hook, final String userId,
-                                   final UpdateRequest request) {
+    private void announceCountdown(final InteractionHook hook, final Locale locale,
+                                   final String userId, final UpdateRequest request) {
         final long seconds = UpdateDirectory.UPDATE_COUNTDOWN.toSeconds();
         final String what = request.kind() == UpdateKind.RESTART ? "a restart" : "an update";
 
-        admin.note("<@" + userId + "> started " + what + ". Every player online sees a "
-                + seconds + "-second countdown, and the servers involved are stopped, "
+        admin.note("<@" + userId + "> started " + what + ". If the updater finds anything to do,"
+                + " every player online sees a " + seconds + "-second countdown, and the servers"
+                + " involved are stopped, "
                 + (request.kind() == UpdateKind.RESTART ? "" : "updated ") + "and started again"
                 + " after it.");
 
         hook.editOriginal(new MessageEditBuilder()
-                        .setContent("Starting in **" + seconds + " seconds**. Every player online"
-                                + " sees the countdown."
-                                + "\nNothing has been installed yet - this can still be stopped.")
+                        .setContent(say(locale, "update.countdown.started",
+                                Map.of("seconds", seconds)))
                         .setEmbeds(List.of())
-                        .setComponents(ActionRow.of(
-                                Button.secondary(Ids.UPDATE_CANCEL, "Stop the countdown")))
+                        .setComponents(ActionRow.of(Button.secondary(Ids.UPDATE_CANCEL,
+                                say(locale, "update.button.cancel"))))
                         .build())
                 .queue();
     }
 
-    private void cancel(final InteractionHook hook, final net.dv8tion.jda.api.entities.User user) {
+    private void cancel(final InteractionHook hook, final Locale locale,
+                        final net.dv8tion.jda.api.entities.User user) {
         try {
             if (!dao.isAdmin(user.getId()).orElse(false)) {
-                hook.editOriginal(NOT_AN_ADMIN).setEmbeds(List.of()).setComponents(List.of()).queue();
+                plain(hook, say(locale, "command.not-admin"));
                 return;
             }
-            final Optional<UpdateRequest> cancelled = updates.cancelPendingRestart(
+            final Optional<UpdateRequest> cancelled = updates.cancelCountdown(
                     "Cancelled in Discord by " + user.getName());
 
             if (cancelled.isPresent()) {
@@ -248,14 +269,12 @@ public final class UpdateCommand extends ListenerAdapter {
                 final String what = cancelled.get().kind() == UpdateKind.UPDATE
                         ? "update" : "restart";
                 admin.note(user.getAsMention() + " stopped the " + what + " before it happened.");
-                hook.editOriginal("Stopped. Nothing was changed.")
-                        .setEmbeds(List.of()).setComponents(List.of()).queue();
+                plain(hook, say(locale, "update.cancelled"));
             } else {
-                hook.editOriginal("Too late - the restart has already begun. Nothing was changed.")
-                        .setEmbeds(List.of()).setComponents(List.of()).queue();
+                plain(hook, say(locale, "update.too-late"));
             }
         } catch (final RuntimeException failure) {
-            fail(hook, "cancelling the restart", failure);
+            fail(hook, locale, "cancelling the countdown", failure);
         }
     }
 
@@ -269,9 +288,9 @@ public final class UpdateCommand extends ListenerAdapter {
      * nothing is held while an install downloads sixty megabytes.
      * </p>
      */
-    private void watch(final InteractionHook hook, final UpdateRequest request,
-                       final Instant deadline) {
-        watch(hook, request, deadline, null);
+    private void watch(final InteractionHook hook, final Locale locale,
+                       final UpdateRequest request, final Instant deadline) {
+        watch(hook, locale, request, deadline, null);
     }
 
     /**
@@ -281,24 +300,23 @@ public final class UpdateCommand extends ListenerAdapter {
      *              an identical embed twenty times between two stages would spend that budget on
      *              nothing
      */
-    private void watch(final InteractionHook hook, final UpdateRequest request,
+    private void watch(final InteractionHook hook, final Locale locale, final UpdateRequest request,
                        final Instant deadline, final String drawn) {
         timers.schedule(() -> {
             try {
                 final Optional<UpdateRequest> row = updates.find(request.id());
                 if (row.isEmpty()) {
-                    hook.editOriginal("That request is gone from the database. Nothing happened.")
-                            .setEmbeds(List.of()).setComponents(List.of()).queue();
+                    plain(hook, say(locale, "update.gone"));
                     return;
                 }
                 final UpdateRequest current = row.get();
                 if (current.status().isFinished()) {
-                    hook.editOriginal(finished(current)).queue();
+                    hook.editOriginal(finished(current, locale)).queue();
                     return;
                 }
                 if (Instant.now().isAfter(deadline)) {
-                    hook.editOriginal(timedOut(current))
-                            .setEmbeds(List.of()).setComponents(List.of()).queue();
+                    plain(hook, say(locale, "update.timeout",
+                            Map.of("status", current.status())));
                     return;
                 }
 
@@ -312,26 +330,43 @@ public final class UpdateCommand extends ListenerAdapter {
                     UpdateReports.parse(progress).ifPresent(report -> hook
                             .editOriginal(new MessageEditBuilder()
                                     .setContent("")
-                                    .setEmbeds(List.of(fields(report, current)))
+                                    .setEmbeds(List.of(fields(report, current, messages, locale)))
                                     .setComponents(List.of())
                                     .build())
                             .queue());
                     showing = progress;
                 }
-                watch(hook, request, deadline, showing);
+                watch(hook, locale, request, deadline, showing);
             } catch (final RuntimeException failure) {
-                fail(hook, "reading the answer to request " + request.id(), failure);
+                fail(hook, locale, "reading the answer to request " + request.id(), failure);
             }
         }, CHECK_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     // ---------------------------------------------------------------- what an admin sees
 
-    private static String waiting(final UpdateKind kind) {
-        return kind == UpdateKind.UPDATE
-                ? "Updating. The servers involved are stopped, their jars replaced and started "
-                        + "again, and each one is watched until it reports healthy."
-                : "Asking the updater what is new...";
+    /** One line, no embed, no buttons - the shape every terminal sentence here uses. */
+    private static void plain(final InteractionHook hook, final String text) {
+        hook.editOriginal(text).setEmbeds(List.of()).setComponents(List.of()).queue();
+    }
+
+    private String say(final Locale locale, final String key) {
+        return messages.format(locale, key, Map.of());
+    }
+
+    private String say(final Locale locale, final String key, final Map<String, ?> placeholders) {
+        return messages.format(locale, key, placeholders);
+    }
+
+    /**
+     * The language recorded for a Discord account, defaulting to English.
+     *
+     * <p>{@code discord_user.locale}, the same source {@code DiscordCommands#resolve} reads and the
+     * same one a player's chat is rendered against. Never Discord's own client locale: docs/i18n.md
+     * settles that the database is the one place a person's language lives.</p>
+     */
+    private Locale localeOf(final String discordId) {
+        return Locales.parse(dao.localeOf(discordId).orElse(null));
     }
 
     /**
@@ -342,14 +377,14 @@ public final class UpdateCommand extends ListenerAdapter {
      * update has nothing to follow it, and a failure leads nowhere at all, because the next thing
      * to do is read what it says.</p>
      */
-    private static MessageEditData finished(final UpdateRequest request) {
+    private MessageEditData finished(final UpdateRequest request, final Locale locale) {
         // A cancelled restart is not a failure - it is somebody using the way out on purpose, and
         // the watch below overwrites the "Stopped." line with this embed either way. Colouring it
         // red would turn a deliberate act into something that looks like it went wrong.
         final boolean failed = request.status() == UpdateStatus.FAILED;
         final MessageEditBuilder message = new MessageEditBuilder()
                 .setContent("")
-                .setEmbeds(embed(request, failed));
+                .setEmbeds(embed(request, failed, locale));
 
         if (request.status() != UpdateStatus.DONE || request.kind() != UpdateKind.REPORT) {
             return message.setComponents(List.of()).build();
@@ -360,14 +395,14 @@ public final class UpdateCommand extends ListenerAdapter {
                 .map(UpdateReport::isWork)
                 .orElse(true);
         return worth
-                ? message.setComponents(ActionRow.of(button(request.kind()))).build()
+                ? message.setComponents(ActionRow.of(button(request.kind(), locale))).build()
                 : message.setComponents(List.of()).build();
     }
 
-    private static Button button(final UpdateKind kind) {
+    private Button button(final UpdateKind kind, final Locale locale) {
         return kind == UpdateKind.REPORT
-                ? Button.danger(Ids.UPDATE_INSTALL, "Update now")
-                : Button.danger(Ids.UPDATE_RESTART, "Restart the network");
+                ? Button.danger(Ids.UPDATE_INSTALL, say(locale, "update.button.install"))
+                : Button.danger(Ids.UPDATE_RESTART, say(locale, "update.button.restart"));
     }
 
     /**
@@ -384,34 +419,52 @@ public final class UpdateCommand extends ListenerAdapter {
      * the deployed database. {@link UpdateReports#parse} answers empty for those and the old
      * rendering is used, unchanged. Nothing is migrated: a finished request is never read twice.</p>
      */
-    private static List<MessageEmbed> embed(final UpdateRequest request, final boolean failed) {
+    private List<MessageEmbed> embed(final UpdateRequest request, final boolean failed,
+                                     final Locale locale) {
         final String result = request.result();
         final Optional<UpdateReport> report = UpdateReports.parse(result);
         if (report.isEmpty()) {
             return List.of(new net.dv8tion.jda.api.EmbedBuilder()
-                    .setTitle(title(request))
+                    .setTitle(title(request, locale))
                     .setDescription("```\n" + truncate(result == null
                             ? "(the updater wrote nothing)" : result) + "\n```")
                     .setColor(colour(failed))
                     .setTimestamp(request.finished() == null ? Instant.now() : request.finished())
                     .build());
         }
-        return List.of(fields(report.get(), request));
+        return List.of(fields(report.get(), request, messages, locale));
     }
 
     // Package-private so EmbedBudgetTest can build one and measure it: Discord's 6000 is a
     // limit on the whole embed, and every guard here is arithmetic that has already been wrong
     // twice.
-    static MessageEmbed fields(final UpdateReport report, final UpdateRequest request) {
+    static MessageEmbed fields(final UpdateReport report, final UpdateRequest request,
+                               final Messages messages, final Locale locale) {
+        return fields(report, request, messages, locale, null);
+    }
+
+    /**
+     * @param footer who asked and from where, or {@code null}. Only the admin channel's feed sets
+     *               one - the asker's own message does not need to be told who they are - and it is
+     *               <b>subtracted from the budget</b> rather than added on top, because Discord's
+     *               6 000 counts a footer like everything else and the arithmetic here has already
+     *               been wrong three times by being reasoned about instead of measured
+     */
+    static MessageEmbed fields(final UpdateReport report, final UpdateRequest request,
+                               final Messages messages, final Locale locale, final String footer) {
+        final String headline = messages.format(locale, "update.stage." + report.stage(), Map.of());
         final net.dv8tion.jda.api.EmbedBuilder embed = new net.dv8tion.jda.api.EmbedBuilder()
-                .setTitle(report.stage().headline())
+                .setTitle(headline)
                 .setColor(colour(report.stage() == UpdateReport.Stage.FAILED))
                 .setTimestamp(request.finished() == null ? Instant.now() : request.finished());
+        if (footer != null) {
+            embed.setFooter(footer);
+        }
 
         // The service lines are what somebody is actually watching, so they get the budget first
         // and the notes get what is left. A run whose notes are long is usually a run that failed,
         // and "which server did not come back" is the half that matters then.
-        int budget = EMBED_BUDGET - report.stage().headline().length();
+        int budget = EMBED_BUDGET - headline.length() - (footer == null ? 0 : footer.length());
         final java.util.List<String[]> drawn = new java.util.ArrayList<>();
         for (final UpdateReport.ServiceLine line : report.services()) {
             // Discord caps an embed at 25 fields; four services and a bot cannot reach that, and
@@ -419,7 +472,7 @@ public final class UpdateCommand extends ListenerAdapter {
             if (drawn.size() >= 24) {
                 break;
             }
-            final String value = body(line);
+            final String value = body(line, messages, locale);
             final int cost = line.service().length() + value.length();
             if (cost > budget) {
                 break;
@@ -452,17 +505,36 @@ public final class UpdateCommand extends ListenerAdapter {
         return embed.build();
     }
 
-    /** One service's field: what state it is in, and what is moving under it. */
-    private static String body(final UpdateReport.ServiceLine line) {
-        final StringBuilder text = new StringBuilder(marker(line.state()))
-                .append(' ').append(line.state().label());
+    /**
+     * One service's field: what state it is in, and what is moving under it.
+     *
+     * <p>The state label and the arrow between two versions come from the same bundle chat uses, so
+     * a run reads the same in both places and in both languages. The label is {@code update.state.*}
+     * rather than chat's {@code update.line.*} because a field already carries the service as its
+     * heading, and "smp: stopped" under a heading reading "smp" is the name twice.</p>
+     */
+    private static String body(final UpdateReport.ServiceLine line, final Messages messages,
+                               final Locale locale) {
+        final StringBuilder text = new StringBuilder(marker(line.state())).append(' ')
+                .append(messages.format(locale, "update.state." + line.state(), Map.of()));
         for (final UpdateReport.Change change : line.changes()) {
-            text.append("\n`").append(change.artefact()).append("` ")
-                    .append(change.from() == null ? change.to()
-                            : change.from() + " → " + change.to());
+            text.append('\n').append(switch (change.state()) {
+                // An artefact whose publisher has no build for this Minecraft version. Drawn as an
+                // ordinary line under the service and not as a failure, because it is not one: no
+                // server is stopped for it and nothing beside it is held back.
+                case UNSUPPORTED -> messages.format(locale, "update.change.unsupported",
+                        Map.of("artefact", change.artefact()));
+                case MOVING -> change.from() == null
+                        ? messages.format(locale, "update.change.new", Map.of(
+                                "artefact", change.artefact(), "to", change.to()))
+                        : messages.format(locale, "update.change", Map.of(
+                                "artefact", change.artefact(), "from", change.from(),
+                                "to", change.to()));
+            });
         }
         if (line.detail() != null && !line.detail().isBlank()) {
-            text.append('\n').append(line.detail());
+            text.append('\n').append(messages.format(locale, "update.detail",
+                    Map.of("detail", line.detail())));
         }
         // Discord's per-field limit. A failure message from Arcane carrying a cause chain is the
         // one thing here that can reach it.
@@ -473,15 +545,18 @@ public final class UpdateCommand extends ListenerAdapter {
      * One character in front of a state, so a run can be read without reading it.
      *
      * <p>Deliberately not colour: an embed has one colour for the whole of it, and the interesting
-     * case is a run where three services are fine and the fourth is not.</p>
+     * case is a run where three services are fine and the fourth is not. It is also what carries
+     * {@code Tone} across to this surface - the tone a chat line is painted with, as a glyph.</p>
      */
     private static String marker(final UpdateReport.State state) {
         return switch (state) {
-            case UNCHANGED -> "\u2013";
-            case PLANNED -> "\u25cb";
-            case STOPPED, INSTALLED, STARTING -> "\u25d1";
-            case HEALTHY -> "\u2714";
-            case FAILED -> "\u2716";
+            case UNCHANGED -> "–";
+            case PLANNED -> "○";
+            case STOPPED, INSTALLED, STARTING -> "◑";
+            // A finished snapshot and a service that came back are the same news to a reader
+            // scanning the fields: this one is done and it is done right.
+            case HEALTHY, SAVED -> "✔";
+            case FAILED -> "✖";
         };
     }
 
@@ -514,31 +589,12 @@ public final class UpdateCommand extends ListenerAdapter {
      * stage moves as the run works and the heading has to move with it. This is only reached by
      * the plain-text rows written before 2026-09-07.</p>
      */
-    private static String title(final UpdateRequest request) {
-        if (request.status() == UpdateStatus.CANCELLED) {
-            return "Stopped";
-        }
-        return switch (request.kind()) {
-            case REPORT -> "What is new";
-            case UPDATE -> "Update";
-            // Retired; only rows written before 2026-09-07 carry it, and they are history.
-            case APPLY -> "Installed";
-            case RESTART -> "Restart";
-        };
-    }
-
-    private static String timedOut(final UpdateRequest request) {
-        // "Nothing was changed" is only true of a PENDING row. A RUNNING one means the updater
-        // claimed the request and did not come back: it may have stopped servers and moved jars
-        // already, and telling an admin nothing happened is the worst thing to say at that moment.
-        // The timeout is this bot's patience, not a statement about the run. Found by review.
-        final String state = request.status() == UpdateStatus.PENDING
-                ? "Nothing was changed - nothing ever claimed it."
-                : "It was claimed and did not finish, so servers may be stopped and jars may"
-                        + " already have moved. Read the updater's log before doing anything else.";
-        return "The updater has not answered in " + PATIENCE.toMinutes() + " minutes. The request "
-                + "is still row " + request.id() + " in `update_request` and it is "
-                + request.status() + ". " + state;
+    private String title(final UpdateRequest request, final Locale locale) {
+        return request.status() == UpdateStatus.CANCELLED
+                ? say(locale, "update.stage.CANCELLED")
+                // APPLY is retired; only rows written before 2026-09-07 carry it, and they are
+                // history. It still needs a heading, because those rows are still readable.
+                : say(locale, "update.title." + request.kind());
     }
 
     /**
@@ -548,12 +604,10 @@ public final class UpdateCommand extends ListenerAdapter {
      * moves jars on four servers; a failure nobody sees is the one thing it must not produce.
      * </p>
      */
-    private void fail(final InteractionHook hook, final String what, final RuntimeException failure) {
+    private void fail(final InteractionHook hook, final Locale locale, final String what,
+                      final RuntimeException failure) {
         log.error("An update interaction failed while {}", what, failure);
         admin.alert("An update interaction failed while " + what + ": `" + failure + "`");
-        hook.editOriginal("That did not work. The admin channel has the detail.")
-                .setEmbeds(List.of())
-                .setComponents(List.of())
-                .queue();
+        plain(hook, say(locale, "update.interaction-failed"));
     }
 }

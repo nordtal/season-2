@@ -2,38 +2,29 @@
 """Draws the `nordtal:gui` menu surfaces: the six chest panels, and the balloon's travel panel
 with its two state overlays.
 
-WHAT A PANEL IS. A menu on this server is an ordinary chest inventory whose *title*
-carries a bitmap glyph large enough to cover the whole window. The glyph is drawn from
-a font with a large positive `ascent`, so it rises out of the title's baseline and sits
-behind the slots; the slots themselves stay vanilla slots and draw on top of it. The
-whole technique, its measurements and the three decisions that follow from it are in
-docs/presentation.md section 2 - read that before changing a number here.
+WHAT A PANEL IS. A menu on this server is an ordinary chest inventory whose *title* carries
+a bitmap glyph large enough to cover the whole window. The glyph comes from a font with a
+large positive `ascent`, so it rises out of the title's baseline and sits behind the slots,
+which stay vanilla slots and draw on top of it.
 
-WHY SIX PANELS AND NOT ONE. A chest's window height is 114 + 18*rows, so the six sizes
-are 132/150/168/186/204/222 px and a panel drawn for one row count is the wrong height
-for another. All six are even, which is why they all centre identically; the moment a
-menu becomes a hopper (imageHeight 133, odd) that stops being true, and a test asserts
-no menu opens a non-chest inventory.
+WHY SIX PANELS AND NOT ONE. A chest's window height is 114 + 18*rows, so the six sizes are
+132/150/168/186/204/222 px and a panel drawn for one row count is the wrong height for
+another. All six are even, which is why they centre identically; a hopper (imageHeight 133,
+odd) would break that, and a test asserts no menu opens a non-chest inventory.
 
-WHAT AN OVERLAY IS (2026-09-05). The travel panel bakes its four world tiles into one
-image, because all four are always shown in fixed places. What varies per player is a
-tile's *state* - locked, or "you are here" - and each state is a separate small glyph
-the size of one tile, declared once per tile ROW in gui.json with the ascent that lands
-it on that row, and drawn on top of the panel by walking the cursor back to the tile's
-x. One base plus two overlays covers every combination; a panel per combination would
-be twelve images that all change together the day the art does.
+WHAT AN OVERLAY IS. The travel panel bakes its four world tiles into one image. What varies
+per player is a tile's *state* - locked, or "you are here" - so each state is a separate
+tile-sized glyph, declared once per tile row in gui.json with the ascent that lands it
+there. One base plus two overlays covers every combination.
 
-WHY THE ART IS PROGRAMMATIC. Same reason as generate_dummy_textures.py: it is anchored
-to the *measurements* rather than to an image, so a hand-drawn panel of the same
-dimensions drops in without a line of Java changing. The palette below is the whole
-design surface - a real art pass is an edit to PALETTE and a redraw, not a rewrite.
+WHY THE ART IS PROGRAMMATIC. It is anchored to the *measurements* rather than to an image,
+so a hand-drawn panel of the same dimensions drops in without a line of Java changing. The
+palette below is the whole design surface.
 
-THE LOOK (2026-09-05, owner's call). Light, in the manner of Origin Realms: vanilla's own
-198-grey body so the frame and the player inventory beneath read as one window, a dark
-outer line, vanilla's 3 px corner chamfer so nothing of the texture underneath peeks
-out, and dark slot recesses. The boards stay dark - they hang in the world on a Text
-Display's translucent ground - so generate_dummy_textures.py no longer copies this
-palette; see the note there.
+THE LOOK. Light, in the manner of Origin Realms: vanilla's own 198-grey body so the frame
+and the player inventory beneath read as one window, a dark outer line, vanilla's 3 px
+corner chamfer so nothing underneath peeks out, and dark slot recesses. The boards stay
+dark, so generate_dummy_textures.py does not copy this palette.
 
 Pure standard library. The PNG codec is pngio.py, shared with the other generators.
 
@@ -55,47 +46,32 @@ DEFAULT_OUT = os.path.join(REPO_ROOT, "resource-pack", "src", "assets",
 
 # --- The measurements. Every one of these is vanilla and none of them is ours. ------
 #
-# READ OFF THE PIXELS of the extracted 26.2 gui/container/generic_54.png on 2026-09-04,
-# not taken from a tutorial and not from memory. What was actually done: decode the PNG,
-# find the bounding box of everything that is not the transparent palette index (176 x
-# 222), then find every row carrying the slots' dark shadow line. Those rows came back as
-# 17, 35, 53, 71, 89, 107 for the container's six rows and 139, 157, 175, 197 for the
-# player's three plus the hotbar. The first six are where the client draws them; the last
-# four are one pixel below where it draws them - see PLAYER_MAIN_FROM_BOTTOM.
+# Read off the pixels of the extracted gui/container/generic_54.png, not from a tutorial:
+# the slots' shadow rows are 17/35/53/71/89/107 for the container and 139/157/175/197 for
+# the player's rows, and those last four are one pixel below where the client draws them
+# (see PLAYER_MAIN_FROM_BOTTOM). Vanilla also leaves a diagonal of transparent pixels at
+# each corner, which CORNER_CHAMFER cuts.
 #
-# Re-read on 2026-09-05 for the corners: vanilla leaves a diagonal of transparent pixels
-# at each corner - three on the top row, two on the second, one on the third, mirrored -
-# so a panel with square corners shows its own corner where vanilla shows the world.
-# CORNER_CHAMFER below is that shape, and the panels cut exactly it.
-#
-# The copy that was measured lived in a scratchpad and is not kept, so this comment is the
-# record. RE-MEASURE AT EVERY VERSION BUMP: 1.21.9 moved the villager trading result slot
-# by one pixel, so this is not a theoretical risk.
+# RE-MEASURE AT EVERY VERSION BUMP: 1.21.9 moved the villager trading result slot by one
+# pixel, so this is not a theoretical risk.
 
 WIDTH = 176                  # the drawn width of every chest window
 HEIGHT_BASE = 114            # imageHeight = HEIGHT_BASE + 18 * rows
 ROW_PITCH = 18               # one slot row, and one slot's outer size
 
-# The slot CELL's top-left - the dark shadow pixel, not the 16 x 16 the item sits in. That
-# distinction is the whole reason this was measured rather than remembered: the item area
-# is at (8, 18) and every tutorial quotes that, but the cell that has to be drawn starts
-# one pixel up and to the left.
+# The slot CELL's top-left - the dark shadow pixel, not the 16 x 16 the item sits in. Every
+# tutorial quotes the item area at (8, 18); the cell to draw starts one pixel up and left.
 SLOT_ORIGIN_X = 7
 SLOT_ORIGIN_Y = 17
 SLOT_COLUMNS = 9
 
 TITLE_BAR_HEIGHT = 17        # the strip above the first slot cell, where the title sits
 
-# The player's own inventory, which every chest screen also draws, as an offset from the
-# bottom edge of the window. NOT the texture's 139 and 197 - one pixel above them, 138 and
-# 196, so 222 - 138 and 222 - 196. Found on a real client on 2026-09-05: the hover square
-# and the item sat one pixel above our recess in the player's rows and flush in the
-# chest's. The texture is not where the client draws it. ChestScreen#renderBg blits the
-# top part 1:1 but the bottom part from TEXTURE row 126 onto SCREEN row rows*18 + 17 =
-# 125, so everything below the chest rows lands one pixel higher than it sits in the PNG
-# - and ChestMenu's own slot arithmetic (103 + 18k + 18*(rows - 4), hotbar 161 + ...) is
-# what the highlight and the item follow. A panel drawn as one glyph has no such seam, so
-# it has to be drawn where the client draws, not where the file is.
+# The player's own inventory, as an offset from the bottom edge of the window. NOT the
+# texture's 139 and 197 but one pixel above them: ChestScreen#renderBg blits the bottom part
+# from texture row 126 onto screen row rows*18 + 17, so everything below the chest rows lands
+# one pixel higher than it sits in the PNG, and the highlight follows the client. A panel
+# drawn as one glyph has no seam, so it must be drawn where the client draws.
 PLAYER_MAIN_FROM_BOTTOM = 84
 PLAYER_HOTBAR_FROM_BOTTOM = 26
 
@@ -256,13 +232,8 @@ def player_inventory(buf, width, height):
 def panel(rows, recessed=True):
     """One chest panel, 176 x (114 + 18*rows).
 
-    THE HEADER IS F4b (owner, 2026-09-08). Flat ground all the way to the frame, the readable
-    title floating on it exactly as it does on the balloon, and one hairline under it. What
-    was there until then - a darker title strip inset by one pixel and a gold accent line
-    under that - is what made the header read as *floating*: the strip left a one-pixel
-    margin of ground between itself and the window's light edge on every side. The balloon
-    never had either, so the pack shipped two header styles at once and nothing said which
-    was the intended one.
+    The header is flat ground all the way to the frame, the readable title floating on it as
+    it does on the balloon, and one hairline under it - one header style across the pack.
 
     `recessed=False` is the same panel without the container's own slot recesses. A list
     menu draws a pill across a whole row and its own recesses would show above, below and
@@ -496,14 +467,10 @@ def bar_fill(width):
 
 # --- The hand-in tray -----------------------------------------------------------------
 #
-# Design H2 (owner, 2026-09-08): the deposit area is ONE surface, not a recess per slot.
-# The difference against the grave is deliberate and it is the difference between the two
-# actions - a tray is a thing you throw into, a grave is an inventory you take out of, and
-# an inventory that looks like an inventory is what says "these are separate stacks and you
-# may take any of them". Do not make the two the same by tidying.
-#
-# The cost is a ghost square: vanilla's 16x16 hover highlight still snaps to the 18px grid
-# the surface is hiding. That was the owner's call with the drawing in front of them.
+# The deposit area is ONE surface, not a recess per slot, and the grave is the opposite: a
+# tray is something you throw into, a grave is an inventory you take out of, and separate
+# cells are what say "these are distinct stacks". Do not make the two the same by tidying.
+# The accepted cost is a ghost square where vanilla's hover highlight snaps to the 18px grid.
 TRAY_INNER_DARK = (35, 35, 40, 255)
 
 
@@ -532,10 +499,8 @@ TRAY_HEIGHT = TRAY_ROWS * ROW_PITCH                       # 54
 
 # --- The grave slab -------------------------------------------------------------------
 #
-# Design G1 (owner, 2026-09-08): a recess per slot, on stone. The deliberate OPPOSITE of the
-# hand-in tray above, and the difference is the difference between the two actions - see the
-# comment on the tray. A grave is an inventory you take out of, so the separate cells are the
-# information: they say these are distinct stacks and any one of them may be taken.
+# A recess per slot, on stone: the deliberate opposite of the hand-in tray above - see the
+# comment there.
 #
 # One glyph per row count rather than one row tiled, because a glyph has one height and the
 # grave's is decided by how much the dead player was carrying. Five is the most there can be:
@@ -562,19 +527,14 @@ def grave_slab(rows):
 
 # --- The wheel's ring -----------------------------------------------------------------
 #
-# Design W3 (owner, 2026-09-08), with the ring moved TWO SLOT COLUMNS LEFT so the four
-# columns it frees carry the controls. Twelve prize cells around a hub, on five rows: three
-# along the top, three down each side, three along the bottom. On a 9 x 5 grid a circle is a
+# The ring sits two slot columns left of centre so the four columns it frees carry the
+# controls. Twelve prize cells around a hub, on five rows. On a 9 x 5 grid a circle is a
 # rounded square and the corner cells stay frame, which is why the ring is drawn as a band
 # rather than fitted to the cells.
 #
-# THE POINTER IS A FRAME, and that is a change forced by the move rather than a preference.
-# W3 draws a triangle above the top cell at y 13-16, in the title bar, to the right of the
-# readable title - which works at x 85 and does not at x 49: the window's own title runs to
-# about x 58 in both languages, so the two would overlap on the title's last pixel row and
-# only a client could say by how much. The pack already has a word for "this one" - the two
-# pixel white frame travel_here uses - so the winning cell wears that, over the lighter
-# backing W3 gives it anyway. Both cues, no collision, and nothing outside the window.
+# THE POINTER IS A FRAME, not a triangle in the title bar: at this x the triangle would
+# overlap the window's own readable title. The winning cell wears the same two-pixel white
+# frame travel_here uses, over a lighter backing - both cues, and nothing outside the window.
 WHEEL_ROWS = 5
 WHEEL_CENTRE_COLUMN = 2
 WHEEL_CENTRE_ROW = 2

@@ -38,16 +38,12 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
- * PvP protection, friendly fire (always on - no code needed, vanilla already allows player-vs-player
- * damage without a scoreboard team blocking it) and death handling, for both real players and the
- * armor-stand bodies standing in for disconnected ones - docs/hunger-games.md#winning and
- * #disconnects.
- * <p>
- * "PvP protection here is everyone protected from everyone, not a team mechanic" - implemented via
- * {@link GameState#isProtected(UUID, Instant)}, a tracked per-player "protected until" timestamp,
- * cancelling {@link EntityDamageByEntityEvent} when either the attacker or the victim is still
- * protected.
- * </p>
+ * PvP protection and death handling, for both real players and the armor-stand bodies standing in
+ * for disconnected ones. Friendly fire needs no code: vanilla allows it with no scoreboard team in
+ * the way.
+ *
+ * <p>Protection is everyone from everyone, not a team mechanic: a per-player "protected until"
+ * timestamp in {@link GameState}, cancelling damage when either side is still protected.</p>
  */
 public final class CombatListener implements Listener {
 
@@ -62,23 +58,17 @@ public final class CombatListener implements Listener {
     private final HungerGamesSounds sounds;
 
     /**
-     * What to run once the game is decided: the outcome, and the winner's <b>Minecraft</b> uuid.
-     *
-     * <p>The second argument exists because {@code WinTracker.Outcome} names the winner by
-     * {@code hg_member.id}, and the ceremony has to congratulate a {@code Player}. Resolving one to
-     * the other is a query, the ceremony runs on the main thread, and this repository does not query
-     * the database from there - so it is resolved here instead, on the async task that has just
-     * finished doing exactly that kind of work, and travels with the outcome. {@code null} when the
-     * game ended with no winner, or when the winner has no linked Minecraft account.
+     * What to run once the game is decided. The winner's Minecraft uuid is resolved here, on the
+     * async task, because {@code Outcome} names the winner by {@code hg_member.id} and the ceremony
+     * runs on the main thread, where this repository does not query. {@code null} when there is no
+     * winner or the winner never linked an account.
      */
     private final Consumer<Ceremony.Decision> onGameDecided;
 
     /**
-     * The kill feed, for the one death vanilla does not announce.
-     *
-     * <p>A body's marker dying is an {@code EntityDeathEvent}, which carries no death message - so
-     * {@link SystemLines#onDeath} never sees it and the elimination happened in silence. That is
-     * precisely the elimination the victim is not there for (owner, 2026-09-09).</p>
+     * The kill feed, for the one death vanilla does not announce: a body's marker dying is an
+     * {@code EntityDeathEvent}, which carries no death message, so {@link SystemLines#onDeath}
+     * never sees it.
      */
     private final SystemLines systemLines;
 
@@ -129,7 +119,7 @@ public final class CombatListener implements Listener {
         handleDeath(victim.getUniqueId(), killerUuid);
     }
 
-    /** A body's marker dying counts as its owner dying - docs/hunger-games.md#disconnects. */
+    /** A body's marker dying counts as its owner dying. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onMarkerDeath(final EntityDeathEvent event) {
         if (!(event.getEntity() instanceof ArmorStand)) {
@@ -146,12 +136,10 @@ public final class CombatListener implements Listener {
     }
 
     /**
-     * The kill feed line for a body's death, which vanilla writes for nobody.
-     *
-     * <p>The victim's name comes off the marker rather than off a {@code Player}: its owner is
-     * offline, which is the whole reason a body is standing there. Two keys rather than one with an
-     * empty slot - "fell to the border" and "was killed by nobody" are different sentences, and a
-     * bundle cannot make that choice.</p>
+     * The kill feed line for a body's death. The victim's name comes off the marker, not a
+     * {@code Player}: its owner is offline, which is why a body is standing there. Two keys rather
+     * than one with a sometimes-empty slot - "fell to the border" and "was killed by" are different
+     * sentences.
      */
     private void announceBodyDeath(final Entity marker, final UUID owner, final UUID killerUuid) {
         final Component victim = composition.ofName(marker.getName(), owner);
@@ -168,10 +156,9 @@ public final class CombatListener implements Listener {
         final UUID gameId = state.gameId();
         state.clearProtection(victimMcUuid);
 
-        // LOSS, here rather than in the async block, and that is the whole reason it is here: both
-        // callers are main-thread event handlers, so this lands on the death itself instead of one
-        // database round trip later. The player it belongs to may be an armor-stand body whose owner
-        // is offline, which is why play(...) takes a null player - see HungerGamesSounds.
+        // LOSS here rather than in the async block: both callers are main-thread event handlers,
+        // so it lands on the death itself instead of a database round trip later. The victim may be
+        // a body whose owner is offline, which is why play(...) tolerates a null player.
         sounds.play(plugin.getServer().getPlayer(victimMcUuid), Feedback.LOSS);
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
@@ -185,26 +172,21 @@ public final class CombatListener implements Listener {
             final Optional<WinTracker.Outcome> outcome =
                     winTracker.recordDeath(gameId, victimEntry.get().memberId(), killerMemberId);
 
-            // Everything the ceremony needs, read here rather than there - see Ceremony.Decision
-            // for what that used to cost. All of it happens at most once per game, and none of it
-            // happens at all until there is a winner to announce.
+            // Everything the ceremony needs, read here rather than on the main thread. At most
+            // once per game, and not at all until there is a result to announce.
             final Ceremony.Decision decision = outcome.map(decided -> {
                 final UUID winnerMcUuid = decided.winnerMemberId() == null ? null
                         : dao.roster(gameId).stream()
                                 .filter(entry -> decided.winnerMemberId().equals(entry.memberId()))
                                 .map(RosterEntry::mcUuid)
-                                // RosterEntry#mcUuid is null for a member who never linked, and
-                                // Stream#findFirst throws on a null element rather than answering
-                                // empty. Such a member can still be the last one standing, because
-                                // WinTracker is reset from activeMembersOf and not from the
-                                // resolved participants.
+                                // mcUuid is null for a member who never linked, and findFirst
+                                // throws on a null element rather than answering empty. Such a
+                                // member can still be the last one standing.
                                 .filter(java.util.Objects::nonNull)
                                 .findFirst().orElse(null);
 
-                // The write goes here too, ahead of the ceremony rather than inside it. A game is
-                // decided the moment WinTracker says so; the ceremony is what players see of that,
-                // and if the server dies between the two the database is still right - which is the
-                // direction that matters, because a game left un-DECIDED is the one the partial
+                // Written ahead of the ceremony, not inside it: if the server dies between the
+                // two the database is still right. A game left un-DECIDED is the one the partial
                 // unique index refuses to let a second game start beside.
                 dao.decideGame(gameId, decided.winnerMemberId());
 
@@ -217,9 +199,8 @@ public final class CombatListener implements Listener {
                 if (decision != null) {
                     onGameDecided.accept(decision);
                 } else {
-                    // SMALL_SUCCESS for the kill, and only in this branch. When the kill decided the
-                    // game the ceremony's BIG_SUCCESS lands in the same tick, and two chimes on top
-                    // of each other are one noise - the bigger of the two is the one to keep.
+                    // SMALL_SUCCESS only in this branch: a kill that decided the game gets the
+                    // ceremony's BIG_SUCCESS in the same tick, and two chimes are one noise.
                     if (killerMcUuid != null) {
                         sounds.play(plugin.getServer().getPlayer(killerMcUuid), Feedback.SMALL_SUCCESS);
                     }

@@ -14,13 +14,9 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * ship in different images and read different config volumes.
  * </p>
  * <p>
- * The proxy is small on purpose ({@code common/build.gradle.kts}: "the proxy's login path is the
- * only hot caller and it is one query"), so this pool stays small too. {@link #queryTimeoutSeconds()}
- * is what makes the login gate's "one query and a short timeout" (docs/access-system.md) an actual
- * property of the connection rather than a hope: it bounds both HikariCP's connection acquisition
- * and, through the PostgreSQL driver's {@code socketTimeout}, a query that is already running. A
- * login must not queue behind a struggling database - it has to fail fast onto the fallback cache
- * instead.
+ * {@link #queryTimeoutSeconds()} bounds both HikariCP's connection acquisition and, through the
+ * PostgreSQL driver's {@code socketTimeout}, a query that is already running: a login must fail
+ * fast onto the fallback cache rather than queue behind a struggling database.
  * </p>
  */
 @ConfigSpec(header = {

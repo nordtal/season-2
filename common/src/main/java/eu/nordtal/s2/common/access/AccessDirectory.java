@@ -9,33 +9,19 @@ import java.util.UUID;
 
 /**
  * The season 2 access system, as seen by everything that is not the bot's Discord code.
- * <p>
- * <b>The database is the source of truth</b> for access, donor status and language; Discord roles
- * are a projection of it and LuckPerms is not involved. This interface is that truth, and the
- * proxy, the plugins and the bot all read it through here rather than each writing their own SQL.
- * See {@code docs/access-system.md}.
- * </p>
  *
- * <h2>What lives here and not in a caller</h2>
- * <ul>
- *   <li><b>The append rule.</b> {@link #grantAccess(String, int, AccessSource, UUID)} computes
- *       {@code valid_from = max(now, current valid_until)} in a single SQL statement. A purchase
- *       and an admin grant must not each carry their own copy of that rule.</li>
- *   <li><b>The login decision.</b> {@link #accessState(UUID)} answers linked / member / active
- *       <b>and the current season phase</b> in <b>one</b> query - {@code docs/season-phases.md}
- *       requires that single round trip - and {@link AccessState#mayJoin()} is the decision itself,
- *       phase included.</li>
- * </ul>
+ * <p>The database is the source of truth for access, donor status and language; Discord roles are a
+ * projection of it. The proxy, the plugins and the bot all read it through here rather than each
+ * writing their own SQL, so that the append rule
+ * ({@link #grantAccess(String, int, AccessSource, UUID)}) and the login decision
+ * ({@link #accessState(UUID)}, one round trip including the season phase) exist once.
  *
- * <h2>Platform</h2>
- * Nothing here refers to Paper, Velocity or Adventure, and nothing on this API refers to JDBI or
- * HikariCP either - the factories take a {@link DataSource} or a JDBC URL, both JDK types. A
- * consumer shades JDBI, HikariCP and the PostgreSQL driver, and never jcore.
+ * <p>Nothing on this API refers to Paper, Velocity, Adventure, JDBI or HikariCP - the factories
+ * take a {@link DataSource} or a JDBC URL, both JDK types.
  *
- * <h2>Lifetime</h2>
- * One instance per process. {@link #using(DataSource)} borrows a pool somebody else owns (the bot
- * hands in jcore's {@code Database#dataSource()}); {@link #open(String, String, String)} creates
- * and owns one, and {@link #close()} then shuts it down. Closing a borrowed one does nothing.
+ * <p>One instance per process. {@link #using(DataSource)} borrows a pool somebody else owns;
+ * {@link #open(String, String, String)} creates and owns one, which {@link #close()} shuts down.
+ * Closing a borrowed one does nothing.
  */
 public interface AccessDirectory extends AutoCloseable {
 
@@ -50,8 +36,7 @@ public interface AccessDirectory extends AutoCloseable {
     }
 
     /**
-     * Opens a connection pool of its own. This is what the proxy and any plugin uses - they have
-     * no jcore and no {@code Database}.
+     * Opens a connection pool of its own - what the proxy and the plugins use.
      *
      * @param jdbcUrl  a {@code jdbc:postgresql://...} URL
      * @param username the database user
@@ -79,9 +64,7 @@ public interface AccessDirectory extends AutoCloseable {
     /**
      * Everything the login path needs, in one round trip: the access state <b>and</b> the season
      * phase. There is deliberately no second call to
-     * {@code eu.nordtal.s2.common.phase.PhaseDirectory#currentPhase()} next to this one -
-     * {@code docs/season-phases.md} pins the login path to a single round trip, and
-     * {@link AccessState#phase()} is how the phase arrives on it.
+     * {@code eu.nordtal.s2.common.phase.PhaseDirectory#currentPhase()} beside it.
      *
      * @param mcUuid the Minecraft account attempting to join
      * @return the state, with {@link AccessState#linked()} {@code false} for a UUID nobody has
@@ -145,15 +128,11 @@ public interface AccessDirectory extends AutoCloseable {
     void setDonor(String discordId, boolean donor);
 
     /**
-     * Mirrors the Discord admin role into the database, the same way language, membership and donor
-     * status already are. An admin is appointed in Discord and is an admin everywhere; there is no
-     * second list, and LuckPerms is not involved - see
-     * {@code docs/season-phases.md#how-an-admin-is-recognised}.
-     * <p>
-     * Unlike {@link #setDonor(String, boolean)} this is set <b>and cleared</b>: it is a permission,
-     * so losing the Discord role has to lose it. The flag is read back through
-     * {@link AccessState#admin()}, on the query the login path makes anyway.
-     * </p>
+     * Mirrors the Discord admin role into the database. An admin is appointed in Discord and is an
+     * admin everywhere; there is no second list.
+     *
+     * <p>Unlike {@link #setDonor(String, boolean)} this is set <b>and cleared</b>: it is a
+     * permission, so losing the Discord role has to lose it.
      *
      * @param discordId the Discord snowflake
      * @param admin     whether that account currently holds the Discord admin role
@@ -161,40 +140,28 @@ public interface AccessDirectory extends AutoCloseable {
     void setAdmin(String discordId, boolean admin);
 
     /**
-     * Every Discord account that currently holds the admin flag.
-     *
-     * <p>What the proxy re-reads when it is told the flag moved, so that a revocation reaches a
-     * player who is already online. One query for the whole set, because re-deriving every
-     * session's flag from it is idempotent and costs the same whether one changed or ten.</p>
+     * Every Discord account that currently holds the admin flag - what the proxy re-reads when it
+     * is told the flag moved, so a revocation reaches a player who is already online.
      *
      * @return the ids, possibly empty
      */
     java.util.Set<String> admins();
 
     /**
-     * Every admin's Minecraft account, for the three Paper servers.
+     * Every admin's Minecraft account, for the Paper servers, which know a session only by
+     * {@link UUID}. The whole set is re-read rather than patched, so a lost notification costs
+     * latency and not correctness.
      *
-     * <p>The proxy asks {@link #admins()} because it knows its sessions by Discord id. A backend
-     * knows only a {@link UUID}, so it asks this - one query for the whole set, re-derived rather
-     * than patched, so a lost notification costs latency and not correctness. It is what
-     * {@code AdminOperators#refresh} is fed on every {@code nordtal_admin} signal and every poll
-     * tick, and therefore what makes a revoked admin stop being an operator without disconnecting.
-     *
-     * <p>Admins without an account link are absent, not null: they cannot be online anywhere.</p>
+     * <p>Admins without an account link are absent: they cannot be online anywhere.
      *
      * @return the Minecraft accounts, possibly empty
      */
     java.util.Set<UUID> adminMinecraftAccounts();
 
     /**
-     * The purchase this Discord account has started and not finished, if any.
+     * The purchase this Discord account has started and not finished, if any. Read-only.
      *
-     * <p>Read-only, and read from outside the bot on purpose: an admin in game asking "why can this
-     * person not get in?" needs to tell "they have not paid" apart from "they are in the middle of
-     * paying". See {@link OpenPayment}, which also carries why {@code bunq_tab_id IS NULL} matters.
-     *
-     * <p><b>Blocking.</b> Never on a main thread and never on a login path - nothing on the login
-     * path asks this, and nothing should.</p>
+     * <p><b>Blocking.</b> Never call it on a main thread or on the login path.
      *
      * @param discordId the Discord snowflake
      * @return the newest {@code OPEN} request, or empty
@@ -221,11 +188,8 @@ public interface AccessDirectory extends AutoCloseable {
 
     /**
      * Appends a period of access: it starts at {@code max(now, current valid_until)} and runs for
-     * {@code days} days. Renewing early therefore never loses paid time.
-     * <p>
-     * The whole rule is one SQL statement evaluated against PostgreSQL's clock. Callers pass how
-     * many days were bought and nothing else.
-     * </p>
+     * {@code days} days, so renewing early never loses paid time. The whole rule is one SQL
+     * statement evaluated against PostgreSQL's clock.
      *
      * @param discordId        the Discord snowflake; a row is created for it if needed
      * @param days             how many days were bought, must be positive
@@ -253,15 +217,11 @@ public interface AccessDirectory extends AutoCloseable {
     // ---------------------------------------------------------------- linking (stage C)
 
     /**
-     * Issues a link code for an unlinked Minecraft account, or hands back the one already live.
-     * <p>
-     * "One per UUID, a repeat attempt returns the same code" is enforced by
-     * {@code link_code.mc_uuid} being {@code UNIQUE} in the database, not by anything in this
-     * class - see {@code AccessDao#upsertLinkCode}. Nothing here checks whether {@code mcUuid} is
-     * already linked; the proxy only calls this for the unlinked branch of the login decision, and
-     * a code for an already-linked account is simply never redeemable (redemption still enforces
-     * the 1:1).
-     * </p>
+     * Issues a link code for an unlinked Minecraft account, or hands back the one already live -
+     * enforced by {@code link_code.mc_uuid} being {@code UNIQUE}, not by anything in this class.
+     *
+     * <p>Nothing here checks whether {@code mcUuid} is already linked; a code for a linked account
+     * is simply never redeemable, because redemption enforces the 1:1.
      *
      * @param mcUuid the Minecraft account attempting to join
      * @param ttl    how long a freshly minted code stays valid; ignored when an unexpired code
@@ -272,11 +232,8 @@ public interface AccessDirectory extends AutoCloseable {
     LinkCode issueLinkCode(UUID mcUuid, Duration ttl);
 
     /**
-     * Redeems a code typed into the link modal in Discord: validates it, checks expiry, enforces
-     * the 1:1 (the database's constraints are what actually enforce it - see
-     * {@link #link(String, UUID)}), writes {@code account_link} and deletes the code, all in one
-     * transaction. The code is left in place on any failure, so a wrong click does not burn a
-     * legitimate retry.
+     * Redeems a code typed into the link modal in Discord, in one transaction. The code is left in
+     * place on any failure, so a wrong click does not burn a legitimate retry.
      *
      * @param discordId the Discord account submitting the code
      * @param code      what they typed

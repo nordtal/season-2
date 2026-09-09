@@ -85,36 +85,24 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <ul>
  *   <li>{@link LoginGate} - the phase-aware login decision, one database round trip carrying both
- *       the access state and the {@link SeasonPhase} (docs/season-phases.md).</li>
+ *       the access state and the {@link SeasonPhase}.</li>
  *   <li>{@link PhaseWatch} + a {@link NotificationListener} - the 30-second poll <b>and</b> a dedicated
  *       {@code LISTEN nordtal_phase} connection outside the pool. The poll is the guarantee; the
  *       listener only makes a switch feel instant.</li>
  *   <li>{@link PhaseCommand} - the emergency {@code /phase}, authorised by
  *       {@code discord_user.admin} through {@link LoginRoster}.</li>
  *   <li>{@link PlaytimeWriter} - {@code player_playtime}, written on disconnect and periodically
- *       in between (docs/smp.md#prestige--a-crest-earned-by-time).</li>
+ *       in between.</li>
  *   <li>{@link MisconfiguredGate} - the fail-closed handler, below.</li>
- *   <li>{@link PlayerRouter} - the limbo-first login route and the phase-change re-route
- *       (docs/season-phases.md#routing).</li>
+ *   <li>{@link PlayerRouter} - the limbo-first login route and the phase-change re-route.</li>
  *   <li>{@link PackStation} - the forced resource-pack offer, the {@code nordtal:limbo} channel and
- *       the release out of the waiting room (docs/architecture.md#the-login-path-end-to-end).</li>
+ *       the release out of the waiting room.</li>
  * </ul>
  *
- * <p><b>Configuration failure fails closed</b> (docs/architecture.md#failing-closed-on-a-bad-config,
- * settled 2026-08-31, implemented here). A bad {@code database.yml} or {@code gate.yml} used to be
- * logged loudly while the proxy kept running and kept accepting logins <em>un-gated</em>; now it
- * registers a {@code LoginEvent} handler that refuses <em>everybody</em>. Velocity has no
- * per-plugin disable, which is what the old behaviour was justified with - but that handler is the
- * disable, built by hand. Admins are not exempted and cannot be: the admin flag lives in the
- * database that a bad {@code database.yml} cannot reach.
- *
- * <p><b>The login path is complete since 2026-09-01.</b> {@link PlayerRouter} sends every admitted
- * login to {@code limbo} whatever the phase, {@link PackStation} offers the resource pack there and
- * releases the player onto the phase's backend once the pack is applied, and a phase change moves
- * everybody - disconnecting a player a switch to {@code SMP} catches without access, and leaving a
- * player still in the waiting room to the pack station rather than connecting them without a pack.
- * The three parts that used to be missing are the {@code pack.yml} config, the
- * {@code nordtal:limbo} plugin-message channel and the {@code limbo} plugin at the other end of it.
+ * <p><b>Configuration failure fails closed:</b> a bad {@code database.yml} or {@code gate.yml}
+ * registers a {@code LoginEvent} handler that refuses <em>everybody</em>, which is the per-plugin
+ * disable Velocity does not have. Admins are not exempted and cannot be - the admin flag lives in
+ * the database a bad {@code database.yml} cannot reach.
  */
 @Plugin(
         id = "network-control",
@@ -168,17 +156,14 @@ public final class NetworkControlPlugin {
         logger.info("network-control enabled, {} backends registered", proxy.getAllServers().size());
 
         try {
-            // Inside the try, and that is the whole point of this block. Messages.load creates the
-            // override directory and writes a README into it - so on a read-only or full volume it
-            // throws an UncheckedIOException, and it used to throw it OUT of this method, before
-            // failClosed could run. The result was the one state this proxy must never be in: up,
-            // accepting logins, with neither LoginGate nor MisconfiguredGate registered. Found by
-            // review, 2026-09-04; the deny-all gate exists precisely because Velocity has no
-            // per-plugin disable, and it cannot deny anything it was never registered for.
-            // Two roots: the shared bundle of :commands underneath this module's own. Every string
-            // /phase says is declared with the command rather than here, because the bot says the
-            // same ones - see Messages.load(ClassLoader, List, Path, Locale...). This module's own
-            // keys win on a collision, which is what lets the proxy reword a shared line for chat.
+            // Inside the try, and that is the point of this block: Messages.load creates the
+            // override directory and writes a README into it, so on a read-only or full volume it
+            // throws - and outside the try that would leave the proxy up and accepting logins with
+            // neither LoginGate nor MisconfiguredGate registered.
+            //
+            // Two roots: the shared bundle of :commands underneath this module's own, so that every
+            // string /phase says is declared with the command and shared with the bot. This
+            // module's own keys win on a collision, which lets the proxy reword a shared line.
             final Messages messages = Messages.load(getClass().getClassLoader(),
                     List.of("messages/commands", "messages/network-control"),
                     dataDirectory.resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
@@ -283,22 +268,14 @@ public final class NetworkControlPlugin {
         //
         // The whole set, re-derived: a lost notification then costs latency and not correctness,
         // and the poll needs no bookkeeping to catch up on.
-        // A CHANGED FLAG RE-ROUTES, and that is the half this used to be missing. Refreshing the
-        // roster fixes who may run /phase and /smp; it does not move anybody. So an admin whose
-        // rank was revoked during MAINTENANCE kept standing on the SMP - the one phase where the
-        // flag is the entire difference between being let in and being held - until somebody
-        // happened to change the phase. Measured on the local stack 2026-09-07: the change was
-        // noticed and logged, and the player did not move for three minutes (finding 141).
+        // A CHANGED FLAG RE-ROUTES. Refreshing the roster only fixes who may run /phase and /smp;
+        // without this an admin whose rank was revoked during MAINTENANCE would keep standing on
+        // the SMP - the one phase where the flag is the whole difference between being let in and
+        // being held - until somebody happened to change the phase.
         //
-        // rerouteAll is public for exactly this ("a future admin command can force one"), and it
-        // re-reads each player's own admission row rather than trusting the phase passed in, so
-        // running it off a flag change is the same pass a phase change runs. It costs one pass over
-        // the connected players, and only when something actually changed - refreshAdmins answers
-        // zero on every ordinary tick.
-        //
-        // The decision is the owner's, 2026-09-07, and it is the same one the backends took on
-        // 2026-09-04 for the operator grant: waiting for a logout is the wrong direction on the
-        // one path that exists for emergencies.
+        // rerouteAll re-reads each player's own admission row rather than trusting the phase passed
+        // in, so this is the same pass a phase change runs, and it only runs when something
+        // actually changed.
         final Runnable refreshAdmins = () -> {
             final int changed = roster.refreshAdmins(access.admins());
             if (changed > 0) {
@@ -319,11 +296,7 @@ public final class NetworkControlPlugin {
                 .schedule();
 
         if (gateConfig.phaseListenEnabled()) {
-            // One connection, two channels, both refreshes on every signal - the arrangement
-            // eu.nordtal.s2.common.notify carries the reasoning for. The loop itself moved into
-            // :common on 2026-09-04 so the three Paper backends could stop being written a fourth
-            // time; this is the same code it always was, with the channel names now next to the SQL
-            // that emits them.
+            // One connection, every refresh on every signal - see eu.nordtal.s2.common.notify.
             this.phaseListener = new NotificationListener(
                     PostgresNotifications.connector(databaseConfig.jdbcUrl(),
                             databaseConfig.username(), databaseConfig.password(),
@@ -418,8 +391,8 @@ public final class NetworkControlPlugin {
 
         // The proxy is the only process that sees every player, so it is the one that warns them.
         // A restart is asked for in Discord or with /smp update restart; both write a row with an
-        // absolute instant on it, and this counts towards that instant rather than towards a
-        // duration of its own - see docs/updater.md#how-it-is-operated.
+        // absolute instant on it, and this counts towards that instant rather than a duration of
+        // its own.
         this.restartWatch = new RestartWatch(this, proxy, logger,
                 UpdateDirectory.using(pool), roster, messages, Clock.systemUTC());
         proxy.getScheduler().buildTask(this, this.restartWatch::check)
@@ -472,14 +445,12 @@ public final class NetworkControlPlugin {
         PhaseCommands.all().forEach(command -> tree.local(command, phaseEffects));
         NetworkCommands.all().forEach(command -> tree.local(command, networkEffects));
 
-        // /update, folded 2026-09-08. Target.LOCAL, so the proxy writes the update_request row over
-        // the pool it already holds - and this is the surface that matters most, twice over: an
-        // update is asked for when the network is misbehaving, and the proxy is what an admin can
-        // still reach when a backend cannot be joined; and Velocity executes every command it
-        // knows itself, so for anybody PLAYING this is the only process that serves /update at
-        // all. The watcher is therefore not optional. It was wired as "(id, user) -> { }" the day
-        // the command was folded, on the reasoning that the proxy.s console has the log - and
-        // every admin in the network got the acknowledgement and never the answer.
+        // /update is Target.LOCAL, so the proxy writes the update_request row over the pool it
+        // already holds. This is the surface that matters most: an update is asked for when the
+        // network is misbehaving and the proxy is what an admin can still reach, and Velocity
+        // executes every command it knows itself, so for anybody playing this is the only process
+        // that serves /update at all. The watcher is therefore not optional - without it an admin
+        // gets the acknowledgement and never the answer.
         final eu.nordtal.s2.networkcontrol.update.UpdateWatch updateWatch =
                 new eu.nordtal.s2.networkcontrol.update.UpdateWatch(this, proxy, logger,
                         UpdateDirectory.using(pool), Clock.systemUTC());
@@ -492,15 +463,14 @@ public final class NetworkControlPlugin {
                         updateWatch::watch);
         eu.nordtal.s2.commands.update.UpdateCommands.all()
                 .forEach(command -> tree.local(command, updateEffects));
-        // The network's own private messages, folded 2026-09-08. Target.PROXY and Surface.GAME
-        // only, and NOT admin-only: the command allowlist takes vanilla's /tell, /msg, /w and
-        // /teammsg away from players, and these are what replaces them. The proxy owns them because
-        // it is the only process that can see both people - vanilla's are per-server, and on this
-        // network crossing between servers is the ordinary case.
+        // The network's own private messages. Target.PROXY and Surface.GAME, and NOT admin-only:
+        // the command allowlist takes vanilla's /tell, /msg, /w and /teammsg away from players and
+        // these replace them. The proxy owns them because it is the only process that can see both
+        // people - vanilla's are per-server, and crossing between servers is the ordinary case here.
         //
         // The effects are a listener as well as an effect: they hold who last spoke to whom, for
         // /r, and that has to be dropped when somebody leaves. Nothing about a private message is
-        // written down anywhere (owner, 2026-09-08).
+        // persisted.
         final ProxyChatEffects chatEffects = new ProxyChatEffects(proxy, roster, messages,
                 ProxyNetworkEffects.async(this, proxy), logger);
         proxy.getEventManager().register(this, chatEffects);
@@ -583,20 +553,17 @@ public final class NetworkControlPlugin {
     }
 
     /**
-     * The whole of docs/architecture.md#failing-closed-on-a-bad-config' fail-closed rule: nothing else has
-     * been registered by the time this runs, so this handler is the only thing that sees a login,
-     * and it refuses every one of them.
+     * The fail-closed rule: nothing else has been registered by the time this runs, so this handler
+     * is the only thing that sees a login, and it refuses every one of them.
      */
     private void failClosed(final Exception failure) {
         logger.error("network-control could not start, so NOBODY will be let onto this network. "
                 + "Fix the configuration and restart the proxy.");
         logger.error("{}", failure.getMessage(), failure);
 
-        // Its own bundle, from the classpath and with NO override directory. The override layer is
-        // one of the things that can be broken here - it is a directory this plugin writes into -
-        // so the screen that says "the network is misconfigured" must not depend on it. The cost is
-        // that an operator who reworded gate.misconfigured sees the packaged wording on this one
-        // path; the alternative is no screen at all, and Velocity letting everybody in.
+        // Its own bundle, from the classpath and with NO override directory: the override layer is
+        // a directory this plugin writes into, so it is one of the things that can be broken here,
+        // and the screen that says "the network is misconfigured" must not depend on it.
         try {
             final Messages messages = Messages.load(getClass().getClassLoader(),
                     "messages/network-control", Locale.ENGLISH, Locale.GERMAN);

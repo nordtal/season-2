@@ -19,14 +19,9 @@ import java.nio.file.Path;
  * repository uses: {@code config.yml} for the settings, {@code database.yml} for the connection,
  * {@code milestones.yml} for the track and {@code sounds.yml} for the feedback sounds.
  *
- * <h2>Why the track and the sounds are their own files</h2>
- * Both are edited on a completely different rhythm from everything else, and both are edited
- * <em>while players are online</em>: a milestone is appended mid-season in response to a track
- * finishing early, and a sound is retuned the first evening somebody says it is irritating. Keeping
- * them out of {@code config.yml} means {@code /smp reload} can re-read either without also
- * re-reading a duel loadout, a world name or a database password - none of which the plugin would
- * notice changing, because it binds them once at enable. It also means the diff of a track change
- * is a diff of the track.
+ * <p>The track and the sounds are their own files because both are edited while players are
+ * online: {@code /smp reload} re-reads either without touching a duel loadout, a world name or a
+ * database password, none of which the plugin would notice changing - it binds them once at enable.
  */
 public final class Configs {
 
@@ -55,15 +50,10 @@ public final class Configs {
     /**
      * Loads the track.
      *
-     * <p>Only the <em>structure</em> is validated here, by {@link Milestones#read}: keys, types,
-     * targets, the one participation gate per milestone, and which fields belong to which type.
-     * Whether an item name, a statistic or an advancement exists is <b>not</b> checked, because
-     * resolving any of them needs an initialised Bukkit registry - the plugin binds them once at
-     * enable and refuses to start on one it cannot resolve, which fails just as fast and says which
-     * name it was.
-     *
-     * <p>Neither is the track compared to the stored progress here; that is
-     * {@code TrackValidation}'s, and it needs the database this method has no business opening.
+     * <p>Only the <em>structure</em> is validated here, by {@link Milestones#read}. Whether an item
+     * name, a statistic or an advancement exists is not checked: that needs an initialised Bukkit
+     * registry, so the plugin binds them at enable instead. Comparing the track to stored progress
+     * is {@code TrackValidation}'s job and needs a database this method must not open.
      */
     public static @NotNull ConfigHandle<MilestonesSpec> milestones(final Path dataFolder, final Logger logger)
             throws ConfigException {
@@ -80,10 +70,9 @@ public final class Configs {
     /**
      * Loads the sounds.
      *
-     * <p><b>No validator.</b> Every rule about a sound is enforced where it is parsed, in
-     * {@code FeedbackSounds}, and every one of them corrects or silences rather than refusing: a
-     * typo in a chime must not be the reason a season is offline. Refusing here would put that
-     * decision in the one place that can only answer by stopping the server.
+     * <p><b>No validator.</b> Every rule about a sound is enforced in {@code FeedbackSounds}, and
+     * each corrects or silences rather than refusing: a typo in a chime must not take a season
+     * offline.
      */
     public static @NotNull ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger)
             throws ConfigException {
@@ -118,9 +107,8 @@ public final class Configs {
                             + "thirteen crest designs and a fourteenth tier would have nothing to "
                             + "render as");
         }
-        // The rest of the threshold rules - starting at zero, rising strictly - live in Prestige's
-        // own constructor, so that a caller who builds one by hand gets the same guarantees. Run it
-        // here so a bad list stops the load rather than the first render.
+        // The rest of the threshold rules live in Prestige's own constructor; run here so a bad
+        // list stops the load rather than the first render.
         new eu.nordtal.s2.smp.prestige.Prestige(config.prestigeThresholdHours());
 
         for (final SmpSpec.AdvancementAwardSpec award : config.advancementAwards()) {
@@ -130,8 +118,8 @@ public final class Configs {
             if (award.aura() < 2 || award.aura() > 10) {
                 throw new IllegalArgumentException(
                         "advancement-awards: '" + award.advancement() + "' pays " + award.aura()
-                                + " aura; docs/smp.md sets the band at 2-10, and a value outside it "
-                                + "is what would let one advancement outweigh a whole objective");
+                                + " aura; the band is 2-10, so that one advancement cannot outweigh "
+                                + "a whole objective");
             }
         }
 

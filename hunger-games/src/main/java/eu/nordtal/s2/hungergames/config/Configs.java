@@ -14,20 +14,12 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Where {@code hunger-games}'s config files live, and every rule about what a valid value is.
- * <p>
- * Same shape as {@code network-control}'s and {@code access-bot}'s own {@code Configs} classes: one
- * environment namespace per file, every check run once at startup. This is the first Paper plugin in
- * this repository to wire up {@code eu.nordtal.jcore.config} - see {@code season-2/CLAUDE.md},
- * "Configuration".
- * </p>
- * <p>
- * Three files: {@code config.yml} for the game, {@code database.yml} for the connection and
- * {@code sounds.yml} for the feedback sounds. The third is separate for the reason
- * {@link SoundsSpec} gives - {@code /hg reload} re-reads it in the middle of a game and re-reads
- * nothing out of {@code config.yml}, because a border parameter must not move while players are
- * running from it.
- * </p>
+ * Where {@code hunger-games}'s config files live, and every rule about what a valid value is: one
+ * environment namespace per file, every check run once at startup.
+ *
+ * <p>{@code sounds.yml} is a separate file because {@code /hg reload} re-reads it in the middle of
+ * a game and re-reads nothing out of {@code config.yml} - a border parameter must not move while
+ * players are running from it.</p>
  */
 public final class Configs {
 
@@ -79,13 +71,8 @@ public final class Configs {
     }
 
     /**
-     * Loads the sounds.
-     *
-     * <p><b>No validator</b>, matching {@code smp}'s handle of the same name. Every rule about a
-     * sound is enforced where it is parsed, in {@code FeedbackSounds}, and every one of them
-     * corrects or silences rather than refusing: a typo in a chime must not be the reason an event
-     * server is offline while forty people wait to be let in. Refusing here would put that decision
-     * in the one place that can only answer by stopping the server.
+     * Loads the sounds. No validator on purpose: {@code FeedbackSounds} corrects or silences a bad
+     * value where it parses it, so a typo in a chime is never the reason the event server is down.
      */
     public static @NotNull ConfigHandle<SoundsSpec> sounds(final Path dataFolder, final Logger logger)
             throws ConfigException {
@@ -98,9 +85,8 @@ public final class Configs {
                 .load();
 
         if (fresh) {
-            // Deliberately not the "almost certainly not what you want" line the other two carry:
-            // a freshly written sounds.yml IS what you want, and only stops being so once somebody
-            // has heard it with players on the server.
+            // Not the "almost certainly not what you want" line the other two carry: fresh
+            // defaults here are usable as they stand.
             logger.info("No sounds config existed at {} - the ten defaults were written",
                     file.toAbsolutePath());
         }
@@ -136,7 +122,7 @@ public final class Configs {
         if (points == null || points.size() != 5) {
             throw new IllegalArgumentException(
                     "loot-points must have exactly 5 entries (the spawn plus four staggered "
-                            + "points, per docs/hunger-games.md#loot), had "
+                            + "points), had "
                             + (points == null ? 0 : points.size()));
         }
         final Set<String> labels = new HashSet<>();

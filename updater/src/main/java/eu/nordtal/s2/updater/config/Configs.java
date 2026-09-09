@@ -12,12 +12,8 @@ import java.nio.file.Path;
 import java.util.regex.Pattern;
 
 /**
- * Where {@code updater}'s config file lives, and every rule about what a valid value is.
- * <p>
- * Same shape as {@code network-control}'s and {@code discord-bot}'s {@code Configs}: one
- * environment namespace per file, and every check runs once at startup rather than being
- * discovered half way through a resolve.
- * </p>
+ * Where {@code updater}'s config files live, and every rule about what a valid value is. Every check
+ * runs once at startup rather than being discovered half way through a resolve.
  */
 public final class Configs {
 
@@ -49,9 +45,8 @@ public final class Configs {
                 })
                 .load();
 
-        // Unlike updater.yml, this one has NO usable default: localhost:5432 is not where the
-        // database is from inside a container, and an empty password is not a password. It is said
-        // out loud because the message a person sees otherwise is a connection refused.
+        // This config has no usable default: localhost:5432 is not where the database is from
+        // inside a container, and the alternative to saying so is a connection refused.
         if (fresh) {
             logger.warn("No config existed at {} - defaults were written and are almost certainly"
                     + " not what you want", file.toAbsolutePath());
@@ -73,10 +68,6 @@ public final class Configs {
                     requireText("display-tags-release", config.displayTagsRelease());
                     requireModrinthId("packetevents-project", config.packetEventsProject());
                     requireModrinthId("chunky-project", config.chunkyProject());
-                    // minecraft-version, velocity-version, paper-build and velocity-build were
-                    // checked here until 2026-09-09. There is nothing left to check: the two
-                    // versions are constants in :common and the two build pins are retired. See
-                    // the comment in UpdaterSpec where they stood.
                     requireText("volumes-root", config.volumesRoot());
                     requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
                     requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
@@ -86,9 +77,7 @@ public final class Configs {
                 })
                 .load();
 
-        // Unlike every other config in this repository, a fresh updater.yml IS what you want:
-        // the defaults are the real nordtal.eu values. It is still said out loud, because a file
-        // appearing where none was is worth one line in a log.
+        // A fresh updater.yml is usable as written: the defaults are the real nordtal.eu values.
         if (fresh) {
             logger.info("No config existed at {} - it was written with this project's own defaults",
                     file.toAbsolutePath());
@@ -99,14 +88,9 @@ public final class Configs {
     // ------------------------------------------------------------------ validation helpers
 
     /**
-     * What a backup may and may not be pointed at.
-     *
-     * <h2>{@code postgres-data} is refused by name</h2>
-     * A snapshot of a live PGDATA is a torn one, and the way that surfaces is not an error here -
-     * it is a {@code pg_restore} that fails months later, on the one day somebody needs it. The
-     * pg_dump sidecar writes {@code postgres-dumps} for exactly this reason, and that is the volume
-     * that belongs in the list. Refusing the name outright rather than warning about it, because
-     * "the backup ran" is what a person will remember, not a line in a log they did not read.
+     * What a backup may be pointed at. {@code postgres-data} is refused by name: a snapshot of a
+     * live PGDATA is torn, and that surfaces as a {@code pg_restore} failing months later rather
+     * than as an error here. The pg_dump sidecar writes {@code postgres-dumps} instead.
      */
     private static void requireBackup(final UpdaterSpec.BackupSpec backup) {
         requirePositive("backup.patience-minutes", backup.patienceMinutes());
@@ -134,14 +118,9 @@ public final class Configs {
     }
 
     /**
-     * The restart settings, which are all optional together.
-     * <p>
-     * An empty {@code base-url} is a supported state and not a broken one: the updater does
-     * everything except the restart and says so, which is the fallback docs/updater.md names for
-     * the case where Arcane turns out not to expose a usable redeploy. What is <b>not</b> supported
-     * is half-configured - a base URL with no token would fail with a 401 at the one moment
-     * somebody is waiting on it, so it is refused at startup instead.
-     * </p>
+     * The restart settings, which are all optional together. An empty {@code base-url} is supported:
+     * the updater then does everything except the restart and says so. Half-configured is not - a
+     * base URL with no token would fail with a 401 at the one moment somebody is waiting on it.
      */
     private static void requireArcane(final UpdaterSpec.ArcaneSpec arcane) {
         if (arcane.baseUrl().isBlank()) {
@@ -152,8 +131,7 @@ public final class Configs {
                     "arcane.base-url must be an http(s) origin, was '" + arcane.baseUrl() + "'");
         }
         if (arcane.baseUrl().endsWith("/")) {
-            // Silently trimming it would work; refusing it means the file and the request agree,
-            // and nobody debugs a double slash in a log line six months from now.
+            // Refused rather than trimmed, so the file and the request agree.
             throw new IllegalArgumentException(
                     "arcane.base-url must not end in a slash - redeploy-path already starts with one");
         }
@@ -188,8 +166,8 @@ public final class Configs {
     private static void requireModrinthId(final String key, final String value) {
         requireText(key, value);
         if (!MODRINTH_ID.matcher(value).matches()) {
-            // A slug passes as text and fails as an id only when the author renames it, which is
-            // months later and looks like an outage. Caught here instead, with the reason.
+            // A slug passes as text and only fails as an id when the author renames it - months
+            // later, looking like an outage. Caught here instead.
             throw new IllegalArgumentException(key + " must be a Modrinth project id: eight"
                     + " alphanumeric characters, not the slug. Read it from the 'project_id' field"
                     + " of any version, or from a cdn.modrinth.com/data/<id>/ URL. Was '"

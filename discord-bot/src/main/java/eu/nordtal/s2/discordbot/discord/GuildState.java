@@ -28,55 +28,25 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Keeps {@code discord_user.member_state}, {@code discord_user.locale} and
- * {@code discord_user.admin} current.
+ * Keeps {@code discord_user.member_state}, {@code locale} and {@code admin} current. The proxy
+ * decides whether a login is allowed and cannot ask Discord anything, so these are projections the
+ * bot maintains: from gateway events while it runs, and from one reconcile at startup.
  *
- * <h2>Why this exists at all</h2>
- * The proxy decides whether a login is allowed and <b>cannot ask Discord anything</b> - it has a
- * database connection and nothing else. Membership, language and admin status are therefore
- * projections that the bot maintains: from gateway events while it is running, and from one
- * reconcile at startup for everything that happened while it was not.
+ * <p>Language and admin are both mirrored from Discord roles the bot never assigns. They differ in
+ * one way: losing the admin role clears the flag, while no language role leaves the stored value
+ * alone. "No language" has a safe answer (English) and "no longer an admin" does not - a stale
+ * {@code true} would let somebody through {@code MAINTENANCE} and switch the season phase.</p>
  *
- * <h2>Language is Discord's, not ours</h2>
- * The choice is made through Discord's own onboarding, which assigns a role. The bot never assigns
- * or removes those roles - it mirrors them. That is why a role update is enough to keep the value
- * current for somebody who is offline or changes their mind months later.
+ * <p>Leaving the guild removes the account link. Nothing is lost with it: play time, aura and
+ * grants hang off {@code discord_user}, so re-linking the same account restores them. A ban is a
+ * removal too - Discord sends the remove event either way.</p>
  *
- * <h2>The admin flag is the same kind of projection, and it is two-way</h2>
- * {@code roles.admin} is mirrored into {@code discord_user.admin} the way the language roles are
- * mirrored into {@code locale} ({@code docs/season-phases.md#how-an-admin-is-recognised}), and
- * <b>losing the role clears the flag</b> - it is a live projection of the Discord role, not a
- * one-way grant. The language mirror deliberately does the opposite and leaves a stored value alone
- * when no language role is held, because "no language" has a safe answer (English) and "no longer
- * an admin" does not: a stale {@code true} is what would let somebody through
- * {@code MAINTENANCE} and switch the season phase.
+ * <p>The startup reconcile deletes links only when it can see the whole guild: writing
+ * {@code LEFT} is repaired by the next pass, deleting a link is not, and an incompletely chunked
+ * member cache would take every link in the guild with it.</p>
  *
- * <h2>Leaving the guild removes the account link</h2>
- * Decided 2026-09-03. {@code member_state = LEFT} already refuses the login on its own, so this
- * changes no access decision - what it changes is what "linked" means in the database: a member,
- * and not somebody who used to be one. Nothing is lost with it. Play time, aura and access grants
- * hang off {@code discord_user}, not off the link, so re-linking the same Discord account restores
- * all of it; the cost is that a returning member types a fresh link code, which they can get from
- * a single refused login in any phase.
- * <p>
- * <b>A ban is a removal too</b> - Discord sends the remove event either way - so a banned member
- * also loses the link. That is the same answer, for the same reason: they are not in the guild.
- * </p>
- * <p>
- * <b>The startup reconcile deletes links only when it can see the whole guild.</b> Its third pass
- * is "everybody we know about who is in neither list has left", which is safe while the
- * consequence is a column that the next pass can put back. Deleting is not: a member cache that
- * chunked incompletely, or a ban list that failed to load, would take every link in the guild with
- * it and each member would have to link again by hand. So the pass writes {@code LEFT} always and
- * unlinks only when the cache is at least as large as the guild says it is and the ban list came
- * back. When it cannot tell, it says so in the log and leaves the links alone - a link that
- * outlives its member is untidy, and the alternative is not.
- * </p>
- *
- * <h2>A ban does not pause anything</h2>
- * {@code BANNED} refuses the login now; the paid period keeps running down. Unbanned before it
- * ends, the rest is still usable. This class writes the state and nothing else - it never touches
- * a grant.
+ * <p>A ban does not pause anything - {@code BANNED} refuses the login while the paid period keeps
+ * running down. This class writes state and never touches a grant.</p>
  */
 @Slf4j
 public final class GuildState extends ListenerAdapter {
@@ -175,28 +145,16 @@ public final class GuildState extends ListenerAdapter {
     // ---------------------------------------------------------------- startup
 
     /**
-     * Catches up on everything that happened while the bot was down.
-     * <p>
-     * Three passes, in this order: everybody currently in the guild is a {@code MEMBER} with their
-     * current language and their current admin flag; everybody on the ban list is {@code BANNED};
-     * everybody we know about who is in neither has {@code LEFT}. The last pass is the one no event
-     * could ever have delivered.
-     * </p>
-     * <p>
-     * The second and third passes also clear the admin flag, and that is the point of mirroring it
-     * here rather than only on role events: a role taken away, or an admin banned, while the bot
-     * was down produces no event to catch up on.
-     * </p>
-     * <p>
-     * The member list comes from JDA's cache, which is chunked once when the session opens. That
-     * is the only full member load in the process - the periodic role reconcile reads the same
-     * cache.
-     * </p>
-     * <p>
-     * The third pass also deletes the account link, but <b>only when the picture is complete</b>:
-     * see {@link #memberCacheLooksComplete(int, int)} and this class's own documentation. That is
-     * the one place where being wrong is not repaired by the next run.
-     * </p>
+     * Catches up on everything that happened while the bot was down, in three passes: everybody in
+     * the guild is a {@code MEMBER}, everybody on the ban list is {@code BANNED}, and everybody we
+     * know about who is in neither has {@code LEFT}. The last is the one no event could deliver.
+     *
+     * <p>The last two passes also clear the admin flag, which is why it is mirrored here and not
+     * only on role events: a role taken away while the bot was down produces no event.</p>
+     *
+     * <p>The third pass deletes the account link only when the picture is complete - see
+     * {@link #memberCacheLooksComplete(int, int)}. That is the one place where being wrong is not
+     * repaired by the next run.</p>
      */
     public void reconcile() {
         final Guild guild = jda.getGuildById(config.guildId());
@@ -207,10 +165,9 @@ public final class GuildState extends ListenerAdapter {
 
         final Set<String> seen = new HashSet<>();
 
-        // One snapshot, taken before the pass and used for both the pass and the decision below.
-        // Reading the cache twice is what let somebody join between the two reads: they would be
-        // missing from `seen` and counted in the size, so the completeness check would pass and the
-        // third pass would delete the link of a member who had just arrived.
+        // One snapshot for both the pass and the completeness decision. Reading the cache twice
+        // would let somebody join between the reads: missing from `seen`, counted in the size, so
+        // the check passes and the third pass deletes the link of a member who had just arrived.
         final List<Member> members = guild.getMemberCache().asList();
 
         for (final Member member : members) {
@@ -235,10 +192,8 @@ public final class GuildState extends ListenerAdapter {
             log.error("Could not read the ban list; banned users may still be marked as members", exception);
         }
 
-        // getMemberCount() is read AFTER the snapshot, deliberately: somebody who joins during the
-        // pass raises it while the snapshot stays where it was, so the check fails and nothing is
-        // deleted. Reading it first would have the opposite effect, which is the direction that
-        // costs somebody their link.
+        // Read AFTER the snapshot: somebody joining during the pass raises the count while the
+        // snapshot does not, so the check fails and nothing is deleted. The safe direction.
         final int expected = guild.getMemberCount();
         final boolean mayUnlink = memberCacheLooksComplete(members.size(), expected) && banListRead;
 
@@ -267,18 +222,10 @@ public final class GuildState extends ListenerAdapter {
     }
 
     /**
-     * Whether the member cache can be trusted to answer "who is in this guild".
-     * <p>
-     * Package-private and static so the rule can be tested without a guild - it is the only thing
-     * standing between an unlucky startup and every account link in the database.
-     * {@code expected} is what the guild itself reports; a chunking pass that was cut short leaves
-     * the cache smaller than that. Both come from {@link #reconcile()}'s single member snapshot and
-     * a count read <em>after</em> it, so a member who joins mid-pass raises {@code expected} and
-     * fails this check rather than passing it - the safe direction, since the alternative deletes
-     * the link of somebody who has just arrived. Greater-than-or-equal rather than equal for the
-     * other order: somebody who <em>leaves</em> mid-pass is still in the snapshot, so they are in
-     * {@code seen} and the third pass never reaches them anyway.
-     * </p>
+     * Whether the member cache can be trusted to answer "who is in this guild" - the only thing
+     * standing between an unlucky startup and every account link in the database, which is why it
+     * is static and testable without a guild. Greater-than-or-equal rather than equal: somebody who
+     * leaves mid-pass is still in the snapshot and therefore in {@code seen} anyway.
      *
      * @param cached   how many members the snapshot holds
      * @param expected how many the guild says it has; {@code 0} or less means Discord has not told
@@ -304,14 +251,9 @@ public final class GuildState extends ListenerAdapter {
     }
 
     /**
-     * Writes the member's language, from whatever {@code access.yml} lists.
-     * <p>
-     * Every rule about which of several held roles wins lives in
-     * {@link Languages#resolve(java.util.Collection)}, which is where it can be tested without a
-     * guild. No language role at all is {@link Optional#empty()} and nothing is written: the column
-     * defaults to English, and overwriting a real choice because onboarding is mid-flight would be
-     * worse than being a little stale.
-     * </p>
+     * Writes the member's language. No language role at all is {@link Optional#empty()} and nothing
+     * is written: the column defaults to English, and overwriting a real choice because onboarding
+     * is mid-flight would be worse than being a little stale.
      */
     private void mirrorLocale(final Member member) {
         languages.resolve(member.getRoles().stream().map(Role::getId).toList())
@@ -319,13 +261,10 @@ public final class GuildState extends ListenerAdapter {
     }
 
     /**
-     * Writes whether the member holds the admin role right now - {@code false} included.
-     * <p>
-     * Unlike {@link #mirrorLocale(Member)} this always writes. Not holding the role is a real
-     * answer, and the only safe one: the flag authorises {@code /phase set}, the proxy's emergency
-     * phase command and admission during {@code MAINTENANCE}, so a value that is only ever raised
-     * would keep every admin who has ever been one.
-     * </p>
+     * Writes whether the member holds the admin role right now, {@code false} included - unlike
+     * {@link #mirrorLocale(Member)}, which never writes an absence. The flag authorises
+     * {@code /phase set} and admission during {@code MAINTENANCE}, so a value that is only ever
+     * raised would keep every admin who has ever been one.
      */
     private void mirrorAdmin(final Member member) {
         access.setAdmin(member.getId(), member.getRoles().stream()

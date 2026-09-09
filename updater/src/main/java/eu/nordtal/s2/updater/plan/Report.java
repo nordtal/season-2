@@ -14,17 +14,13 @@ import java.util.Map;
 /**
  * An {@link UpdatePlan} as text a person reads before deciding whether to restart a network.
  *
- * <h2>Plain text, and it is going to be read twice</h2>
- * This is what the container prints, and it is <b>verbatim</b> what the Discord embed and the
- * in-game chat lines carry - both read it back out of {@code update_request.result}. Written as a
- * plain string rather than as Discord components so that the thing an operator sees in
- * {@code docker logs} and the thing they see in the admin channel cannot drift apart, and so that
- * this half is testable without a bot token.
+ * <p>Plain text rather than Discord components, because the container's log, the Discord embed and
+ * the in-game lines all carry this string verbatim out of {@code update_request.result} and must
+ * not drift apart - and because this half is then testable without a bot token.</p>
  *
- * <h2>What it always says, even when nothing changed</h2>
- * The resolved release tag. "Everything is up to date" and "the release you meant is still a
- * draft, so latest is last week's tag" produce the same list of rows and are not the same
- * situation; the tag on the second line is what tells them apart.
+ * <p>The resolved release tag is printed even when nothing changed: "everything is up to date" and
+ * "the release you meant is still a draft, so latest is last week's tag" produce identical rows,
+ * and the tag is what tells them apart.</p>
  */
 public final class Report {
 
@@ -49,17 +45,13 @@ public final class Report {
         }
         out.append('\n');
 
-        // One outage, one explanation. A GitHub failure makes EVERY season row unresolved, and each
-        // carries the same ~450-character sentence including a trimmed JSON body: eight of them is
-        // ~4 600 characters, against the 4 000 an admin embed has for a description. What fell off
-        // the end was the summary and the "jars nothing accounts for" list - the two parts that say
-        // what to do. So a reason that appears more than once is printed once, at the bottom, and
-        // referenced by number from the rows.
+        // One outage, one explanation: a GitHub failure repeats the same ~450-character sentence on
+        // every season row, which overruns a Discord embed's 4 000 characters and drops the summary
+        // off the end. A repeated reason is printed once at the bottom and referenced by number.
         final Map<String, Integer> footnotes = footnotesOf(plan);
 
-        // Grouped the way the network is shaped, proxy first, with everything that lives outside a
-        // Minecraft volume - the bot - collected at the end rather than filed under a server it
-        // does not run on.
+        // Grouped as the network is shaped, proxy first, with everything outside a Minecraft volume
+        // collected at the end rather than filed under a server it does not run on.
         final Map<String, List<Change>> grouped = new LinkedHashMap<>();
         for (final Change change : plan.changes()) {
             grouped.computeIfAbsent(change.service() == null ? "(no volume)" : change.service(),
@@ -75,8 +67,7 @@ public final class Report {
         grouped.forEach((service, changes) -> {
             out.append(service).append('\n');
 
-            // A whole service that is not mounted would otherwise repeat one sentence on every row
-            // it has, which buries the four rows that say something else. Said once, at the top.
+            // A service that is not mounted would otherwise repeat one sentence on every row it has.
             final String shared = sharedNote(changes);
             if (shared != null) {
                 out.append(INDENT).append(noteText(shared, footnotes)).append('\n');
@@ -87,8 +78,7 @@ public final class Report {
                 out.append(INDENT)
                         .append(pad(change.artifact(), width))
                         .append("  ")
-                        // Not padded when there is nothing after it: a padded label would leave
-                        // trailing spaces on the line, which survive a copy into a Discord embed.
+                        // Not padded when nothing follows: trailing spaces survive a copy into an embed.
                         .append(detail.isEmpty() ? label(change) : pad(label(change), LABEL_WIDTH))
                         .append(detail)
                         .append('\n');
@@ -121,10 +111,8 @@ public final class Report {
     }
 
     /**
-     * The notes worth printing once instead of on every row that carries them.
-     *
-     * <p>Only the repeated ones: a note that appears exactly once reads better where it is than as
-     * a reference to a line further down. Insertion-ordered so the numbers run down the page.</p>
+     * The notes worth printing once instead of on every row that carries them: only the repeated
+     * ones, insertion-ordered so the numbers run down the page.
      */
     private static Map<String, Integer> footnotesOf(final UpdatePlan plan) {
         final Map<String, Integer> counts = new LinkedHashMap<>();
@@ -149,12 +137,9 @@ public final class Report {
     }
 
     /**
-     * What a run did, in the same shape as the plan above so the two read as one page.
-     * <p>
-     * Printed <b>before</b> anything restarts, which is the reason the order in
-     * docs/updater.md#what-a-run-does-in-order is what it is: the whole value of the restart being
-     * a separate button is that somebody sees this first.
-     * </p>
+     * What a run did, in the same shape as the plan above so the two read as one page. Printed
+     * <b>before</b> anything restarts: the whole value of the restart being a separate button is
+     * that somebody sees this first.
      */
     public static @NotNull String render(final @NotNull ApplyResult result) {
         final StringBuilder out = new StringBuilder("what was done\n\n");
@@ -195,8 +180,7 @@ public final class Report {
             out.append("Everything asked for was done. A restart is what puts it into effect -")
                     .append(" nothing here changed a running server.\n");
         } else if (result.skippedAnything()) {
-            // Neither a failure nor a no-op, and it must not read as either: nothing was installed
-            // because nothing COULD be, and the skipped lines above say why on each one.
+            // Neither a failure nor a no-op, and it must not read as either.
             out.append("Nothing was installed, and not because everything was current -")
                     .append(" every line above says why it was skipped. Read them before assuming")
                     .append(" the network is up to date.\n");
@@ -214,8 +198,7 @@ public final class Report {
             case MISSING -> "not installed";
             case UNRESOLVED -> "UNRESOLVED";
             case MOUNT_MISSING -> "unknown";
-            // Lower case, unlike the two above it: nothing here needs a person. It is a fact about
-            // somebody else's release schedule, and shouting it every run trains people to skip it.
+            // Lower case: nothing here needs a person, it is somebody else's release schedule.
             case UNSUPPORTED -> "no build yet";
         };
     }
@@ -248,10 +231,8 @@ public final class Report {
             return installed == null ? "?" : installed;
         }
         if (wanted.checksum() != null && "sha1".equals(wanted.checksum().algorithm())) {
-            // The pack's hash in full, all forty characters, on both sides of the arrow. Shortened
-            // it would be unreadable in the way that matters: two different pack releases can
-            // easily share twelve leading hex characters on the screen and none in the client,
-            // and this row exists to show that they differ.
+            // The hash in full: two pack releases can share twelve leading hex characters on the
+            // screen and none in the client, and this row exists to show that they differ.
             return wanted.fileName() + " (sha1 " + wanted.checksum().hex() + ")";
         }
         return wanted.fileName();
@@ -273,10 +254,8 @@ public final class Report {
             return work + " artefact(s) would be updated.";
         }
 
-        // "Everything is up to date" is a sentence about artefacts that HAVE a build for this
-        // Minecraft version. Saying it while one of them has none would be true and misread: the
-        // rows above already say "no build yet", and a summary that contradicts them by omission is
-        // the half people actually read.
+        // "Everything is up to date" is only about artefacts that have a build for this Minecraft
+        // version; saying it while one has none would be true and misread.
         final long waiting = plan.changes().stream()
                 .filter(change -> change.status() == Change.Status.UNSUPPORTED)
                 .count();

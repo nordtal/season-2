@@ -19,22 +19,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * That every node of this plugin's two hand-built command trees can be typed on its own.
  *
- * <h2>The failure it exists for</h2>
- * A Brigadier node with children and no {@code executes} parses nothing by itself. Paper answers
- * that with {@code UnknownCommandEvent}, which {@code CommandFilter} turns into <b>"That command
- * does not exist"</b> - so a player who typed {@code /poi} was told, about a command that does
- * exist and that their own tab completion had just offered them, that it does not. It shipped that
- * way because {@code PaperCommands} gives every declared command that answer automatically and
- * these two trees are built by hand, outside it (see {@code SmpPlugin#registerCommands} for why).
+ * <p>A Brigadier node with children and no {@code executes} parses nothing by itself, and Paper
+ * answers that with the same line a typo gets - so a bare {@code /poi} told the player a command
+ * their own tab completion had just offered them did not exist. These two trees are built by hand,
+ * outside the path that supplies that answer automatically, so the check is on the shape of the
+ * tree rather than on the wording of a message.
  *
- * <p>That is the whole shape of the bug: the gap is invisible from the code that carries the guard,
- * and the symptom reads like a typo rather than like a missing branch. So the check is on the shape
- * of the tree itself, and not on the wording of one message.</p>
- *
- * <p>Nothing is executed and no server is involved - {@code Commands.literal} and
- * {@code Commands.argument} are plain Brigadier builders, and the handlers are only referenced.
- * None of the constructor's arguments is read while the tree is built, which is why they are null
- * here.</p>
+ * <p>Nothing is executed and no server is involved, which is why the constructor arguments can be
+ * null here.
  */
 class EveryNodeAnswersTest {
 

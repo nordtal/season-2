@@ -14,22 +14,14 @@ public record ApplyResult(@NotNull List<Outcome> outcomes) {
         /** Already what it should be; nothing was fetched and nothing was written. */
         UNCHANGED,
         /**
-         * Deliberately not attempted. The whole of a server is skipped when any one of its
-         * artefacts could not be resolved: a server's plugins move together or not at all, because
-         * "the new SMP jar with last week's PacketEvents" is a combination nobody chose and nobody
-         * tested.
+         * Deliberately not attempted. A whole server is skipped when any one of its artefacts could
+         * not be resolved: its plugins move together or not at all.
          */
         SKIPPED,
         /**
          * There is no file for this artefact on this Minecraft version, so there was nothing to
-         * attempt.
-         *
-         * <p>Its own word rather than {@link #UNCHANGED}, which is what it used to fall into and is
-         * a claim about a file: "unchanged" reads as "what is installed is already right", and
-         * nothing is installed. Its own word rather than {@link #SKIPPED} too, because that one
-         * carries the sentence "nothing was installed, and not because everything was current" -
-         * true here and pointed at the wrong artefact, since it is the whole-service refusal that
-         * sentence is written for.</p>
+         * attempt. Its own word because {@link #UNCHANGED} claims something is installed and
+         * {@link #SKIPPED} is the whole-service refusal.
          */
         UNSUPPORTED,
         /** Attempted and failed. Nothing of that server was moved - see {@link Applier}. */
@@ -51,21 +43,16 @@ public record ApplyResult(@NotNull List<Outcome> outcomes) {
     }
 
     /**
-     * Whether anything was deliberately not attempted.
-     *
-     * <p>Reported separately from a failure and from "nothing to do", because it is neither and
-     * reads as the wrong one of them. A run where every server was skipped because its volume was
-     * not mounted did no work and had no failure - and "Nothing needed doing" is exactly the
-     * sentence that would let somebody close the report believing the network is current.</p>
+     * Whether anything was deliberately not attempted. Reported separately from a failure and from
+     * "nothing to do": a run that skipped every server has neither, and must not read as current.
      */
     public boolean skippedAnything() {
         return outcomes.stream().anyMatch(outcome -> outcome.status() == Status.SKIPPED);
     }
 
     /**
-     * Whether a restart would be safe to offer. It would not be if anything failed: the point of
-     * reporting before restarting (docs/updater.md#what-a-run-does-in-order) is that a person sees a half-done
-     * run before the network goes down on it.
+     * Whether a restart would be safe to offer. Not if anything failed: reporting happens before
+     * restarting so that a person sees a half-done run before the network goes down on it.
      */
     public boolean restartWorthOffering() {
         return changedAnything() && !hasFailures();

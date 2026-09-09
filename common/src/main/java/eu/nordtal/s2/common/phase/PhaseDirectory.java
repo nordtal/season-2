@@ -7,31 +7,16 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * The current {@link SeasonPhase}, as seen by every process: the bot, the proxy and the plugins.
- * <p>
- * The phase is <b>one row in PostgreSQL</b> and nobody caches it as truth
- * ({@code docs/season-phases.md}). This interface is how that row is read and the only way it is
- * written.
- * </p>
+ * The current {@link SeasonPhase}, as seen by every process. The phase is one row in PostgreSQL and
+ * nobody caches it as truth; this interface is how that row is read and the only way it is written.
  *
- * <h2>Why the switch is one method</h2>
- * Two paths switch the phase - {@code /phase set} in Discord, the normal one, and a command on the
- * Velocity proxy, the emergency one for when the bot or Discord is down. Both must write an
- * {@code audit_log} entry, and two writers means two places where that is easy to forget. So there
- * is exactly one method, {@link #switchPhase(SeasonPhase, String, String)}, and underneath it the
- * update, the audit row and the {@code NOTIFY} are a <b>single SQL statement</b>: not "remember to
- * call the audit too", but "there is no way to express the write without it".
+ * <p>Two paths switch the phase - {@code /phase set} in Discord and an emergency command on the
+ * proxy - and both must write an audit entry, so there is exactly one method for it and underneath
+ * it the update, the audit row and the {@code NOTIFY} are a single SQL statement.
  *
- * <h2>Platform</h2>
- * Nothing here refers to Paper, Velocity or JDA, and nothing refers to JDBI or HikariCP either -
- * the factory takes a {@link DataSource}, a JDK type.
- *
- * <h2>Lifetime</h2>
- * One instance per process, over a pool somebody else owns. There is deliberately no
- * pool-creating factory to match {@code AccessDirectory#open}: every process that reads the phase
- * already reads access as well, and the two share one pool - the bot hands in jcore's
- * {@code Database#dataSource()}, the proxy hands in its own {@code AccessPool}. Nothing here holds
- * a resource, so there is nothing to close.
+ * <p>Nothing here refers to Paper, Velocity, JDA, JDBI or HikariCP: the factory takes a
+ * {@link DataSource}. One instance per process, over a pool somebody else owns, holding no resource
+ * of its own.
  */
 public interface PhaseDirectory {
 
@@ -47,14 +32,11 @@ public interface PhaseDirectory {
 
     /**
      * The phase right now, read from the row every time it is asked.
-     * <p>
-     * <b>Database failures propagate.</b> They are not folded into
-     * {@link SeasonPhase#MAINTENANCE}, because a caller has to be able to tell "the season is in
-     * maintenance" from "I could not reach the database" - the proxy's documented fallback is to
-     * keep using the <em>last known</em> phase and only to assume {@code MAINTENANCE} when it has
-     * never read one at all ({@code docs/season-phases.md#the-gate}), and it cannot implement that
-     * against a method that answers {@code MAINTENANCE} to both questions.
-     * </p>
+     *
+     * <p><b>Database failures propagate</b> rather than being folded into
+     * {@link SeasonPhase#MAINTENANCE}: a caller has to tell "the season is in maintenance" from "I
+     * could not reach the database", because the proxy keeps using the last known phase and assumes
+     * {@code MAINTENANCE} only when it has never read one.
      *
      * @return the current phase; {@link SeasonPhase#MAINTENANCE} if the row is somehow missing or
      *         holds a value this build does not know - an unreadable phase must never be more
@@ -63,18 +45,11 @@ public interface PhaseDirectory {
     SeasonPhase currentPhase();
 
     /**
-     * When the network opens, from the same single row {@link #currentPhase()} reads.
-     * <p>
-     * Only {@link SeasonPhase#PRE_LAUNCH} has anything to count down to, but the value is not
-     * cleared when the phase moves on - it stays as the record of when the season opened. Nothing
-     * here acts on it: the proxy renders it into the MOTD, the disconnect screens name it, and the
-     * phase itself is still switched by hand. See {@code V8__pre_launch.sql}.
-     * </p>
-     * <p>
-     * <b>Database failures propagate</b>, exactly as for {@link #currentPhase()}. An empty result
-     * means the column is {@code NULL} - no date has been announced - and not that the database
-     * could not be asked.
-     * </p>
+     * When the network opens, from the same single row {@link #currentPhase()} reads. Nothing acts
+     * on it - the phase is still switched by hand - and it is not cleared when the phase moves on.
+     *
+     * <p><b>Database failures propagate</b>, as for {@link #currentPhase()}. An empty result means
+     * no date has been announced, not that the database could not be asked.
      *
      * @return the opening instant, or empty when none is set
      */
@@ -82,38 +57,26 @@ public interface PhaseDirectory {
 
     /**
      * When paid access starts running, from the same single row {@link #currentPhase()} reads.
-     * <p>
-     * <b>This is not {@link #launch()}.</b> The network opens into {@code PRE_EVENT}, where nobody
-     * needs access at all - the gate asks for it in {@code SMP} and nowhere else - so the day the
-     * server browser counts down to and the day a purchase starts running are separated by a whole
-     * event. {@code AccessDao}'s append rule anchors {@code valid_from} on this instant, which is
-     * why it has to be a date set in advance rather than the moment the phase is switched: a grant
-     * is computed when it is bought, weeks earlier, and is never rewritten afterwards.
-     * </p>
-     * <p>
-     * Empty means no date has been announced. Purchases still go through in that state and start
-     * at {@code now()}, so the shop works before the season is dated; the bot warns on every such
-     * grant. See {@code V9__smp_start.sql}.
-     * </p>
-     * <p>
-     * <b>Database failures propagate</b>, exactly as for {@link #currentPhase()}.
-     * </p>
+     *
+     * <p><b>This is not {@link #launch()}</b>: the network opens into {@code PRE_EVENT}, where
+     * nobody needs access, so the day the browser counts down to and the day a purchase starts
+     * running are separated by a whole event. It has to be set in advance because a grant's window
+     * is computed when it is bought and never rewritten afterwards.
+     *
+     * <p>Empty means no date has been announced; purchases still go through and start at
+     * {@code now()}. <b>Database failures propagate</b>, as for {@link #currentPhase()}.
      *
      * @return the instant paid access starts running, or empty when none is set
      */
     Optional<Instant> smpStart();
 
     /**
-     * Switches the phase <b>and</b> records who did it, in one statement.
-     * <p>
-     * A switch to the phase that is already current is not an error: it writes the same row, and
-     * the audit entry says so. {@link PhaseChange#unchanged()} is how a caller reports it.
-     * </p>
+     * Switches the phase <b>and</b> records who did it, in one statement. Switching to the phase
+     * that is already current is not an error; {@link PhaseChange#unchanged()} reports it.
      *
      * @param phase  the phase to switch to
      * @param actor  the Discord id of the admin who caused it, or {@code null} for a switch no
-     *               human asked for - which neither of today's two callers is, since both are
-     *               authorised by {@code discord_user.admin} and therefore know the id
+     *               human asked for
      * @param reason free text for whoever reads the admin channel later, may be {@code null}
      * @return what the row said before and what it says now
      * @throws IllegalStateException if the {@code season_phase} row does not exist - it is seeded
@@ -122,17 +85,11 @@ public interface PhaseDirectory {
     PhaseChange switchPhase(SeasonPhase phase, String actor, String reason);
 
     /**
-     * Sets or clears {@code launch}, the instant the network opens.
-     * <p>
-     * Nothing is derived from this column - the server browser counts down to it and the
-     * disconnect screens name it, and that is all. Switching the phase when it passes stays an
-     * admin's decision, exactly as {@code V8__pre_launch.sql} says.
-     * </p>
+     * Sets or clears {@code launch}, the instant the network opens. Nothing is derived from this
+     * column, and switching the phase when it passes stays an admin's decision.
      *
-     * <h2>What is refused</h2>
-     * A date in the past, and a date after {@link #smpStart()} when that is set - paid access
-     * would then start running before the network was open. Both throw
-     * {@link SeasonDateRefused} and write nothing.
+     * <p>Refused, with {@link SeasonDateRefused} and no write: a date in the past, and a date after
+     * {@link #smpStart()} when that is set, which would start paid access before the network opened.
      *
      * @param at    the instant the network opens, or {@code null} to go back to "no date
      *              announced", which is a real state the countdown renders
@@ -146,31 +103,18 @@ public interface PhaseDirectory {
     /**
      * Sets or clears {@code smp_start}, <b>and moves the paid access anchored to it</b>.
      *
-     * <h2>This one is not just a column</h2>
-     * {@code AccessDao}'s append rule computes {@code valid_from} from this instant at the moment
-     * of purchase, weeks in advance. Moving the date without moving those rows would leave
-     * everything sold so far running from a day that no longer means anything, so this method
-     * moves them: per Discord account, the earliest live grant is placed on the new date and that
-     * account's remaining grants keep their distance from it. Stacked purchases stay stacked, and
-     * two people who bought on different days both start when the SMP opens.
-     * <p>
-     * Setting the date for the first time moves every live grant, which is the case the whole
-     * method exists for: selling is deliberately allowed while the season has no date, and those
-     * grants start at {@code now()} until this repairs them.
-     * </p>
-     * <p>
-     * <b>Clearing moves nothing.</b> There would be no instant left to anchor to, so the grants
-     * keep the windows they have and the caller says so.
-     * </p>
+     * <p>A grant's window is computed from this instant when it is bought, weeks in advance, so
+     * moving the date without moving those rows would leave everything sold running from a day that
+     * no longer means anything. Per Discord account, the earliest live grant is placed on the new
+     * date and the rest keep their distance from it. Setting the date for the first time moves every
+     * live grant, which is the case this exists for; <b>clearing moves nothing</b>, because there
+     * would be no instant left to anchor to.
      *
-     * <h2>What is refused</h2>
-     * A date in the past, a date before {@link #launch()} when that is set, and <b>any change at
-     * all once the phase is {@code SMP}</b> - from then on the season is running, paid time is
-     * genuinely being consumed, and moving it would hand somebody days they have already played
-     * or take away days they have not. All three throw {@link SeasonDateRefused} and write
-     * nothing. The phase is read immediately before the write rather than inside it, so a switch
-     * to {@code SMP} racing this call by milliseconds is not caught; the audit entry is what makes
-     * that visible afterwards, and both writers are admins acting by hand.
+     * <p>Refused, with {@link SeasonDateRefused} and no write: a date in the past, a date before
+     * {@link #launch()} when that is set, and any change once the phase is {@code SMP}, where paid
+     * time is genuinely being consumed. The phase is read just before the write rather than inside
+     * it, so a switch racing this call by milliseconds is not caught and the audit entry is what
+     * makes it visible.
      *
      * @param at    the instant paid access starts running, or {@code null} to clear the date
      * @param actor the Discord id of the admin who asked for it, for the audit entry

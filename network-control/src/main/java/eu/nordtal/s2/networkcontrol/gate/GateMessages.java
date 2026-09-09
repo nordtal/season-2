@@ -14,11 +14,9 @@ import java.util.Locale;
 
 /**
  * Builds the disconnect and chat components the login gate, the expiry check and the phase router
- * show. Kept separate from {@link LoginGate} and {@link ExpiryWatch} so those stay about deciding
- * what happens, not about how it is rendered.
+ * show, so that {@link LoginGate} and {@link ExpiryWatch} stay about deciding what happens.
  * <p>
- * The methods the {@code routing} package needs are {@code public}; the rest stay package-private.
- * That is the whole reason for the split visibility - there is no second rule behind it.
+ * The methods the {@code routing} package needs are {@code public}; the rest are package-private.
  * </p>
  */
 public final class GateMessages {
@@ -50,10 +48,9 @@ public final class GateMessages {
     }
 
     /**
-     * The account is no longer linked, discovered while the player was already connected - the
-     * self-service {@code /unlink} in Discord is what produces this. The login screen for the same
-     * situation is {@link #notLinked(String)}, which carries a fresh code; there is no code to hand
-     * out here, because issuing one is a database write on a path that is not a login.
+     * The account is no longer linked, discovered while the player was already connected. Unlike
+     * the login screen it carries no fresh link code: issuing one is a database write, and this
+     * path is not a login.
      */
     public Component unlinked(final Locale locale) {
         return MessageRenderer.of(messages).get(locale, "gate.unlinked");
@@ -85,19 +82,9 @@ public final class GateMessages {
      * The network is in {@code MAINTENANCE} and there is <b>no {@code limbo} server to hold this
      * player in</b>.
      * <p>
-     * This is no longer a gate screen. Since the 2026-08-31 reversal a non-admin is admitted during
-     * maintenance and routed to {@code limbo}, where the explanation is shown; this component is
-     * what happens when {@code gate.yml#server-limbo} names a server the proxy does not have. It is
-     * the "disconnect" half of docs/season-phases.md's original either/or, kept as the fallback for
-     * exactly the case in which the "hold in limbo" half is impossible.
-     * </p>
-     * <p>
-     * Rendered in the player's own language, like every other screen shown to somebody we have
-     * identified. docs/season-phases.md's flowchart calls this screen "a bilingual explanation",
-     * which is how the <em>unlinked</em> screen has to work - there the account is unknown and
-     * there is no language to pick. By this branch the account is linked and
-     * {@code discord_user.locale} is known, so showing both languages would be a downgrade rather
-     * than a courtesy. Flagged as a documentation contradiction rather than silently resolved.
+     * Not a gate screen: a non-admin is admitted during maintenance and routed to {@code limbo},
+     * where the explanation is shown. This is the fallback for {@code gate.yml#server-limbo} naming
+     * a server the proxy does not have.
      * </p>
      */
     public Component maintenance(final Locale locale) {
@@ -106,27 +93,17 @@ public final class GateMessages {
 
     /**
      * The phase says this player belongs on a server this proxy does not have registered, and the
-     * phase is not {@code MAINTENANCE} (which has its own, more informative screen above).
-     * <p>
-     * Nothing in docs/ says what a player should see here, because nothing in docs/ contemplates a
-     * phase whose backend is missing. This is a config error - {@code gate.yml}'s server names not
-     * matching {@code velocity.toml} - and the screen says so in the only terms a player can act
-     * on: it is not their fault and an admin has to fix it.
-     * </p>
+     * phase is not {@code MAINTENANCE} (which has its own screen above). Always a config error -
+     * {@code gate.yml}'s server names not matching {@code velocity.toml}.
      */
     public Component noServer(final Locale locale) {
         return MessageRenderer.of(messages).get(locale, "gate.no-server");
     }
 
     /**
-     * The network is at {@code network.yml#max-players} and this player is not an admin.
-     * <p>
-     * The numbers are in the text on purpose. "Full" without them invites the reading that
-     * something is broken - the browser was showing a slot a moment ago - while "312 of 312" is
-     * self-evidently a limit somebody chose. They are the proxy's own count and the configured
-     * limit, which since 2026-09-03 are the only two numbers involved: the Paper backends are
-     * configured far above any network limit and no longer refuse anybody.
-     * </p>
+     * The network is at {@code network.yml#max-players} and this player is not an admin. The
+     * numbers are in the text on purpose: "312 of 312" reads as a limit somebody chose, where
+     * "full" alone reads as something broken.
      */
     Component full(final Locale locale, final int online, final int max) {
         return MessageRenderer.of(messages).format(locale, "gate.full", "online", online, "max", max);
@@ -134,9 +111,7 @@ public final class GateMessages {
 
     /**
      * {@code PRE_LAUNCH}, linked, nothing bought yet: the invitation to buy the first month now so
-     * that the SMP is playable the moment the event ends. Not a refusal the player can do anything
-     * about - nobody is getting in yet - which is exactly why it is worth using the screen for
-     * something other than saying no.
+     * that the SMP is playable the moment the event ends.
      */
     public Component preLaunchBuy(final Locale locale, final Instant launch, final Instant now) {
         Component result = MessageRenderer.of(messages).get(locale, "gate.pre-launch.buy");

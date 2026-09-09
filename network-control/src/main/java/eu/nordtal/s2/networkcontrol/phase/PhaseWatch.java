@@ -15,26 +15,18 @@ import java.util.concurrent.atomic.AtomicReference;
  * by a poll every {@code phase-poll-interval-seconds} and, when it is available, by a
  * {@code LISTEN}/{@code NOTIFY} connection that makes a switch feel instant.
  *
- * <h2>This is not what the login path reads</h2>
- * The login path gets the phase on the <b>same row</b> as the access state
- * ({@code AccessState#phase()}), because docs/season-phases.md pins it to one round trip. This
- * class exists for everything that is not a login: logging a switch as it happens, answering
- * {@code /phase} without a database call, and - when routing is written - being the thing that
- * re-routes connected players when the phase moves. Nothing here is authoritative; it is a record
- * of what the row said, and the row is the truth.
+ * <p><b>This is not what the login path reads.</b> That gets the phase on the same row as the
+ * access state, in one round trip. This class is for everything else: logging a switch, answering
+ * {@code /phase} without a database call, and re-routing connected players when the phase moves.
+ * Nothing here is authoritative - the row is.</p>
  *
- * <h2>What it falls back to</h2>
- * docs/season-phases.md#the-gate: "a phase that cannot be read falls back to <b>the last known
- * phase</b>, and if there is none, to {@code MAINTENANCE} - the state that lets nobody in is the
- * safe one to guess." {@link #lastKnown()} is exactly that rule. A failed refresh therefore leaves
- * the previous value in place rather than overwriting it with a guess; only a process that has
- * <em>never</em> read the row answers {@code MAINTENANCE}.
+ * <p>A phase that cannot be read falls back to the last known one, and to {@code MAINTENANCE} only
+ * when the row has never been read: the state that lets nobody in is the safe guess. A failed
+ * refresh therefore leaves the previous value in place.</p>
  *
- * <h2>Thread safety</h2>
- * {@link #refresh()} is called from three places - the scheduler's poll thread, the listener
- * thread, and the {@code /phase} command after a switch - so the value is an
- * {@link AtomicReference} and the change callback fires only for the caller that actually swapped
- * it.
+ * <p>{@link #refresh()} is called from the poll thread, the listener thread and the {@code /phase}
+ * command, so the value is an {@link AtomicReference} and the change callback fires only for the
+ * caller that actually swapped it.</p>
  */
 public final class PhaseWatch {
 
@@ -58,12 +50,9 @@ public final class PhaseWatch {
     /**
      * The phase and the announced opening instant, as one value.
      * <p>
-     * One reference rather than two, because {@link #known()} has a reader who wants both:
-     * {@code NetworkPing} renders a {@code PRE_LAUNCH} MOTD out of the phase <em>and</em> the
-     * countdown, and two references published one after the other let a ping arriving between the
-     * two writes pair the old phase with the new instant. The window is a few nanoseconds once
-     * every poll interval and nobody would ever catch it - which is exactly why it is worth
-     * removing rather than documenting.
+     * One reference rather than two, because {@code NetworkPing} renders a {@code PRE_LAUNCH} MOTD
+     * out of both, and two separately published references would let a ping pair the old phase with
+     * the new instant.
      * </p>
      *
      * @param phase  what the row said
@@ -84,11 +73,8 @@ public final class PhaseWatch {
     /**
      * Re-reads the row, <b>unconditionally</b>.
      * <p>
-     * There is no "only if something might have changed" short cut here on purpose: this is what a
-     * reconnecting listener calls, and docs/season-phases.md is explicit that notifications are
-     * lost while a process is disconnected, so every reconnect has to re-read whether or not it
-     * missed anything. The notification carries no payload either, so there would be nothing to
-     * short-cut on.
+     * No short cut: notifications are lost while a process is disconnected and carry no payload, so
+     * a reconnecting listener has to re-read whether or not it missed anything.
      * </p>
      *
      * @return {@code true} when the row was read, {@code false} when the database could not be
@@ -99,9 +85,8 @@ public final class PhaseWatch {
         final Instant announced;
         try {
             current = phases.currentPhase();
-            // A second, trivial query on a thirty-second timer, and not on the login path: the
-            // login query carries its own copy of this column (AccessDao), because the disconnect
-            // screens need it in the same round trip. This one is for the MOTD.
+            // A second query, off the login path: the login query carries its own copy of this
+            // column, because the disconnect screens need it in the same round trip.
             announced = phases.launch().orElse(null);
         } catch (final RuntimeException exception) {
             logger.warn("Could not read the season phase; staying on the last known one ({})",
@@ -154,8 +139,7 @@ public final class PhaseWatch {
 
     /**
      * @return whether the row has ever been read successfully; {@code false} means
-     *         {@link #lastKnown()} is the safe guess and not an observation, which is worth saying
-     *         out loud in {@code /phase}'s reply
+     *         {@link #lastKnown()} is the safe guess rather than an observation
      */
     public boolean everRead() {
         return known.get() != null;
@@ -165,8 +149,8 @@ public final class PhaseWatch {
         try {
             listener.phaseChanged(previous, current);
         } catch (final RuntimeException exception) {
-            // A listener that throws must not stop the watch from having recorded the new phase -
-            // the phase is already swapped by the time we get here.
+            // The phase is already swapped by the time we get here, so a throwing listener must
+            // not undo that.
             logger.error("A phase change listener failed for {} -> {}", previous, current, exception);
         }
     }

@@ -30,11 +30,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * The resource-pack station, and with it the second half of docs/architecture.md's login path:
- * every player waits in {@code limbo} until the pack is on their machine and the phase's backend
- * will have them, and only then is connected onward.
+ * The resource-pack station, and with it the second half of the login path: every player waits in
+ * {@code limbo} until the pack is on their machine and the phase's backend will have them, and only
+ * then is connected onward.
  *
- * <h2>The sequence, in the order it actually happens</h2>
+ * <h2>The sequence being described</h2>
  * <ol>
  *   <li>{@code PlayerRouter} sets {@code limbo} as the initial server for every admitted login.</li>
  *   <li>{@link #onServerPostConnect} sees the player arrive on {@code limbo}, sends them the forced
@@ -47,41 +47,27 @@ import java.util.function.Consumer;
  *       player is handed to the release callback, which is {@code PlayerRouter}'s connect.</li>
  * </ol>
  *
- * <h2>Those steps do not happen in that order</h2>
- * They are numbered because that is the sequence being described, not because anything enforces it.
- * Velocity dispatches the arrival, the pack status and {@code limbo}'s answer on different threads
- * with no ordering between them, and step 3 routinely beats step 2 - see {@link WaitingBook}, which
- * exists because this class once kept step 3's answer in an object step 1 created, and dropped it
- * when it arrived first. <b>Every one of the handlers below records a fact and then re-asks the
- * whole question</b>; none of them may assume anything about what has already happened.
+ * <p><b>Those steps do not happen in that order.</b> Velocity dispatches the arrival, the pack
+ * status and {@code limbo}'s answer on different threads with no ordering between them, and step 3
+ * routinely beats step 2 - which is what {@link WaitingBook} exists for. Every handler below records
+ * a fact and then re-asks the whole question; none may assume what has already happened.</p>
  *
- * <h2>The backend never decides where a player goes</h2>
- * docs/season-phases.md#routing is explicit: "a backend must not be able to decide it wants a
- * player somewhere - that would put the routing rules in two processes". So {@code limbo}'s message
- * says <em>"this player is ready"</em> and nothing else; it carries no destination, and this class
- * asks {@link PhaseRouting} where the player belongs. A {@code limbo} that wanted to send somebody
- * to the SMP could not express it.
+ * <p><b>The backend never decides where a player goes</b>, or the routing rules would live in two
+ * processes. {@code limbo}'s message says "this player is ready" and carries no destination; this
+ * class asks {@link PhaseRouting} where they belong.</p>
  *
- * <h2>A plugin message is not evidence of who sent it</h2>
- * Registering a channel makes the proxy advertise it to the <b>client</b>, and a modded client can
- * write whatever bytes it likes onto it. A forged {@code READY} is a player releasing themselves
- * from the waiting room, which is to say skipping the resource pack. Every message on this channel
- * is therefore rejected unless {@link PluginMessageEvent#getSource()} is a {@link ServerConnection}
- * - and it is consumed either way, so it never reaches the client or another backend.
+ * <p><b>A plugin message is not evidence of who sent it.</b> Registering a channel makes the proxy
+ * advertise it to the client, and a modded client can write whatever bytes it likes onto it - a
+ * forged {@code READY} is a player releasing themselves from the waiting room, which is to say
+ * skipping the resource pack. Every message is rejected unless {@link PluginMessageEvent#getSource()}
+ * is a {@link ServerConnection}, and consumed either way.</p>
  *
- * <h2>Why the pack is offered here and not on {@code limbo}</h2>
- * Because docs/architecture.md puts it on the proxy: one offer, one place, and a player who is
- * moved between backends is not asked twice. The written fallback, if a forced offer from the
- * proxy turns out to misbehave, is for {@code limbo} to offer it on join instead - see
- * docs/state-of-play.md#the-unverified-assumptions. That is a change to this class and to
- * {@code limbo}, not to the design.
+ * <p>The pack is offered here rather than on {@code limbo} so that there is one offer in one place
+ * and a player moved between backends is not asked twice.</p>
  *
- * <h2>Threading</h2>
- * Velocity fires {@code @Subscribe} handlers off the Netty threads, and every piece of per-player
- * state is in {@link WaitingBook}, which is responsible for making a release happen exactly once.
- * Nothing in this class touches the database: the phase comes from {@link PhaseWatch}'s in-memory
- * value and the language from {@link LoginRoster}, both filled in by the login query the gate
- * already made.
+ * <p>Velocity fires {@code @Subscribe} handlers off the Netty threads, and every piece of per-player
+ * state is in {@link WaitingBook}, which makes a release happen exactly once. Nothing here touches
+ * the database: the phase comes from {@link PhaseWatch} and the language from {@link LoginRoster}.
  */
 public final class PackStation {
 
@@ -248,9 +234,8 @@ public final class PackStation {
 
         final Player player = connection.getPlayer();
         if (book.ready(player.getUniqueId())) {
-            // The arrival event has not reached us yet - the race this whole design was rebuilt
-            // around. Logged at INFO on purpose: it is the only evidence that it really happens, and
-            // its absence is what made the original deadlock invisible for a whole deployment.
+            // The arrival event has not reached us yet. Logged at INFO because it is the only
+            // evidence that this race really happens.
             logger.info("'{}' reported {} ready before the proxy had finished putting them in the "
                             + "waiting room; remembered rather than dropped",
                     connection.getServerInfo().getName(), player.getUsername());
@@ -313,9 +298,8 @@ public final class PackStation {
         }
 
         final SeasonPhase phase = phases.lastKnown();
-        // The admin flag decides two things here and both matter: maintenance does not hold an
-        // admin, and an admin released while the network is closed goes to the SMP rather than
-        // back into this very room - which is where "released to limbo" put them until 2026-09-05.
+        // The admin flag decides two things: maintenance does not hold an admin, and an admin
+        // released while the network is closed goes to the SMP rather than back into this room.
         final boolean admin = roster.isAdmin(uuid);
         final String destination = routing.servers().forAdmitted(phase, admin);
         final WaitingDecision decision = book.decide(uuid, phase, admin,
@@ -323,8 +307,7 @@ public final class PackStation {
 
         switch (decision.action()) {
             case IDLE -> {
-                // Already looking at the right title, or waiting out the grace period. The common
-                // case by a wide margin, and the sweep hits it several times per second.
+                // Already looking at the right title, or waiting out the grace period.
             }
             case SHOW -> sendToLimbo(player, LimboProtocol.wait(decision.reason()));
             case TIMED_OUT -> {
@@ -338,8 +321,8 @@ public final class PackStation {
                 release.accept(player);
             }
             case RELEASE_UNCONFIRMED -> {
-                // Not fatal and not silent. The player goes where they were always going; what is
-                // wrong is the channel, and this is the only place that would ever say so.
+                // The player goes where they were always going; what is wrong is the channel, and
+                // this is the only place that would say so.
                 logger.warn("Releasing {} to '{}' without a READY from '{}': everything else has "
                                 + "been settled for the grace period. The nordtal:limbo channel is "
                                 + "not delivering backend messages to this proxy.",

@@ -1,5 +1,5 @@
 {
-    "_comment": "Placeholder geometry only - two flat-shaded cuboids standing in for the envelope and the basket. The real hot-air-balloon model (docs/smp.md#the-nordtal-spawn) is a Blockbench modelling task; this scaffold exists so the item-model plumbing (assets/nordtal/items/balloon.json, an ItemDisplay entity spawning it) can be built and tested before that art exists.",
+    "_comment": "Placeholder geometry only - two flat-shaded cuboids standing in for the envelope and the basket. The real hot-air-balloon model is a Blockbench modelling task; this scaffold exists so the item-model plumbing (assets/nordtal/items/balloon.json, an ItemDisplay entity spawning it) can be built and tested before that art exists.",
     "parent": "minecraft:item/generated",
     "textures": {
         "envelope": "nordtal:item/balloon_envelope",

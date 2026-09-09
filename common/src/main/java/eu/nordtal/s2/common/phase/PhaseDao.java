@@ -8,12 +8,8 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * The whole SQL surface of the phase model, as a JDBI SqlObject interface - the same style as
- * {@code AccessDao}.
- * <p>
- * Package-private on purpose: {@link PhaseDirectory} is the API, this is how it is implemented, and
- * no consumer should ever hold a {@code Jdbi} or a DAO of ours.
- * </p>
+ * The whole SQL surface of the phase model, as a JDBI SqlObject interface. Package-private on
+ * purpose: {@link PhaseDirectory} is the API, and no consumer should hold a {@code Jdbi} or a DAO.
  */
 interface PhaseDao {
 
@@ -33,36 +29,24 @@ interface PhaseDao {
 
     /**
      * @return the announced instant paid access starts running, empty when the column is
-     *         {@code NULL} or the singleton row is gone - {@code V9__smp_start.sql}
+     *         {@code NULL} or the singleton row is gone
      */
     @SqlQuery("SELECT smp_start FROM season_phase WHERE id")
     Optional<Instant> smpStart();
 
     /**
-     * The switch, the audit entry and the notification as <b>one statement</b>.
+     * The switch, the audit entry and the notification as <b>one statement</b>, so that there is no
+     * way to issue the {@code UPDATE} through this DAO without the audit {@code INSERT} riding
+     * along - both writers of the phase must record who did it.
      *
-     * <h2>Why one statement and not three calls in a transaction</h2>
-     * {@code docs/season-phases.md#who-may-switch-it} requires that both writers - the bot's
-     * {@code /phase set} and the proxy's emergency command - write the audit entry, and says
-     * plainly that two writers means two places where that is easy to forget. A transaction in a
-     * shared helper would already fix that; a single statement is the stronger form of it, because
-     * there is no way to issue the {@code UPDATE} through this DAO without the {@code INSERT}
-     * riding along. It is also one round trip on a path that may be taken while the network is
-     * already in trouble.
+     * <p>Every sub-statement of a {@code WITH} sees the same snapshot, so {@code previous} reads the
+     * row as it was before {@code switched} replaced it. {@code audited} is referenced by nothing,
+     * which does not matter: a data-modifying CTE runs exactly once regardless.
      *
-     * <h2>How the "before" value survives the update</h2>
-     * Every sub-statement of a {@code WITH} sees the same snapshot, so {@code previous} reads the
-     * row as it was <em>before</em> {@code switched} replaced it. {@code audited} is never
-     * referenced by the outer query, which does not matter: PostgreSQL executes a data-modifying
-     * CTE exactly once and to completion whether or not anything reads its output.
-     *
-     * <h2>The notification</h2>
-     * {@code pg_notify} rides in the select list so that it, too, is part of the same statement and
-     * the same transaction - a notification is only ever emitted for a switch that actually
-     * committed. It carries <b>no payload</b> on purpose: a listener must re-read the row anyway,
-     * because notifications are lost while a process is disconnected, and a payload would invite
-     * somebody to trust the notification as state. The channel name is {@code nordtal_phase},
-     * settled 2026-08-31 alongside the 30-second poll that is the actual guarantee.
+     * <p>{@code pg_notify} rides in the select list, so a notification is only ever emitted for a
+     * switch that committed. It carries <b>no payload</b> on purpose: notifications are lost while a
+     * process is disconnected, so a listener must re-read the row and must never trust the
+     * notification as state.
      *
      * @param phase  the phase name to store; the column's CHECK constraint rejects anything that is
      *               not a {@code SeasonPhase} constant
@@ -101,13 +85,9 @@ interface PhaseDao {
                             @Bind("reason") String reason);
 
     /**
-     * Writes {@code launch}, with its audit entry and notification, as one statement.
-     * <p>
-     * It owns nothing but its own column: {@code launch} is what the server browser counts down
-     * to, and no other row is derived from it. That is the whole difference to
-     * {@link #setSmpStart(Instant, String)}, and the reason these are two statements rather than
-     * one with a column name in it.
-     * </p>
+     * Writes {@code launch}, with its audit entry and notification, as one statement. Nothing is
+     * derived from that column, which is the whole difference to
+     * {@link #setSmpStart(Instant, String)} and why these are two statements.
      *
      * @param at    the new instant, or {@code null} to clear the date
      * @param actor the Discord id of the admin who asked for it
@@ -145,24 +125,14 @@ interface PhaseDao {
      * Writes {@code smp_start}, moves the paid access that was anchored to it, and files the audit
      * entry and notification - all as one statement.
      *
-     * <h2>Which grants move, and by how much</h2>
-     * A grant moves when it is not revoked, has not already run out, and began at or after the
-     * date being replaced. When the date is being set for the first time there is nothing to
-     * compare against, so every live grant qualifies - that is the case this exists for: access
-     * sold while the season had no date starts at {@code now()}, and setting the date is what
-     * repairs it.
-     * <p>
-     * The shift is computed <b>per Discord account</b>, not once for the whole table: each
-     * account's earliest moving grant is placed on the new date and the rest of that account's
-     * grants keep their distance from it. Stacked periods therefore stay stacked - two thirty-day
-     * purchases remain sixty consecutive days - and two people who bought on different days both
-     * start when the SMP opens rather than one of them starting late. Shifting the table by a
-     * single delta would get the second half of that wrong.
-     * </p>
-     * <p>
-     * An account whose earliest grant already sits on the new date is left alone, so writing the
-     * same date twice moves nothing and reports nothing.
-     * </p>
+     * <p>A grant moves when it is not revoked, has not run out, and began at or after the date being
+     * replaced; setting the date for the first time therefore moves every live grant, which is the
+     * case this exists for.
+     *
+     * <p>The shift is computed <b>per Discord account</b>: each account's earliest moving grant is
+     * placed on the new date and the rest keep their distance from it, so stacked periods stay
+     * stacked and two people who bought on different days both start when the SMP opens. An account
+     * already sitting on the new date is left alone.
      *
      * @param at    the new instant, or {@code null} to clear the date - <b>clearing moves no
      *              grants</b>, since there is no date left for them to be anchored to
@@ -183,12 +153,9 @@ interface PhaseDao {
                             OR grant_row.valid_from >= previous.smp_start)
                  ),
                  anchors AS (
-                     -- The shift is seconds, never days. Subtracting two timestamptz values yields
-                     -- a day-based interval, and adding one of those back is calendar arithmetic in
-                     -- the session's time zone - so a thirty-day period moved across the October
-                     -- clock change would come out thirty days and one hour long. AccessDao writes
-                     -- these windows with make_interval(hours => ...) for the same reason; a shift
-                     -- that did not match it would silently change what somebody paid for.
+                     -- Seconds, never days: subtracting two timestamptz values yields a day-based
+                     -- interval, and adding one back is calendar arithmetic in the session's time
+                     -- zone, so a period moved across a clock change would change length.
                      SELECT discord_id,
                             make_interval(secs => cast(extract(epoch FROM
                                 (cast(:at AS timestamptz) - min(valid_from))) AS double precision))

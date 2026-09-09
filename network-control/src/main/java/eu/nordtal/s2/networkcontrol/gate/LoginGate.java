@@ -22,16 +22,10 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * The season 2 login decision, per docs/access-system.md and docs/season-phases.md: one call to
- * {@code AccessDirectory#accessState}, then linked? member and not banned? and finally whatever the
- * <b>current phase</b> asks on top - each branch with its own disconnect screen. If the database
- * itself could not be reached, the fallback cache stands in for all of it.
- *
- * <h2>The phase is part of the decision, since 2026-08-31</h2>
- * This class used to refuse every linked member without active access, unconditionally - finding 1
- * in docs/state-of-play.md, i.e. it behaved as though the network were permanently in
- * {@code SMP} and a {@code PRE_EVENT} network would have refused everyone who had not paid.
- * docs/season-phases.md's phase table is what it now walks:
+ * The season 2 login decision: one call to {@code AccessDirectory#accessState}, then linked? member
+ * and not banned? and finally whatever the current phase asks on top - each branch with its own
+ * disconnect screen. If the database could not be reached, the fallback cache stands in for all of
+ * it.
  *
  * <table>
  *   <caption>What this class decides, per phase</caption>
@@ -42,33 +36,25 @@ import java.util.UUID;
  *   <tr><td>{@code MAINTENANCE}</td><td>linked member, not banned</td><td>-</td></tr>
  * </table>
  *
- * <h2>Maintenance no longer refuses anybody here, decided 2026-08-31</h2>
- * This class used to deny every non-admin during {@code MAINTENANCE} with {@code gate.maintenance}.
- * docs/season-phases.md left "disconnect <b>or</b> hold in limbo" open while its own phase table
- * already said non-admins land in {@code limbo}; the owner settled it on holding them. The gate now
- * lets them onto the proxy and {@code eu.nordtal.s2.networkcontrol.routing.PlayerRouter} puts them
- * in {@code limbo}, which is where the explanation is shown. An <b>unlinked</b> player is still
- * refused with a link code, in maintenance as in every other phase - that half was not reversed.
- *
  * <p>
- * The phase arrives on the <b>same row</b> as the access state ({@link AccessState#phase()}):
- * docs/season-phases.md pins the login path to a single round trip, so there is deliberately no
- * call to {@code PhaseDirectory#currentPhase()} anywhere in this class. {@code PhaseWatch}'s poll
- * and {@code LISTEN} exist for everything that is <em>not</em> a login.
+ * Maintenance refuses nobody here: a non-admin is let onto the proxy and
+ * {@code eu.nordtal.s2.networkcontrol.routing.PlayerRouter} puts them in {@code limbo}, where the
+ * explanation is shown. An <b>unlinked</b> player is still refused with a link code, in every phase.
  * </p>
  * <p>
- * The table itself lives in {@link GateOutcome}, which is a total function of the one record the
- * login query returns and can therefore be tested exhaustively without a proxy. It is not
- * {@link AccessState#mayJoin()} because each branch needs a different screen; {@code mayJoin()} is
- * the same table collapsed to one boolean, and is what the fallback cache and the expiry sweep use.
+ * The phase arrives on the <b>same row</b> as the access state ({@link AccessState#phase()}): the
+ * login path is one round trip, so there is deliberately no call to
+ * {@code PhaseDirectory#currentPhase()} here. {@code PhaseWatch}'s poll and {@code LISTEN} exist for
+ * everything that is <em>not</em> a login.
  * </p>
  * <p>
- * {@code @Subscribe} handlers are asynchronous by default in Velocity 4 (see
- * {@code com.velocitypowered.api.event.Subscribe#async}), so the blocking JDBC call this makes
- * does not run on a Netty I/O thread. How long that call is allowed to block is not this class's
- * concern - it is the connection pool's, configured with a short {@code query-timeout-seconds} in
- * {@code database.yml} so a struggling database fails fast onto the fallback path rather than
- * queueing logins behind it.
+ * The table itself lives in {@link GateOutcome}. It is not {@link AccessState#mayJoin()} because
+ * each branch needs a different screen.
+ * </p>
+ * <p>
+ * {@code @Subscribe} handlers are asynchronous by default in Velocity 4, so the blocking JDBC call
+ * does not run on a Netty I/O thread. How long it may block is the connection pool's concern,
+ * bounded by {@code query-timeout-seconds} in {@code database.yml}.
  * </p>
  */
 public final class LoginGate {
@@ -112,8 +98,8 @@ public final class LoginGate {
             return;
         }
 
-        // Written on every successful query, healthy path or not - see FallbackCache for why an
-        // access-inactive state still has to go through here: it evicts a now-stale positive entry.
+        // Written on every successful query: an access-inactive state has to go through here too,
+        // because it evicts a now-stale positive entry.
         fallback.remember(uuid, state);
         // And the facts the /phase command and the play-time writer need, from the same row.
         roster.remember(uuid, state);
@@ -121,10 +107,9 @@ public final class LoginGate {
         final Instant countdownFrom = state.phase() == SeasonPhase.PRE_LAUNCH ? clock.instant() : null;
 
         switch (GateOutcome.of(state)) {
-            // ALLOW leaves the event's own default result (ComponentResult.allowed()) standing -
-            // unless the network is full, which is the one refusal that is not about this player at
-            // all. Where they then land is PlayerRouter's question, and in MAINTENANCE the answer
-            // is limbo - which is the whole of what that phase now does to a non-admin.
+            // ALLOW leaves the event's own default result standing, unless the network is full -
+            // the one refusal that is not about this player at all. Where they land is
+            // PlayerRouter's question.
             case ALLOW -> refuseIfFull(event, state);
             case NOT_LINKED -> issueCodeAndDeny(event, player, uuid, state.launch(), countdownFrom);
             case NOT_MEMBER -> event.setResult(ComponentResult.denied(messages.notMember(state.locale())));
@@ -139,18 +124,14 @@ public final class LoginGate {
     /**
      * The network-wide player limit, and the only place it is enforced.
      * <p>
-     * It is checked <b>after</b> the access decision rather than before it, which costs a database
-     * round trip for a player who is then refused anyway. That is deliberate: the admin flag lives
-     * on the row that query returns, and a full network that cannot be entered by the person who
-     * has to go and fix it is the wrong kind of full. The row is worth one query.
+     * Checked <b>after</b> the access decision, deliberately: the admin flag lives on the row that
+     * query returns, and a full network that the person who has to fix it cannot enter is the wrong
+     * kind of full.
      * </p>
      * <p>
-     * The count is {@code proxy.getPlayerCount()} - every connected player, including the ones
-     * still in the waiting room, because a slot they are holding is a slot. Two logins arriving in
-     * the same instant can both see room and both take it: the limit is exceeded by one, nothing
-     * breaks, and no reservation scheme is worth what it would cost to prevent a number nobody can
-     * observe. {@code >=} rather than {@code >} because the player being decided about is not in
-     * the count yet.
+     * The count includes players still in the waiting room, because a slot they hold is a slot. Two
+     * logins in the same instant can both see room and both take it; the limit is exceeded by one,
+     * which is accepted rather than fixed with a reservation scheme.
      * </p>
      */
     private void refuseIfFull(final LoginEvent event, final AccessState state) {
@@ -164,16 +145,12 @@ public final class LoginGate {
     }
 
     /**
-     * The database answered "unlinked", which is itself a healthy-path result - not the fallback
-     * branch. Issuing the code is a second, separate database call, so it can still fail on its
-     * own; that failure is treated the same as the database being unreachable in the first place,
-     * because there is no code to show either way.
+     * The database answered "unlinked", which is a healthy-path result. Issuing the code is a
+     * second database call and can fail on its own; that failure is treated like the database being
+     * unreachable, because there is no code to show either way.
      * <p>
-     * Note that this happens in every phase, {@code MAINTENANCE} included, and that it is the one
-     * refusal maintenance still produces. An unlinked player cannot be held in {@code limbo} in any
-     * useful way - there is nothing to wait for, because linking happens in Discord, not here - so
-     * handing them the code they will need anyway costs one statement and saves them a second
-     * wasted attempt later.
+     * This happens in every phase, {@code MAINTENANCE} included: an unlinked player cannot usefully
+     * be held in {@code limbo}, since linking happens in Discord.
      * </p>
      */
     private void issueCodeAndDeny(final LoginEvent event, final Player player, final UUID uuid,
@@ -183,29 +160,26 @@ public final class LoginGate {
             event.setResult(ComponentResult.denied(messages.notLinked(code.code(), launch, now)));
         } catch (final RuntimeException exception) {
             logger.error("Could not issue a link code for {} ({})", uuid, player.getUsername(), exception);
-            // The player's language is unknown either way at this point (that is exactly why the
-            // unlinked screen shows both languages), so English is as good a guess as any here.
+            // The player's language is unknown on this path, which is why the unlinked screen is
+            // bilingual; English is as good a guess as any.
             event.setResult(ComponentResult.denied(messages.trouble(Locale.ENGLISH)));
         }
     }
 
     /**
-     * Only a player the cache remembers as having been allowed in when it was cached gets in;
-     * everyone else - including every player the cache has simply never heard of - is refused.
+     * Only a player the cache remembers as allowed gets in; everyone else, including anyone the
+     * cache has never heard of, is refused.
      * <p>
-     * The cache stores the outcome of {@link AccessState#mayJoin()}, which is phase-aware, so what
-     * it remembers is "this player was let in, in the phase that was current at the time". The
-     * phase cannot be re-read here either - it lives in the same unreachable database - and
-     * docs/season-phases.md's rule for that case is the last known phase, which is exactly the one
-     * the cached decision was made under.
+     * The cache stores the outcome of {@link AccessState#mayJoin()}, which is phase-aware, so it
+     * remembers "let in, under the phase current at the time". The phase cannot be re-read here -
+     * it is in the same unreachable database - and the rule for that case is the last known phase.
      * </p>
      */
     private void fallBackToCache(final LoginEvent event, final UUID uuid) {
         if (fallback.mayJoin(uuid)) {
-            // The player limit still applies. Nothing about it needs the database - the count is
-            // the proxy's own and the limit is a config value - so an outage must not become a way
-            // past it. Nobody is exempt on this path: the admin flag is exactly what could not be
-            // read, and guessing it would be guessing in the permissive direction.
+            // The player limit still applies: nothing about it needs the database, so an outage
+            // must not become a way past it. Nobody is exempt here, because the admin flag is
+            // exactly what could not be read.
             final int maximum = network.maxPlayers();
             final int online = proxy.getPlayerCount();
             if (online >= maximum) {

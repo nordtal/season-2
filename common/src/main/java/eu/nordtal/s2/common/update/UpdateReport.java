@@ -7,26 +7,12 @@ import java.util.Objects;
 /**
  * What an update run has done so far, as data rather than as a paragraph.
  *
- * <h2>Why this exists at all, and what rule it replaced</h2>
- * Until 2026-09-07 the updater wrote one finished <em>text</em> into {@code update_request.result}
- * and every surface printed it verbatim, under a rule stated in {@code CLAUDE.md} and
- * {@code docs/updater.md}: <em>nothing is rendered twice; a second rendering is the thing that
- * eventually disagrees with the first.</em> That rule was right about the danger and wrong about
- * where to stand: what must not happen twice is the <b>deciding</b>, not the drawing. A code block
- * in Discord is unreadable, and a run that now takes minutes has nothing useful to show while it
- * is happening.
+ * <p><b>Nothing is decided twice.</b> The updater is the only thing that resolves versions, compares
+ * volumes and knows what happened; it says so in a shape each surface draws for itself - Discord as
+ * one field per service, a console as {@link #render()}.
  *
- * <p>So the rule became <b>nothing is decided twice</b>. The updater is still the only thing that
- * resolves versions, compares volumes and knows what happened; it now says so in a shape that
- * Discord can draw as one field per service, a chat window can print as lines, and a console can
- * print as {@link #render()} - which is the same text the old rule produced, generated from this
- * object rather than typed alongside it.</p>
- *
- * <h2>It is written more than once</h2>
- * {@code V7__update_request.sql} said a request is never amended and that {@code result} is the
- * whole of it. That is no longer true and {@code V12} says so: the row now carries the report as
- * JSON and is rewritten as the run moves through its stages, because five minutes of silence
- * looks exactly like a run that has hung.
+ * <p>The row carries this as JSON and is rewritten as the run moves through its stages, because
+ * minutes of silence look exactly like a run that has hung.
  *
  * @param stage    where the run has got to
  * @param services one line per service the run touches, in the order a person should read them
@@ -57,12 +43,9 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     }
 
     /**
-     * Replaces the line for one service, keeping the order the report was built in.
-     *
-     * <p>Replace rather than append, because the stages walk the same services repeatedly: a
-     * service is planned, then stopped, then installed, then healthy, and each of those is the same
-     * row of the same table changing its value. Appending would give Discord four fields for one
-     * server.</p>
+     * Replaces the line for one service, keeping the order the report was built in. Replace rather
+     * than append, because the stages walk the same services repeatedly and appending would give
+     * Discord four fields for one server.
      */
     public UpdateReport with(final ServiceLine line) {
         final List<ServiceLine> combined = new ArrayList<>(services.size() + 1);
@@ -90,12 +73,9 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     }
 
     /**
-     * @return whether anything at all is going to move - the difference between work and news
-     *
-     * <p>An artefact with no build for this Minecraft version is a change in the report and not
-     * work in the run: it is why this asks {@link ServiceLine#isMoving()} rather than counting
-     * changes. A run that found nothing but those has to end at {@link Stage#NOTHING_TO_DO}, and
-     * no server may be stopped for one.</p>
+     * @return whether anything at all is going to move - the difference between work and news. An
+     *         artefact with no build for this Minecraft version is news, so a run that found nothing
+     *         else ends at {@link Stage#NOTHING_TO_DO} and no server is stopped for it
      */
     public boolean isWork() {
         return services.stream().anyMatch(ServiceLine::isMoving);
@@ -103,9 +83,8 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
 
     /**
      * The whole report as plain text, for a console, a chat window and any surface with no fields.
-     *
-     * <p>This is the <em>only</em> text rendering in the network. Discord draws the same object as
-     * fields instead; nothing anywhere composes a sentence of its own about an update.</p>
+     * The only text rendering there is - nothing anywhere composes a sentence of its own about an
+     * update.
      */
     public String render() {
         final StringBuilder text = new StringBuilder(stage.headline());
@@ -136,11 +115,9 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         }
 
         /**
-         * @return whether a run would stop this service and put a file into its volume
-         *
-         * <p>The one place "does this service move" is decided. A line carrying nothing but
-         * {@link Change.State#UNSUPPORTED} rows has something to <em>say</em> and nothing to do,
-         * and the difference is a server that stays up.</p>
+         * @return whether a run would stop this service and put a file into its volume - the one
+         *         place that is decided. A line carrying only {@link Change.State#UNSUPPORTED} rows
+         *         has something to say and nothing to do
          */
         public boolean isMoving() {
             return changes.stream().anyMatch(change -> change.state() == Change.State.MOVING);
@@ -177,12 +154,9 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     public record Change(String artefact, String from, String to, State state) {
 
         /**
-         * What {@link Change#to()} carries for an artefact that has no build to move to.
-         *
-         * <p>A sentinel rather than {@code null} because {@code to} is the one field every reader
-         * of this record has always been able to rely on, and a nullable version string is a
-         * {@code NullPointerException} in a surface nobody tests by hand. Nothing renders it: every
-         * surface branches on {@link #state()} first.</p>
+         * What {@link Change#to()} carries for an artefact that has no build to move to. A
+         * sentinel rather than {@code null}, because every reader relies on {@code to} being set;
+         * nothing renders it, since every surface branches on {@link #state()} first.
          */
         public static final String UNSUPPORTED = "-";
 
@@ -192,17 +166,14 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
             state = state == null ? State.MOVING : state;
         }
 
-        /** A file being installed or replaced, which is what every change was until 2026-09-09. */
+        /** A file being installed or replaced. */
         public Change(final String artefact, final String from, final String to) {
             this(artefact, from, to, State.MOVING);
         }
 
         /**
          * An artefact the network wants and its publisher has not built for this Minecraft version.
-         *
-         * <p>It is in the report rather than left out of it so that it stays <b>named</b> while it
-         * waits: an artefact silently absent from every report is one somebody has to remember to
-         * put back.</p>
+         * It stays in the report so that it stays named while it waits.
          */
         public static Change unsupported(final String artefact) {
             return new Change(artefact, null, UNSUPPORTED, State.UNSUPPORTED);
@@ -220,13 +191,9 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
             /** A file is being installed or replaced. {@code from} and {@code to} say which. */
             MOVING,
             /**
-             * Nothing is happening and nothing has gone wrong: the source answered, and it has no
-             * build of this artefact for the Minecraft version the network runs.
-             *
-             * <p>A service whose only changes are these is <b>not</b> work - it is never stopped,
-             * never installed into, and a run that finds nothing else to do is "nothing to do"
-             * rather than "installed". {@link UpdateReport#isWork()} is where that is decided, once.
-             * </p>
+             * Nothing is happening and nothing has gone wrong: the source answered and has no
+             * build of this artefact for the Minecraft version the network runs. A service whose
+             * only changes are these is <b>not</b> work and is never stopped.
              */
             UNSUPPORTED
         }
@@ -253,7 +220,7 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         VERIFYING("Waiting for the servers to come back"),
         /** Everything asked for happened and every service came back. */
         DONE("Update finished"),
-        /** Nothing needed doing - which is a third answer and not a quiet kind of "fine". */
+        /** Nothing needed doing - a third answer, not a quiet kind of "fine". */
         NOTHING_TO_DO("Everything is already current"),
         /** Something went wrong; the notes and the failed service lines say what. */
         FAILED("The update failed"),
@@ -288,9 +255,8 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
         /** The new jars are in place and it has not been started yet. */
         INSTALLED("updated"),
         /**
-         * A volume's snapshot is finished. Not a service state - a {@code BACKUP} run's report
-         * carries one line per <em>volume</em> beside its lines per service, because the two are
-         * exactly the two things a person watching that run wants to know went right.
+         * A volume's snapshot is finished. Not a service state: a {@code BACKUP} run's report
+         * carries one line per volume beside its lines per service.
          */
         SAVED("saved"),
         /** Started, and not yet reporting healthy. */

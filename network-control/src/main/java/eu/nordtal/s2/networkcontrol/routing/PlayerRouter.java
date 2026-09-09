@@ -32,41 +32,27 @@ import java.util.UUID;
  * The Velocity half of routing: it turns a {@link RouteDecision} into a connection or a disconnect,
  * and it is the {@link PhaseWatch.ChangeListener} that re-routes everybody when the phase moves.
  *
- * <h2>What this class does, and what it deliberately does not</h2>
  * <ul>
- *   <li><b>A phase change moves connected players.</b> docs/season-phases.md#routing: "a phase
- *       switch while players are online moves everyone: the proxy re-routes connected players to
- *       the new phase's server". {@link #onPhaseChanged(SeasonPhase, SeasonPhase)} is that, and it
- *       re-reads each player's access state so a switch to {@code SMP} disconnects a player without
- *       access instead of moving them - which is the exception the same section settles.</li>
- *   <li><b>Every login lands in {@code limbo} first, whatever the phase.</b> Built 2026-09-01,
- *       and it is what docs/architecture.md#the-login-path-end-to-end has always described.
- *       {@link #onChooseInitialServer} sets the waiting room as the initial server for every
- *       admitted login; {@link eu.nordtal.s2.networkcontrol.pack.PackStation} offers the resource
- *       pack there and hands the player back to {@link #releaseFromLimbo(Player)} once the pack is
- *       applied and the phase's backend will have them. The one exception is an admin during
- *       {@code MAINTENANCE}, who is not moved at all - see
- *       {@link PhaseRouting#decideInitial(SeasonPhase, boolean, java.util.Set)}.</li>
+ *   <li><b>A phase change moves connected players.</b>
+ *       {@link #onPhaseChanged(SeasonPhase, SeasonPhase)} re-reads each player's access state, so a
+ *       switch to {@code SMP} disconnects a player without access instead of moving them.</li>
+ *   <li><b>Every login lands in {@code limbo} first, whatever the phase.</b>
+ *       {@link #onChooseInitialServer} sets the waiting room as the initial server;
+ *       {@link eu.nordtal.s2.networkcontrol.pack.PackStation} offers the pack there and hands the
+ *       player back to {@link #releaseFromLimbo(Player)}.</li>
  *   <li><b>A player still in the waiting room is not re-routed by a phase change.</b> Their
- *       admission is re-checked like everybody's - a switch to {@code SMP} disconnects them if they
- *       have no access - but the connection is left to the pack station, which is the only thing
- *       that knows whether their pack has arrived. Connecting them here would be the one way to
- *       get a player onto a backend without the pack.</li>
+ *       admission is re-checked, but the connection is left to the pack station, which is the only
+ *       thing that knows whether their pack has arrived. Connecting them here would be the one way
+ *       onto a backend without the pack.</li>
  * </ul>
  *
- * <h2>When the destination does not exist</h2>
- * {@code gate.yml}'s server names are matched against {@code ProxyServer.getAllServers()}. A name
- * this proxy does not have produces a disconnect, not an undefined state:
- * {@code MAINTENANCE} gets the maintenance screen (the "disconnect" half of the either/or
- * docs/season-phases.md used to leave open, used exactly where holding them is impossible), any
- * other phase gets {@code gate.no-server}. A server that is registered but <em>down</em> cannot be
- * told apart until the connection is attempted; {@link #connect} handles that failure the same way.
+ * <p>A server name {@code gate.yml} carries that this proxy does not have produces a disconnect
+ * rather than an undefined state. A server that is registered but <em>down</em> cannot be told apart
+ * until the connection is attempted; {@link #connect} handles that failure the same way.</p>
  *
- * <h2>Threading</h2>
- * {@link #onPhaseChanged} is called from {@link PhaseWatch}, which refreshes from the poll thread,
- * the {@code LISTEN} thread and the {@code /phase} command. It therefore hands the actual work to
- * the proxy scheduler rather than doing one blocking query per connected player on whichever thread
- * happened to notice the change.
+ * <p>{@link #onPhaseChanged} is called from {@link PhaseWatch}, which refreshes on three different
+ * threads, so it hands the work to the proxy scheduler rather than running one blocking query per
+ * connected player on whichever thread noticed.</p>
  */
 public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
@@ -111,11 +97,9 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
      * Sends every admitted login to {@code limbo}, whatever the phase.
      * <p>
      * The phase comes from {@link PhaseWatch#lastKnown()} and the admin flag from
-     * {@link LoginRoster}, both of which are already in memory. Neither is a second database call:
-     * docs/season-phases.md pins the login path to one round trip, and the gate has already spent
-     * it. The roster is populated by {@code LoginGate} moments earlier on the same login; a player
-     * the roster has never heard of was let in by the fallback cache while the database was
-     * unreachable, and is treated as a non-admin, which is the safe way round.
+     * {@link LoginRoster}, both already in memory: the login path is one round trip and the gate has
+     * already spent it. A player the roster has never heard of was let in by the fallback cache and
+     * is treated as a non-admin, which is the safe way round.
      * </p>
      * <p>
      * What happens next is not this method's business. The player arrives in the waiting room, the
@@ -138,19 +122,16 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 intents.intend(uuid, decision.server());
                 proxy.getServer(decision.server()).ifPresent(event::setInitialServer);
                 if (!decision.server().equals(routing.servers().limbo())) {
-                    // Only an admin on a proxy with no waiting room gets here - see
-                    // PhaseRouting#decideInitial. Said out loud because it is the one login that
-                    // skips the pack, and a HUD full of boxes on that account is not a pack bug.
+                    // Only an admin on a proxy with no waiting room gets here. Said out loud
+                    // because it is the one login that skips the pack.
                     logger.warn("No '{}' server is registered, so admin {} is connected straight to "
                                     + "'{}' in phase {} - WITHOUT the resource pack",
                             routing.servers().limbo(), player.getUsername(), decision.server(),
                             phase);
                 }
             }
-            // decideInitial has not answered STAY since 2026-09-05 - STAY meant velocity.toml's
-            // `try` list, which is limbo, which is the waiting room the answer claimed to skip. Kept
-            // as a no-op rather than falling into the refusal below, so that a future STAY is a
-            // log line and not a disconnect.
+            // decideInitial never answers STAY, which would leave the choice to velocity.toml's
+            // `try` list. Kept as a no-op so a future STAY is a log line rather than a disconnect.
             case STAY -> logger.warn("Routing answered STAY for {} at login in phase {}, which "
                     + "leaves the choice to velocity.toml", player.getUsername(), phase);
             default -> {
@@ -169,10 +150,8 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     /**
      * Connects a player the pack station has finished with to the server their phase points at.
      * <p>
-     * This is the far end of docs/season-phases.md#routing's rule that "the proxy owns routing;
-     * {@code limbo} never connects a player anywhere itself". {@code limbo}'s message says only
-     * that the player is ready; the destination is worked out here, from the phase, exactly as it
-     * is for a player being moved by a phase change.
+     * The proxy owns routing: {@code limbo}'s message says only that the player is ready, and the
+     * destination is worked out here from the phase.
      * </p>
      *
      * @param player a player who is in the waiting room and has nothing left to wait for
@@ -183,15 +162,13 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 routing.decideRelease(phase, roster.isAdmin(player.getUniqueId()), registeredServerNames());
 
         switch (decision.action()) {
-            // A backend that is registered and down is a player held with the BACKEND title, not a
-            // player disconnected with the "no server" screen - see WaitingBook#releaseFailed.
+            // A backend that is registered and down holds the player with the BACKEND title rather
+            // than disconnecting them with the "no server" screen.
             case CONNECT -> connect(player, decision.server(), roster.localeOf(player.getUniqueId()),
                     cause -> packs.releaseFailed(player, cause));
-            // Unreachable in practice: the station only releases a player once it has established
-            // that the destination is registered, and decideRelease never answers STAY - a player
-            // being released is standing in limbo, and "stay" there is the black screen of finding
-            // 93. Both are left as a log line rather than an exception - a player sitting in limbo
-            // is a better failure than a thrown one.
+            // Unreachable in practice: decideRelease never answers STAY, because a player being
+            // released is standing in limbo and staying there is a black screen. A log line rather
+            // than an exception - a player sitting in limbo is the better failure.
             case STAY -> logger.warn("The pack station released {} but routing says to leave them "
                     + "where they are, in phase {}", player.getUsername(), phase);
             default -> {
@@ -255,8 +232,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         try {
             state = access.accessState(uuid);
         } catch (final RuntimeException exception) {
-            // Same rule as the expiry sweep: a database hiccup must not read as a mass eviction. The
-            // player stays where they are and the next poll, expiry pass or login sorts them out.
+            // Same rule as the expiry sweep: a database hiccup must not read as a mass eviction.
             logger.warn("Could not re-check {} ({}) while re-routing for a phase change; leaving "
                     + "them where they are", uuid, player.getUsername(), exception);
             return false;
@@ -267,13 +243,10 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         final RouteDecision decision = routing.decide(state, available);
         if (packs.isHeld(uuid) && (decision.action() == RouteDecision.Action.CONNECT
                 || decision.action() == RouteDecision.Action.STAY)) {
-            // Still in the waiting room. Their admission has just been re-checked above and stands,
-            // so the phase change means their destination moved - but whether they may leave at all
-            // is the pack station's question, not this one. Re-asking it here also updates the title
-            // they are looking at: a switch into MAINTENANCE turns "downloading" into "maintenance"
-            // without moving anybody. STAY is included since 2026-09-05: it is what an admin gets
-            // on a phase change, and an admin who happens to be in the room when the network is
-            // switched to MAINTENANCE has to be re-asked too, or they keep the old title.
+            // Still in the waiting room: admission stands, but whether they may leave is the pack
+            // station's question. Re-asking also updates the title they are looking at. STAY is
+            // included because it is what an admin gets on a phase change, and an admin in the room
+            // has to be re-asked too or they keep the old title.
             packs.evaluate(player);
             return false;
         }
@@ -292,10 +265,9 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     /**
      * Moves one player, unless they are already there.
      * <p>
-     * {@code connect()} rather than {@code connectWithIndication()} or {@code fireAndForget()}: a
-     * failure here is the case docs/ does not cover - the server is registered and not answering -
-     * and leaving the player sitting on a backend the phase says they should not be on is worse
-     * than telling them why they cannot get to the right one.
+     * {@code connect()} rather than {@code fireAndForget()}: leaving a player sitting on a backend
+     * the phase says they should not be on is worse than telling them why they cannot reach the
+     * right one.
      * </p>
      */
     private boolean connect(final Player player, final String server, final Locale locale) {
@@ -307,11 +279,9 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
     /**
      * @param onFailure what to do when the connection does not go through, given the reason as one
-     *                  line: a phase change disconnects, because the player is standing on a server
-     *                  the phase no longer admits them to; a release from limbo holds, because they
-     *                  are standing in the one place built for waiting. The caller logs, because a
-     *                  backend restarting for thirty seconds fails one release per waiting player
-     *                  every ten seconds, and a stack trace per attempt is a log nobody reads
+     *                  line: a phase change disconnects, a release from limbo holds. The caller
+     *                  logs, because a restarting backend fails one release per waiting player per
+     *                  retry and a stack trace per attempt is a log nobody reads
      */
     private boolean connect(final Player player, final String server, final Locale locale,
                             final java.util.function.Consumer<String> onFailure) {
@@ -330,9 +300,8 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             return true;
         }
 
-        // The one place this plugin asks Velocity to move a player who is already on the network.
         // RouteIntents refuses every destination nothing chose, so the intent has to be recorded
-        // before the request rather than after it: the event fires inside connect().
+        // before the request: the event fires inside connect().
         intents.intend(player.getUniqueId(), server);
         player.createConnectionRequest(target).connect().whenComplete((result, error) -> {
             if (error != null) {
@@ -369,7 +338,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         return switch (decision.action()) {
             case REFUSE_UNLINKED -> messages.unlinked(locale);
             case REFUSE_NOT_MEMBER -> messages.notMember(locale);
-            // docs/season-phases.md#routing: "with the same message the login gate uses".
+            // The same message the login gate uses.
             case REFUSE_NO_ACCESS -> messages.noAccess(locale);
             case REFUSE_MAINTENANCE_UNAVAILABLE -> messages.maintenance(locale);
             case REFUSE_NO_SERVER -> messages.noServer(locale);

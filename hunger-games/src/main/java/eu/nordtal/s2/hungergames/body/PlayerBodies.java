@@ -13,31 +13,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The disconnected-body mechanism shared by two moments in docs/hunger-games.md: a player who was
- * ready in the lobby and then disconnected before the countdown finished
- * ("their body is teleported onto its tower at the start and waits there for its owner",
- * docs/hunger-games.md#start), and a player who disconnects mid-game
- * ("the body stays, and it stays vulnerable. It does not vanish, it can be killed, and if the
- * border reaches it, it dies", docs/hunger-games.md#disconnects). Both go through this one class -
- * deliberately one mechanism, not two, per this module's task brief.
+ * Bodies standing in for absent players: one who was ready in the lobby but disconnected before the
+ * countdown finished, and one who disconnects mid-game. Both go through this one class.
  *
- * <h2>What is approximated here, and why</h2>
- * A genuinely offline player has no physical entity in a vanilla server at all - there is no Paper
- * API that keeps a disconnected {@code Player} object interactable, damageable or visible to
- * others. What this class does instead: it spawns an {@link ArmorStand} at the player's location,
- * copies their worn equipment and held items onto it when a live {@link Player} is available to
- * copy from (a mid-session disconnect always has one; a player who was never online this session at
- * all, handled by {@link #spawnBareArmorStand(Location, String)}, does not - their gear only exists
- * as stored player NBT this plugin does not parse), and makes it damageable and killable like any
- * other living entity. This is <b>not</b> the same as a real player being there: it cannot take
- * fall damage or breathe underwater the way a player would, and any damage dealt to it does not
- * reduce a real player health record by itself - {@code hg_member}/{@code hg_event} are what
- * actually track life and death, driven by the marker's damage/death events (see the plugin's death
- * listener, which maps a marker entity back to its owning member through this class). It is the
- * closest faithful approximation achievable with vanilla Paper APIs: a standing, (usually) equipped,
- * killable body at the right place that disappears the moment either the player reconnects
- * (converted back into a real teleport, gear returned) or the marker dies (converted into a death
- * record).
+ * <p>An offline player has no entity in vanilla, so a killable {@link ArmorStand} approximates one.
+ * It is not a player: {@code hg_member}/{@code hg_event} track life and death, driven by the
+ * marker's damage and death events mapped back to their owner through this class.</p>
  */
 public final class PlayerBodies {
 
@@ -46,9 +27,8 @@ public final class PlayerBodies {
     private final Map<UUID, UUID> playerByMarker = new ConcurrentHashMap<>();
 
     /**
-     * Spawns a body for a player who has a live {@link Player} object to copy equipment from - the
-     * mid-session disconnect case. Call this from the quit listener before the {@code Player}
-     * object becomes unusable.
+     * Spawns a body copying the player's equipment. Call from the quit listener while the
+     * {@code Player} object is still usable.
      *
      * @param player the player who just disconnected
      * @param at     where to place the body - their last location
@@ -73,10 +53,8 @@ public final class PlayerBodies {
     }
 
     /**
-     * Spawns a body with no copied equipment, for a participant the start sequence has to place on
-     * a tower despite never having seen them online this session - see
-     * {@link eu.nordtal.s2.hungergames.game.HungerGamesManager#start} for when this applies. The
-     * body is otherwise identical: damageable, killable, and removed the same way.
+     * Spawns a body with no equipment, for a participant never seen online this session - their
+     * gear only exists as stored NBT this plugin does not parse.
      *
      * @param at          where to place the body
      * @param displayName shown above the marker

@@ -32,27 +32,14 @@ import org.bukkit.event.player.PlayerInteractEvent;
 /**
  * The four spawns, protected by a handful of event handlers over a list of boxes.
  *
- * <p><b>Not WorldGuard.</b> What is needed is exactly this - a few handlers over a few fixed boxes -
- * and not a region system with claims, flags and ownership; that argument is docs/smp.md#spawns',
- * and it also avoids a large third-party dependency whose Minecraft 26.2 availability is unverified.
+ * <p>Blocked: placing, breaking, explosions, fire, fluid flow, and hanging things. Free: doors,
+ * trapdoors, fence gates, buttons, levers and pressure plates.
  *
- * <h2>What is blocked and what is not</h2>
- * Decided 2026-09-01. Blocked: placing, breaking, explosions, fire, fluid flow, and hanging things.
- * Free: doors, trapdoors, fence gates, buttons, levers and pressure plates - because a tavern with
- * doors that do not open is a museum.
+ * <p>The line is drawn at {@link Container} rather than at a list of materials, so a Minecraft
+ * update that adds a storage block cannot quietly turn the spawn into the community warehouse.
  *
- * <p>The line between the two is drawn at {@link Container} rather than at a list of materials:
- * anything that holds an inventory - chests, barrels, furnaces, hoppers, dispensers, shulker boxes -
- * is blocked, and everything else is allowed. A material list would have to be extended by hand on
- * every Minecraft update that adds a storage block, and the update where somebody forgets is the
- * update where the spawn quietly becomes the community warehouse.
- *
- * <p>The balloon, the NPC, the boards and the wheel are unaffected by any of this: they are entities
- * and plugin surfaces, not blocks.
- *
- * <p>Admins are exempt, from {@link Identities}' cache rather than from a query: this listener
- * asks the question on every block interaction, and a round trip per click is the main-thread
- * mistake this repository has already made twice.
+ * <p>Admins are exempt, from {@link Identities}' cache rather than from a query: this listener asks
+ * on every block interaction, and a round trip per click would be a main-thread query.
  */
 public final class ProtectionListener implements Listener {
 

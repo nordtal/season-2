@@ -104,16 +104,12 @@ adopt_paper_default_world() {
 # before anything else touches the volume: level-name decides which folder the datapacks go into,
 # and a seed means nothing once the terrain exists.
 #
-# WHY level-name IS SEEDED RATHER THAN ENFORCED, and why a disagreement is fatal. Paper's default
-# is `world`, and until 2026-09-02 nothing here wrote the key at all - so the datapacks were fetched
-# into /data/${LEVEL_NAME}/datapacks while Paper generated `world/` and never looked at them. The
-# fix is not to force the value on every start the way online-mode is forced: online-mode=true is a
-# backend that CANNOT work, whereas a level-name that disagrees is a server that works perfectly on
-# the wrong world. Pointing an existing volume at a new name does not move a world - it generates a
-# second, empty one beside it and leaves the season where nobody is looking. So it is written once,
-# on a volume that has none, and after that a disagreement stops the container: the same trade this
-# script already makes for a datapack whose checksum moved, and that smp makes for a missing pack.
-# "Wrong world forever, silently" becomes "the server did not come up", on purpose.
+# WHY level-name IS SEEDED RATHER THAN ENFORCED, and why a disagreement is fatal. It is not forced
+# on every start the way online-mode is: online-mode=true is a backend that CANNOT work, whereas a
+# level-name that disagrees is a server that works perfectly on the wrong world. Pointing an
+# existing volume at a new name does not move a world - it generates a second, empty one beside it.
+# So it is written once, on a volume that has none, and after that a disagreement stops the
+# container: "wrong world forever, silently" becomes "the server did not come up", on purpose.
 #
 # THE ONE DISAGREEMENT THAT IS NOBODY'S DECISION, and why it is repaired instead of refused. The
 # release that first wrote the key (v0.2.3) met volumes that had already run without it, so every
@@ -182,10 +178,9 @@ Two ways out, and only you can pick:
 
 # Whether version $1 build $2 is newer than version $3 build $4.
 #
-# COMPARED COMPONENT BY COMPONENT AS NUMBERS, and that is the whole reason this is a function.
-# Lexicographically "4.10.0" sorts below "4.9.0", and since 2026-09-09 the proxy's version is
-# allowed to move inside its major - so a text comparison would quietly keep running the older jar
-# for as long as Velocity stayed on a two-digit minor, with nothing failing anywhere.
+# COMPARED COMPONENT BY COMPONENT AS NUMBERS, which is the whole reason this is a function:
+# lexicographically "4.10.0" sorts below "4.9.0", and the proxy's version may move inside its major,
+# so a text comparison would quietly keep running the older jar with nothing failing anywhere.
 newer_server_jar() {
     local -a mine theirs
     IFS='.' read -r -a mine <<<"$1"
@@ -205,12 +200,10 @@ newer_server_jar() {
 
 # Prints the filename of the newest `<kind>-<version>-<build>.jar` in directory $1, or nothing.
 #
-# IT GLOBS ON THE KIND ALONE, not on the version. Until 2026-09-09 it looked for
-# "${SERVER_KIND}-${SERVER_VERSION}-*.jar", which was right while the version was a pinned constant
-# and became a trap the moment the proxy started following Velocity's minors: the updater would put
-# velocity-4.2.0-15.jar there, this script would find no velocity-4.1.1-*.jar, decide the cache was
-# empty and fetch 4.1.1 back. Every update to the proxy would have been undone by the very restart
-# that was meant to apply it - which is finding 147's shape exactly, one layer down.
+# IT GLOBS ON THE KIND ALONE, never on the version. Globbing on the version is a trap now that the
+# proxy follows Velocity's minors: the updater puts velocity-4.2.0-15.jar in the cache, a glob for
+# velocity-4.1.1-*.jar finds nothing, decides the cache is empty and fetches 4.1.1 back - so every
+# update to the proxy would be undone by the restart meant to apply it.
 #
 # A file that does not match the shape is skipped rather than guessed at: no build number
 # (paper-26.2.jar), a non-numeric build, or a version carrying anything but digits and dots - which
@@ -263,9 +256,8 @@ newest_server_jar() {
 # which is not a version anybody runs - the newest release inside it is resolved below. compose.yml
 # writes both as literals taken from eu.nordtal.s2.common.Platform.
 : "${SERVER_VERSION:?set SERVER_VERSION (paper: the Minecraft version, e.g. 26.2; velocity: the Fill version family, e.g. 4.0.0)}"
-# SERVER_BUILD is gone (2026-09-09). An empty cache is filled with the newest STABLE build the Fill
-# API lists, resolved here rather than read from a number in .env that somebody had to keep current
-# - and that nobody did between the day it was written and the day it was removed.
+# There is no SERVER_BUILD: an empty cache is filled with the newest STABLE build the Fill API
+# lists, resolved here rather than read from a number in .env that somebody has to keep current.
 
 case "$SERVER_KIND" in
     paper|velocity) ;;
@@ -285,23 +277,14 @@ FILL_UA="nordtal-season-2/deploy (+https://github.com/nordtal/season-2)"
 mkdir -p "$CACHE" "$PLUGINS" "$(dirname "$SOCK")"
 
 # --- the server jar --------------------------------------------------------------------------
-# THE UPDATER OWNS THIS JAR (since 2026-09-02). What runs is whatever `<kind>-<version>-<build>.jar`
-# is lying in the cache: the `updater` container puts the newest STABLE build there, and
-# newest_server_jar above picks the highest version-then-build of them. The Fill API is only asked
-# when the cache holds no jar of this kind at all - the first start of a fresh volume, or a volume
-# the updater has never run against.
+# THE UPDATER OWNS THIS JAR. What runs is whatever `<kind>-<version>-<build>.jar` is lying in the
+# cache: the `updater` container puts the newest STABLE build there, and newest_server_jar above
+# picks the highest version-then-build of them. The Fill API is only asked when the cache holds no
+# jar of this kind at all - a fresh volume, or one the updater has never run against. Fetching a
+# pinned build here unconditionally would undo every updater run on the next restart.
 #
-# NOTHING IS PINNED ANY MORE (2026-09-09). SERVER_BUILD used to name the build an empty cache was
-# seeded with; it was a number in .env that had to be kept current by hand and never was, so an
-# empty cache was filled with whatever was newest on the day somebody last edited that file. The
-# newest STABLE build is resolved here instead. There is no way back out of a bad platform build in
-# this deployment, and that is the decision rather than an oversight - do not add one here.
-#
-# Until 2026-09-02 this section fetched SERVER_BUILD unconditionally and deleted every other jar,
-# which undid each updater run on the next restart: the updater installed build 125 and removed
-# 121, this script wanted 121, re-downloaded it and removed 125, and the next run started over.
-# Every restart after an update was a cache miss, so a Fill outage at that moment stopped the
-# container - the exact outage the cache exists to survive.
+# NOTHING IS PINNED, and there is deliberately no way back out of a bad platform build in this
+# deployment. Do not add one here.
 #
 # Fill's download URLs are content-addressed (fill-data.papermc.io/v1/objects/<sha256>) and cannot
 # be constructed by hand, so the bootstrap is an API call. A cached jar means no network at all.
@@ -328,9 +311,8 @@ else
     [[ "$version" == "$SERVER_VERSION" ]] \
         || log "${SERVER_KIND} family ${SERVER_VERSION} resolves to version ${version}"
 
-    # `/builds/latest` exists and is NOT what is wanted: measured against the live API on
-    # 2026-09-09, it answers the newest build of any channel - paper 1.21.11-rc3 returns build 31,
-    # channel ALPHA. The list is read and filtered instead, the same way the updater does it.
+    # `/builds/latest` exists and is NOT what is wanted: it answers the newest build of any channel,
+    # ALPHA included. The list is read and filtered instead, the same way the updater does it.
     builds=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" \
         "${FILL_API}/${SERVER_KIND}/versions/${version}/builds") \
         || die "could not read the ${SERVER_KIND} ${version} builds from the Fill API, and no ${SERVER_KIND} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
@@ -382,42 +364,28 @@ SERVER_BUILD_RUNNING="${SERVER_VERSION_RUNNING##*-}"
 SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 
 # --- plugins ---------------------------------------------------------------------------------
-# THIS SCRIPT NO LONGER FETCHES PLUGINS. It did until 2026-09-01, pulling `<module>-$SEASON_VERSION
-# .jar` from a GitHub release and deleting every other version of the same plugin by filename
-# prefix. The `updater` container owns the plugin jars now (../../docs/updater.md), and the two
-# cannot both own them: an updater that puts 0.3.0 into this volume while .env still said 0.2.0
-# would have the next restart delete exactly the jar it had just fetched.
+# THIS SCRIPT DOES NOT FETCH PLUGINS, and must not start again: the `updater` container owns the
+# plugin jars, and two owners is one too many - an updater that puts 0.3.0 into this volume while
+# .env still said 0.2.0 would have the next restart delete exactly the jar it had just fetched.
 #
-# What this container still owns is the server jar above and the datapacks below - neither of
-# which the updater touches, and both of which have to be right before the JVM starts.
+# What this container still owns is the server jar above and the datapacks below - neither of which
+# the updater touches, and both of which have to be right before the JVM starts.
 #
-# WHAT WAS LOST WITH IT, and what replaces it: the old code refused to start rather than run an
-# older jar, which is a property worth keeping. It is kept in a coarser form - an empty plugins
-# folder stops the container. Every service in this deployment has at least one plugin, so "no
-# jars at all" means the updater has never run against this volume, and a Minecraft server that
-# comes up with no season on it is the failure that gets discovered by a player.
+# WHAT THE GUARD BELOW REPLACES: refusing to start rather than run an older jar. It asks instead for
+# the jars this service is SUPPOSED to have, because merely counting them is not enough - a
+# half-finished update can leave two third-party jars in smp/plugins and no season jar at all, and
+# a non-zero count walks straight past that.
 #
-# COUNTING JARS WAS NOT ENOUGH, learned on the first deployment (2026-09-02). The updater's
-# bootstrap dropped every artefact it could not resolve before it rendered its report, so a run in
-# which the GitHub API answered 403 installed PacketEvents and Chunky - which had resolved - and no
-# season jar at all, then closed with "Everything asked for was done." limbo, hunger-games and
-# network-control were caught here, because their folders really were empty. smp was not: it had two
-# jars in it, the count was non-zero, and it came up with no season on it. Exactly the failure this
-# guard exists to prevent, walking straight past it.
+# EXPECTED_PLUGINS is a whitespace-separated list of filename prefixes, split the way JarName splits
+# them - ${file%-*.jar} - so no second and disagreeing rule is invented here.
 #
-# So the guard asks for the jars it is SUPPOSED to have. EXPECTED_PLUGINS is a whitespace-separated
-# list of filename prefixes, split the way JarName splits them - ${file%-*.jar}, the same rule the
-# updater uses to decide which jar supersedes which, so no second and disagreeing rule gets invented
-# here.
+# IT IS A MINIMUM, NEVER AN EXACT SET. An extra jar is legitimate and expected - the updater's own
+# rule for anything it does not account for is that it is reported and left alone - and a guard
+# demanding an exact set would stop the SMP the first evening one is hand-installed.
 #
-# IT IS A MINIMUM, NEVER AN EXACT SET. An extra jar is legitimate and expected: docs/smp.md plans
-# CoreProtect (or Prism 4.4) as a hand-installed block logger on its own SQLite file, and the
-# updater's own rule for anything it does not account for is that it is reported and left alone. A
-# guard demanding an exact set would stop the SMP the first evening one is added.
-#
-# The two third-party prefixes are the soft spot and it is worth naming: Topology deliberately reads
-# a prefix back off the resolved filename rather than assuming one, because `packetevents` resolves
-# to packetevents-spigot-*.jar and `chunky` to Chunky-Bukkit-*.jar. Listing them here does assume
+# The two third-party prefixes are the soft spot: Topology deliberately reads a prefix back off the
+# resolved filename rather than assuming one, because `packetevents` resolves to
+# packetevents-spigot-*.jar and `chunky` to Chunky-Bukkit-*.jar. Listing them here does assume
 # it. If either publisher renames a jar on a first install, this refuses to start while the plugin
 # is really there - a false positive, but a loud one with the prefix in the message, and the same
 # blind spot the updater already has (it would call the artefact MISSING and report the old jar as
@@ -478,11 +446,9 @@ fi
 # --- world-generation datapacks ----------------------------------------------------------------
 # Terralith and Dungeons and Taverns, pinned, into the level-name world's datapacks/ folder.
 #
-# WHY THAT FOLDER AND NO OTHER, measured on Paper 26.2 build 121 on 2026-09-01: datapacks are
-# server-global. A probe pack in <level-name>/datapacks/ was listed and enabled; an identical probe
-# in a secondary world's own datapacks/ folder was never seen - not at start, not after that world
-# was created, not after refreshPacks(). There is no per-world datapack API. So one folder feeds
-# every world the server generates, the nightly farm world included.
+# WHY THAT FOLDER AND NO OTHER: datapacks are server-global and there is no per-world datapack API -
+# a pack in a secondary world's own datapacks/ folder is never seen, not even after refreshPacks().
+# So one folder feeds every world the server generates, the nightly farm world included.
 #
 # WHY BEFORE THE SERVER STARTS: worldgen registries are read once, at start. A pack dropped in
 # afterwards changes no terrain, and terrain is never re-rolled once it is on disk - a farm world
@@ -545,19 +511,14 @@ fetch_datapacks() {
 
 # The player limit, and it is ENFORCED on every start rather than seeded.
 #
-# ONE NUMBER, since 2026-09-04. MAX_PLAYERS is NETWORK_MAX_PLAYERS out of .env, the same value
-# network-control is given for network.yml#max-players - so what the server browser advertises,
-# what the proxy's login gate enforces and what this server's tab list shows are the same number.
+# ONE NUMBER. MAX_PLAYERS is NETWORK_MAX_PLAYERS out of .env, the same value network-control is
+# given for network.yml#max-players - so what the server browser advertises, what the proxy's login
+# gate enforces and what this server's tab list shows are the same number. A second, unreachable
+# backend number would still be the one every screen ON a backend can read.
 #
-# It was two numbers between 2026-09-03 and now: BACKEND_MAX_PLAYERS, set far out of reach so that
-# only the proxy ever refused a player, with the proxy carrying a copy and refusing to start if the
-# two crossed. That was safe and still wrong - the backends' number is the one every screen ON a
-# backend can reach, so the network advertised 500 while the tab list said 3/1000.
-#
-# The proxy is still the thing that refuses, and it still refuses at the login gate where it can say
-# why. What this value does is make sure a backend is never a SMALLER limit than the advertised one.
-# Paper's own default is 20, and until 2026-09-02 nothing set it: the network advertised 500 slots
-# while `limbo` - the first backend every login reaches - refused the 21st player with "Server full".
+# The proxy is what refuses, at the login gate where it can say why. This value only makes sure a
+# backend is never a SMALLER limit than the advertised one - Paper's own default is 20, which
+# refuses the 21st player with "Server full" after a successful login.
 #
 # The one login this CAN refuse is an admin's, because admins are exempt from the proxy's limit and
 # a full network therefore holds max-players plus them. That exemption is rebuilt inside each Paper
@@ -573,8 +534,8 @@ enforce_player_limit() {
     set_property "$DATA/server.properties" max-players "$MAX_PLAYERS"
 }
 
-# A Paper server that sits behind the proxy. Two things have to be true and neither of them is
-# Paper's default, which is why this used to be two manual steps per backend in the runbook.
+# A Paper server that sits behind the proxy. Two things have to be true and neither is Paper's
+# default.
 prepare_backend() {
     local global="$DATA/config/paper-global.yml"
 
@@ -584,15 +545,12 @@ prepare_backend() {
     set_property "$DATA/server.properties" online-mode false
 
     # The secret itself is not seeded: Paper reads PAPER_VELOCITY_SECRET from the environment
-    # (PaperMC/Paper#10127), which is what removes the manual paste into three separate files.
-    # It does NOT keep the secret out of the volume - verified 2026-09-01 on Paper 26.2 build
-    # 121, Paper writes the value it took from the environment straight into paper-global.yml on
-    # first load. Rotating it means changing .env AND that line in each backend.
+    # (PaperMC/Paper#10127), which removes the manual paste into three separate files. It does NOT
+    # keep the secret out of the volume - Paper writes the value straight into paper-global.yml on
+    # first load - so rotating it means changing .env AND that line in each backend.
     #
-    # What Paper has no environment variable for is the switch that turns modern forwarding on,
-    # so that much is seeded here. Paper fills in every other key with its defaults on first
-    # load - measured: a four-line file comes back as the full ~150-line config, with a warning
-    # that it had no version set.
+    # Paper has no environment variable for the switch that turns modern forwarding on, so that much
+    # is seeded here; Paper fills in every other key with its defaults on first load.
     if [[ -f "$global" ]]; then
         log "config/paper-global.yml exists - not touched. Modern forwarding has to be enabled in it (proxies.velocity.enabled: true)."
     else
@@ -617,11 +575,9 @@ YAML
 # its defaults to everything a config file leaves out, so this stays short instead of freezing a
 # copy of Velocity's 200-line default that would go stale on the next upgrade.
 #
-# [forced-hosts] IS WRITTEN EMPTY ON PURPOSE, and it is not decoration. Measured 2026-09-01 with
-# Velocity 4.1.1 build 24: leave the table out and Velocity falls back to its default one, which
-# routes lobby.example.com/factions.example.com/minigames.example.com at servers this file does
-# not define - and it then refuses to start at all ("Your configuration is invalid"). "Velocity
-# defaults the rest" is true per key, not per table.
+# [forced-hosts] IS WRITTEN EMPTY ON PURPOSE: leave the table out and Velocity falls back to its
+# default one, which routes example hostnames at servers this file does not define and then refuses
+# to start at all. "Velocity defaults the rest" is true per key, not per table.
 seed_velocity_config() {
     local file="$DATA/velocity.toml" name address tmp
 
@@ -694,9 +650,8 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
     # proxy. That is the whole switch: one variable, and the two settings that follow from it are
     # applied rather than written into a runbook.
     #
-    # Spelled as an `if` and not as `[[ ... ]] && prepare_backend`: the AND-list form is exempt
-    # from `set -e` and would be fine, but this script is PID 1 and "the container exits before
-    # the server starts" is not a failure worth being clever about.
+    # Spelled as an `if` and not as `[[ ... ]] && prepare_backend`: this script is PID 1, and "the
+    # container exits before the server starts" is not a failure worth being clever about.
     if [[ -n "${PAPER_VELOCITY_SECRET:-}" ]]; then
         prepare_backend
     fi
@@ -728,14 +683,10 @@ rm -f "$SOCK"
 
 # THE OPTIONS GO ON BEFORE THE SESSION EXISTS, and that ordering is the whole point.
 #
-# `remain-on-exit` is what keeps the pane after the JVM exits, so its status can be read back and
-# reported as this container's. It used to be set on the session AFTER new-session had already
-# started the JVM, which works for every server that runs for a while and fails for exactly the one
-# that does not: a JVM that dies at once takes the session with it before the option lands, the
-# `display-message` queries below then fail, and their `|| echo 1` fallbacks turn any exit status
-# into 1. So the crash-looping container reported "server exited with status 1" whatever had
-# actually happened - verified in a container 2026-09-02, where a real status of 3 came back as 1
-# before this change and as 3 after it.
+# `remain-on-exit` keeps the pane after the JVM exits, so its status can be read back and reported
+# as this container's. Setting it AFTER new-session fails for exactly the case that matters: a JVM
+# that dies at once takes the session with it before the option lands, the `display-message` queries
+# below then fail, and their `|| echo 1` fallbacks turn every exit status into 1.
 #
 # `exit-empty off` is what makes that possible at all: a tmux server with no sessions exits
 # immediately by default, so there is no server to set a global option on until a session exists.
@@ -743,9 +694,9 @@ rm -f "$SOCK"
 # afterwards.
 tmux -S "$SOCK" start-server \; set-option -g exit-empty off \; set-option -wg remain-on-exit on
 
-# new-session and pipe-pane in ONE invocation, for the same reason: a separate pipe-pane call
-# against a pane that has already died fails with "target pane has exited", and the output that
-# killed it is gone. Measured in a container 2026-09-02 with a command that exits instantly.
+# new-session and pipe-pane in ONE invocation, for the same reason: a separate pipe-pane call against
+# a pane that has already died fails with "target pane has exited", and the output that killed it is
+# gone.
 tmux -S "$SOCK" new-session -d -s "$SESSION" -c "$DATA" -x 200 -y 50 \
     "exec java ${JVM_OPTS} -jar '${JAR_PATH}' ${JAVA_ARGS[*]:-}" \
   \; pipe-pane -o -t "$SESSION" "cat >> '$BOOT_LOG'"
@@ -754,12 +705,10 @@ piping=1
 # showing everything they would have shown without tmux.
 #
 # THIS IS DELIBERATELY `tail -F` AND NOT `tmux pipe-pane ... > /proc/1/fd/1`, which is the obvious
-# way to do it and is a trap. Measured 2026-09-01 on Docker 29.4.1: a pipe-pane writer holding a
-# second handle on the container's stdout pipe wedges the container completely - SIGTERM never
-# reaches PID 1, the shutdown trap never runs, and the container survives even SIGKILL, leaving a
-# `docker rm -f` that fails with "did not receive an exit event". With the same image and only
-# this line removed, `docker stop` finishes in one second with exit 143. `tail` is a plain child
-# of PID 1 inheriting its stdout, which is the ordinary case and does not do that.
+# way to do it and is a trap: a pipe-pane writer holding a second handle on the container's stdout
+# pipe wedges the container completely - SIGTERM never reaches PID 1, the shutdown trap never runs,
+# and even `docker rm -f` fails with "did not receive an exit event". `tail` is a plain child of
+# PID 1 inheriting its stdout, which does not do that.
 #
 # It also reads better: the log file carries no terminal escape sequences, so the container log is
 # clean while the tmux console keeps its colours for whoever is attached.
@@ -770,20 +719,14 @@ TAIL_PID=$!
 # `tail -F latest.log` shows nothing that happens BEFORE Paper creates that file, because there is
 # no file to follow. Everything the JVM writes until then - Paperclip resolving and patching the
 # server jar, a bad -Xmx, a missing class, an hs_err header - goes to the tmux pane and nowhere
-# else, and the pane dies with the container. That is not a corner: a Paperclip that cannot load
-# mojang_26.2.jar prints a forty-line stack trace and exits 1, and what reached `docker logs` was
-#
-#     [nordtal] starting paper 26.2 build 121
-#     [nordtal] server exited with status 1
-#
-# in an endless restart loop, with the cause in no log anybody could reach.
+# else, and the pane dies with the container. That is not a corner: a Paperclip that cannot load the
+# vanilla jar prints a stack trace and exits 1, and `docker logs` then shows an endless restart loop
+# with the cause in no log anybody can reach.
 #
 # THIS pipe-pane IS NOT THE FORBIDDEN ONE. ../README.md#never-mirror-the-console-with-tmux-pipe-pane
-# rules out `pipe-pane ... > /proc/1/fd/1`, and what makes that one lethal is the second handle on
-# the CONTAINER'S STDOUT PIPE: it wedges the container so completely that SIGTERM never reaches PID
-# 1 and even `docker rm -f` fails. Writing to an ordinary file in the volume shares none of that -
-# different descriptor, no pipe, nothing holding stdout open. Measured 2026-09-01 for the first
-# form; the distinction is the whole reason this is allowed.
+# rules out `pipe-pane ... > /proc/1/fd/1`, and what makes that lethal is the second handle on the
+# CONTAINER'S STDOUT PIPE. Writing to an ordinary file in the volume shares none of that - different
+# descriptor, no pipe, nothing holding stdout open.
 #
 # It is bounded by construction rather than by a rotation policy: the capture is emptied at every
 # start and switched OFF again the moment latest.log exists, below in the wait loop. Past that

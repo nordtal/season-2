@@ -10,12 +10,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The whole SQL surface of the access system, as a JDBI SqlObject interface - the same style as
- * the bot's {@code ContributionDao}. There is no generic CRUD layer above or below it.
- * <p>
- * Package-private on purpose: {@link AccessDirectory} is the API, this is how it is implemented,
- * and no consumer should ever hold a {@code Jdbi} or a DAO of ours.
- * </p>
+ * The whole SQL surface of the access system, as a JDBI SqlObject interface. Package-private on
+ * purpose: {@link AccessDirectory} is the API, and no consumer should hold a {@code Jdbi} or a DAO.
  */
 interface AccessDao {
 
@@ -60,20 +56,13 @@ interface AccessDao {
     Optional<Boolean> donor(@Bind("discordId") String discordId);
 
     /**
-     * Mirrors the Discord admin role. Unlike {@code donor} this one is written in both directions:
+     * Mirrors the Discord admin role. Unlike {@code donor} this is written in both directions:
      * losing the role loses the flag, because it is a permission and not an acknowledgement.
      *
-     * <h2>It notifies, for the same reason the phase does</h2>
-     * The proxy fills {@code LoginRoster} from the login query and never again, so until 2026-09-02
-     * a revoked admin kept every power they had until they disconnected - and an emergency
-     * revocation is exactly the case where waiting for a reconnect is the wrong direction. The
-     * channel is {@code nordtal_admin} and the payload is the Discord id.
-     *
-     * <p>{@code pg_notify} rides inside the statement, as in {@code PhaseDao#switchPhase}, so a
-     * notification is only ever emitted for a write that committed. Unlike the phase's, this
-     * payload is <b>not</b> empty - but nothing is allowed to trust it as state either: the
-     * listener re-reads {@link #adminDiscordIds()} in full, which makes a lost notification cost
-     * latency rather than correctness and needs no per-id bookkeeping.</p>
+     * <p>It notifies on {@code nordtal_admin} so a revocation reaches connected sessions without
+     * waiting for a reconnect. {@code pg_notify} rides inside the statement so a notification is
+     * only emitted for a write that committed, and the payload is never trusted as state: the
+     * listener re-reads {@link #adminDiscordIds()} in full.
      *
      * @return how many rows were notified about - always 1, and read by nothing
      */
@@ -93,27 +82,18 @@ interface AccessDao {
     int setAdmin(@Bind("discordId") String discordId, @Bind("admin") boolean admin);
 
     /**
-     * Every Discord account that currently holds the admin flag.
-     *
-     * <p>One query for the whole set rather than one per connected player: the proxy refreshes its
-     * roster by asking this and re-deriving each session's flag from it, which is the same work
-     * whether one admin changed or ten, and is idempotent enough to be safe on a timer.</p>
+     * Every Discord account that currently holds the admin flag. One query for the whole set rather
+     * than one per connected player, which makes a roster refresh idempotent and safe on a timer.
      */
     @SqlQuery("SELECT discord_id FROM discord_user WHERE admin")
     java.util.Set<String> adminDiscordIds();
 
     /**
-     * The Minecraft account of every admin who has one linked.
+     * The Minecraft account of every admin who has one linked - a Paper server knows a session only
+     * by {@link UUID}, and {@code account_link} is the only thing joining the two identities.
      *
-     * <h2>Why this is a second query and not a mapping of the first</h2>
-     * The proxy knows a session by its Discord id, because the login gate resolved it there. A Paper
-     * server knows nothing but a {@link UUID}, and the join through {@code account_link} is the only
-     * thing that connects the two. Doing it in SQL costs one query for the whole set; the
-     * alternative is one {@code minecraftAccountOf} per admin, on a timer.
-     *
-     * <p>An admin without a link simply does not appear, which is correct rather than lenient: an
-     * unlinked account cannot get past the proxy's gate, so there is no session on any backend for
-     * it to be an operator on.</p>
+     * <p>An admin without a link does not appear, which is correct: an unlinked account cannot get
+     * past the proxy's gate, so it has no session on any backend.
      */
     @SqlQuery("SELECT l.mc_uuid FROM discord_user u"
             + " JOIN account_link l ON l.discord_id = u.discord_id"
@@ -121,24 +101,13 @@ interface AccessDao {
     java.util.Set<UUID> adminMinecraftAccounts();
 
     /**
-     * The payment this account has started and not finished, if there is one.
+     * The payment this account has started and not finished, if there is one. A read only: nothing
+     * outside the bot may write {@code payment_request}, because a second writer is a second
+     * half-finished purchase.
      *
-     * <h2>Why a read of the bot's table lives in {@code :common}</h2>
-     * Because the question is asked from a Paper server, and the answer is the difference between
-     * "they have not paid" and "they are in the middle of paying". An admin standing next to
-     * somebody who cannot get in needs the second one, and the row that carries it is in the
-     * database rather than in the bot's memory - which is the whole reason the purchase flow's
-     * state is a row (see {@code Purchases}). This is a <b>read</b>, and nothing outside the bot may
-     * ever write here: a second writer of {@code payment_request} is a second half-finished
-     * purchase.
-     *
-     * <p>{@code bunq_tab_id IS NULL} is a real distinction and is carried through: it is exactly
-     * the difference between "chose 60 days" and "asked for a payment link", and an admin looking at
-     * a stuck purchase wants to know which of the two it is.</p>
-     *
-     * <p>At most one row can be {@code OPEN} per account in practice - the flow supersedes the
-     * previous one - so this orders by {@code created} and takes the newest rather than trusting
-     * that.</p>
+     * <p>{@code bunq_tab_id IS NULL} is carried through because it is the difference between
+     * "chose a number of days" and "asked for a payment link". At most one row is {@code OPEN} per
+     * account in practice, but this takes the newest rather than trusting that.
      */
     @SqlQuery("SELECT reference, days, amount_cents, donation_cents,"
             + " (bunq_tab_id IS NOT NULL) AS has_tab, created"
@@ -157,12 +126,9 @@ interface AccessDao {
     Optional<String> discordAccountOf(@Bind("mcUuid") UUID mcUuid);
 
     /**
-     * Writes the 1:1 link, or does nothing if either side is already taken.
-     * <p>
-     * {@code ON CONFLICT DO NOTHING} without a conflict target covers both unique constraints -
-     * the {@code discord_id} primary key and the {@code mc_uuid} unique index - so this is one
-     * statement rather than a check followed by an insert that a concurrent linker could beat.
-     * </p>
+     * Writes the 1:1 link, or does nothing if either side is already taken. The untargeted
+     * {@code ON CONFLICT DO NOTHING} covers both unique constraints in one statement, so a
+     * concurrent linker cannot beat a check-then-insert.
      *
      * @return 1 when the link was written, 0 when either side was already linked
      */
@@ -180,44 +146,23 @@ interface AccessDao {
 
     /**
      * The append rule, as one statement.
-     * <p>
-     * {@code valid_from} is {@code max(now(), season_phase.smp_start, current valid_until)}:
+     *
+     * <p>{@code valid_from} is {@code max(now(), season_phase.smp_start, current valid_until)}:
      * renewing early never loses paid time, buying with no access running starts now, and buying
-     * before the SMP has opened starts on the day it opens. It is computed by PostgreSQL from
-     * PostgreSQL's own clock, inside the insert - two callers cannot each implement their own
-     * version of it, and there is no read-then-write window in which a second purchase could read
-     * the same {@code valid_until}.
-     * </p>
-     * <p>
-     * The subquery deliberately ignores revoked grants and grants that have already run out, so a
-     * user whose access lapsed in March does not get a period starting in March. <b>Periods are
-     * therefore never summed</b>, which is the whole reason this is a {@code GREATEST} over the
-     * running end rather than an addition: somebody who lapses for a week and buys again starts
-     * today, not a week ago, and their two purchases do not silently become one continuous run.
-     * </p>
-     * <p>
-     * <b>{@code smp_start}, not {@code launch}</b> ({@code V9__smp_start.sql}). Access is only
-     * asked for in the {@code SMP} phase - {@code PRE_EVENT} and {@code START_EVENT} let every
-     * linked member in without it - so anchoring to the network's opening would spend the whole
-     * hunger games event out of a thirty-day purchase. The column stays set once the season is
-     * running, at which point it is in the past and {@code now()} wins on its own; nothing has to
-     * clear it.
-     * </p>
-     * <p>
-     * A {@code NULL} {@code smp_start} means no date has been announced and the period starts now,
-     * which is deliberate (decided 2026-09-03: the shop has to work before the season is dated).
-     * The bot warns loudly every time that happens - see {@code SeasonStart} - because that is the
-     * only thing separating an internal test from a date somebody forgot to set.
-     * </p>
-     * <p>
-     * <b>A day here is exactly 24 hours</b>, which is why the interval is built from hours and not
-     * from {@code days}. Adding {@code interval 'N days'} to a {@code timestamptz} is <i>calendar</i>
-     * arithmetic evaluated in the session's time zone, and the JDBC driver sets that time zone from
-     * the JVM's default - so the same 30-day purchase would have been 30 days and one hour when it
-     * spanned the end of European summer time, and would have differed between the bot's host and
-     * the proxy's host if their time zones ever diverged. Hours are exact and time-zone free.
-     * Caught by {@code AccessDirectoryIntegrationTest} on 2026-08-30, not by reading the docs.
-     * </p>
+     * before the SMP has opened starts on the day it opens. PostgreSQL computes it inside the
+     * insert, from its own clock, so there is no read-then-write window two purchases could share.
+     *
+     * <p>Revoked and expired grants are ignored, so <b>periods are never summed</b>: somebody who
+     * lapsed for a week and buys again starts today, not a week ago.
+     *
+     * <p>It anchors on {@code smp_start} and not on {@code launch} because access is only asked for
+     * in the {@code SMP} phase; a {@code NULL} {@code smp_start} means no date has been announced
+     * and the period starts now.
+     *
+     * <p><b>A day here is exactly 24 hours</b>, which is why the interval is built from hours.
+     * {@code interval 'N days'} on a {@code timestamptz} is calendar arithmetic in the session's
+     * time zone, which the JDBC driver takes from the JVM default - so a 30-day purchase spanning a
+     * summer-time change would not be 30 days, and would differ between hosts.
      */
     @SqlQuery("""
             INSERT INTO access_grant (discord_id, valid_from, valid_until, source, payment_request_id)
@@ -243,13 +188,10 @@ interface AccessDao {
                             @Bind("paymentRequestId") UUID paymentRequestId);
 
     /**
-     * Revokes the whole remaining run of access, not one grant.
-     * <p>
-     * That is what makes {@link #accessState(UUID)} correct with a plain {@code max(valid_until)}:
-     * because a revoke always takes the tail, the non-revoked, not-yet-expired grants of a user
-     * are always one contiguous run starting now, so their maximum end is the end of access.
-     * Revoking a single grant out of the middle would break that and is deliberately not offered.
-     * </p>
+     * Revokes the whole remaining run of access, not one grant. That is what lets
+     * {@link #accessState(UUID)} use a plain {@code max(valid_until)}: the live grants of a user are
+     * always one contiguous run. Revoking a single grant out of the middle is deliberately not
+     * offered.
      *
      * @return how many grants were revoked
      */
@@ -275,40 +217,18 @@ interface AccessDao {
 
     /**
      * The proxy's whole login round trip, as one statement: is this UUID linked, is that Discord
-     * account a non-banned member, is access active right now, <b>and what phase is the network
-     * in</b>. It carries {@code admin} along for free because the same row already has it - that is
-     * the whole reason the admin flag lives on {@code discord_user}: every process reads it with the
-     * query it makes anyway.
-     * <p>
-     * {@code access_active} and {@code valid_until} are two different things and both are needed:
-     * the first is "does a grant cover this instant", the second is "when does the current run
-     * end", which is what the disconnect screen and {@code /access-status} print.
-     * </p>
+     * account a non-banned member, is access active right now, what phase is the network in, and
+     * when does it launch. One round trip on the login path is the requirement, which is why the
+     * phase and {@code launch} ride along instead of being fetched separately.
      *
-     * <h2>Why the phase is in here</h2>
-     * {@code docs/season-phases.md} requires that "one database round trip on the login path carries
-     * both the access state and the phase". Until 2026-08-31 the proxy made this call and then a
-     * second one to {@code PhaseDao#currentPhase}, which is two round trips on the one path the
-     * whole design says must be one. Merging them costs nothing: {@code season_phase} is a single
-     * row addressed by its primary key, so the scalar subquery below is an index lookup that the
-     * planner evaluates once.
+     * <p>{@code access_active} and {@code valid_until} are both needed: the first is "does a grant
+     * cover this instant", the second is "when does the current run end".
      *
-     * <h2>Why it is anchored on a one-row VALUES and not on a table</h2>
-     * This statement must return <b>exactly one row, always</b> - for a linked account, for a UUID
-     * nobody has ever linked, and even for a database whose {@code season_phase} row has been
-     * deleted by hand. Joining {@code account_link} to {@code discord_user} the way this query used
-     * to means an unlinked UUID produces no row at all, and selecting {@code FROM season_phase}
-     * would mean a missing phase row makes <em>every</em> player look unlinked and be handed a link
-     * code they do not need. Anchoring on {@code (VALUES (1))} and hanging both outer joins and the
-     * phase subquery off it removes both cliffs: an unlinked account is one row of nulls (which
-     * {@link AccessStateMapper} reads as exactly the unlinked state), and an unreadable phase is a
-     * null that {@code SeasonPhase.fromDatabase} maps to {@code MAINTENANCE}.
-     *
-     * <p>{@code launch} rides along on the same row as the phase, from the same single-row table,
-     * for the reason the phase itself does: the three {@code PRE_LAUNCH} disconnect screens all
-     * count down to it, and fetching a timestamp for a screen would be the second round trip this
-     * query exists to avoid. A {@code NULL} means no opening date has been announced, which is a
-     * state the screens handle rather than an error.
+     * <p>It is anchored on {@code (VALUES (1))} so that it returns <b>exactly one row, always</b>.
+     * Joining from {@code account_link} would return no row for an unlinked UUID, and selecting
+     * {@code FROM season_phase} would make a missing phase row look like every player is unlinked.
+     * With the anchor, an unlinked account is one row of nulls and an unreadable phase is a null
+     * that {@code SeasonPhase.fromDatabase} maps to {@code MAINTENANCE}.
      *
      * @return the state; empty is not reachable while PostgreSQL can answer at all, and
      *         {@link AccessDirectory#accessState(UUID)} still handles it defensively
@@ -353,29 +273,17 @@ interface AccessDao {
     // ---------------------------------------------------------------- link_code
 
     /**
-     * Issues a code for one Minecraft account, or hands back the one already live - stage C's
-     * "a repeat attempt shows the same code rather than minting another".
-     * <p>
-     * One statement, so two logins racing for the same UUID cannot both decide "no code exists"
-     * and each write one: {@code link_code.mc_uuid} is {@code UNIQUE}, so the second writer either
-     * blocks on the first's row lock and then re-evaluates the {@code WHERE}, or (if the first one
-     * left a still-valid code) falls straight through to the {@code SELECT} half and returns that
-     * one instead of writing anything.
-     * </p>
-     * <p>
-     * The {@code WHERE link_code.expires <= now()} on the update clause is what makes this an
-     * upsert-if-stale rather than an unconditional overwrite: when a live code already exists, the
-     * {@code INSERT ... ON CONFLICT} branch matches zero rows (the update's WHERE excludes it), so
-     * the CTE returns nothing and the plain {@code SELECT} below - guarded by
-     * {@code NOT EXISTS (SELECT 1 FROM upsert)} - reads back the code that is actually current.
-     * Exactly one of the two branches ever returns a row.
-     * </p>
-     * <p>
-     * A candidate code can still collide with a <em>different</em> account's still-live code - a
-     * violation of the {@code code} primary key, which this statement's {@code ON CONFLICT} target
-     * (scoped to {@code mc_uuid}) does not catch. That surfaces as a thrown exception; the caller
-     * retries with a freshly generated candidate.
-     * </p>
+     * Issues a code for one Minecraft account, or hands back the one already live - a repeat
+     * attempt must show the same code rather than mint another.
+     *
+     * <p>One statement, so two logins racing for the same UUID cannot both decide "no code exists".
+     * The {@code WHERE link_code.expires <= now()} on the update clause makes it an
+     * upsert-if-stale: with a live code present the insert branch matches zero rows and the guarded
+     * {@code SELECT} returns the current code instead. Exactly one branch ever returns a row.
+     *
+     * <p>A candidate can still collide with a <em>different</em> account's live code, violating the
+     * {@code code} primary key, which this {@code ON CONFLICT} target does not catch; that surfaces
+     * as an exception and the caller retries with a fresh candidate.
      */
     @SqlQuery("""
             WITH upsert AS (

@@ -6,20 +6,14 @@ import java.io.IOException;
 import java.net.URI;
 
 /**
- * The one thing this module does that reaches outside the container: fetch a small document over
- * HTTPS.
- * <p>
- * It is an interface for one reason, and it is the reason step 1 of docs/updater.md is the step
- * worth building carefully: <b>every parser below it is tested against recorded responses.</b>
- * A resolver that picks the wrong version is worse than no updater at all, and "wrong" here means
- * things like a {@code -sources.jar} or a pre-release - cases that exist in the real payloads and
- * would never appear in a test that talks to the live API on a good day.
- * </p>
- * <p>
- * Only GET, only text. The updater does download jars, but not through here (step 3): those go
- * straight to a file and are verified against a checksum, and holding a 64 MB Paper jar in a
- * String would be an odd way to start.
- * </p>
+ * Fetches a small document over HTTPS.
+ *
+ * <p>An interface so that every parser above it can be tested against recorded responses: a
+ * resolver that picks a {@code -sources.jar} or a pre-release is worse than no updater at all, and
+ * those cases never appear when a test talks to the live API on a good day.</p>
+ *
+ * <p>Only GET, only text. Jars are downloaded straight to a file and verified against a checksum,
+ * never through here.</p>
  */
 public interface Http {
 

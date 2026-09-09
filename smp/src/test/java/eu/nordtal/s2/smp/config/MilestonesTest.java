@@ -21,17 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * That {@code milestones.yml} can actually be written and read back, and that what comes back is
- * the track docs/smp.md#the-track describes.
+ * That {@code milestones.yml} can be written and read back as the whole track.
  *
- * <h2>What this proves that nothing else can</h2>
- * <b>Two levels of nesting through jcore.</b> A list of milestones each holding a list of
- * objectives is one level deeper than anything in this repository had used - {@code discord-bot}'s
- * tier list is a flat {@code List<NestedSpec>} - and jcore's config system is a vendored copy of an
- * unmaintained library. Whether its writer serialises a nested list and its reader gives it back is
- * a fact about that library, and the only honest way to know it is to do it. The alternative format
- * (a flat list of objectives each naming its milestone) was rejected on readability, and this test
- * is what stops that rejection from being a guess.
+ * <p>What only this can prove: <b>two levels of nesting through jcore</b>. A list of milestones each
+ * holding a list of objectives is deeper than anything else in this repository puts through jcore's
+ * vendored config system, so the round trip is exercised rather than assumed.
  */
 class MilestonesTest {
 
@@ -47,9 +41,8 @@ class MilestonesTest {
         assertTrue(Files.isRegularFile(directory.resolve("milestones.yml")),
                 "a fresh load has to write the defaults out, or there is nothing to edit");
 
-        // Read it back through a SECOND load, from the file this one just wrote. The first handle
-        // still holds the in-memory defaults, so asserting against it would prove nothing about
-        // what went through YAML.
+        // A SECOND load, from the file the first one just wrote: the first handle still holds the
+        // in-memory defaults and would prove nothing about what went through YAML.
         final MilestonesSpec reread = Configs.milestones(directory, LOGGER).get();
         final MilestoneTrack track = Milestones.read(reread).track();
 
@@ -70,8 +63,7 @@ class MilestonesTest {
         assertEquals(99, foothold.borderDiameter());
 
         // A HAND_IN's item list is the deepest thing in the file: a list of strings, inside an
-        // objective, inside a milestone, inside a list. If nesting were going to fail anywhere it
-        // would fail here.
+        // objective, inside a milestone, inside a list.
         final var logs = foothold.objective("logs").orElseThrow();
         assertEquals(ObjectiveType.HAND_IN, logs.type());
         assertEquals(2048L, logs.target());
@@ -89,9 +81,8 @@ class MilestonesTest {
     void theTrackMatchesTheTableInTheConcept() throws Exception {
         final MilestoneTrack track = Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
 
-        // docs/smp.md#the-track, column by column. If somebody retunes the defaults this test is
-        // what tells them the document is now out of date - which is the point: the numbers are
-        // allowed to change, the two just have to change together.
+        // The track, column by column. The numbers are allowed to change; this is what makes a
+        // retune deliberate.
         assertEquals(20, track.milestone("waiting").orElseThrow().borderDiameter());
         assertEquals(43, track.milestone("departure").orElseThrow().borderDiameter());
         assertEquals(400, track.milestone("settlement").orElseThrow().borderDiameter());
@@ -115,9 +106,8 @@ class MilestonesTest {
     void everyMilestoneWithObjectivesCarriesExactlyOneParticipationGate() throws Exception {
         final MilestoneTrack track = Milestones.read(Configs.milestones(directory, LOGGER).get()).track();
 
-        // The rule the whole track's difficulty rests on: the ADVANCEMENT objective is the only type
-        // that counts distinct players, so it is the only one three industrious people cannot finish
-        // alone. The gate counts fall across the track because the population does.
+        // The ADVANCEMENT objective is the only type that counts distinct players, so it is the
+        // only one three industrious people cannot finish alone.
         assertEquals(List.of(10L, 10L, 8L, 8L, 6L, 5L), track.milestones().stream()
                 .filter(milestone -> !milestone.hasNoObjectives())
                 .map(milestone -> milestone.objectives().stream()
@@ -164,7 +154,7 @@ class MilestonesTest {
 
     @Test
     void aMilestoneWithNoParticipationGateStopsTheLoad() throws Exception {
-        // The single easiest way to make the whole track soloable, and nothing else would notice.
+        // The easiest way to make the whole track soloable, and nothing else would notice.
         writeTrack("""
                 milestones:
                   - key: foothold
@@ -224,9 +214,8 @@ class MilestonesTest {
 
     @Test
     void aLeftoverFieldFromAnotherTypeStopsTheLoad() throws Exception {
-        // What a half-finished type change looks like: somebody changed HAND_IN to STATISTIC and
-        // left the item list behind. Ignoring it would leave an objective that silently counts
-        // nothing.
+        // A half-finished type change: HAND_IN became STATISTIC and the item list stayed. Ignoring
+        // it would leave an objective that silently counts nothing.
         writeTrack("""
                 milestones:
                   - key: foothold

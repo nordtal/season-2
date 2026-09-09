@@ -11,11 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The rule that decides whether a reloaded milestone file may replace the running one.
  *
- * <p>It has two halves that pull against each other, and the whole value of this test is that both
- * are asserted: it must <b>refuse</b> a change that orphans stored progress, and it must
- * <b>permit</b> lowering the target of a live objective. A validation that only did the first would
- * look correct and would quietly delete the first and finest of docs/smp.md's three escape hatches -
- * which is a failure that would not surface until the day somebody needed it.
+ * <p>Both halves are asserted: it must <b>refuse</b> a change that orphans stored progress, and it
+ * must <b>permit</b> lowering the target of a live objective. A validation that only did the first
+ * would look correct and would quietly delete the first escape hatch.
  */
 class TrackValidationTest {
 
@@ -32,10 +30,8 @@ class TrackValidationTest {
 
     @Test
     void loweringTheTargetOfALiveObjectiveIsAllowed() {
-        // THE POINT OF THIS WHOLE CLASS. docs/smp.md#when-an-objective-turns-out-to-be-impossible:
-        // "it must explicitly permit changing the target of a live objective, or the first and
-        // finest escape hatch does not exist at the config level and every rescue becomes an admin
-        // command" - which pays proportionally rather than in full.
+        // The point of this whole class: without it the first escape hatch does not exist at the
+        // config level and every rescue becomes an admin command, which pays proportionally.
         final StoredProgress stored = progress(MilestoneState.ACTIVE,
                 objective("logs", ObjectiveType.HAND_IN, 1500, 2048, false));
 
@@ -55,8 +51,8 @@ class TrackValidationTest {
 
     @Test
     void loweringATargetBelowTheCollectedProgressCompletesTheObjective() {
-        // The other half of the same hatch, and it lives in ObjectiveProgress rather than here:
-        // validation lets the change through, and the engine notices the objective is already done.
+        // The other half of the same hatch lives in ObjectiveProgress: validation lets the change
+        // through, and the engine notices the objective is already done.
         assertTrue(ObjectiveProgress.completesOnReload(1500, 1000));
         assertFalse(ObjectiveProgress.completesOnReload(900, 1000));
     }
@@ -65,8 +61,8 @@ class TrackValidationTest {
 
     @Test
     void aRenamedMilestoneIsRefused() {
-        // From here a rename looks like a deletion, which is exactly the point: the progress and
-        // any aura already paid against it would have nothing to point at.
+        // From here a rename looks like a deletion: the progress and any aura already paid against
+        // it would have nothing to point at.
         final StoredProgress stored = progress(MilestoneState.ACTIVE,
                 objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack renamed = new MilestoneTrack(List.of(
@@ -132,8 +128,7 @@ class TrackValidationTest {
 
     @Test
     void appendingAMilestoneIsAlwaysAllowed() {
-        // The planned response to a track that finishes early, and the whole reason milestones are
-        // not compiled in.
+        // The planned response to a track that finishes early.
         final StoredProgress stored = progress(MilestoneState.UNLOCKED,
                 objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
         final MilestoneTrack longer = new MilestoneTrack(List.of(
@@ -146,9 +141,8 @@ class TrackValidationTest {
 
     @Test
     void movingAnUnlockedMilestoneBehindALockedOneIsRefused() {
-        // The track is linear and its order is the file's, so what has been finished has to stay at
-        // the front of it. Without this rule a file edit could leave the engine with no answer to
-        // "what comes next".
+        // The track is linear and its order is the file's, so what has been finished has to stay
+        // at the front of it or the engine has no answer to "what comes next".
         final StoredProgress stored = new StoredProgress(
                 List.of(new StoredProgress.StoredMilestone("foothold", MilestoneState.UNLOCKED),
                         new StoredProgress.StoredMilestone("waiting", MilestoneState.LOCKED)),
@@ -167,8 +161,7 @@ class TrackValidationTest {
 
     @Test
     void everyProblemIsReportedRatherThanOnlyTheFirst() {
-        // A reload command that names one mistake at a time turns a five-minute edit into five
-        // reloads.
+        // One reload has to name every mistake.
         final StoredProgress stored = new StoredProgress(
                 List.of(new StoredProgress.StoredMilestone("gone", MilestoneState.UNLOCKED),
                         new StoredProgress.StoredMilestone("also-gone", MilestoneState.ACTIVE)),

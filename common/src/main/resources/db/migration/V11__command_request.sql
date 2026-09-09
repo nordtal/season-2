@@ -1,75 +1,49 @@
 -- One admin command, asked for on a surface whose process cannot carry it out, addressed to the
--- process that can. See docs/architecture.md#commands.
+-- process that can.
 --
--- WHY A SECOND REQUEST TABLE, next to `update_request` (V7). They are the same machinery and they
--- are deliberately not the same table, because they are not the same lifetime. An update request is
--- an operational event that is worth keeping: it says which version the network moved to and when,
--- it is read back weeks later, and its `not_before` is a countdown two other processes watch. A
--- command request is a message in flight. It is written, claimed within a second, answered, and
--- then only interesting for as long as somebody is still looking at the reply it produced.
+-- A second request table next to `update_request` because the two have different lifetimes: an
+-- update request is an operational event worth keeping, a command request is a message in flight.
+-- Folding them together would mean a nullable column that is null for every row that matters, which
+-- is where a constraint stops being able to say anything.
 --
--- Folding one into the other would mean either giving `update_request` a nullable `command` column
--- that is null for every row that matters, or giving this table a `not_before` nothing ever sets.
--- Both are the shape where a constraint stops being able to say anything - which V6's `smp_duel`
--- already demonstrated once, at the cost of a table nothing ever wrote a row to.
+-- A command travels because its effect has an address - `/smp aura` has to run in the JVM with the
+-- SMP world open. The row plus a `pg_notify` is how it reaches that process, and it survives a
+-- target that happens to be restarting.
 --
--- WHY IT TRAVELS AT ALL. `/smp aura` has to run in the JVM that has the SMP world open; `/hg start`
--- releases players from a lobby that exists in one process. The front half of a command - who is
--- asking, may they, in which language - is the same everywhere and lives in `:commands`. The back
--- half has an address, and this table is how a request reaches it: a row, a `pg_notify`, and the
--- owning process listening. A request therefore survives a target that happens to be restarting,
--- which a socket call would not.
---
--- No `interval` anywhere, for the reason V4 and V7 both state: `now() + interval '30 seconds'` is
--- calendar arithmetic in the session's time zone, which the JDBC driver takes from the writing
--- JVM's default. `expires` is written by the caller as an absolute instant instead.
+-- No `interval` anywhere, for the reason V4 and V7 give: `expires` is written as an absolute
+-- instant.
 CREATE TABLE command_request
 (
     id           bigserial PRIMARY KEY,
 
     -- Which process runs the effect. The five are `eu.nordtal.s2.commands.Target`, and
-    -- TargetSchemaTest holds the enum against this CHECK - the pair that V4 established for
-    -- `season_phase.phase` and `SeasonPhase`.
+    -- TargetSchemaTest holds the enum against this CHECK.
     target       varchar(16) NOT NULL
         CONSTRAINT command_request_target_check
             CHECK (target IN ('SMP', 'HUNGER_GAMES', 'LIMBO', 'PROXY', 'BOT')),
 
     -- The command's path, joined with spaces and without the leading slash: `smp aura`, `hg start`.
-    -- That is `Declaration#path`, which is the command's identity on every surface - the adapters
-    -- are not allowed to rename anything, so this is not a third name for the same thing.
+    -- That is `Declaration#path`, the command's identity on every surface.
     command      varchar(64) NOT NULL,
 
     -- The arguments, as the line that would have been typed after the path. Empty for a command
     -- that takes none.
     --
-    -- WHY A LINE AND NOT JSON. Because the declaration makes it unambiguous, provably: at most one
-    -- argument is greedy and `Declaration` refuses one that is not last, and no other kind can
-    -- contain a space. So splitting on spaces against the declaration round-trips every command
-    -- this network has - which RequestArgumentsTest asserts over every declaration there is, rather
-    -- than over examples. The alternative was a JSON column, and `:common` has no JSON parser on
-    -- purpose: jackson is what jcore dropped, and gson is a platform library that must never be
-    -- shaded into a Paper plugin.
+    -- A line and not JSON: the declaration makes splitting on spaces unambiguous (at most one
+    -- argument is greedy and it must be last), and `:common` deliberately has no JSON parser -
+    -- gson is a platform library that must never be shaded into a Paper plugin.
     arguments    text        NOT NULL DEFAULT '',
 
     -- PENDING -> RUNNING -> DONE | FAILED, or PENDING -> EXPIRED. Nothing goes back.
     --
-    -- EXPIRED is written by the ASKING side when it stops waiting, not by a sweeper. There is no
-    -- sweeper on purpose: the only process that cares whether an answer ever came is the one still
-    -- holding an interaction open for it, and a background job would be a thread per process for a
-    -- table that is empty almost all of the time. The target guards the same boundary from its own
-    -- end by refusing to claim a row whose `expires` has passed, so a slow target and a giving-up
-    -- asker cannot both act on one row.
+    -- EXPIRED is written by the ASKING side when it stops waiting, not by a sweeper: the only
+    -- process that cares whether an answer came is the one still holding an interaction open. The
+    -- target guards the same boundary by refusing to claim a row whose `expires` has passed, so a
+    -- slow target and a giving-up asker cannot both act on one row.
     --
-    -- RETENTION, decided by the owner 2026-09-05: a SETTLED row is deleted 30 days after it
-    -- finished. That is a different thing from the paragraph above and was missing entirely - the
-    -- table had no deletion path at all, so every settled row kept `requested_by`, `discord_id`,
-    -- `mc_uuid`, `arguments` and a rendered `result` for as long as the database existed, while
-    -- this file called a request "a message in flight". Volume was never the argument (a season is
-    -- a few dozen admin commands); the identifiers were. The updater does it once at the start of
-    -- `serve`, next to settleOrphans and NOT on a timer, because that process is deliberately not a
-    -- scheduler - see CommandRequests#deleteSettledOlderThan. A PENDING or RUNNING row is never
-    -- touched however old it looks: deleting one somebody is still waiting on is worse than keeping
-    -- one too long.
+    -- Retention: a settled row is deleted 30 days after it finished, because it carries identifiers
+    -- rather than because of volume. The updater does it once at the start of `serve` and never on a
+    -- timer. A PENDING or RUNNING row is never touched however old it looks.
     status       varchar(16) NOT NULL DEFAULT 'PENDING'
         CONSTRAINT command_request_status_check
             CHECK (status IN ('PENDING', 'RUNNING', 'DONE', 'FAILED', 'EXPIRED')),
@@ -106,10 +80,8 @@ CREATE TABLE command_request
     finished     timestamptz,
 
     -- The answer, already rendered in `locale`, verbatim - the asking surface prints it and does
-    -- not render it again. That is only sound because a command that can travel names message keys
-    -- from `:commands`' own bundle, which carries no markup at all: MiniMessage on Minecraft and
-    -- Discord's markdown cannot both live in one string, so the shared bundle has neither.
-    -- MessageBundlesTest in `:commands` is what keeps that true.
+    -- not render it again. That is only sound because the shared bundle carries no markup at all:
+    -- MiniMessage and Discord's markdown cannot both live in one string.
     result       text,
 
     -- The console has no identity to record; anything else that claims to be the console is a bug
@@ -123,9 +95,8 @@ CREATE TABLE command_request
     CONSTRAINT command_request_discord_knows_who
         CHECK (source <> 'DISCORD' OR discord_id IS NOT NULL),
 
-    -- A settled row has a finish time and an unsettled one does not. Written as an equality rather
-    -- than two one-way checks so that neither direction can be forgotten: `update_request` has the
-    -- same shape and `payment_request` learned it the hard way.
+    -- A settled row has a finish time and an unsettled one does not. An equality rather than two
+    -- one-way checks, so neither direction can be forgotten.
     CONSTRAINT command_request_finished_iff_settled
         CHECK ((status IN ('DONE', 'FAILED', 'EXPIRED')) = (finished IS NOT NULL)),
 
@@ -139,9 +110,8 @@ CREATE TABLE command_request
         CHECK (started IS NULL OR finished IS NULL OR finished >= started)
 );
 
--- The claim query is "the oldest pending row for my target that has not expired". A partial index
--- keeps it to the handful of rows actually in flight, however long the history gets - the same
--- shape as `update_request_pending`.
+-- The claim query is "the oldest pending row for my target that has not expired"; partial, so it
+-- stays at the handful of rows actually in flight.
 CREATE INDEX command_request_pending
     ON command_request (target, id)
     WHERE status = 'PENDING';

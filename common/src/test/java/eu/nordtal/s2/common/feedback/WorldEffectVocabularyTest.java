@@ -20,30 +20,15 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * The same rule {@link SoundVocabularyTest} makes about sound, made about what a moment looks like:
- * one file per module names a particle or launches a firework, and no other file may.
+ * The rule {@link SoundVocabularyTest} makes about sound, made about what a moment looks like: one
+ * file per module names a particle or launches a firework, and no other file may.
  *
- * <h2>Why this is a test and why it exists now rather than later</h2>
- * When it was written there was exactly one such file in the whole repository - {@code smp}'s
- * {@code WorldEffects} - and four call sites behind it. That is the cheap moment to write the rule
- * down, for the reason the sound test states about itself: once the second file exists, a rule like
- * this is an argument with somebody rather than a fact about the code.
+ * <p>The failure it prevents is not a crash but a balloon that puffs cloud in one place and smoke in
+ * another - nothing fails, nothing logs it, and by the time somebody notices, changing it means
+ * finding every call site again.
  *
- * <p>The failure it prevents is not a crash. It is a balloon that puffs cloud in one place and
- * smoke in another, and a grave that looks like a nether portal because the third call site picked
- * whatever was in the autocomplete. Nothing about that fails a build, nothing logs it, and by the
- * time somebody notices, changing it means finding every site again.
- *
- * <h2>What it deliberately does not do</h2>
- * There is no {@code effects.yml}, and that is a decision rather than an omission. Ten sound
- * categories cover some forty call sites, so a config file compresses; four effects cover four call
- * sites, so a config file would be four entries pointing one-to-one at four methods. The reasoning
- * is in {@code WorldEffects}' own javadoc and in {@code docs/presentation.md} section 6, and a fifth
- * and sixth moment appearing is the point at which to reopen it out loud.
- *
- * <p>It also cannot say whether any of it looks any good, whether forty players' worth of rockets
- * is a lag spike, or whether the celebration is visible from inside a cave. That needs a server and
- * is on the owner's checklist outside this repository.
+ * <p>There is deliberately no {@code effects.yml}: a handful of effects would be a config file with
+ * one entry per method.
  */
 class WorldEffectVocabularyTest {
 
@@ -69,14 +54,9 @@ class WorldEffectVocabularyTest {
             Pattern.compile("(?<![A-Za-z0-9_.])Particle\\.");
 
     /**
-     * The files that may name an effect, and why.
-     *
-     * <p>One entry, and a second would be a Paper module that grew a world moment of its own -
-     * {@code hunger-games} is the obvious candidate, for the border closing and the ceremony. It
-     * would be a file of about this size for the same reason its sound adapter is:
-     * {@code org.bukkit} may not appear in {@code :common}, which is shaded into a Velocity plugin.
-     *
-     * <p>An entry that is <em>not</em> an adapter is what this list exists to make visible.
+     * The files that may name an effect, and why. A second entry would be another Paper module's own
+     * adapter - {@code org.bukkit} may not appear in {@code :common}, which is shaded into a
+     * Velocity plugin. An entry that is <em>not</em> an adapter is what this list makes visible.
      */
     private static final Map<String, String> ALLOWED = Map.of(
             "smp/src/main/java/eu/nordtal/s2/smp/feedback/WorldEffects.java",
@@ -126,12 +106,8 @@ class WorldEffectVocabularyTest {
 
     /**
      * Every rocket the adapter launches is stamped, and the stamp is what {@code onDamage} reads.
-     *
-     * <p>Grepping for two strings is a poor substitute for launching one and standing next to it,
-     * and it is what can be checked without a server. What it catches is the shape of the mistake
-     * that matters: a second {@code spawn(..., Firework.class, ...)} added later, next to the first,
-     * without the line that stamps it - after which the celebration takes four hearts off the person
-     * it is celebrating.
+     * Catches a later {@code spawn(..., Firework.class, ...)} added without the stamp, after which
+     * the celebration damages the person it is celebrating.
      */
     @Test
     @DisplayName("a launched firework is stamped, and the stamp is refused damage")

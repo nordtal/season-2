@@ -13,8 +13,7 @@ import java.util.Locale;
 /**
  * What a player looks like, in the three places they are drawn.
  *
- * <p>One composition, shown in full where there is room and trimmed where there is not
- * (docs/smp.md#what-a-player-looks-like):
+ * <p>One composition, shown in full where there is room and trimmed where there is not:
  *
  * <table>
  *   <caption>the three surfaces</caption>
@@ -24,16 +23,12 @@ import java.util.Locale;
  *   <tr><td>chat</td><td>flag, name, crest</td></tr>
  * </table>
  *
- * <p><b>The nametag deliberately omits the aura</b>, and that is a performance decision rather than
- * a design preference: aura changes on every death, every hand-in and every duel, and a nametag
- * that carried it would send a packet to everyone in range each time.
- *
- * <p>Everything here is drawn from a {@link Identity} and nothing touches a server, so the whole
- * composition is asserted in tests rather than looked at on a screen.
+ * <p><b>The nametag omits the aura</b> for performance: aura changes on every death, hand-in and
+ * duel, and a nametag carrying it would send a packet to everyone in range each time.
  */
 public final class PlayerComposition {
 
-    /** docs/presentation.md#the-palette: the arriving colour, reused for aura somebody has. */
+    /** The join line's colour, reused for aura somebody has. */
     private static final TextColor AURA_POSITIVE = TextColor.fromHexString("#8ba888");
 
     /** ...and the leaving one, for aura somebody has spent or never earned. */
@@ -78,8 +73,7 @@ public final class PlayerComposition {
     /**
      * The wearer's language, as a flag glyph.
      *
-     * <p>Whose language is worth being explicit about: it is the person being <em>looked at</em>,
-     * not the person looking. The flag exists so you know what to greet somebody in.
+     * <p>The language of the person being <em>looked at</em>, not of the person looking.
      */
     private Component flag(final Locale locale) {
         return Component.text(Glyphs.flagFor(locale)).decoration(TextDecoration.ITALIC, false);
@@ -105,9 +99,8 @@ public final class PlayerComposition {
     /**
      * The crest for however long somebody has been here.
      *
-     * <p>Everybody has one - {@link Prestige#tierOf} floors at tier 1 - so this is never empty and
-     * the composition never has to reflow around a missing piece. Thirteen designs, thirteen tiers,
-     * and a fourteenth would have nothing to render as.
+     * <p>Everybody has one - {@link Prestige#tierOf} floors at tier 1 - so this is never empty.
+     * Thirteen designs, thirteen tiers; a fourteenth would have nothing to render as.
      */
     private Component crest(final Identity identity) {
         final int tier = prestige.tierOf(identity.playtimeSeconds());
@@ -118,13 +111,8 @@ public final class PlayerComposition {
     /**
      * Green when positive, red at zero or below.
      *
-     * <p>Zero is red rather than neutral on purpose: aura is recognition, and having none is the
-     * same state as having spent it all on deaths.
-     *
-     * <p><b>The two values are the pack's, not {@code NamedTextColor}'s.</b> Vanilla's
-     * {@code GREEN} and {@code RED} are the colours a plugin's console output wears, and the tab
-     * list sits directly under a header drawn from docs/presentation.md#the-palette - the same two
-     * meanings already have colours there, on the join and leave lines every player reads all day.
+     * <p>The two values are the palette's, not {@code NamedTextColor}'s, so that they match the
+     * join and leave lines the tab-list header sits under.
      */
     private Component aura(final int amount) {
         return Component.text(String.valueOf(amount))

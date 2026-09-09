@@ -14,55 +14,25 @@ import java.util.List;
 /**
  * Composes a chest menu's title so the window is drawn in Nordtal's own frame.
  *
- * <h2>What this actually does</h2>
- * A menu on this server is an ordinary chest inventory. Its <b>title</b> carries a bitmap glyph
- * large enough to cover the whole window, on a large positive {@code ascent} so it rises out of the
- * title's baseline and fills the screen behind the slots. The client renders labels <em>after</em>
- * the background, so the panel is painted on top of {@code generic_54.png} rather than instead of
- * it - which is the whole reason the panel is opaque and the vanilla texture is left alone. See
- * {@code docs/presentation.md} section 2.
+ * <p>A menu is an ordinary chest inventory whose title carries a bitmap glyph big enough to cover
+ * the window, on a large positive {@code ascent}. The client renders labels after the background, so
+ * the panel is painted on top of the vanilla texture rather than instead of it.
  *
- * <h2>The arithmetic, and why it is here rather than at six call sites</h2>
- * Three numbers, all of them vanilla's and none of them ours:
+ * <p>The arithmetic lives here rather than at every call site. Vanilla draws the container title at
+ * {@link #ANCHOR_X}, and a 176px bitmap glyph advances the cursor by {@link #PANEL_ADVANCE} - 177,
+ * because every bitmap glyph gets one trailing pixel - so the readable title walks back 169. The net
+ * displacement is zero: the title reads exactly where it would with no panel at all.
  *
- * <ul>
- *   <li>The container title is drawn at <b>x = 8</b> inside the window, so the cursor starts eight
- *       pixels right of the left edge. {@link #ANCHOR_X}.</li>
- *   <li>A 176px-wide bitmap glyph advances the cursor by <b>177</b>, not 176 - every bitmap glyph
- *       gets one trailing pixel. Assuming otherwise puts every menu one pixel out, in the same
- *       direction, forever. {@link #PANEL_ADVANCE}.</li>
- *   <li>So the readable title has to walk back <b>169</b> pixels to land where it started.</li>
- * </ul>
+ * <p>A surface that varies per player gets one panel plus a small glyph per state, drawn on top by a
+ * {@link Canvas}; vertical position is the glyph's own {@code ascent}, which is why a state that can
+ * land on two rows is declared twice. For list menus the row is carried by the font
+ * ({@link Glyphs#FONT_GUI_ROWS}) rather than by the code point, and a canvas draws in insertion
+ * order, which needs the positive advances as well as the negative ones.
  *
- * The net displacement is {@code -8 + 177 - 169 = 0}: the title reads exactly where it would have
- * read with no panel at all, which is the invariant {@code MenuTitleTest} pins. Getting one of
- * these wrong costs one menu here and six if each menu did its own sum.
- *
- * <h2>Overlays (2026-09-05)</h2>
- * A menu whose surface varies per player - the balloon, whose cards are locked or not - does not
- * get a panel per combination. It gets one panel and a small glyph per <em>state</em>, drawn on top
- * of the panel at the card's own x by a {@link Canvas}. The vertical position is the glyph's own
- * {@code ascent} in {@code gui.json}, which is why a state that can land on two card rows is
- * declared twice. A fifth menu in this style is a panel, its overlays and a slot map; nothing here
- * changes.
- *
- * <h2>Rows, and the positive advance that made them possible (2026-09-09)</h2>
- * A <em>list</em> menu draws the same furniture on any of the six chest rows, and a glyph's only
- * vertical control is its font's {@code ascent} - so the row is carried by the font
- * ({@link Glyphs#FONT_GUI_ROWS}) rather than by the code point, and a row is composed with
- * {@link Canvas#rowArt} and {@link Canvas#rowText}. Until this change a canvas laid its overlays
- * down <b>right to left</b>, because {@code nordtal:gui} carried negative advances and no positive
- * ones; that is fine for four cards that never overlap and exactly wrong for a row, whose plate
- * starts at the smallest x and has to be painted <em>under</em> the label on top of it. So the font
- * gained {@code U+FF801..U+FF928}, and a canvas draws in the order things were added to it.
- *
- * <h2>Two things that are easy to get wrong</h2>
- * <b>The panel has to be white.</b> Vanilla draws an inventory title in hardcoded dark grey
- * ({@code 0x404040}), which applies to any component that names no colour of its own - so white art
- * comes out grey. <b>And the panel has to name its font.</b> The four fonts allocate
- * independently, so a panel code point left in {@code minecraft:default} does not fail to draw, it
- * draws whatever that font holds at the same code point. The readable title deliberately names no
- * font, so it renders in {@code minecraft:default} where the letters are.
+ * <p>Two traps: <b>the panel must be white</b>, because vanilla paints an inventory title in
+ * hardcoded dark grey unless the component names a colour; and <b>the panel must name its font</b>,
+ * because a panel code point left in {@code minecraft:default} draws whatever that font holds there.
+ * The readable title names no font on purpose, so it renders where the letters are.
  */
 public final class MenuTitle {
 
@@ -101,10 +71,8 @@ public final class MenuTitle {
      *
      * @param rows  chest rows, 1 to {@value #MAX_ROWS}
      * @param title what the player should read, already translated and coloured
-     * @throws IllegalArgumentException on a row count the pack has no panel for - which is a
-     *                                  programming error rather than a configuration one, and
-     *                                  failing here beats a menu opening with a missing-glyph box
-     *                                  where its frame should be
+     * @throws IllegalArgumentException on a row count the pack has no panel for - failing here
+     *                                  beats a menu opening with a missing-glyph box for a frame
      */
     public static Component of(final int rows, final Component title) {
         if (rows < 1 || rows > MAX_ROWS) {
@@ -122,22 +90,19 @@ public final class MenuTitle {
      * <p>It ends where it started, so anything appended after it sits at the title anchor exactly
      * as if the panel were not there.
      *
-     * <p><b>The panel carries no shadow</b>, for the reason {@link eu.nordtal.s2.common.hud.BoardFrame} states at length:
-     * vanilla draws every glyph a second time one pixel down and right, and on a 176-pixel opaque
-     * panel that second copy is a dark edge along the bottom and the right of the window that
-     * nothing in the pack drew. {@link #of} appends the readable title to {@code Component.empty()}
-     * rather than to this component, so the title is a sibling and keeps its own shadow.
+     * <p><b>The panel carries no shadow</b>: vanilla draws every glyph a second time one pixel down
+     * and right, which on an opaque 176-pixel panel is a dark edge nothing in the pack drew.
+     * {@link #of} appends the readable title to {@code Component.empty()} rather than to this
+     * component, so the title stays a sibling and keeps its own shadow.
      */
     public static Component panel(final int rows) {
         return on(Glyphs.GUI_PANELS[rows - 1]).panel();
     }
 
     /**
-     * The same, on the panel that has <b>no container slot recesses</b>.
-     *
-     * <p>For a menu that paints across whole rows - a list, where a pill runs the width of the
-     * window - because a recess under such a pill shows above it, below it and on both sides of it.
-     * The player's own three rows and the hotbar keep their recesses in both variants.
+     * The same, on the panel that has <b>no container slot recesses</b> - for a menu that paints
+     * across whole rows, where a recess would show around every pill. The player's own rows and the
+     * hotbar keep theirs in both variants.
      */
     public static Component panelPlain(final int rows) {
         return onPlain(rows).panel();
@@ -165,9 +130,8 @@ public final class MenuTitle {
     /**
      * The glyphs that move the cursor {@code pixels} to the left, largest advance first.
      *
-     * <p>The eight advances are powers of two, so this is the number's binary representation and
-     * there is exactly one way to write it. Zero is the empty string rather than an error: a caller
-     * that computes a shift of nothing should get nothing, not a special case.
+     * <p>The eight advances are powers of two, so this is the number's binary representation. Zero
+     * is the empty string rather than an error.
      */
     public static String shift(final int pixels) {
         if (pixels < 0 || pixels > MAX_SHIFT) {
@@ -186,12 +150,8 @@ public final class MenuTitle {
     }
 
     /**
-     * The glyphs that move the cursor {@code pixels} to the <b>right</b>, largest advance first.
-     *
-     * <p>The mirror of {@link #shift(int)}, and it did not exist until 2026-09-09 because nothing
-     * in a menu title had ever moved right. A row does: its pill has to be drawn before the label
-     * on top of it, so a row is composed left to right and the cursor has to be able to come back
-     * out to the next row's start.
+     * The glyphs that move the cursor {@code pixels} to the <b>right</b>, largest advance first -
+     * the mirror of {@link #shift(int)}, needed because a row is composed left to right.
      */
     public static String forward(final int pixels) {
         if (pixels < 0 || pixels > MAX_SHIFT) {
@@ -229,22 +189,11 @@ public final class MenuTitle {
     /**
      * A panel with things drawn on top of it, composed into one title.
      *
-     * <h2>Draw order is insertion order</h2>
-     * Later wins, exactly as it does on any canvas: a pill added before its label is painted under
-     * that label. That is only possible because {@code nordtal:gui} and the six row fonts carry
-     * <em>positive</em> advances as well as negative ones since 2026-09-09. Until then the cursor
-     * could only ever walk left, so overlays were laid down right-to-left - which works for the
-     * balloon, whose four cards never overlap, and is exactly wrong for a row, whose plate starts
-     * at the smallest x and has to be drawn first.
+     * <p>Draw order is insertion order, so a pill added before its label is painted under it.
      *
-     * <h2>Fonts, and why a placement carries one</h2>
-     * A glyph's only vertical control is its font's {@code ascent}, so "on chest row 2" is a font
-     * and not a coordinate ({@link Glyphs#FONT_GUI_ROWS}). A placement that names no font inherits
-     * the panel's {@code nordtal:gui}, and one that names no colour inherits the panel's white -
-     * which is what a tinted white pictogram wants and what a line of readable text does not.
-     *
-     * <p>{@code MenuTitleTest} walks the composed result with the pack's own advances and asserts
-     * every placement lands on the x it was given and the surface ends back on the title anchor.</p>
+     * <p>A placement carries a font because a glyph's only vertical control is its font's
+     * {@code ascent}, so "on chest row 2" is a font and not a coordinate. A placement naming no font
+     * inherits the panel's {@code nordtal:gui}, and one naming no colour inherits the panel's white.
      */
     public static final class Canvas {
 
@@ -269,9 +218,8 @@ public final class MenuTitle {
         /**
          * Draws one row glyph - a pill, a frame, a button plate, a pictogram - on a chest row.
          *
-         * <p>The row picks the font and the glyph picks the picture, which is the whole point of
-         * there being six row fonts; the advance comes from {@link MenuFont}, which reads it out of
-         * the same export the pack was generated with.</p>
+         * <p>The row picks the font and the glyph picks the picture; the advance comes from
+         * {@link MenuFont}, which reads it out of the same export the pack was generated with.
          *
          * @param glyph  a {@code GUI_ROW_*} code point
          * @param row    the chest row, 0 to {@code MAX_ROWS - 1}
@@ -286,8 +234,8 @@ public final class MenuTitle {
          * Draws readable text on a chest row, in the pack's five-pixel capitals.
          *
          * <p>The text is folded onto the sheet's alphabet by {@link MenuFont#fold(String)} first, so
-         * what is measured is what is drawn. A caller that needs it to fit somewhere should use
-         * {@link MenuFont#fit(String, int)} rather than passing the whole of a POI name and hoping.
+         * what is measured is what is drawn; a caller that needs it to fit should use
+         * {@link MenuFont#fit(String, int)}.
          *
          * @param text   any string; folded to capitals here
          * @param row    the chest row, 0 to {@code MAX_ROWS - 1}
@@ -348,8 +296,8 @@ public final class MenuTitle {
                 surface = surface.append(run);
                 cursor = overlay.x() + overlay.advance();
             }
-            // The walk home names no font and no colour, so it inherits the panel's - which is why
-            // every row font carries the same eight advances nordtal:gui does.
+            // The walk home names no font, so it inherits the panel's - which is why every row font
+            // carries the same eight advances nordtal:gui does.
             return surface.append(Component.text(move(ANCHOR_X - cursor)));
         }
 

@@ -20,10 +20,9 @@ import java.util.Optional;
  *
  * <h2>What READY means, and what it does not</h2>
  * "This player has arrived and finished joining me." <b>Not</b> "send them to the SMP", and not
- * anything about where they should go - docs/season-phases.md#routing is explicit that "a backend
- * must not be able to decide it wants a player somewhere - that would put the routing rules in two
- * processes". The message carries no destination and no room for one; the proxy works out where the
- * player belongs from the phase, exactly as it does when a phase change moves everybody.
+ * anything about where they should go: a backend that could ask for a destination would put the
+ * routing rules in two processes. The message carries no destination and no room for one; the proxy
+ * works out where the player belongs from the phase.
  *
  * <h2>Trusting what arrives</h2>
  * On this side of the connection a plugin message from the proxy and one from the player's own

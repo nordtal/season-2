@@ -35,7 +35,7 @@ import java.util.UUID;
 /**
  * Duels: two 3 x 3 platforms at the spawn, an arena that appears above it, and one short fight.
  *
- * <h2>The rules, each of them deliberate</h2>
+ * <p>The rules, each of them deliberate:
  * <ul>
  *   <li><b>Separate everything.</b> Inventory, health, effects and experience inside the arena are
  *       the duel's own; the player's real state is untouched. It is also the one place with no
@@ -48,10 +48,8 @@ import java.util.UUID;
  *       server; hiding them would waste the one thing that gives the tab-list number a story.</li>
  * </ul>
  *
- * <h2>The arena is placed and taken away again</h2>
- * A small glass box, built when the duel starts and removed when it ends - and swept at start, in
- * case a crash left one standing. A schematic replaces the glass eventually; it will change what the
- * arena looks like and nothing about how a duel works.
+ * <p>The arena is a small glass box, built when the duel starts, removed when it ends, and swept at
+ * start in case a crash left one standing.
  */
 public final class Duels {
 
@@ -81,11 +79,9 @@ public final class Duels {
     /**
      * Fighters put back on the platform they came from, who must step off before duelling again.
      *
-     * <p>Restoring a fighter is a teleport to where they stood when the duel began - which is the
-     * platform. Since a teleport counts as a move (finding 118), the restore itself re-registered
-     * them, and two people who fought once fought for ever: the second duel started in the same
-     * tick the first one ended, with neither of them having touched a key (finding 121). Cleared by
-     * {@link #steppedOff}, which is the physical act the rule is really about.</p>
+     * <p>A teleport counts as a move, so without this the restore re-registers a fighter on the
+     * platform and the next duel starts in the tick the last one ended. Cleared by
+     * {@link #steppedOff}, which is the physical act the rule is about.</p>
      */
     private final java.util.Set<UUID> settled = new java.util.HashSet<>();
 
@@ -94,18 +90,15 @@ public final class Duels {
      * respawn screen.
      *
      * <p>A duel loser is <b>dead</b> when the duel is settled, and an inventory written onto a dead
-     * player is thrown away by the respawn: Minecraft gives them back what they were holding when
-     * they died, which is the arena's loadout. So the loser walked away with a free iron sword and
-     * a shield, and their own inventory - thirteen emeralds, in the run that found this - was
-     * simply gone (finding 122). Their state waits here until {@link #respawned}.</p>
+     * player is thrown away by the respawn, which hands back the arena's loadout instead. Their
+     * state waits here until {@link #respawned}.</p>
      */
     private final Map<UUID, SavedState> pending = new HashMap<>();
 
     /**
      * How long the outcome stands on the screen.
      *
-     * <p>Longer than the ceremony's fade-in and shorter than its hold: this is read by somebody who
-     * has just stopped fighting and wants to get on with the evening.</p>
+     * <p>Longer than the ceremony's fade-in and shorter than its hold.</p>
      */
     private static final Title.Times OUTCOME = Title.Times.times(
             java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(2),
@@ -114,9 +107,8 @@ public final class Duels {
     /**
      * Where a duel ends, for both fighters.
      *
-     * <p>The spawn, not the platform they came from (owner, 2026-09-06). Standing them back on the
-     * pad is how two people who fought once used to fight for ever (finding 121), and the spawn is
-     * where everything else social is anyway.</p>
+     * <p>The spawn, not the platform they came from: standing them back on the pad restarts the
+     * duel immediately.</p>
      */
     private Location spawn() {
         return worlds.world(WorldRole.NORDTAL)
@@ -150,20 +142,12 @@ public final class Duels {
     /**
      * One running duel.
      *
-     * <p><b>{@code discordIds} is captured when the duel starts, and that is the whole point of the
-     * field.</b> The aura used to be booked against {@code Identities}, which is a per-session cache
-     * that {@code JoinGate}'s quit handler clears - and {@code JoinGate} is registered before
-     * {@code DuelListener}, so on a disconnect mid-fight the leaver's discord id was already gone by
-     * the time {@link #book} looked for it. {@code book} returned early and <b>nothing at all was
-     * booked</b>: not the loser's stake and not the winner's. Logging out was exactly the free
-     * escape from losing that {@code docs/smp.md} says it must not be, and it was silent - the duel
-     * ends, the arena goes, the survivor is returned with their inventory and a "you won" title, and
-     * only the number is missing (finding 137, measured on the local stack 2026-09-07).
+     * <p><b>{@code discordIds} is captured when the duel starts</b>, because {@code Identities} is
+     * a per-session cache that {@code JoinGate}'s quit handler clears before {@code DuelListener}
+     * ever sees the disconnect - so reading it at settle time books neither stake, silently.
      *
-     * <p>Capturing at the start rather than reordering the two listeners is deliberate: a duel's
-     * participants cannot change once it is running, so the value is knowable then, and the
-     * alternative would make the aura's correctness depend on the registration order of two
-     * listeners that have nothing to do with each other.</p>
+     * <p>Capturing rather than reordering the two listeners: a duel's participants cannot change
+     * once it is running, and the alternative makes the aura depend on registration order.</p>
      */
     private record ActiveDuel(UUID first, UUID second, DuelType type, int slot,
                               Map<UUID, SavedState> saved, Map<UUID, String> discordIds,
@@ -188,16 +172,13 @@ public final class Duels {
         }
         final UUID other = waiting.get(type);
         if (other != null && other.equals(player.getUniqueId())) {
-            // Already waiting here. This is called on every block change inside the platform, and
-            // a 3x3 is three or four of them at walking pace - which printed the line three times
-            // in a row on the local stack, all in the same second (finding 118).
+            // Already waiting here: this is called on every block change inside the platform, so
+            // a 3x3 fires three or four times at walking pace.
             return;
         }
         if (other == null) {
             waiting.put(type, player.getUniqueId());
-            // SELECT: they picked a platform. It is not a menu, but it is the same thing a menu
-            // click is - "the server noticed which one you chose" - and giving it its own sound
-            // would be an eleventh category for one call site.
+            // SELECT: the same meaning a menu click has - the server noticed which one you chose.
             tell(player, "smp.duel.waiting", Feedback.SELECT);
             return;
         }
@@ -207,15 +188,9 @@ public final class Duels {
             return;
         }
         waiting.remove(type);
-        // One tick later, and this is the whole reason the duel never worked.
-        //
-        // steppedOn is called from PlayerMoveEvent. Bukkit applies event.getTo() to the player
-        // AFTER the handlers return - so a teleport performed inside the event is silently undone,
-        // and only for the player the event is about. What that produced on the local stack was a
-        // duel where the fighter who was already waiting stood alone in the arena at y=201 while
-        // the one who had just stepped on stayed on the platform at y=68, in ADVENTURE mode,
-        // holding the loadout, in a fight that would still have been scored. Nothing logged
-        // anything: teleport() returned true, so enter()'s own check passed (finding 119).
+        // One tick later, and it has to be. steppedOn runs from PlayerMoveEvent, and Bukkit applies
+        // event.getTo() to the player AFTER the handlers return - so a teleport performed inside the
+        // event is silently undone for that one player, with teleport() still returning true.
         final java.util.UUID firstId = opponent.getUniqueId();
         final java.util.UUID secondId = player.getUniqueId();
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -263,10 +238,7 @@ public final class Duels {
         final Optional<Integer> slot = slots.claim();
         if (slot.isEmpty()) {
             queue.add(new Queued(first.getUniqueId(), second.getUniqueId(), type));
-            // Silent on purpose. Whoever stepped on second heard SELECT in this same tick, and a
-            // second sound one line later is the menu-transition stack in miniature. The queue is
-            // a chat line; the arena opening is where a sound belongs, and that is the TRAVEL in
-            // enter().
+            // Silent on purpose: whoever stepped on second heard SELECT in this same tick.
             tell(first, "smp.duel.queued");
             tell(second, "smp.duel.queued");
             return;
@@ -286,7 +258,7 @@ public final class Duels {
         saved.put(first.getUniqueId(), SavedState.of(first));
         saved.put(second.getUniqueId(), SavedState.of(second));
 
-        // Read now, while both fighters are online - see the field's comment.
+        // Read now, while both fighters are online - see ActiveDuel#discordIds.
         final Map<UUID, String> discordIds = new HashMap<>();
         identities.discordIdOf(first.getUniqueId())
                 .ifPresent(id -> discordIds.put(first.getUniqueId(), id));
@@ -299,9 +271,9 @@ public final class Duels {
         byPlayer.put(second.getUniqueId(), duel);
 
         final int radius = config.duelArenaRadius();
-        // Short-circuit on purpose: if the first fighter did not arrive there is no reason to put
-        // the second one into an arena that is about to be torn down. enter() has already cleared
-        // the saved state of whoever it touched, so the abort below is what puts it back.
+        // Short-circuit on purpose: if the first fighter did not arrive, the second must not be put
+        // into an arena that is about to be torn down. The abort below restores whoever enter()
+        // already touched.
         if (!enter(first, centre.clone().add(-radius + 1.5, 1, 0), type)
                 || !enter(second, centre.clone().add(radius - 1.5, 1, 0), type)) {
             abort(duel);
@@ -314,9 +286,7 @@ public final class Duels {
      * Unwinds a duel that never started: both fighters back as they were, the arena gone, the slot
      * free, and nothing booked.
      *
-     * <p>Same three steps and the same message as {@link #stop()}, because it is the same event from
-     * a fighter's side - a duel that was set up and then did not happen. Nothing was staked, so
-     * nothing is refunded and no sound is played.</p>
+     * <p>Nothing was staked, so nothing is refunded and no sound is played.</p>
      */
     private void abort(final ActiveDuel duel) {
         byPlayer.remove(duel.first());
@@ -359,8 +329,8 @@ public final class Duels {
                 continue;
             }
             final ItemStack stack = new ItemStack(material, Math.max(1, entry.amount()));
-            // Armour goes on rather than into the hotbar, which is what an "identical loadout"
-            // has to mean if neither fighter is to spend the countdown dressing.
+            // Armour goes on rather than into the hotbar, so neither fighter spends the countdown
+            // dressing.
             if (!equipIfArmour(player, material, stack)) {
                 player.getInventory().addItem(stack);
             }
@@ -395,9 +365,7 @@ public final class Duels {
                             "smp.duel.countdown", "seconds", remaining)
                     : MessageRenderer.of(messages).get(locales.of(player.getUniqueId()),
                             "smp.duel.go"));
-            // Four evenly spaced ticks, 3-2-1-Go, rather than three and a silence. The last one
-            // lands on the moment the fight starts; a distinguishable accent there would need a
-            // category of its own, and the enum not growing is the whole design.
+            // Four evenly spaced ticks, 3-2-1-Go: the last lands on the moment the fight starts.
             sounds.play(player, Feedback.COUNTDOWN_TICK);
         });
         if (remaining > 0) {
@@ -442,22 +410,15 @@ public final class Duels {
         settled.add(playerId);
         if (player.isDead()) {
             // Nothing may be written onto a dead player - see the pending map. The message and the
-            // sound still go out now: they are read after the respawn either way, and a duel that
-            // says nothing until somebody clicks a button reads as a duel that broke.
+            // sound still go out now; they are read after the respawn either way.
             pending.put(playerId, state);
-            // And the button is pressed here rather than by the player, which closes the one hole
-            // the pending map has. It is this process's memory and nothing persists it, so a
-            // fighter still sitting on the death screen when the server stops loses their own
-            // inventory for good and keeps the arena's loadout - which is finding 122 exactly,
-            // arriving by a different road (CodeRabbit, PR #8). The wait was open-ended: somebody
-            // who dies and walks away from the keyboard holds it until they come back. Respawning
-            // them here settles it on the next tick instead, and leaves a window one tick wide.
+            // The respawn is triggered here rather than waited for, because the pending map is
+            // this process's memory only: a fighter sitting on the death screen when the server
+            // stops would lose their own inventory and keep the arena's loadout. Doing it now
+            // narrows that window to one tick.
             //
-            // It also finishes what the owner decided on 2026-09-06 - a duel ends at the spawn
-            // with a title and NO death screen. onDamage cancels the lethal blow, so this branch
-            // is only reached by /kill, the void and setHealth(0), the three ways a fighter can
-            // die without being hit; those were the cases still showing the screen the decision
-            // was about.
+            // onDamage cancels the lethal blow, so this branch is only reached by /kill, the void
+            // and setHealth(0) - the three ways a fighter can die without being hit.
             player.spigot().respawn();
         } else {
             state.restore(player, spawn());
@@ -465,11 +426,9 @@ public final class Duels {
         final MessageRenderer renderer = MessageRenderer.of(messages);
         final java.util.Locale locale = locales.of(playerId);
         player.sendMessage(renderer.format(locale, messageKey, "aura", config.duelStake()));
-        // A title as well as the chat line, decided by the owner on 2026-09-06. The chat line
-        // carries the number and can be scrolled back to; the title is what somebody who has just
-        // been hit reads without looking anywhere. Nothing is sent for the interrupted case - a
-        // duel that did not happen has no outcome to announce, which is what a null feedback means
-        // here and everywhere else in this class.
+        // A title as well as the chat line: the line carries the number and can be scrolled back
+        // to, the title is what somebody who has just been hit reads. Nothing is sent for the
+        // interrupted case, which is what a null feedback means throughout this class.
         if (feedback != null) {
             player.showTitle(Title.title(renderer.get(locale, messageKey + ".title"),
                     renderer.format(locale, messageKey + ".subtitle", "aura", config.duelStake()),
@@ -483,14 +442,12 @@ public final class Duels {
     /**
      * Books the stake and records the duel.
      *
-     * <p>The stake is symmetrical: the winner gains it, the loser loses it, and the pair of aura
-     * events is what makes the pair explicable afterwards. A death in the arena costs nothing
-     * <em>beyond</em> this - that exception lives in the grave listener, which is the only other
-     * place that reacts to a death.
+     * <p>The stake is symmetrical: the winner gains it, the loser loses it. A death in the arena
+     * costs nothing beyond this; that exception lives in the grave listener.
      */
     private void book(final UUID winnerId, final UUID loserId, final ActiveDuel duel) {
-        // From the duel, never from Identities: on a disconnect the cache has already been
-        // cleared by the time this runs - see ActiveDuel#discordIds.
+        // From the duel, never from Identities: on a disconnect the cache has already been cleared
+        // by the time this runs.
         final String winner = duel.discordIds().get(winnerId);
         final String loser = duel.discordIds().get(loserId);
         if (winner == null || loser == null) {
@@ -548,9 +505,9 @@ public final class Duels {
     /**
      * Places one block, and only into air.
      *
-     * <p>The arena sits far above anything anybody builds, but "far above" is a configured number
-     * and a season is long. Refusing to overwrite an existing block means the worst case is an arena
-     * with a hole in it rather than a hole in somebody's tower.
+     * <p>"Far above anything anybody builds" is a configured number and a season is long. Refusing
+     * to overwrite means the worst case is an arena with a hole in it, not a hole in somebody's
+     * tower.
      */
     private Location place(final World world, final Location centre, final int dx, final int dy,
                            final int dz) {
@@ -579,8 +536,7 @@ public final class Duels {
         List.copyOf(byPlayer.values()).forEach(duel -> {
             byPlayer.remove(duel.first());
             byPlayer.remove(duel.second());
-            // No sound: a duel called off because the server is stopping cost nobody anything, so
-            // there is nothing to congratulate and nothing to mourn.
+            // No sound: a duel called off because the server is stopping cost nobody anything.
             restore(duel, duel.first(), "smp.duel.interrupted", null);
             restore(duel, duel.second(), "smp.duel.interrupted", null);
             teardown(duel.slot());
@@ -608,8 +564,7 @@ public final class Duels {
     /**
      * The same, plus a sound. Main thread, like every other path in this class.
      *
-     * <p>{@code null} is the ordinary case rather than an oversight: most of what a duel says is a
-     * line in the chat, and only the moments that change what the player can do get a sound.
+     * <p>{@code null} is ordinary: only the moments that change what the player can do get a sound.
      */
     private void tell(final Player player, final String key, final Feedback feedback) {
         player.sendMessage(MessageRenderer.of(messages).get(locales.of(player.getUniqueId()), key));

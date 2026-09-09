@@ -11,11 +11,9 @@ plugins {
 
 rootProject.name = "season-2"
 
-// Optional composite build against a jcore checkout sitting next to this repo, for working on
-// both at once without publishing a tag first. Off by default; turn it on with
-//   ./gradlew <task> -PuseLocalJcore
-// jcore's own coordinate is eu.nordtal:jcore - JitPack rewrites the group to com.github.nordtal -
-// so the substitution has to be spelled out.
+// Optional composite build against a jcore checkout next to this repo, for working on both at once
+// without publishing a tag first. Off by default; turn it on with -PuseLocalJcore. JitPack rewrites
+// jcore's group from eu.nordtal to com.github.nordtal, so the substitution has to be spelled out.
 if (providers.gradleProperty("useLocalJcore").isPresent) {
     val jcore = file("../jcore")
     require(jcore.isDirectory) { "-PuseLocalJcore was set but $jcore does not exist" }
@@ -37,7 +35,7 @@ include("network-control")
 // Standalone JVM applications.
 include("discord-bot")
 
-// The container that owns every version and, from docs/updater.md step 2 on, the schema.
+// The container that owns every version and the database schema.
 include("updater")
 
 // Shared code, shaded into the plugins that use it.

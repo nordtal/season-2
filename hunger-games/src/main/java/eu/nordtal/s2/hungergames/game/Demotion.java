@@ -10,18 +10,12 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Computes the effective, post-demotion participant list at countdown time:
- * "a duo whose partner is not present when the countdown starts - never logged in, so not even a
- * dummy body - becomes a solo team with full hearts, keeping its name and colour"
- * (docs/hunger-games.md#teams-colours-and-hearts). "Present" here means has ever logged in and
- * linked - i.e. has an {@code mc_uuid} - not "is online right now": a disconnected-but-linked
- * player still gets a body on their tower (docs/hunger-games.md#start), and only a partner who
- * never even linked has no body to give.
- * <p>
- * No Bukkit dependency: this only groups {@link RosterEntry} rows, which is exactly what
- * {@code docs/hunger-games.md} means by "the effective (post-demotion) participant count" feeding
- * {@code BorderMath#deathStep} and {@code TeamColours#generatePalette}.
- * </p>
+ * Computes the effective, post-demotion participant list at countdown time: a duo whose partner
+ * never linked an account becomes a solo team with full hearts, keeping its name and colour.
+ *
+ * <p>"Present" means has an {@code mc_uuid}, not "is online right now" - a disconnected but linked
+ * player still gets a body on their tower. The count feeds {@code BorderMath#deathStep} and
+ * {@code TeamColours#generatePalette}.</p>
  */
 public final class Demotion {
 

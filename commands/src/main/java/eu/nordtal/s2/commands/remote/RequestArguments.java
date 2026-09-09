@@ -15,26 +15,14 @@ import java.util.UUID;
 /**
  * The arguments of a travelling command, as the line that would have been typed after its path.
  *
- * <h2>Why a line, and why that is not a shortcut</h2>
- * The obvious column for a map of arguments is JSON, and {@code :common} has no JSON parser on
- * purpose - jackson is what jcore dropped, gson is a platform library that must never be shaded into
- * a Paper plugin, and adding either for a handful of short strings is the trade docs/architecture.md
- * already refused twice for command frameworks.
+ * <p>A line rather than JSON: {@code :common} has no JSON parser on purpose (jackson is gone, gson
+ * must never be shaded into a Paper plugin). The line is unambiguous by construction, because
+ * {@link Declaration} allows at most one {@link Argument.Kind#GREEDY_STRING} and only in last
+ * position, and no other kind can contain a space.</p>
  *
- * <p>A line works because {@link Declaration} makes it unambiguous, and does so by construction
- * rather than by convention: at most one argument is {@link Argument.Kind#GREEDY_STRING}, a
- * declaration with one anywhere but last is refused outright, and none of the other four kinds can
- * contain a space. So the split is decided entirely by the declaration, and
- * {@code RequestArgumentsTest} round-trips every declaration in the repository rather than a handful
- * of examples.</p>
- *
- * <h2>What it refuses, and where that lands</h2>
- * Encoding refuses a value that would not survive the trip - a word with a space in it, which is
- * only reachable if an adapter parsed something as the wrong kind. Decoding refuses a line that does
- * not match the declaration: a missing required argument, an integer out of its bounds, a choice
- * that is not one of them, a UUID that is not one, or tokens left over at the end. Every one of
- * those is a disagreement between two adapters and not a user error, so it throws rather than
- * quietly running the command with something plausible.
+ * <p>Both directions throw rather than run the command with something plausible: a value that would
+ * not survive the trip, or a line that does not match the declaration, means two adapters disagree
+ * - not that a user typed something wrong.</p>
  */
 public final class RequestArguments {
 
@@ -59,12 +47,9 @@ public final class RequestArguments {
                     throw new IllegalArgumentException(declaration.name()
                             + " is missing required argument '" + argument.name() + "'");
                 }
-                // Optionals are trailing - Declaration refuses a required argument after an
-                // optional one - so the first absent value ends the line. Two of them, where the
-                // first is absent and the second is not, is expressible today and cannot be written
-                // back in a readable order; it used to end the line and drop the second value
-                // without a word, which is the one kind of failure this whole class exists to make
-                // impossible.
+                // Optionals are trailing, so the first absent value ends the line. A later value
+                // supplied after an absent optional cannot be written back and must not be dropped
+                // silently.
                 for (final Argument later : declaration.arguments()
                         .subList(declaration.arguments().indexOf(argument) + 1,
                                 declaration.arguments().size())) {
@@ -89,10 +74,8 @@ public final class RequestArguments {
                         + argument.name() + "' is empty, which is indistinguishable from absent"
                         + " once it is a line");
             }
-            // decode() walks past the spaces between arguments before it reads the greedy one, so a
-            // greedy value that begins or ends with one does not come back the way it went in - the
-            // far side would run the command with a different value and nothing anywhere would say
-            // so. Refused for the same reason a word carrying a space is refused.
+            // decode() skips the spaces between arguments before reading the greedy one, so a
+            // leading or trailing space would not survive the round trip.
             if (argument.kind() == Argument.Kind.GREEDY_STRING && !text.equals(text.strip())) {
                 throw new IllegalArgumentException(declaration.name() + ": argument '"
                         + argument.name() + "' begins or ends with whitespace (\"" + text
@@ -158,11 +141,8 @@ public final class RequestArguments {
         return switch (argument.kind()) {
             case WORD, GREEDY_STRING -> token;
             case ACCOUNT -> {
-                // A Discord snowflake: digits, and nothing else. Checked because the far side hands
-                // it straight to a query and to a mention - a malformed one would look like a
-                // member who simply does not exist.
-                // '0' through '9' and nothing else. Character.isDigit is true for Devanagari and
-                // Arabic-Indic digits too, and a snowflake is ASCII.
+                // A Discord snowflake is ASCII '0'..'9'; Character.isDigit would also accept
+                // Devanagari and Arabic-Indic digits.
                 if (!token.chars().allMatch(digit -> digit >= '0' && digit <= '9')) {
                     throw new IllegalArgumentException(declaration.name() + ": argument '"
                             + argument.name() + "' is a Discord account and was sent \"" + token
@@ -172,9 +152,8 @@ public final class RequestArguments {
                 yield token;
             }
             case CHOICE -> {
-                // Case-insensitively, and what comes out is the DECLARED spelling: the asking
-                // adapter may have taken `maintenance` from a chat line, and the far side compares
-                // it against its own constants.
+                // Case-insensitive in, declared spelling out: the far side compares against its own
+                // constants.
                 yield argument.match(token).orElseThrow(() -> new IllegalArgumentException(
                         declaration.name() + ": '" + token + "' is not one of "
                                 + argument.choices() + " for argument '" + argument.name() + "'"));

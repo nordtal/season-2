@@ -10,36 +10,19 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A thread parked on a dedicated {@code LISTEN} connection, re-reading whatever it is told to
- * whenever something arrives - and, more importantly, <b>whenever it has just (re)connected</b>.
+ * whenever something arrives - and whenever it has just (re)connected.
  *
- * <h2>The one rule that matters</h2>
- * docs/season-phases.md: "<b>Notifications are lost while a process is disconnected.</b> Every
- * reconnect must re-read the row unconditionally - the notification is an optimisation, never the
- * state." That is why every {@link Refresh} runs immediately after a successful connect, before a
- * single notification has been waited for.
+ * <p><b>Notifications are lost while a process is disconnected</b>, so every {@link Refresh} runs
+ * immediately after a successful connect, before a single notification has been waited for. A
+ * notification is an optimisation, never the state.
  *
- * <h2>This is not the guarantee</h2>
- * The caller's poll is. Everything here only makes a change feel instant. If it turns out to be more
- * trouble than it is worth, the fallback is to stop starting it and keep the poll; nothing else has
- * to change, which is exactly why nothing else depends on it. Every process that starts one also
- * schedules the same refreshes on a timer, and every process can turn this half off in its config.
+ * <p><b>The caller's poll is the guarantee</b>; this only makes a change feel instant. Every process
+ * that starts a listener also schedules the same refreshes on a timer and can turn this half off.
  *
- * <h2>Every refresh is guarded, and the channel is never inspected</h2>
- * A refresh that throws logs and is retried on the next signal rather than taking the thread down
- * with it: several refreshes ride one connection, and one of them failing must not cost the others
- * their propagation. It also cannot lose anything, because the poll asks again regardless.
- *
- * <p>Which channel woke the loop is not looked at either. Every refresh runs on every signal. That
- * is one extra small query at moments that are rare by construction, and the alternative is trusting
- * a notification to say what changed - which is the one thing this design never does.</p>
- *
- * <h2>What a test can and cannot say about this class</h2>
- * The loop's shape - reconnect after a failure, re-read on every connect, keep going - is exercised
- * against a fake {@link Notifications}. That proves the control flow and <b>nothing about a real
- * dropped socket</b>: a fake that throws when asked to is not a network partition, a failed-over
- * database or a process that has been suspended for a minute. Closing the
- * docs/state-of-play.md#the-unverified-assumptions row needs a restart drill against a real
- * PostgreSQL with the connection killed underneath the process.
+ * <p>A refresh that throws is logged and retried on the next signal rather than taking the thread
+ * down: several refreshes ride one connection. Which channel woke the loop is never inspected -
+ * every refresh runs on every signal, because trusting a notification to say what changed is the one
+ * thing this design does not do.
  */
 public final class NotificationListener implements AutoCloseable {
 
@@ -58,14 +41,8 @@ public final class NotificationListener implements AutoCloseable {
     }
 
     /**
-     * How long to wait before opening a new connection after one failed.
-     * <p>
-     * Deliberately not configuration. It is bounded above by something that already is: the caller's
-     * poll runs regardless, so a listener that is slow to come back costs nothing but the "instant"
-     * feeling, and a listener that reconnects in a tight loop against a database that is down costs
-     * log noise and connection attempts. No document settles this number, and no document needs to,
-     * because no behaviour depends on it.
-     * </p>
+     * How long to wait before opening a new connection after one failed. Deliberately not
+     * configuration: the poll runs regardless, so no behaviour depends on this number.
      */
     private static final Duration RECONNECT_BACKOFF = Duration.ofSeconds(5);
 
@@ -133,9 +110,9 @@ public final class NotificationListener implements AutoCloseable {
                 current.set(notifications);
                 logger.info("{} is listening", threadName);
 
-                // THE rule: re-read unconditionally, before waiting for anything. A change that
-                // happened while this process was disconnected produced a notification nobody
-                // received, and no later notification will repeat it.
+                // Re-read unconditionally, before waiting for anything: a change made while this
+                // process was disconnected produced a notification nobody received, and no later
+                // notification repeats it.
                 refreshAll();
 
                 while (running) {

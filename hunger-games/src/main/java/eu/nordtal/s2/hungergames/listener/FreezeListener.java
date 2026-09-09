@@ -7,16 +7,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 
 /**
- * Holds players in place during the countdown - docs/hunger-games.md#start: "they are held in
- * place for the countdown - nobody creeps toward the chests early."
- * <p>
- * Implemented as plain {@link PlayerMoveEvent} cancellation on any actual position change, rather
- * than {@code Player#setInvulnerable} (which stops damage, not movement) or a spectator-mode trick
- * (which would also hide the player from others, which docs/hunger-games.md#start does not ask
- * for - everyone should be visible, standing on their tower, during the countdown). Cancelling the
- * move event leaves look direction free (head turns do not fire a cancollable position change) so
- * players can still look around while frozen.
- * </p>
+ * Holds players in place during the countdown, so nobody creeps toward the chests early.
+ *
+ * <p>Position changes are cancelled rather than using spectator mode, which would also hide players
+ * from each other - everyone should be visible on their tower. Look direction stays free, because a
+ * head turn fires no cancellable position change.</p>
  */
 public final class FreezeListener implements Listener {
 

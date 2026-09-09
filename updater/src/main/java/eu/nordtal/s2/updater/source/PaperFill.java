@@ -16,32 +16,20 @@ import java.util.regex.Pattern;
 /**
  * The PaperMC Fill v3 API: the newest {@code STABLE} build of a Paper or Velocity version.
  *
- * <h2>Builds move; the Minecraft version does not, and Velocity's minor does</h2>
- * For Paper this class follows <em>builds</em> within a version that stays where it is. A new
- * Minecraft version is a season decision - every plugin in the org is compiled against exactly one
- * - so {@link eu.nordtal.s2.common.Platform#MINECRAFT} is read as an exact version and never moved
- * from here.
+ * <p>For Paper this follows <em>builds</em> within a version that never moves from here, because a
+ * new Minecraft version is a season decision. For Velocity it also follows the <em>version</em>
+ * inside one of Fill's families ({@link #newestStableVersion}), since Velocity's minors do not move
+ * the Minecraft protocol - only the API {@code network-control} was compiled against, which the
+ * resolver reports.</p>
  *
- * <p>For Velocity it also follows the <em>version</em>, inside one major. Fill groups versions into
- * families ({@code GET /v3/projects/velocity} answers {@code "4.0.0": ["4.1.2-SNAPSHOT", "4.1.1",
- * …]}), which is what {@link #newestStableVersion} reads; Velocity's minors do not move the
- * Minecraft protocol, so what the season decision protects is not at stake there. What <em>is</em>
- * at stake is the API {@code network-control} was compiled against, and the resolver says so in its
- * report when the two part company.</p>
+ * <p>Following builds automatically has the widest blast radius of anything here: one build changes
+ * the platform under all four servers at once and nothing in this repository tests against it. The
+ * report puts the build number in front of a person before anything restarts.</p>
  *
- * <p>Following builds automatically is nonetheless the entry in
- * docs/updater.md#where-versions-come-from with the widest blast radius: one build changes the
- * platform under all four servers at once, and nothing in this repository tests against it. It is
- * therefore also the first thing to look at when something breaks after an update, and the report
- * puts the build number in front of a person before anything restarts.</p>
- *
- * <h2>The filename comes from the API</h2>
- * {@code downloads."server:default".name} is {@code paper-26.2-121.jar}, and both programs that
- * touch that file read the name rather than building it. {@code deploy/minecraft/entrypoint.sh}
- * reads it from this same endpoint when it fills an empty cache, and globs for
- * {@code <kind>-*.jar} on every start after that, running the highest version-then-build it finds.
- * Two programs constructing the name separately is how a server comes to run one jar while
- * something else believes it installed another.
+ * <p>The filename comes from {@code downloads."server:default".name} and is never built by hand:
+ * {@code deploy/minecraft/entrypoint.sh} reads the same field, and two programs constructing the
+ * name separately is how a server comes to run one jar while something believes it installed
+ * another.</p>
  */
 public final class PaperFill {
 
@@ -51,14 +39,8 @@ public final class PaperFill {
     private static final String STABLE = "STABLE";
 
     /**
-     * A version this module is willing to install: digits and dots, nothing else.
-     * <p>
-     * That is exactly the filter the family resolution needs and it is worth being blunt about
-     * what it excludes - {@code 4.1.2-SNAPSHOT}, {@code 26.2-rc-2}, {@code 1.21.11-pre5}. An
-     * updater that pulls somebody's snapshot onto a server people paid to play on is what this
-     * module is arranged to prevent; {@code Modrinth}'s {@code version_type: release} filter is the
-     * same rule from the other end.
-     * </p>
+     * A version this module is willing to install: digits and dots, nothing else - so no
+     * {@code 4.1.2-SNAPSHOT}, {@code 26.2-rc-2} or {@code 1.21.11-pre5} ever reaches a server.
      */
     private static final Pattern RELEASE_VERSION = Pattern.compile("[0-9]+(\\.[0-9]+)*");
 
@@ -83,9 +65,8 @@ public final class PaperFill {
         final String what = "PaperMC Fill " + project + " " + version;
         final JsonArray builds = Json.array(http.get(uri), what);
 
-        // Newest first in every response seen so far, but the channel filter is what decides, not
-        // the position: the newest build of a version can be EXPERIMENTAL, and taking builds[0]
-        // blindly is how a proxy ends up on one.
+        // The channel filter decides, not the position: the newest build of a version can be
+        // EXPERIMENTAL, and taking builds[0] blindly is how a proxy ends up on one.
         for (final JsonElement element : builds) {
             final JsonObject build = element.getAsJsonObject();
             if (!STABLE.equals(Json.optionalString(build, "channel"))) {
@@ -95,9 +76,8 @@ public final class PaperFill {
             final JsonObject downloads = Json.child(build, "downloads");
             final JsonObject download = downloads == null ? null : Json.child(downloads, SERVER_DEFAULT);
             if (download == null) {
-                // A STABLE build that publishes no server jar is not a thing that has been seen.
-                // If it happens, skipping to the next stable build is right - there is a working
-                // one behind it - and it is worth neither an exception nor silence.
+                // A STABLE build with no server jar has not been seen; if it happens, the next
+                // stable build behind it is the right answer.
                 continue;
             }
 
@@ -121,15 +101,13 @@ public final class PaperFill {
     /**
      * The newest release version inside one of Fill's version families.
      *
-     * <p>Fill's own grouping, read off {@code GET /v3/projects/<project>}: its {@code versions}
-     * object maps a family name onto the versions in it, newest first in every response seen so
-     * far. The family name is not a version anybody runs - Velocity's whole 4.x line is called
-     * {@code 4.0.0} - so it is looked up rather than installed.</p>
+     * <p>Fill's own grouping, read off {@code GET /v3/projects/<project>}. A family name is not a
+     * version anybody runs - Velocity's whole 4.x line is called {@code 4.0.0} - so it is looked up
+     * rather than installed.</p>
      *
-     * <p><b>Compared as numbers, never as text.</b> {@code 4.10.0} is newer than {@code 4.9.0} and
-     * sorts below it lexicographically; the position in the response is not trusted either, because
-     * "newest first" is an observation about today's payload and this is the one place where being
-     * wrong means quietly installing an older proxy for as long as the minor stays two digits.</p>
+     * <p><b>Compared as numbers, never as text</b>, and never by position in the response:
+     * {@code 4.10.0} is newer than {@code 4.9.0} and sorts below it lexicographically, and being
+     * wrong here quietly installs an older proxy.</p>
      *
      * @throws IOException when the family is unknown or carries no release version at all - never a
      *                     fallback onto another family, which would move the network to a different

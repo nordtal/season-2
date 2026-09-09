@@ -14,32 +14,22 @@ import java.util.List;
 /**
  * Draws a grave: a slab of recesses holding what somebody left, and a footer that empties it.
  *
- * <h2>What the picture is</h2>
- * Design {@code G1} (owner, 2026-09-08). The content is a stone slab with <b>a recess per slot</b>,
- * as many rows as the grave has stacks; the row under it carries the dead player's own head, the
- * experience waiting to be claimed, and a "take everything" button.
+ * <p>A stone slab with <b>a recess per slot</b>, as many rows as the grave has stacks; the row
+ * under it carries the dead player's own head, the experience waiting to be claimed, and a "take
+ * everything" button.
  *
- * <h2>Why a recess per slot here and one surface on the hand-in</h2>
- * <b>This difference is deliberate and it is not a tidying opportunity.</b> A grave is an inventory
- * you <em>take out of</em>, and the separate cells are the information: they say these are distinct
- * stacks and any one of them may be taken - which is exactly what {@code docs/smp.md} promises when
- * it says somebody can come back for the rest. The hand-in tray is a thing you <em>throw into</em>,
- * where the cell you drop in means nothing and drawing nine of them would suggest it did. Making the
- * two the same would lose one of the two meanings whichever way it went (owner, 2026-09-08).
+ * <p>The recess per slot is deliberate and differs from the hand-in tray: a grave is an inventory
+ * you <em>take out of</em>, and the separate cells say these are distinct stacks any one of which
+ * may be taken. The hand-in tray is a thing you throw into, where the cell means nothing.
  *
- * <h2>What the footer costs, and why it is worth it</h2>
- * A grave window is one row taller than the items in it need. That row is what makes the experience
- * visible - it was credited silently on the last item leaving, so a player who took one stack and
- * walked away never learned there was anything else to come - and it is what "take everything" needs
- * a slot for. The price is that a grave of exactly 45 stacks would not fit; a player carries at most
- * forty-one, so it cannot happen, and {@link #MAX_CONTENT_ROWS} is the assertion of that.
+ * <p>The footer row is what makes the experience visible - it is otherwise credited silently on the
+ * last item leaving - and what "take everything" needs a slot for. It costs one row, so a grave of
+ * exactly 45 stacks would not fit; a player carries at most forty-one, which
+ * {@link #MAX_CONTENT_ROWS} asserts.
  *
- * <h2>Every footer slot holds something, and that is load-bearing</h2>
- * A shift-click from the player's own inventory goes into the first free slot of the window. If the
- * four cells under the experience line were empty, an item shift-clicked into a grave would land
- * <em>on the footer</em> - where it is outside the content slots {@code Graves} writes back, and is
- * therefore lost on close without anything failing. So those four carry a {@code BlankItem}, and the
- * hover they give the experience line is the smaller half of why.
+ * <p><b>Every footer slot must hold something.</b> A shift-click from the player's own inventory
+ * goes into the first free slot of the window, so an empty footer cell would swallow the item
+ * outside the content slots {@code Graves} writes back - lost on close, with nothing failing.
  */
 public final class GravePanel {
 

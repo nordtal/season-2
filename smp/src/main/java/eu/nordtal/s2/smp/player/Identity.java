@@ -7,11 +7,10 @@ import java.util.Locale;
  *
  * <p>Six sources, four tables: the language and the two flags come from {@code discord_user}, the
  * aura from {@code smp_player}, the play time from {@code player_playtime} (which the proxy owns),
- * and the name from the server. docs/smp.md#what-a-player-looks-like is the composition itself.
+ * and the name from the server.
  *
- * <p>Held rather than queried because it is rendered on every tab-list refresh, every chat line and
- * every nametag update. A round trip per render would be the main-thread mistake this repository
- * already made twice.
+ * <p>Held rather than queried: it is rendered on every tab-list refresh, chat line and nametag
+ * update, so a round trip per render would be a main-thread query.
  *
  * @param locale        the wearer's language - shown as their flag, not the reader's
  * @param admin         the Discord admin role, mirrored into the database by the bot
@@ -33,11 +32,9 @@ public record Identity(Locale locale, boolean admin, boolean donor, int aura, lo
     /**
      * The admin flag as the roster watcher just read it.
      *
-     * <p>Needed because the flag is the one field here that can be taken away mid-session: an admin
-     * role revoked in Discord reaches this server within a poll interval (see {@code AdminWatch}),
-     * and the composition drawn from this record includes the admin tag. Without this the tag would
-     * go on claiming somebody is an admin after they had stopped being one - and it is drawn on a
-     * nametag every other player can see.</p>
+     * <p>The one field here that can be taken away mid-session: an admin role revoked in Discord
+     * reaches this server within a poll interval (see {@code AdminWatch}), and the admin tag is
+     * drawn on a nametag every other player can see.</p>
      */
     public Identity withAdmin(final boolean nowAdmin) {
         return new Identity(locale, nowAdmin, donor, aura, playtimeSeconds);

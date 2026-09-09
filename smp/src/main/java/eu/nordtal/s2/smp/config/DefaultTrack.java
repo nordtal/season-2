@@ -7,35 +7,22 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The track a fresh {@code milestones.yml} is written with: docs/smp.md#the-track and
- * docs/smp.md#the-objectives, entry for entry.
+ * The track a fresh {@code milestones.yml} is written with.
  *
- * <h2>Why this class exists</h2>
- * The same reason {@code discord-bot}'s {@code DefaultTiers} does. A default method on a spec
- * interface can only return values, and a nested spec is served by a reflective proxy - there is no
- * {@code new MilestoneEntry(...)} to write. {@code Specs.createUnsafe} is jcore's documented way to
- * build one from a map of its keys, and jcore's writer knows how to serialise a list of them.
- * <p>
+ * <p>A nested spec is served by a reflective proxy, so there is no {@code new MilestoneEntry(...)}
+ * to write; {@code Specs.createUnsafe} builds one from a map of its keys.
  * <b>{@code createUnsafe} does not apply defaults</b>, so <em>every</em> key of the spec has to be
- * listed in the map. A new setting on {@link MilestonesSpec.ObjectiveEntry} that is not added to
+ * listed in the map - a new setting on {@link MilestonesSpec.ObjectiveEntry} that is not added to
  * {@link #objective} comes out null.
- * </p>
- * <p>
- * Two levels of nesting - a list of milestones each holding a list of objectives - is one level
- * more than anything in this repository had used before, and it is <b>verified rather than
- * assumed</b>: {@code MilestonesTest} writes a fresh file, reads it back, and asserts the whole
- * track survives the round trip.
- * </p>
  *
- * <h2>Reading the numbers below</h2>
- * The <em>shape</em> is the decision: how many objectives a milestone has, which type each is,
- * which role it serves and which share of the budget it carries. The <em>items and advancements</em>
- * are one worked example each and are expected to be corrected. The pots are arithmetic:
- * {@code round((budget ÷ objectives) × 5, to 10)} against a budget in community play hours.
+ * <p>The <em>shape</em> is the decision: how many objectives a milestone has, which type each is,
+ * which role it serves and which share of the budget it carries. The items and advancements are
+ * worked examples and are expected to be corrected. The pots are arithmetic:
+ * {@code round((budget ÷ objectives) × 5, to 10)}.
  */
 final class DefaultTrack {
 
-    /** The eight milestones of docs/smp.md#the-track, in order. */
+    /** The eight milestones, in track order. */
     static final List<MilestonesSpec.MilestoneEntry> LIST = List.of(
 
             // M0. Where the phase switch leaves the world. Border 20 is a physical gate rather than

@@ -23,8 +23,7 @@ import java.util.UUID;
 
 /**
  * The post-game ceremony: everyone back to the lobby, an evaluation of the result, the game marked
- * {@code DECIDED} - docs/hunger-games.md#after-the-game. This plugin does not switch the season
- * phase; that stays an explicit admin action elsewhere, per that same section.
+ * {@code DECIDED}. Switching the season phase stays an explicit admin action elsewhere.
  */
 public final class Ceremony {
 
@@ -42,15 +41,8 @@ public final class Ceremony {
     }
 
     /**
-     * Everything the ceremony needs, all of it read <b>off the main thread</b> before it starts.
-     *
-     * <p>This record exists to make that guarantee structural rather than remembered. Until
-     * 2026-09-04 the ceremony held the DAO and used it three ways on the server thread: one write to
-     * decide the game, one read of the roster, and - the expensive one - a kill count per member
-     * <em>inside a loop over every player</em>. The tally does not depend on who is being told, so
-     * forty participants in front of forty players meant 1 600 identical blocking queries at the one
-     * moment of the event when everybody is watching. `Ceremony` now has no DAO at all, which is the
-     * only version of this rule that cannot quietly come undone.
+     * Everything the ceremony needs, all of it read off the main thread before it starts. The
+     * record exists so that guarantee is structural: {@code Ceremony} holds no DAO at all.
      *
      * @param outcome      what {@code WinTracker} decided
      * @param winnerMcUuid the winner's Minecraft account, or {@code null} when nobody won or the
@@ -68,8 +60,8 @@ public final class Ceremony {
      * Teleports everyone in the world back to the lobby and prints the evaluation to every player in
      * their own language.
      *
-     * <p><b>Runs on the main thread and touches no database.</b> The game was already written as
-     * decided by the caller, off the thread, along with everything in {@link Decision}.
+     * <p>Runs on the main thread and touches no database: the caller already wrote the game as
+     * decided, off the thread, along with everything in {@link Decision}.</p>
      *
      * @param world    the event world everyone is currently standing in
      * @param lobby    the lobby teleport point
@@ -78,9 +70,8 @@ public final class Ceremony {
      */
     public void run(final World world, final Location lobby, final UUID gameId,
                     final Decision decision) {
-        // DELIBERATELY SILENT, although this is a teleport and TRAVEL exists for teleports. The
-        // result lands in the same breath and is what everybody is waiting to hear; a chime for
-        // being moved back to the lobby would arrive on top of it and say nothing.
+        // Deliberately silent although TRAVEL exists: the result lands in the same breath, and a
+        // chime for the teleport would arrive on top of it.
         for (final Player player : world.getPlayers()) {
             player.teleportAsync(lobby);
         }
@@ -94,14 +85,8 @@ public final class Ceremony {
 
     /**
      * One line for everybody and two sounds: {@code BIG_SUCCESS} for the winner, {@code
-     * NETWORK_EVENT} for everybody else.
-     *
-     * <p>The same shape {@code smp}'s milestone announcement uses, and the same argument: a
-     * congratulation everybody hears congratulates nobody. The four wordings stay four -
-     * {@code WinOutcomeTest} is what keeps them that way - but they collapse into two sounds on
-     * purpose, because "did I win" is the only question a chime can answer. A game with no winner
-     * is a network event for everyone in the world, including the two who died together; they each
-     * already heard {@code LOSS} at the moment it happened.
+     * NETWORK_EVENT} for everybody else - a congratulation everybody hears congratulates nobody.
+     * The four wordings stay four; only the sounds collapse into two.
      */
     private void announce(final Player player, final Decision decision) {
         final WinTracker.Outcome outcome = decision.outcome();
@@ -109,18 +94,15 @@ public final class Ceremony {
         final Locale locale = locales.of(player.getUniqueId());
         player.sendMessage(MessageRenderer.of(messages).get(locale, "hg.ceremony.header"));
 
-        // Four endings, four sentences - docs/hunger-games.md#winning. A tiebreak win printed as a
-        // plain win is the one case where the players who watched it happen would be told something
-        // they can see is not what occurred.
+        // Four endings, four sentences: a tiebreak win printed as a plain win would tell the
+        // players who watched it something they can see is not what occurred.
         if (outcome.winnerMemberId() != null && outcome.tie()) {
             player.sendMessage(MessageRenderer.of(messages).format(locale, "hg.win.tie-broken",
                     "winner", winnerLabel(outcome.winnerMemberId(), allMembers),
                     "winnerKills", outcome.winnerKills(), "loserKills", outcome.loserKills()));
         } else if (outcome.winnerMemberId() != null) {
-            // The one line of the four that carries an icon, and it is the announcement icon the
-            // SMP uses for a milestone: the winner is the event's own headline, and it should read
-            // like one next to the kill feed that has been scrolling past for the last hour. The
-            // glyph is a parameter because Glyphs is the only place that names a code point.
+            // The one line of the four that carries an icon. The glyph is a parameter because
+            // Glyphs is the only place that names a code point.
             player.sendMessage(MessageRenderer.of(messages).format(locale, "hg.win.player",
                     "icon", Glyphs.ICON_ANNOUNCE,
                     "winner", winnerLabel(outcome.winnerMemberId(), allMembers)));

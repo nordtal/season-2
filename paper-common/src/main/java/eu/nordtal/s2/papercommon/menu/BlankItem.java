@@ -15,20 +15,17 @@ import java.util.List;
  * An item that draws nothing and carries a tooltip - what sits under a card painted into a menu's
  * title.
  *
- * <p>A menu whose surface is a glyph in the inventory title ({@code docs/presentation.md}
- * section 2) still needs an item in every slot a player can hover or click: the tooltip is the
- * item's name and lore, and a click on an empty slot is a click on nothing. A vanilla item would
- * draw its icon over the art, so this one selects the pack's {@code nordtal:blank} model - an
- * {@code item_model} component pointing at a model of type {@code minecraft:empty}, which renders
- * no pixels at all. The material underneath is paper and does not matter; nothing here is ever
- * picked up, because the menus that use it cancel every click.</p>
+ * <p>A menu whose surface is a glyph in the inventory title still needs an item in every slot a
+ * player can hover or click, and a vanilla item would draw its icon over the art. This one selects
+ * the pack's {@code nordtal:blank} model, which renders no pixels at all; the material underneath
+ * does not matter, because the menus that use it cancel every click.
  *
- * <p>The name and every lore line are set non-italic explicitly: a custom name renders in italics
- * unless told otherwise, and on a card that is not a label but a caption.</p>
+ * <p>The name and every lore line are set non-italic explicitly, since a custom name renders in
+ * italics unless told otherwise.
  */
 public final class BlankItem {
 
-    /** The pack's empty item model - {@code resource-pack/src/assets/nordtal/items/blank.json}. */
+    /** The pack's empty item model. */
     public static final Key MODEL = Key.key("nordtal", "blank");
 
     private BlankItem() {

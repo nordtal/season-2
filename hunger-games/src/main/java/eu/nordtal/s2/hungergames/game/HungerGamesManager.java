@@ -33,8 +33,8 @@ import java.util.UUID;
 
 /**
  * The start sequence, in one place: teleport to towers, freeze, countdown, release with PvP
- * protection - docs/hunger-games.md#start. Also owns the effective-participant/colour/demotion
- * work that must happen exactly once, at countdown time, before the border step is computed.
+ * protection. Also owns the effective-participant, colour and demotion work that must happen
+ * exactly once, at countdown time, before the border step is computed.
  */
 public final class HungerGamesManager {
 
@@ -80,11 +80,9 @@ public final class HungerGamesManager {
      * Runs the whole start sequence: resolve the roster, demote incomplete duos, generate and
      * write colours, teleport everyone (or their body) onto a spawn tower, freeze, count down,
      * release with PvP protection.
-     * <p>
-     * Callers must already be off the main thread for the database reads/writes this does before
-     * the world is touched; the actual teleports and the release callback are scheduled back onto
-     * the main thread internally.
-     * </p>
+     *
+     * <p>Callers must already be off the main thread: the teleports and the release callback are
+     * scheduled back onto the main thread internally.</p>
      *
      * @param gameId     the game being started
      * @param world      the event world
@@ -103,8 +101,8 @@ public final class HungerGamesManager {
             return;
         }
 
-        // Colours are written before the world is touched: a restart between this point and
-        // release must still repaint identically (docs/hunger-games.md#teams-colours-and-hearts).
+        // Colours are written before the world is touched, so a restart between this point and
+        // release still repaints identically.
         assignColours(participants);
 
         final double step = BorderMath.deathStep(
@@ -137,14 +135,9 @@ public final class HungerGamesManager {
     }
 
     /**
-     * Tells every solo-by-demotion participant why they are standing on their tower alone. The
-     * flag has been computed by {@link Demotion} and carried on {@link Participant} since the
-     * module was built, and nothing ever read it - so a player whose partner never linked found
-     * out by looking around.
-     *
-     * <p>Sent once, at the start of the countdown, rather than at release: it is the answer to a
-     * question the player asks the moment they arrive, and by release they have stopped asking.
-     * Only online participants are told; a body waiting for its owner has nobody to tell.</p>
+     * Tells every solo-by-demotion participant why they are standing on their tower alone. Sent at
+     * the start of the countdown, when they are asking, rather than at release. Only online
+     * participants are told; a body waiting for its owner has nobody to tell.
      */
     private void announceDemotions(final List<Participant> participants) {
         for (final Participant participant : participants) {
@@ -153,11 +146,8 @@ public final class HungerGamesManager {
             }
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
-                // DELIBERATELY SILENT. This lands in the same tick as the tower teleport, which has
-                // already played TRAVEL - the same reason docs/presentation.md gives for a queued
-                // duel not chiming ("whoever stepped on second already heard SELECT in the same
-                // tick"). Two sounds a tick apart are one noise, and the one that says "you have
-                // been moved" is the one worth keeping.
+                // Deliberately silent: the tower teleport in the same tick already played TRAVEL,
+                // and two sounds a tick apart are one noise.
                 online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
                         "hg.team.demoted", "team", participant.teamName()));
             }
@@ -185,9 +175,8 @@ public final class HungerGamesManager {
                         online.sendMessage(MessageRenderer.of(messages).format(
                                 locales.of(participant.mcUuid()), "hg.start.countdown",
                                 "seconds", remaining));
-                        // The marks are not evenly spaced, so this is not a metronome - it is the
-                        // one thing that tells a frozen player on a black pillar that the server is
-                        // still running. Chat can be scrolled past; a chime cannot.
+                        // Not a metronome - the marks are uneven. It is what tells a frozen player
+                        // the server is still running, which chat scrolled past does not.
                         sounds.play(online, Feedback.COUNTDOWN_TICK);
                     }
                 }
@@ -196,18 +185,15 @@ public final class HungerGamesManager {
     }
 
     /**
-     * Generates one palette entry per distinct team (not per player) and writes it, so a duo
-     * shares its colour and a solo team gets one of its own - the palette size is
-     * {@link Demotion#effectiveTeamCount(List)}, computed after demotion, exactly as
-     * docs/hunger-games.md#the-border requires for the step arithmetic too.
+     * Generates one palette entry per distinct team, not per player, so a duo shares its colour.
+     * The palette size is {@link Demotion#effectiveTeamCount(List)}, computed after demotion.
      */
     private void assignColours(final List<Participant> participants) {
         final int teamCount = Demotion.effectiveTeamCount(participants);
         final List<Integer> palette = TeamColours.generatePalette(teamCount);
 
-        // Deterministic walk: one palette entry per distinct team, in the order teams are first
-        // seen in the (stable-ordered) participant list, so re-running this against the same
-        // roster always produces the same assignment.
+        // Deterministic walk over the stable-ordered participant list, so re-running this against
+        // the same roster always produces the same assignment.
         final Map<UUID, Integer> assigned = new LinkedHashMap<>();
         int paletteIndex = 0;
         for (final Participant participant : participants) {
@@ -227,14 +213,10 @@ public final class HungerGamesManager {
     private void placeOnTower(final Participant participant, final Location tower) {
         final Player online = plugin.getServer().getPlayer(participant.mcUuid());
         if (online != null) {
-            // The ordering below is NOT changed on the teleport's answer, deliberately. A false
-            // here would be a participant made invulnerable in the lobby while the game runs
-            // without them - but it needs a plugin cancelling PlayerTeleportEvent, and nothing on
-            // this network does. Moving setInvulnerable into the future's callback would push it a
-            // tick later and reorder the one sequence in this module that cannot be rehearsed
-            // without twenty people; the risk of that is larger than the risk it removes. So: the
-            // result is watched and said out loud, and the release at the end of the head start
-            // runs either way. Reviewed and decided 2026-09-04.
+            // setInvulnerable deliberately does NOT wait on the teleport's answer: moving it into
+            // the callback would push it a tick later and reorder the one sequence here that
+            // cannot be rehearsed without twenty people. A failed teleport is logged instead, and
+            // the release runs either way.
             online.teleportAsync(tower).thenAccept(moved -> {
                 if (!moved) {
                     plugin.getLogger().severe(online.getName() + " could not be placed on their "
@@ -243,45 +225,19 @@ public final class HungerGamesManager {
                 }
             });
             online.setInvulnerable(true);
-            // AND ALLOWED TO FLY, WHICH IS NOT A GAMEPLAY DECISION - it is the only way to stop
-            // vanilla from kicking every participant off the server, in a loop, in the first ten
-            // seconds of the season's flagship event.
-            //
-            // FreezeListener cancels every position change for the whole countdown, which means a
-            // participant standing above air does not fall: they hover. Vanilla's own check
-            // ("<name> was kicked for floating too long" / "Flying is not enabled on this server")
-            // fires after about five seconds of exactly that, and the kick is not the end of it -
-            // the proxy puts them back, the start places them on the same tower, and they are
-            // kicked again. Measured on the local stack 2026-09-07 (finding 138): both
-            // participants cycled through kick and rejoin every five seconds with no message
-            // anywhere naming a cause other than vanilla's, and the only way out was ending the
-            // phase from outside.
-            //
-            // Locally that happens because this repository has no arena world, so there is nothing
-            // under the tower coordinates at all. On the real arena the towers are built - but the
-            // freeze is what turns "the block under a tower is missing, or one lower than
-            // configured, or somebody mined it" into a loop that takes out every participant at
-            // once, at the one moment nothing can be retried. mayfly is what the vanilla check
-            // reads, so setting it removes the whole failure mode rather than the local instance
-            // of it; movement stays impossible because FreezeListener cancels it, so this grants
-            // no actual flight. release() takes it away again.
+            // Flight is granted for the freeze only, and not as a gameplay decision: FreezeListener
+            // cancels every position change, so a participant above air hovers, and vanilla's
+            // "kicked for floating too long" check then kicks them in a rejoin loop the proxy keeps
+            // feeding. mayfly is what that check reads. Movement stays impossible, so this grants
+            // no actual flight; release() takes it away again.
             online.setAllowFlight(true);
-            // TRAVEL, and this is the module's real "the game has started" moment: a player standing
-            // in the lobby is picked up and put on a pillar without having asked for it. The admin's
-            // /hg start confirmation is a chat line to one person; this is what every participant
-            // actually experiences.
+            // TRAVEL: this is the module's real "the game has started" moment for a participant.
             sounds.play(online, Feedback.TRAVEL);
             return;
         }
 
-        // "A player who was ready in the lobby and then disconnected is not dropped: their body is
-        // teleported onto its tower at the start and waits there for its owner"
-        // (docs/hunger-games.md#start) - the same shared mechanism as a mid-game disconnect; see
-        // PlayerBodies' own documentation of exactly what is approximated and why. An offline
-        // player has no live Player object to copy equipment from at this point (their gear is
-        // only readable from stored NBT, which this plugin does not parse), so the body placed
-        // here starts bare; a mid-session disconnect (handled by the quit listener, which still
-        // has a live Player) copies gear correctly.
+        // A player who was ready and then disconnected is not dropped: their body waits on its
+        // tower. There is no live Player to copy equipment from here, so it starts bare.
         LOGGER.info("Placing an unequipped body for offline participant on discord id {} on its "
                 + "spawn tower - see PlayerBodies for what this approximates", participant.discordId());
         bodies.spawnBareArmorStand(tower, resolveDisplayName(participant), participant.mcUuid());
@@ -305,17 +261,14 @@ public final class HungerGamesManager {
             final Player online = plugin.getServer().getPlayer(participant.mcUuid());
             if (online != null) {
                 online.setInvulnerable(false);
-                // Handed out in placeOnTower for the length of the freeze, and taken back here -
-                // see the comment there. setFlying(false) first, because setAllowFlight(false) on
-                // a player who is actually flying drops them, and by this point the freeze is off.
+                // setFlying(false) first: setAllowFlight(false) on a player who is actually flying
+                // drops them, and by this point the freeze is off.
                 online.setFlying(false);
                 online.setAllowFlight(false);
                 online.sendMessage(MessageRenderer.of(messages).format(locales.of(participant.mcUuid()),
                         "hg.start.released", "seconds", config.pvpProtectionSeconds()));
-                // The last beat of the countdown, on the same category as the marks before it -
-                // exactly what smp's duel does for "3-2-1-Go", and for the reason stated there: a
-                // distinguishable accent on the Go would need a category of its own, and the enum
-                // not growing is the whole design.
+                // The last beat of the countdown, on the same category as the marks before it: a
+                // distinct accent would need a category of its own.
                 sounds.play(online, Feedback.COUNTDOWN_TICK);
             }
         }

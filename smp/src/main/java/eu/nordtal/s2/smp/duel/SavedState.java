@@ -14,13 +14,10 @@ import java.util.Collection;
  * Everything a duel borrows from a player, so that all of it can be given back.
  *
  * <p>The arena's inventory, health, effects and experience are the duel's own; the player's real
- * state is untouched (docs/smp.md#duels). "Untouched" is a promise that has to be kept in both
- * directions, which is what this record is: taken in one place, restored in one place, with nothing
- * left to remember.
+ * state must come back untouched, so it is taken in one place and restored in one place.
  *
- * <p>It is deliberately not persisted. A duel is a single short fight that nothing has to survive a
- * restart for - and a saved state that outlived a restart would be a second copy of somebody's
- * inventory sitting in a file, which is a far worse failure than a duel that was interrupted.
+ * <p>Deliberately not persisted: a saved state that outlived a restart would be a second copy of
+ * somebody's inventory sitting in a file, which is worse than an interrupted duel.
  */
 public record SavedState(Location location, ItemStack[] inventory, ItemStack[] armour,
                          double health, int foodLevel, float saturation, int level, float experience,
@@ -43,9 +40,8 @@ public record SavedState(Location location, ItemStack[] inventory, ItemStack[] a
     /**
      * Puts a player back exactly as they were, somewhere other than where they were standing.
      *
-     * <p>The duel ends at the spawn rather than on the platform (owner, 2026-09-06), so the
-     * location is the one thing a restore does <em>not</em> put back. Everything else - inventory,
-     * armour, health, food, level, game mode, potion effects - is unchanged.</p>
+     * <p>The duel ends at the spawn rather than on the platform, so the location is the one thing
+     * this restore does <em>not</em> put back.</p>
      *
      * @param player the fighter
      * @param where  where to put them

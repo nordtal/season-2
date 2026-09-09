@@ -11,11 +11,9 @@ import java.util.List;
  * {@code plugins/smp/config.yml} - everything about the SMP that is neither the track
  * ({@link MilestonesSpec}) nor a database credential.
  *
- * <p><b>Six of the values below were listed in docs/smp.md#still-open as needing a decision, and
- * every one of them is proposed here as a default rather than argued in prose</b>, which is what
- * that document asks for: the duel loadouts, the advancement awards, the "embarrassing" death
- * causes, the wheel's prize pool and weights, and the hunger games winner's head start. They are
- * proposals. Retuning any of them is an edit to this file and never a release.
+ * <p>Every number here is a default rather than a decision - the duel loadouts, the advancement
+ * awards, the "embarrassing" death causes, the wheel's prizes and weights, the start event
+ * winner's head start. Retuning any of them is an edit to this file and never a release.
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",
@@ -25,10 +23,8 @@ import java.util.List;
         "reloaded on its own with /smp reload, because it is edited on a",
         "completely different rhythm from everything below.",
         "",
-        "EVERY NUMBER IN THIS FILE IS A PROPOSAL. docs/smp.md gathers them",
-        "under 'Numbers that are proposals, not decisions' for exactly that",
-        "reason - what was decided is the shape, and the values are defaults",
-        "chosen to be reasonable.",
+        "EVERY NUMBER IN THIS FILE IS A PROPOSAL. What was decided is the",
+        "shape; the values are defaults chosen to be reasonable.",
         "",
         "Every setting can be overridden with an environment variable named",
         "NORDTAL_SMP_<PATH>, with '.' and '-' both becoming '_'."
@@ -44,8 +40,8 @@ public interface SmpSpec {
             "",
             "PRE-GENERATED ONCE, TO ITS FINAL BORDER OF 4000, BEFORE THE PHASE OPENS. A milestone",
             "unlock then only moves a number and never starts a generator. How long that costs in",
-            "wall clock and disk has to be measured on the real host before the phase is scheduled -",
-            "see docs/smp.md#worlds."
+            "wall clock and disk has to be measured on the real host before the phase is",
+            "scheduled."
     })
     default String worldNordtal() {
         return "nordtal";
@@ -88,8 +84,7 @@ public interface SmpSpec {
             "world border takes.",
             "",
             "This is the number to lower if the daily pre-generation turns out to cost tick time",
-            "with players online - which docs/smp.md calls the single biggest technical risk in the",
-            "concept. Halving it quarters the work."
+            "with players online. Halving it quarters the work."
     })
     default int farmWorldBorderDiameter() {
         return 2000;
@@ -116,7 +111,7 @@ public interface SmpSpec {
 
     @Order(8)
     @Key("border-centre-x")
-    @Comment("The Nordtal border's centre. The working value from docs/smp.md#world-rules.")
+    @Comment("The Nordtal border's centre.")
     default int borderCentreX() {
         return 106;
     }
@@ -197,14 +192,11 @@ public interface SmpSpec {
             "container entrypoint's job (deploy/minecraft/entrypoint.sh), where the version is",
             "pinned and checksummed.",
             "",
-            "MEASURED ON PAPER 26.2 BUILD 121, 2026-09-01, because this design first assumed the",
-            "opposite: datapacks are SERVER-GLOBAL and are read only from <level-name>/datapacks/.",
-            "A probe pack placed in a secondary world's own datapacks/ folder was never listed -",
-            "not at start, not after creating that world, not after refreshPacks(). There is no",
-            "per-world datapack API: DatapackManager hangs off Server, not World, and WorldCreator",
-            "has no datapack option. So every world this server generates - Nordtal, the farm",
-            "world, the Nether and the End - gets the same packs, and the farm world's nightly",
-            "regeneration inherits them without anything being copied.",
+            "DATAPACKS ARE SERVER-GLOBAL and are read only from <level-name>/datapacks/. There is",
+            "no per-world datapack API: DatapackManager hangs off Server, not World, and",
+            "WorldCreator has no datapack option. So every world this server generates gets the",
+            "same packs, and the farm world's nightly regeneration inherits them without anything",
+            "being copied.",
             "",
             "Why this is worth failing the start over: a world generated without its packs is",
             "vanilla terrain permanently, because terrain is never re-rolled once it is on disk.",
@@ -257,11 +249,9 @@ public interface SmpSpec {
     @Key("farm-world-staging-suffix")
     @Comment({
             "Tomorrow's farm world is generated under the live name plus this suffix, and renamed",
-            "onto the live name at the reset. Verified on Paper 26.2 build 121 on 2026-09-01:",
-            "unloading a world really does release its folder, the folder can be deleted, another",
-            "renamed into its place, and the SAME name loaded again - three rounds, no restart.",
-            "",
-            "That is why there is one world name in this file and not a pair alternating daily."
+            "onto the live name at the reset. Unloading a world releases its folder, so the folder",
+            "can be deleted, another renamed into its place, and the SAME name loaded again with no",
+            "restart - which is why there is one world name here and not a pair alternating daily."
     })
     default String farmWorldStagingSuffix() {
         return "-next";
@@ -274,11 +264,9 @@ public interface SmpSpec {
             "afterwards, off the main thread.",
             "",
             "The rename is what keeps the swap short. Renaming a directory is one filesystem",
-            "operation and takes about as long whether the directory holds one file or a hundred",
-            "thousand; deleting a farm world is gigabytes of unlinking. The measured 15 ms swap",
-            "window of the 2026-09-01 drill was on tiny test worlds where deleting happened to be",
-            "instant - on a real one, deleting in the swap would freeze the server for the length",
-            "of an rm -rf, which is precisely the window this design exists to avoid.",
+            "operation whether it holds one file or a hundred thousand; deleting a farm world is",
+            "gigabytes of unlinking, and doing that inside the swap would freeze the server for the",
+            "length of an rm -rf.",
             "",
             "A leftover folder with this suffix means a previous delete was interrupted. It is",
             "cleaned up at the next start and is never loaded as a world."
@@ -497,11 +485,9 @@ public interface SmpSpec {
     @Comment({
             "The figure in the tavern. Click it to open the objective list and hand items in.",
             "",
-            "It is a MANNEQUIN - a vanilla Paper 26.2 entity with a real player skin. Decided",
-            "2026-09-01, and it needed no dependency at all: a Mannequin is a LivingEntity and not a",
-            "Mob, so it has no AI, never despawns, never wanders and cannot be killed. The three",
-            "options docs/smp.md used to weigh - a villager with its AI off, a custom entity,",
-            "Citizens - were all worse than something the server already ships.",
+            "It is a MANNEQUIN - a vanilla Paper 26.2 entity with a real player skin, and no",
+            "dependency at all: a Mannequin is a LivingEntity and not a Mob, so it has no AI, never",
+            "despawns, never wanders and cannot be killed.",
             "",
             "skin-name is a Minecraft account whose skin the figure wears, resolved at start. Leave",
             "it empty for the default skin. A later 3D model would replace how the NPC is DRAWN and",
@@ -609,9 +595,8 @@ public interface SmpSpec {
     @Order(30)
     @Key("death-causes-listed")
     @Comment({
-            "The 'embarrassing' deaths, one of docs/smp.md#still-open's open points, PROPOSED HERE",
-            "as a default. Damage-type keys, matched case-insensitively and with or without the",
-            "minecraft: namespace.",
+            "The 'embarrassing' deaths, PROPOSED as a default. Damage-type keys, matched",
+            "case-insensitively and with or without the minecraft: namespace.",
             "",
             "The band this list is trying to describe: a death nobody else caused and that a moment",
             "of attention would have prevented. Falling into your own lava, standing in your own",
@@ -650,10 +635,8 @@ public interface SmpSpec {
     @Order(33)
     @Key("advancement-awards")
     @Comment({
-            "The advancements that pay aura, once each per player. docs/smp.md#still-open lists",
-            "this as open and sets the band at 2-10; PROPOSED HERE as a default, and the loader",
-            "refuses anything outside the band - a value above it would let one advancement",
-            "outweigh a whole objective.",
+            "The advancements that pay aura, once each per player. The loader refuses anything",
+            "outside the band of 2-10: above it, one advancement would outweigh a whole objective.",
             "",
             "Chosen so the number tracks how much of the game the advancement actually represents,",
             "not how hard it is to look up: 2 for the first hours, 5 for a real trip, 8 for a",
@@ -709,7 +692,7 @@ public interface SmpSpec {
     @Key("hg-winner-aura")
     @Comment({
             "The head start the start event's winner carries into the season, paid on their FIRST",
-            "JOIN and never again. docs/smp.md#still-open lists the amount as open; PROPOSED HERE.",
+            "JOIN and never again. PROPOSED.",
             "",
             "150 is chosen against the season's own scale rather than out of the air: a top",
             "contributor finishes the whole track on roughly 350, so this is a visible head start",
@@ -751,8 +734,8 @@ public interface SmpSpec {
     @Order(38)
     @Key("wheel-prizes")
     @Comment({
-            "The wheel's pool and its weights - open in docs/smp.md#still-open, PROPOSED here.",
-            "Weights are relative and need not sum to anything.",
+            "The wheel's pool and its weights, PROPOSED. Weights are relative and need not sum to",
+            "anything.",
             "",
             "Three bands, and the reasoning behind the third is the one that matters: COMMON is",
             "useful and never decisive, UNCOMMON is pleasant and still ordinary, and RARE is",
@@ -796,8 +779,8 @@ public interface SmpSpec {
     @Order(39)
     @Key("duel-loadout-sword")
     @Comment({
-            "What both players are given inside a sword duel - open in docs/smp.md#still-open,",
-            "PROPOSED here. Identical for both, from config: nobody wins by being richer.",
+            "What both players are given inside a sword duel, PROPOSED. Identical for both, from",
+            "config: nobody wins by being richer.",
             "",
             "Iron rather than diamond, and no enchantments: the fight should be decided by aim and",
             "timing over about a minute, not by who lands the first critical. Sixteen golden",
@@ -823,27 +806,18 @@ public interface SmpSpec {
 
     // ---------------------------------------------------------------- sound
     //
-    // Not here. What each feedback category sounds like lives in sounds.yml, described by
-    // SoundsSpec, because it is the one config in this module an operator iterates on by ear with
-    // players online - and config.yml is deliberately not reloadable. It was a block here for the
-    // length of one afternoon on 2026-09-04; SoundsSpec's javadoc carries the reasoning for the
-    // move.
+    // Not here: what each feedback category sounds like lives in sounds.yml, which is reloadable
+    // while config.yml deliberately is not. See SoundsSpec.
 
     // ---------------------------------------------------------------- admin
-
-    // `admin-permissions` WAS HERE, and is retired as of 2026-09-04. It listed the Bukkit
-    // permission nodes attached to an admin at join. A list cannot answer "an admin must reliably
-    // have every permission", because a list only knows what somebody wrote down: every plugin
-    // added later brings nodes nobody adds to it. An admin is a server operator now - see
-    // eu.nordtal.s2.common.access.AdminOperators, which also explains why ops.json is swept at
-    // every enable.
     //
-    // The key is deliberately NOT re-declared as a deprecated no-op: jcore deletes a key the
-    // interface does not declare and names it in a warning, so a stale `plugins/smp/config.yml`
-    // in a deployed volume loses the block instead of keeping one that reads like a working
-    // setting. ConfigsTest asserts it is gone from the file after one load. This said the load
-    // was *refused* until jcore 3.1.0 on 2026-09-05; the reason for the deletion is unchanged,
-    // only who does it - there was never anything for the operator to decide here.
+    // `admin-permissions` is retired: a list of permission nodes cannot answer "an admin must
+    // reliably have every permission", because every plugin added later brings nodes nobody adds
+    // to it. An admin is a server operator - see eu.nordtal.s2.common.access.AdminOperators.
+    //
+    // Deliberately NOT re-declared as a deprecated no-op: jcore deletes a key the interface does
+    // not declare and names it in a warning, so a stale deployed config.yml loses the block rather
+    // than keeping one that reads like a working setting.
 
     // ---------------------------------------------------------------- admin propagation
 
@@ -853,9 +827,9 @@ public interface SmpSpec {
             "How often this server re-reads who is an admin, in seconds.",
             "",
             "An admin is a server operator for as long as they are an admin, and the flag lives in",
-            "discord_user.admin - nowhere else. Until 2026-09-04 it was read once, at join, so a",
-            "revoked admin kept operator until they chose to disconnect. An emergency revocation is",
-            "exactly the case where waiting for somebody to log off is the wrong direction.",
+            "discord_user.admin - nowhere else. Read only at join, a revoked admin would keep",
+            "operator until they chose to disconnect, which is the wrong direction for an emergency",
+            "revocation.",
             "",
             "THIS POLL IS THE GUARANTEE, not the LISTEN connection below. A tick on which nothing",
             "changed costs one indexed query and writes nothing to ops.json, which is what makes it",

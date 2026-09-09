@@ -2,12 +2,9 @@ plugins {
     id("nordtal.java-base")
 }
 
-// FatalPathsStopTheServerTest reads the three Paper plugins' main classes as text - the rule it
-// asserts (a plugin that cannot start stops its server) cannot be reached from a JVM with no server
-// in it. They are in no source set of this module, so without this Gradle cannot see them and an
-// edit to one would leave :common:test UP-TO-DATE.
+// Files outside this module's source sets that :common's tests read as text. Without these
+// declarations an edit to one of them leaves :common:test UP-TO-DATE and the drift goes unnoticed.
 repositoryRootTestInputs {
-    // PlatformTest: one fact in five files - the catalog, the pack's mcmeta and three descriptors.
     reads("resource-pack/src/pack.mcmeta")
     reads("smp/src/main/resources/paper-plugin.yml")
     reads("limbo/src/main/resources/paper-plugin.yml")
@@ -17,76 +14,38 @@ repositoryRootTestInputs {
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
 
-    // ReadinessWiringTest reads the same three plus the two processes that are not Paper plugins,
-    // for the same reason: where the readiness heartbeat is started is the whole of what it proves,
-    // and a JVM with no server and no Discord gateway in it cannot reach that any other way.
-    // network-control's class is covered by the readsTree() below; this one is not covered by
-    // anything else.
     reads("discord-bot/src/main/java/eu/nordtal/s2/discordbot/AccessBot.java")
 
-    // EntrypointRulesTest keeps the container rules in deploy/minecraft/entrypoint.sh from being
-    // quietly untaught. Every one of them came out of a drill against a running container.
     reads("deploy/minecraft/entrypoint.sh")
 
-    // PlatformTest holds Platform against the version catalog - what the updater installs against
-    // what every module compiles against. The catalog is in no source set, so without this line an
-    // edit to it leaves :common:test UP-TO-DATE and the drift is invisible until a plugin refuses
-    // to load on a real server.
     reads("gradle/libs.versions.toml")
 
-    // BossBarFontTest and GlyphShadowTest read the two boss bar renderers as text, for the reason
-    // BossBarFontTest's own comment gives: a missing font key draws the wrong glyph rather than no
-    // glyph, and a missing shadowColor draws every tile twice. Neither is visible from a component
-    // this module can build. Without these declarations an edit to either would leave
-    // :common:test UP-TO-DATE.
     reads("smp/src/main/java/eu/nordtal/s2/smp/hud/SmpHud.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/hud/HudRenderer.java")
     reads("resource-pack/src/assets/nordtal/font/bossbar.json")
     reads("resource-pack/src/assets/nordtal/font/board.json")
 
-    // ResourcePackTest holds Glyphs, the three font files and every PNG they name against each
-    // other. The whole assets tree is the input rather than a list of eighty-odd files, because a
-    // list is the thing that goes stale the first time somebody adds a glyph.
+    // Whole trees rather than file lists: a list goes stale the first time somebody adds a file,
+    // and that new file is exactly what the rules are about.
     readsTree("resource-pack/src/assets")
 
-    // ...and the message bundles whose text a boss bar draws, because nordtal:bossbar carries its
-    // own ascii sheet: a character the vanilla font has is not a character that one has.
     reads("smp/src/main/resources/messages/smp/en.properties")
     reads("smp/src/main/resources/messages/smp/de.properties")
     reads("hunger-games/src/main/resources/messages/hunger-games/en.properties")
     reads("hunger-games/src/main/resources/messages/hunger-games/de.properties")
 
-    // TabListTest reads the same four plus limbo's, because the tab list is one picture written by
-    // three servers and nothing else compares them.
     reads("limbo/src/main/resources/messages/limbo/en.properties")
     reads("limbo/src/main/resources/messages/limbo/de.properties")
 
-    // Three tests walk every source and every bundle of the four client-facing modules, and all
-    // three pin a rule whose subject is "nowhere else": OneMessageFormatTest (one message format),
-    // SoundVocabularyTest (only the adapters name a sound) and WorldEffectVocabularyTest (only the
-    // adapters name a particle). Whole trees, because a list of files is a list that goes stale the
-    // first time somebody adds a class - which is exactly the class the rule is about.
     readsTree("smp/src/main")
     readsTree("limbo/src/main")
     readsTree("hunger-games/src/main")
     readsTree("network-control/src/main")
 
-    // ReplyToneTest walks the same trees plus the two that hold the commands themselves and the
-    // Paper adapter. A reply that names no tone compiles and runs, so the seam it guards is
-    // invisible from any one module - and from any running server, because the sentence is right
-    // and only the colour is missing.
     readsTree("commands/src/main")
     readsTree("paper-common/src/main")
 
-    // BundleContinuationTest walks every message bundle in the repository, the bot's included -
-    // Properties.load strips a continued line's indentation in every module equally, so a rule that
-    // covered only the Minecraft-facing four would be a rule with a hole in it. Only the messages
-    // directory: the bot's source tree is not an input to anything in :common.
     readsTree("discord-bot/src/main/resources/messages")
-
-    // OneRefusalLineTest reads the two classes that answer a command somebody may not run, plus
-    // every bundle, and asserts they say one sentence. Both are covered by the trees above; the
-    // bot's messages tree is the only bundle root not under one of them and is already declared.
 }
 
 dependencies {
@@ -95,13 +54,9 @@ dependencies {
     compileOnly(libs.adventure.api)
     compileOnly(libs.adventure.minimessage)
 
-    // MessageRendererTest actually parses MiniMessage, so Adventure has to be on the test runtime
-    // classpath - compileOnly is not. Nothing ships with it: :common's jar is unchanged.
     testImplementation(libs.adventure.api)
     testImplementation(libs.adventure.minimessage)
 
-    // ResourcePackTest parses the three font JSON files. Test scope only - :common's jar is
-    // unchanged, and both platforms provide gson at runtime anyway.
     testImplementation(libs.gson)
 
     compileOnly(libs.annotations)
@@ -109,29 +64,19 @@ dependencies {
     // The access API (eu.nordtal.s2.common.access) talks to PostgreSQL directly, because the
     // database is the source of truth for access and the proxy has to read it on the login path.
     //
-    // They are compileOnly ON PURPOSE. Declared as implementation they would be shaded into every
-    // consumer of :common, including hunger-games and limbo, which never touch a
-    // database - 3.12 MB per plugin jar instead of 20 KB.
+    // These are compileOnly ON PURPOSE: as `implementation` they would be shaded into every
+    // consumer of :common, including hunger-games and limbo, which never touch a database. A module
+    // that actually uses the access API opts in with `implementation(libs.bundles.access.persistence)`
+    // plus `runtimeOnly(libs.postgresql.driver)`; one that forgets fails with a NoClassDefFoundError
+    // the first time it calls that API. That is the accepted trade.
     //
-    // THAT 3.12 MB IS A COUNTERFACTUAL, not a measurement of the jars this build produces. It is
-    // what they WOULD weigh with these declarations changed. What they actually weigh, rebuilt
-    // 2026-08-31: smp 34,745 B, hunger-games 34,784 B, limbo 34,886 B - because
-    // none of the three has opted into libs.bundles.access-persistence yet. network-control is
-    // 5,196,184 B because it did (through jcore). The distinction was lost when this number was
-    // copied into CLAUDE.md and docs/state-of-play.md as if it described the current jars; do not
-    // quote it as one. A module that actually uses
-    // eu.nordtal.s2.common.access opts in with `implementation(libs.bundles.access.persistence)`
-    // plus `runtimeOnly(libs.postgresql.driver)`; one that forgets fails with a
-    // NoClassDefFoundError the first time it calls the access API. That is the accepted trade.
+    // jcore is deliberately not used here even though it wraps the same stack: its dependency block
+    // (config system, Flyway, commons-*, gson, snakeyaml) is far heavier. The versions are pinned to
+    // jcore's own in gradle/libs.versions.toml so the bot, which has both on its classpath, resolves
+    // one copy of each.
     //
-    // jcore is deliberately NOT used here even though it wraps exactly this stack: its dependency
-    // block (config system, Flyway, commons-*, gson, snakeyaml) is what makes the bot's jar ~33 MB.
-    // The versions are pinned to jcore's own in gradle/libs.versions.toml, so the bot - which has
-    // both on its classpath - resolves one copy of each.
-    //
-    // Nothing from these libraries appears on the public API of :common: the factories take a
-    // javax.sql.DataSource or a JDBC URL, both JDK types. A consumer therefore never compiles
-    // against JDBI itself.
+    // Nothing from these libraries appears on :common's public API - the factories take a
+    // javax.sql.DataSource or a JDBC URL, both JDK types.
     compileOnly(libs.jdbi.core)
     compileOnly(libs.jdbi.sqlobject)
     compileOnly(libs.jdbi.postgres)
@@ -139,18 +84,12 @@ dependencies {
     compileOnly(libs.slf4j.api)
 
     // eu.nordtal.s2.common.notify unwraps org.postgresql.PGConnection to call
-    // getNotifications(timeout): docs/season-phases.md states plainly that the pgjdbc driver has no
-    // callback API, so a LISTEN loop cannot be written against java.sql alone. compileOnly for the
-    // same reason as everything above it - the four processes that open a listener all have the
-    // driver at runtime already, and a consumer that does not never touches this package.
+    // getNotifications(timeout): pgjdbc has no callback API, so a LISTEN loop cannot be written
+    // against java.sql alone.
     compileOnly(libs.postgresql.driver)
 
-    // The integration tests apply this module's own Flyway migration - src/main/resources/db/
-    // migration, on the test runtime classpath - against a real PostgreSQL container (see
-    // AccessSchema in src/test/java). Flyway is a test dependency only: :common never migrates
-    // anything at runtime, the bot owns that, and Flyway must never reach a plugin jar.
-    // :common's own tests exercise the access API, so they need the runtime stack that consumers
-    // otherwise bring themselves.
+    // Flyway is a test dependency only: :common never migrates anything at runtime, the bot owns
+    // that, and Flyway must never reach a plugin jar.
     testImplementation(libs.bundles.access.persistence)
 
     testImplementation(libs.flyway.core)
@@ -161,8 +100,3 @@ dependencies {
     testImplementation(libs.postgresql.driver)
     testRuntimeOnly(libs.logback.classic)
 }
-
-// The migration files moved here from access-bot on 2026-08-31 (docs/architecture.md#schema-
-// ownership): the DDL now sits next to the API that reads it, and the tests pick it up off their
-// own runtime classpath. That replaced a `nordtal.test.migrations` system property pointing into
-// the bot module - no build wiring is needed for it any more.

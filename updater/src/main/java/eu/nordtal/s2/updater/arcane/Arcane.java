@@ -23,62 +23,30 @@ import java.util.Set;
 /**
  * The restart: one redeploy of the whole compose project, through Arcane's REST API.
  *
- * <h2>Why not the Docker socket</h2>
- * Mounting {@code /var/run/docker.sock} is the usual way and it was rejected
- * (docs/updater.md#the-restart-and-why-not-the-docker-socket). A container with the socket can do
- * anything on the host, and this is a container whose entire job is to download files from the
- * internet and put them where servers will execute them. One API token is the cheaper half of that
- * trade, and the redeploy then appears in Arcane's own history rather than happening behind its
- * back.
+ * <p>Arcane's API rather than {@code /var/run/docker.sock}, because a container with the socket can
+ * do anything on the host - and this container's whole job is downloading files from the internet
+ * and putting them where servers will execute them.</p>
  *
- * <h2>The call is expected to be killed</h2>
- * Arcane answers a long-running operation as a stream of newline-delimited JSON, and this container
- * is one of the things the redeploy takes down. So the call waits only for the response to
- * <em>begin</em> - status line and headers - and never reads the stream to its end. Being killed
- * here is the successful outcome, and it is recognised as one: the {@code update_request} row is
- * left {@code RUNNING}, and the next start of this container reads a {@code RESTART} in that state
- * as "the redeploy happened".
+ * <p>The redeploy call is <em>expected to be killed</em>: Arcane streams newline-delimited JSON and
+ * this container is one of the things it takes down, so the call waits only for the status line and
+ * headers and never reads the stream out. Being killed is the successful outcome - the
+ * {@code update_request} row is left {@code RUNNING}, and the next start reads a {@code RESTART} in
+ * that state as "the redeploy happened".</p>
  *
- * <h2>The path is a setting, not a constant</h2>
- * The default was read from Arcane's own source on 2026-09-01 - {@code project/handler.go} at
- * release v2.10.0 registers {@code POST /environments/{id}/projects/{projectId}/redeploy} under
- * the {@code /api} group - so it is no longer a guess. It stays a setting because Arcane's public
- * documentation still does not publish it: a version that moves the path is then one line in
- * {@code updater.yml} rather than a release of ours.
- * <p>
- * Both segments are <b>ids</b>. That is the trap worth naming: the compose project is called
- * {@code nordtal-s2} everywhere else in this deployment, and putting that name here answers 404.
- * </p>
+ * <p>The redeploy path is a setting because Arcane does not publish it, so a version that moves it
+ * is one line of config rather than a release. Both of its segments are <b>ids</b>: putting the
+ * compose project's name there answers 404.</p>
  *
- * <h2>{@code localhost} in this file is this container - finding 40, 2026-09-03</h2>
- * The first restart anybody asked for failed forty milliseconds after the POST, against
- * {@code http://localhost:3553}. Arcane was running and reachable; the URL was not, because inside
- * this container {@code localhost} is <em>this container</em>, which has nothing listening on 3553.
- * It is the one wrong value that looks right in every other context - it is what the browser bar
- * says while somebody is copying it. So {@link #loopback(String)} names it: at startup as a warning,
- * and again in the sentence that goes into the row when the call fails.
+ * <p>Two base-url values look right and are not, so both are named by {@link #loopback(String)} and
+ * {@link #transposedDockerHost(String)}, on the string and without a network: {@code localhost},
+ * which inside this container is this container, and {@code docker.host.internal}, which is
+ * {@code host.docker.internal} with its labels transposed. Neither is distinguishable from a
+ * firewall in the exception, since the JDK wraps a DNS failure in a message-less
+ * {@code ConnectException} whose real cause is one level down.</p>
  *
- * <h2>Arcane may answer success and do nothing</h2>
- * <a href="https://github.com/getarcaneapp/arcane/issues/1943">arcane#1943</a> reports a redeploy
- * of an <em>already running</em> project doing nothing while still answering success - which is
- * exactly the case here, since the stack is up when the button is pressed. It was reported on one
- * agent at v1.15.3 and closed as not planned. Nothing in this class can detect it: the stream that
- * would say so is one this container is killed part way through reading. The check is the one in
- * todo.md - watch the containers cycle the first time.
- *
- * <h2>And the exception says nothing, which is the other half - 2026-09-05</h2>
- * The second restart anybody asked for failed against {@code http://docker.host.internal:3553}.
- * The labels are transposed: Docker publishes {@code host.docker.internal}, and {@code compose.yml}
- * maps exactly that name for this service. What made it expensive was the message and not the
- * typo - it read
- * <pre>Could not reach Arcane at http://docker.host.internal:3553/...: java.net.ConnectException</pre>
- * and stopped there, because the JDK's {@code HttpClient} wraps a DNS failure in a
- * {@code ConnectException} <b>carrying no message at all</b>; the
- * {@code UnresolvedAddressException} that says what actually happened is one level down in
- * {@code getCause()}. "Connection refused" and "that name does not exist" are opposite diagnoses
- * and both printed as the same eleven characters. So the failure now carries the whole cause
- * chain, {@link #transposedDockerHost(String)} names this particular slip outright, and both are
- * string-only for the same reason {@link #loopback(String)} is.
+ * <p><a href="https://github.com/getarcaneapp/arcane/issues/1943">arcane#1943</a>: a redeploy of an
+ * already-running project may answer success and do nothing. Nothing here can detect it, because
+ * the stream that would say so is the one this container is killed while reading.</p>
  */
 @Slf4j
 public final class Arcane implements ArcaneOps {
@@ -93,12 +61,8 @@ public final class Arcane implements ArcaneOps {
     private static final String PROJECT_PLACEHOLDER = "{project}";
 
     /**
-     * Whether an API key would travel in the clear.
-     *
-     * <p>String-only and static, like {@link #loopback} and {@link #transposedDockerHost} beside
-     * it: this is a property of the value an operator typed, and no request from anywhere
-     * reproduces it. A URL with no key is not this - an unauthenticated Arcane is refused by Arcane
-     * itself, loudly - and a blank base URL is the supported unconfigured state.</p>
+     * Whether an API key would travel in the clear. String-only and static so it can be asserted
+     * without a network: it is a property of what an operator typed, not of any request.
      *
      * @param baseUrl the configured origin
      * @param apiKey  the configured key
@@ -121,9 +85,8 @@ public final class Arcane implements ArcaneOps {
     public Arcane(final @NotNull UpdaterSpec.ArcaneSpec config) {
         this.config = config;
         if (configured() && loopback(config.baseUrl())) {
-            // Warned rather than refused. The updater is the bootstrap of the whole deployment -
-            // it is the only process that migrates - and refusing to start over an optional restart
-            // button would trade a working schema for a broken one.
+            // Warned, not refused: the updater is the bootstrap of the whole deployment and the
+            // only process that migrates, so it must not fail to start over a restart button.
             log.warn("arcane.base-url is {}, and inside this container that is THIS CONTAINER, not"
                     + " the host Arcane runs on. Every restart will fail with a connection error."
                     + " Use http://host.docker.internal:{} (the updater service maps it), Arcane's"
@@ -131,11 +94,9 @@ public final class Arcane implements ArcaneOps {
                     + " address on the network.", config.baseUrl(), portOf(config.baseUrl()));
         }
         if (configured() && cleartextWithKey(config.baseUrl(), config.apiKey())) {
-            // Warned rather than refused, for the reason the loopback check above gives, and
-            // because the one place this is defensible is the local stack: container to host over
-            // Docker's own bridge, where http://host.docker.internal is the documented value and
-            // there is no network to listen on. Anywhere the request leaves the machine, the header
-            // below is a redeploy credential in the clear (finding 114).
+            // Warned, not refused: on the local stack, container to host over Docker's own bridge,
+            // plain HTTP is defensible. Anywhere the request leaves the machine it is a redeploy
+            // credential in the clear.
             log.warn("arcane.base-url is {} - plain HTTP - and an API key is configured. The"
                     + " {} header travels unencrypted, so anything that can see the connection can"
                     + " redeploy every project in that Arcane. That is only acceptable while Arcane"
@@ -148,42 +109,26 @@ public final class Arcane implements ArcaneOps {
                         + " connection error that names DNS only in its cause.",
                 config.baseUrl(), suggestion));
         this.client = HttpClient.newBuilder()
-                // NEVER, and the comment this replaces was wrong in a way worth keeping visible.
-                // It said NORMAL "refuses HTTPS to HTTP, which is the one redirect an authenticated
-                // request must never take" - true, and not the hole. NORMAL happily follows HTTP to
-                // HTTP *to a different authority*, and the JDK carries the X-Api-Key header along:
-                // a compromised or merely mistaken Arcane could redirect any of these four calls to
-                // a host of its choosing and be handed a credential that redeploys every project it
-                // has (CWE-522, found by review 2026-09-08).
-                //
-                // Following nothing is the answer rather than validating each hop, because there is
-                // no legitimate redirect here to preserve: arcane.base-url is a setting, and the
-                // fix for a redirect is to point it at where Arcane actually is. A 3xx is now
-                // reported as exactly that, with the Location in the message.
+                // Follow nothing: every request here carries X-Api-Key, and the JDK keeps that
+                // header across a redirect, so following one would hand a redeploy credential to
+                // whatever the Location names (CWE-522). There is no legitimate redirect here -
+                // base-url is a setting - so a 3xx is reported as a configuration fault instead.
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(Duration.ofSeconds(config.timeoutSeconds()))
                 .build();
     }
 
     /**
-     * Whether a restart can be performed at all.
-     * <p>
-     * An unconfigured Arcane is a supported state, not a broken one: every other part of the
-     * updater works and the restart is a click in Arcane. Every surface asks this before it offers
-     * a button, so nobody is shown a control that cannot do anything.
-     * </p>
+     * Whether a restart can be performed at all. An unconfigured Arcane is a supported state - every
+     * other part of the updater works - so every surface asks this before offering the button.
      */
     public boolean configured() {
         return !config.baseUrl().isBlank();
     }
 
     /**
-     * The URL that would be called, for a log line and for the message on a failure.
-     * <p>
-     * Both path segments are substituted, and both are <em>ids</em>: the environment is {@code 0}
-     * for Arcane's own host and a UUID for a remote agent, and the project is a UUID Arcane
-     * generated. Neither is a name, which is the mistake this class reports by name on a 404.
-     * </p>
+     * The URL that would be called, for a log line and for a failure message. Both substituted
+     * segments are <em>ids</em>, never names - the mistake this class reports by name on a 404.
      */
     public @NotNull String endpoint() {
         return config.baseUrl() + config.redeployPath()
@@ -228,8 +173,8 @@ public final class Arcane implements ArcaneOps {
 
         log.info("Asking Arcane to redeploy: POST {}", uri);
         try {
-            // ofLines() is lazy: send() returns as soon as the status line and headers are in, and
-            // the stream behind it is never read. That is deliberate - see the class comment.
+            // ofLines() is lazy: send() returns on the status line and headers, and the stream is
+            // never read - this container is killed part way through the redeploy it just asked for.
             final HttpResponse<?> response = client.send(request, HttpResponse.BodyHandlers.ofLines());
             final String redirected = redirect(response.statusCode(), response.headers(), endpoint());
             return redirected != null ? RedeployResult.refused(redirected)
@@ -238,30 +183,23 @@ public final class Arcane implements ArcaneOps {
             Thread.currentThread().interrupt();
             return RedeployResult.refused("Interrupted while asking Arcane to redeploy.");
         } catch (final IOException failure) {
-            // Includes the case where the connection dies because the redeploy has already begun
-            // and taken this container's network with it. Reported as refused rather than
-            // triggered, on purpose: the row is then left RUNNING or FAILED, and a person looks -
-            // which is the right way round for "the restart may or may not be happening".
+            // Includes the redeploy having already taken this container's network with it. Reported
+            // as refused rather than triggered so that a person looks at an ambiguous restart.
             return RedeployResult.refused(unreachable(uri, failure, config.baseUrl()));
         }
     }
 
     /**
-     * The exception and everything under it, innermost last.
-     * <p>
-     * Not decoration. {@code HttpClient} answers a DNS failure with a {@code ConnectException}
-     * carrying no message, so {@code failure.toString()} on its own is the string
-     * {@code "java.net.ConnectException"} and nothing else - the same eleven characters for a
-     * refused connection, a name that does not exist and a route that goes nowhere. The cause is
-     * where the answer is.
-     * </p>
+     * The exception and everything under it, innermost last. {@code HttpClient} answers a DNS
+     * failure with a message-less {@code ConnectException}, so without the causes a refused
+     * connection, a name that does not exist and a dead route all print the same eleven characters.
      */
     static @NotNull String causeChain(final @NotNull Throwable failure) {
         final StringBuilder text = new StringBuilder(failure.toString());
         Throwable cause = failure.getCause();
         int depth = 0;
-        // Bounded, and self-referencing causes do exist: a loop here would hang the request that
-        // is trying to explain why something else failed.
+        // Bounded: self-referencing causes exist, and a loop here would hang the request that is
+        // trying to explain why something else failed.
         while (cause != null && cause != cause.getCause() && depth++ < 5) {
             text.append(" <- ").append(cause);
             cause = cause.getCause();
@@ -270,12 +208,8 @@ public final class Arcane implements ArcaneOps {
     }
 
     /**
-     * The whole sentence written into {@code update_request.result} when the call did not connect.
-     * <p>
-     * Static, and taking the base URL rather than reading the field, so that the sentence a person
-     * will read weeks later can be asserted from a test with no network and no Arcane. The two
-     * halves it can add are the two wrong values that have actually been typed into this setting.
-     * </p>
+     * The sentence written into {@code update_request.result} when the call did not connect. Static
+     * and taking the base URL, so it can be asserted from a test with no network and no Arcane.
      */
     static @NotNull String unreachable(final @NotNull URI uri, final @NotNull Throwable failure,
                                        final String baseUrl) {
@@ -297,14 +231,9 @@ public final class Arcane implements ArcaneOps {
     }
 
     /**
-     * The one misspelling worth naming: Docker's three labels in the wrong order.
-     * <p>
-     * {@code docker.host.internal} is what a person types while reaching for
-     * {@code host.docker.internal}, and it is the value the first production restart actually
-     * carried. Nothing in the failure itself tells it apart from a firewall - the name simply does
-     * not resolve - so it is checked on the string, by name, without a network. A host that is
-     * already correct returns empty.
-     * </p>
+     * Docker's three labels in the wrong order. Nothing in the failure tells {@code
+     * docker.host.internal} apart from a firewall - the name simply does not resolve - so it is
+     * checked on the string, without a network.
      *
      * @param baseUrl the configured origin, may be blank
      * @return the host to use instead, if the configured one is a permutation of Docker's own
@@ -337,12 +266,9 @@ public final class Arcane implements ArcaneOps {
     }
 
     /**
-     * Whether a base URL points at the machine making the request.
-     * <p>
-     * Static and string-only so that it can be asserted without a container and without a network:
-     * the whole value of this check is that it fires on a URL nobody can test from a laptop, where
-     * {@code localhost} is correct and means something else entirely.
-     * </p>
+     * Whether a base URL points at the machine making the request. String-only so it can be
+     * asserted without a container: it has to fire on a URL that works from a laptop and cannot
+     * work here.
      *
      * @param baseUrl the configured origin, may be blank
      * @return whether its host is a loopback name or address
@@ -360,16 +286,9 @@ public final class Arcane implements ArcaneOps {
     }
 
     /**
-     * Whether this origin is the machine this container is already on.
-     *
-     * <h2>The one place plain HTTP with an API key is defensible</h2>
-     * Container to host over Docker's own bridge: there is no network segment for anything to
-     * listen on, and {@code http://host.docker.internal} is the documented value for the local
-     * stack. Loopback counts too - it is broken for a different reason, which the constructor
-     * already says at length, but it is not a credential leaving the machine.
-     *
-     * <p>Anywhere else, an {@code X-Api-Key} on an unencrypted connection is a redeploy credential
-     * in the clear for anything that can see the wire (finding 114).</p>
+     * Whether this origin is the machine this container is already on - the one place plain HTTP
+     * with an API key is defensible, because no network segment carries it. Anywhere else an
+     * {@code X-Api-Key} on an unencrypted connection is a redeploy credential in the clear.
      */
     static boolean sameHost(final String baseUrl) {
         final String host = hostOf(baseUrl);
@@ -377,19 +296,12 @@ public final class Arcane implements ArcaneOps {
     }
 
     /**
-     * Why this Arcane must not be called at all, or empty when it may be.
+     * Why this Arcane must not be called at all, or empty when it may be. Every request carries the
+     * key, so a remote origin over {@code http://} is refused here rather than merely warned about.
      *
-     * <h2>Refused rather than warned, since 2026-09-08</h2>
-     * The constructor has warned about a key on plain HTTP since finding 114, and a warning is what
-     * a log holds and nobody reads. Every request this class makes carries the header, so the
-     * check belongs in front of the request: a remote origin over {@code http://} is refused, and
-     * the same-host exception above stays explicit rather than being a special case somebody has
-     * to infer.
-     *
-     * <p>It is deliberately not a constructor failure. The updater is the bootstrap of the whole
-     * deployment - it is the only process that migrates - and refusing to start over a misconfigured
-     * restart button would trade a working schema for none, which is the trade the loopback warning
-     * already refuses to make.</p>
+     * <p>Deliberately not a constructor failure: the updater is the bootstrap of the whole
+     * deployment and the only process that migrates, so a misconfigured restart button must not
+     * stop it starting.</p>
      */
     private java.util.Optional<String> refusedForCleartext() {
         if (!cleartextWithKey(config.baseUrl(), config.apiKey()) || sameHost(config.baseUrl())) {
@@ -419,12 +331,10 @@ public final class Arcane implements ArcaneOps {
     /**
      * Every service of the project, with its container id, its status and its health.
      *
-     * <p>Called three times in a run and for three different reasons, which is worth knowing
-     * because they look identical: <b>first</b> as the proof that Arcane is actually reachable
-     * before a single jar is touched - a swap without a stop is finding 147, so a run that cannot
-     * stop anything must not begin; <b>then</b> to turn service names into container ids, which is
-     * what the stop and start calls are addressed to; and <b>last</b>, repeatedly, until every
-     * service that was stopped says it is back.</p>
+     * <p>Called three times in a run, for reasons that look identical: as proof that Arcane is
+     * reachable before a jar is touched, because a run that cannot stop anything must not swap
+     * anything; to turn service names into the container ids stop and start are addressed to; and
+     * repeatedly at the end until every stopped service says it is back.</p>
      *
      * @return the services, or empty with the reason in {@code message}
      */
@@ -479,12 +389,9 @@ public final class Arcane implements ArcaneOps {
      * Stops one container and waits for Arcane to say it did.
      *
      * <p><b>Arcane's own stop timeout is thirty seconds and it does not honour
-     * {@code stop_grace_period}</b> - read from its source on 2026-09-07,
-     * {@code internal/container/service.go} pins {@code Timeout: 30}, while {@code compose.yml}
-     * asks for 180. Paper was measured shutting down in three seconds with
-     * {@code All dimensions are saved} in the log, so there is a wide margin; what there is not is
-     * a way to widen it from here. A server that ever needs longer than thirty seconds to save is
-     * killed, and that surfaces as a damaged region file rather than as an error on this call.</p>
+     * {@code stop_grace_period}</b>, and there is no way to widen it from here. A server that ever
+     * needs longer than that to save is killed, and that surfaces as a damaged region file rather
+     * than as an error on this call.</p>
      */
     @Override
     public @NotNull RedeployResult stop(final @NotNull String containerId) {
@@ -500,14 +407,12 @@ public final class Arcane implements ArcaneOps {
     /**
      * Asks Arcane to snapshot one volume.
      *
-     * <p>The body is empty on purpose: Arcane then loads that volume's own backup policy and uses
-     * its destination - local, S3 or both. Where a snapshot goes is a decision taken once in
-     * Arcane's interface, and sending a destination from here would be a second copy of it that
-     * eventually disagrees.</p>
+     * <p>The body is empty on purpose, so Arcane uses the volume's own backup policy: sending a
+     * destination from here would be a second copy of a decision taken in Arcane's interface.</p>
      *
-     * <p>A 409 is Arcane's "a backup of this volume is already running". It is reported as a
-     * refusal rather than retried: the servers are already down, and waiting on somebody else's
-     * snapshot of unknown age is a longer outage for a saved volume this run did not save.</p>
+     * <p>A 409 ("a backup of this volume is already running") is reported as a refusal rather than
+     * retried: the servers are already down, and waiting on somebody else's snapshot of unknown age
+     * is a longer outage for a volume this run did not save.</p>
      */
     @Override
     public @NotNull BackupResult backup(final @NotNull String volume) {
@@ -552,8 +457,8 @@ public final class Arcane implements ArcaneOps {
             }
             final String id = ArcaneBackups.startedId(response.body());
             if (id == null) {
-                // Accepted with no id is worse than refused: the snapshot is probably happening
-                // and there is no way to ask about it, so the run cannot tell saved from failed.
+                // Worse than refused: the snapshot is probably happening with no way to ask about
+                // it, so the run cannot tell saved from failed.
                 return BackupResult.refused("Arcane accepted the backup of " + volume + " but its"
                         + " answer carried no backup id, so this run cannot tell whether it"
                         + " finished. Its shape has changed - see arcane.backup-path.");
@@ -570,10 +475,9 @@ public final class Arcane implements ArcaneOps {
     /**
      * Reads one started snapshot back out of the volume's backup list.
      *
-     * <p>Every unreadable answer here is {@code RUNNING} and never {@code FAILED}. The snapshot is
-     * happening inside Arcane; a poll that times out says nothing at all about it, and treating one
-     * as a failure would start the servers again on top of a half-written volume. The only thing
-     * that ends a wait is the run's own patience.</p>
+     * <p>Every unreadable answer here is {@code RUNNING}, never {@code FAILED}: a poll that times
+     * out says nothing about a snapshot happening inside Arcane, and treating it as a failure would
+     * start the servers again on top of a half-written volume.</p>
      */
     @Override
     public @NotNull BackupResult backupState(final @NotNull String volume,
@@ -581,9 +485,8 @@ public final class Arcane implements ArcaneOps {
         if (!configured()) {
             return BackupResult.refused("Arcane is not configured.");
         }
-        // Before get(uri), which puts X-Api-Key on the wire. Today this is only reached after
-        // backup() has already refused a cleartext origin, so the key never leaves - but that is
-        // a property of one caller and not of this method, and the next caller would not know.
+        // Before get(uri), which puts X-Api-Key on the wire. backup() already refuses a cleartext
+        // origin, but that is a property of one caller and the next would not know.
         final java.util.Optional<String> refused = refusedForCleartext();
         if (refused.isPresent()) {
             return BackupResult.refused(refused.get());
@@ -601,8 +504,8 @@ public final class Arcane implements ArcaneOps {
             }
             final ArcaneBackups.Entry entry = ArcaneBackups.find(response.body(), backupId);
             if (entry == null) {
-                // Not in the first page. Arcane lists newest first and this run started the newest
-                // one, so this is a shape change or a very busy volume - either way, keep waiting.
+                // Arcane lists newest first and this run started the newest one, so a miss is a
+                // shape change or a very busy volume - either way, keep waiting.
                 return BackupResult.running(backupId,
                         "Arcane's backup list does not carry this backup yet");
             }
@@ -699,11 +602,8 @@ public final class Arcane implements ArcaneOps {
     }
 
     /**
-     * What a redirect means here, for the operator rather than for the client.
-     *
-     * <p>Nothing follows one any more - see the client above. A 3xx is a configuration fact: the
-     * base URL is not where Arcane is, and the header this request carries must not be handed to
-     * whatever the redirect names.</p>
+     * What a redirect means here: nothing follows one, so a 3xx is a configuration fact - the base
+     * URL is not where Arcane is, and the key must not be handed to whatever the Location names.
      *
      * @return the sentence, or {@code null} when this is not a redirect
      */

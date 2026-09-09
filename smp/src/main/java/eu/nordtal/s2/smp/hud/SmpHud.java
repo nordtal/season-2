@@ -57,12 +57,9 @@ public final class SmpHud {
     /**
      * How long a status-bar announcement stays up before the ordinary line comes back.
      *
-     * <p>Eight seconds is the answer to the shape of the mistake this could be. The farm reset warns
-     * at 30, 10, 5 and 1 minutes, and a warning that occupied the bar between the first two would
-     * hold a player's dimension and milestone hostage for twenty minutes to say something that has
-     * not changed. What is wanted is a glance, four times - so the line takes the bar, is read, and
-     * gives it back. (docs/smp.md's reset sequence says "chat + HUD"; the HUD half is the one that
-     * reaches somebody who is not reading chat while mining, which is everybody in a farm world.)
+     * <p>Short, because the farm reset warns at 30, 10, 5 and 1 minutes: a warning that held the
+     * bar between two of those would hide the dimension and milestone for twenty minutes to say
+     * something that has not changed.
      */
     private static final Duration ANNOUNCEMENT = Duration.ofSeconds(8);
 
@@ -79,10 +76,8 @@ public final class SmpHud {
     /**
      * Who is currently being told something, and until when.
      *
-     * <p>Main thread only - written by {@link #announce} and read by the render tick, both of which
-     * are Bukkit calls, so a plain {@link HashMap} is the honest type. A stale entry is dropped by
-     * the tick that reads it rather than by a sweep: there is one entry per player at most, and the
-     * quit path already clears the bars.
+     * <p>Main thread only, hence the plain {@link HashMap}. A stale entry is dropped by the tick
+     * that reads it rather than by a sweep.
      */
     private final Map<UUID, Announcement> announcements = new HashMap<>();
 
@@ -121,12 +116,10 @@ public final class SmpHud {
     /**
      * Takes the status line over for {@link #ANNOUNCEMENT}, keeping the dimension icon. Main thread.
      *
-     * <p>The icon stays because the line is about the world the player is standing in and the icon
-     * is what says which one that is - and because a bar that changes shape as well as text reads as
-     * a glitch rather than as a message.
+     * <p>The icon stays: a bar that changes shape as well as text reads as a glitch rather than as
+     * a message.
      *
-     * @param line already rendered, in the player's own language, and short enough for the bar - it
-     *             is composed rather than parsed, like every other boss bar line
+     * @param line already rendered, in the player's own language, and short enough for the bar
      */
     public void announce(final Player player, final String line) {
         announcements.put(player.getUniqueId(),
@@ -190,8 +183,7 @@ public final class SmpHud {
             return List.of(Pill.of(dimension, announcement));
         }
 
-        // One read: this line is a milestone's name and that milestone's percentage, and taking
-        // them separately is how it comes to be neither.
+        // One read, so the name and the percentage are always the same milestone's.
         final SeasonState.Active active = season.active();
         if (active.key() == null) {
             return List.of(Pill.of(dimension, worldName(player, locale)));
@@ -210,8 +202,8 @@ public final class SmpHud {
                 ? target.label()
                 : messages.get(locale, target.label());
 
-        // A target in another world has no bearing worth drawing: the arrow would spin, and the
-        // distance would be measured between two coordinate systems that share nothing but numbers.
+        // A target in another world has no bearing worth drawing: the arrow would spin and the
+        // distance would span two unrelated coordinate systems.
         if (!target.isIn(player.getWorld().getName())) {
             return List.of(
                     Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, label),

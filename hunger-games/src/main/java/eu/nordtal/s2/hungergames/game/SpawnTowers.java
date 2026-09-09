@@ -5,9 +5,7 @@ import java.util.List;
 
 /**
  * Procedural spawn tower positions: {@code count} points arranged in a circle around the centre at
- * equal distance, per docs/hunger-games.md#start ("arranged in a circle around the spawn at equal
- * distance from the centre loot"). Pure X/Z math with no Bukkit dependency, so a Location is built
- * from these by the caller.
+ * equal distance. Pure X/Z math, so the caller builds the Location.
  */
 public final class SpawnTowers {
 

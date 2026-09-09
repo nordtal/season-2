@@ -30,18 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The shared bundle: the same file in two languages, complete, and free of markup.
  *
- * <p>The first two checks are the ones {@code smp} and {@code hunger-games} already have, for the
- * reason they give - {@code Messages} degrades to the key rather than throwing, so a key present in
- * one language and absent in the other reaches somebody as the literal string {@code phase.failed}.
- *
- * <p>The other two exist only here, because only this bundle is read by more than one process:</p>
- * <ul>
- *   <li><b>Every key a shared command asks for exists.</b> A command holds no bundle - it names
- *       keys - so a typo in one is invisible until somebody runs that branch, and the branches that
- *       matter here are the failure ones nobody runs on purpose.</li>
- *   <li><b>No markup.</b> These strings are rendered as MiniMessage on Minecraft and as Discord
- *       markdown in the guild; either one's syntax is literal text on the other surface.</li>
- * </ul>
+ * <p>{@code Messages} degrades to the key rather than throwing, so a key present in one language
+ * only reaches somebody as the literal string {@code phase.failed}. Markup is checked because this
+ * bundle is rendered as MiniMessage on Minecraft and as Discord markdown in the guild - either
+ * syntax is literal text on the other surface.</p>
  */
 class MessageBundlesTest {
 
@@ -89,9 +81,8 @@ class MessageBundlesTest {
         final Set<String> declared = keysOf("en");
         final List<String> missing = new ArrayList<>();
 
-        // Literals only: a key built by concatenation cannot be checked this way, and there is
-        // exactly one - SetPhase#consequenceKey, whose five results PhaseCommandsTest walks against
-        // SeasonPhase.values() instead.
+        // Literals only: a key built by concatenation cannot be checked this way. The one such key,
+        // SetPhase#consequenceKey, is walked against SeasonPhase.values() in PhaseCommandsTest.
         final Pattern named = Pattern.compile("(?:reply|phrase)\\(\\s*\"([a-z][a-z0-9.-]*)\"");
         for (final Path source : sources()) {
             final Matcher matcher = named.matcher(Files.readString(source, StandardCharsets.UTF_8));
@@ -104,8 +95,7 @@ class MessageBundlesTest {
 
         assertEquals(List.of(), missing,
                 "a command named a message key no bundle declares. Messages answers the key itself,"
-                        + " so this reaches somebody as the literal string phase.date.failed at the"
-                        + " moment a date failed to write.");
+                        + " so this reaches somebody as a literal string like phase.date.failed.");
         for (final String key : declared) {
             assertTrue(messages.hasTranslation(Locale.GERMAN, key), key + " does not resolve in de");
         }
@@ -115,8 +105,7 @@ class MessageBundlesTest {
     @DisplayName("the shared bundle carries no markup, because it is rendered on two surfaces")
     void neitherSurfacesSyntaxLeaksIntoTheOther() throws IOException {
         // MiniMessage tags would print as <b>...</b> in Discord; Discord's ** would print as
-        // asterisks in chat. The rule is written at the top of en.properties; this is what makes it
-        // true rather than aspirational.
+        // asterisks in chat.
         final List<String> offending = new ArrayList<>();
         for (final String language : List.of("en", "de")) {
             final Properties bundle = load(language);
@@ -137,8 +126,7 @@ class MessageBundlesTest {
     @DisplayName("every stage and every service state the updater can report has a line to say")
     void theUpdateReportIsFullyTranslated() throws IOException {
         // The sweep above cannot see these: the key is built from an enum constant, so a stage
-        // added to UpdateReport would reach an admin as the literal string update.stage.PAUSING -
-        // in the middle of a run that is taking four servers down.
+        // added to UpdateReport would reach an admin as the literal string update.stage.PAUSING.
         final Properties english = load("en");
         final Properties german = load("de");
         final List<String> missing = new ArrayList<>();
@@ -152,9 +140,7 @@ class MessageBundlesTest {
         }
         for (final UpdateReport.Change.State state : UpdateReport.Change.State.values()) {
             // MOVING is two keys rather than one - a first install has no version to move FROM -
-            // so the family is not simply "one key per constant" and is named by hand. What the
-            // build has to catch is a state added to UpdateReport with no line to say about it,
-            // which would reach an admin as the literal string update.change.SOMETHING.
+            // so the family is not "one key per constant" and is named by hand.
             switch (state) {
                 case MOVING -> {
                     check(english, german, "update.change", missing);
@@ -164,8 +150,7 @@ class MessageBundlesTest {
             }
         }
         for (final UpdateKind kind : UpdateKind.values()) {
-            // The heading for a row written before the report became structured. Those rows are
-            // still in the deployed database and still readable, APPLY included.
+            // The heading for an unstructured report row.
             check(english, german, "update.title." + kind, missing);
         }
         assertEquals(List.of(), missing);
@@ -174,9 +159,9 @@ class MessageBundlesTest {
     @Test
     @DisplayName("a service's chat line ends with the same word its Discord field uses")
     void theTwoStateLabelsStayOneLabel() throws IOException {
-        // update.line.* is "{service}: stopped" for chat, which has no headings; update.state.* is
-        // "stopped" alone, for a Discord field that already carries the service as its heading.
-        // Two families for one word is exactly what drifts, so the build holds them together.
+        // update.line.* is "{service}: stopped" for chat; update.state.* is "stopped" alone, for a
+        // Discord field that already carries the service as its heading. Two families for one word
+        // drift unless the build holds them together.
         for (final String language : List.of("en", "de")) {
             final Properties bundle = load(language);
             for (final UpdateReport.State state : UpdateReport.State.values()) {
@@ -204,10 +189,9 @@ class MessageBundlesTest {
     @Test
     @DisplayName("the consequence sentences say the thing the confirmation exists for")
     void theConsequencesNameWhatActuallyHappens() throws IOException {
-        // Content assertions, which are usually brittle and are worth it here: this is the only
-        // reason there is a confirmation step at all. docs/season-phases.md#routing settles that a
-        // switch to SMP disconnects a player with no active access rather than moving them to
-        // limbo, and an admin has to read that before clicking, in either language.
+        // Content assertions, worth their brittleness here: a switch to SMP disconnects a player
+        // with no active access rather than moving them to limbo, and the confirmation exists so
+        // that an admin reads that before clicking, in either language.
         final Properties english = load("en");
         final Properties german = load("de");
 

@@ -104,11 +104,13 @@ public final class Topology {
      * Simple Voice Chat's Bukkit plugin - {@code voicechat-bukkit-<version>.jar}, so the filename
      * prefix is {@code voicechat-bukkit} and not this id.
      *
-     * <p>It is <b>optional for a player</b>: the audio is carried by a mod the client either has or
-     * has not, and a client without it notices nothing at all. It is not optional for the server,
-     * which is why it is an ordinary plugin row here and is asked for by the entrypoint guard: a
-     * backend that quietly came up without it is a backend where everybody's voice chat is off and
-     * nothing in the game says why.</p>
+     * <p><b>It is optional, and that is a decision about players rather than about the jar</b>
+     * (owner, 2026-09-09): voice chat is something a player either has a mod for or has not, and a
+     * network where nobody can talk is a worse evening than a network with no voice chat at all -
+     * so a missing jar must not be a server that refuses to start. It is therefore named in
+     * {@link Service#optional()} on both backends and absent from their {@code EXPECTED_PLUGINS}.
+     * The cost is real and is the price: a backend that came up without it looks healthy, and the
+     * only thing that says otherwise is the update report naming the row.</p>
      */
     public static final String VOICE_CHAT = "voicechat";
 
@@ -208,17 +210,21 @@ public final class Topology {
             new Service(LIMBO, Kind.PAPER, List.of(LIMBO)),
             // Voice chat is on the two servers people play on and not on limbo: the waiting room
             // is seconds long and holds nobody who could be talked to (owner, 2026-09-08).
-            new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES, VOICE_CHAT)),
+            new Service(HUNGER_GAMES, Kind.PAPER, List.of(HUNGER_GAMES, VOICE_CHAT),
+                    List.of(VOICE_CHAT)),
             // The only service with required third-party plugins. DisplayTags is required by the
             // SMP plugin's own paper-plugin.yml; PacketEvents is required under DisplayTags;
             // Chunky pre-generates the world border and is loaded by :smp reflectively.
-            // CoreProtect is optional here in the one sense this record means it: the guard does not
-            // ask for it. It cannot, while no build for this Minecraft version exists - a server
-            // that refuses to start until a third party ships is worse than a season with no block
-            // log on it.
+            //
+            // The two optional ones are optional for two different reasons and both are worth
+            // keeping straight. CoreProtect CANNOT be installed - no build for this Minecraft
+            // version exists - so guarding on it would hand somebody else's release schedule the
+            // power to keep the SMP down. Voice chat can be installed and usually will be; it is
+            // optional because a server nobody can talk on is better than a server nobody can join
+            // (owner, 2026-09-09).
             new Service(SMP, Kind.PAPER,
                     List.of(SMP, DISPLAY_TAGS, PACKETEVENTS, CHUNKY, VOICE_CHAT, CORE_PROTECT),
-                    List.of(CORE_PROTECT)));
+                    List.of(VOICE_CHAT, CORE_PROTECT)));
 
     private Topology() {
     }

@@ -173,7 +173,7 @@ public interface UpdateDirectory {
      * @return the row with its new {@code not_before}, or empty when it is no longer running -
      *         which means it was cancelled between the claim and this call
      */
-    Optional<UpdateRequest> startCountdown(long id, Duration seconds);
+    Optional<UpdateRequest> startCountdown(long id, Duration length);
 
     /**
      * Ends the countdown and says whether it was still there to end. <b>Only the updater calls

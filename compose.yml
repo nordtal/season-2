@@ -513,11 +513,13 @@ services:
       SERVER_KIND: paper
       SERVER_VERSION: ${PAPER_VERSION:-26.2}
       SERVER_BUILD: ${PAPER_BUILD:-121}
-      # Simple Voice Chat is here and on smp, and NOT on limbo (owner, 2026-09-08): the waiting
-      # room is seconds long and holds nobody who could be talked to. The prefix is the jar's, not
-      # the updater's artefact id - voicechat resolves to voicechat-bukkit-<version>.jar, the same
-      # assumption the two prefixes in smp's list below carry, with the same failure mode.
-      EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games voicechat-bukkit}
+      # SIMPLE VOICE CHAT IS INSTALLED HERE AND IS NOT IN THIS LIST (owner, 2026-09-09). It runs on
+      # this server and on smp, and not on limbo: the waiting room is seconds long and holds nobody
+      # who could be talked to. It is left out of the guard because voice chat is optional for a
+      # player - the audio needs a mod the client either has or has not - so a missing jar is a
+      # quiet evening, while a guard entry for it would be a server that will not start. The row
+      # lives in :updater's Topology as Service#optional, and the update report is what names it.
+      EXPECTED_PLUGINS: ${HUNGER_GAMES_EXPECTED_PLUGINS:-hunger-games}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${HUNGER_GAMES_HEAP:-4G}
       # The hand-built event world. HungerGamesSpec#world-name defaults to `hunger_games` and the
@@ -576,7 +578,7 @@ services:
       # Dungeons and Taverns decide the terrain on top of it, so this number does not produce the
       # same landscape anywhere those packs are absent. See docs/smp.md#worlds.
       LEVEL_SEED: ${SMP_LEVEL_SEED:-1837371427}
-      # All five, and this is the service the coarse guard let through: on the first deployment
+      # All four, and this is the service the coarse guard let through: on the first deployment
       # PacketEvents and Chunky resolved while the season release did not, so `plugins/` was not
       # empty and the SMP started with no season on it. The two third-party prefixes are not the
       # updater's artefact ids (`packetevents` resolves to packetevents-spigot-*.jar, `chunky` to
@@ -584,13 +586,21 @@ services:
       # assuming them, and this list does assume them. A publisher renaming a jar therefore stops
       # this container with the prefix in the message, which is the right side to fail on.
       #
-      # COREPROTECT IS DELIBERATELY NOT IN THIS LIST. The updater carries a row for it, and that row
-      # is UNSUPPORTED for as long as its publisher has no 26.2 build (there is none: 24.0 stops at
+      # TWO PLUGINS ARE DELIBERATELY NOT IN THIS LIST, for two different reasons.
+      #
+      # COREPROTECT cannot be installed at all: the updater carries a row for it and that row is
+      # UNSUPPORTED for as long as its publisher has no 26.2 build (there is none: 24.0 stops at
       # 26.1.2, checked 2026-09-08). An artefact that cannot be installed must not be one this
       # container refuses to start without - that would turn somebody else's release schedule into
-      # an outage here. :updater's TopologyTest asserts the guard asks for exactly the artefacts
-      # that are not optional.
-      EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit voicechat-bukkit}
+      # an outage here.
+      #
+      # SIMPLE VOICE CHAT can be installed and normally will be. It is out because voice chat is
+      # optional for a player (owner, 2026-09-09): the audio needs a client mod, and a server
+      # nobody can talk on is a far smaller thing than a server nobody can join.
+      #
+      # :updater's TopologyTest asserts the guard asks for exactly the artefacts that are not
+      # optional, in both directions.
+      EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
       HEAP: ${SMP_HEAP:-6G}
       EULA: ${EULA:?set EULA=true to accept https://aka.ms/MinecraftEULA}

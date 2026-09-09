@@ -67,11 +67,31 @@ class WaitingTextTest {
         // narrow window - and it exists so that a translation cannot quietly grow past it.
         for (final WaitReason reason : WaitReason.values()) {
             for (final Locale locale : new Locale[]{Locale.ENGLISH, Locale.GERMAN}) {
-                final String title = messages.get(locale, reason.titleKey());
+                final String raw = messages.get(locale, reason.titleKey());
+                final String drawn = drawn(raw);
 
-                assertFalse(title.length() > 40,
-                        locale + " " + reason + " title is " + title.length() + " characters: " + title);
+                assertFalse(drawn.length() > 40,
+                        locale + " " + reason + " title is " + drawn.length() + " characters: "
+                                + drawn + " (raw: " + raw + ")");
             }
         }
+    }
+
+    /**
+     * The title with its MiniMessage tags taken off - what the client actually has to fit.
+     *
+     * <p>The measurement used to be on the raw value, which was the same thing while these four
+     * titles carried no markup and stopped being the same thing the moment they were given the
+     * palette: {@code <white>Resource-Pack wird geladen</white>} is 41 raw characters and 25 drawn
+     * ones, so the check failed on a title that got <em>shorter</em> on screen than the limit it
+     * was written for. A test that counts tags is a test that forbids colour, which is not what
+     * this one is about.</p>
+     *
+     * <p>Stripped by regular expression rather than by parsing: this module compiles against no
+     * Adventure at all, and the four values here are ours - a tag in one is a tag somebody typed on
+     * purpose, not arbitrary text that has to be tokenised safely.</p>
+     */
+    private static String drawn(final String raw) {
+        return raw.replaceAll("</?[a-zA-Z_#][a-zA-Z0-9_:.#'\\-]*>", "");
     }
 }

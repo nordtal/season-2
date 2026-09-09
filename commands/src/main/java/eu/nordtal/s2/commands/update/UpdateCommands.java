@@ -32,9 +32,19 @@ public final class UpdateCommands {
     private UpdateCommands() {
     }
 
-    /** {@code /update} - resolve every source, compare, report. Writes no file. */
+    /**
+     * {@code /update check} - resolve every source, compare, report. Writes no file.
+     *
+     * <h2>Why a subcommand, when the bare {@code /update} reads better</h2>
+     * Because Discord cannot run a root that has subcommands: a slash command with {@code now},
+     * {@code restart} and {@code cancel} under it is a menu, and a menu is not invokable. The
+     * report was declared as the bare root on 2026-09-08 and was unreachable in Discord from that
+     * moment - the adapter registered it without complaint and Discord never offered it. In game
+     * the bare {@code /update} still works: {@code Catalogue#rootDefault} names this command as
+     * what a root with nothing of its own runs, the way {@code /phase} is {@code /phase show}.
+     */
     public static final Declaration REPORT = new Declaration(
-            List.of("update"), Target.LOCAL,
+            List.of("update", "check"), Target.LOCAL,
             Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, false, List.of());
 
     /**
@@ -58,13 +68,37 @@ public final class UpdateCommands {
             List.of("update", "cancel"), Target.LOCAL,
             Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, false, List.of());
 
-    /** Every {@code /update} command. */
+    /**
+     * {@code /backup now} - the same sequence with a volume backup in the gap.
+     *
+     * <h2>A different root, declared in this file</h2>
+     * The root is {@code backup} and not {@code update}, because it is asked for by somebody who is
+     * not updating anything - usually right before a change they are unsure of - and because
+     * {@code /update now}'s neighbours are the one set of tab-completions in this network worth
+     * keeping thin.
+     *
+     * <p>The <em>declaration</em> is here rather than in a root class of its own for the opposite
+     * reason: it writes the same row into the same table, is drawn by the same
+     * {@link UpdateFollower}, and is carried out by the same container. Being in {@link #all()} is
+     * what puts it into all five processes without a sixth wiring site somebody has to remember -
+     * and {@code Target.LOCAL} is exactly the target where forgetting is silent: nothing travels,
+     * so nothing times out, so a process that forgot simply has no {@code /backup}.</p>
+     *
+     * <p>It is cancelled by {@code /update cancel} like every other countdown, which is the one
+     * place the shared root shows through. That is deliberate: there is one countdown in this
+     * network and one thing that stops it.</p>
+     */
+    public static final Declaration BACKUP = new Declaration(
+            List.of("backup", "now"), Target.LOCAL,
+            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, true, List.of());
+
+    /** Every command served by {@link UpdateEffects} - the four {@code /update} ones and backup. */
     public static List<NordtalCommand<UpdateEffects>> all() {
         return List.of(new ReportUpdate(), new RunUpdate(UpdateCommands.NOW),
-                new RunUpdate(UpdateCommands.RESTART), new CancelUpdate());
+                new RunUpdate(UpdateCommands.RESTART), new CancelUpdate(), new RunBackup());
     }
 
-    /** Every {@code /update} declaration. */
+    /** Every declaration in {@link #all()}. */
     public static List<Declaration> declarations() {
         return all().stream().map(NordtalCommand::declaration).toList();
     }

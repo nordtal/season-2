@@ -47,5 +47,21 @@ public enum Feedback {
     COUNTDOWN_TICK,
 
     /** Everybody hears it: a milestone for everyone who did not finish it, a phase switch. */
-    NETWORK_EVENT
+    NETWORK_EVENT,
+
+    /**
+     * A staged moment: the season's opening on a player's first join, and whatever else the
+     * staging device is later pointed at.
+     *
+     * <p><b>It ships blank, and that is the decision rather than an omission</b> (owner,
+     * 2026-09-09). The other ten categories name a vanilla sound because a vanilla sound is what
+     * they are - a pickup, a level-up, a click. A staged moment is not one of those, and the sound
+     * it wants does not exist yet: it comes into the resource pack with the art. Borrowing
+     * {@link #NETWORK_EVENT} would have given the season's opening the noise of a phase switch.
+     *
+     * <p>So the category exists, the path through {@code sounds.yml} exists, and the key is empty -
+     * which every module already treats as silence. Filling it in later is a line of YAML and no
+     * release.
+     */
+    STAGING
 }

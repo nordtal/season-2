@@ -5,16 +5,23 @@ import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
+import java.util.List;
+
 /**
  * {@code config/updater.yml} - where every version comes from, and where the files it compares
  * against live.
  *
  * <h2>Everything here has a real default, and that is not this repository's habit</h2>
  * Every other config in season 2 leaves ids, tokens and URLs empty and refuses to start, because
- * a guessed id is somebody else's guild. This file is the opposite on purpose: the repositories,
- * the two Modrinth project ids and the platform versions are facts about <em>this</em> project,
- * not about a deployment, and an updater that cannot start until an operator retypes
- * {@code nordtal/season-2} is an updater that will be started with a typo in it.
+ * a guessed id is somebody else's guild. This file is the opposite on purpose: the repositories
+ * and the two Modrinth project ids are facts about <em>this</em> project, not about a deployment,
+ * and an updater that cannot start until an operator retypes {@code nordtal/season-2} is an
+ * updater that will be started with a typo in it.
+ *
+ * <p>The platform versions used to be here for the same reason and are not any more: a fact about
+ * the project that <em>nothing</em> should be able to override does not belong in a file the
+ * environment wins over. They are {@link eu.nordtal.s2.common.Platform} since 2026-09-09 - see the
+ * comment where the four retired keys stood.</p>
  *
  * <p>The one value that behaves the usual way is {@link #githubToken()}: empty, optional, and
  * only there for the rate limit.</p>
@@ -54,7 +61,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
         "NORDTAL_UPDATER_<PATH>, with '-' becoming '_':",
         "",
         "  season-release  ->  NORDTAL_UPDATER_SEASON_RELEASE",
-        "  paper-build     ->  NORDTAL_UPDATER_PAPER_BUILD",
+        "  volumes-root    ->  NORDTAL_UPDATER_VOLUMES_ROOT",
         "",
         "The environment wins over this file and is never written back to it."
 })
@@ -138,55 +145,88 @@ public interface UpdaterSpec {
         return "fALzjamp";
     }
 
+    // minecraft-version, velocity-version, paper-build and velocity-build were here until
+    // 2026-09-09, and all four are retired rather than moved.
+    //
+    // THE TWO VERSIONS ARE eu.nordtal.s2.common.Platform NOW. A platform version is a property of
+    // the season, not of an installation: every plugin in the organisation is compiled against
+    // exactly one Paper API, and the resource pack's pack_format is chosen for the same version.
+    // An operator who typed a different number here was not configuring the updater, they were
+    // pointing the network at a Minecraft nothing in the repository was built for - and compose.yml
+    // fed both keys out of .env, so the environment won over the source tree in the one place where
+    // it must not. Platform.MINECRAFT is the exact Paper version and Platform.VELOCITY_FAMILY is
+    // Fill's name for Velocity's major, of which the newest release is installed.
+    //
+    // THE TWO BUILD PINS ARE GONE WITH NO REPLACEMENT, decided by the owner on 2026-09-09. What
+    // they bought was a way back out of a bad platform build, and what they cost was a rollback
+    // path nobody had ever exercised sitting in front of the one thing this module does every day.
+    // Do not reintroduce one, here or anywhere else: an undocumented emergency brake is worse than
+    // none, because the next person will believe the file rather than the code.
+
     @Order(7)
-    @Key("minecraft-version")
+    @Key("voicechat-project")
     @Comment({
-            "The Minecraft version the network runs. Used as the game_versions filter against",
-            "Modrinth and as the version whose builds are read from the PaperMC Fill API.",
+            "The Modrinth project id of Simple Voice Chat ('simple-voice-chat').",
             "",
-            "This is not a value the updater may change on its own: a new Minecraft version is",
-            "a season decision, and every plugin in the org is compiled against exactly one."
+            "THE ID, NOT THE SLUG, for the reason packetevents-project gives.",
+            "",
+            "ONE ID, TWO ARTEFACTS. The project publishes a server half and a proxy half, and the",
+            "updater resolves both from this one id - the `paper` build for smp and hunger-games",
+            "(voicechat-bukkit-<version>.jar) and the `velocity` build for the proxy",
+            "(voicechat-velocity-<version>.jar). The loader is what tells them apart.",
+            "",
+            "The proxy half is what makes ONE published UDP port enough for the whole network: it",
+            "detects each backend's voice address and port itself, so no backend publishes a port",
+            "and no voice_host has to be edited by hand. Without it every backend would need its",
+            "own port open to the internet.",
+            "",
+            "It is also the one artefact the updater installs from a PRE-RELEASE. That is not a",
+            "setting and cannot be turned on for anything else - see Modrinth.PRE_RELEASE_",
+            "EXCEPTIONS, which names it and says why: the project has never published a Velocity",
+            "build marked `release`, so waiting for one means never installing it at all."
     })
-    default String minecraftVersion() {
-        return "26.2";
+    default String voiceChatProject() {
+        return "9eGKb6K1";
     }
 
     @Order(8)
-    @Key("velocity-version")
+    @Key("coreprotect-project")
     @Comment({
-            "The Velocity version the proxy runs. Same rule as minecraft-version: the updater",
-            "follows BUILDS within it and never moves the version itself."
+            "The Modrinth project id of CoreProtect ('coreprotect'), the block logger, on smp.",
+            "The jar is CoreProtect-CE-<version>.jar.",
+            "",
+            "THERE IS NO BUILD FOR THIS MINECRAFT VERSION and the row is here anyway (checked",
+            "2026-09-08: 24.0 is the newest release and stops at 26.1.2). It resolves as",
+            "UNSUPPORTED, which is neither work nor a failure - nothing is installed, nothing is",
+            "skipped, and smp's other plugins are not held back for it. The day a compatible",
+            "release appears, the next `/update now` installs it and nobody edits any code.",
+            "",
+            "Blanking this key does NOT retire the artefact - it makes every run report the",
+            "project id '' as unresolvable. Retiring it is an edit to Topology.SERVICES."
     })
-    default String velocityVersion() {
-        return "4.1.1";
+    default String coreProtectProject() {
+        return "Lu3KuzdV";
     }
+
+    // minecraft-version, velocity-version, paper-build and velocity-build were here until
+    // 2026-09-09, and all four are retired rather than moved.
+    //
+    // THE TWO VERSIONS ARE eu.nordtal.s2.common.Platform NOW. A platform version is a property of
+    // the season, not of an installation: every plugin in the organisation is compiled against
+    // exactly one Paper API, and the resource pack's pack_format is chosen for the same version.
+    // An operator who typed a different number here was not configuring the updater, they were
+    // pointing the network at a Minecraft nothing in the repository was built for - and compose.yml
+    // fed both keys out of .env, so the environment won over the source tree in the one place where
+    // it must not. Platform.MINECRAFT is the exact Paper version and Platform.VELOCITY_FAMILY is
+    // Fill's name for Velocity's major, of which the newest release is installed.
+    //
+    // THE TWO BUILD PINS ARE GONE WITH NO REPLACEMENT, decided by the owner on 2026-09-09. What
+    // they bought was a way back out of a bad platform build, and what they cost was a rollback
+    // path nobody had ever exercised sitting in front of the one thing this module does every day.
+    // Do not reintroduce one, here or anywhere else: an undocumented emergency brake is worse than
+    // none, because the next person will believe the file rather than the code.
 
     @Order(9)
-    @Key("paper-build")
-    @Comment({
-            "Which build of minecraft-version the three Paper servers run: the word 'latest'",
-            "for the newest STABLE build the Fill API lists, or an exact build number such",
-            "as '121'.",
-            "",
-            "An exact number is how a rollback is expressed, exactly like season-release: the",
-            "next apply installs that build, whether it is older or newer than what is there.",
-            "It is a person's decision and this module never writes it. PAPER_BUILD in .env is",
-            "a different thing - the build the entrypoint seeds an EMPTY cache with, once."
-    })
-    default String paperBuild() {
-        return "latest";
-    }
-
-    @Order(10)
-    @Key("velocity-build")
-    @Comment({
-            "Which build of velocity-version the proxy runs. Same rule as paper-build."
-    })
-    default String velocityBuild() {
-        return "latest";
-    }
-
-    @Order(11)
     @Key("volumes-root")
     @Comment({
             "Where the four Minecraft volumes are mounted inside this container - one",
@@ -204,7 +244,7 @@ public interface UpdaterSpec {
         return "/volumes";
     }
 
-    @Order(12)
+    @Order(10)
     @Key("github-token")
     @Comment({
             "Optional. A token raises GitHub's unauthenticated rate limit of 60 requests per",
@@ -218,7 +258,7 @@ public interface UpdaterSpec {
         return "";
     }
 
-    @Order(13)
+    @Order(11)
     @Key("http-timeout-seconds")
     @Comment({
             "How long any single API call may take before the run gives up.",
@@ -230,7 +270,7 @@ public interface UpdaterSpec {
         return 30;
     }
 
-    @Order(14)
+    @Order(12)
     @Key("download-timeout-seconds")
     @Comment({
             "How long a single jar may take to download during `updater apply`.",
@@ -243,7 +283,7 @@ public interface UpdaterSpec {
         return 600;
     }
 
-    @Order(15)
+    @Order(13)
     @Key("poll-interval-seconds")
     @Comment({
             "How often `updater serve` looks in update_request for work it was not told about.",
@@ -263,7 +303,7 @@ public interface UpdaterSpec {
         return 15;
     }
 
-    @Order(16)
+    @Order(14)
     @Key("bootstrap")
     @Comment({
             "Whether `updater serve` installs what is MISSING before it reports itself ready.",
@@ -289,7 +329,7 @@ public interface UpdaterSpec {
         return true;
     }
 
-    @Order(17)
+    @Order(15)
     @Key("arcane")
     @Comment({
             "How the restart is actually performed: one redeploy of the whole compose project",
@@ -305,6 +345,110 @@ public interface UpdaterSpec {
             "the restart button says so and the redeploy is a click in Arcane."
     })
     ArcaneSpec arcane();
+
+    @Order(16)
+    @Key("backup")
+    @Comment({
+            "The nightly volume backup: which volumes are saved and which services are stopped",
+            "while they are.",
+            "",
+            "THE UPDATER DOES NOT SCHEDULE THIS AND MUST NOT. `serve` has exactly one rule it is",
+            "protected by - it does nothing at all until a row appears in update_request - and a",
+            "timer here would be the end of it. The nightly row is written by `smp`, which already",
+            "owns a daily clock for the farm world; see smp's config.yml#backup-time. An admin",
+            "asks for one with /backup now. The consequence is written down rather than hidden: a",
+            "season with `smp` down has no nightly backup and nothing else notices."
+    })
+    BackupSpec backup();
+
+    /** What a {@code BACKUP} run saves and what it stops while it does. */
+    @ConfigSpec
+    interface BackupSpec {
+
+        @Order(1)
+        @Key("volumes")
+        @Comment({
+                "The Docker volumes to snapshot, by their REAL names - what `docker volume ls`",
+                "prints, not the keys in compose.yml. Compose prefixes every volume with the",
+                "project name, which compose.yml pins as `nordtal-s2`, so the two differ by that",
+                "prefix and Arcane only knows the real one.",
+                "",
+                "WHY THESE AND NOT THE OTHERS. mc-smp is Nordtal - a hand-built world in no",
+                "repository and in no release, and the only thing here that cannot be rebuilt.",
+                "mc-network-control carries velocity.toml and the forwarding secret. bot-config",
+                "and postgres-dumps are the bot's and the database's. The four *-plugins volumes",
+                "are new on 2026-09-08 and hold the only hand-edited files in the deployment:",
+                "every plugin's config.yml, smp's milestones.yml and sounds.yml, and the proxy's",
+                "pack.yml with the resource pack's SHA-1 in it.",
+                "",
+                "WHAT IS DELIBERATELY ABSENT. postgres-data is never here: a snapshot of a live",
+                "PGDATA is torn, and it fails at RESTORE rather than at backup, which is the worst",
+                "place for it to fail. The pg_dump sidecar writes postgres-dumps instead and that",
+                "is what is saved. mc-limbo and mc-hunger-games are absent too - limbo builds its",
+                "world at every enable and the hunger games arena is a folder that is copied in,",
+                "so both are rebuilt rather than restored. bot-jar and updater-jar are refilled by",
+                "`updater bootstrap`.",
+                "",
+                "WHERE a snapshot goes is Arcane's decision and not this file's: its backup policy",
+                "on each volume says local, S3 or both. Set that up once - see deploy/README.md."
+        })
+        default List<String> volumes() {
+            return List.of("nordtal-s2_mc-smp",
+                    "nordtal-s2_mc-smp-plugins",
+                    "nordtal-s2_mc-network-control",
+                    "nordtal-s2_mc-network-control-plugins",
+                    "nordtal-s2_mc-limbo-plugins",
+                    "nordtal-s2_mc-hunger-games-plugins",
+                    "nordtal-s2_bot-config",
+                    "nordtal-s2_postgres-dumps");
+        }
+
+        @Order(2)
+        @Key("stop-services")
+        @Comment({
+                "Which compose services are stopped while the snapshot is taken, by the names",
+                "Arcane's runtime endpoint reports - which are compose's service names.",
+                "",
+                "A SNAPSHOT OF A RUNNING PAPER SERVER IS A TORN ONE, and the way that surfaces is",
+                "a region file that will not load, months later, on the one day somebody needs the",
+                "backup. So the servers holding a saved volume go down first.",
+                "",
+                "ARCANE CAN DO THIS ITSELF AND IT IS TURNED OFF ON PURPOSE. A backup policy has a",
+                "`Stop Containers` flag; leaving it on means Arcane stops the containers with no",
+                "countdown and no warning to anybody standing in the world. The stopping is done",
+                "here so that the thirty-second countdown every player sees runs first, and so",
+                "that something is left running afterwards to say whether everything came back.",
+                "",
+                "limbo and hunger-games are absent: neither holds a world worth saving, and an",
+                "outage with nothing to show for it is worse than no backup. Their plugins/",
+                "volumes are still snapshotted - a config.yml is written at enable and at reload",
+                "and at no other time, so there is nothing in flight to tear."
+        })
+        default List<String> stopServices() {
+            return List.of("smp", "network-control", "bot");
+        }
+
+        @Order(3)
+        @Key("patience-minutes")
+        @Comment({
+                "How long one volume's snapshot may take before the run gives up on it and starts",
+                "the servers again.",
+                "",
+                "The servers are already down while this waits, so the number is a judgement about",
+                "which is worse: a network down longer than it should be, or a snapshot abandoned",
+                "just before it finished. Nordtal at border 4000 is several gigabytes and the first",
+                "S3 upload of it is the slow one; every one after that is a Rustic delta.",
+                "",
+                "Thirty minutes rather than an hour (owner, 2026-09-09), because giving up is no",
+                "longer silent: a run that ends FAILED mentions the admin role in the admin channel",
+                "instead of only editing an embed nobody is looking at at five in the morning. That",
+                "is what makes the shorter wait safe - the network comes back sooner and somebody",
+                "is told that a volume was not saved. What this must not be is infinite."
+        })
+        default int patienceMinutes() {
+            return 30;
+        }
+    }
 
     /** Where Arcane is and how to ask it for a redeploy. */
     @ConfigSpec
@@ -439,6 +583,31 @@ public interface UpdaterSpec {
         }
 
         @Order(8)
+        @Key("backup-path")
+        @Comment({
+                "Where the updater starts a volume backup and reads its state, with {volume}",
+                "replaced by the Docker volume name. POST starts one, GET lists them.",
+                "",
+                "Read from Arcane's own source on 2026-09-08, v2.10.2 -",
+                "backend/internal/volume/handler.go registers both under",
+                "/environments/{id}/volumes/{volumeName}/backups: the POST answers 202 with the",
+                "new backup's entry (its id and a status of `running`), the GET answers a",
+                "paginated list of entries each carrying id and status. A setting for the same",
+                "reason redeploy-path is one: the documentation does not publish either.",
+                "",
+                "The POST body is empty on purpose. Arcane then loads the volume's OWN backup",
+                "policy and uses its destination - local, S3 or both - so where a snapshot goes",
+                "stays a decision taken once in Arcane's interface rather than a second copy of it",
+                "in this file. A volume with no policy is backed up locally.",
+                "",
+                "A 409 means a backup of that volume is already running, which is not a failure of",
+                "this run: it is reported as such and the servers still come back."
+        })
+        default String backupPath() {
+            return "/api/environments/{environment}/volumes/{volume}/backups";
+        }
+
+        @Order(9)
         @Key("timeout-seconds")
         @Comment({
                 "How long to wait for the redeploy call.",

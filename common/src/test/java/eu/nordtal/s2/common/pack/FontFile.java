@@ -114,6 +114,13 @@ public final class FontFile {
                 || bitmaps.stream().anyMatch(bitmap -> bitmap.cellOf(codePoint).isPresent());
     }
 
+    /** Every code point this font resolves at all, advances and pixels alike. */
+    Set<Integer> declared() {
+        final Set<Integer> all = new LinkedHashSet<>(spaced);
+        all.addAll(drawn());
+        return all;
+    }
+
     /** Every code point this font draws pixels for - the space providers are not in it. */
     Set<Integer> drawn() {
         final Set<Integer> all = new LinkedHashSet<>();

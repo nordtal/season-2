@@ -20,6 +20,18 @@ public record ApplyResult(@NotNull List<Outcome> outcomes) {
          * tested.
          */
         SKIPPED,
+        /**
+         * There is no file for this artefact on this Minecraft version, so there was nothing to
+         * attempt.
+         *
+         * <p>Its own word rather than {@link #UNCHANGED}, which is what it used to fall into and is
+         * a claim about a file: "unchanged" reads as "what is installed is already right", and
+         * nothing is installed. Its own word rather than {@link #SKIPPED} too, because that one
+         * carries the sentence "nothing was installed, and not because everything was current" -
+         * true here and pointed at the wrong artefact, since it is the whole-service refusal that
+         * sentence is written for.</p>
+         */
+        UNSUPPORTED,
         /** Attempted and failed. Nothing of that server was moved - see {@link Applier}. */
         FAILED
     }

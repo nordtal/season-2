@@ -69,8 +69,14 @@ class CatalogueTest {
             assertTrue(declaration.arguments().stream().noneMatch(Argument::required),
                     declaration.name() + " needs an argument, so a bare root could not run it");
         }
-        assertEquals(1, found, "exactly /phase has a default today; changing that is a decision");
+        assertEquals(2, found, "exactly /phase and /update have a default today; changing that is a"
+                + " decision");
         assertEquals(java.util.Optional.of(PhaseCommands.SHOW), Catalogue.rootDefault("phase", true));
+        // /update alone is the report, since 2026-09-08 - the report had to become /update check
+        // because Discord cannot run a root that has subcommands, and the bare form in game is
+        // what people type.
+        assertEquals(java.util.Optional.of(eu.nordtal.s2.commands.update.UpdateCommands.REPORT),
+                Catalogue.rootDefault("update", true));
     }
 
     @Test
@@ -93,6 +99,8 @@ class CatalogueTest {
         }
         assertEquals(java.util.Optional.empty(), Catalogue.rootDefault("phase", false),
                 "/phase show is admin-only, so a bare /phase from a player must fall through to help");
+        assertEquals(java.util.Optional.empty(), Catalogue.rootDefault("update", false),
+                "/update check is admin-only; a player.s bare /update runs nothing");
     }
 
     @Test
@@ -151,11 +159,22 @@ class CatalogueTest {
     @DisplayName("every command is admin-only, which is the whole of the authorisation model")
     void thereIsOneAdminList() {
         // discord_user.admin, mirrored from the Discord role, and the console. No LuckPerms, no
-        // permission nodes, no second list. The two exceptions are named here so that a third does
-        // not arrive by accident: /smp status is the one thing a player may ask the SMP (read-only,
-        // 2026-09-06), and announce is typed by nobody at all - its surface is SYSTEM, so no adapter
-        // registers it and the only thing that can run it is a request row from a server.
-        assertEquals(List.of("/smp status", "/announce"), Catalogue.all().stream()
+        // permission nodes, no second list. The exceptions are named one by one so that another
+        // does not arrive by accident: /smp status is the one thing a player may ask the SMP
+        // (read-only, 2026-09-06), and announce is typed by nobody at all - its surface is SYSTEM,
+        // so no adapter registers it and the only thing that can run it is a request row from a
+        // server.
+        //
+        // The private messages are the newest and they arrived with a reason (Till, 2026-09-08):
+        // the command allowlist takes vanilla's /tell, /msg, /w and /teammsg away from players, and
+        // these are what replaces them. They are on the proxy because it is the only process that
+        // can see both people. See ChatCommands.
+        // /aura, /discord and /rules arrived with the same change and for the same reason: the
+        // allowlist leaves a player with our commands and nothing else, so ours have to cover what
+        // a player actually needs - where they stand, where the Discord is, and what the rules are.
+        assertEquals(List.of("/smp status", "/aura", "/announce", "/msg", "/whisper", "/r",
+                        "/discord", "/rules"),
+                Catalogue.all().stream()
                 .filter(declaration -> !declaration.adminOnly())
                 .map(Declaration::name)
                 .toList());

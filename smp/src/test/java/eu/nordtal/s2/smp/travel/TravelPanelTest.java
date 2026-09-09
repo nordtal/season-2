@@ -159,8 +159,20 @@ class TravelPanelTest {
         return (int) text.codePoints().filter(codePoint -> codePoint == glyph.codePointAt(0)).count();
     }
 
+    /**
+     * The whole composition as one string - the root's own text and every descendant's, in order.
+     *
+     * <p>It walked only the first child until 2026-09-09, when a canvas stopped being a single
+     * {@code TextComponent}: a placement is its own child now, so the overlays this test counts had
+     * moved out of the string it was reading and every count came back zero.</p>
+     */
     private static String plain(final Component component) {
-        return ((TextComponent) component.children().get(0)).content();
+        final StringBuilder out = new StringBuilder();
+        if (component instanceof TextComponent text) {
+            out.append(text.content());
+        }
+        component.children().forEach(child -> out.append(plain(child)));
+        return out.toString();
     }
 
     private static int rgb(final int r, final int g, final int b) {

@@ -81,10 +81,17 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     private final GateMessages messages;
     private final PackStation packs;
 
+    /**
+     * Where this class has decided to send somebody, so that {@link RouteIntents} can refuse every
+     * destination it did not choose. Every connection below registers one; a path added without one
+     * disconnects the player it was written for, loudly, in the proxy log.
+     */
+    private final RouteIntents intents;
+
     public PlayerRouter(final Object plugin, final ProxyServer proxy, final Logger logger,
                         final AccessDirectory access, final PhaseRouting routing, final PhaseWatch phases,
                         final LoginRoster roster, final FallbackCache fallback, final GateMessages messages,
-                        final PackStation packs) {
+                        final PackStation packs, final RouteIntents intents) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -95,6 +102,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         this.fallback = Objects.requireNonNull(fallback, "fallback");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.packs = Objects.requireNonNull(packs, "packs");
+        this.intents = Objects.requireNonNull(intents, "intents");
     }
 
     // ------------------------------------------------------------------ login
@@ -125,6 +133,9 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
         switch (decision.action()) {
             case CONNECT -> {
+                // Before setInitialServer, because Velocity fires ServerPreConnectEvent for the
+                // initial connection too - and RouteIntents refuses a destination nothing chose.
+                intents.intend(uuid, decision.server());
                 proxy.getServer(decision.server()).ifPresent(event::setInitialServer);
                 if (!decision.server().equals(routing.servers().limbo())) {
                     // Only an admin on a proxy with no waiting room gets here - see
@@ -319,6 +330,10 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             return true;
         }
 
+        // The one place this plugin asks Velocity to move a player who is already on the network.
+        // RouteIntents refuses every destination nothing chose, so the intent has to be recorded
+        // before the request rather than after it: the event fires inside connect().
+        intents.intend(player.getUniqueId(), server);
         player.createConnectionRequest(target).connect().whenComplete((result, error) -> {
             if (error != null) {
                 onFailure.accept(error.toString());

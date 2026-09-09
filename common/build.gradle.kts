@@ -7,6 +7,12 @@ plugins {
 // in it. They are in no source set of this module, so without this Gradle cannot see them and an
 // edit to one would leave :common:test UP-TO-DATE.
 repositoryRootTestInputs {
+    // PlatformTest: one fact in five files - the catalog, the pack's mcmeta and three descriptors.
+    reads("resource-pack/src/pack.mcmeta")
+    reads("smp/src/main/resources/paper-plugin.yml")
+    reads("limbo/src/main/resources/paper-plugin.yml")
+    reads("hunger-games/src/main/resources/paper-plugin.yml")
+
     reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
     reads("limbo/src/main/java/eu/nordtal/s2/limbo/LimboPlugin.java")
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/HungerGamesPlugin.java")
@@ -21,6 +27,12 @@ repositoryRootTestInputs {
     // EntrypointRulesTest keeps the container rules in deploy/minecraft/entrypoint.sh from being
     // quietly untaught. Every one of them came out of a drill against a running container.
     reads("deploy/minecraft/entrypoint.sh")
+
+    // PlatformTest holds Platform against the version catalog - what the updater installs against
+    // what every module compiles against. The catalog is in no source set, so without this line an
+    // edit to it leaves :common:test UP-TO-DATE and the drift is invisible until a plugin refuses
+    // to load on a real server.
+    reads("gradle/libs.versions.toml")
 
     // BossBarFontTest and GlyphShadowTest read the two boss bar renderers as text, for the reason
     // BossBarFontTest's own comment gives: a missing font key draws the wrong glyph rather than no
@@ -59,11 +71,22 @@ repositoryRootTestInputs {
     readsTree("hunger-games/src/main")
     readsTree("network-control/src/main")
 
+    // ReplyToneTest walks the same trees plus the two that hold the commands themselves and the
+    // Paper adapter. A reply that names no tone compiles and runs, so the seam it guards is
+    // invisible from any one module - and from any running server, because the sentence is right
+    // and only the colour is missing.
+    readsTree("commands/src/main")
+    readsTree("paper-common/src/main")
+
     // BundleContinuationTest walks every message bundle in the repository, the bot's included -
     // Properties.load strips a continued line's indentation in every module equally, so a rule that
     // covered only the Minecraft-facing four would be a rule with a hole in it. Only the messages
     // directory: the bot's source tree is not an input to anything in :common.
     readsTree("discord-bot/src/main/resources/messages")
+
+    // OneRefusalLineTest reads the two classes that answer a command somebody may not run, plus
+    // every bundle, and asserts they say one sentence. Both are covered by the trees above; the
+    // bot's messages tree is the only bundle root not under one of them and is already declared.
 }
 
 dependencies {

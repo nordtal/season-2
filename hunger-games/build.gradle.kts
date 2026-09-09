@@ -13,6 +13,13 @@ repositoryRootTestInputs {
     // happens to produce identical bytecode - would leave :hunger-games:test UP-TO-DATE and the one
     // check that says "the console can still run /hg" would not run.
     reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/command/HungerGamesCommand.java")
+
+    // BodyDeathIsAnnouncedTest reads the combat listener the same way and for the same reason: what
+    // it checks is whether the handler that books a body's death also says so, which is a property
+    // of the source and not of the bytecode.
+    reads("hunger-games/src/main/java/eu/nordtal/s2/hungergames/listener/CombatListener.java")
+    reads("hunger-games/src/main/resources/messages/hunger-games/en.properties")
+    reads("hunger-games/src/main/resources/messages/hunger-games/de.properties")
 }
 
 repositories {

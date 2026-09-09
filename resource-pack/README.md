@@ -91,10 +91,11 @@ The same script also writes two things outside this table's scope:
 
 # Code point allocation
 
-Four fonts, and the difference matters: a glyph only lines up where its `height` and `ascent`
-match the surface it is drawn on. `nordtal:board` was added 2026-08-31, alongside the board frame
-pieces moving out of `minecraft:default` — see [`nordtal:board`](#nordtalboard) below for why.
-`nordtal:gui` was added 2026-09-04 with the first menu panel.
+Four fonts and a family of six, and the difference matters: a glyph only lines up where its
+`height` and `ascent` match the surface it is drawn on. `nordtal:board` was added 2026-08-31,
+alongside the board frame pieces moving out of `minecraft:default` — see
+[`nordtal:board`](#nordtalboard) below for why. `nordtal:gui` was added 2026-09-04 with the first
+menu panel, and `nordtal:gui_r0`…`gui_r5` on 2026-09-09 with the first list menu.
 
 | font | file | used for | metrics |
 |---|---|---|---|
@@ -102,6 +103,7 @@ pieces moving out of `minecraft:default` — see [`nordtal:board`](#nordtalboard
 | `nordtal:bossbar` | [`nordtal/font/bossbar.json`](src/assets/nordtal/font/bossbar.json) | the boss bar HUDs only, with the vanilla bar made invisible | height 14 / ascent 6 for bar segments, height 10 / ascent 4 for icons, height 8 / ascent 3 for text |
 | `nordtal:board` | [`nordtal/font/board.json`](src/assets/nordtal/font/board.json) | the objective board and aura leaderboard's frame only — drawn by `:common`'s `BoardFrame` since 2026-09-04 | height 9 / ascent 8 |
 | `nordtal:gui` | [`nordtal/font/gui.json`](src/assets/nordtal/font/gui.json) | the menu panels, drawn out of a chest inventory's **title** | ascent 13, height = the window's own pixel height (132…222) |
+| `nordtal:gui_r0` … `gui_r5` | [`nordtal/font/gui_r0.json`](src/assets/nordtal/font/gui_r0.json) … | everything drawn **on a chest row** — a list entry's plate, its icon, its label | six copies of one font, one per row; three ascents each (see below) |
 
 The four fonts allocate **independently**. `\uFE001` is a reserved player-badge code point in
 `minecraft:default`, a 1-pixel bar segment in `nordtal:bossbar`, and (as `\uFF001` specifically, in
@@ -509,9 +511,18 @@ stop being identical. Composing a title needs exactly two offsets: **−8** to b
 the title anchor to the window's left edge, and **−169** (as −128 −32 −8 −1) to walk back from the
 panel's 177px advance to where the readable title belongs.
 
-There are deliberately **no positive advances** here. Nothing in a menu title moves right; the
-panel is drawn from the left edge and the text follows it back. The day a title needs centring,
-that is one entry in `gui.json` and one constant in `Glyphs`.
+### `\uFF801` – `\uFF928` — positive space advances (2026-09-09)
+
+The same eight steps the other way, at the same decimal-digit code points one bit higher: `+16` is
+`\uFF816` beside `−16` at `\uFF016`. Declared in `nordtal:gui` **and in all six row fonts**, so a
+row can be composed without leaving the font it is drawn in.
+
+This paragraph said there were deliberately none, and the reasoning was sound for a panel: nothing
+in a menu *title* moves right, because the panel is drawn from the left edge and the readable text
+walks back behind it. A **row** does. Its plate has to be painted before the label on top of it and
+its icon before the name beside it, so a row is composed left to right — and with only negative
+advances a canvas can lay things down in one order, right to left, which paints every pill over its
+own label.
 
 ### `\uFE060` – `\uFE065` — chest panels
 
@@ -533,7 +544,29 @@ that is one entry in `gui.json` and one constant in `Glyphs`.
 | `\uFE068` | the same file | −60 | Locked, landing on the **lower** row | — |
 | `\uFE069` | ![source](src/assets/nordtal/textures/ui/gui/travel_here.png) | −6 | "You are here": a 2 px white frame, transparent inside, upper row | generated — final candidate |
 | `\uFE06A` | the same file | −60 | The same, lower row | — |
-| `\uFE06B` – `\uFE07F` | — | reserved for this font's growth | — |
+
+### `\uFE06B` – `\uFE070` — the same six panels without container recesses (2026-09-09)
+
+| Char code | File | Description | Status |
+|---|---|---|---|
+| `\uFE06B` | `ui/gui/panel_1_plain.png` | 1-row chest panel, no chest-area slot recesses | generated — placeholder |
+| `\uFE06C` | `ui/gui/panel_2_plain.png` | 2-row, the same | generated — placeholder |
+| `\uFE06D` | `ui/gui/panel_3_plain.png` | 3-row, the same | generated — placeholder |
+| `\uFE06E` | `ui/gui/panel_4_plain.png` | 4-row, the same | generated — placeholder |
+| `\uFE06F` | `ui/gui/panel_5_plain.png` | 5-row, the same | generated — placeholder |
+| `\uFE070` | `ui/gui/panel_6_plain.png` | 6-row, the same — what `/navigate` opens on | generated — placeholder |
+| `\uFE071` – `\uFE07F` | — | reserved for this font's growth | — |
+
+A list menu draws a pill across a whole row, and a recess under it shows above it, below it and on
+both sides of it. **The player's own three rows and the hotbar keep their recesses in both
+variants**, because those slots hold real items whatever the menu above them is.
+
+**The header of all twelve is `F4b`** (owner, 2026-09-08): flat ground to the frame, the readable
+title floating on it exactly as it does on the balloon, and one hairline at `y 16` in the pill's own
+150-grey. The darker title strip and the gold accent line under it are gone — the strip was inset by
+one pixel on every side, which left a margin of ground between it and the window's light edge and is
+what made the header read as *floating*. The balloon never had either, so until this change the pack
+shipped two header styles and nothing said which was intended.
 
 **One panel and two overlays, not a panel per state.** All four cards are always shown in fixed
 places, so the only thing that varies per player is a card's *state* — locked until its milestone
@@ -561,6 +594,167 @@ shape and not a palette. The slot grid in it was read off the extracted 26.2 `ge
 starts at **(7, 17)**, not at the (8, 18) every tutorial quotes, which is the item area inside it.
 **Re-measure at every version bump:** 1.21.9 moved the villager trading result slot by one pixel.
 
+### `\uFE200` – `\uFE2FF` — menu surfaces (2026-09-09)
+
+Art that spans **more than one chest row**, and therefore cannot be a row glyph: a row font's whole
+purpose is one ascent per layer per row, and a card two rows tall has no row. These live in
+`nordtal:gui` with an ascent apiece, exactly as the balloon's overlays do — and, exactly as there, a
+picture that can land on two different rows is **declared twice**, once per ascent.
+
+Nothing forced a *new* block: fonts allocate independently and `\uFE090` was free in this one. The
+numbers in this repository are kept globally distinct so that a code point read in a log or a
+screenshot names one thing, and `\uFE080` is the system-line icons in `minecraft:default`.
+
+| Char code | File | Ascent | Description | Status |
+|---|---|---|---|---|
+| `\uFE200` | ![source](src/assets/nordtal/textures/ui/gui/objective_card.png) | −24 | An objective card, 68 × 32 — four slot columns and two slot rows, inset 2, with the progress bar's **track** sunk into it at (3, 14). The balloon's card at half the height. Upper card row, top y 37 | generated — placeholder |
+| `\uFE201` | the same file | −60 | The same card on the lower card row, top y 73 | — |
+| `\uFE202` | ![source](src/assets/nordtal/textures/ui/gui/objective_card_done.png) | −24 | The green wash over a finished card. Laid over the bar too, on purpose: a finished objective's bar is full, and washing only its heading would say the card was half settled | generated — placeholder |
+| `\uFE203` | the same file | −60 | The same wash, lower card row | — |
+| `\uFE204` | ![source](src/assets/nordtal/textures/ui/gui/handin_tray.png) | −4 | The hand-in screen's tray, 162 × 54 — **one** sunken surface over three chest rows, drawn from the slot cell's own corner rather than inset, because it *is* the cells | generated — placeholder |
+| `\uFE205` – `\uFE209` | `ui/gui/grave_slab_{1..5}.png` | −4 | The grave's slab: a dark recess **per slot** on stone, one glyph per row count. Five is the most there can be — a player carries at most forty-one stacks, and the window's sixth row is the grave's footer | generated — placeholder |
+| `\uFE210` – `\uFE215` | `ui/gui/bar_fill_{1,2,4,8,16,32}.png` | −39 | The progress bar's **fill**, in powers of two, 3px tall. Upper card row | generated — placeholder |
+| `\uFE218` – `\uFE21D` | the same six files | −75 | The same six, lower card row | — |
+| `\uFE20A` | ![source](src/assets/nordtal/textures/ui/gui/wheel_ring.png) | 13 | The wheel's own panel, 176 × 204 — a five-row window with a band round twelve prize cells, a hub, and a two-pixel white frame on the cell the winner rests in. A **whole panel** like the balloon's, because a circle on a nine-by-five grid is the band *between* the cells and belongs to no row | generated — placeholder |
+| `\uFE20B` – `\uFE20F`, `\uFE216` – `\uFE217`, `\uFE21E` – `\uFE2FF` | — | | reserved for this block's growth | — |
+
+**The wheel's ring sits two slot columns left of where the design artifact draws it** (owner,
+2026-09-08), which is what frees columns 5–8 for the "again" button and the two lines telling a
+player how many spins are left and what earns another. One thing had to move with it: `W3` marks the
+resting cell with a triangle at `y 13`–`16`, *inside the title bar*, and that works at x 85 because
+it sits to the right of the readable title. At x 49 it does not — the window's own title runs to
+about x 58 in both languages — so the resting cell wears the two-pixel white frame `travel_here`
+already uses, over the lighter backing `W3` gives it anyway. Both cues, no collision, nothing outside
+the window. **The frame is a decision for the owner to confirm; that the triangle could not stay is
+not.**
+
+**One tray and a recess per slot are two different statements, and the pack draws both on purpose.**
+The hand-in screen is a thing you throw into — the whole area accepts items, and nine drawn cells
+would suggest the cell you drop into means something, which it does not. A grave is an inventory you
+*take out of*, and there the separate cells are the information: they say these are distinct stacks
+and any one of them may be taken. Making the two look the same loses one of the two meanings
+whichever way it goes (owner, 2026-09-08). The tray's cost is a ghost square — vanilla's 16 × 16
+hover highlight still snaps to the 18px grid the surface is hiding — and that was the call taken with
+the drawing in front of it.
+
+**The track is baked in and the fill is six glyphs**, so an empty bar costs nothing at all and any
+fill from 0 to 60 pixels is at most four glyphs — 60 is 32 + 16 + 8 + 4. That is the same
+power-of-two tiling `nordtal:board`'s edges use, and for the same reason: a glyph has one width, and
+a bar does not.
+
+The alternative the design artifact offers — a text bar out of `ProgressBar`'s `████░░` — costs no
+code points and is what the objective menu's **heading** row uses, where there is no room for a
+painted bar beside the milestone's name and its counter. Both are in the same window on purpose:
+the heading is a summary and the cards are the thing itself.
+
+## `nordtal:gui_r0` – `nordtal:gui_r5`
+
+**Six copies of one font, one per chest row.** A glyph's only vertical control is its font's
+`ascent`, and a list menu wants the *same* picture — a plate, an icon, a line of text — on any of
+the six rows. Carrying the row in the **code point** costs one code point per (picture, row) and is
+impossible for text, whose code points are not ours to pick. Carrying it in the **font** costs one
+font per row and nothing per picture: `nordtal:gui_r2` is "everything, drawn on chest row 2".
+
+Each file declares exactly the same characters at three ascents, and all three are centred in the
+same 18px cell:
+
+| layer | height | top | ascent | what |
+|---|---|---|---|---|
+| furniture | 14 | `19 + 18r` | `−6 − 18r` | a plate: pill, active frame, button |
+| icons | 8 | `22 + 18r` | `−9 − 18r` | an 8 × 8 pictogram, centred in the plate |
+| text | 5 | `23 + 18r` | `−10 − 18r` | the five-pixel sheet, centred in the plate |
+
+The one that surprises is the text: five rows centred in fourteen lands at **+4** and not +3, which
+is the same "+1" the design artifact's own renderer carries. Getting it wrong puts every line one
+pixel high in every list menu at once, which is exactly the kind of wrong that gets lived with.
+
+`ResourcePackTest` asserts the six declare the same set of characters — a character in five of them
+renders on five rows and draws a missing-glyph box on the sixth — and `MenuFontTest` in `:common`
+asserts each of the eighteen ascents lands where `SlotGeometry` says that row's slot cell is.
+
+### ` ` and `A` – `░` — the five-pixel sheet
+
+`ui/gui/row_text.png`, an 8 × 7 grid of 5 × 5 cells: `A`–`Z`, `0`–`9`,
+`. , : / - + % ( ) ! ? ' "`, `Ä Ö Ü ß`, `∙`, and `█` `░` for a text progress bar. A space is a
+`space` provider at **+3** rather than a cell, because an empty cell has no rightmost drawn column
+and the client would advance it one pixel.
+
+**It is all capitals, and it is not new art — with three named exceptions.** The table is the
+owner's design artifact's own `SMALL_SRC`, transcribed character for character (decision 2026-09-08:
+*this* sheet, not a sheet in this style). The exceptions are **`0`, `O` and `8`**, redrawn on the
+owner's instruction the same day: the artifact drew `0` and `O` with identical pixels and `8` one
+pixel from both, which on a font whose whole job is coordinates, distances and `1240/2048` is not a
+cosmetic problem.
+
+| glyph | rows | what tells it apart |
+|---|---|---|
+| `O` | `.#. #.# #.# #.# .#.` | round, tapered top and bottom — the shape every other letter loop on this sheet has (`C G Q`). Unchanged from the artifact |
+| `0` | `### #.# #.# #.# ###` | square, flat top and bottom — the shape the other digits have (`1 2 3 5 7`), so a zero reads as a digit rather than as the letter beside it |
+| `8` | `### #.# .#. #.# ###` | square and **waisted**: two loops joined in the middle. Three pixels from the zero rather than one, and the waist is visible at 1× |
+
+All three stay three pixels wide, so **every advance in this font is unchanged** and a column of
+numbers still lines up — a four-pixel zero would have been easier to draw and would have made
+`2048` and `1240` different widths. `MenuFontTest` asserts the three pairwise distances on the PNG
+itself, and separately that no *other* two characters draw the same picture, with a named list of
+the pairs that do: today that list is `U`/`V`, which the artifact also draws identically and which
+the owner did not ask about.
+
+At 8px almost every POI name was cut off on a card; at 5px thirty-eight characters fit
+across a window, and five pixels only works without descenders. `:common`'s `MenuFont` folds lower
+case onto the capitals on the way in — **except `ß`**, whose upper case is two letters and therefore
+not a character — and turns anything the sheet has never heard of into `?`. A POI name is typed by a
+player, so that is the ordinary case and not the exotic one; the alternative is the client's
+missing-glyph box, which is six pixels wide, is in no table, and would make every position computed
+after it wrong.
+
+**The advances travel to the plugins.** `tools/generate_gui_rows.py` writes them to
+`common/src/main/resources/nordtal/menu/gui-row-advances.properties`, the same arrangement
+`nordtal:bossbar` has and for the same reason: the server composes the row, so the server has to
+know how wide a name is. **Re-run that tool after redrawing anything in these fonts** —
+`MenuFontTest` derives the table again from the pack and fails the build when the two disagree.
+
+### `\uFE100` – `\uFE107` — row plates
+
+| Char code | File | Size | Description | Status |
+|---|---|---|---|---|
+| `\uFE100` | ![source](src/assets/nordtal/textures/ui/gui/row_pill.png) | 158 × 14 | A list entry's plate: the slot area inset 2 on each side, so it covers all nine cells of its row and ends two pixels inside the ninth | generated — placeholder |
+| `\uFE101` | ![source](src/assets/nordtal/textures/ui/gui/row_frame.png) | 158 × 14 | The active marker: a 2px white frame, hollow — the same white `travel_here` uses. Drawn **last** on its row | generated — placeholder |
+| `\uFE102` | ![source](src/assets/nordtal/textures/ui/gui/row_button_wide.png) | 52 × 14 | A refusing button plate, three slot cells wide — `/navigate`'s "stop" | generated — placeholder |
+| `\uFE103` | ![source](src/assets/nordtal/textures/ui/gui/row_button_small.png) | 14 × 14 | A square button plate, one slot cell inset 2 | generated — placeholder |
+| `\uFE104` | ![source](src/assets/nordtal/textures/ui/gui/row_button_small_off.png) | 14 × 14 | The same, greyed — a page button with no page on the other side of it | generated — placeholder |
+| `\uFE105` | ![source](src/assets/nordtal/textures/ui/gui/row_pill_dark.png) | 158 × 14 | The same plate in a darker grey — a **heading** row rather than an entry. The objective menu's top row names the milestone the cards below belong to, and drawn in the entry grey it reads as a fifth thing to click | generated — placeholder |
+| `\uFE106` | ![source](src/assets/nordtal/textures/ui/gui/row_button_confirm.png) | 50 × 14 | A button plate in the **affirming** style — gold, the brand's own, three slot cells inset 2. The only plate here that is not neutral grey or refusing red, because it is the only button in these menus whose click cannot be undone by clicking again | generated — placeholder |
+| `\uFE107` | ![source](src/assets/nordtal/textures/ui/gui/row_button_take.png) | 68 × 14 | The same affirming plate, four slot cells wide — the grave's "take everything", which is a longer sentence in both languages than anything else on a plate here | generated — placeholder |
+| `\uFE108` – `\uFE10F` | — | | reserved | — |
+
+### `\uFE110` – `\uFE11A` — row icons
+
+One 88 × 8 sheet, `ui/gui/row_icons.png`, eleven cells. **Drawn white and tinted by the component**,
+the same rule the system-line icons follow: the client multiplies a glyph by its component's
+colour, so white art can be painted any colour and dark art cannot be painted lighter.
+
+| Char code | Cell | Description | Status |
+|---|---|---|---|
+| `\uFE110` | 0 | A house — a world's spawn | generated — placeholder |
+| `\uFE111` | 1 | A skull — where you last died | generated — placeholder |
+| `\uFE112` | 2 | A map pin — a player-made POI | generated — placeholder |
+| `\uFE113` | 3 | A cross — stop | generated — placeholder |
+| `\uFE114` | 4 | A left arrow — the previous page | generated — placeholder |
+| `\uFE115` | 5 | A right arrow — the next page | generated — placeholder |
+| `\uFE116` | 6 | A hand — a `HAND_IN` objective, the one kind you can click | generated — placeholder |
+| `\uFE117` | 7 | A pickaxe — a `STATISTIC` objective, which counts itself | generated — placeholder |
+| `\uFE118` | 8 | A medal — an `ADVANCEMENT` objective, earned somewhere else entirely | generated — placeholder |
+| `\uFE119` | 9 | A tick — a finished objective, whichever kind it was | generated — placeholder |
+| `\uFE11A` | 10 | An experience orb — the objective menu's share line | generated — placeholder |
+| `\uFE11B` – `\uFE1FF` | — | reserved for this block's growth | — |
+
+The four at `\uFE116`–`\uFE119` are one set and never stand beside each other: the icon on an
+objective card **is** that objective's state, so exactly one of them is drawn per card.
+
+Drawn by [`tools/generate_gui_rows.py`](tools/generate_gui_rows.py), which also writes the six font
+files themselves — they are generated and checked in, like the PNGs, because six files of eight
+providers each hand-edited is six chances for one of them to disagree with the other five.
+
 ## Vanilla overrides
 
 | file | what it does |
@@ -577,3 +771,17 @@ longer reads "Return to nordtal smp" from season 1, and now reads "Continue play
 language decides what they see** — a lang file is a static asset and cannot read `discord_user.locale`
 the way everything else does. It is confined to these three cosmetic pause-menu strings for exactly
 that reason; see [i18n.md](../docs/i18n.md#the-one-exception--the-resource-packs-lang-files).
+
+## A code point in a language file is a code point
+
+`minecraft/lang/*.json` may name a glyph - `menu.game` draws the logo instead of the word "Game
+Menu". That makes a language file a **fourth mirror** of the allocation table below, and it drifted
+out of line the moment the pack moved into the Supplementary Private Use Area-A on 2026-09-04: the
+logo went to `U+FE021`, `menu.game` kept `\uE021`, and for five days the one screen every player
+opens drew a missing-glyph box in both languages. It looks exactly like art nobody has drawn yet,
+which is why nobody reported it.
+
+`ResourcePackTest` holds the language files against `minecraft:default` now, and it **parses** them
+rather than reading them as text - a JSON file stores `\uE021` as an escape, so a text search for the
+character finds nothing and passes on the very file it was written for.
+

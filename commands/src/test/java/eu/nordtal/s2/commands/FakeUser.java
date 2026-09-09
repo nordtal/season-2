@@ -1,5 +1,7 @@
 package eu.nordtal.s2.commands;
 
+import eu.nordtal.s2.common.message.Tone;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -33,7 +35,11 @@ public final class FakeUser implements NordtalUser {
     private final String discordId;
     private final UUID mcUuid;
 
-    public record Reply(String key, Map<String, ?> placeholders) {
+    /**
+     * @param tone how the surface was asked to colour it. {@link Tone#NEUTRAL} for every reply sent
+     *             without one, which is the same thing a surface that cannot colour sees
+     */
+    public record Reply(String key, Map<String, ?> placeholders, Tone tone) {
 
         public Object of(final String placeholder) {
             return placeholders.get(placeholder);
@@ -103,7 +109,13 @@ public final class FakeUser implements NordtalUser {
 
     @Override
     public void reply(final String messageKey, final Map<String, ?> placeholders) {
-        replies.add(new Reply(messageKey, Map.copyOf(placeholders)));
+        replies.add(new Reply(messageKey, Map.copyOf(placeholders), Tone.NEUTRAL));
+    }
+
+    @Override
+    public void reply(final String messageKey, final Map<String, ?> placeholders, final Tone tone) {
+        replies.add(new Reply(messageKey, Map.copyOf(placeholders),
+                tone == null ? Tone.NEUTRAL : tone));
     }
 
     /**
@@ -119,6 +131,6 @@ public final class FakeUser implements NordtalUser {
 
     @Override
     public void replyLiteral(final String text) {
-        replies.add(new Reply("<literal>", Map.of("text", text)));
+        replies.add(new Reply("<literal>", Map.of("text", text), Tone.NEUTRAL));
     }
 }

@@ -72,16 +72,62 @@ class UpdateIsServedEverywhereTest {
     }
 
     @Test
-    @DisplayName("the two that stop servers are confirmed, the other two are not")
+    @DisplayName("the three that stop servers are confirmed, the other two are not")
     void whatIsIrreversible() {
-        assertEquals(List.of("/update now", "/update restart"),
+        assertEquals(List.of("/backup now", "/update now", "/update restart"),
                 UpdateCommands.declarations().stream()
                         .filter(Declaration::irreversible)
                         .map(Declaration::name)
                         .sorted()
                         .toList(),
                 "taking four servers away from everybody on them is the plainest irreversible"
-                        + " command in the network; a report and a cancel are neither");
+                        + " command in the network; a report and a cancel are neither. /backup now"
+                        + " is in the list for exactly the same reason as the other two - it is the"
+                        + " stopping that is irreversible, not the writing.");
+    }
+
+    @Test
+    @DisplayName("every kind that stops servers has a command that asks for it")
+    void everyStoppingKindIsReachable() {
+        // The gap this closes has happened once already, on the other side: the head start was
+        // configured, migrated and documented on 2026-09-01 and had no READER at all until
+        // 2026-09-07. A kind in the enum, in the CHECK and in the updater's switch, with nothing
+        // anywhere able to write one, is the same shape - and it looks exactly like a feature.
+        final java.util.Set<eu.nordtal.s2.common.update.UpdateKind> asked =
+                new java.util.HashSet<>();
+        for (final eu.nordtal.s2.commands.NordtalCommand<eu.nordtal.s2.commands.update.UpdateEffects>
+                command : UpdateCommands.all()) {
+            final eu.nordtal.s2.common.update.UpdateKind kind = kindOf(command);
+            if (kind != null) {
+                asked.add(kind);
+            }
+        }
+        for (final eu.nordtal.s2.common.update.UpdateKind kind
+                : eu.nordtal.s2.common.update.UpdateKind.values()) {
+            if (kind == eu.nordtal.s2.common.update.UpdateKind.APPLY) {
+                // Retired 2026-09-07 and deliberately unreachable - see UpdateKind.APPLY. Named
+                // here rather than skipped by a general rule, so that putting it back is a visible
+                // edit to this test.
+                continue;
+            }
+            if (!kind.stopsServers()) {
+                continue;
+            }
+            assertTrue(asked.contains(kind), "nothing can ask for " + kind + ". The updater would"
+                    + " run it, the CHECK would accept it and no surface could write one.");
+        }
+    }
+
+    /** Which kind a command submits, by running it against a directory that records rows. */
+    private static eu.nordtal.s2.common.update.UpdateKind kindOf(
+            final eu.nordtal.s2.commands.NordtalCommand<eu.nordtal.s2.commands.update.UpdateEffects>
+                    command) {
+        final FakeUpdateDirectory directory = new FakeUpdateDirectory();
+        command.run(eu.nordtal.s2.commands.FakeUser.console(),
+                eu.nordtal.s2.commands.Values.none(command.declaration()),
+                new DirectoryUpdateEffects(directory, Runnable::run, (what, failure) -> { },
+                        (id, user) -> { }));
+        return directory.submitted.isEmpty() ? null : directory.submitted.getFirst().kind();
     }
 
     private static String read(final String relative) {

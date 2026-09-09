@@ -136,7 +136,7 @@ class SoundVocabularyTest {
     }
 
     /**
-     * The enum stays what it is: ten constants, no members.
+     * The enum stays what it is: eleven constants, no members.
      *
      * <p>A method, a field or a constructor argument on {@link Feedback} would be the first step
      * back towards a call site being able to say what it wants to hear - the category would start
@@ -145,10 +145,13 @@ class SoundVocabularyTest {
     @Test
     @DisplayName("Feedback carries nothing but its constants")
     void theEnumCarriesNothingButConstants() {
-        assertEquals(10, Feedback.values().length,
-                "nine categories, of which open/close is two constants. Adding an eleventh is a"
-                        + " decision for the owner: a vocabulary that grows to fit each new call"
-                        + " site is not a vocabulary");
+        assertEquals(11, Feedback.values().length,
+                "ten categories, of which open/close is two constants, plus STAGING. That last one"
+                        + " is the eleventh this check used to refuse, and it was added on"
+                        + " 2026-09-09 by the owner rather than by a call site that wanted a noise:"
+                        + " no vanilla sound is a staged moment, so it ships blank and the pack"
+                        + " fills it in. A TWELFTH IS THE SAME DECISION AGAIN - a vocabulary that"
+                        + " grows to fit each new call site is not a vocabulary");
         // values/valueOf are the enum's own API; $values is javac's array holder, which it does not
         // always flag as synthetic.
         assertEquals(List.of(), Stream.of(Feedback.class.getDeclaredMethods())

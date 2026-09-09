@@ -8,6 +8,7 @@ import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.hungergames.body.PlayerBodies;
 import eu.nordtal.s2.hungergames.game.GameState;
+import eu.nordtal.s2.papercommon.chat.SystemLines;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -46,9 +47,13 @@ public final class PresenceListener implements Listener {
      */
     private final FullServerAdmission admission;
 
+    /** The five shared system lines. Held for one call: the join line, once the locale has landed. */
+    private final SystemLines lines;
+
     public PresenceListener(final Plugin plugin, final PlayerLocales locales, final PlayerBodies bodies,
                             final GameState state, final Messages messages,
-                            final AdminOperators operators, final FullServerAdmission admission) {
+                            final AdminOperators operators, final FullServerAdmission admission,
+                            final SystemLines lines) {
         this.plugin = plugin;
         this.locales = locales;
         this.bodies = bodies;
@@ -56,6 +61,7 @@ public final class PresenceListener implements Listener {
         this.messages = new MessageRenderer(messages);
         this.operators = operators;
         this.admission = admission;
+        this.lines = lines;
     }
 
     /**
@@ -97,7 +103,21 @@ public final class PresenceListener implements Listener {
                     }
                     // Only now: until the language lands, of() answers English, and a tab list
                     // drawn here would be the English one for a German player until they relog.
-                    Bukkit.getScheduler().runTask(plugin, this::refreshTabList);
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        refreshTabList();
+                        // Asked again here, because everything above happened off the main thread:
+                        // a player who joined and left inside one database round trip would
+                        // otherwise be announced as having arrived, after they had gone. The tab
+                        // list is refreshed either way - it is a fact about everybody else.
+                        if (!player.isOnline()) {
+                            return;
+                        }
+                        // The join line, for the same reason and one moment later than a join
+                        // handler: it is the only message here with a single moment, so rendering
+                        // it before the language arrives tells the one German player in the arena,
+                        // in English, that they have arrived. See SystemLines#announceJoin.
+                        lines.announceJoin(player);
+                    });
                 });
 
         if (state.isRunning() && bodies.hasBody(player.getUniqueId())) {

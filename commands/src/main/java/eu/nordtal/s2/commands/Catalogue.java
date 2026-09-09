@@ -44,6 +44,8 @@ public final class Catalogue {
                         NetworkCommands.declarations(),
                         AccessCommands.declarations(),
                         eu.nordtal.s2.commands.announce.AnnounceCommands.declarations(),
+                        eu.nordtal.s2.commands.chat.ChatCommands.declarations(),
+                        eu.nordtal.s2.commands.info.InfoCommands.declarations(),
                         UpdateCommands.declarations())
                 .flatMap(List::stream)
                 .toList();
@@ -83,7 +85,11 @@ public final class Catalogue {
     }
 
     private static final java.util.Map<String, Declaration> ROOT_DEFAULTS =
-            java.util.Map.of("phase", PhaseCommands.SHOW);
+            java.util.Map.of("phase", PhaseCommands.SHOW,
+                    // The bare /update is the report, on the surfaces that have a bare form at
+                    // all. Discord has none - a root with subcommands is a menu there - which is
+                    // why the report is /update check and this entry exists.
+                    "update", eu.nordtal.s2.commands.update.UpdateCommands.REPORT);
 
     /** Everything one process is expected to be able to run. */
     public static List<Declaration> of(final Target target) {

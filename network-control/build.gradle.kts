@@ -2,6 +2,15 @@ plugins {
     id("nordtal.velocity-plugin")
 }
 
+// BrandColourTest reads NetworkSpec's own source: what it protects is the literal somebody types
+// when adding a phase, and a default method on a proxied interface cannot be asked without loading
+// a config. Declared so Gradle sees the file as an input - without this, editing the spec leaves
+// :network-control:test UP-TO-DATE and the one check that would catch it is the one that does not
+// run.
+repositoryRootTestInputs {
+    reads("network-control/src/main/java/eu/nordtal/s2/networkcontrol/config/NetworkSpec.java")
+}
+
 repositories {
     // jcore only. `app.simplecloud.api:api` used to be declared here as a compileOnly placeholder
     // for routing, together with repo.simplecloud.app/snapshots and buf.build/gen/maven for its

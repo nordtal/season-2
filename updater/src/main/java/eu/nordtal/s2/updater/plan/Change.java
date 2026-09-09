@@ -43,7 +43,24 @@ public record Change(@Nullable String service,
          */
         UNRESOLVED,
         /** The service's volume is not mounted in this container, so nothing can be said about it. */
-        MOUNT_MISSING;
+        MOUNT_MISSING,
+        /**
+         * The source answered and has no build of this artefact for the Minecraft version the
+         * network runs. Nothing is installed, nothing is skipped, and nothing failed.
+         *
+         * <h2>Why this is not UNRESOLVED, which is where it used to land</h2>
+         * {@link #isFailure()} is what makes {@code Applier} skip a service <em>whole</em> - the
+         * all-or-nothing rule that keeps a server from coming up on half a set of plugins. A
+         * plugin that is simply behind the platform would therefore have blocked the season jar
+         * beside it on every run, for weeks, for a reason nobody here can act on.
+         *
+         * <h2>And it is not UP_TO_DATE either</h2>
+         * Nothing is installed, so there is nothing to be up to date. The point of carrying the row
+         * at all is that the artefact stays <b>named</b> in the report while it waits: the day its
+         * publisher ships a build for this version, the next run installs it and no code changes.
+         * An artefact quietly dropped from the plan is one somebody has to remember.
+         */
+        UNSUPPORTED;
 
         /** Whether a run would move a file for this row. */
         public boolean isWork() {
@@ -59,5 +76,19 @@ public record Change(@Nullable String service,
     public static @NotNull Change unresolved(final @Nullable String service, final @NotNull String artifact,
                                              final @NotNull String why) {
         return new Change(service, artifact, Status.UNRESOLVED, null, null, why);
+    }
+
+    /**
+     * No build of this artefact exists for the Minecraft version the network runs.
+     *
+     * <p>{@link #installed()} is always {@code null} here, and not because nothing can be lying
+     * there. Nothing was <em>resolved</em>, so there is no filename to match a jar against - and a
+     * jar somebody installed by hand comes out in {@link UpdatePlan#unclaimed()} instead, which is
+     * where every file this plan does not account for goes and is louder than a version comparison
+     * would be.</p>
+     */
+    public static @NotNull Change unsupported(final @Nullable String service, final @NotNull String artifact,
+                                              final @NotNull String why) {
+        return new Change(service, artifact, Status.UNSUPPORTED, null, null, why);
     }
 }

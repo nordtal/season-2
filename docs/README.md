@@ -125,6 +125,13 @@ Discord ([architecture.md](architecture.md#commands)).
 
 ### In game — `smp`
 
+> **A player command has to be on the allowlist as well, or it does not exist.** Since 2026-09-09
+> `network.yml#command-allowlist` names every command somebody who is not an admin may type, on the
+> proxy and on all three backends; everything else - including every vanilla command - is refused
+> with the same line a typo gets, so a player never learns what they are not allowed to run.
+> Adding a player command means adding it there too, and `CommandGateTest` fails the build when a
+> non-admin declaration is missing from the shipped list.
+>
 > **Every admin command below is available in Discord as well, and every Discord admin command in
 > game** — since 2026-09-05. A command whose effect belongs to another process travels as a row in
 > `command_request`; the two that do not are `/navigate` and `/poi add`, which are about being
@@ -139,6 +146,7 @@ Discord ([architecture.md](architecture.md#commands)).
 | `/smp farmreset now` | admin | resets the farm world immediately, skipping the 30/10/5/1-minute warnings. **Type it twice** - it deletes a world folder |
 | `/smp objective complete <key>` | admin | **escape hatch 1**: one objective, paid `pot × (reached ÷ target)`. **Type it twice** |
 | `/smp milestone unlock <key>` | admin | **escape hatch 2**, the blunt one: every open objective pays proportionally. **Type it twice** |
+| `/aura` | anyone | **new 2026-09-09.** Your own aura, your place among everybody with a linked account, and the top ten. Its own root and not `/smp aura`, which is the admin write - Brigadier cannot have a literal and an argument at one node. Travels here from the other backends |
 | `/smp aura <player> <delta>` | admin | corrects a balance. Writes its reason, like every other aura change. **Not** confirmed - applying the negative is an exact undo |
 | `/smp status` | anyone | **new 2026-09-06.** The season phase, the active milestone with its progress, and how many are on the SMP - three lines, read-only, in Discord as well |
 | `/smp access <player>` | admin | **new 2026-09-04.** Is that account linked, does it have access, and is there a purchase halfway through? The shortened form of `/access status`, answered to the asker only |
@@ -182,6 +190,11 @@ the one path that still works when the database holds no admin at all.
 | `/phase launch <when\|clear>` | admin | when the network opens - what the MOTD and the pre-opening screens count down to |
 | `/phase smp-start <when\|clear>` | admin | when paid access starts running. Moving it shifts every grant that has not started yet |
 | `/network reload` | admin, or the console | the message bundles. `gate.yml`, `pack.yml`, `network.yml` and `database.yml` are read once and stay read |
+| `/msg <player> <message>` | anyone | **new 2026-09-09.** Network-wide, so it reaches somebody in the waiting room or in the hunger games. Each side reads it in their own language. **Nothing is written down** - not to a log, not to the admin channel |
+| `/whisper <player> <message>` | anyone | the same command under its other name. A second declaration rather than an alias, because `Declaration` has none - so it carries its own help sentence |
+| `/r <message>` | anyone | answers whoever wrote last. Remembered per session, in memory, dropped on disconnect at either end |
+| `/discord` | anyone | the invite, from `gate.yml#discord-invite-url` - the same string the login screens use |
+| `/rules` | anyone | the rules. **Ships as a marked placeholder** until the text exists (`todo.md` A10); `InfoTextTest` fails the build while the marker is there and is meant to be deleted in the same commit as the real text |
 
 ### In Discord
 
@@ -306,7 +319,7 @@ reason is in the linked document — that is what stops it from being reopened b
 | **SimpleCloud is dropped; production is one `docker compose` stack on one host, driven through Arcane.** Season 2 uses none of its dynamic instances, templates or failover — every service is a permanent singleton, the hunger games run exactly once, and the farm-world reset never restarts a container. Its plugin management only handles Modrinth-hosted jars, so every release of ours was a manual copy anyway, and v3 exists only inside a hosted closed-beta programme with no releases channel. It cost nothing to leave because the runbook was never written | [../deploy/README.md](../deploy/README.md#why-it-looks-like-this) |
 | **One `compose.yml` with `db`/`bot`/`mc` profiles, named volumes for state and a host directory for `plugins/`.** The bot keeps its independent deployment through its own profile rather than its own file; hand-built worlds are uploaded into the volume once, which is a manual step by design. **Amended 2026-09-05**: it said "named volumes only — no bind mounts", and that stays true of the worlds, whose only backup is Arcane's volume backup. `plugins/` is a directory beside `compose.yml` instead, because nothing backs it up anyway and keeping it inside cost a `docker compose cp` in both directions for every config edit and every jar — which is also why there was no local development stack until that day | [../deploy/README.md](../deploy/README.md) |
 | **All four Minecraft services share one image, and the console is a `tmux` session rather than stdin of PID 1.** Arcane's per-container shell is a `docker exec` and cannot reach PID 1's stdin. RCON was rejected because **Velocity has no RCON at all** (checked 2026-09-01) — it would mean a third-party plugin on the one process that decides who may join. PID 1 traps SIGTERM and `stop_grace_period` is 180 s, because the 10 s default does not save a border-4000 world | [../deploy/README.md](../deploy/README.md#why-it-looks-like-this) |
-| **Every jar a server runs — plugins and the server jar itself — is in its volume, and the `updater` service owns them all.** The container fetches nothing at start except a server jar into an *empty* cache (from `PAPER_BUILD` / `VELOCITY_BUILD`, once), so neither a GitHub nor a Fill outage stops a restart; a volume with no plugins stops the container rather than starting a server with no season on it. Plugins since 2026-09-01, the server jar since 2026-09-02 — the day-late half of the same collision | [../deploy/README.md](../deploy/README.md#updating), [updater.md](updater.md) |
+| **Every jar a server runs — plugins and the server jar itself — is in its volume, and the `updater` service owns them all.** The container fetches nothing at start except a server jar into an *empty* cache (the newest `STABLE` build, resolved once), so neither a GitHub nor a Fill outage stops a restart; a volume with no plugins stops the container rather than starting a server with no season on it. Plugins since 2026-09-01, the server jar since 2026-09-02 — the day-late half of the same collision | [../deploy/README.md](../deploy/README.md#updating), [updater.md](updater.md) |
 | **itzg/docker-minecraft-server was rejected**: it does not cover Velocity (that is a second image), it would not have solved the proxy console anyway, and we want the build to move through the updater rather than through an image's own resolution at start. Its 26.x support was never established and stopped mattering | [../deploy/README.md](../deploy/README.md#why-it-looks-like-this) |
 | **Decided 2026-09-03 — the four items parked while `PRE_LAUNCH` was built** | |
 | **A link code is four characters, and that is only safe because of the attempt cap.** 923 521 possibilities against five wrong guesses per Discord account per hour, counted in the bot's memory. The length and the cap were decided together; either one alone is a mistake | [access-system.md](access-system.md#linking) |

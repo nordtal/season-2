@@ -68,11 +68,34 @@ class ReportTest {
         // go and find it, and there is nothing to deduplicate.
         final UpdatePlan plan = new UpdatePlan(Instant.EPOCH, "v0.2.1", false,
                 List.of(Change.unresolved("smp", "chunky", "Modrinth answered 503")),
-                List.of());
+                List.of(), List.of());
 
         final String rendered = Report.render(plan);
         assertTrue(rendered.contains("Modrinth answered 503"), rendered);
         assertTrue(!rendered.contains("[1]"), "a lone reason was turned into a footnote: " + rendered);
+    }
+
+    @Test
+    @DisplayName("an artefact with no build yet stops the summary claiming everything is up to date")
+    void anUnsupportedArtefactIsSaidOutLoudInTheSummary() {
+        // The summary is the line people read; the rows are the line people scan. "Everything is up
+        // to date" printed above a row reading "no build yet" is true about the artefacts that HAVE
+        // a build and is read as a statement about all of them.
+        final UpdatePlan plan = new UpdatePlan(Instant.EPOCH, "v0.7.1", false,
+                List.of(new Change("smp", "smp", Change.Status.UP_TO_DATE, "smp-0.7.1.jar",
+                                null, null),
+                        Change.unsupported("smp", "coreprotect",
+                                "no stable release is tagged for this platform")),
+                List.of(), List.of());
+
+        final String rendered = Report.render(plan);
+
+        assertTrue(rendered.contains("no build yet"), rendered);
+        assertTrue(rendered.contains("have none yet"), rendered);
+        assertTrue(!rendered.contains("Everything is up to date."),
+                "the summary overclaims: " + rendered);
+        assertTrue(!rendered.contains("could not be checked"),
+                "an artefact with no build is not an artefact that could not be checked: " + rendered);
     }
 
     /** The first deployment: the GitHub API refused, so every season artefact went unresolved. */
@@ -86,7 +109,7 @@ class ReportTest {
         changes.add(Change.unresolved("discord-bot", "discord-bot", GITHUB_403));
         changes.add(Change.unresolved("updater", "updater", GITHUB_403));
         return new UpdatePlan(Instant.EPOCH, null, false, changes,
-                List.of(new UpdatePlan.Unclaimed("smp", "SomebodysPlugin-1.0.0.jar")));
+                List.of(new UpdatePlan.Unclaimed("smp", "SomebodysPlugin-1.0.0.jar")), List.of());
     }
 
     private static int occurrences(final String text, final String needle) {

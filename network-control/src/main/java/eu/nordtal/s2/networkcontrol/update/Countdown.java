@@ -4,102 +4,131 @@ import eu.nordtal.s2.common.update.UpdateStatus;
 
 import org.jetbrains.annotations.Nullable;
 
-import java.util.LinkedHashSet;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /**
- * When to speak during a restart countdown, and what to say - with no proxy, no database and no
- * clock in it.
+ * When to speak during a countdown, and what to say - with no proxy, no database and no clock in it.
  *
- * <p>Separated from {@link RestartWatch} because this is the part with rules in it and the part
- * that is worth being sure about. The rules are three:</p>
+ * <h2>It builds a schedule now, and does not decide per poll - 2026-09-08</h2>
+ * It used to be asked "here is what is left, is there anything to say?" on a five-second poll, and
+ * the number it spoke was whatever that poll happened to observe. That was honest and it was coarse:
+ * the counter said 27 where 30 was asked for, and the last ten seconds - the ones a player actually
+ * reacts to - could only be spoken twice.
  *
+ * <p>So a countdown is now planned once, the moment the row is seen, as a list of {@link Beat}s each
+ * carrying the delay from now to the instant its number is <em>true</em>. The caller schedules them
+ * and cancels them if the countdown is withdrawn. Nothing here knows how that is done.</p>
+ *
+ * <h2>The three rules the old class had, and what became of them</h2>
  * <ol>
- *   <li><b>At most five announcements</b>, at 60, 30, 10 and 5 seconds and then the restart itself.
- *       A message every five seconds for a minute is twelve messages, which is how a warning
- *       becomes something people learn to ignore.</li>
- *   <li><b>The number spoken is what is actually left.</b> The poll runs every five seconds, so the
- *       first pass may see 57 rather than 60 - and saying 60 there would be a lie by three seconds,
- *       about the one thing this exists to be believed about.</li>
- *   <li><b>A countdown joined late does not replay.</b> A proxy that comes up with forty seconds
- *       gone says "40 seconds" once, not "60, then 40" in the same breath.</li>
+ *   <li><b>Not a message every five seconds.</b> Chat gets two lines - at thirty seconds and at ten
+ *       - plus the one at zero. Twelve chat lines in a minute is how a warning becomes something
+ *       people learn to ignore. The last ten seconds are a <em>subtitle</em> instead, which is a
+ *       different channel and does not scroll anything away.</li>
+ *   <li><b>The number spoken is what is actually left.</b> Now exactly, rather than to the nearest
+ *       poll: each beat is scheduled on the instant its own number becomes true.</li>
+ *   <li><b>A countdown joined late does not replay.</b> A proxy that comes up with seven seconds
+ *       gone gets the beats that are still ahead of it and no others - no "30 seconds" line
+ *       announced twenty-three seconds after it stopped being true.</li>
  * </ol>
  *
  * <h2>A vanished row is not a cancellation - finding 39, 2026-09-03</h2>
- * It was read as one until the first deployment, and that made the countdown lie about every
- * restart it ever counted down. The proxy polls for a {@code PENDING} restart every five seconds;
- * the updater sleeps until exactly {@code not_before} and claims the row on the instant. So the last
- * poll sees one second left, the row goes {@code PENDING -> RUNNING}, and the next poll finds
- * nothing pending with the counter still above zero - which the old rule called a cancellation.
- * <b>Every successful restart was announced as called off, and {@code restart.now} was unreachable:</b>
- * it needed a poll to land inside the window between the counter reaching zero and the updater
- * claiming, which is a fraction of a second wide.
- *
- * <p>The row does not disappear, it changes status, so {@link #gone(UpdateStatus)} takes the status
- * and says what actually happened. Nothing here guesses from timing any more.
+ * It was read as one until the first deployment, and that made the countdown lie about every restart
+ * it ever counted down. The row does not disappear, it changes status, so {@link #gone(UpdateStatus)}
+ * takes the status and says what actually happened. Nothing here guesses from timing.
  */
 public final class Countdown {
 
-    /** When to speak, in seconds remaining, coarse to fine. Zero is the restart itself. */
-    private static final List<Long> THRESHOLDS = List.of(60L, 30L, 10L, 5L, 0L);
+    /** Chat lines, in seconds remaining. Two, and then zero, which is {@link #beats}' own. */
+    static final List<Long> CHAT_THRESHOLDS = List.of(30L, 10L);
 
-    /** The request being counted down, so a second one starts a fresh set of announcements. */
-    private Long watching;
-
-    private final Set<Long> announced = new LinkedHashSet<>();
-
-    /** What the last look saw. Above zero when the row vanishes means it was cancelled. */
-    private long remaining = -1L;
+    /** The last stretch, one subtitle per second. */
+    static final long SUBTITLES_FROM = 10L;
 
     /**
-     * A restart is pending.
+     * One thing to say, and how long from now to wait before saying it.
      *
-     * @param requestId   which one; a different id restarts the bookkeeping
-     * @param secondsLeft what is actually left, never negative
-     * @return what to say, or empty when this pass has nothing new to add
+     * @param delay from the instant {@link #beats} was called
      */
-    public Optional<Announcement> pending(final long requestId, final long secondsLeft) {
-        if (watching == null || watching != requestId) {
-            watching = requestId;
-            announced.clear();
-        }
-        remaining = secondsLeft;
+    public record Beat(Duration delay, Announcement announcement) {
+    }
 
-        for (final Long threshold : THRESHOLDS) {
-            if (secondsLeft > threshold || announced.contains(threshold)) {
-                continue;
-            }
-            // Every coarser threshold counts as spoken, which is rule three.
-            THRESHOLDS.stream().filter(other -> other >= threshold).forEach(announced::add);
-            return Optional.of(threshold == 0L
-                    ? new Announcement(Announcement.Kind.NOW, 0L)
-                    : new Announcement(Announcement.Kind.COUNTDOWN, secondsLeft));
+    /** The request being counted down, so a second one starts a fresh set. */
+    private Long watching;
+
+    /** Whether the zero beat has already been produced, so it is never said twice. */
+    private boolean reachedZero;
+
+    /**
+     * Plans the whole countdown for one row.
+     *
+     * @param requestId which request; a different id replaces the plan
+     * @param untilDue  what is left, to the millisecond
+     * @return the beats still ahead, earliest first - empty when this row is already being counted
+     *         down, because the beats for it are already scheduled
+     */
+    public Optional<List<Beat>> beats(final long requestId, final Duration untilDue) {
+        if (watching != null && watching == requestId) {
+            return Optional.empty();
         }
-        return Optional.empty();
+        watching = requestId;
+        reachedZero = false;
+
+        final long millisLeft = Math.max(0L, untilDue.toMillis());
+        final List<Beat> beats = new ArrayList<>();
+
+        for (final long threshold : CHAT_THRESHOLDS) {
+            // Strictly greater: a countdown seen with exactly ten seconds left gets the ten-second
+            // line now rather than a beat scheduled zero milliseconds away, and one seen with nine
+            // gets no ten-second line at all, which is rule three.
+            if (millisLeft >= threshold * 1000L) {
+                beats.add(new Beat(Duration.ofMillis(millisLeft - threshold * 1000L),
+                        new Announcement(Announcement.Kind.COUNTDOWN, threshold)));
+            }
+        }
+        for (long second = SUBTITLES_FROM; second >= 1L; second--) {
+            if (millisLeft >= second * 1000L) {
+                beats.add(new Beat(Duration.ofMillis(millisLeft - second * 1000L),
+                        new Announcement(Announcement.Kind.TICK, second)));
+            }
+        }
+        beats.add(new Beat(Duration.ofMillis(millisLeft),
+                new Announcement(Announcement.Kind.NOW, 0L)));
+
+        // Sorted rather than emitted in order: the chat thresholds and the subtitles interleave at
+        // ten seconds, and a caller scheduling them in the order they were built would still be
+        // correct - the sort is so that a reader of a test can see one timeline.
+        beats.sort(java.util.Comparator.comparing(Beat::delay));
+        return Optional.of(beats);
     }
 
     /**
      * @return the request this countdown is following, or {@code null} when none. The caller needs
-     *         it to look the row up once it stops being pending
+     *         it to look the row up once it stops counting down
      */
     public @Nullable Long watching() {
         return watching;
     }
 
+    /** Called by the caller when it delivers the zero beat, so the poll below stays quiet. */
+    public void zeroReached() {
+        reachedZero = true;
+    }
+
     /**
-     * No restart is pending any more, and this is what became of the row.
+     * Nothing is counting down any more, and this is what became of the row.
      *
      * @param status what the row says now, or {@code null} when it is gone from the table entirely
-     * @return what to say, or empty when there is nothing worth saying - a countdown that was never
-     *         running, or one that had already reached zero and announced itself
+     * @return what to say, or empty when there is nothing worth saying - nothing was being counted
+     *         down, or the countdown ran out and has already announced itself
      */
     public Optional<Announcement> gone(final @Nullable UpdateStatus status) {
-        final boolean wasCounting = watching != null && remaining > 0L;
+        final boolean wasCounting = watching != null && !reachedZero;
         watching = null;
-        announced.clear();
-        remaining = -1L;
+        reachedZero = false;
 
         if (!wasCounting) {
             return Optional.empty();
@@ -110,11 +139,14 @@ public final class Countdown {
             return Optional.of(new Announcement(Announcement.Kind.CANCELLED, 0L));
         }
         return switch (status) {
+            // Reachable when the poll lands in the few milliseconds between the countdown running
+            // out and the scheduled zero beat firing. The caller's own guard makes sure only one of
+            // the two is ever said.
             case RUNNING, DONE -> Optional.of(new Announcement(Announcement.Kind.NOW, 0L));
             case FAILED -> Optional.of(new Announcement(Announcement.Kind.FAILED, 0L));
             case CANCELLED -> Optional.of(new Announcement(Announcement.Kind.CANCELLED, 0L));
-            // Unreachable: the caller only gets here because no PENDING restart was found. Silent
-            // rather than a guess, and the next pass asks again.
+            // Unreachable: the caller only gets here because no countdown was found. Silent rather
+            // than a guess, and the next pass asks again.
             case PENDING -> Optional.empty();
         };
     }

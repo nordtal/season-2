@@ -1,6 +1,7 @@
 package eu.nordtal.s2.commands;
 
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Locale;
 import java.util.Map;
@@ -113,6 +114,46 @@ public interface NordtalUser {
     default void reply(final String messageKey, final Map<String, ?> placeholders,
                        final Feedback feedback) {
         reply(messageKey, placeholders);
+    }
+
+    /**
+     * Say something, and let the surface show at a glance whether it is good news.
+     *
+     * <p>The same shape as the {@link Feedback} overload above and for the same reason: a surface
+     * that cannot do it implements nothing and loses nothing. Discord is that surface here - an
+     * embed has one colour for the whole of it - so the default is what the bot uses.</p>
+     *
+     * <p>It exists for {@code /update}, whose answer is up to forty lines of which one is the
+     * failure. See {@link Tone}.</p>
+     */
+    default void reply(final String messageKey, final Map<String, ?> placeholders,
+                       final Tone tone) {
+        reply(messageKey, placeholders);
+    }
+
+    /**
+     * Say something, make a noise about it, and colour it - the overload nearly every command uses.
+     *
+     * <h2>Why the sound and the colour are two arguments and not one</h2>
+     * They agree at most call sites and they are not the same fact, and collapsing them would have
+     * to pick which one loses. {@link Feedback} is a nine-entry <em>vocabulary of noises</em> whose
+     * whole design (see its javadoc) is that a call site cannot name a sound; five of its entries -
+     * {@code SURFACE_OPEN}, {@code SELECT}, {@code TRAVEL} and the rest - describe an action rather
+     * than an outcome and imply no colour at all. {@link Tone} is five outcomes and implies no
+     * sound: a line of supporting detail under a report is {@link Tone#MUTED} and makes no noise
+     * whatever, and a command that says four things in a row wants one chime and four colours.
+     *
+     * <p>Deriving one from the other was the alternative, and what it costs is that the colour
+     * becomes invisible at the call site - the thing this repository has twice paid for by having a
+     * mechanism nobody could see was missing. Two arguments are read in the diff.</p>
+     *
+     * <p>The default drops the sound rather than the colour: a surface that cannot make a noise is
+     * ordinary here (Velocity, Discord, the console, a remote request row), and a surface that
+     * cannot colour already implements the {@link Tone} overload as a no-op.</p>
+     */
+    default void reply(final String messageKey, final Map<String, ?> placeholders,
+                       final Feedback feedback, final Tone tone) {
+        reply(messageKey, placeholders, tone);
     }
 
     /**

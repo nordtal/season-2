@@ -206,6 +206,30 @@ class ApplierTest {
     }
 
     @Test
+    @DisplayName("an artefact with no build for this version does not hold its server back")
+    void anUnsupportedArtefactDoesNotSkipTheServer() throws IOException {
+        install("smp", "plugins/smp-0.1.0.jar");
+
+        // The same shape as the case above it and the opposite outcome, which is the whole reason
+        // the status is not UNRESOLVED: CoreProtect has no 26.2 build, and a failure row would have
+        // meant the SMP's own jar was never installed - every run, for as long as that lasted.
+        final ApplyResult result = apply(new Fake(), plan(
+                outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar"),
+                Change.unsupported("smp", "coreprotect", "no stable release for this platform")));
+
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
+        assertEquals(ApplyResult.Status.DONE, outcome(result, "smp", "smp").status());
+
+        // Its own word. UNCHANGED is a claim about a file that is there and nothing is, and SKIPPED
+        // is the whole-service refusal, which would put "nothing was installed, and not because
+        // everything was current" under a run that installed the season jar.
+        assertEquals(ApplyResult.Status.UNSUPPORTED, outcome(result, "smp", "coreprotect").status());
+        assertFalse(result.skippedAnything());
+        assertFalse(result.hasFailures());
+        assertTrue(result.changedAnything());
+    }
+
+    @Test
     @DisplayName("a server jar that could not be resolved does not hold the plugins back")
     void anUnresolvedServerJarDoesNotBlockThePlugins() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
@@ -441,6 +465,14 @@ class ApplierTest {
             }
 
             @Override
+            public BackupSpec backup() {
+                // Defaults throughout: this test is not about a backup, and BackupSpec's own
+                // defaults are the production ones.
+                return new BackupSpec() {
+                };
+            }
+
+            @Override
             public ArcaneSpec arcane() {
                 // Every setting on it has a default and none of them matters here: an empty
                 // base-url means "no restart is possible", which is exactly right for a test
@@ -455,7 +487,7 @@ class ApplierTest {
 
     private static UpdatePlan plan(final Change... changes) {
         return new UpdatePlan(Instant.parse("2026-09-01T18:00:00Z"), "v0.2.0", false,
-                List.of(changes), List.of());
+                List.of(changes), List.of(), List.of());
     }
 
     private static Change outdated(final String service, final String artifact,

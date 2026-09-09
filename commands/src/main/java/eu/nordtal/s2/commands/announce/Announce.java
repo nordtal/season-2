@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.announce;
 
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -25,7 +26,7 @@ public final class Announce implements NordtalCommand<AnnounceEffects> {
             // channel for de" rather than a DONE row and silence.
             final boolean posted = effects.post(language, text);
             user.reply(posted ? "announce.posted" : "announce.no-channel",
-                    Map.of("language", language));
+                    Map.of("language", language), posted ? Tone.GOOD : Tone.WARN);
         });
     }
 }

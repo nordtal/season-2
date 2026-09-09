@@ -6,6 +6,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.access.OpenPayment;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.phase.SeasonDates;
 
 import java.util.Map;
@@ -49,28 +50,29 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
                 access = effects.access(player);
             } catch (final RuntimeException failure) {
                 effects.warn("/smp access could not read " + name, failure);
-                user.reply("smp.access.failed", Map.of(), Feedback.REFUSED);
+                user.reply("smp.access.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (access.isEmpty() || access.get().discordId() == null) {
                 // An unlinked account should not have got past the proxy at all, so this is worth
                 // saying plainly rather than folding into "no access": it means something else is
                 // already wrong.
-                user.reply("smp.access.unlinked", Map.of("player", name), Feedback.REFUSED);
+                user.reply("smp.access.unlinked", Map.of("player", name), Feedback.REFUSED, Tone.BAD);
                 return;
             }
 
             final SmpEffects.Access state = access.get();
-            user.reply("smp.access.linked", Map.of("player", name, "discord", state.discordId()));
+            user.reply("smp.access.linked", Map.of("player", name, "discord", state.discordId()),
+                    Tone.NEUTRAL);
 
             if (state.accessActive() && state.validUntil() != null) {
                 user.reply("smp.access.active",
-                        Map.of("until", SeasonDates.format(state.validUntil())));
+                        Map.of("until", SeasonDates.format(state.validUntil())), Tone.GOOD);
             } else if (state.validUntil() != null) {
                 user.reply("smp.access.expired",
-                        Map.of("since", SeasonDates.format(state.validUntil())));
+                        Map.of("since", SeasonDates.format(state.validUntil())), Tone.WARN);
             } else {
-                user.reply("smp.access.never");
+                user.reply("smp.access.never", Map.of(), Tone.WARN);
             }
 
             final Optional<OpenPayment> pending;
@@ -78,7 +80,7 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
                 pending = effects.openPayment(state.discordId());
             } catch (final RuntimeException failure) {
                 effects.warn("/smp access could not read the open payment for " + name, failure);
-                user.reply("smp.access.payment-unknown");
+                user.reply("smp.access.payment-unknown", Map.of(), Tone.BAD);
                 return;
             }
 
@@ -91,8 +93,9 @@ public final class ShowAccess implements NordtalCommand<SmpEffects> {
                             Map.of("reference", payment.reference(),
                                     "days", payment.days(),
                                     "amount", payment.amount(),
-                                    "since", SeasonDates.format(payment.created()))),
-                    () -> user.reply("smp.access.no-payment"));
+                                    "since", SeasonDates.format(payment.created())),
+                            Tone.MUTED),
+                    () -> user.reply("smp.access.no-payment", Map.of(), Tone.MUTED));
         });
     }
 }

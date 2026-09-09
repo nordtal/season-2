@@ -1,5 +1,6 @@
 package eu.nordtal.s2.common.update;
 
+import java.time.Duration;
 import java.time.Instant;
 
 /**
@@ -42,5 +43,22 @@ public record UpdateRequest(long id,
     public long secondsUntilDue(final Instant now) {
         final long seconds = notBefore.getEpochSecond() - now.getEpochSecond();
         return Math.max(0L, seconds);
+    }
+
+    /**
+     * The same, to the millisecond.
+     *
+     * <h2>Why the whole seconds above are not enough</h2>
+     * The proxy schedules one task per second of the last ten, each on the exact instant its number
+     * is true. Truncating to whole seconds first would put every one of them up to 999 ms early or
+     * late - so the counter would show 3 while 2.1 seconds were left, and the number nobody may
+     * disbelieve would be the one that is wrong.
+     *
+     * @param now the instant to measure from
+     * @return milliseconds remaining, never negative
+     */
+    public Duration untilDue(final Instant now) {
+        final Duration left = Duration.between(now, notBefore);
+        return left.isNegative() ? Duration.ZERO : left;
     }
 }

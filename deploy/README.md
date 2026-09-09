@@ -419,17 +419,20 @@ than an implied one.
 
 The **server jar** is the updater's too, since 2026-09-02. It installs the newest `STABLE` build of
 the version pinned in `.env` into each server's `.server/` cache, and `entrypoint.sh` runs whatever
-build of that version it finds there. `PAPER_BUILD` and `VELOCITY_BUILD` are only read into an
-**empty** cache — a fresh volume, or a version bump before the updater has run against it — and are
-fetched exactly once. Until that day the entrypoint fetched the pinned build unconditionally and
-deleted every other jar, which undid each updater run on the next restart and turned every restart
-after an update into a Fill API call, i.e. the outage the cache exists to survive.
+build of that version it finds there. **There is no build number anywhere in the deployment any
+more** (2026-09-09): the updater installs the newest `STABLE` build, and the entrypoint resolves
+the same one when `.server/` is empty rather than reading a variable somebody has to keep current.
 
-Rolling back to an older build is `UPDATER_PAPER_BUILD=121` (or `UPDATER_VELOCITY_BUILD`) in
-`.env`, then `/update now` — one run, no separate restart — the same shape as
-`UPDATER_SEASON_RELEASE=v0.1.0`. The
-report shows `paper-26.2-125.jar -> paper-26.2-121.jar` like any other move. It is *not*
-`PAPER_BUILD`: that one seeds an empty cache and never moves a running server.
+`SERVER_VERSION` is a literal in `compose.yml` and mirrors `eu.nordtal.s2.common.Platform`. On the
+three Paper backends it is the exact Minecraft version, `26.2`. **On the proxy it is `4.0.0`, which
+is not a version** — it is Fill's name for the whole Velocity 4 line, and the proxy follows the
+newest release inside it. The cache match is therefore by kind alone (`velocity-*.jar`), taking the
+highest version and then the highest build; a jar of another version is deleted at the next start.
+
+**Rolling back to an older platform build is not provided for.** That was `UPDATER_PAPER_BUILD`
+until 2026-09-09 and the owner removed it deliberately — a rollback path nobody had ever exercised,
+sitting in front of the one thing the updater does every day. A bad Paper build is healed by the
+next one.
 
 ### Restarting the network
 
@@ -559,6 +562,16 @@ with, and a setting that did not take effect looks exactly like a setting that d
   plugin needs the locally built updater: the migrations it applies are compiled into `:common` and
   shaded into that jar, so a released updater would migrate to the released schema and the plugin
   would come up against it.
+- **Four `<SERVICE>_PLUGINS` variables pointing at `./deploy/servers/<service>/plugins`.** This is
+  what turns each server's plugins folder from a named volume into a bind mount you can edit with an
+  ordinary text editor. `SERVERS_ROOT`, the single variable that used to do it, is gone (2026-09-09)
+  — its default was a *path*, so a deployment that set nothing got a bind mount into the directory
+  Arcane's GitOps sync pulls, and that sync deletes ignored files. An existing local `deploy/dev.env`
+  needs the four lines added by hand: the file is gitignored, so nothing migrated it. `deploy/dev`
+  refuses a value with no `/` in it rather than writing jars into a directory no container mounts.
+- **`SMP_BACKUP_TIME=` (empty), which turns the nightly volume backup off.** The interpolation in
+  `compose.yml` is `${SMP_BACKUP_TIME-04:45}` — a **single** dash, the only one in the file, and it
+  is what makes an empty value mean "off" rather than silently falling back to the default.
 - **`SMP_PREGENERATION_ON_START=false`.** `smp` starts pre-generating tomorrow's farm world
   in its `onEnable` and Chunky takes every core it is given, so every `up` would spend its first
   minutes at full load. What turning it off costs is one postponed reset — the first daily reset
@@ -579,7 +592,7 @@ deploy/dev pack
 builds the zip, puts it under `PACK_ROOT`, and writes `url` and `sha1` into the proxy's `pack.yml` —
 the same two lines the updater's `PackWriter` owns and no others. The `devpack` profile serves that
 directory on `http://localhost:8080`, which is the client's `localhost` too, because the client runs
-on this machine. `pack.yml` is an ordinary file on the host now (under `SERVERS_ROOT`), which is
+on this machine. `pack.yml` is an ordinary file on the host now (under `NETWORK_CONTROL_PLUGINS`), which is
 what makes this two lines of `perl -pi` rather than a container round trip.
 
 A `FAILED_DOWNLOAD` on the client is almost always the hash and not the network — rerun
@@ -651,6 +664,83 @@ own table of contents back with `pg_restore --list`, and only then renamed — a
 that looks like every other dump in the directory is the one the retention sweep keeps and the
 restore picks. It runs as `postgres`, not root, and stops on SIGTERM instead of waiting out the
 grace period.
+
+### Upgrading a deployment that still has `SERVERS_ROOT`
+
+Until 2026-09-09 each server's `plugins/` was a bind mount at
+`${SERVERS_ROOT:-./deploy/servers}/<service>/plugins`. It is a **named volume** now, one per
+service, and Docker copies nothing between the two: bring the stack up on the new compose file
+without moving the data first and every server finds an empty `plugins/`, the entrypoint guard
+stops it, and the bootstrap then writes fresh default `config.yml`, `milestones.yml`, `sounds.yml`
+and `pack.yml` over the deployment's own.
+
+Do this once, with the stack **stopped**:
+
+```
+docker compose stop
+for s in network-control limbo hunger-games smp; do
+  docker run --rm \
+    -v nordtal-s2_mc-$s-plugins:/dst \
+    -v "$PWD/deploy/servers/$s/plugins:/src:ro" \
+    alpine cp -a /src/. /dst/
+done
+docker compose up -d
+```
+
+Check `docker compose logs` for the four servers before deleting anything. **Keep a copy of
+`deploy/servers/` outside the checkout until you have seen a server come up with its own config** -
+that directory is inside the tree Arcane's GitOps sync pulls, and the sync deletes ignored files,
+which is the whole reason for this change (finding 151).
+
+To roll back, set the four `<SERVICE>_PLUGINS` variables to the old paths in `.env`; the volumes
+are left untouched and can be removed later with `docker volume rm`.
+
+### Voice chat: one UDP port, no file to edit
+
+Simple Voice Chat runs on `smp` and `hunger-games`, and the Velocity plugin on the proxy makes it
+**one** endpoint rather than one per backend. The firewall therefore needs **UDP 25565 in addition to
+TCP 25565**, and nothing else. Audio never travels over the Minecraft connection and never over the
+proxy's TCP port.
+
+The plugin detects each backend's address and port itself, so no `voicechat-server.properties` on any
+backend needs touching - the pair of ports 24454/24455 that an earlier design would have required
+never reached production. The one voice file an operator might ever open is
+`voicechat-proxy.properties` on the proxy, and only to set `voice_host` if the published port ever
+stops matching the one the plugin hears on inside the container.
+
+`PROXY_PORT` moves the Minecraft port only. While it is 25565 - the default - the voice mapping
+agrees with it either way; moving it is what would separate them.
+
+It is optional at every level: a player without the client mod notices nothing, and the jar is not in
+any `EXPECTED_PLUGINS`, so a Modrinth outage during a bootstrap costs voice chat rather than a
+server. On the proxy that is deliberate (owner, 2026-09-09): it is the one container whose refused
+start locks everybody out.
+
+### The volume backup is a run, not a schedule
+
+**Arcane's own scheduler is not what takes the nightly snapshot, and its `Stop Containers` flag must
+stay off.** A stop nobody announced lands on whoever is online at a quarter to five. Since
+2026-09-09 the updater drives it: `/backup now` on any surface, and a nightly row `smp` writes at
+`config.yml#backup-time` (default `04:45`, fifteen minutes before the farm reset). The run is a
+thirty-second countdown every player sees, then `smp`, `network-control` and the bot are stopped,
+then every volume is snapshotted, then everything comes back and is checked. Update and backup take
+the same lock and never overlap.
+
+What Arcane's backup policy still decides is the **destination** — the updater posts with an empty
+body on purpose, so `local` / `s3` / `local_s3` is configured once, in Arcane, per volume.
+
+The eight volumes, with the compose project prefix Arcane addresses them by: `nordtal-s2_mc-smp`,
+`nordtal-s2_mc-network-control`, `nordtal-s2_bot-config`, `nordtal-s2_postgres-dumps` and the four
+`*-plugins` volumes, which is where every hand edit to `config.yml`, `milestones.yml`, `sounds.yml`
+and `pack.yml` now lives. `postgres-data` is **never** in that list and is refused by name when the
+updater loads its config.
+
+A volume that has not finished after thirty minutes is given up on, the servers come back, and the
+run ends `FAILED` — which **mentions the admin role** in the admin channel rather than only turning
+an embed red on a screen nobody is looking at at five in the morning.
+
+Restoring is still Arcane's own restore, done by hand. Nothing in this repository drives it, and
+nobody has done it yet — see `todo.md` A3.
 
 ### Point Arcane at `postgres-dumps`, never at `postgres-data`
 

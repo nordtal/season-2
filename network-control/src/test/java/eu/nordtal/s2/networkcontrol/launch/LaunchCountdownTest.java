@@ -80,13 +80,16 @@ class LaunchCountdownTest {
         // gate.countdown is "The network opens in {countdown}." and gate.countdown.unknown is
         // already a whole sentence - wrapping the second in the first would produce "The network
         // opens in No opening date has been announced yet".
+        // contains rather than startsWith: gate.countdown carries MiniMessage since the palette
+        // pass, so the sentence begins with a tag. What is being asserted is which of the two keys
+        // was used, and that survives the markup - anchoring on the first character did not.
         final String counting = LaunchCountdown.sentence(MESSAGES, Locale.ENGLISH,
                 NOW.plus(Duration.ofMinutes(20)), NOW);
-        assertTrue(counting.startsWith("The network opens in"), counting);
+        assertTrue(counting.contains("The network opens in"), counting);
         assertTrue(counting.contains("20 minutes"), counting);
 
         final String unknown = LaunchCountdown.sentence(MESSAGES, Locale.ENGLISH, null, NOW);
-        assertFalse(unknown.startsWith("The network opens in"), unknown);
+        assertFalse(unknown.contains("The network opens in"), unknown);
     }
 
     @Test
@@ -97,7 +100,7 @@ class LaunchCountdownTest {
                 NOW.plus(Duration.ofMinutes(42)), NOW));
         assertEquals("jedem Moment", LaunchCountdown.render(MESSAGES, Locale.GERMAN, NOW, NOW));
         assertTrue(LaunchCountdown.sentence(MESSAGES, Locale.GERMAN,
-                NOW.plus(Duration.ofMinutes(42)), NOW).startsWith("Das Netzwerk öffnet"));
+                NOW.plus(Duration.ofMinutes(42)), NOW).contains("Das Netzwerk öffnet"));
     }
 
     private static String render(final Duration remaining) {

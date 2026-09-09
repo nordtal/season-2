@@ -43,7 +43,8 @@ import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
 import eu.nordtal.s2.smp.command.SmpCommand;
 import eu.nordtal.s2.papercommon.command.UpdateWatcher;
-import eu.nordtal.s2.smp.chat.SystemLines;
+import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.papercommon.stage.BukkitCinematics;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -56,6 +57,7 @@ import eu.nordtal.s2.smp.hud.SmpHud;
 import eu.nordtal.s2.smp.navigate.NavigateListener;
 import eu.nordtal.s2.smp.navigate.Navigation;
 import eu.nordtal.s2.smp.npc.NpcListener;
+import eu.nordtal.s2.smp.npc.NpcProtection;
 import eu.nordtal.s2.smp.npc.SpawnNpc;
 import eu.nordtal.s2.smp.player.Identities;
 import eu.nordtal.s2.smp.player.PlayerComposition;
@@ -72,6 +74,7 @@ import eu.nordtal.s2.smp.region.Box;
 import eu.nordtal.s2.smp.region.Boxes;
 import eu.nordtal.s2.smp.region.ConfigBoxes;
 import eu.nordtal.s2.smp.state.SeasonState;
+import eu.nordtal.s2.smp.welcome.SeasonWelcome;
 import eu.nordtal.s2.smp.travel.BalloonDisplay;
 import eu.nordtal.s2.smp.travel.BalloonListener;
 import eu.nordtal.s2.smp.travel.PortalGate;
@@ -120,6 +123,9 @@ public final class SmpPlugin extends JavaPlugin {
 
     private HikariDataSource pool;
     private AdminWatch adminWatch;
+
+    /** What a non-admin may type here, and what their client is told exists. */
+    private eu.nordtal.s2.papercommon.command.CommandFilter commandFilter;
 
     /**
      * The command layer: what this server runs itself, what it sends elsewhere, and what it is
@@ -177,6 +183,8 @@ public final class SmpPlugin extends JavaPlugin {
     private final SeasonState season = new SeasonState();
     private Identities identities;
     private FarmWorldReset farmReset;
+    /** The daily ask for a network backup. Null-safe stop: it is built in onEnable. */
+    private eu.nordtal.s2.smp.backup.NightlyBackup nightlyBackup;
     private SmpHud hud;
     private Boards boards;
     private final Navigation navigation = new Navigation();
@@ -185,6 +193,8 @@ public final class SmpPlugin extends JavaPlugin {
     private Graves graves;
     private Duels duels;
     private SpawnNpc npc;
+    /** The staging device - see BukkitCinematics. Stopped at disable, while players are still here. */
+    private BukkitCinematics cinematics;
     private BalloonDisplay balloonDisplay;
     private org.bukkit.scheduler.BukkitTask heartbeat;
 
@@ -280,11 +290,12 @@ public final class SmpPlugin extends JavaPlugin {
         dao = jdbi.onDemand(SmpDao.class);
         identities = new Identities(dao);
 
-        // Two roots: :commands' shared bundle underneath this module's own. What a shared mechanism
-        // says has to say the same thing on every surface, and the confirmation line is the first
-        // of those to reach this plugin. This module's own keys win on a collision.
+        // Three roots, most general first: :paper-common's five system lines, then :commands'
+        // shared bundle, then this module's own. What a shared mechanism says has to say the same
+        // thing on every surface. Later roots win, so this module's own keys beat both - which is
+        // the mechanism for rewording a shared line here, and not a way of adding one.
         messages = Messages.load(getClass().getClassLoader(),
-                java.util.List.of("messages/commands", "messages/smp"),
+                java.util.List.of("messages/paper-common", "messages/commands", "messages/smp"),
                 getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         reportUnknownOverrides();
         locales = new PlayerLocales(mcUuid -> dao.discordIdOf(mcUuid)
@@ -322,6 +333,14 @@ public final class SmpPlugin extends JavaPlugin {
         farmReset = new FarmWorldReset(this, config, worlds, swap, pregen, messages, locales,
                 dao, navigation, sounds, hud, announcer);
         farmReset.start();
+
+        // The network's backup clock, and it is here for a reason that is not about the SMP: the
+        // updater must not schedule its own work (docs/updater.md - `serve` is not a scheduler),
+        // and this is the one process that already runs a daily clock. It writes an update_request
+        // row and nothing else; the updater does the stopping, the snapshot and the starting.
+        nightlyBackup = new eu.nordtal.s2.smp.backup.NightlyBackup(this,
+                UpdateDirectory.using(pool), BukkitSmpEffects.async(this), config.backupTime());
+        nightlyBackup.start();
 
         // One instance, registered as a listener and handed to everything that has a moment: it
         // has to be the same object that stamped a rocket and the one asked whether that rocket may
@@ -362,10 +381,26 @@ public final class SmpPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(
                 new JoinGate(identities, admission, messages, logger()), this);
-        final SystemLines systemLines = new SystemLines(identities, composition, messages, locales);
+        // The composition is this server's half of the shared lines: flag, name and the prestige
+        // crest a season earns. Everything around it - the five keys, the icons, the per-reader
+        // language - is :paper-common's and is the same on the hunger games.
+        final SystemLines systemLines = new SystemLines(
+                player -> composition.chatPrefix(player.getName(),
+                        identities.of(player.getUniqueId())),
+                messages, locales);
+
+        // The staging device, and the one moment that uses it so far. Registered as a listener
+        // because a staging ends when the player leaves or dies, and stopped at disable because
+        // Paper disables plugins before it saves players - a blindness still running at that point
+        // would be written to disk with them.
+        cinematics = new BukkitCinematics(this, sounds::play);
+        getServer().getPluginManager().registerEvents(cinematics, this);
+        final SeasonWelcome welcome =
+                new SeasonWelcome(this, dao, identities, locales, cinematics);
+
         getServer().getPluginManager().registerEvents(
-                new PresenceListener(this, identities, surfaces, composition, config,
-                        messages, locales, operators, systemLines), this);
+                new PresenceListener(this, identities, surfaces, locales, operators,
+                        systemLines, welcome), this);
         getServer().getPluginManager().registerEvents(systemLines, this);
         getServer().getPluginManager().registerEvents(
                 new NavigateListener(this, dao, navigation, identities, locales, sounds), this);
@@ -418,8 +453,12 @@ public final class SmpPlugin extends JavaPlugin {
         npc = new SpawnNpc(this, config);
         npc.spawn();
         getServer().getPluginManager().registerEvents(
-                new NpcListener(this, dao, npc, () -> track, engine, identities, messages, locales,
-                        sounds), this);
+                new NpcListener(this, dao, npc, () -> track, engine, identities,
+                        config::wheelExtraSpinPercents, messages, locales, sounds), this);
+        // Separate from NpcListener on purpose: that one is what the figure is FOR, this one is
+        // what keeps it standing. Invulnerable does not survive a creative-mode hit or the void,
+        // and the spawn protection covers blocks rather than entities - see NpcProtection.
+        getServer().getPluginManager().registerEvents(new NpcProtection(npc), this);
         getServer().getPluginManager().registerEvents(
                 new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
 
@@ -463,7 +502,7 @@ public final class SmpPlugin extends JavaPlugin {
         // what NotificationListener was built for.
         final eu.nordtal.s2.common.access.AccessDirectory access =
                 eu.nordtal.s2.common.access.AccessDirectory.using(pool);
-        chatEffects = new BukkitSmpEffects(this, BukkitSmpEffects.async(this), dao, engine,
+        chatEffects = new BukkitSmpEffects(this, BukkitSmpEffects.async(this), jdbi, dao, engine,
                 farmReset, identities, access, this::reloadTrack, this::status);
 
         commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
@@ -482,12 +521,24 @@ public final class SmpPlugin extends JavaPlugin {
         final PaperCommandInbox inbox =
                 new PaperCommandInbox(this, Target.SMP, requests, access, sharedMessages);
         // Inline, on purpose - see the field comment.
-        final SmpEffects inboxEffects = new BukkitSmpEffects(this, Runnable::run, dao, engine,
+        final SmpEffects inboxEffects = new BukkitSmpEffects(this, Runnable::run, jdbi, dao, engine,
                 farmReset, identities, access, this::reloadTrack, this::status);
         SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
         inbox.start(this);
 
         registerCommands(sounds);
+
+        // The command allowlist. The proxy refuses a command before it reaches this server, which
+        // is the enforcement; this is the half the proxy cannot do - what this server tells a
+        // client exists at all. Same poll rhythm as the admin roster, and its notification rides
+        // the same connection. See CommandFilter, which fails OPEN and says so if no list has been
+        // published yet.
+        commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(this,
+                eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
+                        eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
+                adminWatch::isAdmin, locales, messages, logger());
+        getServer().getPluginManager().registerEvents(commandFilter, this);
+        commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 
         adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
                 config.adminListenEnabled()
@@ -495,7 +546,10 @@ public final class SmpPlugin extends JavaPlugin {
                                 databaseHandle.get().username(), databaseHandle.get().password(),
                                 databaseHandle.get().queryTimeoutSeconds())
                         : null,
-                inbox.refreshes(), inbox.channels());
+                java.util.stream.Stream.concat(inbox.refreshes().stream(),
+                        commandFilter.refreshes().stream()).toList(),
+                java.util.stream.Stream.concat(inbox.channels().stream(),
+                        commandFilter.channels().stream()).toList());
 
         startHeartbeat();
 
@@ -555,6 +609,12 @@ public final class SmpPlugin extends JavaPlugin {
         // got nothing (finding 136). Here they are still online, so this hands over the prize
         // itself - and `Saving players`, three lines later, is what writes it to disk.
         quietly("wheel.payOutInFlight", this::payOutSpinsInFlight);
+        // Before anything else that touches players: a staging still running holds a potion effect
+        // on somebody who is about to be saved to disk, and `Saving players` comes several lines
+        // after `Disabling smp`. Same ordering argument as the wheel above.
+        if (cinematics != null) {
+            quietly("cinematics.stop", cinematics::stop);
+        }
         if (npc != null) {
             quietly("npc.remove", npc::remove);
         }
@@ -578,6 +638,12 @@ public final class SmpPlugin extends JavaPlugin {
         }
         if (farmReset != null) {
             quietly("farmReset.stop", farmReset::stop);
+        }
+        // Its own guard rather than farmReset's: the two are built one line apart, and a throw in
+        // between would leave this null while farmReset is not - which is a NullPointerException
+        // inside the shutdown that was already dealing with a broken start.
+        if (nightlyBackup != null) {
+            quietly("nightlyBackup.stop", nightlyBackup::stop);
         }
         // Before the pool: the listener thread is parked on a connection of its own, but a refresh
         // already in flight reads through the pool.

@@ -157,9 +157,18 @@ class MenuFontTest {
      * identically at five pixels, so a reader cannot tell them apart at all - which is fine for a
      * pair that never stands beside the other in a number, and not fine otherwise.</p>
      */
-    private static final Map<String, String> LOOKALIKES = Map.of(
-            "UV", "the artifact draws both as a bowl; the owner asked for 0/O/8 on 2026-09-08 and"
-                    + " not for this pair, so it is recorded rather than changed");
+    /**
+     * Pairs that are allowed to be the same picture, with the reason.
+     *
+     * <p><b>Empty since 2026-09-09</b>, and it stays here for the reason it was written: the point
+     * of the list is that a remaining ambiguity lives in the build rather than in somebody's
+     * memory. It held {@code UV} for one day - the artifact drew both letters as the same bowl and
+     * the transcription copied it twice, so a POI named BURG and one named BVRG were the same five
+     * rows on screen. That was recorded rather than fixed because the owner had asked for 0/O/8 and
+     * not for this pair; the review of PR #10 then pointed out that POI names come from players,
+     * which is exactly where a pair nobody chose does its damage. U is flat-bottomed now.</p>
+     */
+    private static final Map<String, String> LOOKALIKES = Map.of();
 
     @Test
     @DisplayName("a zero, a letter O and an eight are three different silhouettes")

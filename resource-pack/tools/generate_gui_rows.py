@@ -22,13 +22,17 @@ rows centred in fourteen lands at 23 and not 22, which is the same "+1" the arti
 renderer carries, and getting it wrong puts every line one pixel high in every menu at
 once.
 
-THE 5 PX SHEET IS NOT NEW ART. It is the table from the owner's design artifact
-(`bloecke/menue-entwuerfe.html`, `SMALL_SRC`), transcribed character for character - the
-decision on 2026-09-08 was "this sheet, unchanged", not "a sheet in this style". It is all
-capitals with no descenders: at 8 px almost every POI name was cut off, at 5 px thirty-eight
-characters fit across a window. Lower case is folded onto capitals on the way in, except ß,
-which has no single-character upper case; `MenuFont` in :common is the Java side of that
-fold and reads its widths from the table this tool exports.
+THE 5 PX SHEET IS NOT NEW ART, WITH THREE NAMED EXCEPTIONS. It is the table from the
+owner's design artifact (`bloecke/menue-entwuerfe.html`, `SMALL_SRC`), transcribed
+character for character - the decision on 2026-09-08 was "this sheet, unchanged", not "a
+sheet in this style". The exceptions are `0`, `O` and `8`, which the owner asked to be
+redrawn the same day because the artifact draws `0` and `O` with identical pixels and `8`
+one pixel away from both; see the comment on SMALL below for what each is now and why the
+three silhouettes cannot be confused. It is all capitals with no descenders: at 8 px almost
+every POI name was cut off, at 5 px thirty-eight characters fit across a window. Lower case
+is folded onto capitals on the way in, except ß, which has no single-character upper case;
+`MenuFont` in :common is the Java side of that fold and reads its widths from the table this
+tool exports.
 
 Pure standard library. The PNG codec is pngio.py, shared with the other generators.
 
@@ -111,6 +115,37 @@ CHAMFER = (1,)              # one pixel off each corner, the size a 14 px tall t
 # five, N four, and the punctuation as narrow as one. The advance is the drawn width plus
 # one, which the client works out for itself from the pixels - so this table is the whole
 # specification of the font, and MenuFont's copy of the widths is exported from it below.
+#
+# THREE CHARACTERS ARE NOT THE ARTIFACT'S (owner, 2026-09-08). It drew `0` and `O` with
+# the same five rows and `8` one pixel from both, which on a menu that prints coordinates,
+# distances and "1240/2048" is not a cosmetic problem. The three are now told apart by
+# their SILHOUETTE and not by an interior pixel, because at 5 px an interior pixel is what
+# a reader has to go looking for:
+#
+#     O   .#.  round: the top and bottom rows are tapered, like C G Q and every other
+#         #.#  letter loop on this sheet - unchanged from the artifact
+#         #.#
+#         #.#
+#         .#.
+#
+#     0   ###  square: flat top and bottom, like 1 2 3 5 7 and the rest of the digits, so
+#         #.#  a zero reads as a digit at a glance and never as the letter beside it
+#         #.#
+#         #.#
+#         ###
+#
+#     8   ###  square and WAISTED: two loops joined at the middle. Against the zero that
+#         #.#  is three pixels rather than one, and the waist is visible at 1x
+#         .#.
+#         #.#
+#         ###
+#
+# All three stay three pixels wide, so every advance in this font is unchanged and a column
+# of numbers still lines up. A four-pixel zero would have been easier to draw and would
+# have made "2048" and "1240" different widths.
+#
+# What is NOT fixed here, and was not asked to be: U and V are the same five rows in the
+# artifact and still are.
 SMALL = {
     'A': '.#.|#.#|###|#.#|#.#', 'B': '##.|#.#|##.|#.#|##.', 'C': '.##|#..|#..|#..|.##',
     'D': '##.|#.#|#.#|#.#|##.', 'E': '###|#..|##.|#..|###', 'F': '###|#..|##.|#..|#..',
@@ -122,9 +157,9 @@ SMALL = {
     'U': '#.#|#.#|#.#|#.#|.#.', 'V': '#.#|#.#|#.#|#.#|.#.',
     'W': '#...#|#...#|#.#.#|#.#.#|.#.#.', 'X': '#.#|#.#|.#.|#.#|#.#',
     'Y': '#.#|#.#|.#.|.#.|.#.', 'Z': '###|..#|.#.|#..|###',
-    '0': '.#.|#.#|#.#|#.#|.#.', '1': '.#.|##.|.#.|.#.|###', '2': '##.|..#|.#.|#..|###',
+    '0': '###|#.#|#.#|#.#|###', '1': '.#.|##.|.#.|.#.|###', '2': '##.|..#|.#.|#..|###',
     '3': '##.|..#|.#.|..#|##.', '4': '#.#|#.#|###|..#|..#', '5': '###|#..|##.|..#|##.',
-    '6': '.##|#..|##.|#.#|.#.', '7': '###|..#|.#.|.#.|.#.', '8': '.#.|#.#|.#.|#.#|.#.',
+    '6': '.##|#..|##.|#.#|.#.', '7': '###|..#|.#.|.#.|.#.', '8': '###|#.#|.#.|#.#|###',
     '9': '.#.|#.#|.##|..#|##.',
     '.': '.|.|.|.|#', ',': '.|.|.|#|#', ':': '.|#|.|#|.', '/': '..#|..#|.#.|#..|#..',
     '-': '...|...|###|...|...', '+': '...|.#.|###|.#.|...', '%': '#.#|..#|.#.|#..|#.#',

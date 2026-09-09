@@ -626,9 +626,27 @@ asserts each of the eighteen ascents lands where `SlotGeometry` says that row's 
 `space` provider at **+3** rather than a cell, because an empty cell has no rightmost drawn column
 and the client would advance it one pixel.
 
-**It is all capitals, and it is not new art.** The table is the owner's design artifact's own
-`SMALL_SRC`, transcribed character for character (decision 2026-09-08: *this* sheet, not a sheet in
-this style). At 8px almost every POI name was cut off on a card; at 5px thirty-eight characters fit
+**It is all capitals, and it is not new art — with three named exceptions.** The table is the
+owner's design artifact's own `SMALL_SRC`, transcribed character for character (decision 2026-09-08:
+*this* sheet, not a sheet in this style). The exceptions are **`0`, `O` and `8`**, redrawn on the
+owner's instruction the same day: the artifact drew `0` and `O` with identical pixels and `8` one
+pixel from both, which on a font whose whole job is coordinates, distances and `1240/2048` is not a
+cosmetic problem.
+
+| glyph | rows | what tells it apart |
+|---|---|---|
+| `O` | `.#. #.# #.# #.# .#.` | round, tapered top and bottom — the shape every other letter loop on this sheet has (`C G Q`). Unchanged from the artifact |
+| `0` | `### #.# #.# #.# ###` | square, flat top and bottom — the shape the other digits have (`1 2 3 5 7`), so a zero reads as a digit rather than as the letter beside it |
+| `8` | `### #.# .#. #.# ###` | square and **waisted**: two loops joined in the middle. Three pixels from the zero rather than one, and the waist is visible at 1× |
+
+All three stay three pixels wide, so **every advance in this font is unchanged** and a column of
+numbers still lines up — a four-pixel zero would have been easier to draw and would have made
+`2048` and `1240` different widths. `MenuFontTest` asserts the three pairwise distances on the PNG
+itself, and separately that no *other* two characters draw the same picture, with a named list of
+the pairs that do: today that list is `U`/`V`, which the artifact also draws identically and which
+the owner did not ask about.
+
+At 8px almost every POI name was cut off on a card; at 5px thirty-eight characters fit
 across a window, and five pixels only works without descenders. `:common`'s `MenuFont` folds lower
 case onto the capitals on the way in — **except `ß`**, whose upper case is two letters and therefore
 not a character — and turns anything the sheet has never heard of into `?`. A POI name is typed by a

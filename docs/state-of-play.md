@@ -35,9 +35,11 @@ It is expected to go stale. Re-derive it rather than trust it once a module has 
 | `paper-common` | 5 files, 1221 lines | 7 | The operator adapter, the admin watcher, the Paper sender adapter and **the Paper command adapter** |
 | `resource-pack` | — | — | Four fonts, every code point allocated and drawn |
 
-1528 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-09,
+1633 tests, none skipped, all green with a Docker daemon present (`./gradlew build`, 2026-09-09,
 on `release/0.7.1` after `/update` was folded onto every surface, the countdown rebuilt, the volume
-backup made a run, the bunq sandbox retired, voice chat installed, the command allowlist built, every line given a colour and the navigate menu painted, PR #10),
+backup made a run, the bunq sandbox retired, voice chat installed, the command allowlist built,
+every line given a colour, all five menus painted, the platform version moved into `:common`, the
+spawn NPC given its armour, the server icon cut from the logo and the staging device built, PR #10),
 across **nine** modules — `resource-pack` has no test source set of its own, and `paper-common`
 gained one on 2026-09-05 with the command adapter.
 

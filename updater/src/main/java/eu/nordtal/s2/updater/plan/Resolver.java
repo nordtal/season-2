@@ -71,10 +71,14 @@ public final class Resolver {
 
         final GitHubReleases.Release season = resolveSeason(newest, failures);
         resolveDisplayTags(newest, failures);
-        resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject());
-        resolveModrinth(newest, failures, unsupported, Topology.CHUNKY, config.chunkyProject());
-        resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT, config.voiceChatProject());
-        resolveModrinth(newest, failures, unsupported, Topology.CORE_PROTECT, config.coreProtectProject());
+        resolveModrinth(newest, failures, unsupported, Topology.PACKETEVENTS, config.packetEventsProject(), "paper");
+        resolveModrinth(newest, failures, unsupported, Topology.CHUNKY, config.chunkyProject(), "paper");
+        resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT, config.voiceChatProject(), "paper");
+        // The same Modrinth project, asked a second time for its Velocity build. One project id,
+        // two artefacts, because the proxy half and the server half are separate jars that move
+        // separately - and the loader is what tells them apart, not the id.
+        resolveModrinth(newest, failures, unsupported, Topology.VOICE_CHAT_PROXY, config.voiceChatProject(), "velocity");
+        resolveModrinth(newest, failures, unsupported, Topology.CORE_PROTECT, config.coreProtectProject(), "paper");
         resolveFill(newest, failures, Topology.PAPER, config.minecraftVersion(), config.paperBuild());
         resolveFill(newest, failures, Topology.VELOCITY, config.velocityVersion(), config.velocityBuild());
 
@@ -231,9 +235,9 @@ public final class Resolver {
      */
     private void resolveModrinth(final Map<String, RemoteFile> newest, final Map<String, String> failures,
                                  final Map<String, String> unsupported,
-                                 final String artifact, final String projectId) {
+                                 final String artifact, final String projectId, final String loader) {
         try {
-            newest.put(artifact, modrinth.newest(artifact, projectId, config.minecraftVersion(), "paper"));
+            newest.put(artifact, modrinth.newest(artifact, projectId, config.minecraftVersion(), loader));
         } catch (final Modrinth.Unsupported none) {
             log.info("{} has no build for Minecraft {} - the row stays in the plan and installs"
                     + " itself when one appears", artifact, config.minecraftVersion());

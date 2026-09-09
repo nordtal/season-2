@@ -37,6 +37,7 @@ import eu.nordtal.s2.networkcontrol.pack.PackStation;
 import eu.nordtal.s2.networkcontrol.pack.WaitingBook;
 import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.chat.ChatCommands;
+import eu.nordtal.s2.commands.info.InfoCommands;
 import eu.nordtal.s2.commands.network.NetworkCommands;
 import eu.nordtal.s2.commands.network.NetworkEffects;
 import eu.nordtal.s2.commands.phase.PhaseCommands;
@@ -48,6 +49,7 @@ import eu.nordtal.s2.common.command.AllowlistDirectory;
 import eu.nordtal.s2.common.command.CommandAllowlist;
 import eu.nordtal.s2.networkcontrol.command.CommandGate;
 import eu.nordtal.s2.networkcontrol.command.ProxyChatEffects;
+import eu.nordtal.s2.networkcontrol.command.ProxyInfoEffects;
 import eu.nordtal.s2.networkcontrol.command.ProxyNetworkEffects;
 import eu.nordtal.s2.networkcontrol.command.VelocityCommands;
 import eu.nordtal.s2.networkcontrol.phase.ProxyPhaseEffects;
@@ -498,6 +500,13 @@ public final class NetworkControlPlugin {
                 ProxyNetworkEffects.async(this, proxy), logger);
         proxy.getEventManager().register(this, chatEffects);
         ChatCommands.all().forEach(command -> tree.local(command, chatEffects));
+
+        // /discord and /rules. On the proxy so that they work in the waiting room, which is where
+        // the player who most needs to be told how to reach us is standing. The invite is
+        // gate.yml's, the same string every login screen already uses.
+        final ProxyInfoEffects infoEffects = new ProxyInfoEffects(proxy, messages,
+                gateConfig.discordInviteUrl(), ProxyNetworkEffects.async(this, proxy), logger);
+        InfoCommands.all().forEach(command -> tree.local(command, infoEffects));
 
         // "clear" is not guessable and is the only value of this argument that is not a date.
         tree.suggest(PhaseCommands.LAUNCH, "when", () -> List.of(SeasonDates.CLEAR));

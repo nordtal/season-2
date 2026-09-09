@@ -45,6 +45,7 @@ public final class Catalogue {
                         AccessCommands.declarations(),
                         eu.nordtal.s2.commands.announce.AnnounceCommands.declarations(),
                         eu.nordtal.s2.commands.chat.ChatCommands.declarations(),
+                        eu.nordtal.s2.commands.info.InfoCommands.declarations(),
                         UpdateCommands.declarations())
                 .flatMap(List::stream)
                 .toList();

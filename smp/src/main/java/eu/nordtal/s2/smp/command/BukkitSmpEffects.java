@@ -5,6 +5,8 @@ import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessState;
 import eu.nordtal.s2.common.access.OpenPayment;
 import eu.nordtal.s2.smp.aura.AuraReason;
+import eu.nordtal.s2.smp.db.AuraPlace;
+import eu.nordtal.s2.smp.db.AuraRow;
 import eu.nordtal.s2.smp.db.ObjectiveRow;
 import eu.nordtal.s2.smp.db.SmpDao;
 import eu.nordtal.s2.smp.farm.FarmWorldReset;
@@ -15,6 +17,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -178,6 +181,52 @@ public final class BukkitSmpEffects implements SmpEffects {
     @Override
     public Optional<OpenPayment> openPayment(final String discordId) {
         return access.openPayment(discordId);
+    }
+
+    /**
+     * {@code /aura}: three reads and one hop to the server thread for the names.
+     *
+     * <h2>Why the names are resolved in one hop and not one each</h2>
+     * {@link #nameOf} waits for the server thread per call, which is the right shape for a command
+     * that names one person and the wrong one for a list of ten - ten round trips through the
+     * scheduler, on a command any player can type as often as they like. So the whole list is
+     * resolved inside a single {@code callSyncMethod}.
+     *
+     * <p>The database reads stay on this thread, which is an async one by construction: everything
+     * that reaches this class comes through {@code CommandEffects#async}.</p>
+     */
+    @Override
+    public Optional<AuraStanding> auraStanding(final UUID player) {
+        final Optional<String> discordId = discordIdOf(player);
+        if (discordId.isEmpty()) {
+            return Optional.empty();
+        }
+        // A player who has never been given aura has no smp_player row yet, and zero is the honest
+        // answer for them - the alternative is telling somebody their account cannot be read on
+        // their first day.
+        final int aura = dao.auraOf(discordId.get()).orElse(0);
+        final AuraPlace place = dao.auraPlace(aura);
+        final List<AuraRow> top = dao.topAura(10);
+
+        final List<String> names = onMainThread(() -> top.stream()
+                .map(row -> {
+                    final Player online = Bukkit.getPlayer(row.mcUuid());
+                    final String name = online != null
+                            ? online.getName()
+                            : Bukkit.getOfflinePlayer(row.mcUuid()).getName();
+                    // The board in the world falls back to the first eight characters of the UUID
+                    // for the same reason: a name this server has never seen is still a line, and a
+                    // blank one on a leaderboard reads as a bug in the leaderboard.
+                    return name == null ? row.mcUuid().toString().substring(0, 8) : name;
+                })
+                .toList());
+
+        final List<AuraLine> lines = new java.util.ArrayList<>(top.size());
+        for (int at = 0; at < top.size(); at++) {
+            lines.add(new AuraLine(at + 1, names.get(at), top.get(at).aura(),
+                    top.get(at).mcUuid().equals(player)));
+        }
+        return Optional.of(new AuraStanding(aura, place.place(), place.total(), List.copyOf(lines)));
     }
 
     private <T> T onMainThread(final Callable<T> work) {

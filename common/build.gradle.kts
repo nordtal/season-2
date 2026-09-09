@@ -71,6 +71,10 @@ repositoryRootTestInputs {
     // covered only the Minecraft-facing four would be a rule with a hole in it. Only the messages
     // directory: the bot's source tree is not an input to anything in :common.
     readsTree("discord-bot/src/main/resources/messages")
+
+    // OneRefusalLineTest reads the two classes that answer a command somebody may not run, plus
+    // every bundle, and asserts they say one sentence. Both are covered by the trees above; the
+    // bot's messages tree is the only bundle root not under one of them and is already declared.
 }
 
 dependencies {

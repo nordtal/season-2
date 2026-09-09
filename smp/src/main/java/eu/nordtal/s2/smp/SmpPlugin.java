@@ -396,7 +396,7 @@ public final class SmpPlugin extends JavaPlugin {
         cinematics = new BukkitCinematics(this, sounds::play);
         getServer().getPluginManager().registerEvents(cinematics, this);
         final SeasonWelcome welcome =
-                new SeasonWelcome(this, dao, identities, messages, locales, cinematics);
+                new SeasonWelcome(this, dao, identities, locales, cinematics);
 
         getServer().getPluginManager().registerEvents(
                 new PresenceListener(this, identities, surfaces, locales, operators,

@@ -86,8 +86,11 @@ class SeasonWelcomeIsWiredTest {
                         + " never happens");
         assertTrue(welcome > announce,
                 "the welcome is called before the join line, which means it is no longer inside the"
-                        + " callback that waits for the player's language - and the subtitle would"
-                        + " be English for everybody (finding 96, in this module, again)");
+                        + " callback that runs once the player has fully arrived. The moment carries"
+                        + " no language of its own since 2026-09-09 - the owner struck the subtitle -"
+                        + " so this is no longer about finding 96; it is that a staged moment must"
+                        + " not begin while a join is still settling, and that the day the moment"
+                        + " regains a sentence, this is already the only place it could be right");
 
         // The join handler is what runs immediately; the callback is what runs once the row is
         // back. A call from onJoin would compile, work, and be wrong in exactly one invisible way.

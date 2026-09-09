@@ -59,6 +59,18 @@ class SoundDefaultsTest {
 
         for (final Feedback category : Feedback.values()) {
             final SoundsSpec.SoundSpec sound = entryOf(category, spec);
+            if (category == Feedback.STAGING) {
+                // The one category that ships blank, and the exception is named rather than
+                // implied (owner, 2026-09-09). A staged moment's sound comes into the resource pack
+                // with its artwork and does not exist yet; borrowing another category's would give
+                // the season's opening somebody else's chime. Asserted rather than skipped, so that
+                // filling it in becomes a visible decision here instead of a quiet one.
+                assertTrue(sound.key() == null || sound.key().isBlank(),
+                        "STAGING ships a sound. It is meant to ship blank until the pack has one -"
+                                + " if that day has come, say so here rather than leaving this"
+                                + " check believing something that is no longer true");
+                continue;
+            }
             if (sound.key() == null || sound.key().isBlank()) {
                 problems.add(category + " ships without a sound - a fresh sounds.yml should carry a"
                         + " working vocabulary, and blanking a key is the operator's escape hatch"
@@ -115,6 +127,13 @@ class SoundDefaultsTest {
                 "a shipped default that the parser has to correct is a default that was never"
                         + " checked");
         for (final Feedback category : Feedback.values()) {
+            if (category == Feedback.STAGING) {
+                // Silent on purpose - see the exception in the test above.
+                assertTrue(sounds.isSilent(category),
+                        "STAGING is no longer silent out of the box, which is a decision and not a"
+                                + " tidy-up");
+                continue;
+            }
             assertFalse(sounds.isSilent(category), category + " is silent out of the box");
         }
     }
@@ -209,6 +228,7 @@ class SoundDefaultsTest {
             case TRAVEL -> spec.travel();
             case COUNTDOWN_TICK -> spec.countdownTick();
             case NETWORK_EVENT -> spec.networkEvent();
+            case STAGING -> spec.staging();
         };
     }
 }

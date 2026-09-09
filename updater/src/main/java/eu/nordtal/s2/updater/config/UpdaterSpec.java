@@ -143,16 +143,24 @@ public interface UpdaterSpec {
     @Order(7)
     @Key("voicechat-project")
     @Comment({
-            "The Modrinth project id of Simple Voice Chat ('simple-voice-chat'), installed on",
-            "smp and hunger-games. The jar is voicechat-bukkit-<version>.jar.",
+            "The Modrinth project id of Simple Voice Chat ('simple-voice-chat').",
             "",
             "THE ID, NOT THE SLUG, for the reason packetevents-project gives.",
             "",
-            "The plugin is resolved with the `paper` loader like the other two. The project also",
-            "publishes a `velocity` build - the proxy half that forwards voice traffic for a whole",
-            "network - and this module deliberately does NOT resolve it: every velocity build ever",
-            "published is marked alpha or beta on Modrinth, and Modrinth#newest only accepts",
-            "`release`. Adding it is a decision about that rule, not a line here."
+            "ONE ID, TWO ARTEFACTS. The project publishes a server half and a proxy half, and the",
+            "updater resolves both from this one id - the `paper` build for smp and hunger-games",
+            "(voicechat-bukkit-<version>.jar) and the `velocity` build for the proxy",
+            "(voicechat-velocity-<version>.jar). The loader is what tells them apart.",
+            "",
+            "The proxy half is what makes ONE published UDP port enough for the whole network: it",
+            "detects each backend's voice address and port itself, so no backend publishes a port",
+            "and no voice_host has to be edited by hand. Without it every backend would need its",
+            "own port open to the internet.",
+            "",
+            "It is also the one artefact the updater installs from a PRE-RELEASE. That is not a",
+            "setting and cannot be turned on for anything else - see Modrinth.PRE_RELEASE_",
+            "EXCEPTIONS, which names it and says why: the project has never published a Velocity",
+            "build marked `release`, so waiting for one means never installing it at all."
     })
     default String voiceChatProject() {
         return "9eGKb6K1";

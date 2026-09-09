@@ -113,6 +113,34 @@ public final class Topology {
     public static final String VOICE_CHAT = "voicechat";
 
     /**
+     * Simple Voice Chat's Velocity plugin - {@code voicechat-velocity-<version>.jar}, on the proxy
+     * and nowhere else. Here the artefact id and the filename prefix do coincide.
+     *
+     * <h2>What it buys, and why the proxy is in this at all</h2>
+     * Audio is UDP and does not travel inside the Minecraft connection. Without this plugin every
+     * backend's own voice port has to be published and reachable from the internet, each backend
+     * needs a distinct port number, and each one's {@code voice_host} has to be set by hand in a
+     * file nothing in this repository writes. With it, <b>one</b> UDP port on the proxy is the
+     * whole of it: the plugin detects the address and port of each backend itself and forwards to
+     * the right one, and each backend's {@code voice_host} is ignored (Simple Voice Chat wiki,
+     * "Proxy Setup" and "Proxy Config File", read 2026-09-09).
+     *
+     * <p>The backends therefore publish no host port at all any more. They are reached over the
+     * compose network by the proxy, which is a thing containers on one network can always do.</p>
+     *
+     * <h2>It is resolved from a pre-release, deliberately</h2>
+     * This is the one artefact in {@link eu.nordtal.s2.updater.source.Modrinth#PRE_RELEASE_EXCEPTIONS},
+     * because the project has never published a Velocity build marked {@code release} - not one, in
+     * thirteen versions. Waiting for one is not a slower path to the same place. The reasoning, and
+     * the reason it is a named constant instead of a setting, is on that field.
+     *
+     * <p>It is {@link Service#optional() optional} for the same reason {@link #VOICE_CHAT} is, and
+     * one more: an alpha is exactly the kind of artefact whose next version may fail to resolve or
+     * fail to load, and a proxy that will not start is the whole network.</p>
+     */
+    public static final String VOICE_CHAT_PROXY = "voicechat-velocity";
+
+    /**
      * CoreProtect, the block logger - {@code CoreProtect-CE-<version>.jar}, so the filename prefix
      * is {@code CoreProtect-CE}.
      *
@@ -172,7 +200,11 @@ public final class Topology {
 
     /** The four Minecraft services, in the order the report reads best: proxy first, then backends. */
     public static final List<Service> SERVICES = List.of(
-            new Service(NETWORK_CONTROL, Kind.VELOCITY, List.of(NETWORK_CONTROL)),
+            // The proxy carries voice chat's proxy half, which is what makes one published UDP port
+            // enough for the whole network - see VOICE_CHAT_PROXY. It is optional here for the
+            // strongest reason anything on this list is: this container is the network.
+            new Service(NETWORK_CONTROL, Kind.VELOCITY, List.of(NETWORK_CONTROL, VOICE_CHAT_PROXY),
+                    List.of(VOICE_CHAT_PROXY)),
             new Service(LIMBO, Kind.PAPER, List.of(LIMBO)),
             // Voice chat is on the two servers people play on and not on limbo: the waiting room
             // is seconds long and holds nobody who could be talked to (owner, 2026-09-08).

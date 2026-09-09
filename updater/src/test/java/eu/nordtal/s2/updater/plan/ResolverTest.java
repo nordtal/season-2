@@ -55,6 +55,12 @@ class ResolverTest {
                 .serving("/project/HYKaKraK/version", "modrinth-packetevents.json")
                 .serving("/project/fALzjamp/version", "modrinth-chunky.json")
                 .serving("/project/9eGKb6K1/version", "modrinth-voicechat.json")
+                // The same project asked a second time for its Velocity build, so the route has to
+                // be the loader filter rather than the project - a longer substring wins in
+                // FakeHttp, and this is the only artefact resolved on that loader. The fixture is
+                // the real answer: one version, alpha, which is the whole reason the pre-release
+                // exception in Modrinth exists.
+                .serving("loaders=%5B%22velocity%22%5D", "modrinth-voicechat-velocity.json")
                 // A recorded EMPTY array - what Modrinth really answered for CoreProtect filtered
                 // to 26.2/paper on 2026-09-08. It is a fixture and not a literal because the shape
                 // of "no version matches" is the thing under test.
@@ -117,14 +123,37 @@ class ResolverTest {
             assertEquals("voicechat-bukkit-2.6.23.jar", change.installed(), service);
         }
 
-        // limbo and the proxy carry no row at all: an artefact nothing installs must not appear as
-        // one that is merely up to date, because a row is what the guard and the applier act on.
-        // The waiting room is seconds long and holds nobody who could be talked to.
+        // limbo and the proxy carry no row for the SERVER half: an artefact nothing installs must
+        // not appear as one that is merely up to date, because a row is what the guard and the
+        // applier act on. The waiting room is seconds long and holds nobody who could be talked to,
+        // and the proxy runs the other jar entirely.
         assertTrue(plan.changes().stream()
                         .filter(change -> "voicechat".equals(change.artifact()))
                         .noneMatch(change -> "limbo".equals(change.service())
                                 || "network-control".equals(change.service())),
                 Report.render(plan));
+    }
+
+    @Test
+    @DisplayName("the proxy half of voice chat is resolved from a pre-release, and only on the proxy")
+    void theVoiceChatProxyPluginIsOnTheProxyAlone() throws IOException {
+        installCurrentEverything();
+
+        final UpdatePlan plan = resolve();
+
+        // Same Modrinth project as the row above, different loader and therefore a different jar.
+        // This is the one artefact in the network installed from something not marked `release` -
+        // Modrinth.PRE_RELEASE_EXCEPTIONS names it and says why - and this asserts the exception is
+        // actually reached rather than merely declared: without it the row would be UNSUPPORTED and
+        // the proxy would silently never get the plugin that makes one UDP port enough.
+        final Change change = changeFor(plan, "network-control", "voicechat-velocity");
+        assertEquals(Change.Status.UP_TO_DATE, change.status(), Report.render(plan));
+        assertEquals("voicechat-velocity-2.6.18.jar", change.installed());
+
+        assertTrue(plan.changes().stream()
+                        .filter(row -> "voicechat-velocity".equals(row.artifact()))
+                        .allMatch(row -> "network-control".equals(row.service())),
+                "the Velocity build is on a Paper server: " + Report.render(plan));
     }
 
     @Test
@@ -461,6 +490,7 @@ class ResolverTest {
     /** The exact deployment the recorded release and the recorded APIs describe. */
     private void installCurrentEverything() throws IOException {
         write("network-control", "plugins/network-control-0.1.0.jar");
+        write("network-control", "plugins/voicechat-velocity-2.6.18.jar");
         write("network-control", ".server/velocity-4.1.1-24.jar");
         write("limbo", "plugins/limbo-0.1.0.jar");
         write("limbo", ".server/paper-26.2-121.jar");

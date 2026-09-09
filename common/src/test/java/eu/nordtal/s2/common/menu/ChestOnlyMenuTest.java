@@ -72,7 +72,8 @@ class ChestOnlyMenuTest {
             "TravelPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/travel/TravelPanel.java",
             "NavigatePanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigatePanel.java",
             "ObjectivePanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/npc/ObjectivePanel.java",
-            "HandInPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/npc/HandInPanel.java");
+            "HandInPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/npc/HandInPanel.java",
+            "GravePanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/grave/GravePanel.java");
 
     @Test
     @DisplayName("no menu opens anything but a chest")

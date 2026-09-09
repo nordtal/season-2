@@ -530,6 +530,36 @@ TRAY_ROWS = 3
 TRAY_HEIGHT = TRAY_ROWS * ROW_PITCH                       # 54
 
 
+# --- The grave slab -------------------------------------------------------------------
+#
+# Design G1 (owner, 2026-09-08): a recess per slot, on stone. The deliberate OPPOSITE of the
+# hand-in tray above, and the difference is the difference between the two actions - see the
+# comment on the tray. A grave is an inventory you take out of, so the separate cells are the
+# information: they say these are distinct stacks and any one of them may be taken.
+#
+# One glyph per row count rather than one row tiled, because a glyph has one height and the
+# grave's is decided by how much the dead player was carrying. Five is the most there can be:
+# thirty-six inventory slots, four of armour and one off-hand is forty-one stacks, which is
+# five rows, and the sixth row of the window is the footer.
+GRAVE_STONE = (142, 140, 146, 255)
+GRAVE_RECESS = (44, 42, 48, 255)          # darker than a panel's own slot: this is a grave
+GRAVE_MAX_ROWS = 5
+
+
+def grave_slab(rows):
+    """`rows` slot rows of dark recesses on stone, at the slot area's own origin."""
+    width, height = SLOT_COLUMNS * ROW_PITCH, rows * ROW_PITCH
+    buf = blank(width, height, GRAVE_STONE)
+    for row in range(rows):
+        for column in range(SLOT_COLUMNS):
+            x, y = column * ROW_PITCH, row * ROW_PITCH
+            rect(buf, width, x, y, x + 17, y + 17, GRAVE_RECESS)
+            for i in range(ROW_PITCH):
+                px(buf, width, x + 17, y + i, PALETTE["slot_edge"])
+                px(buf, width, x + i, y + 17, PALETTE["slot_edge"])
+    return width, height, bytes(buf)
+
+
 def assert_advance(path, expected_width):
     """A glyph advances by its rightmost drawn column + 2; the Java side assumes width + 1.
 
@@ -562,6 +592,8 @@ def main():
                 ("objective_card", objective_card()),
                 ("objective_card_done", objective_card_done()),
                 ("handin_tray", sunken(TRAY_WIDTH, TRAY_HEIGHT))]
+    surfaces += [(f"grave_slab_{rows}", grave_slab(rows))
+                 for rows in range(1, GRAVE_MAX_ROWS + 1)]
     surfaces += [(f"bar_fill_{step}", bar_fill(step)) for step in CARD_FILL_STEPS]
 
     for name, (width, height, data) in surfaces:

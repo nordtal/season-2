@@ -612,9 +612,10 @@ screenshot names one thing, and `\uFE080` is the system-line icons in `minecraft
 | `\uFE202` | ![source](src/assets/nordtal/textures/ui/gui/objective_card_done.png) | −24 | The green wash over a finished card. Laid over the bar too, on purpose: a finished objective's bar is full, and washing only its heading would say the card was half settled | generated — placeholder |
 | `\uFE203` | the same file | −60 | The same wash, lower card row | — |
 | `\uFE204` | ![source](src/assets/nordtal/textures/ui/gui/handin_tray.png) | −4 | The hand-in screen's tray, 162 × 54 — **one** sunken surface over three chest rows, drawn from the slot cell's own corner rather than inset, because it *is* the cells | generated — placeholder |
+| `\uFE205` – `\uFE209` | `ui/gui/grave_slab_{1..5}.png` | −4 | The grave's slab: a dark recess **per slot** on stone, one glyph per row count. Five is the most there can be — a player carries at most forty-one stacks, and the window's sixth row is the grave's footer | generated — placeholder |
 | `\uFE210` – `\uFE215` | `ui/gui/bar_fill_{1,2,4,8,16,32}.png` | −39 | The progress bar's **fill**, in powers of two, 3px tall. Upper card row | generated — placeholder |
 | `\uFE218` – `\uFE21D` | the same six files | −75 | The same six, lower card row | — |
-| `\uFE205` – `\uFE20F`, `\uFE216` – `\uFE217`, `\uFE21E` – `\uFE2FF` | — | | reserved for this block's growth | — |
+| `\uFE20A` – `\uFE20F`, `\uFE216` – `\uFE217`, `\uFE21E` – `\uFE2FF` | — | | reserved for this block's growth | — |
 
 **One tray and a recess per slot are two different statements, and the pack draws both on purpose.**
 The hand-in screen is a thing you throw into — the whole area accepts items, and nine drawn cells
@@ -701,7 +702,7 @@ after it wrong.
 know how wide a name is. **Re-run that tool after redrawing anything in these fonts** —
 `MenuFontTest` derives the table again from the pack and fails the build when the two disagree.
 
-### `\uFE100` – `\uFE106` — row plates
+### `\uFE100` – `\uFE107` — row plates
 
 | Char code | File | Size | Description | Status |
 |---|---|---|---|---|
@@ -712,7 +713,8 @@ know how wide a name is. **Re-run that tool after redrawing anything in these fo
 | `\uFE104` | ![source](src/assets/nordtal/textures/ui/gui/row_button_small_off.png) | 14 × 14 | The same, greyed — a page button with no page on the other side of it | generated — placeholder |
 | `\uFE105` | ![source](src/assets/nordtal/textures/ui/gui/row_pill_dark.png) | 158 × 14 | The same plate in a darker grey — a **heading** row rather than an entry. The objective menu's top row names the milestone the cards below belong to, and drawn in the entry grey it reads as a fifth thing to click | generated — placeholder |
 | `\uFE106` | ![source](src/assets/nordtal/textures/ui/gui/row_button_confirm.png) | 50 × 14 | A button plate in the **affirming** style — gold, the brand's own, three slot cells inset 2. The only plate here that is not neutral grey or refusing red, because it is the only button in these menus whose click cannot be undone by clicking again | generated — placeholder |
-| `\uFE107` – `\uFE10F` | — | | reserved | — |
+| `\uFE107` | ![source](src/assets/nordtal/textures/ui/gui/row_button_take.png) | 68 × 14 | The same affirming plate, four slot cells wide — the grave's "take everything", which is a longer sentence in both languages than anything else on a plate here | generated — placeholder |
+| `\uFE108` – `\uFE10F` | — | | reserved | — |
 
 ### `\uFE110` – `\uFE11A` — row icons
 

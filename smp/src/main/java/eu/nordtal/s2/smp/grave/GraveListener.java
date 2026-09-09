@@ -141,6 +141,24 @@ public final class GraveListener implements Listener {
         graves.open(event.getPlayer(), graveId.get());
     }
 
+    /**
+     * A click inside a grave window.
+     *
+     * <p>The content rows are deliberately free - taking things out is the whole point - so this
+     * only stands between a player and the footer, which is furniture and one button. Without it a
+     * shift-click or a pickup on the footer would move a head or a blank into somebody's inventory
+     * and, worse, leave an item in a slot nothing writes back.</p>
+     */
+    @EventHandler
+    public void onClick(final org.bukkit.event.inventory.InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (graves.click(player, event.getInventory(), event.getRawSlot())) {
+            event.setCancelled(true);
+        }
+    }
+
     @EventHandler
     public void onClose(final InventoryCloseEvent event) {
         if (event.getPlayer() instanceof Player player) {

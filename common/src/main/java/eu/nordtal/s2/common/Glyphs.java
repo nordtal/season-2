@@ -497,6 +497,9 @@ public final class Glyphs {
      */
     public static final String GUI_ROW_BUTTON_CONFIRM = cp(0xFE106);
 
+    /** A 68 px button plate in the affirming style - the grave's "take everything". */
+    public static final String GUI_ROW_BUTTON_TAKE = cp(0xFE107);
+
     // Row icons - U+FE110..U+FE11A, 8 x 8, drawn white so a component's colour can tint them.
     public static final String GUI_ROW_ICON_SPAWN = cp(0xFE110);
     public static final String GUI_ROW_ICON_DEATH = cp(0xFE111);
@@ -560,6 +563,18 @@ public final class Glyphs {
      * made the same.
      */
     public static final String GUI_HANDIN_TRAY = cp(0xFE204);
+
+    /**
+     * The grave's slab: a recess per slot on stone, one glyph per row count.
+     *
+     * <p>A recess per slot and <b>not</b> one surface, which is the deliberate opposite of
+     * {@link #GUI_HANDIN_TRAY} - see {@code GravePanel}'s own comment. Indexed from one row, so
+     * {@code GUI_GRAVE_SLAB[0]} is a single row; five is the most there can be, because a player
+     * carries at most forty-one stacks and the window's sixth row is the footer.
+     */
+    public static final String[] GUI_GRAVE_SLAB = {
+            cp(0xFE205), cp(0xFE206), cp(0xFE207), cp(0xFE208), cp(0xFE209),
+    };
 
     /** The same six, for the lower card row. */
     public static final String[] GUI_BAR_FILL_BOTTOM = {

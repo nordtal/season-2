@@ -486,6 +486,41 @@ public interface SmpDao {
             """)
     int claimHeadStart(@Bind("discordId") String discordId);
 
+    // ---------------------------------------------------------------- the season's opening moment
+
+    /**
+     * Takes this player's one welcome, if it is still there.
+     *
+     * <p>Exactly {@link #claimHeadStart}'s shape and for exactly its reason: the flag is written
+     * <em>before</em> anything is shown, so two sessions racing each other - a reconnect inside a
+     * second, two proxies, a replayed join - cannot both win. The loser gets zero rows back and
+     * shows nothing.
+     *
+     * <p>The {@code INSERT} half is not a formality. A row only appears in {@code smp_player} when
+     * somebody earns something, and this runs on the join of a player who by definition has not yet.
+     *
+     * <p>Deliberately <b>not</b> transactional and deliberately claiming before showing: the moment
+     * itself cannot fail in a way worth putting back, and the opposite ordering - show, then record
+     * - shows it twice to anybody whose server restarts mid-welcome. What it costs is the one path
+     * that loses it: a player who leaves in the tick after their own join. That is a picture rather
+     * than a payout, so it is logged and not repaired; {@code V16__smp_welcome.sql} carries the one
+     * {@code UPDATE} that gives it back.
+     *
+     * @return whether this call is the one that took it
+     */
+    default boolean claimWelcome(final String discordId) {
+        return claimWelcomeRow(discordId) > 0;
+    }
+
+    @SqlUpdate("""
+            INSERT INTO smp_player (discord_id, welcome_shown)
+            VALUES (:discordId, true)
+            ON CONFLICT (discord_id) DO UPDATE
+                SET welcome_shown = true, updated = now()
+                WHERE NOT smp_player.welcome_shown
+            """)
+    int claimWelcomeRow(@Bind("discordId") String discordId);
+
     // ---------------------------------------------------------------- graves
 
     @SqlUpdate("""

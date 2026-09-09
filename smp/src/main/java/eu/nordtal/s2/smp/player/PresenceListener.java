@@ -4,6 +4,7 @@ import eu.nordtal.displaytags.api.events.NameTagCreateEvent;
 import eu.nordtal.s2.common.access.AdminOperators;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.papercommon.chat.SystemLines;
+import eu.nordtal.s2.smp.welcome.SeasonWelcome;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -42,6 +43,7 @@ public final class PresenceListener implements Listener {
     private final PlayerLocales locales;
     private final AdminOperators operators;
     private final SystemLines lines;
+    private final SeasonWelcome welcome;
 
     // The composition, the config and the message bundle were constructor arguments until
     // 2026-09-09. The first two of those had already stopped being read by anything here; the third
@@ -49,13 +51,15 @@ public final class PresenceListener implements Listener {
     // what makes a class look like it does more than it does.
     public PresenceListener(final Plugin plugin, final Identities identities,
                             final PlayerSurfaces surfaces, final PlayerLocales locales,
-                            final AdminOperators operators, final SystemLines lines) {
+                            final AdminOperators operators, final SystemLines lines,
+                            final SeasonWelcome welcome) {
         this.plugin = plugin;
         this.identities = identities;
         this.surfaces = surfaces;
         this.locales = locales;
         this.operators = operators;
         this.lines = lines;
+        this.welcome = welcome;
     }
 
     @EventHandler
@@ -110,6 +114,10 @@ public final class PresenceListener implements Listener {
                     // rendered in the language of the player it is about. See
                     // SystemLines#announceJoin.
                     lines.announceJoin(player);
+                    // ...and for the same reason, the season's opening moment. Its subtitle would
+                    // be English for every player if it ran from PlayerJoinEvent, and there is no
+                    // second event that fires when the language lands - this callback is it.
+                    welcome.onLanguageReady(player);
                 }));
     }
 

@@ -173,7 +173,11 @@ SMALL = {
     'M': '#...#|##.##|#.#.#|#...#|#...#', 'N': '#..#|##.#|#.##|#..#|#..#',
     'O': '.#.|#.#|#.#|#.#|.#.', 'P': '##.|#.#|##.|#..|#..', 'Q': '.#.|#.#|#.#|#.#|.##',
     'R': '##.|#.#|##.|#.#|#.#', 'S': '.##|#..|.#.|..#|##.', 'T': '###|.#.|.#.|.#.|.#.',
-    'U': '#.#|#.#|#.#|#.#|.#.', 'V': '#.#|#.#|#.#|#.#|.#.',
+    # U is flat-bottomed and V tapers - the conventional 3x5 pair. Both were the bowl until
+    # 2026-09-09: the artifact drew one shape and it was transcribed twice, so a player-named
+    # POI reading BURG and one reading BVRG drew the same five rows. Found in review of
+    # PR #10; same class of defect as 0/O/8 above and fixed the same way, on the outline.
+    'U': '#.#|#.#|#.#|#.#|###', 'V': '#.#|#.#|#.#|#.#|.#.',
     'W': '#...#|#...#|#.#.#|#.#.#|.#.#.', 'X': '#.#|#.#|.#.|#.#|#.#',
     'Y': '#.#|#.#|.#.|.#.|.#.', 'Z': '###|..#|.#.|#..|###',
     '0': '###|#.#|#.#|#.#|###', '1': '.#.|##.|.#.|.#.|###', '2': '##.|..#|.#.|#..|###',

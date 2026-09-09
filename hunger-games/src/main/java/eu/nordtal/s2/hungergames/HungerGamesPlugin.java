@@ -246,15 +246,15 @@ public final class HungerGamesPlugin extends JavaPlugin {
         // at the same moment (finding 149). The death line is what makes a kill feed of it, and it
         // keeps vanilla's own component so that each reader's client names the killer and the
         // weapon in that reader's language.
-        final SystemLines systemLines = new SystemLines(
-                new ArenaComposition(locales)::of, messages, locales);
+        final ArenaComposition composition = new ArenaComposition(locales);
+        final SystemLines systemLines = new SystemLines(composition::of, messages, locales);
         getServer().getPluginManager().registerEvents(systemLines, this);
         getServer().getPluginManager().registerEvents(
                 new PresenceListener(this, locales, bodies, state, messages, operators, admission,
                         systemLines), this);
         getServer().getPluginManager().registerEvents(
                 new CombatListener(this, dao, state, bodies, border, winTracker, sounds,
-                        this::onGameDecided), this);
+                        systemLines, composition, this::onGameDecided), this);
 
         // ...and keeps being one only for as long as the database says so. Without this the flag is
         // read once per session and a revoked admin keeps operator until they disconnect; see

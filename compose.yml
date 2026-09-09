@@ -144,9 +144,15 @@ x-minecraft: &minecraft
     start_period: 300s
   environment: &minecraft-env
     TZ: ${TZ:-Europe/Berlin}
-    # SERVER_BUILD, set per service below, is a FLOOR: the updater owns the server jar too (since
-    # 2026-09-02) and the entrypoint runs whatever build of SERVER_VERSION is in .server/. The
-    # build from .env is fetched only into an empty cache - see .env.example.
+    # SERVER_VERSION, set per service below, is a LITERAL and no longer comes from .env (since
+    # 2026-09-09). It is the Minecraft version for the three Paper backends and Fill's name for
+    # Velocity's major on the proxy; both are mirrored by eu.nordtal.s2.common.Platform, which is
+    # what the updater resolves against and what every plugin in this repository is compiled for.
+    #
+    # There is no SERVER_BUILD any more either. The updater owns the server jar (since 2026-09-02)
+    # and the entrypoint runs whatever build is in .server/; when that cache is empty it now asks
+    # the Fill API for the newest STABLE build itself instead of reading a number somebody had to
+    # keep current. Nothing pins a build anywhere - see UpdaterSpec, where the two pins used to be.
     #
     # SEASON_REPO and SEASON_RELEASE used to live here, because entrypoint.sh fetched the plugin
     # jars. It does not any more (2026-09-01): the `updater` service owns the plugin jars, and two
@@ -399,8 +405,14 @@ services:
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_START_EVENT: ${NETWORK_MOTD_START_EVENT:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_SMP: ${NETWORK_MOTD_SMP:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_MAINTENANCE: ${NETWORK_MOTD_MAINTENANCE:-}
-      SERVER_VERSION: ${VELOCITY_VERSION:-4.1.1}
-      SERVER_BUILD: ${VELOCITY_BUILD:-24}
+      # FILL'S NAME FOR VELOCITY'S MAJOR, NOT A VERSION. The proxy follows the newest release
+      # inside the 4.x line, which Fill calls `4.0.0` - the entrypoint resolves it, and so does the
+      # updater, out of eu.nordtal.s2.common.Platform.VELOCITY_FAMILY. A literal rather than a
+      # variable since 2026-09-09: a platform version is a property of the season and not of a
+      # deployment, and an env file that could override it was the environment winning over the
+      # source tree every plugin here is compiled against. :updater's TopologyTest holds this
+      # string against the constant.
+      SERVER_VERSION: "4.0.0"
       HEAP: ${PROXY_HEAP:-1G}
       # Modern forwarding. The same value reaches the three backends below as
       # PAPER_VELOCITY_SECRET, so there is nothing to paste into a config file any more.
@@ -474,8 +486,7 @@ services:
     environment:
       <<: *minecraft-env
       SERVER_KIND: paper
-      SERVER_VERSION: ${PAPER_VERSION:-26.2}
-      SERVER_BUILD: ${PAPER_BUILD:-121}
+      SERVER_VERSION: "26.2"
       EXPECTED_PLUGINS: ${LIMBO_EXPECTED_PLUGINS:-limbo}
       # THE SAME NUMBER THE PROXY IS GIVEN, out of the same .env variable - that is the whole
       # point, and it is why this is not a second setting. The proxy still owns the decision: it
@@ -511,8 +522,7 @@ services:
     environment:
       <<: *minecraft-env
       SERVER_KIND: paper
-      SERVER_VERSION: ${PAPER_VERSION:-26.2}
-      SERVER_BUILD: ${PAPER_BUILD:-121}
+      SERVER_VERSION: "26.2"
       # SIMPLE VOICE CHAT IS INSTALLED HERE AND IS NOT IN THIS LIST (owner, 2026-09-09). It runs on
       # this server and on smp, and not on limbo: the waiting room is seconds long and holds nobody
       # who could be talked to. It is left out of the guard because voice chat is optional for a
@@ -549,8 +559,7 @@ services:
     environment:
       <<: *minecraft-env
       SERVER_KIND: paper
-      SERVER_VERSION: ${PAPER_VERSION:-26.2}
-      SERVER_BUILD: ${PAPER_BUILD:-121}
+      SERVER_VERSION: "26.2"
       # DisplayTags, PacketEvents and Chunky used to be pinned here as three full URLs with three
       # versions in them. The updater resolves all three now - DisplayTags from its own repository's
       # releases, the other two from Modrinth filtered to this Minecraft version and `paper` - which
@@ -724,12 +733,11 @@ services:
       NORDTAL_UPDATER_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
       NORDTAL_UPDATER_SEASON_RELEASE: ${UPDATER_SEASON_RELEASE:-latest}
       NORDTAL_UPDATER_DISPLAY_TAGS_RELEASE: ${UPDATER_DISPLAY_TAGS_RELEASE:-latest}
-      NORDTAL_UPDATER_MINECRAFT_VERSION: ${PAPER_VERSION:-26.2}
-      NORDTAL_UPDATER_VELOCITY_VERSION: ${VELOCITY_VERSION:-4.1.1}
-      # Which BUILD of those versions to install: 'latest' STABLE, or an exact number - which is
-      # the rollback, and deliberately not PAPER_BUILD: that one only seeds an empty cache.
-      NORDTAL_UPDATER_PAPER_BUILD: ${UPDATER_PAPER_BUILD:-latest}
-      NORDTAL_UPDATER_VELOCITY_BUILD: ${UPDATER_VELOCITY_BUILD:-latest}
+      # The platform versions used to be here, fed from PAPER_VERSION and VELOCITY_VERSION, and
+      # the two build pins with them. All four are gone (2026-09-09): the versions are constants in
+      # :common, because a Minecraft version is a property of the season rather than of an
+      # installation, and there is no build pin left anywhere - the newest STABLE build is what
+      # every one of the five processes installs and runs.
       # Whether `serve` fills EMPTY volumes before it reports ready. This is what lets a stack come
       # up with nobody typing anything on the host: a Minecraft server refuses to start on an empty
       # plugins folder, and Arcane cannot run `docker compose run --rm updater bootstrap`.

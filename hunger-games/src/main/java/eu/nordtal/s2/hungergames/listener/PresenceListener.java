@@ -105,6 +105,13 @@ public final class PresenceListener implements Listener {
                     // drawn here would be the English one for a German player until they relog.
                     Bukkit.getScheduler().runTask(plugin, () -> {
                         refreshTabList();
+                        // Asked again here, because everything above happened off the main thread:
+                        // a player who joined and left inside one database round trip would
+                        // otherwise be announced as having arrived, after they had gone. The tab
+                        // list is refreshed either way - it is a fact about everybody else.
+                        if (!player.isOnline()) {
+                            return;
+                        }
                         // The join line, for the same reason and one moment later than a join
                         // handler: it is the only message here with a single moment, so rendering
                         // it before the language arrives tells the one German player in the arena,

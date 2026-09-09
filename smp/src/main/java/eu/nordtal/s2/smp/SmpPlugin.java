@@ -483,7 +483,7 @@ public final class SmpPlugin extends JavaPlugin {
         // what NotificationListener was built for.
         final eu.nordtal.s2.common.access.AccessDirectory access =
                 eu.nordtal.s2.common.access.AccessDirectory.using(pool);
-        chatEffects = new BukkitSmpEffects(this, BukkitSmpEffects.async(this), dao, engine,
+        chatEffects = new BukkitSmpEffects(this, BukkitSmpEffects.async(this), jdbi, dao, engine,
                 farmReset, identities, access, this::reloadTrack, this::status);
 
         commandWaiter = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
@@ -502,7 +502,7 @@ public final class SmpPlugin extends JavaPlugin {
         final PaperCommandInbox inbox =
                 new PaperCommandInbox(this, Target.SMP, requests, access, sharedMessages);
         // Inline, on purpose - see the field comment.
-        final SmpEffects inboxEffects = new BukkitSmpEffects(this, Runnable::run, dao, engine,
+        final SmpEffects inboxEffects = new BukkitSmpEffects(this, Runnable::run, jdbi, dao, engine,
                 farmReset, identities, access, this::reloadTrack, this::status);
         SmpCommands.all().forEach(command -> inbox.register(command, inboxEffects));
         inbox.start(this);

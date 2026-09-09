@@ -5,6 +5,7 @@ import eu.nordtal.s2.smp.prestige.Prestige;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
 import java.util.Locale;
@@ -31,6 +32,12 @@ import java.util.Locale;
  * composition is asserted in tests rather than looked at on a screen.
  */
 public final class PlayerComposition {
+
+    /** docs/presentation.md#the-palette: the arriving colour, reused for aura somebody has. */
+    private static final TextColor AURA_POSITIVE = TextColor.fromHexString("#8ba888");
+
+    /** ...and the leaving one, for aura somebody has spent or never earned. */
+    private static final TextColor AURA_EMPTY = TextColor.fromHexString("#a8888b");
 
     private final Prestige prestige;
 
@@ -113,10 +120,15 @@ public final class PlayerComposition {
      *
      * <p>Zero is red rather than neutral on purpose: aura is recognition, and having none is the
      * same state as having spent it all on deaths.
+     *
+     * <p><b>The two values are the pack's, not {@code NamedTextColor}'s.</b> Vanilla's
+     * {@code GREEN} and {@code RED} are the colours a plugin's console output wears, and the tab
+     * list sits directly under a header drawn from docs/presentation.md#the-palette - the same two
+     * meanings already have colours there, on the join and leave lines every player reads all day.
      */
     private Component aura(final int amount) {
         return Component.text(String.valueOf(amount))
-                .color(amount > 0 ? NamedTextColor.GREEN : NamedTextColor.RED)
+                .color(amount > 0 ? AURA_POSITIVE : AURA_EMPTY)
                 .decoration(TextDecoration.ITALIC, false);
     }
 }

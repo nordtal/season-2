@@ -87,11 +87,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
-    public Optional<UpdateRequest> startCountdown(final long id, final Duration seconds) {
-        Objects.requireNonNull(seconds, "seconds");
+    public Optional<UpdateRequest> startCountdown(final long id, final Duration length) {
+        Objects.requireNonNull(length, "length");
         // Clamped like submit's delay, and for the same reason: a caller computing a countdown from
         // two clocks should get "now", not an exception on the path that is taking servers down.
-        return dao.startCountdown(id, Math.max(0L, seconds.toSeconds()));
+        return dao.startCountdown(id, Math.max(0L, length.toSeconds()));
     }
 
     @Override

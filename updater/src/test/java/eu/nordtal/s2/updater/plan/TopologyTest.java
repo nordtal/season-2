@@ -1,5 +1,6 @@
 package eu.nordtal.s2.updater.plan;
 
+import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.updater.config.UpdaterSpec;
 
 import org.junit.jupiter.api.DisplayName;
@@ -351,6 +352,53 @@ class TopologyTest {
                 java.util.regex.Pattern.compile("^\\$\\{[A-Z0-9_]+:-(.*)}$").matcher(value);
         assertTrue(matcher.matches(), value + " has no default an unfilled .env would fall back to");
         return matcher.group(1);
+    }
+
+    @Test
+    @DisplayName("the server version in compose.yml is the one :common declares, as a literal")
+    void oneSourceForThePlatformVersion() {
+        // Until 2026-09-09 every one of these read ${PAPER_VERSION:-26.2} or ${VELOCITY_VERSION:-
+        // 4.1.1}, and the updater was fed the same two variables. So an .env could point the whole
+        // network at a Minecraft version nothing in this repository was compiled for, and the first
+        // sign of it would have been plugins refusing to load on a running server.
+        //
+        // The literal is asserted rather than merely required to exist: a `${…:-26.2}` here would
+        // pass a shape check and reintroduce exactly the override that was removed.
+        for (final Topology.Service service : Topology.SERVICES) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
+            assertNotNull(defined, "compose.yml has no service '" + service.name() + "'");
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> environment = (Map<String, Object>) defined.get("environment");
+
+            final Object version = environment.get("SERVER_VERSION");
+            assertNotNull(version, service.name() + " sets no SERVER_VERSION, so its entrypoint"
+                    + " cannot name the jar it runs");
+
+            // Paper is an exact Minecraft version and the proxy is Fill's name for Velocity's
+            // major - the asymmetry is Fill's own and Platform explains it.
+            final String expected = "velocity".equals(service.kind().fillProject())
+                    ? Platform.VELOCITY_FAMILY
+                    : Platform.MINECRAFT;
+            assertEquals(expected, String.valueOf(version),
+                    service.name() + "'s SERVER_VERSION is '" + version + "' and eu.nordtal.s2"
+                            + ".common.Platform says '" + expected + "'. Those are the version the"
+                            + " container runs and the version every plugin in it was compiled"
+                            + " against; a deployment where they differ loads no plugins.");
+        }
+
+        // And nothing feeds the updater a version any more - it reads Platform directly.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment = (Map<String, Object>) updater.get("environment");
+        for (final String retired : List.of("NORDTAL_UPDATER_MINECRAFT_VERSION",
+                "NORDTAL_UPDATER_VELOCITY_VERSION", "NORDTAL_UPDATER_PAPER_BUILD",
+                "NORDTAL_UPDATER_VELOCITY_BUILD")) {
+            assertNull(environment.get(retired), "compose.yml sets " + retired + " again. The two"
+                    + " versions are constants in :common and there is no build pin anywhere -"
+                    + " see the comment in UpdaterSpec where those four keys stood.");
+        }
     }
 
     @Test

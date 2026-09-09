@@ -326,6 +326,51 @@
             "chars": [
                 "\udbb8\ude04"
             ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_1.png",
+            "ascent": -4,
+            "height": 18,
+            "chars": [
+                "\udbb8\ude05"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_2.png",
+            "ascent": -4,
+            "height": 36,
+            "chars": [
+                "\udbb8\ude06"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_3.png",
+            "ascent": -4,
+            "height": 54,
+            "chars": [
+                "\udbb8\ude07"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_4.png",
+            "ascent": -4,
+            "height": 72,
+            "chars": [
+                "\udbb8\ude08"
+            ]
+        },
+        {
+            "type": "bitmap",
+            "file": "nordtal:ui/gui/grave_slab_5.png",
+            "ascent": -4,
+            "height": 90,
+            "chars": [
+                "\udbb8\ude09"
+            ]
         }
     ]
 }

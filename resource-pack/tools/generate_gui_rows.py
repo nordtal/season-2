@@ -87,6 +87,7 @@ CP_BUTTON_SMALL = 0xFE103
 CP_BUTTON_SMALL_OFF = 0xFE104
 CP_PILL_DARK = 0xFE105
 CP_BUTTON_CONFIRM = 0xFE106
+CP_BUTTON_TAKE = 0xFE107
 CP_ICONS = 0xFE110          # the icon sheet's first cell; the rest follow in order
 
 BUTTON_WIDE_WIDTH = 52
@@ -96,6 +97,9 @@ BUTTON_SMALL_WIDTH = 14
 # the same three cells, and the difference is that the wide one is drawn from x(0) and
 # eats its own inset on the left only.
 BUTTON_CONFIRM_WIDTH = 3 * ROW_PITCH - 2 * INSET
+# Four slot cells inset 2: the grave's "take all", which is a longer sentence in
+# both languages than anything else on a plate here.
+BUTTON_TAKE_WIDTH = 4 * ROW_PITCH - 2 * INSET
 
 # --- The palette. Everything here is the panel's own, plus the three button styles. ---
 #
@@ -366,6 +370,7 @@ PLATES = (
      lambda w: button(w, "small_off")),
     (CP_PILL_DARK, "row_pill_dark", ROW_WIDTH, lambda w: pill(w, PILL_DARK_FILL)),
     (CP_BUTTON_CONFIRM, "row_button_confirm", BUTTON_CONFIRM_WIDTH, lambda w: button(w, "primary")),
+    (CP_BUTTON_TAKE, "row_button_take", BUTTON_TAKE_WIDTH, lambda w: button(w, "primary")),
 )
 
 

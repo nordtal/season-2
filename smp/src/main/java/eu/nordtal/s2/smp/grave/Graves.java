@@ -1,6 +1,5 @@
 package eu.nordtal.s2.smp.grave;
 
-import eu.nordtal.s2.common.menu.MenuTitle;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.feedback.Feedback;
@@ -245,16 +244,7 @@ public final class Graves implements InventoryHolder {
         // no number, only the word for "grave", so the whole of the difference is the language it
         // is written in. A shared window in one of two languages is a better trade than a private
         // window that doubles the loot.
-        final Inventory inventory = shown.computeIfAbsent(graveId, id -> {
-            final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
-            // Rows rather than slots, because the frame is chosen by row count - and clamped to the
-            // six the pack draws before it reaches MenuTitle, which throws on a seventh.
-            final int rows = Math.min(MenuTitle.MAX_ROWS, Math.max(1, (contents.length + 8) / 9));
-            final Inventory window = Bukkit.createInventory(null, rows * 9,
-                    MenuTitle.of(rows, MessageRenderer.of(messages).get(locale, "smp.grave.title")));
-            window.setContents(java.util.Arrays.copyOf(contents, window.getSize()));
-            return window;
-        });
+        final Inventory inventory = shown.computeIfAbsent(graveId, id -> window(row, locale));
         player.openInventory(inventory);
 
         // At the grave, not at the player: the person opening it is standing next to it, and
@@ -263,6 +253,123 @@ public final class Graves implements InventoryHolder {
         if (world != null) {
             effects.graveOpened(new org.bukkit.Location(world, row.x(), row.y(), row.z()));
         }
+    }
+
+    /**
+     * Builds the one window a grave is shown in - design {@code G1}, drawn by {@link GravePanel}.
+     *
+     * <p>The footer is not decoration. It is what makes the waiting experience visible - it used to
+     * be credited silently on the last item leaving, so somebody who took one stack and walked away
+     * never learned there was more to come - and every one of its nine cells holds an item, because
+     * a shift-click from the player's own inventory goes into the first free slot of the window and
+     * a free footer cell is a slot outside everything {@link #settle} writes back.</p>
+     */
+    private Inventory window(final GraveRow row, final Locale locale) {
+        final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
+        final int contentRows = GravePanel.contentRows(contents.length);
+        final MessageRenderer renderer = MessageRenderer.of(messages);
+
+        final Inventory window = Bukkit.createInventory(null,
+                GravePanel.rows(contentRows) * 9,
+                GravePanel.title(renderer.get(locale, "smp.grave.title"), contentRows,
+                        row.experience() > 0
+                                ? messages.format(locale, "smp.grave.experience-line",
+                                        Map.of("experience", row.experience()))
+                                : "",
+                        messages.get(locale, "smp.grave.take-all-button")));
+
+        final int slots = GravePanel.contentSlots(contentRows);
+        for (int slot = 0; slot < slots && slot < contents.length; slot++) {
+            window.setItem(slot, contents[slot]);
+        }
+
+        window.setItem(GravePanel.headSlot(contentRows), head(row, renderer, locale));
+
+        // The name is on the head rather than in the window's title, which is the artifact's own
+        // fallback for E7: one window is shared by everybody standing in the grave, so a title
+        // carrying a name would also carry the first opener's language for the second opener.
+        final ItemStack experience = eu.nordtal.s2.papercommon.menu.BlankItem.of(
+                renderer.get(locale, "smp.grave.experience-tooltip"),
+                List.of(renderer.format(locale, "smp.grave.experience-hint",
+                        "experience", row.experience())));
+        GravePanel.experienceSlots(contentRows).forEach(slot -> window.setItem(slot, experience));
+
+        final ItemStack takeAll = eu.nordtal.s2.papercommon.menu.BlankItem.of(
+                renderer.get(locale, "smp.grave.take-all"),
+                List.of(renderer.get(locale, "smp.grave.take-all-hint")));
+        GravePanel.takeAllSlots(contentRows).forEach(slot -> window.setItem(slot, takeAll));
+
+        return window;
+    }
+
+    /** The dead player's own head, which is where their name is (see {@link #window}). */
+    private ItemStack head(final GraveRow row, final MessageRenderer renderer, final Locale locale) {
+        final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        final String name = row.ownerUuid() == null ? null
+                : Bukkit.getOfflinePlayer(row.ownerUuid()).getName();
+        head.editMeta(meta -> {
+            if (meta instanceof SkullMeta skull && row.ownerUuid() != null) {
+                skull.setOwningPlayer(Bukkit.getOfflinePlayer(row.ownerUuid()));
+            }
+            meta.displayName(renderer.format(locale,
+                            name == null ? "smp.grave.owner-unknown" : "smp.grave.owner",
+                            "player", name == null ? "" : name)
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            meta.lore(List.of(renderer.get(locale, "smp.grave.owner-hint")
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
+        });
+        return head;
+    }
+
+    /**
+     * A click inside a grave window.
+     *
+     * <p>The content rows stay free - taking things out is the whole point, and putting something
+     * in is a thing people do with a friend's grave. The footer is locked, and one of its cells is
+     * the button that empties the grave in one go.</p>
+     *
+     * @return true when the click was in the footer and has been dealt with
+     */
+    public boolean click(final Player player, final Inventory inventory, final int rawSlot) {
+        if (!isShowingGrave(inventory) || rawSlot < 0 || rawSlot >= inventory.getSize()) {
+            return false;
+        }
+        final int contentRows = inventory.getSize() / 9 - 1;
+        if (GravePanel.isContent(rawSlot, contentRows)) {
+            return false;
+        }
+        if (GravePanel.takeAllSlots(contentRows).contains(rawSlot)) {
+            takeAll(player, inventory, contentRows);
+        }
+        return true;
+    }
+
+    /**
+     * Empties a grave into one player's inventory, and out onto the floor for what does not fit.
+     *
+     * <p>Closing the window is what settles the grave, so this does not credit the experience or
+     * erase anything itself - it moves the items and closes, and the path every other loot takes
+     * does the rest. Two people standing in the same grave are safe by the same mechanism: the
+     * slots are emptied here on the main thread, so the second one's click finds nothing.</p>
+     */
+    private void takeAll(final Player player, final Inventory inventory, final int contentRows) {
+        boolean took = false;
+        for (int slot = 0; slot < GravePanel.contentSlots(contentRows); slot++) {
+            final ItemStack stack = inventory.getItem(slot);
+            if (stack == null || stack.getType().isAir()) {
+                continue;
+            }
+            inventory.setItem(slot, null);
+            player.getInventory().addItem(stack).values().forEach(left ->
+                    player.getWorld().dropItemNaturally(player.getLocation(), left));
+            took = true;
+        }
+        if (!took) {
+            sounds.play(player, Feedback.REFUSED);
+            return;
+        }
+        sounds.play(player, Feedback.SELECT);
+        player.closeInventory();
     }
 
     /**
@@ -304,12 +411,16 @@ public final class Graves implements InventoryHolder {
             return;
         }
 
-        final boolean empty = java.util.Arrays.stream(inventory.getContents())
+        // The CONTENT slots and not the whole window: the footer holds a head and five blanks that
+        // are furniture, so reading the whole array would find a grave that is never empty and
+        // would write those five into the row as if somebody had left them there.
+        final ItemStack[] left = contentOf(inventory);
+        final boolean empty = java.util.Arrays.stream(left)
                 .allMatch(stack -> stack == null || stack.getType().isAir());
         if (!empty) {
             // Not finished. Keep what is left, so somebody can come back for the rest - or somebody
             // else can.
-            final byte[] remaining = ItemStack.serializeItemsAsBytes(inventory.getContents());
+            final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
             open.put(graveId, new GraveRow(row.id(), row.ownerId(), row.ownerUuid(), row.world(),
                     row.x(), row.y(), row.z(), remaining, row.experience()));
             // AND IN THE DATABASE, which is the half that was missing. The map above is this
@@ -351,6 +462,18 @@ public final class Graves implements InventoryHolder {
                 }
             });
         });
+    }
+
+    /**
+     * What is in a grave window's content slots, without its footer.
+     *
+     * <p>Public so {@code OneGraveOneWindowTest} and the grave's own panel test can hold the two
+     * halves apart by the same rule the settle uses, rather than by two copies of the arithmetic.
+     */
+    public static ItemStack[] contentOf(final Inventory inventory) {
+        final int contentRows = inventory.getSize() / 9 - 1;
+        return java.util.Arrays.copyOf(inventory.getContents(),
+                GravePanel.contentSlots(contentRows));
     }
 
     /** Forgets every grave in a world, for the daily farm-world reset. Main thread. */

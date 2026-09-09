@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -361,6 +362,64 @@ class ConfigsTest {
                 () -> assertTrue(Files.readString(directory.resolve("network.yml.bak")).contains("backend-limit"),
                         "what was deleted has to be recoverable")
         );
+    }
+
+    @Test
+    void aFreshNetworkConfigCarriesTheAllowlistOfOurOwnPlayerCommands() throws Exception {
+        // The default is the assertion here, the way smp's pregeneration-on-start is: this list is
+        // what every player on the network can type, and a convenient-looking addition to it is how
+        // a vanilla command comes back. Vanilla is deliberately absent in full - /help lists what a
+        // player may not run, and /tell is replaced by the proxy's own /msg.
+        final NetworkSpec config = Configs.network(directory, LOGGER).get();
+
+        assertEquals(List.of("smp status", "navigate", "poi", "hg ready", "aura",
+                        "msg", "whisper", "r", "discord", "rules"),
+                config.commandAllowlist());
+    }
+
+    @Test
+    void aBlankAllowlistEntryIsRejectedBecauseItWouldBeDroppedSilently() throws Exception {
+        // A blank line parses to no segments, and an entry with no segments would match every
+        // command there is - so CommandAllowlist refuses it. Caught here instead, where the file
+        // and the line number are still known: the alternative is a list that looks like it has ten
+        // entries while the network behaves as though it had nine.
+        Files.writeString(directory.resolve("network.yml"), """
+                max-players: 500
+                snapshot-refresh-seconds: 10
+                command-allowlist:
+                  - msg
+                  - ''
+                motd:
+                  pre-launch: 'a'
+                  pre-event: 'b'
+                  start-event: 'c'
+                  smp: 'd'
+                  maintenance: 'e'
+                """);
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class,
+                () -> Configs.network(directory, LOGGER));
+        assertTrue(error.getMessage().contains("command-allowlist"), error.getMessage());
+    }
+
+    @Test
+    void anEmptyAllowlistIsAllowedBecauseLockingTheNetworkDownIsALegitimateThingToWant() throws Exception {
+        // Refused would be the easy rule and the wrong one: an operator who wants players to type
+        // nothing at all has no other way to say so, and the proxy shouts about it at startup
+        // rather than refusing to run.
+        Files.writeString(directory.resolve("network.yml"), """
+                max-players: 500
+                snapshot-refresh-seconds: 10
+                command-allowlist: []
+                motd:
+                  pre-launch: 'a'
+                  pre-event: 'b'
+                  start-event: 'c'
+                  smp: 'd'
+                  maintenance: 'e'
+                """);
+
+        assertEquals(List.of(), Configs.network(directory, LOGGER).get().commandAllowlist());
     }
 
     @Test

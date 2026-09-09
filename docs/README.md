@@ -125,6 +125,13 @@ Discord ([architecture.md](architecture.md#commands)).
 
 ### In game — `smp`
 
+> **A player command has to be on the allowlist as well, or it does not exist.** Since 2026-09-09
+> `network.yml#command-allowlist` names every command somebody who is not an admin may type, on the
+> proxy and on all three backends; everything else - including every vanilla command - is refused
+> with the same line a typo gets, so a player never learns what they are not allowed to run.
+> Adding a player command means adding it there too, and `CommandGateTest` fails the build when a
+> non-admin declaration is missing from the shipped list.
+>
 > **Every admin command below is available in Discord as well, and every Discord admin command in
 > game** — since 2026-09-05. A command whose effect belongs to another process travels as a row in
 > `command_request`; the two that do not are `/navigate` and `/poi add`, which are about being
@@ -139,6 +146,7 @@ Discord ([architecture.md](architecture.md#commands)).
 | `/smp farmreset now` | admin | resets the farm world immediately, skipping the 30/10/5/1-minute warnings. **Type it twice** - it deletes a world folder |
 | `/smp objective complete <key>` | admin | **escape hatch 1**: one objective, paid `pot × (reached ÷ target)`. **Type it twice** |
 | `/smp milestone unlock <key>` | admin | **escape hatch 2**, the blunt one: every open objective pays proportionally. **Type it twice** |
+| `/aura` | anyone | **new 2026-09-09.** Your own aura, your place among everybody with a linked account, and the top ten. Its own root and not `/smp aura`, which is the admin write - Brigadier cannot have a literal and an argument at one node. Travels here from the other backends |
 | `/smp aura <player> <delta>` | admin | corrects a balance. Writes its reason, like every other aura change. **Not** confirmed - applying the negative is an exact undo |
 | `/smp status` | anyone | **new 2026-09-06.** The season phase, the active milestone with its progress, and how many are on the SMP - three lines, read-only, in Discord as well |
 | `/smp access <player>` | admin | **new 2026-09-04.** Is that account linked, does it have access, and is there a purchase halfway through? The shortened form of `/access status`, answered to the asker only |
@@ -182,6 +190,11 @@ the one path that still works when the database holds no admin at all.
 | `/phase launch <when\|clear>` | admin | when the network opens - what the MOTD and the pre-opening screens count down to |
 | `/phase smp-start <when\|clear>` | admin | when paid access starts running. Moving it shifts every grant that has not started yet |
 | `/network reload` | admin, or the console | the message bundles. `gate.yml`, `pack.yml`, `network.yml` and `database.yml` are read once and stay read |
+| `/msg <player> <message>` | anyone | **new 2026-09-09.** Network-wide, so it reaches somebody in the waiting room or in the hunger games. Each side reads it in their own language. **Nothing is written down** - not to a log, not to the admin channel |
+| `/whisper <player> <message>` | anyone | the same command under its other name. A second declaration rather than an alias, because `Declaration` has none - so it carries its own help sentence |
+| `/r <message>` | anyone | answers whoever wrote last. Remembered per session, in memory, dropped on disconnect at either end |
+| `/discord` | anyone | the invite, from `gate.yml#discord-invite-url` - the same string the login screens use |
+| `/rules` | anyone | the rules. **Ships as a marked placeholder** until the text exists (`todo.md` A10); `InfoTextTest` fails the build while the marker is there and is meant to be deleted in the same commit as the real text |
 
 ### In Discord
 

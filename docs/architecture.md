@@ -257,6 +257,47 @@ and the bot's, and the bot registers everything.
 | `/limbo reload` rendered against the Minecraft client's locale, which [i18n.md](i18n.md) forbids by name | `limbo` |
 | `/access grant` had no upper bound on days - a mistyped `3650` was a decade, one keystroke from `365` | the bot |
 
+### The gate in front of all of it, since 2026-09-09
+
+Velocity's `/server` was open to **every player**: the command checks its permission for an explicit
+`FALSE` only, and `network-control` handled none of `PermissionsSetupEvent`,
+`CommandExecuteEvent`, `PlayerAvailableCommandsEvent` or `ServerPreConnectEvent`. A player in the
+SMP phase could type `/server hunger-games` and land there, past the routing (finding 148). On Paper
+they additionally saw and could run `/me`, `/help`, `/trigger`, `/list`, `/tell` and the whole
+vanilla completion.
+
+`network.yml#command-allowlist` is now the one list of what somebody who is not an admin may type.
+Four rules came with it:
+
+- **A refused command is answered exactly like a typo** - one key, `command.unknown`, for both. A
+  player should not learn what exists, and by the same thought should not learn that they are not an
+  admin either: `/phase` now answers "that command does not exist" rather than "you are not an
+  admin" (owner, 2026-09-09). That is broader than `/server` and it is deliberate.
+- **The list is enforced three times over, because each layer answers a different question.**
+  `PermissionsSetupEvent` makes Velocity's own commands refuse a non-admin at all;
+  `CommandExecuteEvent` denies what is typed anyway; `PlayerAvailableCommandsEvent` prunes the tree
+  the client is sent, so tab completion offers only what is allowed. Under all three,
+  `ServerPreConnectEvent` refuses any destination `PlayerRouter` did not itself choose - the
+  waiting room excepted, because that is where Velocity's own fallback sends people and refusing it
+  would turn one backend restart into a mass disconnect.
+- **The backends read it, they do not decide it.** The proxy writes the list into `network_setting`
+  (V15) and sends `NOTIFY nordtal_allowlist` when the value moved; `:paper-common`'s `CommandFilter`
+  polls and listens on the pair `AdminWatch` already holds. The poll is the guarantee, as always.
+- **The backend filter fails *open*, and it is the one deliberate exception** to this repository's
+  usual direction. A backend that refuses every command because no proxy has published yet looks
+  exactly like commands being broken, and the proxy's own enforcement is neither delayed nor
+  optional - so an unpublished list warns once and allows, while a published *empty* list is a
+  value and is obeyed. The two answers are kept distinct all the way down to the SQL.
+
+Two rules about text came out of the same work:
+
+- **A command whose text needs markup or a click event keeps its key in `:commands` and its value in
+  the owning process's bundle.** The shared bundle carries no markup - Discord reads it - so
+  `/discord` and `/rules` name a key the proxy owns. A test on each side pins the halves
+  (`InfoCommandsTest` names the key, `InfoTextTest` proves the value exists in both languages).
+- **A player's own text goes in through `MessageRenderer`'s component slot**, never as a substituted
+  parameter. Otherwise anybody could style, or colour, somebody else's private message.
+
 ### The rules that follow
 
 - **Paper:** Brigadier trees through `io.papermc.paper.command.brigadier.Commands`, registered on

@@ -36,11 +36,12 @@ import java.util.regex.Pattern;
  * puts the build number in front of a person before anything restarts.</p>
  *
  * <h2>The filename comes from the API</h2>
- * {@code downloads."server:default".name} is {@code paper-26.2-121.jar} - the exact shape
- * {@code deploy/minecraft/entrypoint.sh} builds by hand when it seeds an empty cache from
- * {@code SERVER_BUILD}, and the shape it globs for ({@code paper-26.2-*.jar}) on every start after
- * that. Reading it instead of building it again keeps the two in step without either knowing about
- * the other; since 2026-09-02 the entrypoint runs whatever build of the version this class put there.
+ * {@code downloads."server:default".name} is {@code paper-26.2-121.jar}, and both programs that
+ * touch that file read the name rather than building it. {@code deploy/minecraft/entrypoint.sh}
+ * reads it from this same endpoint when it fills an empty cache, and globs for
+ * {@code <kind>-*.jar} on every start after that, running the highest version-then-build it finds.
+ * Two programs constructing the name separately is how a server comes to run one jar while
+ * something else believes it installed another.
  */
 public final class PaperFill {
 

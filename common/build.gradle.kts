@@ -59,6 +59,13 @@ repositoryRootTestInputs {
     readsTree("hunger-games/src/main")
     readsTree("network-control/src/main")
 
+    // ReplyToneTest walks the same trees plus the two that hold the commands themselves and the
+    // Paper adapter. A reply that names no tone compiles and runs, so the seam it guards is
+    // invisible from any one module - and from any running server, because the sentence is right
+    // and only the colour is missing.
+    readsTree("commands/src/main")
+    readsTree("paper-common/src/main")
+
     // BundleContinuationTest walks every message bundle in the repository, the bot's included -
     // Properties.load strips a continued line's indentation in every module equally, so a rule that
     // covered only the Minecraft-facing four would be a rule with a hole in it. Only the messages

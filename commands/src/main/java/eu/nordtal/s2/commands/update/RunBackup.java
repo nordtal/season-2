@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 
@@ -44,9 +45,9 @@ public final class RunBackup implements NordtalCommand<UpdateEffects> {
                 // that difference is the whole reason this is not update.started.
                 user.reply("backup.started", Map.of(
                         "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
-                        Feedback.BIG_SUCCESS);
+                        Feedback.BIG_SUCCESS, Tone.GOOD);
             } catch (final RuntimeException failure) {
-                user.reply("update.write-failed", Map.of(), Feedback.REFUSED);
+                user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Map;
 import java.util.Objects;
@@ -55,11 +56,11 @@ public final class PrivateMessage implements NordtalCommand<ChatEffects> {
                 // Never with the text in it. A failure here is worth a log line and the message is
                 // not ours to keep.
                 effects.warn(declaration.name() + " could not be delivered", failure);
-                user.reply("chat.failed", Map.of(), Feedback.REFUSED);
+                user.reply("chat.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (outcome != ChatEffects.Outcome.SENT) {
-                user.reply("command.player-offline", Map.of(), Feedback.REFUSED);
+                user.reply("command.player-offline", Map.of(), Feedback.REFUSED, Tone.WARN);
             }
         });
     }

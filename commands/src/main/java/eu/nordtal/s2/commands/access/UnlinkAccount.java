@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Map;
 import java.util.Optional;
@@ -34,12 +35,13 @@ public final class UnlinkAccount implements NordtalCommand<AccessEffects> {
                 unlinked = effects.unlink(discordId, user);
             } catch (final RuntimeException failure) {
                 effects.warn("/access unlink for " + discordId, failure);
-                user.reply("access.failed", Map.of(), Feedback.REFUSED);
+                user.reply("access.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             user.reply(unlinked ? "access.unlinked" : "access.not-linked",
                     Map.of("member", discordId),
-                    unlinked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED);
+                    unlinked ? Feedback.SMALL_SUCCESS : Feedback.REFUSED,
+                    unlinked ? Tone.GOOD : Tone.WARN);
         });
     }
 }

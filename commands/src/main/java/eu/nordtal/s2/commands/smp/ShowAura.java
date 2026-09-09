@@ -45,7 +45,7 @@ public final class ShowAura implements NordtalCommand<SmpEffects> {
             // The console, and only the console: this command is declared on GAME alone, so the
             // adapter has already refused one. Kept as a belt: a NordtalUser with no Minecraft
             // account is a shape this module is written to expect everywhere else too.
-            user.reply("smp.aura.nobody", Map.of(), Feedback.REFUSED);
+            user.reply("smp.aura.nobody", Map.of(), Feedback.REFUSED, Tone.WARN);
             return;
         }
         effects.async(() -> {
@@ -54,11 +54,11 @@ public final class ShowAura implements NordtalCommand<SmpEffects> {
                 standing = effects.auraStanding(self.get());
             } catch (final RuntimeException failure) {
                 effects.warn("/aura failed", failure);
-                user.reply("smp.aura.failed", Map.of(), Feedback.REFUSED);
+                user.reply("smp.aura.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             if (standing.isEmpty()) {
-                user.reply("smp.aura.unlinked", Map.of(), Feedback.REFUSED);
+                user.reply("smp.aura.unlinked", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             final SmpEffects.AuraStanding shown = standing.get();

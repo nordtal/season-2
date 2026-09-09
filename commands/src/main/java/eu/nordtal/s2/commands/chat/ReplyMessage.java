@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Map;
 
@@ -38,7 +39,7 @@ public final class ReplyMessage implements NordtalCommand<ChatEffects> {
                 outcome = effects.replyToLast(user, text);
             } catch (final RuntimeException failure) {
                 effects.warn("/r could not be delivered", failure);
-                user.reply("chat.failed", Map.of(), Feedback.REFUSED);
+                user.reply("chat.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
             switch (outcome) {
@@ -46,8 +47,8 @@ public final class ReplyMessage implements NordtalCommand<ChatEffects> {
                 // Two different sentences, because they are two different situations and the player
                 // can act on the difference: "nobody has written to you" means type their name,
                 // "they have gone" means they were there a moment ago.
-                case NO_PARTNER -> user.reply("chat.no-partner", Map.of(), Feedback.REFUSED);
-                case GONE -> user.reply("command.player-offline", Map.of(), Feedback.REFUSED);
+                case NO_PARTNER -> user.reply("chat.no-partner", Map.of(), Feedback.REFUSED, Tone.WARN);
+                case GONE -> user.reply("command.player-offline", Map.of(), Feedback.REFUSED, Tone.WARN);
             }
         });
     }

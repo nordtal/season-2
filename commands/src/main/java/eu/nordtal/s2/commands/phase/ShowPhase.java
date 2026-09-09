@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.phase;
 
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -60,7 +61,8 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
                 // with no response at all and settled a request row empty. It was suppressed
                 // because phase.read.failed says "the phase above", and on that path there is
                 // nothing above; so the answer is a second key rather than no key.
-                user.reply(saidThePhase ? "phase.read.failed" : "phase.read.failed.only");
+                user.reply(saidThePhase ? "phase.read.failed" : "phase.read.failed.only",
+                        Map.of(), Tone.BAD);
                 return;
             }
 
@@ -70,13 +72,15 @@ public final class ShowPhase implements NordtalCommand<PhaseEffects> {
             user.reply("phase.dates", Map.of(
                     "launch", SeasonDates.format(launch, unset),
                     "smpStart", SeasonDates.format(smpStart, unset),
-                    "zone", SeasonDates.ZONE.getId()));
+                    "zone", SeasonDates.ZONE.getId()), Tone.MUTED);
         });
     }
 
     private static void sayPhase(final NordtalUser user, final SeasonPhase phase,
                                  final boolean everRead) {
+        // The unread answer is WARN and not NEUTRAL: it is the proxy's own cache answering
+        // because nothing has ever read the row, which is exactly the state /phase is typed in.
         user.reply(everRead ? "phase.current" : "phase.current.unread",
-                Map.of("phase", phase.name()));
+                Map.of("phase", phase.name()), everRead ? Tone.NEUTRAL : Tone.WARN);
     }
 }

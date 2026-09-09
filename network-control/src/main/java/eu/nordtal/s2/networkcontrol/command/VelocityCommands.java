@@ -21,6 +21,7 @@ import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
 
@@ -297,14 +298,14 @@ public final class VelocityCommands {
             // /phase is the one this exists for: it records who took the decision, and the console
             // is nobody in particular. Rejected 2026-08-31 and enforced by each adapter separately
             // until the surface set became the single place that says so.
-            user.reply("command.not-from-console", Map.of(), Feedback.REFUSED);
+            user.reply("command.not-from-console", Map.of(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
         // The lock behind the tree.s gate - see PaperCommands#run. A root-level command has no
         // node above it to carry a requires, and this check cannot be skipped by the tree.s shape.
         if (entry.declaration().adminOnly() && !mayUse(context.getSource())) {
-            user.reply("command.not-admin", Map.of(), Feedback.REFUSED);
+            user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -313,11 +314,11 @@ public final class VelocityCommands {
                 continue;
             }
             if (argument.kind() == Argument.Kind.PLAYER) {
-                user.reply("command.player-offline", Map.of(), Feedback.REFUSED);
+                user.reply("command.player-offline", Map.of(), Feedback.REFUSED, Tone.WARN);
                 return Command.SINGLE_SUCCESS;
             }
             if (argument.kind() == Argument.Kind.ACCOUNT) {
-                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED);
+                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -327,7 +328,8 @@ public final class VelocityCommands {
         // does not exist.
         final var problem = entry.problem().apply(new Values(entry.declaration(), values));
         if (problem.isPresent()) {
-            user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED);
+            user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED,
+                    Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -345,7 +347,8 @@ public final class VelocityCommands {
         }
         user.reply("command.confirm.retype", Map.of(
                 "command", what,
-                "seconds", String.valueOf(Confirmations.WINDOW.toSeconds())), Feedback.REFUSED);
+                "seconds", String.valueOf(Confirmations.WINDOW.toSeconds())),
+                Feedback.REFUSED, Tone.WARN);
         return false;
     }
 
@@ -373,31 +376,33 @@ public final class VelocityCommands {
         if (!mayUse(context.getSource())) {
             below.removeIf(Declaration::adminOnly);
             if (below.isEmpty()) {
-                user.reply("command.not-admin", Map.of(), Feedback.REFUSED);
+                user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
         if (below.isEmpty()) {
-            user.reply("command.help.nothing", Map.of(), Feedback.REFUSED);
+            user.reply("command.help.nothing", Map.of(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         if (below.size() == 1) {
             return usage(context, below.getFirst());
         }
 
-        user.reply("command.help.header", Map.of("command", "/" + node.literal));
+        user.reply("command.help.header", Map.of("command", "/" + node.literal), Tone.NEUTRAL);
         below.stream()
                 .sorted(Comparator.comparing(Declaration::name))
                 .forEach(declaration -> user.reply("command.help.line",
                         Map.of("usage", declaration.usage(),
-                                "what", user.phrase(declaration.describeKey()))));
+                                "what", user.phrase(declaration.describeKey())), Tone.MUTED));
         return Command.SINGLE_SUCCESS;
     }
 
     private int usage(final CommandContext<CommandSource> context, final Declaration declaration) {
         final NordtalUser user = user(context.getSource());
-        user.reply("command.help.usage", Map.of("usage", declaration.usage()), Feedback.REFUSED);
-        user.reply("command.help.what", Map.of("what", user.phrase(declaration.describeKey())));
+        user.reply("command.help.usage", Map.of("usage", declaration.usage()),
+                Feedback.REFUSED, Tone.NEUTRAL);
+        user.reply("command.help.what", Map.of("what", user.phrase(declaration.describeKey())),
+                Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
 

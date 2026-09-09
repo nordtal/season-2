@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.phase;
 
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
@@ -90,7 +91,7 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
                 user.reply("phase.date.invalid", Map.of(
                         "pattern", SeasonDates.PATTERN,
                         "zone", SeasonDates.ZONE.getId(),
-                        "clear", SeasonDates.CLEAR));
+                        "clear", SeasonDates.CLEAR), Tone.BAD);
                 return;
             }
             at = parsed.get();
@@ -107,11 +108,12 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
             } catch (final SeasonDateRefused refused) {
                 // Not a failure: the model said no, in a sentence written for the person who typed
                 // it. Nothing was written, so nothing is reported anywhere else.
-                user.reply("phase.date.refused", Map.of("reason", refused.getMessage()));
+                user.reply("phase.date.refused", Map.of("reason", refused.getMessage()),
+                        Tone.BAD);
                 return;
             } catch (final RuntimeException failure) {
                 effects.warn("setting " + whatKey(), failure);
-                user.reply("phase.date.failed");
+                user.reply("phase.date.failed", Map.of(), Tone.BAD);
                 return;
             }
 
@@ -128,9 +130,9 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
         final String what = user.phrase(whatKey());
 
         if (change.current() == null) {
-            user.reply("phase.date.cleared", Map.of("what", what));
+            user.reply("phase.date.cleared", Map.of("what", what), Tone.GOOD);
             if (!launch) {
-                user.reply("phase.date.kept");
+                user.reply("phase.date.kept", Map.of(), Tone.MUTED);
             }
             return;
         }
@@ -138,19 +140,20 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
         final String unset = user.phrase("phase.date.unset");
         if (change.unchanged()) {
             user.reply("phase.date.unchanged", Map.of(
-                    "what", what, "current", SeasonDates.format(change.current(), unset)));
+                    "what", what, "current", SeasonDates.format(change.current(), unset)),
+                    Tone.WARN);
         } else {
             user.reply("phase.date.set", Map.of(
                     "what", what,
                     "current", SeasonDates.format(change.current(), unset),
-                    "previous", SeasonDates.format(change.previous(), unset)));
+                    "previous", SeasonDates.format(change.previous(), unset)), Tone.GOOD);
         }
 
         if (launch) {
             return;
         }
         if (!change.movedAccess()) {
-            user.reply("phase.date.none-moved", Map.of());
+            user.reply("phase.date.none-moved", Map.of(), Tone.MUTED);
             return;
         }
         // Three keys and not four: one period belongs to one account, so "one period across several
@@ -160,7 +163,9 @@ public final class SetSeasonDate implements NordtalCommand<PhaseEffects> {
         final String key = change.grants() == 1 ? "phase.date.moved.one"
                 : change.accounts() == 1 ? "phase.date.moved.one-account"
                 : "phase.date.moved";
+        // WARN, because this is the half of the command nobody asked for: moving smp-start moved
+        // other people's paid access with it, and that is the sentence to notice.
         user.reply(key, Map.of("grants", String.valueOf(change.grants()),
-                "accounts", String.valueOf(change.accounts())));
+                "accounts", String.valueOf(change.accounts())), Tone.WARN);
     }
 }

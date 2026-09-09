@@ -78,6 +78,15 @@
         },
         {
             "type": "bitmap",
+            "file": "nordtal:ui/gui/row_button_confirm.png",
+            "ascent": -60,
+            "height": 14,
+            "chars": [
+                "\udbb8\udd06"
+            ]
+        },
+        {
+            "type": "bitmap",
             "file": "nordtal:ui/gui/row_icons.png",
             "ascent": -63,
             "height": 8,

@@ -488,6 +488,15 @@ public final class Glyphs {
      */
     public static final String GUI_ROW_PILL_DARK = cp(0xFE105);
 
+    /**
+     * A 50 px button plate in the affirming style: gold, the brand's own.
+     *
+     * <p>The only plate in the pack that is not neutral grey or refusing red, and it is one because
+     * it is the only button in these menus whose click cannot be undone by clicking again - the
+     * hand-in's confirm.
+     */
+    public static final String GUI_ROW_BUTTON_CONFIRM = cp(0xFE106);
+
     // Row icons - U+FE110..U+FE11A, 8 x 8, drawn white so a component's colour can tint them.
     public static final String GUI_ROW_ICON_SPAWN = cp(0xFE110);
     public static final String GUI_ROW_ICON_DEATH = cp(0xFE111);
@@ -542,6 +551,15 @@ public final class Glyphs {
     public static final String[] GUI_BAR_FILL_TOP = {
             cp(0xFE210), cp(0xFE211), cp(0xFE212), cp(0xFE213), cp(0xFE214), cp(0xFE215),
     };
+
+    /**
+     * The hand-in screen's tray: one sunken surface 162 x 54 over three chest rows.
+     *
+     * <p>One surface and not a recess per slot, which is design {@code H2} and is the deliberate
+     * opposite of the grave - see {@code HandInPanel}'s own comment for why the two must not be
+     * made the same.
+     */
+    public static final String GUI_HANDIN_TRAY = cp(0xFE204);
 
     /** The same six, for the lower card row. */
     public static final String[] GUI_BAR_FILL_BOTTOM = {

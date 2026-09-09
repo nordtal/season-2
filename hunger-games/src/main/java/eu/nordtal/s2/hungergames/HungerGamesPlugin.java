@@ -40,6 +40,8 @@ import eu.nordtal.s2.hungergames.hud.HudRenderer;
 import eu.nordtal.s2.hungergames.listener.CombatListener;
 import eu.nordtal.s2.hungergames.listener.FreezeListener;
 import eu.nordtal.s2.hungergames.listener.PresenceListener;
+import eu.nordtal.s2.hungergames.player.ArenaComposition;
+import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.hungergames.lobby.Lobby;
 import eu.nordtal.s2.hungergames.lobby.LobbyMaps;
 import eu.nordtal.s2.hungergames.loot.LootRefill;
@@ -172,12 +174,15 @@ public final class HungerGamesPlugin extends JavaPlugin {
         final Jdbi jdbi = Jdbi.create(pool).installPlugin(new SqlObjectPlugin()).installPlugin(new PostgresPlugin());
         dao = jdbi.onDemand(HungerGamesDao.class);
 
-        // Two roots, shared first: :commands' bundle holds every string a SHARED command says, and
-        // this module's own wins where both declare a key. Loading only this module's would leave
-        // /hg start printing the literal string hg.start.started - Messages degrades to the key
-        // rather than throwing, so it fails silently and only in chat.
+        // Three roots, most general first: :paper-common's five system lines (chat, join, leave,
+        // death, advancement - which this server had none of until 2026-09-09), then :commands'
+        // bundle of every string a SHARED command says, then this module's own. Later roots win,
+        // so this module's keys beat both. Loading only this module's would leave /hg start
+        // printing the literal string hg.start.started - Messages degrades to the key rather than
+        // throwing, so it fails silently and only in chat.
         messages = Messages.load(getClass().getClassLoader(),
-                java.util.List.of("messages/commands", "messages/hunger-games"),
+                java.util.List.of("messages/paper-common", "messages/commands",
+                        "messages/hunger-games"),
                 getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
                 "the message override names " + key + ", which no bundle declares - it is stored"
@@ -235,8 +240,18 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(
                 new FullServerGate(dao, admission, getLogger0()), this);
+        // The five lines every Paper server writes - chat, join, leave, death, advancement. This
+        // server had none of them until 2026-09-09: vanilla's own, in yellow, in the server's
+        // language, with no flag on anybody, at the one event every player on the network attends
+        // at the same moment (finding 149). The death line is what makes a kill feed of it, and it
+        // keeps vanilla's own component so that each reader's client names the killer and the
+        // weapon in that reader's language.
+        final SystemLines systemLines = new SystemLines(
+                new ArenaComposition(locales)::of, messages, locales);
+        getServer().getPluginManager().registerEvents(systemLines, this);
         getServer().getPluginManager().registerEvents(
-                new PresenceListener(this, locales, bodies, state, messages, operators, admission), this);
+                new PresenceListener(this, locales, bodies, state, messages, operators, admission,
+                        systemLines), this);
         getServer().getPluginManager().registerEvents(
                 new CombatListener(this, dao, state, bodies, border, winTracker, sounds,
                         this::onGameDecided), this);

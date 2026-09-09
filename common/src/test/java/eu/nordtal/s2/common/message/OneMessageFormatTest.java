@@ -78,6 +78,9 @@ class OneMessageFormatTest {
                     "the NPC's name out of config.yml, which is a name and not a message"),
             Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/body/PlayerBodies.java",
                     "a disconnected player's name on their body"),
+            Map.entry("hunger-games/src/main/java/eu/nordtal/s2/hungergames/player/ArenaComposition.java",
+                    "a flag glyph and a player name - this server's half of the shared system"
+                            + " lines, the same exemption smp's PlayerComposition has"),
             // hunger-games' Lobby was here until 2026-09-09, for "one space between the broadcast
             // and the clickable link". That space is gone with the append that needed it: the
             // bundle places the link through a <_link> component slot now, which is what a slot is

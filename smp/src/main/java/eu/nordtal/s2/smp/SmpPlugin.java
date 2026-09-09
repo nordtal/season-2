@@ -43,7 +43,7 @@ import eu.nordtal.s2.smp.board.Boards;
 import eu.nordtal.s2.smp.command.NavigateCommand;
 import eu.nordtal.s2.smp.command.SmpCommand;
 import eu.nordtal.s2.papercommon.command.UpdateWatcher;
-import eu.nordtal.s2.smp.chat.SystemLines;
+import eu.nordtal.s2.papercommon.chat.SystemLines;
 import eu.nordtal.s2.smp.duel.DuelListener;
 import eu.nordtal.s2.smp.duel.Duels;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
@@ -285,11 +285,12 @@ public final class SmpPlugin extends JavaPlugin {
         dao = jdbi.onDemand(SmpDao.class);
         identities = new Identities(dao);
 
-        // Two roots: :commands' shared bundle underneath this module's own. What a shared mechanism
-        // says has to say the same thing on every surface, and the confirmation line is the first
-        // of those to reach this plugin. This module's own keys win on a collision.
+        // Three roots, most general first: :paper-common's five system lines, then :commands'
+        // shared bundle, then this module's own. What a shared mechanism says has to say the same
+        // thing on every surface. Later roots win, so this module's own keys beat both - which is
+        // the mechanism for rewording a shared line here, and not a way of adding one.
         messages = Messages.load(getClass().getClassLoader(),
-                java.util.List.of("messages/commands", "messages/smp"),
+                java.util.List.of("messages/paper-common", "messages/commands", "messages/smp"),
                 getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
         reportUnknownOverrides();
         locales = new PlayerLocales(mcUuid -> dao.discordIdOf(mcUuid)
@@ -375,10 +376,16 @@ public final class SmpPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(
                 new JoinGate(identities, admission, messages, logger()), this);
-        final SystemLines systemLines = new SystemLines(identities, composition, messages, locales);
+        // The composition is this server's half of the shared lines: flag, name and the prestige
+        // crest a season earns. Everything around it - the five keys, the icons, the per-reader
+        // language - is :paper-common's and is the same on the hunger games.
+        final SystemLines systemLines = new SystemLines(
+                player -> composition.chatPrefix(player.getName(),
+                        identities.of(player.getUniqueId())),
+                messages, locales);
         getServer().getPluginManager().registerEvents(
-                new PresenceListener(this, identities, surfaces, composition, config,
-                        messages, locales, operators, systemLines), this);
+                new PresenceListener(this, identities, surfaces, locales, operators, systemLines),
+                this);
         getServer().getPluginManager().registerEvents(systemLines, this);
         getServer().getPluginManager().registerEvents(
                 new NavigateListener(this, dao, navigation, identities, locales, sounds), this);

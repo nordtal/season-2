@@ -108,4 +108,36 @@ public interface SmpEffects extends CommandEffects {
 
     /** The purchase somebody has started and not finished, if there is one. */
     Optional<OpenPayment> openPayment(String discordId);
+
+    /**
+     * One line of the aura leaderboard, already resolved to a name.
+     *
+     * <p>A name and not a UUID, because this module is compiled against no platform and resolving
+     * one is the server's job. {@code you} is what lets the asker's own line be coloured
+     * differently without the command having to compare UUIDs it does not hold.</p>
+     */
+    record AuraLine(int place, String player, int aura, boolean you) {
+    }
+
+    /**
+     * What {@code /aura} says: where the asker stands, and who is at the top.
+     *
+     * @param aura  the asker's own aura
+     * @param rank  their place, counting everybody with strictly more aura and adding one - so two
+     *              people on the same number share a place, which is how a leaderboard reads
+     * @param total how many people have an aura row at all, for "4 of 37"
+     * @param top   the highest ten, most first; empty on a season where nobody has any yet
+     */
+    record AuraStanding(int aura, int rank, int total, java.util.List<AuraLine> top) {
+    }
+
+    /**
+     * Where somebody stands, and the top of the board, in one read.
+     *
+     * <p>Empty when this account has no Discord link - which the login gate makes impossible in
+     * practice and which this layer must not assume, because the gate is another process's rule.
+     * The same source as the aura board in the world, so the two cannot disagree about who is
+     * first.</p>
+     */
+    Optional<AuraStanding> auraStanding(UUID player);
 }

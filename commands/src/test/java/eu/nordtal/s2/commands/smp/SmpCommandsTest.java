@@ -57,20 +57,126 @@ class SmpCommandsTest {
     }
 
     @Test
-    @DisplayName("all seven are reachable from Discord as well as in game, and all but status are admin-only")
+    @DisplayName("all but /aura are reachable from Discord as well as in game, and all but the two player ones are admin-only")
     void allSevenAreOnBothPlatforms() {
         for (final Declaration declaration : SmpCommands.declarations()) {
             // /smp status is the one /smp command a player may run: three read-only lines about
-            // the season (2026-09-06, poliert stage 8). Everything that writes stays an admin's.
-            assertEquals(declaration != SmpCommands.STATUS, declaration.adminOnly(),
+            // the season (2026-09-06, poliert stage 8). /aura is the second player command this
+            // module serves and the one that is not under /smp at all - see SmpCommands#OWN_AURA.
+            // Everything that writes stays an admin's.
+            final boolean forPlayers =
+                    declaration == SmpCommands.STATUS || declaration == SmpCommands.OWN_AURA;
+            assertEquals(!forPlayers, declaration.adminOnly(),
                     declaration.name() + " has the wrong admin flag");
             assertTrue(declaration.surfaces().contains(Surface.GAME), declaration.name());
+            if (declaration == SmpCommands.OWN_AURA) {
+                // It is about the person typing it, so there is nobody for the console to answer
+                // about, and in Discord the account is the wrong end of the link: the command takes
+                // no argument and would have to guess whose aura was meant.
+                assertEquals(Set.of(Surface.GAME), declaration.surfaces(),
+                        "/aura is about whoever typed it, and two of the three surfaces have no"
+                                + " Minecraft account to be about");
+                continue;
+            }
             assertTrue(declaration.surfaces().contains(Surface.DISCORD),
                     declaration.name() + " cannot be typed in Discord, which is the whole point of"
                             + " folding /smp into :commands");
             assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
                     declaration.name() + " cannot be run from the console - the gap /hg had");
         }
+    }
+
+    // ------------------------------------------------------------------ /aura
+
+    @Test
+    @DisplayName("/aura says where you stand and then the board, in that order")
+    void auraIsYourOwnLineThenTheBoard() {
+        // Your own line first, deliberately: the question somebody types /aura to answer is "where
+        // am I", and a list of ten with the answer somewhere inside it is not that.
+        final FakeSmp smp = new FakeSmp();
+        smp.standing = new SmpEffects.AuraStanding(120, 3, 37, List.of(
+                new SmpEffects.AuraLine(1, "Anna", 400, false),
+                new SmpEffects.AuraLine(2, "Bert", 200, false),
+                new SmpEffects.AuraLine(3, "tester", 120, true)));
+        final FakeUser user = FakeUser.inGame();
+
+        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
+
+        assertEquals(List.of("smp.aura.own", "smp.aura.top",
+                        "smp.aura.line", "smp.aura.line", "smp.aura.line"), user.keys());
+        assertEquals(120, user.replies.getFirst().of("aura"));
+        assertEquals(3, user.replies.getFirst().of("rank"));
+        assertEquals(37, user.replies.getFirst().of("total"));
+        assertEquals(3, user.replies.get(1).of("count"));
+    }
+
+    @Test
+    @DisplayName("your own line on the board is coloured differently from the rest")
+    void yourOwnLineIsMarked() {
+        // One key, two tones. A second key with the same words in another colour is two strings to
+        // translate, and one of them eventually says something else.
+        final FakeSmp smp = new FakeSmp();
+        smp.standing = new SmpEffects.AuraStanding(120, 2, 2, List.of(
+                new SmpEffects.AuraLine(1, "Anna", 400, false),
+                new SmpEffects.AuraLine(2, "tester", 120, true)));
+        final FakeUser user = FakeUser.inGame();
+
+        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
+
+        assertEquals(eu.nordtal.s2.common.message.Tone.MUTED, user.replies.get(2).tone());
+        assertEquals(eu.nordtal.s2.common.message.Tone.GOOD, user.replies.get(3).tone());
+    }
+
+    @Test
+    @DisplayName("an empty board says so instead of printing a heading over nothing")
+    void anEmptyBoardIsNamed() {
+        final FakeSmp smp = new FakeSmp();
+        smp.standing = new SmpEffects.AuraStanding(0, 1, 0, List.of());
+        final FakeUser user = FakeUser.inGame();
+
+        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
+
+        assertEquals(List.of("smp.aura.own", "smp.aura.empty"), user.keys());
+    }
+
+    @Test
+    @DisplayName("an account with no Discord link is told, not shown a zero")
+    void anUnlinkedAccountIsNamed() {
+        // The login gate makes this impossible, and this layer must not assume it: the gate is
+        // another process's rule. Showing "0 aura, number 1 of 0" instead would be a wrong answer
+        // rather than a refusal.
+        final FakeSmp smp = new FakeSmp();
+        smp.standing = null;
+        final FakeUser user = FakeUser.inGame();
+
+        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
+
+        assertEquals(List.of("smp.aura.unlinked"), user.keys());
+    }
+
+    @Test
+    @DisplayName("a database that does not answer says so and prints no board")
+    void aFailedReadIsNamed() {
+        final FakeSmp smp = new FakeSmp();
+        smp.failure = new IllegalStateException("no answer");
+        final FakeUser user = FakeUser.inGame();
+
+        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
+
+        assertEquals(List.of("smp.aura.failed"), user.keys());
+    }
+
+    @Test
+    @DisplayName("somebody with no Minecraft account is refused rather than asked about")
+    void theConsoleHasNoAura() {
+        // Declared on GAME alone, so an adapter refuses the console first. This is the belt: a
+        // NordtalUser with no Minecraft account is a shape every command here is written for.
+        final FakeSmp smp = new FakeSmp();
+        final FakeUser user = FakeUser.console();
+
+        new ShowAura().run(user, Values.none(SmpCommands.OWN_AURA), smp);
+
+        assertEquals(List.of("smp.aura.nobody"), user.keys());
     }
 
     // ------------------------------------------------------------------ status

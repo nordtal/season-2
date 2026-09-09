@@ -169,7 +169,11 @@ class CatalogueTest {
         // the command allowlist takes vanilla's /tell, /msg, /w and /teammsg away from players, and
         // these are what replaces them. They are on the proxy because it is the only process that
         // can see both people. See ChatCommands.
-        assertEquals(List.of("/smp status", "/announce", "/msg", "/whisper", "/r"),
+        // /aura, /discord and /rules arrived with the same change and for the same reason: the
+        // allowlist leaves a player with our commands and nothing else, so ours have to cover what
+        // a player actually needs - where they stand, where the Discord is, and what the rules are.
+        assertEquals(List.of("/smp status", "/aura", "/announce", "/msg", "/whisper", "/r",
+                        "/discord", "/rules"),
                 Catalogue.all().stream()
                 .filter(declaration -> !declaration.adminOnly())
                 .map(Declaration::name)

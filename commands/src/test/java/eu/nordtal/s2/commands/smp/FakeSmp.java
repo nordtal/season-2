@@ -127,6 +127,15 @@ final class FakeSmp implements SmpEffects {
         return Optional.ofNullable(payment);
     }
 
+    /** What {@code /aura} gets back. {@code null} stands for "this account has no Discord link". */
+    AuraStanding standing;
+
+    @Override
+    public Optional<AuraStanding> auraStanding(final UUID player) {
+        throwIfAsked();
+        return Optional.ofNullable(standing);
+    }
+
     static OpenPayment payment(final boolean hasTab) {
         return new OpenPayment("NT-A1B2C3", 60, 1000, 0, hasTab, Instant.parse("2026-09-01T10:00:00Z"));
     }

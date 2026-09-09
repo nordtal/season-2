@@ -9,17 +9,58 @@ the resource pack. One Gradle multi-module build, one version in `gradle.propert
 A Velocity proxy in front of three Paper backends. Every login lands on `limbo`, is offered the
 resource pack, and is released onto whichever backend the current season phase names.
 
-```
-                    ┌───────────────────────────┐
-   players ────────►│ network-control (Velocity)│  login gate · phase · routing
-                    └──┬─────────┬──────────┬───┘
-                       │         │          │
-                    limbo   hunger-games   smp
-              (pack install) (start event) (the SMP)
+```mermaid
+flowchart TB
+    subgraph libs["Library modules — compiled into the jars below"]
+        direction LR
+        PACK[":resource-pack"]:::lib
+        COMMON[":common"]:::lib --> COMMANDS[":commands"]:::lib --> PCOMMON[":paper-common"]:::lib
+        PACK ~~~ COMMON
+    end
 
-   discord-bot ── Discord, bunq          updater ── versions, schema, restarts
-                       └──────── PostgreSQL ────────┘
+    subgraph stack["docker compose — one stack"]
+        direction TB
+        UPD["<b>updater</b><br/><i>:updater</i><br/>versions · schema · jars"]:::app
+        subgraph servers["Minecraft servers · one image"]
+            direction TB
+            NC["<b>network-control</b><br/><i>:network-control</i><br/>Velocity · the only open port"]:::proxy
+            LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
+            HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
+            SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
+        end
+        BOT["<b>bot</b><br/><i>:discord-bot</i><br/>access · payments"]:::app
+        PG[("<b>postgres</b><br/>source of truth")]:::db
+        BACKUP["postgres-backup"]:::side
+        PACKHOST["pack-host · dev only"]:::side
+    end
+
+    upstream(["PaperMC Fill · GitHub releases"]):::ext --> UPD
+    UPD -->|"restart"| arcane(["Arcane, on the host"]):::ext
+    UPD ==>|"schema, then jars"| servers
+    UPD ==> BOT
+    players(["Players"]):::ext --> NC
+    NC -->|"pack"| LIMBO
+    NC -->|"phase"| HG
+    NC -->|"phase"| SMP
+    discord(["Discord · bunq"]):::ext <--> BOT
+    servers --> PG
+    BOT --> PG
+    UPD --> PG
+    PG -.-> BACKUP
+
+    classDef ext fill:#eceff4,stroke:#8b96a8,color:#1c2333
+    classDef proxy fill:#cfe3ff,stroke:#2f6db5,color:#10233d
+    classDef paper fill:#d8f0dc,stroke:#3f8d55,color:#12301c
+    classDef app fill:#ffe4c7,stroke:#c97a2a,color:#3a2408
+    classDef db fill:#fdd9d9,stroke:#c0504d,color:#3d1010
+    classDef side fill:#f0f0f0,stroke:#a8a8a8,color:#2b2b2b
+    classDef lib fill:#e8ddf5,stroke:#7a5aa8,color:#241436
+    style stack fill:#fcfcfe,stroke:#c3c8d4,color:#33384a
+    style servers fill:#f6f9ff,stroke:#9fb6d6,color:#22354f
+    style libs fill:#faf7ff,stroke:#bda9d9,color:#3a2a52
 ```
+
+Italic names are Gradle modules; every other box is a container in `compose.yml`.
 
 **The database is the source of truth** for access, language, season phase and event state. Discord
 roles are a projection of it, never the other way round.

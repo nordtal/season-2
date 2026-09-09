@@ -90,6 +90,47 @@ class PlatformTest {
     }
 
     /** One {@code name = "value"} out of the catalog's {@code [versions]} table. */
+    @Test
+    @DisplayName("PACK_FORMAT is the number the shipped pack.mcmeta carries")
+    void thePackFormatIsTheOneTheClientIsSent() throws IOException {
+        // Parsed out of the real file rather than compared against a copy. The failure this
+        // protects against is quiet by construction: a client accepts a pack whose format is behind
+        // and only warns, so the way it surfaces is a season running on art nobody noticed was for
+        // an older version.
+        final String mcmeta = Files.readString(
+                repositoryRoot().resolve("resource-pack/src/pack.mcmeta"), StandardCharsets.UTF_8);
+        final Matcher format = Pattern.compile("\"pack_format\"\\s*:\\s*(\\d+)").matcher(mcmeta);
+        assertTrue(format.find(), "resource-pack/src/pack.mcmeta declares no pack_format");
+        assertEquals(Platform.PACK_FORMAT, Integer.parseInt(format.group(1)),
+                "Platform.PACK_FORMAT and resource-pack/src/pack.mcmeta name different pack"
+                        + " formats. The pack is chosen for a Minecraft version and this is the"
+                        + " number that says which one.");
+    }
+
+    @Test
+    @DisplayName("all three Paper descriptors declare API_VERSION, and it is MINECRAFT")
+    void everyPaperPluginDeclaresTheSameApiVersion() throws IOException {
+        // Three files, one fact. A descriptor left behind is not a build failure and not a startup
+        // failure - Paper accepts an older api-version and quietly applies the compatibility
+        // behaviour that goes with it, which is the kind of difference that shows up as one server
+        // behaving unlike the other two.
+        for (final String module : new String[]{"smp", "limbo", "hunger-games"}) {
+            final Path descriptor = repositoryRoot()
+                    .resolve(module + "/src/main/resources/paper-plugin.yml");
+            final Matcher declared = Pattern.compile("(?m)^api-version:\\s*'?([^'\\s]+)'?$")
+                    .matcher(Files.readString(descriptor, StandardCharsets.UTF_8));
+            assertTrue(declared.find(), module + "'s paper-plugin.yml declares no api-version");
+            assertEquals(Platform.API_VERSION, declared.group(1),
+                    module + "'s paper-plugin.yml declares an api-version that is not"
+                            + " Platform.API_VERSION");
+        }
+
+        assertEquals(Platform.MINECRAFT, Platform.API_VERSION,
+                "API_VERSION and MINECRAFT have parted company. That is allowed - a season may"
+                        + " deliberately stay compatible with an older API - but it is a decision,"
+                        + " so say so here rather than letting the two drift apart by accident.");
+    }
+
     private static String version(final String key) {
         final Matcher matcher = Pattern.compile("(?m)^" + key + "\\s*=\\s*\"([^\"]+)\"")
                 .matcher(catalog);

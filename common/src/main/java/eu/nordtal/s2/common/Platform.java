@@ -66,6 +66,29 @@ public final class Platform {
      */
     public static final String VELOCITY_API = "4.1.1";
 
+    /**
+     * The resource pack format {@link #MINECRAFT} reads, mirrored by
+     * {@code resource-pack/src/pack.mcmeta}.
+     *
+     * <p>Here since 2026-09-09, and it is the same argument as the two versions above rather than a
+     * new one: the number is a fact about the Minecraft version, it is written down in exactly one
+     * other place, and nothing compares the two. A pack whose format is a version behind is not a
+     * pack that fails to load - the client accepts it and warns - so the way this goes wrong is a
+     * season running on art nobody noticed was stale. 26.1 was 84 and 26.3's snapshots are 89.</p>
+     */
+    public static final int PACK_FORMAT = 88;
+
+    /**
+     * What the three Paper plugins declare as {@code api-version} in their {@code paper-plugin.yml}.
+     *
+     * <p>The same string as {@link #MINECRAFT} and kept as its own constant anyway, because the two
+     * answer different questions: this one is the oldest API a plugin promises to work against, and
+     * a season that deliberately stayed compatible with an older one would move them apart. Today
+     * they agree, and {@code PlatformTest} asserts both that they agree and that all three
+     * descriptors say so - three files, one fact, and no reason for any of them to disagree.</p>
+     */
+    public static final String API_VERSION = "26.2";
+
     private Platform() {
     }
 }

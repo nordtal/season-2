@@ -353,10 +353,12 @@ public class AccessBot implements AutoCloseable {
         // payment poll, the reconcile, the expiry sweep, the status channels, the readiness marker
         // - shares one thread, and the feed is the only tick here that reads the database on every
         // pass. A database that has stopped answering would otherwise stall all of them for the
-        // pool's whole connection timeout. UpdateFeed#tick carries the single-flight guard, so a
-        // pass that outlives its interval is skipped rather than overtaken.
+        // pool's whole connection timeout. UpdateFeed#submit carries the single-flight guard and
+        // takes it BEFORE the hand-over - a pass that outlives its interval is skipped rather than
+        // queued, which is the difference between one outstanding pass and thirty of them waiting
+        // on four busy workers.
         timers.scheduleWithFixedDelay(
-                guarded("update feed", () -> worker.execute(guarded("update feed", updateFeed::tick))),
+                guarded("update feed", () -> updateFeed.submit(worker)),
                 UpdateFeed.INTERVAL.toSeconds(), UpdateFeed.INTERVAL.toSeconds(), TimeUnit.SECONDS);
     }
 

@@ -93,8 +93,13 @@ public final class NightlyBackup {
 
     private void scheduleNext() {
         final Duration until = schedule.until(LocalTime.now());
-        task = Bukkit.getScheduler().runTaskLater(plugin, this::ask,
-                Math.max(1L, until.toSeconds() * 20L));
+        // Rounded UP to the next tick, and that is the whole of it. toSeconds() floors, so a wait
+        // of 04:44:59.6 became 0 seconds, the task fired while the target was still ahead, ask()
+        // re-armed for another fraction of a second, and each pass wrote another BACKUP row. A
+        // backup that submits itself in a tight loop is worse than one that never fires, because
+        // the first row takes the lock and every one after it is refused into the log.
+        final long ticks = Math.ceilDiv(until.toNanos(), 50_000_000L);
+        task = Bukkit.getScheduler().runTaskLater(plugin, this::ask, Math.max(1L, ticks));
     }
 
     /**

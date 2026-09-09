@@ -89,6 +89,24 @@ class EmbedBudgetTest {
     }
 
     /** A report with {@code services} lines of roughly {@code each} characters, plus notes. */
+    @Test
+    @DisplayName("the admin channel's footer is inside the limit too, in both languages")
+    void theFooterIsInsideTheBudget() {
+        // UpdateFeed draws with a footer; every other caller passes null, so the arithmetic that
+        // subtracts the footer before the fields are drawn had no case at all. `requested_by` is
+        // varchar(32) in the schema, so 64 is twice the worst a row can hold.
+        final String footer = "UPDATE, asked for by " + "T".repeat(64) + " from GAME";
+        for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
+            final MessageEmbed embed = UpdateCommand.fields(report(40, 600, 30, 400), request(),
+                    messages, locale, footer);
+
+            assertTrue(embed.getLength() <= LIMIT,
+                    locale + ": the embed is " + embed.getLength() + " characters with a footer,"
+                            + " above " + LIMIT + " - Discord refuses the whole message, so the"
+                            + " admin channel would show nothing at all about a run in flight");
+        }
+    }
+
     private static UpdateReport report(final int services, final int each,
                                        final int notes, final int noteLength) {
         UpdateReport report = UpdateReport.at(UpdateReport.Stage.VERIFYING);

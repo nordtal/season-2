@@ -137,6 +137,11 @@ public final class UpdateFollower {
      * player would be told "Stopping the servers" a dozen times. Only the transitions are
      * interesting, which is also the whole of what chat can usefully show while a run works -
      * Discord redraws a field per service instead, because it can edit one message.</p>
+     *
+     * <p>Read and written only inside {@code synchronized} {@link #stageChange}. Both platforms
+     * dispatch a repeating task through a worker pool, so two polls of one follower can overlap and
+     * a plain field would let both see the same old stage and both announce it. {@code volatile}
+     * would fix the visibility and not the race - the check and the write have to be one step.</p>
      */
     private UpdateReport.Stage lastStage;
 
@@ -198,7 +203,7 @@ public final class UpdateFollower {
      * <p>Silent for a row with no parsable report - a {@code PENDING} row waiting out its countdown
      * has written nothing at all, and the proxy is already counting that down to everybody.</p>
      */
-    private List<Say> stageChange(final UpdateRequest request) {
+    private synchronized List<Say> stageChange(final UpdateRequest request) {
         final Optional<UpdateReport> report = UpdateReports.parse(request.result());
         if (report.isEmpty() || report.get().stage() == lastStage) {
             return List.of();

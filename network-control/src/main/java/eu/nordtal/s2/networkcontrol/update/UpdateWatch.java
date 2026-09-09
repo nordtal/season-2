@@ -60,9 +60,18 @@ public final class UpdateWatch {
             if (step.failure() != null) {
                 logger.warn("Could not read update request {}", id, step.failure());
             }
-            step.deliver(user);
-            if (step.finished()) {
-                task.cancel();
+            // The cancel is in a finally because delivery can throw: it ends in
+            // Player#sendMessage, and a player who left between the poll and the write is the
+            // ordinary case. Velocity logs the exception and keeps the repeating task, so without
+            // this a finished run would be re-delivered every two seconds for the rest of the
+            // proxy's life. A missing message key is not that failure - Messages reports it and
+            // hands back the key.
+            try {
+                step.deliver(user);
+            } finally {
+                if (step.finished()) {
+                    task.cancel();
+                }
             }
         }).delay(INTERVAL).repeat(INTERVAL).schedule();
     }

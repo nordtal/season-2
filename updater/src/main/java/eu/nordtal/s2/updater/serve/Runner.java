@@ -65,7 +65,7 @@ public final class Runner implements RequestRunner {
      * How often the row is re-read while the countdown runs.
      *
      * <p>One indexed lookup by primary key, thirty times per run. It is what makes a cancel end the
-     * wait rather than being noticed when it is already over - {@link #commitCountdown} would catch
+     * wait rather than being noticed when it is already over - {@link UpdateDirectory#commitCountdown} would catch
      * it either way, but a run that sits silently for the rest of the countdown after somebody
      * pressed "Stop" looks exactly like one that ignored them.</p>
      */
@@ -444,6 +444,12 @@ public final class Runner implements RequestRunner {
         // failure is useless. So nothing is saved, and whatever did stop is started again.
         final List<String> notStopped = planned.services().stream()
                 .map(UpdateReport.ServiceLine::service)
+                // The updater is never stopped and must never be counted as refusing to: it is the
+                // process running this. UpdateRun#stop leaves it out of stopped.services(), so an
+                // operator who put "updater" into backup.stop-services would otherwise get a run
+                // that saves nothing, every night, and blames a service for not doing something
+                // nobody asked it to do.
+                .filter(service -> !Topology.UPDATER.equals(service))
                 .filter(service -> !stopped.services().contains(service))
                 .toList();
         if (!notStopped.isEmpty()) {

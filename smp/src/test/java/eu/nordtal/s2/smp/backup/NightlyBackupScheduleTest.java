@@ -44,14 +44,33 @@ class NightlyBackupScheduleTest {
     }
 
     @Test
-    @DisplayName("a blank time is 'never', and it is the only thing that is")
-    void blankMeansNever() {
+    @DisplayName("only a blank time means 'never' - every other unreadable value is an error")
+    void onlyBlankMeansNever() {
         // The local stack sets it blank because there is no Arcane on a laptop, so the run would
         // fail every night at a quarter to five. Everything else has to be an error rather than a
         // quiet "never" - a schedule that turns itself off is a backup nobody knows they lost.
         assertThrows(IllegalArgumentException.class, () -> DailySchedule.parse("quarter to five"));
         assertThrows(IllegalArgumentException.class, () -> DailySchedule.parse("4:45pm"));
         assertThrows(IllegalArgumentException.class, () -> DailySchedule.parse("25:00"));
+    }
+
+    @Test
+    @DisplayName("a blank or absent time builds a backup that schedules nothing")
+    void aBlankTimeBuildsNoSchedule() {
+        // The branch above proves what the parser does; this proves what NightlyBackup does with
+        // it, which is the half an operator actually meets. Both nulls are deliberate: nothing on
+        // this path touches the plugin or the directory, so a blank time that reached either of
+        // them would fail here rather than at a quarter to five on a server.
+        for (final String blank : new String[]{null, "", "   "}) {
+            final NightlyBackup backup = new NightlyBackup(quietPlugin(), noDirectory(),
+                    Runnable::run, blank);
+
+            assertTrue(backup.at().isEmpty(), "a blank time still produced a schedule: " + blank);
+            // start() must reach neither the Bukkit scheduler nor the database. The stand-ins
+            // below answer only getLogger(); anything else throws, so this call is the assertion.
+            backup.start();
+            backup.stop();
+        }
     }
 
     @Test
@@ -66,4 +85,44 @@ class NightlyBackupScheduleTest {
                 schedule.until(LocalTime.of(5, 0)),
                 "after it, tomorrow - the case a server started at any other hour of the day hits");
     }
+
+    /**
+     * A {@code Plugin} that can be logged to and nothing else.
+     *
+     * <p>A proxy rather than a mocking library, because what is being asserted is that
+     * {@link NightlyBackup#start()} touches nothing: every method except {@code getLogger} throws,
+     * so a future version that reached for the scheduler would fail here rather than on a server.
+     */
+    private static org.bukkit.plugin.Plugin quietPlugin() {
+        final java.util.logging.Logger logger =
+                java.util.logging.Logger.getLogger("nightly-backup-test");
+        return (org.bukkit.plugin.Plugin) java.lang.reflect.Proxy.newProxyInstance(
+                NightlyBackupScheduleTest.class.getClassLoader(),
+                new Class<?>[]{org.bukkit.plugin.Plugin.class},
+                (proxy, method, args) -> {
+                    if ("getLogger".equals(method.getName())) {
+                        return logger;
+                    }
+                    if ("toString".equals(method.getName())) {
+                        return "quiet plugin";
+                    }
+                    throw new AssertionError("a backup with no schedule called Plugin#"
+                            + method.getName());
+                });
+    }
+
+    /** An {@code UpdateDirectory} that refuses every call, for the same reason. */
+    private static eu.nordtal.s2.common.update.UpdateDirectory noDirectory() {
+        return (eu.nordtal.s2.common.update.UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(
+                NightlyBackupScheduleTest.class.getClassLoader(),
+                new Class<?>[]{eu.nordtal.s2.common.update.UpdateDirectory.class},
+                (proxy, method, args) -> {
+                    if ("toString".equals(method.getName())) {
+                        return "no directory";
+                    }
+                    throw new AssertionError("a backup with no schedule called UpdateDirectory#"
+                            + method.getName());
+                });
+    }
+
 }

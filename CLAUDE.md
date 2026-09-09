@@ -629,6 +629,36 @@ already built, which is what the owner asked to be checked before a second one w
 same day `/smp status` became the one `/smp` command a player may run, and `CatalogueTest` names
 it and `announce` as the only two declarations that are not admin-only.
 
+**A player types what `network.yml#command-allowlist` names, and nothing else, since 2026-09-09.**
+`:common`'s `CommandAllowlist` is the matching rule and the only one: an entry is a path, a typed
+command matches when either is a prefix of the other (so `smp status` still lets a bare `/smp` reach
+its own help), case and a leading namespace are normalised away, and a **blank entry is refused**
+rather than read as "allow everything". The proxy enforces it three times over - Velocity's own
+permission function, the execution event, and the tree the client is sent - and `ServerPreConnectEvent`
+underneath refuses any destination `PlayerRouter` did not choose. `:paper-common`'s `CommandFilter`
+is the same list on all three backends, distributed through `network_setting` (V15) and
+`Channels.ALLOWLIST` on the connection `AdminWatch` already holds.
+
+Three rules ride on it:
+
+- **A refused command answers exactly like a typo**, one key for both, and that includes admin
+  commands: a player who types `/phase` is told it does not exist, not that they are not an admin
+  (owner, 2026-09-09).
+- **The backend filter fails open and says so.** It is the deliberate exception to this repository's
+  usual direction: a backend refusing every command because no proxy has published yet looks
+  identical to commands being broken, and the proxy's own enforcement is neither delayed nor
+  optional. An *unpublished* list warns once and allows; a published **empty** list is a value and is
+  obeyed. `AllowlistDirectory#published()` keeps the two apart all the way down to the SQL.
+- **A player command that is not on the list does not exist**, which is a silent way to lose one -
+  nobody reports a command they were told is not a command. `CommandGateTest` holds every non-admin
+  declaration in `Catalogue` against the shipped default, in both directions.
+
+**A command whose text needs markup keeps its key in `:commands` and its value in the owning
+process's bundle.** The shared bundle carries none, because Discord reads it; `/discord` and
+`/rules` want colour and a click event, so the proxy owns the strings and a test on each side pins
+the half it can see. And **a player's own text is inserted through `MessageRenderer`'s component
+slot, never as a parameter** - otherwise one player could colour another player's private message.
+
 **A `PaperCommands` subtree hung on with `extra()` is admin-gated; `extraOpen()` is the named
 exception.** The roots themselves carry no `requires` - gating `/hg` at the root hid `/hg ready`,
 which every participant needs - so the check sits on every node below, and a subtree this adapter did
@@ -888,6 +918,13 @@ are kept because the reasoning is what a future change has to argue with:
     it knows there is work, rather than by whoever submitted the request.
   - `V14__backup_request.sql` (2026-09-09): widens `update_request_kind_check` to accept `BACKUP`,
     `NOT VALID`, the shape V12 established.
+  - `V15__network_setting.sql` (2026-09-09): the **proxy's** own settings table, holding the command
+    allowlist. It exists because the row spent an afternoon in `bot_setting`, whose own migration
+    calls itself "values the bot decides once and must never decide again" - and this row is
+    neither. A table whose comment describes something other than what is in it costs more than a
+    migration, because the next reader believes the comment. **No row is seeded**: an absent row and
+    an empty list are different answers, and the backends' filter fails open on the first and closed
+    on the second.
 - **Money is integer cents** in Java and in the database. `Money` is the only place that converts
   to and from bunq's decimal strings, and it goes through `BigDecimal`. Season 1 used
   `Float.parseFloat` and `<`.
@@ -1204,7 +1241,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1430 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1478 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-09, on `release/0.7.1`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1277,10 +1314,10 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 355 |
-| `smp` | 232 |
-| `network-control` | 201 |
-| `commands` | 202 |
+| `common` | 374 |
+| `smp` | 235 |
+| `network-control` | 211 |
+| `commands` | 218 |
 | `updater` | 192 |
 | `discord-bot` | 158 |
 | `hunger-games` | 72 |

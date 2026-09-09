@@ -9,13 +9,17 @@ import java.util.Optional;
 /**
  * The three statements behind {@link AllowlistDirectory}. Package-private: the interface is the API.
  *
- * <h2>Why {@code bot_setting} and not a table of its own</h2>
- * Because this is one row of text, and a table for it would be a migration. What it costs is a
- * name: {@code bot_setting} was introduced in V3 for "values the bot decides once and must never
- * decide again", and this row is neither the bot's nor decided once - the proxy writes it from
- * {@code network.yml} on every start. The mismatch is written down here rather than left for a
- * reader to trip over, and moving the row into a table of its own is one migration and one constant
- * away.
+ * <h2>Why {@code network_setting} and not {@code network_setting}</h2>
+ * This row lived in {@code network_setting} for one afternoon, on the reasoning that one row of text is
+ * not worth a migration. It is worth one, and the owner decided so on 2026-09-09: V3 introduces
+ * {@code network_setting} as "values the bot decides once and must never decide again", and this row is
+ * neither the bot's nor decided once - the proxy rewrites it from {@code network.yml} on every
+ * start. A table whose comment describes something other than what is in it costs more than a
+ * migration does, because the next reader believes the comment.
+ *
+ * <p>{@code network_setting} (V15) is the proxy's own, and carries the same rule V3 carries: what
+ * goes in it is a value that process owns. Neither is a general key/value store for whatever needs
+ * one.</p>
  *
  * <h2>Why the notification is a second statement and not a CTE</h2>
  * Every other {@code pg_notify} in this repository rides inside the statement that writes, so that
@@ -30,22 +34,22 @@ interface AllowlistDao {
     /** The key this network's command allowlist is stored under. */
     String KEY = "network.command-allowlist";
 
-    @SqlQuery("SELECT value FROM bot_setting WHERE key = :key")
+    @SqlQuery("SELECT value FROM network_setting WHERE key = :key")
     Optional<String> read(@Bind("key") String key);
 
     /**
      * Writes the list, and answers whether it changed anything.
      *
-     * <p>{@code WHERE bot_setting.value IS DISTINCT FROM EXCLUDED.value} on the conflict branch is
+     * <p>{@code WHERE network_setting.value IS DISTINCT FROM EXCLUDED.value} on the conflict branch is
      * what makes a proxy restart with an unchanged list cost one statement and wake nobody.</p>
      *
      * @return 1 when the row was written, 0 when it already said this
      */
     @SqlUpdate("""
-            INSERT INTO bot_setting (key, value)
+            INSERT INTO network_setting (key, value)
             VALUES (:key, :value)
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-            WHERE bot_setting.value IS DISTINCT FROM EXCLUDED.value
+            WHERE network_setting.value IS DISTINCT FROM EXCLUDED.value
             """)
     int write(@Bind("key") String key, @Bind("value") String value);
 

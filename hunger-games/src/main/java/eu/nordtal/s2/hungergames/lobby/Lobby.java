@@ -25,17 +25,11 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * The lobby's periodic ready-check broadcast - docs/hunger-games.md#the-lobby: "a periodic
- * broadcast - 'the game starts once everybody is ready' - carrying a clickable 'I have read the
- * rules and I am ready'. Ready state is visible to everyone; it informs the admin's decision and
- * does not start anything by itself."
- * <p>
- * <b>Ready-status visibility, documented here since the task brief leaves the choice open:</b> this
- * implementation does both - the periodic broadcast itself always includes a live "{ready}/{total}
- * teams ready" count (visible to everyone without asking), and {@code /hg ready-status} additionally
- * lists every team by name so a player can see exactly who is still missing, on demand rather than
- * flooding chat with it on every broadcast.
- * </p>
+ * The lobby's periodic ready-check broadcast, carrying a clickable "I am ready". Ready state is
+ * visible to everyone and starts nothing by itself - it informs the admin's decision.
+ *
+ * <p>The broadcast carries a live ready/total team count; {@code /hg ready-status} lists the teams
+ * by name on demand, rather than flooding chat with them on every broadcast.</p>
  */
 public final class Lobby {
 
@@ -78,10 +72,8 @@ public final class Lobby {
     }
 
     /**
-     * <b>Deliberately silent.</b> This is a standing reminder on a timer, not an event: it says the
-     * same thing every {@code broadcast-interval-seconds} for as long as the lobby is open, and a
-     * chime on a repeating message is the fastest way to make people turn the sound off - at which
-     * point the countdown, the border and their own elimination go with it.
+     * Deliberately silent: a standing reminder on a timer, not an event. A chime on a repeating
+     * message makes people turn the sound off, taking the countdown and the border with it.
      */
     private void broadcast(final World world, final UUID gameId) {
         final List<RosterEntry> roster = dao.roster(gameId);
@@ -94,16 +86,12 @@ public final class Lobby {
 
         for (final Player player : world.getPlayers()) {
             final Locale locale = locales.of(player.getUniqueId());
-            // No .color() here: the link's colour is in the bundle, like every other colour on this
-            // server. Setting one on the rendered component would win over whatever the bundle
-            // says, so an operator editing hg.lobby.ready-link would see nothing change.
+            // No .color() here: the colour is in the bundle, and one set on the rendered component
+            // would win over it, so editing hg.lobby.ready-link would change nothing.
             final Component link = MessageRenderer.of(messages).get(locale, "hg.lobby.ready-link")
                     .clickEvent(ClickEvent.runCommand("/hg ready"));
-            // <_link> and not an append, which is what this was until the bundle was read against
-            // what a player sees: hg.lobby.broadcast has always ended in "{link}", nothing ever
-            // filled that parameter, and Messages leaves an unfilled placeholder standing on
-            // purpose - so the line every player in the lobby read carried a literal "{link}" with
-            // the real button after it. A component slot is the only way the bundle can place it.
+            // A component slot rather than an append: hg.lobby.broadcast ends in "{link}", and
+            // Messages leaves an unfilled placeholder standing, so an append prints it literally.
             final Component message = MessageRenderer.of(messages).format(locale, "hg.lobby.broadcast",
                     Map.of("_link", link), "ready", readyTeams, "total", totalTeams);
             player.sendMessage(message);

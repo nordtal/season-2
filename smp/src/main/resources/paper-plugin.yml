@@ -6,20 +6,17 @@ author: nordtal
 website: https://nordtal.eu
 api-version: '26.2'
 
-# DisplayTags owns every nametag on this network (docs/smp.md#what-a-player-looks-like). The API is
-# an interface over the running plugin, so it has to be installed and it has to load first.
-# required: true on purpose - a server missing it should fail loudly at start rather than run for a
-# week with plain nametags nobody notices are plain. PacketEvents comes with DisplayTags' own
-# dependencies and is not declared here.
+# DisplayTags owns every nametag on this network; its API is an interface over the running plugin,
+# so it must be installed and load first. required: true so a server missing it fails at start
+# rather than running with plain nametags nobody notices. PacketEvents comes with DisplayTags.
 dependencies:
   server:
     DisplayTags:
       load: BEFORE
       required: true
-    # Chunky pre-generates the farm world for the next day and Nordtal's one-off border. The daily
-    # reset waits for its completion event before it swaps anything in, so a missing Chunky would
-    # not degrade the reset - it would postpone it, every night, silently. required: true turns
-    # that into a start-up failure instead.
+    # Chunky pre-generates the farm world for the next day. The daily reset waits for its completion
+    # event, so a missing Chunky would postpone the reset every night, silently; required: true
+    # turns that into a start-up failure instead.
     Chunky:
       load: BEFORE
       required: true

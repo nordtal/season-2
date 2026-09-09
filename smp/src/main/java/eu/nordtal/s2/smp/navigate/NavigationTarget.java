@@ -5,8 +5,7 @@ import java.util.UUID;
 /**
  * Somewhere {@code /navigate} can point at.
  *
- * <p>Three kinds, and the distinction is what decides how the entry is labelled and whether it can
- * be deleted (docs/smp.md#navigate):
+ * <p>The kind decides how the entry is labelled and whether it can be deleted:
  *
  * <ul>
  *   <li>{@link Kind#WORLD_SPAWN} - the current world's spawn, built in and always present</li>
@@ -14,9 +13,8 @@ import java.util.UUID;
  *   <li>{@link Kind#POI} - created by players, public, unlimited</li>
  * </ul>
  *
- * <p><b>There is no navigation to players</b>, and that was considered and dropped rather than
- * forgotten: with PvP enabled everywhere an arrow pointing at a person is a hunting tool, and a
- * consent flow around it is more machinery than the feature is worth.
+ * <p><b>There is deliberately no navigation to players</b>: with PvP enabled everywhere an arrow
+ * pointing at a person is a hunting tool.
  *
  * @param id    the POI's id, or null for the two built-in kinds
  * @param label a POI's name, or a message key for the built-in kinds

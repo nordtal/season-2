@@ -8,25 +8,15 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The whole SQL surface of {@code hg_game}/{@code hg_team}/{@code hg_member} that the Discord half
- * needs - the same style as {@code PaymentRequestDao}. See {@code V5__hunger_games.sql} and
- * {@code docs/hunger-games.md#registration}.
- * <p>
- * Package-private: {@link Teams} is the API. Nothing outside this package holds a DAO.
- * </p>
- * <p>
- * {@code hg_member.ready} never appears here - the Discord half writes {@code OWNER}/{@code
- * INVITED}/{@code ACCEPTED}/{@code DECLINED} and nothing else. Readiness is written only by the
- * {@code hunger-games} Paper plugin's lobby broadcast (docs/hunger-games.md#the-lobby).
- * </p>
- * <p>
- * Most of the invariants below are enforced by the schema, not by a read-then-write here:
- * {@code hg_team_game_id_name_lower_key} and {@code hg_member_one_active_membership_key} are what
- * actually stop two people racing the same team name or the same invite - {@link Teams} pre-checks
- * for a friendly message, but the constraint is the real guard, the same relationship
- * {@code PaymentRequestDao}/{@code PaymentRequests} already has with {@code payment_request}'s
- * unique indexes.
- * </p>
+ * The whole SQL surface of {@code hg_game}/{@code hg_team}/{@code hg_member} the Discord half needs.
+ * Package-private: {@link Teams} is the API.
+ *
+ * <p>{@code hg_member.ready} never appears here - the Discord half writes only the membership
+ * states. Readiness is written by the {@code hunger-games} Paper plugin.</p>
+ *
+ * <p>The invariants are enforced by the schema's unique indexes, not by a read-then-write here:
+ * {@link Teams} pre-checks for a friendly message, but the constraint is what actually stops two
+ * people racing the same team name or the same invite.</p>
  */
 interface HungerGamesDao {
 
@@ -97,9 +87,9 @@ interface HungerGamesDao {
     UUID insertInvite(@Bind("teamId") UUID teamId, @Bind("gameId") UUID gameId,
                       @Bind("discordId") String discordId);
 
-    // discord_id is part of the WHERE, not just a precondition checked in Java first: only the
-    // invited account may answer its own invite, and checking it in the same statement that flips
-    // the state closes the gap between "whose invite is this" and "is it still pending".
+    // discord_id is in the WHERE, not a precondition checked in Java first: only the invited
+    // account may answer its own invite, and checking it in the statement that flips the state
+    // closes the gap between "whose invite is this" and "is it still pending".
     @SqlUpdate("""
             UPDATE hg_member SET state = 'ACCEPTED'
             WHERE id = :memberId AND discord_id = :discordId AND state = 'INVITED'

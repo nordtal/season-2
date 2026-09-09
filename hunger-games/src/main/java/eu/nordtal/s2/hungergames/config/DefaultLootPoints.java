@@ -7,16 +7,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The five loot points a fresh {@code config.yml} is written with: the spawn, plus four staggered
- * placeholder positions at increasing distance from it.
- * <p>
- * {@code docs/hunger-games.md#loot} is explicit that the actual event world - and therefore the
- * real loot point coordinates - does not exist as a shipped asset in this repository. These
- * defaults are placeholders an operator overwrites once the hand-built world exists; they exist
- * only so a fresh install has five well-formed, uniquely labelled entries rather than the empty
- * list jcore would otherwise initialise a {@code List<NestedSpec>} to - the same problem
- * {@code DefaultTiers} in {@code discord-bot} solves for the price list, solved the same way here.
- * </p>
+ * The five loot points a fresh {@code config.yml} is written with: placeholders an operator
+ * overwrites once the hand-built event world exists. They exist so a fresh install has five
+ * well-formed, uniquely labelled entries rather than the empty list jcore would otherwise
+ * initialise a {@code List<NestedSpec>} to.
  */
 final class DefaultLootPoints {
 

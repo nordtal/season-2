@@ -19,25 +19,17 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Mid-session expiry, per docs/access-system.md: warn a few minutes before access ends, then
- * disconnect when it does.
+ * Mid-session expiry: warn a few minutes before access ends, then disconnect when it does.
  * <p>
- * <b>Every pass re-checks the database</b> rather than counting down from whatever
- * {@code valid_until} looked like at login. That is slightly more expensive - one query per
- * connected, linked player per {@code expiry-check-interval-seconds} - but it is what makes an
- * admin's {@code /revoke-access} take effect for somebody already on the server, and what makes
- * buying more time mid-session cancel a warning that was about to fire instead of the proxy
- * quietly disconnecting somebody who just paid. The database is the source of truth (see
- * docs/access-system.md); a snapshot taken once at login would not be.
+ * <b>Every pass re-checks the database</b> rather than counting down from the {@code valid_until}
+ * seen at login, so a mid-session revoke takes effect and buying more time cancels a warning that
+ * was about to fire.
  * </p>
  * <p>
- * A query failure during one pass is <b>not</b> the fallback-cache situation - a player already
- * connected is left alone for that pass and re-checked on the next one; a transient database
- * hiccup must not read as fifty simultaneous expiries. A <em>successful</em> re-check, though, is
- * fed into the same {@link FallbackCache} the login gate uses: without that, a player who has been
- * connected for an hour would only have a login-time-old cache entry, and a database outage
- * starting after login but before their next reconnect would find that entry already past the
- * cache window even though they were, in truth, seen active moments ago.
+ * A query failure during one pass is <b>not</b> the fallback-cache situation: the player is left
+ * alone and re-checked next pass, because a transient hiccup must not read as fifty simultaneous
+ * expiries. A successful re-check is fed into the same {@link FallbackCache} the login gate uses,
+ * so a long-connected player's entry is not already past the cache window by their next reconnect.
  * </p>
  */
 public final class ExpiryWatch {
@@ -91,18 +83,9 @@ public final class ExpiryWatch {
         fallback.remember(uuid, state);
 
         if (!state.mayJoin()) {
-            // mayJoin() is phase-aware since 2026-08-31, so this also catches a player who was let
-            // in during PRE_EVENT or START_EVENT and is still connected when the phase moves on -
-            // docs/season-phases.md#routing: "a switch to SMP disconnects a player who has no active
-            // access". PhaseRouting normally gets there first, on the change itself; this sweep is
-            // the safety net for a player whose access simply ran out mid-phase.
-            //
-            // The MAINTENANCE branch that used to be here is gone with the 2026-08-31 reversal:
-            // maintenance no longer refuses a linked member, so !mayJoin() can only mean one of two
-            // things now. Either they stopped being a member or unlinked mid-session, or they are in
-            // SMP without access. A natural expiry and a mid-session /revoke-access are still one
-            // message, because by the time somebody is already connected there is nothing left to
-            // distinguish - both mean "you do not have access any more".
+            // mayJoin() is phase-aware, so this also catches a player let in during PRE_EVENT or
+            // START_EVENT who is still connected when the phase moves to SMP. PhaseRouting normally
+            // gets there first; this sweep is the safety net for access that ran out mid-phase.
             player.disconnect(reasonFor(state));
             warned.remove(uuid);
             return;
@@ -110,9 +93,8 @@ public final class ExpiryWatch {
 
         final Instant validUntil = state.validUntil().orElse(null);
         if (validUntil == null) {
-            // Nothing to warn about. This is the normal case in PRE_EVENT and START_EVENT, where
-            // mayJoin() is true for a linked member who has never bought anything - it stopped
-            // being a merely defensive branch when the phase entered the decision.
+            // Nothing to warn about: the normal case in PRE_EVENT and START_EVENT, where mayJoin()
+            // is true for a linked member who has never bought anything.
             return;
         }
 
@@ -132,10 +114,9 @@ public final class ExpiryWatch {
     /**
      * Picks the screen for a player this sweep has just decided may no longer be here.
      * <p>
-     * It goes through {@link GateOutcome} rather than re-deriving the reason so that the sweep and
-     * the login gate can never tell the same player two different stories. Only the {@code NO_ACCESS}
-     * wording differs from the gate's, and deliberately: mid-session, "your access has just run out"
-     * is the true sentence and "buy a period" is not the whole of it.
+     * Goes through {@link GateOutcome} rather than re-deriving the reason, so the sweep and the
+     * login gate cannot tell the same player two different stories. Only the {@code NO_ACCESS}
+     * wording differs, deliberately.
      * </p>
      */
     private Component reasonFor(final AccessState state) {
@@ -143,10 +124,8 @@ public final class ExpiryWatch {
             case NOT_LINKED -> messages.unlinked(state.locale());
             case NOT_MEMBER -> messages.notMember(state.locale());
             case NO_ACCESS -> messages.expired(state.locale());
-            // The network was switched back to PRE_LAUNCH while people were on it - a rehearsal, or
-            // an admin undoing an opening. They are shown the same two screens the gate shows,
-            // countdown and all, rather than a generic kick: what happened to them is exactly what
-            // the gate would now say.
+            // The network was switched back to PRE_LAUNCH while people were on it: they get the
+            // same screens the gate would now show them, rather than a generic kick.
             case PRE_LAUNCH_BUY -> messages.preLaunchBuy(state.locale(), state.launch(), Instant.now());
             case PRE_LAUNCH_READY -> messages.preLaunchReady(state.locale(), state.launch(), Instant.now());
             // Unreachable: this method is only called when mayJoin() was false, and GateOutcome

@@ -13,16 +13,15 @@ import java.util.Objects;
  */
 public record RouteDecision(Action action, String server) {
 
-    /** The five things that can happen, plus "nothing". */
+    /** Everything that can happen to a player, plus "nothing". */
     public enum Action {
 
         /** Connect the player to {@link RouteDecision#server()}. */
         CONNECT,
 
         /**
-         * Leave the player exactly where they are. Today this is the admin during
-         * {@code MAINTENANCE}: docs/season-phases.md says admins "get in normally", and normally
-         * means the servers being worked on, not the waiting room.
+         * Leave the player exactly where they are - the admin during {@code MAINTENANCE}, who
+         * belongs on the servers being worked on rather than in the waiting room.
          */
         STAY,
 
@@ -34,16 +33,13 @@ public record RouteDecision(Action action, String server) {
 
         /**
          * {@code SMP} without an active access period. Disconnect - <b>never</b> a redirect to
-         * {@code limbo}, decided 2026-08-31 (docs/season-phases.md#routing): "limbo is for waiting
-         * on something that ends, and 'you have not bought access' does not end by waiting".
+         * {@code limbo}, which is for waiting on something that ends.
          */
         REFUSE_NO_ACCESS,
 
         /**
          * The network is in {@code MAINTENANCE} and this proxy has no {@code limbo} server to hold
-         * the player in. Disconnect with the maintenance screen - the "disconnect" half of the
-         * either/or docs/season-phases.md used to leave open, used for exactly the case where the
-         * "hold in limbo" half is impossible.
+         * the player in, so the maintenance screen is a disconnect instead.
          */
         REFUSE_MAINTENANCE_UNAVAILABLE,
 

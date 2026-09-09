@@ -12,16 +12,12 @@ import java.util.Set;
 /**
  * {@code announce <language> <text>}: one line into one language's Discord announcement channel.
  *
- * <p>Sent by a server, never typed: the SMP renders a milestone's completion or a farm-reset
- * warning in each language it has a bundle for, and submits one row per language through the
- * {@code command_request} transport. The bot's inbox runs it and posts. This is the shape
- * {@code docs/state-of-play.md} finding 52 asked for - "the Discord half of a milestone
- * announcement is the same missing wire" - and it is the same wire as every other command: the
- * one thing the transport lacked was a surface nobody types on.</p>
+ * <p>Sent by a server, never typed: the SMP renders a milestone completion or a farm-reset warning
+ * in each language it has a bundle for and submits one row per language through the
+ * {@code command_request} transport; the bot's inbox runs it and posts.</p>
  *
- * <p>The text arrives rendered because the names it carries (a milestone's, in the sender's
- * bundle) live in the sender, and a bot that had to know them would be a bot with a copy of
- * {@code milestones.yml}.</p>
+ * <p>The text arrives already rendered, because the names it carries live in the sender's bundle -
+ * a bot that had to know them would need a copy of {@code milestones.yml}.</p>
  */
 public final class AnnounceCommands {
 

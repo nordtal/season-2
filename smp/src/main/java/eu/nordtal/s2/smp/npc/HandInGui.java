@@ -22,15 +22,10 @@ import java.util.Set;
 /**
  * The deposit screen: put items in, press confirm, and only then does anything happen.
  *
- * <h2>Explicit confirmation, and what it protects against</h2>
- * docs/smp.md is unusually firm here - "items are only consumed on an explicit confirmation; a
- * misplaced shift-click must not swallow an inventory". So this screen is an ordinary chest that
- * anybody can move items in and out of freely, with one button. <b>Closing it without pressing that
- * button gives everything back</b>, which has to be done deliberately: a plugin inventory that is
- * simply closed drops its contents into nothing.
- *
- * <p>There is no hopper-fed chest anywhere in this design either. Automated delivery would turn
- * contribution counting into a race between farms.
+ * <p>Items are only consumed on an explicit confirmation, so a misplaced shift-click cannot
+ * swallow an inventory. <b>Closing the screen without pressing the button gives everything back</b>,
+ * which has to be done deliberately: a plugin inventory that is simply closed drops its contents
+ * into nothing.
  */
 public final class HandInGui implements Surface {
 
@@ -55,10 +50,9 @@ public final class HandInGui implements Surface {
                                 java.util.Map.of("amount", stillNeeded)),
                         messages.get(locale, "smp.handin.confirm-button")));
 
-        // A real item of the first wanted material: a sample, so the window says what it wants
-        // without a sentence. It is not takeable - every click outside the tray is cancelled - and
-        // it carries the full list, because "any log type counts" is exactly what a single icon
-        // cannot say.
+        // A sample of the first wanted material, so the window says what it wants without a
+        // sentence. Not takeable - every click outside the tray is cancelled - and it carries the
+        // full list, which a single icon cannot show.
         sample().ifPresent(item -> inventory.setItem(HandInPanel.SAMPLE_SLOT,
                 describe(messages, locale, item)));
 
@@ -72,9 +66,8 @@ public final class HandInGui implements Surface {
     /**
      * The first wanted material this server knows, as an item.
      *
-     * <p>{@code Objective#items} carries names as they were written in {@code milestones.yml} and
-     * binds them at enable, so a name that reached here unbound is a configuration this server
-     * refused - the sample is simply left out rather than throwing inside a menu constructor.</p>
+     * <p>A name that reached here unbound is a configuration this server refused, so the sample is
+     * left out rather than throwing inside a menu constructor.</p>
      */
     private java.util.Optional<Material> sample() {
         return wanted.stream()
@@ -140,12 +133,10 @@ public final class HandInGui implements Surface {
     /**
      * Applies a sorted deposit: takes what was accepted, leaves the rest in place.
      *
-     * <p><b>It hands back what it took</b>, and that return value is not a convenience. The credit
-     * that pays for these items runs asynchronously, and it can legitimately credit <em>nothing</em>
-     * - a second player finished the objective while this screen was open, or the database refused
-     * the write. The only restore path is {@link #returnEverything}, which reads the very slots this
-     * method has just emptied, so without the copies the items are gone and the player is told the
-     * hand-in succeeded. Found by review, 2026-09-04.
+     * <p><b>It hands back what it took.</b> The credit that pays for these items runs
+     * asynchronously and can legitimately credit nothing, and {@link #returnEverything} reads the
+     * very slots this method has just emptied - so without these copies the items are gone and the
+     * player is told the hand-in succeeded.
      *
      * @return the stacks that were removed, as they were before removal
      */
@@ -185,9 +176,8 @@ public final class HandInGui implements Surface {
     /**
      * Gives everything in the deposit slots back to the player.
      *
-     * <p>Called on close, always. A plugin inventory that is simply closed drops its contents into
-     * nothing, so this is not a courtesy - it is the difference between a screen somebody backed out
-     * of and a screen that ate their diamonds.
+     * <p>Called on close, always: a plugin inventory that is simply closed drops its contents into
+     * nothing.
      */
     public void returnEverything(final Player player) {
         for (int slot = 0; slot < DEPOSIT_SLOTS; slot++) {

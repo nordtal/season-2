@@ -6,7 +6,7 @@ import eu.nordtal.s2.networkcontrol.config.GateSpec;
 import java.util.Objects;
 
 /**
- * docs/season-phases.md's "where they land" column, as a lookup.
+ * Which backend a player in each phase belongs on.
  *
  * <table>
  *   <caption>Phase to backend</caption>
@@ -17,15 +17,11 @@ import java.util.Objects;
  *   <tr><td>{@code MAINTENANCE}</td><td>{@code limbo}</td></tr>
  * </table>
  *
- * <p>The mapping is the document and is not configurable. The <b>names</b> are, because nothing in
- * docs/ says what {@code velocity.toml} calls these three servers; the defaults in
- * {@link GateSpec#serverLimbo()} are the module directory names, which are already the runtime
- * identity of the three Paper plugins.
+ * <p>The mapping is not configurable; the <b>names</b> are, defaulting in
+ * {@link GateSpec#serverLimbo()} to the module directory names.</p>
  *
- * <p>This class knows nothing about Velocity and nothing about whether a named server exists. That
- * is deliberate: it makes the table a value that can be asserted in memory, and it keeps
- * "which server should this player be on" separate from "does this proxy have it", which is the
- * question with the interesting failure mode.
+ * <p>This class knows nothing about Velocity and nothing about whether a named server exists, which
+ * keeps "which server should this player be on" separate from "does this proxy have it".</p>
  */
 public final class PhaseServers {
 
@@ -58,10 +54,8 @@ public final class PhaseServers {
         return switch (phase) {
             case PRE_EVENT, START_EVENT -> hungerGames;
             case SMP -> smp;
-            // MAINTENANCE holds non-admins in the waiting room. PRE_LAUNCH admits nobody but
-            // admins in the first place (GateOutcome), so the only players this ever answers for
-            // are those admins - and limbo is where a network that has not opened yet should put
-            // somebody, since the season's own servers may not be built.
+            // MAINTENANCE holds non-admins in the waiting room; PRE_LAUNCH admits nobody but
+            // admins, and a network that has not opened may not have its own servers built yet.
             case MAINTENANCE, PRE_LAUNCH -> limbo;
         };
     }
@@ -69,15 +63,11 @@ public final class PhaseServers {
     /**
      * Where a player the gate has admitted goes once the waiting room lets them out.
      * <p>
-     * The same as {@link #forPhase} for everybody except an admin while the network is closed:
-     * {@code MAINTENANCE} and {@code PRE_LAUNCH} name {@code limbo} as "the phase's backend" because
-     * for a non-admin that is where the phase ends, and for an admin it is exactly where it must
-     * not - releasing somebody from the waiting room <em>into</em> the waiting room is a black
-     * screen with a stale title on it and no timeout, which is what a real client showed on
-     * 2026-09-05 (docs/state-of-play.md finding 93). An admin during either phase is released onto
-     * the SMP, decided by the owner the same day: it is the server being built or worked on, and
-     * {@code /server} reaches the others from there. If it is not registered the station holds the
-     * admin with the {@code BACKEND} title, which is the truth.
+     * The same as {@link #forPhase} except for an admin while the network is closed. Those phases
+     * name {@code limbo} as the phase's backend, and releasing somebody from the waiting room
+     * <em>into</em> the waiting room is a black screen with a stale title and no timeout - so an
+     * admin is released onto the SMP, the server being worked on, and {@code /server} reaches the
+     * others from there.
      * </p>
      *
      * @param phase the phase the network is in

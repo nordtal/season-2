@@ -23,17 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * What {@code /phase} decides, asserted without a proxy and without a guild.
  *
- * <h2>Read this first: it is the module's whole justification</h2>
- * Every case below was previously answerable only by running the command. The proxy's half needed a
- * Velocity proxy and a real client; the bot's half needed a Discord guild and an admin role. So the
- * two implementations were never compared, and they had drifted: the bot confirmed a switch and the
- * proxy did not, the bot answered in hardcoded English and the proxy in the asker's language, and
- * only one of them reported that moving {@code smp_start} had shifted other people's access.
- *
  * <p>These tests do <b>not</b> prove that either adapter registers the command, parses its
- * arguments, or renders the keys - three things that still need a running proxy and a real guild,
- * and are in the owner's checklist. What they prove is that there is now only one answer to compare
- * against.</p>
+ * arguments, or renders the keys; those still need a running proxy and a real guild.</p>
  */
 class PhaseCommandsTest {
 
@@ -46,10 +37,8 @@ class PhaseCommandsTest {
                 PhaseCommands.LAUNCH, PhaseCommands.SMP_START)) {
             assertEquals(Target.PROXY, declaration.target(), declaration.name());
             assertTrue(declaration.adminOnly(), declaration.name());
-            // The console is absent on purpose, and it is a decision this module inherited rather
-            // than took: docs/season-phases.md rejected it on 2026-08-31 because it would be a
-            // second notion of who may switch the phase on a proxy that already knows who is an
-            // admin. /hg went the other way on 2026-09-04, which is why the set is per declaration.
+            // The console is absent on purpose: it would be a second notion of who may switch the
+            // phase on a proxy that already knows who is an admin.
             assertEquals(java.util.Set.of(Surface.GAME, Surface.DISCORD),
                     declaration.surfaces(), declaration.name());
         }
@@ -65,17 +54,15 @@ class PhaseCommandsTest {
                 "moving smp-start shifts access periods belonging to people who are not in the room,"
                         + " and moving it back shifts them again rather than undoing it");
 
-        // The one that is deliberately NOT flagged, and the reason it matters: a flag set on
-        // everything that writes trains an admin to type every command twice, which is how a
-        // confirmation stops being read. Setting the opening again is an exact undo.
+        // Deliberately not flagged: setting the opening again is an exact undo, and confirming
+        // everything that writes is how a confirmation stops being read.
         assertFalse(PhaseCommands.LAUNCH.irreversible());
     }
 
     @Test
     @DisplayName("every phase has a consequence sentence of its own")
     void nothingFallsThroughToSomebodyElsesConsequence() {
-        // One key per constant rather than one shared by PRE_EVENT and START_EVENT, so that adding
-        // a sixth phase produces a missing key - which Messages logs by name - rather than silently
+        // One key per constant, so that a new phase produces a missing key rather than silently
         // telling an admin what a different phase would have done.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             assertEquals("phase.consequence." + phase.name(), SetPhase.consequenceKey(phase));
@@ -87,8 +74,8 @@ class PhaseCommandsTest {
     @Test
     @DisplayName("a process that caches the phase says it before it asks the database")
     void theProxyAnswersFromMemoryFirst() {
-        // The point of the ordering: this is the command somebody runs while the network is
-        // misbehaving, and it has to say something useful even when the row cannot be read.
+        // This is the command somebody runs while the network is misbehaving, so it has to say
+        // something useful even when the row cannot be read.
         final FakeEffects effects = new FakeEffects();
         effects.observation = new PhaseEffects.Observation(SeasonPhase.SMP, true, null);
         effects.readFailure = new IllegalStateException("the database is not there");
@@ -133,9 +120,7 @@ class PhaseCommandsTest {
     @DisplayName("a process with no cache and no database answers with its own key, not the proxy's")
     void theBotSaysSomethingItCanStandBehind() {
         // Two keys and not one, because phase.read.failed says "the phase above" and on this path
-        // there is nothing above. It said nothing at all until 2026-09-05, which is worse than
-        // either: a Discord interaction with no response reads as a broken command rather than as
-        // a database that did not answer, and a request row claimed off the table settled empty.
+        // there is nothing above.
         final FakeEffects effects = new FakeEffects();
         effects.readFailure = new IllegalStateException("the database is not there");
         final FakeUser user = FakeUser.inDiscord();
@@ -151,7 +136,6 @@ class PhaseCommandsTest {
     void theLineMayComeFromInsideTheTry() {
         // No cache, so the phase line is produced inside the same try as the dates: currentPhase()
         // can succeed and launch() fail, and then there IS something above the failure sentence.
-        // The first version of this branch decided on `held`, which is a different question.
         final FakeEffects effects = new FakeEffects();
         effects.datesFailure = new IllegalStateException("the dates are not there");
         final FakeUser user = FakeUser.inDiscord();
@@ -213,8 +197,8 @@ class PhaseCommandsTest {
     @DisplayName("an unknown phase name is refused without touching the database")
     void anUnknownPhaseIsRefusedBeforeTheWrite() {
         // SeasonPhase.fromDatabase answers MAINTENANCE to anything it does not recognise, which is
-        // right for a row and catastrophic for a command line: a name this build does not know
-        // would lock the whole network out without anybody typing MAINTENANCE.
+        // right for a row and catastrophic for a command line: an unknown name would lock the whole
+        // network out without anybody typing MAINTENANCE.
         final FakeEffects effects = new FakeEffects();
         effects.current = SeasonPhase.SMP;
         final FakeUser user = FakeUser.inGame();
@@ -262,10 +246,8 @@ class PhaseCommandsTest {
         assertTrue(effects.lastReason.contains("DISCORD"), effects.lastReason);
         assertTrue(effects.lastReason.contains("tester"), effects.lastReason);
 
-        // An asker with no Discord id writes a null actor rather than a placeholder string. The
-        // audit column is nullable for exactly that, and /phase itself is not on the console - but
-        // the logic must not assume a Discord id exists, because the surfaces are a per-declaration
-        // decision and this class is not the place that takes it.
+        // An asker with no Discord id writes a null actor rather than a placeholder string; the
+        // audit column is nullable for exactly that.
         final FakeEffects fromConsole = new FakeEffects();
         new SetPhase().run(FakeUser.console(),
                 new Values(PhaseCommands.SET, Map.of("phase", "SMP")), fromConsole);
@@ -309,8 +291,8 @@ class PhaseCommandsTest {
     @Test
     @DisplayName("moving smp-start reports how much of other people's access moved with it")
     void movedAccessIsAlwaysReported() {
-        // The only place an admin finds out that a date change rewrote rows belonging to people who
-        // are not in the room. The proxy said it and the bot said it; nothing made them agree.
+        // The only place an admin finds out that a date change rewrote rows belonging to people
+        // who are not in the room.
         final FakeEffects effects = new FakeEffects();
         effects.grants = 7;
         effects.accounts = 4;

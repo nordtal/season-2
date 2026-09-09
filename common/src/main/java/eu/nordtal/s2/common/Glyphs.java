@@ -4,20 +4,11 @@ package eu.nordtal.s2.common;
  * Code points of the characters the resource pack defines, so a plugin never hardcodes a
  * private-use escape that the pack has since moved.
  *
- * <p><b>The authoritative mapping is {@code resource-pack/README.md}</b>, "Code point allocation"
- * (decided 2026-08-31). It covers all <b>four</b> fonts - {@code minecraft/font/default.json},
- * {@code nordtal/font/board.json}, {@code nordtal/font/bossbar.json} and
- * {@code nordtal/font/gui.json} - and this class, those four files and that table are mirrors of
- * one allocation. A change is a change in all of them, in one commit, and
- * {@code ResourcePackTest} fails when they drift.
+ * <p>This class and the pack's font files are mirrors of one allocation; a change is a change in
+ * all of them, and {@code ResourcePackTest} fails when they drift.
  *
- * <p>Constants are grouped by font. {@code minecraft:default} is drawn as ordinary text - tab
- * list, chat, nametags, Text Display boards. {@code nordtal:board} is the boards' frame,
- * {@code nordtal:bossbar} the boss bar HUDs with the vanilla bar made invisible, and
- * {@code nordtal:gui} the menu panels a chest inventory's title carries. <b>The four fonts
- * allocate independently</b>, so the same code point means four different glyphs depending on
- * which font a component names - see {@link #FONT_BOSSBAR} for what that costs when a component
- * names none.
+ * <p>Constants are grouped by font. <b>The fonts allocate independently</b>, so the same code point
+ * means a different glyph depending on which font a component names - see {@link #FONT_BOSSBAR}.
  */
 public final class Glyphs {
 
@@ -28,21 +19,10 @@ public final class Glyphs {
      * A code point as a string, so the constants below can be read as hex instead of as
      * surrogate pairs.
      *
-     * <p>Every glyph in this pack lives in <b>Supplementary Private Use Area-A</b>,
-     * {@code U+F0000..U+FFFFD}, and that is a deliberate move away from the basic plane's
-     * {@code U+E000..U+F8FF} (2026-09-04). Two reasons. The glyph plugins everyone else runs -
-     * ItemsAdder, Oraxen, Nexo - auto-assign from {@code U+E000} upward, so a pack merged with
-     * ours would collide silently: the later provider wins and the glyph renders at another
-     * font's ascent, which reads as a positioning bug rather than as a collision. And Minecraft
-     * has shipped a {@code unifont_pua} provider since 1.21.6 that nothing currently references -
-     * the day something does, an unmapped basic-plane code point stops being visibly broken and
-     * starts being quietly wrong, which is the worse half.
-     *
-     * <p>The mapping was mechanical: {@code 0xE004} became {@code 0xFE004}, one hex digit in
-     * front, so every code point kept its place in the allocation table. Written as
-     * {@code cp(0x...)} rather than as a {@code "\uDBB8\uDC04"} literal because a surrogate pair
-     * in source is unreadable and ungreppable. Nothing outside this class and the three font files
-     * ever names a code point - {@code TabListTest} asserts message bundles carry none.</p>
+     * <p>Every glyph lives in Supplementary Private Use Area-A, {@code U+F0000..U+FFFFD}, rather
+     * than in the basic plane's {@code U+E000..U+F8FF}: the common glyph plugins auto-assign from
+     * {@code U+E000} upward and would collide silently with a merged pack, and Minecraft's own
+     * {@code unifont_pua} provider covers the basic range.
      */
     private static String cp(final int codePoint) {
         return Character.toString(codePoint);
@@ -54,13 +34,10 @@ public final class Glyphs {
      * The font a component has to name for the {@code nordtal:bossbar} code points below to
      * resolve at all.
      *
-     * <p><b>This is not decoration, and forgetting it is not a subtle bug.</b> The three fonts
-     * allocate independently - the class comment above says so - which means a bossbar code point
-     * left in {@code minecraft:default} does not fall back to nothing, it draws whatever
-     * {@code default.json} happens to have put at that code point. {@link #BOSSBAR_BG_4} is
-     * {@code U+FE004} and so is {@link #TAG_ADMIN}, so a boss bar rendered in the default font
-     * draws the admin tag in the middle of its background bar. That is exactly what a real client
-     * showed on 2026-09-04, and it is why every component carrying these glyphs names its font.
+     * <p>A bossbar code point left in {@code minecraft:default} does not fall back to nothing: it
+     * draws whatever that font put at the same code point ({@link #BOSSBAR_BG_4} and
+     * {@link #TAG_ADMIN} are both {@code U+FE004}). Every component carrying these glyphs must name
+     * its font.
      */
     public static final String FONT_BOSSBAR = "nordtal:bossbar";
 
@@ -74,18 +51,10 @@ public final class Glyphs {
      * The six row fonts, one per chest row, in which every {@code GUI_ROW_*} code point and all
      * readable row text resolves.
      *
-     * <h2>Why there are six of them</h2>
-     * A glyph's only vertical control is its font's {@code ascent}, and a list menu wants the same
-     * picture - a pill, an icon, a line of text - on any of the six rows. Carrying the row in the
-     * <em>code point</em> costs one code point per (picture, row) and is impossible for text, whose
-     * code points are not ours to choose. Carrying it in the <em>font</em> costs one font per row
-     * and nothing per picture: {@code nordtal:gui_r2} is "everything, drawn on chest row 2". All
-     * six declare exactly the same characters, at three ascents - furniture, icon and text - which
-     * {@code resource-pack/tools/generate_gui_rows.py} derives and writes.
-     *
-     * <p>Indexed by row, so {@code FONT_GUI_ROWS[0]} is the top chest row. A component drawn on a
-     * row names one of these instead of {@link #FONT_GUI}; naming the wrong one draws the right
-     * picture one or more rows out, which looks like a layout bug and not like a font mistake.</p>
+     * <p>A glyph's only vertical control is its font's {@code ascent}, so the row is carried in the
+     * font rather than in the code point: all six declare the same characters at that row's
+     * ascents. Indexed by row, {@code FONT_GUI_ROWS[0]} being the top chest row; naming the wrong
+     * one draws the right picture on the wrong row.
      */
     public static final String[] FONT_GUI_ROWS = {
             "nordtal:gui_r0", "nordtal:gui_r1", "nordtal:gui_r2",
@@ -95,8 +64,6 @@ public final class Glyphs {
     // === minecraft:default ===
 
     // Player badges - U+FE000..U+FE00F
-    // Donor star re-uses the retired settler tag's code point (resource-pack/README.md,
-    // 2026-08-31) - drawn as of the dummy-texture pass, still placeholder-quality art.
     public static final String BADGE_DONOR_STAR = cp(0xFE000);
     public static final String TAG_ADMIN = cp(0xFE004);
 
@@ -111,22 +78,9 @@ public final class Glyphs {
     /**
      * The flag glyph for a language, which is the one every surface draws beside a player's name.
      *
-     * <p><b>It is the language, not the country</b>, and the mapping is therefore a choice rather
-     * than a lookup - there is no flag for "German" any more than there is a language called
-     * "Belgian". The pack draws five, and this is how the season's languages land on them:
-     *
-     * <ul>
-     *   <li>{@code de} - Germany</li>
-     *   <li>{@code nl} - the Netherlands</li>
-     *   <li>{@code en} with country {@code US} - the United States</li>
-     *   <li>{@code en} otherwise - the United Kingdom, which is the default English flag because
-     *       the server is a European one and {@code Locale.ENGLISH} carries no country at all</li>
-     *   <li>anything else - the neutral flag, which exists so an unexpected locale renders as
-     *       something rather than as a missing glyph</li>
-     * </ul>
-     *
-     * <p>A null locale is the neutral flag too: it means the account link has not been read yet,
-     * which is a state a player can be in for the first second of a session.
+     * <p>It maps a language, not a country, so the mapping is a choice: {@code en} without a
+     * country falls to the United Kingdom because the server is a European one, and anything
+     * unmapped (a null locale included) gets the neutral flag rather than a missing glyph.
      */
     public static String flagFor(final java.util.Locale locale) {
         if (locale == null) {
@@ -148,10 +102,7 @@ public final class Glyphs {
     public static final String LOGO_HEIGHT_24 = cp(0xFE020);
     public static final String LOGO_HEIGHT_32 = cp(0xFE021);
 
-    // Prestige crests - U+FE030..U+FE03C, height 9 / ascent 8, tiers 1-13 in order
-    // (smp.md#prestige--a-crest-earned-by-time). Placeholder art: a shield outline with
-    // a bottom-up fill gauge proportional to the tier, not the real thirteen-tier
-    // coat-of-arms design - see resource-pack/README.md before treating these as final.
+    // Prestige crests - U+FE030..U+FE03C, height 9 / ascent 8, tiers 1-13 in order.
     public static final String PRESTIGE_CREST_01 = cp(0xFE030);
     public static final String PRESTIGE_CREST_02 = cp(0xFE031);
     public static final String PRESTIGE_CREST_03 = cp(0xFE032);
@@ -177,20 +128,12 @@ public final class Glyphs {
             PRESTIGE_CREST_13,
     };
 
-    // System-line icons - U+FE080..U+FE085, height 7 / ascent 7, minecraft:default.
+    // System-line icons - U+FE080..U+FE085, height 7 / ascent 7, minecraft:default. The markers in
+    // front of the lines a player reads all day: chat, join, leave, death, advancement, announce.
     //
-    // The six markers in front of the lines a player reads all day: chat, join, leave, death,
-    // advancement, and the announcements the whole server is told (docs/presentation.md section 5).
-    // Allocated at 0xFE080 rather than at the next free slot after the crests, so that the number
-    // alone is unambiguous across all four fonts: nordtal:board already uses 0xFE040..0xFE055 and
-    // nordtal:gui reserves through 0xFE07F, and a code point that means two different pictures in
-    // two fonts is what put the admin nametag inside the SMP's boss bar for four days.
-    //
-    // THE ART IS WHITE, and that is load-bearing rather than a taste in colours: Minecraft
-    // multiplies a glyph by the component's text colour, so white can be tinted to whatever the
-    // message bundle asks for and black cannot be tinted lighter. The board frame was drawn black
-    // and was invisible on the surface it hangs on; these six sit in a chat line whose colour the
-    // operator can change without a release.
+    // The art is white on purpose: Minecraft multiplies a glyph by the component's text colour, so
+    // white can be tinted to whatever the message bundle asks for and black cannot be tinted
+    // lighter.
 
     /** The rule between a player's name and what they said. Not a character - 3 px wide. */
     public static final String SEPARATOR = cp(0xFE080);
@@ -204,13 +147,10 @@ public final class Glyphs {
     public static final String ICON_ANNOUNCE = cp(0xFE085);
 
     // === nordtal:board ===
-    // The objective board and aura leaderboard's frame (smp.md#the-boards-and-the-npc).
-    // A dedicated font, not minecraft:default - separated 2026-08-31 because, like
-    // nordtal:bossbar, the frame's tiled segments need their own negative-advance space
-    // provider to close the automatic 1px trailing gap every bitmap glyph gets, and that
-    // mechanic has no business in the font ordinary chat and nametags use. Corners and
-    // edges connect at each cell's center (4.5, 4.5) so any board width butts up
-    // seamlessly - see resource-pack/README.md's board-frame section for the geometry.
+    // The objective board and aura leaderboard's frame. A dedicated font rather than
+    // minecraft:default: the tiled segments need their own negative-advance space provider to close
+    // the automatic 1px trailing gap every bitmap glyph gets, and that mechanic has no business in
+    // the font ordinary chat and nametags use.
 
     // Space advances - negative, mirrors nordtal:bossbar's own block (fonts allocate
     // independently, so reusing the same code points here is not a collision).
@@ -223,12 +163,9 @@ public final class Glyphs {
     public static final String BOARD_SPACE_MINUS_64 = cp(0xFF064);
     public static final String BOARD_SPACE_MINUS_128 = cp(0xFF128);
 
-    // Space advances - positive, added 2026-09-04 with the frame. The same six the bossbar
-    // font declares, and for the same reason a frame needs them: the right-hand vertical
-    // edge has to be drawn at a known x before the content is, because the content's own
-    // width is what nothing here can measure. There is no +64 or +128 - the naming rule puts
-    // the decimal advance in the low digits, and "FFF" + "128" is six hex digits, past the
-    // end of SPUA-A. Wider shifts repeat the +32, which is what BoardFrame does.
+    // Space advances - positive. There is no +64 or +128: the naming rule puts the decimal advance
+    // in the low digits, and "FFF" + "128" is six hex digits, past the end of SPUA-A. Wider shifts
+    // repeat the +32.
     public static final String BOARD_SPACE_PLUS_1 = cp(0xFFF01);
     public static final String BOARD_SPACE_PLUS_2 = cp(0xFFF02);
     public static final String BOARD_SPACE_PLUS_4 = cp(0xFFF04);
@@ -256,10 +193,8 @@ public final class Glyphs {
     public static final String BOARD_EDGE_V_LEFT = cp(0xFE04C);
     public static final String BOARD_EDGE_V_RIGHT = cp(0xFE04D);
 
-    // Divider, tiled in powers of two like the horizontal edge - U+FE04E..U+FE055.
-    // Allocated separately from the outer edge (2026-08-31) so an interior rule can
-    // differ from the border, even though the current placeholder art draws both
-    // identically - see resource-pack/README.md.
+    // Divider, tiled in powers of two like the horizontal edge - U+FE04E..U+FE055. Allocated
+    // separately from the outer edge so an interior rule can differ from the border.
     public static final String BOARD_DIVIDER_1 = cp(0xFE04E);
     public static final String BOARD_DIVIDER_2 = cp(0xFE04F);
     public static final String BOARD_DIVIDER_4 = cp(0xFE050);
@@ -283,9 +218,6 @@ public final class Glyphs {
     public static final String BOSSBAR_SPACE_MINUS_128 = cp(0xFF128);
 
     // Space advances - positive, U+FFF01..U+FFF32 plus the ordinary space.
-    // These sat on real fullwidth punctuation (U+FF01..U+FF32) until 2026-09-04, which
-    // resource-pack/README.md carried as a standing finding: a HUD line containing a fullwidth
-    // exclamation mark would have been silently eaten. The move to SPUA-A closed it.
     public static final String BOSSBAR_SPACE_PLUS_1 = cp(0xFFF01);
     public static final String BOSSBAR_SPACE_PLUS_2 = cp(0xFFF02);
     public static final String BOSSBAR_SPACE_PLUS_3 = " ";
@@ -294,11 +226,10 @@ public final class Glyphs {
     public static final String BOSSBAR_SPACE_PLUS_16 = cp(0xFFF16);
     public static final String BOSSBAR_SPACE_PLUS_32 = cp(0xFFF32);
 
-    // Bar background segments - U+FE000..U+FE128, height 14 / ascent 6. Since 2026-09-05 a HUD
-    // line is one rounded PILL per piece of information: START, a body composed from the
-    // power-of-two segments, END. Every segment is exactly as wide as its name and the client
-    // advances a bitmap glyph by its width plus one, so the composer (BossBarWidth) steps back a
-    // pixel after each; the START cap sits at U+FE0FF because U+FE000 was END before START existed.
+    // Bar background segments - U+FE000..U+FE128, height 14 / ascent 6. A HUD line is one rounded
+    // pill per piece of information: START, a body composed from the power-of-two segments, END.
+    // Every segment is exactly as wide as its name and the client advances a bitmap glyph by its
+    // width plus one, so the composer (BossBarWidth) steps back a pixel after each.
     public static final String BOSSBAR_BG_END = cp(0xFE000);
     public static final String BOSSBAR_BG_START = cp(0xFE0FF);
     public static final String BOSSBAR_BG_1 = cp(0xFE001);
@@ -312,32 +243,26 @@ public final class Glyphs {
 
     // Status icons - U+FEF00..U+FEF0F, height 10 / ascent 4
     public static final String BOSSBAR_ICON_COMPASS = cp(0xFEF00);
-    // fblue/fgreen/fred/fwhite are one pennant-on-a-pole sprite in four colours - season 1's land
-    // indicator, picked by the player's position: blue inside a player's preserved area, green on
-    // permanent land, red in a reset zone, white in the server-protected spawn. Nothing in season 2
-    // draws them yet; the meanings are recorded in resource-pack/README.md.
+    // A pennant-on-a-pole sprite in four colours - a land indicator picked by the player's
+    // position: blue inside a preserved area, green on permanent land, red in a reset zone, white
+    // in the protected spawn. Nothing in season 2 draws them yet.
     public static final String BOSSBAR_ICON_FBLUE = cp(0xFEF01);
     public static final String BOSSBAR_ICON_FGREEN = cp(0xFEF02);
     public static final String BOSSBAR_ICON_FRED = cp(0xFEF03);
     public static final String BOSSBAR_ICON_FWHITE = cp(0xFEF04);
-    // Dimension icons - U+FEF05..U+FEF08, one per world the SMP/hunger games HUDs name. Real art
-    // since 2026-09-05 (resource-pack/tools/generate_hud.py): 10 x 10, a dark outline and one
-    // leading colour each - green Nordtal, gold farm world, red Nether, violet End.
+    // Dimension icons - U+FEF05..U+FEF08, one per world the SMP/hunger games HUDs name.
     public static final String BOSSBAR_ICON_DIM_OVERWORLD = cp(0xFEF05);
     public static final String BOSSBAR_ICON_DIM_FARM_WORLD = cp(0xFEF06);
     public static final String BOSSBAR_ICON_DIM_NETHER = cp(0xFEF07);
     public static final String BOSSBAR_ICON_DIM_END = cp(0xFEF08);
-    // The hunger games HUD's own icons - a heart, a skull, a chest, a dashed border - drawn by
-    // the same tool on the same day.
+    // The hunger games HUD's own icons - a heart, a skull, a chest, a dashed border.
     public static final String BOSSBAR_ICON_ALIVE = cp(0xFEF09);
     public static final String BOSSBAR_ICON_DEATHS = cp(0xFEF0A);
     public static final String BOSSBAR_ICON_LOOT_POINT = cp(0xFEF0B);
     public static final String BOSSBAR_ICON_BORDER = cp(0xFEF0C);
 
     // Bearing arrows - U+FEF10..U+FEF1F, height 10 / ascent 4, sixteen 22.5-degree steps clockwise
-    // from straight ahead. Shared by /navigate (SMP), the hunger games "nearest living player"
-    // arrow and its "nearest loot point" arrow. Drawn as of the 2026-08-31 dummy-texture pass -
-    // a real rotated arrowhead per step, not a rough placeholder; see resource-pack/README.md.
+    // from straight ahead.
     public static final String BOSSBAR_ARROW_000_0 = cp(0xFEF10);
     public static final String BOSSBAR_ARROW_022_5 = cp(0xFEF11);
     public static final String BOSSBAR_ARROW_045_0 = cp(0xFEF12);
@@ -369,25 +294,16 @@ public final class Glyphs {
 
     // === nordtal:gui ===
     //
-    // The menu panels - docs/presentation.md#2-menu-panels. A menu on this server is an ordinary
-    // chest inventory whose TITLE carries a bitmap glyph big enough to cover the whole window; the
-    // glyph rises out of the title's baseline on a large positive ascent and the slots draw on top
-    // of it, because the client renders labels after the background. That is the whole technique,
-    // and it is why there is one glyph per chest size rather than one panel: a window is
-    // 114 + 18*rows pixels tall, so a panel drawn for six rows is 90 px too tall for one row.
+    // A menu on this server is an ordinary chest inventory whose TITLE carries a bitmap glyph big
+    // enough to cover the whole window: the glyph rises out of the title's baseline on a large
+    // positive ascent and the slots draw on top of it, because the client renders labels after the
+    // background. There is one glyph per chest size rather than one panel, because a window is
+    // 114 + 18*rows pixels tall.
 
-    // Space advances - negative, U+FF001..U+FF128. The same code points board.json and
-    // bossbar.json use, which is not a collision: the fonts allocate independently, and a menu
-    // title composed in nordtal:gui can only ever reach nordtal:gui's own table.
-    //
-    // POSITIVE advances arrived on 2026-09-09, at U+FF801..U+FF928 - the same decimal-digit
-    // convention one bit higher, so +16 is U+FF816 next to -16 at U+FF016. This paragraph used to
-    // say there were deliberately none, because nothing in a menu title ever moved right: a panel
-    // is drawn from the left edge and the readable title walks back behind it. A LIST row does
-    // move right. Its pill has to be drawn before the text on top of it, and its icon before the
-    // name beside it, so the composition is left-to-right within a row and the cursor has to be
-    // able to go back out to the next row's start. Without them a renderer can only ever lay the
-    // topmost thing down first, which for a pill means painting it over its own label.
+    // Space advances - negative at U+FF001..U+FF128, positive at U+FF801..U+FF928 (the same
+    // decimal-digit convention one bit higher, so +16 is U+FF816 next to -16 at U+FF016). Sharing
+    // code points with board.json and bossbar.json is not a collision: the fonts allocate
+    // independently.
     public static final String GUI_SPACE_MINUS_1 = cp(0xFF001);
     public static final String GUI_SPACE_MINUS_2 = cp(0xFF002);
     public static final String GUI_SPACE_MINUS_4 = cp(0xFF004);
@@ -420,24 +336,20 @@ public final class Glyphs {
             GUI_PANEL_1, GUI_PANEL_2, GUI_PANEL_3, GUI_PANEL_4, GUI_PANEL_5, GUI_PANEL_6,
     };
 
-    // The balloon's travel panel and its two state overlays - U+FE066..U+FE06A, 2026-09-05.
-    // The panel is a 6-row window with the four world cards baked in, because all four are always
-    // shown in fixed places; what varies is a card's STATE, and each state is one tile-sized glyph
-    // declared TWICE - once per tile row, at the ascent that lands it on that row - and drawn over
-    // the panel by walking the cursor back to the card's x. See MenuTitle.Canvas for the
-    // composition and docs/presentation.md#2-menu-panels for the technique. The tile geometry
-    // (68 x 50 at x 9/99, y 19/73) lives in resource-pack/tools/generate_gui_panels.py and is
-    // read back off the PNGs by MenuTitleTest; nothing here restates it.
+    // The balloon's travel panel and its two state overlays - U+FE066..U+FE06A. The panel is a
+    // 6-row window with the four world cards baked in; what varies is a card's state, and each
+    // state is one tile-sized glyph declared twice - once per tile row, at the ascent that lands it
+    // on that row - drawn over the panel by walking the cursor back to the card's x.
     public static final String GUI_TRAVEL_PANEL = cp(0xFE066);
     public static final String GUI_TRAVEL_LOCKED_TOP = cp(0xFE067);
     public static final String GUI_TRAVEL_LOCKED_BOTTOM = cp(0xFE068);
     public static final String GUI_TRAVEL_HERE_TOP = cp(0xFE069);
     public static final String GUI_TRAVEL_HERE_BOTTOM = cp(0xFE06A);
 
-    // The same six panels WITHOUT the container's own slot recesses - U+FE06B..U+FE070, 2026-09-09.
-    // A list menu draws a pill across a whole row, and a recess under it shows above, below and on
-    // both sides of every pill. The player's own three rows and the hotbar keep their recesses in
-    // both variants, because those slots hold real items whatever the menu above them is.
+    // The same six panels WITHOUT the container's own slot recesses - U+FE06B..U+FE070. A list menu
+    // draws a pill across a whole row, and a recess under it would show around every pill. The
+    // player's own rows and the hotbar keep their recesses in both variants, because those slots
+    // hold real items whatever the menu above them is.
     public static final String GUI_PANEL_PLAIN_1 = cp(0xFE06B);
     public static final String GUI_PANEL_PLAIN_2 = cp(0xFE06C);
     public static final String GUI_PANEL_PLAIN_3 = cp(0xFE06D);
@@ -454,15 +366,13 @@ public final class Glyphs {
 
     // === nordtal:gui_r0 .. nordtal:gui_r5 ===
     //
-    // The row furniture - U+FE100..U+FE11F, the block reserved for it on 2026-09-08. Every one of
-    // these is declared in ALL SIX row fonts at that row's ascent, so the code point says WHAT is
-    // drawn and FONT_GUI_ROWS[row] says WHERE. A GUI_ROW_* constant in nordtal:gui itself draws
-    // nothing at all: that font declares none of them.
+    // The row furniture - U+FE100..U+FE11F. Every one of these is declared in ALL SIX row fonts at
+    // that row's ascent, so the code point says WHAT is drawn and FONT_GUI_ROWS[row] says WHERE. A
+    // GUI_ROW_* constant in nordtal:gui itself draws nothing: that font declares none of them.
     //
-    // Their advances are not written down here. They are a property of the PNGs, exported by
-    // resource-pack/tools/generate_gui_rows.py into :common's own resources and read by MenuFont -
-    // the same arrangement BossBarAdvances has, and for the same reason: a redrawn glyph whose
-    // rightmost column moved would otherwise be a row one pixel out on a client and nowhere else.
+    // Their advances are deliberately not written down here: they are a property of the PNGs,
+    // exported into :common's own resources and read by MenuFont, so a redrawn glyph cannot leave a
+    // stale number behind.
 
     /** A list entry's plate, 158 px wide and 14 tall - the width of the slot area inset 2. */
     public static final String GUI_ROW_PILL = cp(0xFE100);
@@ -480,20 +390,14 @@ public final class Glyphs {
     public static final String GUI_ROW_BUTTON_SMALL_OFF = cp(0xFE104);
 
     /**
-     * The same 158 px plate in a darker grey: a <em>heading</em> row rather than an entry.
-     *
-     * <p>The objective menu's top row names the milestone the cards below belong to. Drawn in the
-     * entry grey it would read as a fifth thing to click, which is the one thing a heading must
-     * not do.
+     * The same 158 px plate in a darker grey: a heading row rather than an entry, so it does not
+     * read as another thing to click.
      */
     public static final String GUI_ROW_PILL_DARK = cp(0xFE105);
 
     /**
-     * A 50 px button plate in the affirming style: gold, the brand's own.
-     *
-     * <p>The only plate in the pack that is not neutral grey or refusing red, and it is one because
-     * it is the only button in these menus whose click cannot be undone by clicking again - the
-     * hand-in's confirm.
+     * A 50 px gold button plate - the hand-in's confirm, the only button in these menus whose click
+     * cannot be undone by clicking again.
      */
     public static final String GUI_ROW_BUTTON_CONFIRM = cp(0xFE106);
 
@@ -508,9 +412,8 @@ public final class Glyphs {
     public static final String GUI_ROW_ICON_PREV = cp(0xFE114);
     public static final String GUI_ROW_ICON_NEXT = cp(0xFE115);
 
-    // The objective card's four states. The icon IS the state on that card - a hand you can hand
-    // something to, a pickaxe that counts itself, a medal earned elsewhere, a tick when it is done -
-    // so these four are never drawn beside one another and one of them always is.
+    // The objective card's four states. The icon is the state on that card, so exactly one of these
+    // four is drawn on a card and never two.
     public static final String GUI_ROW_ICON_HAND_IN = cp(0xFE116);
     public static final String GUI_ROW_ICON_STATISTIC = cp(0xFE117);
     public static final String GUI_ROW_ICON_ADVANCEMENT = cp(0xFE118);
@@ -520,17 +423,14 @@ public final class Glyphs {
     public static final String GUI_ROW_ICON_AURA = cp(0xFE11A);
     // U+FE11B..U+FE1FF is this block's room to grow.
 
-    // === nordtal:gui, menu surfaces - U+FE200..U+FE2FF (2026-09-09) ===
+    // === nordtal:gui, menu surfaces - U+FE200..U+FE2FF ===
     //
-    // A menu whose art spans MORE THAN ONE chest row cannot be a row glyph: a row font's whole
-    // purpose is that it carries one ascent per layer per row, and a card two rows tall has no row.
-    // So these live in nordtal:gui with an ascent apiece, exactly as the balloon's overlays do -
-    // and, exactly as there, a picture that can land on two different rows is declared twice.
+    // Art that spans MORE THAN ONE chest row cannot be a row glyph - a row font carries one ascent
+    // per layer per row, and a card two rows tall has no row - so these live in nordtal:gui with an
+    // ascent apiece, and a picture that can land on two rows is declared twice.
     //
-    // The block is its own because U+FE060..U+FE07F was full. Nothing forced a NEW block - fonts
-    // allocate independently and U+FE090 was free in this one - but the numbers in this repository
-    // are kept globally distinct so that a code point read in a log or a screenshot names one thing,
-    // and U+FE080 is the system-line icons in minecraft:default.
+    // Code points in this repository are kept globally distinct across fonts, even though nothing
+    // forces it, so that a number read in a log or a screenshot names one thing.
 
     /** The objective card, 68 x 32, on the upper of the two card rows (top y 37). */
     public static final String GUI_CARD_TOP = cp(0xFE200);
@@ -545,44 +445,32 @@ public final class Glyphs {
     public static final String GUI_CARD_DONE_BOTTOM = cp(0xFE203);
 
     /**
-     * The progress bar's fill, in powers of two, for the upper card row.
-     *
-     * <p>Indexed the way {@link #GUI_SPACE_MINUS_1} and friends are used: any fill from 0 to 60
-     * pixels is at most four of these laid side by side, because 60 is 32 + 16 + 8 + 4. The bar's
-     * <em>track</em> is baked into the card, so an empty bar costs nothing at all.
+     * The progress bar's fill, in powers of two, for the upper card row. The bar's track is baked
+     * into the card, so an empty bar draws nothing.
      */
     public static final String[] GUI_BAR_FILL_TOP = {
             cp(0xFE210), cp(0xFE211), cp(0xFE212), cp(0xFE213), cp(0xFE214), cp(0xFE215),
     };
 
     /**
-     * The hand-in screen's tray: one sunken surface 162 x 54 over three chest rows.
-     *
-     * <p>One surface and not a recess per slot, which is design {@code H2} and is the deliberate
-     * opposite of the grave - see {@code HandInPanel}'s own comment for why the two must not be
-     * made the same.
+     * The hand-in screen's tray: one sunken surface 162 x 54 over three chest rows, deliberately
+     * not a recess per slot the way {@link #GUI_GRAVE_SLAB} is.
      */
     public static final String GUI_HANDIN_TRAY = cp(0xFE204);
 
     /**
-     * The grave's slab: a recess per slot on stone, one glyph per row count.
-     *
-     * <p>A recess per slot and <b>not</b> one surface, which is the deliberate opposite of
-     * {@link #GUI_HANDIN_TRAY} - see {@code GravePanel}'s own comment. Indexed from one row, so
-     * {@code GUI_GRAVE_SLAB[0]} is a single row; five is the most there can be, because a player
-     * carries at most forty-one stacks and the window's sixth row is the footer.
+     * The grave's slab: a recess per slot on stone, one glyph per row count, deliberately not one
+     * surface the way {@link #GUI_HANDIN_TRAY} is. Indexed from one row; five is the most there can
+     * be, because a player carries at most forty-one stacks and the sixth row is the footer.
      */
     public static final String[] GUI_GRAVE_SLAB = {
             cp(0xFE205), cp(0xFE206), cp(0xFE207), cp(0xFE208), cp(0xFE209),
     };
 
     /**
-     * The wheel's own panel: five rows with a ring of twelve prize cells and a hub.
-     *
-     * <p>A whole window like {@link #GUI_TRAVEL_PANEL} rather than an overlay, because a circle on a
-     * 9 x 5 grid is a band between the cells and not a thing that lands on any one of them. The
-     * winning cell wears the same two-pixel white frame {@code travel_here} does - see
-     * {@code WheelPanel} for why the design's pointer could not survive the ring moving left.
+     * The wheel's own panel: five rows with a ring of twelve prize cells and a hub. A whole window
+     * like {@link #GUI_TRAVEL_PANEL} rather than an overlay, because a circle on a 9 x 5 grid is a
+     * band between the cells and not a thing that lands on any one of them.
      */
     public static final String GUI_WHEEL_RING = cp(0xFE20A);
 

@@ -4,23 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * When the lobby countdown says something.
- *
- * <h2>Why this is a class and not a loop</h2>
- * Until 2026-09-01 the countdown said <em>nothing at all</em>: {@code HungerGamesManager#start}
- * teleported everyone onto a tower, froze them, and scheduled the release a minute later with no
- * message in between. {@code hg.start.countdown} was written and translated in both languages and
- * never sent. A player standing still on a pillar with no text on screen cannot tell a countdown
- * from a hung server, which is the same failure `limbo`'s re-sent title exists to prevent.
- *
- * <h2>Why marks rather than every second</h2>
- * Sixty chat lines is not information, it is noise, and the last ten seconds are the only ones
- * anybody is actually counting. The marks are the same shape as the farm-world reset schedule in
- * docs/smp.md#the-farm-world-reset - sparse far out, dense at the end - and the full duration is
- * always announced first so that a player who arrives to a frozen screen is told immediately how
- * long it will last.
- *
- * <p>Pure arithmetic over one integer, so it is tested rather than watched.</p>
+ * When the lobby countdown says something: sparse far out, dense at the end, with the full duration
+ * announced first so a frozen player can tell a countdown from a hung server. Sixty chat lines
+ * would be noise. Pure arithmetic over one integer, so it is tested rather than watched.
  */
 public final class Countdown {
 

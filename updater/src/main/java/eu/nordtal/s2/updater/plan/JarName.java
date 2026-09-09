@@ -16,22 +16,15 @@ import org.jetbrains.annotations.Nullable;
  *   paper-26.2-121.jar                -&gt; paper-26.2           / 121
  * </pre>
  *
- * <h2>Why this rule and not a better one</h2>
- * It is not a good rule. It is {@code ${file%-*.jar}} out of
- * {@code deploy/minecraft/entrypoint.sh}, which is the rule the running deployment has used to
- * decide which jar supersedes which since before this module existed. Inventing a cleverer one
- * here would mean two programs disagreeing about which file is an old copy of which - and the way
- * that disagreement surfaces is Paper loading two versions of the same plugin, which it does
- * without complaining until something calls the wrong one.
+ * <p>It is not a good rule; it is {@code ${file%-*.jar}} out of
+ * {@code deploy/minecraft/entrypoint.sh}, and the two must agree. Two programs disagreeing about
+ * which file supersedes which surfaces as Paper loading two versions of the same plugin, silently,
+ * until something calls the wrong one.</p>
  *
- * <p><b>The rule breaks on a qualifier.</b> A hypothetical
- * {@code packetevents-spigot-2.14.0-SNAPSHOT.jar} reads as prefix
- * {@code packetevents-spigot-2.14.0}, which matches nothing on disk, so it would be installed
- * <em>next to</em> the jar it replaces instead of over it. Nothing in this deployment ships a
- * qualifier today (measured against all six jars on 2026-09-01, above), and the guard is that
- * {@link #looksSuperseded} is only ever asked about a name this module resolved from an API in the
- * same run. If a source ever starts publishing qualifiers, this is the class that has to learn
- * about it, and the test that pins these six names is where that shows up.</p>
+ * <p><b>The rule breaks on a qualifier</b>: {@code packetevents-spigot-2.14.0-SNAPSHOT.jar} reads
+ * as prefix {@code packetevents-spigot-2.14.0}, matches nothing on disk and would be installed
+ * beside the jar it replaces. Nothing here ships a qualifier today; if a source starts to, this is
+ * the class that has to learn about it.</p>
  */
 public final class JarName {
 
@@ -48,13 +41,9 @@ public final class JarName {
     /**
      * The part that identifies the artefact: the filename with {@code -<version>.jar} removed.
      *
-     * @return {@code null} for a name that is not a jar, carries no {@code -} at all, or has
-     *         nothing after the last one. A split only exists when BOTH halves do:
-     *         {@code server.jar} has no version and therefore no prefix that means anything, and
-     *         {@code smp-.jar} is malformed rather than being version-less {@code smp}. Keeping
-     *         the two halves in step matters because callers use the prefix to decide what a file
-     *         supersedes - a name that yields a prefix but no version would supersede real jars
-     *         while being unidentifiable itself.
+     * @return {@code null} for a name that is not a jar, carries no {@code -}, or has nothing after
+     *         the last one. A split only exists when both halves do: a name yielding a prefix but no
+     *         version would supersede real jars while being unidentifiable itself.
      */
     public static @Nullable String prefixOf(final @NotNull String fileName) {
         return versionOf(fileName) == null ? null : splitStem(fileName, true);
@@ -64,10 +53,9 @@ public final class JarName {
      * The version segment, as text.
      *
      * @return {@code null} under the same conditions as {@link #prefixOf}. Never parsed into
-     *         numbers: this module compares filenames for equality and never for order, because
-     *         "which of these two versions is newer" is a question the publishing API has already
-     *         answered and a question no string comparison answers correctly (2.13.0 vs 2.9.0,
-     *         1.5.3 vs 1.5.3+build.2).
+     *         numbers: filenames are compared for equality and never for order, because the
+     *         publishing API has already answered which version is newer and no string comparison
+     *         answers it correctly (2.13.0 vs 2.9.0, 1.5.3 vs 1.5.3+build.2).
      */
     public static @Nullable String versionOf(final @NotNull String fileName) {
         return splitStem(fileName, false);
@@ -91,10 +79,8 @@ public final class JarName {
 
     /**
      * Whether {@code candidate} is an older copy of {@code wanted}: same prefix, different file.
-     * <p>
-     * This is the predicate that decides what gets deleted when a jar is swapped in (step 3 of
-     * docs/updater.md). In step 1 nothing is deleted and it is only used to explain the report.
-     * </p>
+     * This is what decides which jar is deleted when a new one is installed; a plan that only
+     * reports uses it to explain a row and deletes nothing.
      */
     public static boolean looksSuperseded(final @NotNull String candidate, final @NotNull String wanted) {
         if (candidate.equals(wanted)) {

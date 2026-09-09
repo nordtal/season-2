@@ -21,16 +21,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Drives {@code World#getWorldBorder()} per docs/hunger-games.md#the-border: centred on spawn,
- * shrinking by a fixed step on every death (extending an in-flight shrink rather than restarting
- * it), and a slow passive shrink after a configured quiet period with no death.
- * <p>
- * {@code WorldBorder} does not expose "am I mid-transition" - verified against Paper 26.2's actual
- * interface (only {@code getSize()} and {@code changeSize(double, long ticks)} exist as current,
- * non-deprecated methods; the {@code setSize(double, long seconds)} overload is deprecated for
- * removal since 1.21.11 - no "current target" or "time remaining" getter exists at all) - so
- * {@link GameState} is the source of truth for whether a shrink is in flight and what it targets.
- * </p>
+ * Drives {@code World#getWorldBorder()}: centred on spawn, shrinking by a fixed step on every death
+ * (extending an in-flight shrink rather than restarting it), plus a slow passive shrink after a
+ * quiet period with no death.
+ *
+ * <p>{@code WorldBorder} exposes no "am I mid-transition", target or time-remaining getter, so
+ * {@link GameState} is the source of truth for whether a shrink is in flight and what it targets.</p>
  */
 public final class BorderController {
 
@@ -89,9 +85,6 @@ public final class BorderController {
 
         final long durationMillis = BorderMath.shrinkDurationMillis(
                 border.getSize(), target, config.borderWallSpeedBlocksPerSecond());
-        // changeSize(double, long ticks) is WorldBorder's current (non-deprecated) API; the
-        // deprecated setSize(double, long seconds) overload was removed from Paper 26.2's own
-        // interface as of 1.21.11 per its javadoc, verified against the resolved sources jar.
         border.changeSize(target, Math.max(1, durationMillis / 50));
 
         final Instant endsAt = Instant.now().plusMillis(durationMillis);
@@ -134,14 +127,8 @@ public final class BorderController {
     }
 
     /**
-     * Both announcements are {@code COUNTDOWN_TICK} rather than {@code NETWORK_EVENT}, which is the
-     * one category choice in this module worth writing down.
-     *
-     * <p>docs/presentation.md section 4 names "border" in that category's own list, and the reason
-     * holds up: a shrink is a clock running out on where a player is allowed to stand, which is what
-     * the category means. It is deliberately <em>not</em> the network event - that is reserved for
-     * things everybody hears because they happened to somebody else, and a border closing is
-     * happening to the person hearing it.
+     * {@code COUNTDOWN_TICK}, not {@code NETWORK_EVENT}: a shrink is a clock running out on where
+     * the listener may stand, not something that happened to somebody else.
      */
     private void announce(final double target, final long seconds) {
         for (final Player player : world.getPlayers()) {
@@ -162,9 +149,8 @@ public final class BorderController {
 
     /**
      * @param location a position in the event world
-     * @return whether the position is still inside the current border - used to treat a loot point
-     *         the border has passed as absent (docs/hunger-games.md#loot) and to let the border
-     *         kill an unattended body (docs/hunger-games.md#disconnects)
+     * @return whether the position is still inside the current border - a loot point the border
+     *         has passed counts as absent, and an unattended body outside it dies
      */
     public boolean isInside(final Location location) {
         return world.getWorldBorder().isInside(location);

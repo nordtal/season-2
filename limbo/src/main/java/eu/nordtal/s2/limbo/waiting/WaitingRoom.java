@@ -28,9 +28,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * The waiting room's entire interface: one title per player, in that player's language, saying what
  * they are waiting for.
  *
- * <p>docs/architecture.md, decided 2026-08-31: "<b>What limbo shows: nothing.</b> Black, no visible
- * world, no other players and <b>no chat</b>. A title in the player's language says what they are
- * waiting for, and that is the entire interface."
+ * <p>Limbo shows nothing: black, no visible world, no other players and no chat. A title in the
+ * player's language says what they are waiting for, and that is the entire interface.
  *
  * <h2>The three things that make a black screen</h2>
  * <ol>

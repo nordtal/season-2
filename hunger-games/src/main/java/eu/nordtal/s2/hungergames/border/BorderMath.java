@@ -1,9 +1,8 @@
 package eu.nordtal.s2.hungergames.border;
 
 /**
- * The border's pure arithmetic: the death step, and target-composition rules. No Bukkit type
- * appears here on purpose, so it is exercised by plain unit tests rather than a running server -
- * see {@code docs/hunger-games.md#the-border}.
+ * The border's pure arithmetic: the death step and the target-composition rules. No Bukkit type
+ * appears here on purpose, so it is exercised by plain unit tests rather than a running server.
  */
 public final class BorderMath {
 
@@ -11,18 +10,14 @@ public final class BorderMath {
     }
 
     /**
-     * The fixed amount of diameter every death removes.
-     * <p>
-     * {@code step = (start - end) / (participants - 1)}, per docs/hunger-games.md#the-border - the
-     * same arithmetic {@code HungerGamesSpec#HARD_MINIMUM_PARTICIPANTS} is justified by: it divides
-     * by zero at one participant, which is exactly why a game can never start with fewer than two.
-     * </p>
+     * The fixed amount of diameter every death removes:
+     * {@code step = (start - end) / (participants - 1)}. It divides by zero at one participant,
+     * which is why a game can never start with fewer than two.
      *
      * @param startDiameter        the border's diameter at the start of the game
      * @param endDiameter          the floor the border never passes
-     * @param effectiveParticipants the participant count AFTER countdown-time demotions
-     *                              (docs/hunger-games.md#teams-colours-and-hearts), computed once
-     *                              at start and fixed for the rest of the game
+     * @param effectiveParticipants the participant count AFTER countdown-time demotions, computed
+     *                              once at start and fixed for the rest of the game
      * @return the step, a positive number of blocks of diameter
      * @throws IllegalArgumentException if {@code effectiveParticipants} is fewer than 2, or the
      *                                   diameters are not a valid start/end pair
@@ -40,14 +35,8 @@ public final class BorderMath {
     }
 
     /**
-     * Where a death-triggered shrink should target next.
-     * <p>
-     * "If a shrink is currently running, add the step to its target and keep the same edge speed
-     * (extend, don't restart); if idle, start a new shrink" (docs/hunger-games.md#the-border). This
-     * method is the "add the step" half - the currently-idle case's target is simply
-     * {@code currentSize - step}, which this same formula produces when {@code currentTarget} is
-     * passed as the border's current actual size.
-     * </p>
+     * Where a death-triggered shrink should target next. A running shrink is extended rather than
+     * restarted; the idle case falls out of the same formula by passing the border's actual size.
      *
      * @param currentTarget the border's current target diameter (its actual current size, if idle;
      *                      its in-flight target, if already shrinking)
@@ -62,11 +51,9 @@ public final class BorderMath {
     /**
      * How long, in milliseconds, a death-triggered shrink from {@code fromDiameter} to
      * {@code toDiameter} takes at the configured wall speed.
-     * <p>
-     * {@code border-wall-speed-blocks-per-second} in {@code HungerGamesSpec} is already expressed
-     * as a diameter-change rate (see that key's own comment for why), so no extra halving/doubling
-     * happens here - it is applied directly to the diameter delta.
-     * </p>
+     *
+     * <p>The configured wall speed is already a diameter-change rate, so it is applied directly to
+     * the diameter delta with no halving or doubling.</p>
      *
      * @param fromDiameter               the diameter the shrink starts from
      * @param toDiameter                 the diameter the shrink targets

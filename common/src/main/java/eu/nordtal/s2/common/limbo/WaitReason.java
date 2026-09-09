@@ -3,59 +3,41 @@ package eu.nordtal.s2.common.limbo;
 import java.util.Optional;
 
 /**
- * Why a player is sitting in the waiting room. This is the entire content of {@code limbo}'s
- * interface: docs/architecture.md settles that limbo shows "nothing. Black, no visible world, no
- * other players and no chat. A title in the player's language says what they are waiting for, and
- * that is the entire interface."
+ * Why a player is sitting in the waiting room - the entire content of {@code limbo}'s interface,
+ * which is otherwise black with a title in the player's language.
  *
- * <h2>Who decides which one</h2>
- * <b>The proxy does</b>, and it tells {@code limbo} over {@link LimboProtocol#CHANNEL}. That is
- * not an arbitrary split: two of these three reasons are facts only the proxy has. Whether the
- * pack has been applied is a {@code PlayerResourcePackStatusEvent} on the proxy, and whether the
- * phase's backend is registered and reachable is a question about {@code velocity.toml}'s server
- * list. {@code limbo} could read the phase itself - it has a database connection - but then one of
- * the three reasons would arrive by a different route than the other two, and a waiting room whose
- * title has two sources is a waiting room that shows the wrong title on the seam.
+ * <p>The proxy decides which one and tells {@code limbo} over {@link LimboProtocol#CHANNEL}. Two of
+ * the reasons are facts only the proxy has, and routing all of them the same way keeps the waiting
+ * room's title from having two sources that disagree on the seam.
  *
- * <h2>Names on the wire</h2>
- * {@link #name()} is what travels, so these constants are protocol and renaming one is a
- * compatibility break between a proxy and a backend of different versions. {@link #UNKNOWN} is the
- * value a decoder falls back to, which is why the set is closed rather than open-ended.
- *
- * <p>The message key each reason renders through is {@link #titleKey()} /
- * {@link #subtitleKey()}, resolved against {@code messages/limbo/&lt;language&gt;.properties}.
+ * <p>{@link #name()} is what travels, so these constants are protocol and renaming one breaks a
+ * proxy against a backend of a different version.
  */
 public enum WaitReason {
 
     /**
-     * The resource pack has been offered and has not been applied yet - the ordinary state of
-     * every login, and the reason {@code limbo} exists at all - see
-     * docs/architecture.md#the-login-path-end-to-end.
+     * The resource pack has been offered and has not been applied yet - the ordinary state of every
+     * login, and the reason {@code limbo} exists at all.
      */
     PACK,
 
     /**
      * The pack is applied and the player is ready, but the backend the current phase points at is
-     * not registered on this proxy or would not take the connection. Distinct from
-     * {@link #MAINTENANCE} because it is an accident and maintenance is a decision - and because
-     * this one resolves itself the moment the backend comes up, without anybody switching a phase.
+     * not registered or would not take the connection. Distinct from {@link #MAINTENANCE} because
+     * it resolves itself the moment the backend comes up.
      */
     BACKEND,
 
     /**
-     * The network is in {@code MAINTENANCE} and this player is not an admin. Unlike the other two
-     * this does not end on its own: it ends when somebody switches the phase, at which point
-     * {@code PlayerRouter} re-routes everybody and this player leaves the waiting room.
+     * The network is in {@code MAINTENANCE} and this player is not an admin. Unlike the other two it
+     * does not end on its own: it ends when somebody switches the phase.
      */
     MAINTENANCE,
 
     /**
-     * The player is in the waiting room and the proxy has not said why - either the message has
-     * not arrived yet (it is sent moments after the connection, so this is what the first tick
-     * shows), or there is no {@code network-control} on the proxy at all.
-     *
-     * <p>It is a real reason with a real text rather than a blank screen, because "black screen,
-     * no title, nothing happens" is indistinguishable from a crash to the person looking at it.
+     * The player is in the waiting room and the proxy has not said why - the message has not arrived
+     * yet, or there is no {@code network-control} on the proxy. It carries a real text because a
+     * blank screen is indistinguishable from a crash to the person looking at it.
      */
     UNKNOWN;
 

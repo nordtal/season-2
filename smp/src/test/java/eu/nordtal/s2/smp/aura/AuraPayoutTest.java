@@ -12,13 +12,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The contribution payout, which is the arithmetic docs/state-of-play.md calls "exactly the kind
- * that is cheap to test and expensive to discover in production".
+ * The contribution payout.
  *
- * <p>Two invariants run through everything below and are worth stating once: <b>the pot is never
- * overspent</b>, and <b>the same inputs always produce the same payout</b>. The first is what stops
- * an objective from minting aura; the second is what makes a leaderboard position explicable when
- * somebody asks about it a week later.
+ * <p>Two invariants run through everything below: <b>the pot is never overspent</b>, and <b>the
+ * same inputs always produce the same payout</b>.
  */
 class AuraPayoutTest {
 
@@ -36,10 +33,8 @@ class AuraPayoutTest {
 
     @Test
     void aContributorBelowTwoPercentGetsTheProportionalShareOnly() {
-        // docs/smp.md: "below that, a contributor gets their proportional share only, which is
-        // negligible". The threshold exists so a SMALL contribution is worth making and a SYMBOLIC
-        // one is not - without it, dropping one item into every objective on the track would have
-        // paid hundreds of aura for a few clicks.
+        // Below the threshold a contributor gets their proportional share only, so a symbolic
+        // contribution to every objective on the track cannot pay hundreds of aura.
         final List<AuraPayout.Share> shares = AuraPayout.split(100, 1000, contributions("a", 990, "b", 10));
 
         final AuraPayout.Share small = byId(shares, "b");
@@ -50,17 +45,15 @@ class AuraPayoutTest {
 
     @Test
     void exactlyOnTheThresholdQualifies() {
-        // 2 % of 1000 is 20. The verification list in docs/smp.md names this case by hand, because
-        // ">=" and ">" differ by one player's entire equal share.
+        // 2 % of 1000 is 20. ">=" and ">" differ by one player's entire equal share.
         assertTrue(byId(AuraPayout.split(100, 1000, contributions("a", 980, "b", 20)), "b").qualified());
         assertFalse(byId(AuraPayout.split(100, 1000, contributions("a", 981, "b", 19)), "b").qualified());
     }
 
     @Test
     void theWorkedExampleFromTheConcept() {
-        // "At an early pot of 30 with twelve qualifiers, 30 % is nine aura, which in whole numbers
-        // rounds to nothing at all - and paying a participant zero is exactly what the equal part
-        // is there to prevent." One each, and the difference comes out of the proportional part.
+        // At a pot of 30 with twelve qualifiers, 30 % is nine aura, which in whole numbers rounds
+        // to nothing - and paying a participant zero is what the equal part exists to prevent.
         final Map<String, Long> twelve = new LinkedHashMap<>();
         for (int index = 0; index < 12; index++) {
             twelve.put("p" + index, 100L);
@@ -80,9 +73,8 @@ class AuraPayoutTest {
 
     @Test
     void thePotIsNeverOverspent() {
-        // The invariant the 2026-08-31 rewrite of this rule exists to guarantee: the old
-        // "guaranteed floor plus proportional share" was an absolute number next to a relative pot,
-        // and a small objective's pot could be smaller than the sum of its own floors.
+        // An absolute guaranteed floor next to a relative pot would let a small objective's pot
+        // be smaller than the sum of its own floors.
         for (int pot : new int[]{1, 2, 7, 30, 60, 80, 110, 170, 1000}) {
             for (int contributors : new int[]{1, 2, 3, 12, 40, 100}) {
                 final Map<String, Long> map = new LinkedHashMap<>();
@@ -100,9 +92,8 @@ class AuraPayoutTest {
 
     @Test
     void moreQualifiersThanThereIsAuraPaysTheBiggestContributorsFirst() {
-        // The case the concept never had to name. Forty qualifiers on a pot of thirty cannot all
-        // get their guaranteed aura; the guarantee reaches as far as the pot does, largest
-        // contribution first, and everybody else keeps their proportional share.
+        // Forty qualifiers on a pot of thirty cannot all get their guaranteed aura: the guarantee
+        // reaches as far as the pot does, largest contribution first.
         final Map<String, Long> forty = new LinkedHashMap<>();
         for (int index = 0; index < 40; index++) {
             forty.put(String.format("p%02d", index), (long) (index + 1) * 100);
@@ -139,8 +130,8 @@ class AuraPayoutTest {
 
     @Test
     void anAdminCompletionPaysProportionallyToWhatWasActuallyReached() {
-        // docs/smp.md: "every admin completion pays pot × (reached ÷ target), so a rescue neither
-        // robs the contributors nor mints aura".
+        // An admin completion pays pot × (reached ÷ target), so a rescue neither robs the
+        // contributors nor mints aura.
         assertEquals(50, AuraPayout.scaledPot(100, 500, 1000));
         assertEquals(0, AuraPayout.scaledPot(100, 0, 1000));
         assertEquals(100, AuraPayout.scaledPot(100, 1000, 1000));
@@ -158,9 +149,8 @@ class AuraPayoutTest {
 
     @Test
     void aTargetOfZeroIsRefusedRatherThanDividedBy() {
-        // smp_objective's own CHECK forbids it; this is the same rule stated where a division
-        // happens, so a caller that hands in a stale row gets a message instead of an arithmetic
-        // exception halfway through a payout.
+        // smp_objective's own CHECK forbids it; stated again where the division happens, so a
+        // stale row gets a message rather than an arithmetic exception mid-payout.
         assertThrows(IllegalArgumentException.class,
                 () -> AuraPayout.split(100, 0, contributions("a", 1, "b", 1)));
         assertThrows(IllegalArgumentException.class, () -> AuraPayout.scaledPot(100, 10, 0));
@@ -168,9 +158,8 @@ class AuraPayoutTest {
 
     @Test
     void theSameInputsAlwaysProduceTheSamePayout() {
-        // Including the tie-break. Two people who contributed the same amount to an objective whose
-        // pot cannot pay them both is a coin toss, and a coin toss that lands differently on a
-        // re-run is a bug report nobody can reproduce.
+        // Including the tie-break: two equal contributors on a pot that cannot pay them both must
+        // resolve the same way on every run.
         final Map<String, Long> tied = new LinkedHashMap<>();
         for (int index = 0; index < 20; index++) {
             tied.put(String.format("p%02d", index), 50L);
@@ -189,9 +178,8 @@ class AuraPayoutTest {
 
     @Test
     void anOvershotObjectiveStillOnlyPaysItsPot() {
-        // The ordinary HAND_IN case: the delivery that completes an objective usually overshoots.
-        // Reading docs/smp.md's "share of the target" literally would pay out more than the pot
-        // here, which is why the denominator is the total actually contributed.
+        // The delivery that completes a HAND_IN usually overshoots, which is why the denominator
+        // is the total actually contributed rather than the target.
         final List<AuraPayout.Share> shares =
                 AuraPayout.split(100, 1000, contributions("a", 3000, "b", 1000));
 

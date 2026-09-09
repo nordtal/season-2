@@ -26,30 +26,15 @@ import java.util.UUID;
 /**
  * Whoever typed a command on a Paper server - a player, or the console.
  *
- * <h2>Why the console is a first-class case here</h2>
- * Because it was not one, and that was a real defect rather than a gap. Every {@code /hg} handler
- * cast its sender to {@link Player}, and the Brigadier tree gated every subcommand on
- * {@code getSender() instanceof Player} - so the console could run <b>none</b> of it, and the start
- * of the season's flagship event depended on exactly one client being able to connect and stay
- * connected. {@code /phase} has had a documented second path for that failure since 2026-08-31;
- * {@code /hg} had nothing, and nothing said so.
+ * <p><b>The console is always an admin</b>, and that is the single exception to
+ * {@code discord_user.admin} being the only admin list. It is not a second list: the console is a
+ * shell inside the container, and anybody holding one can edit that table by hand. Refusing them
+ * would only remove the path that still works when the database holds no admin at all.
  *
- * <h2>The console is an admin, and that is the one place something other than the database decides</h2>
- * {@code discord_user.admin} is the only admin list in this repository (docs/smp.md#admins), and this
- * is its single exception. It is not a second list: the console is a shell inside the container, and
- * anybody holding one can edit that table by hand. Refusing them would protect nothing and would
- * remove the one path that still works when the database holds no admin at all.
+ * <p>The console gets English, because it has no account and therefore no language.
  *
- * <h2>The language, and why the console gets English</h2>
- * A player's language is {@code discord_user.locale} through {@code account_link}, resolved by
- * {@code PlayerLocales} on the join it already reads (docs/i18n.md). The console has no account and
- * therefore no language; English is the fallback everywhere in this repository, and a console line is
- * read by an operator next to a log file that is English anyway.
- *
- * <h2>Every reply hops to the main thread</h2>
- * Commands here do their work on Bukkit's async scheduler - the rule since 2026-09-01 - so a reply
- * arrives from a thread that must not touch a player. The hop carries the message <em>and</em> its
- * sound in one tick: two hops is exactly the seam that reads as lag.
+ * <p>Commands do their work on Bukkit's async scheduler, so every reply hops to the main thread -
+ * carrying the message <em>and</em> its sound in one tick, because two hops read as lag.
  */
 public final class PaperUser implements NordtalUser {
 
@@ -105,11 +90,8 @@ public final class PaperUser implements NordtalUser {
     }
 
     /**
-     * The same, with the Discord account resolved only if something asks - see {@link #discordId()}.
-     *
-     * <p>The overload every adapter should use when its source is anything but a cache: a
-     * {@code PaperUser} is built on the main thread, per invocation, and the eager version turns a
-     * lookup into a query there.</p>
+     * The same, with the Discord account resolved only if something asks - the overload to use
+     * whenever the source is anything but a cache. See {@link #discordId()}.
      */
     public static PaperUser of(final Plugin plugin, final Player player, final Locale locale,
                                final boolean admin,
@@ -137,17 +119,10 @@ public final class PaperUser implements NordtalUser {
     }
 
     /**
-     * Their Discord account - <b>resolved when asked, not when this object is built</b>.
-     *
-     * <h2>Why lazily, which is not an optimisation</h2>
-     * A {@code PaperUser} is built inside a Brigadier handler, on the server's main thread, for
-     * every invocation - and for the help output too. A plugin whose only source for this is
-     * {@code account_link} would therefore run a query there, per command, on a command any player
-     * can type. {@code hunger-games} did exactly that for an afternoon.
-     *
-     * <p>The one caller that needs the answer is {@code Outbox#send}, which reads it on its own
-     * scheduler. {@code Confirmations} asks for the Minecraft UUID first and never gets here for a
-     * player. So the query, where it is one, happens off the main thread by construction.</p>
+     * Their Discord account, <b>resolved when asked and not when this object is built</b>: a
+     * {@code PaperUser} is built inside a Brigadier handler on the main thread for every invocation,
+     * so an eager lookup would be a database query there. The callers that need the answer read it
+     * on their own scheduler.
      */
     @Override
     public Optional<String> discordId() {
@@ -228,11 +203,9 @@ public final class PaperUser implements NordtalUser {
     }
 
     /**
-     * One hop to the main thread, carrying the line and its sound together.
-     *
-     * <p>Scheduled unconditionally rather than only when off-thread: {@code isPrimaryThread} would
-     * make the ordering of two replies depend on which thread each was sent from, and a command
-     * that says two things has to say them in the order it wrote them.</p>
+     * One hop to the main thread, carrying the line and its sound together. Scheduled
+     * unconditionally rather than only when off-thread, so that two replies keep the order they were
+     * written in whichever thread each came from.
      */
     private void send(final Component message, final Feedback feedback) {
         Bukkit.getScheduler().runTask(plugin, () -> {

@@ -13,29 +13,19 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The short-lived, in-memory last-known-state cache the login gate falls back to while the
- * database is unreachable. See docs/access-system.md.
+ * database is unreachable.
  *
- * <h2>The four rules</h2>
  * <ul>
- *   <li><b>Written only on a successful query.</b> {@link #remember(UUID, AccessState)} is the
- *       only writer, and the login gate only ever calls it after {@code accessState(uuid)}
- *       actually returned. This cache never invents an entry.</li>
- *   <li><b>Only "may join right now" is worth remembering.</b> A state whose
- *       {@link AccessState#mayJoin()} is {@code false} is removed rather than stored - it is
- *       never going to let anyone in, so keeping it around only risks serving something stale
- *       later. This also means a successful query that finds access has lapsed since it was last
- *       seen active correctly evicts the earlier positive entry, rather than leaving a stale
- *       "yes" behind for the database to be asked again.</li>
- *   <li><b>Bounded window.</b> An entry older than {@code window} is treated as absent and evicted
- *       on read - see {@link #mayJoin(UUID)}. A long outage closes the door rather than leaving it
- *       open forever.</li>
- *   <li><b>Proxy-process-lived.</b> A plain heap map, no file, no second database. It dies with
- *       the process, same as everything else here.</li>
+ *   <li>Written only on a successful query, so it never invents an entry.</li>
+ *   <li>Only a state that may join right now is stored; anything else is removed, so a lapse
+ *       evicts an earlier positive entry rather than leaving a stale "yes" behind.</li>
+ *   <li>An entry older than {@code window} is treated as absent and evicted on read, so a long
+ *       outage closes the door rather than leaving it open forever.</li>
+ *   <li>A plain heap map: it dies with the process.</li>
  * </ul>
  * <p>
- * The caller is responsible for the other rule that is not this class's to enforce: consulting
- * this cache only while the database is actually unreachable. Nothing here checks that, because
- * this class has no way to know it.
+ * Consulting this cache only while the database is unreachable is the caller's responsibility;
+ * nothing here can know it.
  * </p>
  */
 public final class FallbackCache {
@@ -59,11 +49,6 @@ public final class FallbackCache {
 
     /**
      * Records the outcome of a successful {@code accessState} query.
-     * <p>
-     * Only a state that may join right now is kept; anything else is removed, so a login that
-     * finds access has lapsed also clears out an earlier positive entry rather than leaving it to
-     * be read later while the database happens to be down.
-     * </p>
      *
      * @param mcUuid the account the query was about
      * @param state  the answer the database just gave, must not be {@code null}
@@ -79,11 +64,8 @@ public final class FallbackCache {
     }
 
     /**
-     * Whether this account may be let in from the cache alone, right now.
-     * <p>
-     * An entry outside the window is evicted as a side effect of asking, so a cache nobody reads
-     * for a while does not silently accumulate outage-window-expired rows forever.
-     * </p>
+     * Whether this account may be let in from the cache alone, right now. An entry outside the
+     * window is evicted as a side effect of asking.
      *
      * @param mcUuid the account attempting to join
      * @return {@code true} only for an account that was seen with active access within the window

@@ -23,25 +23,19 @@ import java.util.function.BiConsumer;
 /**
  * The SMP's line into the Discord announcement channels.
  *
- * <p>Nothing here talks to Discord. A moment worth announcing - a milestone unlocking, the farm
- * world about to be reset - is rendered once per language this module has a bundle for, as plain
- * text, and each rendering becomes one {@code command_request} row for the bot: {@code announce
- * <language> <text>}, on the SYSTEM surface nobody types on. The bot's inbox posts it into that
- * language's channel. That is docs/state-of-play.md finding 52 closed with the wire that already
- * existed (V11), rather than with a second one.</p>
+ * <p>Nothing here talks to Discord. A moment worth announcing is rendered once per language as
+ * plain text, and each rendering becomes one {@code command_request} row for the bot, which posts
+ * it into that language's channel.</p>
  *
- * <p>Fire and forget, deliberately. The answer in the row ("posted" / "no channel for de") is for
- * a person reading the table later; the ceremony in game does not wait for Discord and must not,
- * and a bot that is down for ten minutes posts when it is back, because the row keeps for an
- * hour. The database call is on the plugin's async executor, never the server thread.</p>
+ * <p>Fire and forget: the ceremony in game must not wait for Discord, and a bot that is down for
+ * ten minutes posts when it is back because the row keeps for an hour. The database call is on the
+ * plugin's async executor, never the server thread.</p>
  */
 public final class Announcer {
 
     /**
-     * The languages a line is rendered in: this module's two bundles. A third language is a
-     * bundle plus its tag here, and the bot's {@code languages[]} entry with an announcement
-     * channel; a tag here without a channel there is a row that says "no channel" and nothing
-     * else.
+     * The languages a line is rendered in: this module's two bundles. A third needs a bundle, a
+     * tag here, and an announcement channel on the bot's side.
      */
     public static final List<String> LANGUAGES = List.of("de", "en");
 

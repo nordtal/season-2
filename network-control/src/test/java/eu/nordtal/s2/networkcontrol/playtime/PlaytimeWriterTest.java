@@ -24,14 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The play-time counter's arithmetic, in memory. What goes into {@code player_playtime} is the
- * question docs/smp.md#prestige--a-crest-earned-by-time cares about - the prestige crest is
- * derived from those seconds - and it is entirely a matter of subtracting instants, so it is
- * testable without a database.
+ * The play-time counter's arithmetic, in memory: what goes into {@code player_playtime} is entirely
+ * a matter of subtracting instants.
  * <p>
- * The SQL itself ({@code seconds = seconds + N}) is not exercised here; that is
- * {@link PlaytimeStore}'s one statement, and the store is a functional interface precisely so this
- * class can be driven by a list.
+ * The SQL itself is not exercised here; the store is a functional interface precisely so this class
+ * can be driven by a list.
  * </p>
  */
 class PlaytimeWriterTest {
@@ -69,9 +66,7 @@ class PlaytimeWriterTest {
 
     @Test
     void aPeriodicFlushWritesOnlyWhatHasHappenedSinceTheLastOne() {
-        // "It writes the total on disconnect and periodically in between, so a crash costs minutes
-        // rather than a whole session" - and the write is an addition, so each flush must carry the
-        // slice and not the running total.
+        // The write is an addition, so each flush must carry the slice and not the running total.
         join(PLAYER, DISCORD_ID);
 
         clock.advance(Duration.ofSeconds(60));
@@ -100,7 +95,7 @@ class PlaytimeWriterTest {
     @Test
     void subSecondRemaindersSurviveAFlushInsteadOfBeingThrownAway() {
         // Flushing every 60s at 60.4s intervals would otherwise lose 0.4s each time - about six
-        // minutes over a 24-hour session, which is a whole prestige threshold's worth of nothing.
+        // minutes over a 24-hour session.
         join(PLAYER, DISCORD_ID);
 
         clock.advance(Duration.ofMillis(60_400));
@@ -201,12 +196,10 @@ class PlaytimeWriterTest {
     @Test
     @DisplayName("M7: the periodic flush and the disconnect flush cannot book the same seconds twice")
     void oneSessionIsNeverCountedTwice() throws Exception {
-        // The two writers are genuinely different threads: flushAll runs on the proxy's scheduler
-        // and the disconnect flush runs on the event thread, and there is nothing stopping them
-        // being in flush() for the same player at the same instant. Both used to read the same
-        // marker, compute the same seconds, and hand them to `seconds = seconds + N` - so the
-        // player was credited twice, both writers then advanced the marker, and nothing afterwards
-        // ever disagreed. Against a crest earned over a whole season, silent and permanent.
+        // Genuinely different threads: flushAll runs on the proxy's scheduler and the disconnect
+        // flush on the event thread, with nothing stopping them being in flush() for the same
+        // player at once. Unsynchronised they read the same marker and add the same seconds twice,
+        // and nothing afterwards would ever disagree.
         join(PLAYER, DISCORD_ID);
         clock.advance(Duration.ofMinutes(10));
 

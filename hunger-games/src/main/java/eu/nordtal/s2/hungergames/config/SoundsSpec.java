@@ -6,27 +6,14 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code sounds.yml} - what each feedback category sounds like on the event server.
+ * {@code sounds.yml} - what each feedback category sounds like on the event server. Its own file,
+ * not a block in {@code config.yml}, because {@code /hg reload} re-reads it mid-game: sounds are
+ * tuned by ear with players online, while a border parameter must not move under them.
  *
- * <h2>Why this is a file of its own and not a block in {@code config.yml}</h2>
- * The same argument {@code smp}'s {@code SoundsSpec} makes, and it is if anything stronger here.
- * {@code config.yml} holds the border schedule, the loot timings and the spawn towers, and
- * {@code /hg reload} deliberately re-reads none of them: a game is a running clock, and re-reading
- * a border parameter mid-match would move a shrink that players are already running from. A sound
- * is the one thing in this module that an operator iterates on <b>by ear</b>, with players online,
- * and an escape hatch that costs a restart of the event is worth very little.
- *
- * <h2>Three of the ten are read and never played, on purpose</h2>
- * This module has no menus - the whole interface is chat, three boss bars and a title - so nothing
- * here plays {@code surface-open}, {@code surface-close} or {@code select}. They are still declared,
- * because the adapter's exhaustive {@code switch} is what stops a category being added to
- * {@link eu.nordtal.s2.common.feedback.Feedback} without somebody saying what it sounds like
- * <em>everywhere</em>. The header below says so in the file itself, so that nobody spends an evening
- * retuning a key nothing reaches.
- *
- * <p>Nine categories, ten entries - open and close are the two halves of one. A call site in the
- * plugin picks a category and nothing else; {@code SoundVocabularyTest} in {@code :common} fails the
- * build if one ever names a sound. docs/presentation.md section 4 is the concept.
+ * <p>{@code surface-open}, {@code surface-close} and {@code select} are read and never played -
+ * this server has no menus - but stay declared so the adapter's exhaustive {@code switch} keeps
+ * every {@link eu.nordtal.s2.common.feedback.Feedback} category answered for. A call site picks a
+ * category and never a sound.</p>
  */
 @ConfigSpec(header = {
         "hunger-games - sounds",
@@ -35,8 +22,8 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
         "the two halves of one - and a call site in the plugin can pick a category and nothing else.",
         "That is a structural rule and not a matter of discipline: a codebase where every call site",
         "names its own sound drifts into nine different chimes for the same kind of event.",
-        "docs/presentation.md section 4 is the concept, and every value below is deliberately the",
-        "same as the SMP's, so that the network sounds like one server rather than three.",
+        "Every value below is deliberately the same as the SMP's, so that the network sounds like",
+        "one server rather than three.",
         "",
         "THREE OF THESE ARE NEVER PLAYED ON THIS SERVER: surface-open, surface-close and select.",
         "The event server has no menus - chat, three boss bars and a title are the whole interface -",
@@ -62,8 +49,7 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
         "Volume 1.0 is the sound's own level - above 1 does not get louder, it widens the radius",
         "other players hear it from. Pitch is playback speed and the client clamps it to 0.5 - 2.0.",
         "",
-        "Every key below was resolved against Bukkit's own sound list as compiled for Paper 26.2",
-        "build 121 on 2026-09-04, and SoundDefaultsTest keeps doing so on every build."
+        "SoundDefaultsTest resolves every key below against Bukkit's own sound list on each build."
 })
 public interface SoundsSpec {
 
@@ -111,11 +97,8 @@ public interface SoundsSpec {
     @Comment({
             "A staged moment - today only the season's opening on a player's first join.",
             "",
-            "SHIPS EMPTY, deliberately (owner, 2026-09-09). Every other key here names a vanilla",
-            "sound because a vanilla sound is what that category is; a staged moment's sound comes",
-            "into the resource pack with its artwork and does not exist yet. An empty key is",
-            "silence, which is what this is meant to be until then - so filling it in is one line",
-            "here and no release."
+            "SHIPS EMPTY on purpose: a staged moment's sound arrives with the resource pack artwork",
+            "and does not exist yet. Filling it in is one line here and no release."
     })
     default SoundSpec staging() { return DefaultSounds.STAGING; }
 
@@ -123,9 +106,8 @@ public interface SoundsSpec {
     @ConfigSpec
     interface SoundSpec {
 
-        // No @Comment: this interface is written out ten times over, and ten copies of the same
-        // sentence is what turns a config file into something nobody reads. The header above says
-        // what a key is and what an empty one does.
+        // No @Comment: this interface is written out ten times over, and the header above already
+        // says what a key is and what an empty one does.
         @Order(1) @Key("key")
         default String key() { return ""; }
 

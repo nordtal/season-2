@@ -27,30 +27,16 @@ import java.util.Objects;
 /**
  * Everything the bot does at bunq: create a tab, cancel a tab, ask a tab who paid it, and list
  * recent payments on the account.
- * <p>
- * An instance with its credentials in a field, not a class of statics as in season 1. The static
- * version meant {@code configure()} had to be called before anything else and nothing enforced
- * that, and it made the environment un-switchable at runtime.
- * </p>
  *
- * <h2>Matching a payment</h2>
- * The primary path is {@link #paymentsFor(long)}: a bunq.me tab knows the payments that settled it
- * ({@code BunqMeTabApiObject.get(...).getValue().getResultInquiries()}, each carrying a
- * {@code PaymentApiObject}). That is an exact link with no text parsing at all. The reference in
- * the description is only the fallback, for money that reaches the account outside a tab.
+ * <p>A payment is matched primarily through {@link #paymentsFor(long)} - a bunq.me tab knows the
+ * payments that settled it, an exact link with no text parsing. The reference in the description is
+ * only the fallback, for money that reaches the account outside a tab.</p>
  *
- * <h2>Currency</h2>
- * EUR only. A payment in another currency is not something the "pay what you get" rule can be
- * applied to, so it is refused rather than converted at a rate nobody agreed on.
+ * <p>EUR only: another currency is refused rather than converted at a rate nobody agreed on.</p>
  */
 @Slf4j
-// EVERY CALL BELOW IS BOUNDED AT 30 SECONDS BY THE SDK ITSELF - measured 2026-09-06, not assumed:
-// com.bunq.sdk.http.ApiClient (sdk_java 1.28.0.6) builds its OkHttpClient with
-// connectTimeout/readTimeout/writeTimeout all set to its TIMEOUT_SECONDS = 30 (read out of the
-// shipped bytecode with javap). docs/state-of-play.md finding 59 said this class "sets no HTTP
-// timeout anywhere", which is true of this file and false of the calls: a bank that stops
-// answering costs the worker thread thirty seconds, not a week. The heartbeat sharing that thread
-// stays, because thirty seconds of a wedged poll loop is still worth seeing.
+// No HTTP timeout is set here because the SDK's own ApiClient bounds every call at 30 seconds
+// (connect, read and write), so a bank that stops answering costs the worker thread half a minute.
 public final class BunqGateway {
 
     private static final String CURRENCY = "EUR";
@@ -102,12 +88,9 @@ public final class BunqGateway {
     }
 
     /**
-     * Closes a tab so it can no longer be paid.
-     * <p>
-     * This is a real call to bunq, not a status flip in our own table. A superseded or expired
-     * request whose tab stays live is a URL somebody can still pay, and that payment would arrive
-     * against a reference the bot refuses to book automatically.
-     * </p>
+     * Closes a tab so it can no longer be paid. A real call to bunq, not a status flip in our own
+     * table: a superseded request whose tab stays live is a URL somebody can still pay, and that
+     * payment would arrive against a reference the bot refuses to book automatically.
      *
      * @param tabId the tab
      * @return whether bunq accepted the cancellation
@@ -196,13 +179,9 @@ public final class BunqGateway {
     // ---------------------------------------------------------------- the API context
 
     /**
-     * Loads or creates the bunq API context, once per process.
-     * <p>
-     * The context file holds credentials and the installed device key. It belongs to one
-     * environment, and there is only one: {@link ApiEnvironmentType#PRODUCTION}. The
-     * {@code bunq.environment} setting was retired on 2026-09-09 with the sandbox run it existed
-     * for - see the comment where it used to be declared in {@code BotSpec}.
-     * </p>
+     * Loads or creates the bunq API context, once per process. The context file holds credentials
+     * and the installed device key, and belongs to one environment - there is only
+     * {@link ApiEnvironmentType#PRODUCTION}.
      */
     private synchronized void loadContext() {
         if (contextLoaded) {

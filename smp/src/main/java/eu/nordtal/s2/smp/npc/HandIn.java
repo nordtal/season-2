@@ -8,20 +8,18 @@ import java.util.Set;
 /**
  * What a hand-in actually takes, worked out without a server.
  *
- * <p>Two rules from docs/smp.md#objective-types, and both of them are refusals:
+ * <p>Two refusals:
  *
  * <ul>
  *   <li><b>Nothing can be handed in that no objective wants.</b> A stack of dirt in the deposit
  *       screen comes straight back rather than disappearing politely.</li>
- *   <li><b>No more than the objective still needs.</b> Over-delivery is not credited, and the
- *       surplus is returned rather than absorbed - somebody who empties a double chest into a
- *       nearly-finished objective must get the remainder back.</li>
+ *   <li><b>No more than the objective still needs.</b> Over-delivery is not credited and the
+ *       surplus is returned, not absorbed.</li>
  * </ul>
  *
- * <p><b>It deliberately knows nothing about {@code ItemStack}.</b> Constructing one needs a running
- * server's item factory, and this is the one place in the design where a bug takes items off a
- * player and gives nothing back - so it is expressed as material names and counts, asserted in
- * plain unit tests, and the GUI does the stack-shuffling against the answer.
+ * <p>Deliberately knows nothing about {@code ItemStack}: this is the one place where a bug takes
+ * items off a player and gives nothing back, so it is expressed as material names and counts and
+ * unit-tested without a server. The GUI does the stack-shuffling against the answer.
  */
 public final class HandIn {
 

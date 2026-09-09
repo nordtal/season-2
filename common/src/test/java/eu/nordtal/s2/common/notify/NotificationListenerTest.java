@@ -22,24 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The reconnect loop in {@link NotificationListener}, against a fake {@link Notifications}.
  *
- * <h2>Read this before trusting these tests</h2>
- * <b>None of this proves anything about a real dropped socket.</b> A fake that throws when told to
- * is not a network partition, a failed-over database, or a process suspended for a minute; and
- * {@code getNotifications} answering {@code null} forever on a silently dead TCP connection - the
- * failure mode the poll actually exists for - cannot be reproduced in a JVM at all. The
- * docs/state-of-play.md#the-unverified-assumptions {@code LISTEN}/{@code NOTIFY} row is closed by a
- * <b>restart drill against a real PostgreSQL with the connection killed underneath the process</b>,
- * not by this file.
+ * <p><b>None of this proves anything about a real dropped socket.</b> A fake that throws on demand
+ * is not a network partition, and {@code getNotifications} answering {@code null} forever on a
+ * silently dead connection cannot be reproduced in a JVM at all - that needs a drill against a real
+ * PostgreSQL with the connection killed underneath the process.
  *
- * <p>What these tests do pin down is the one rule that is a coding mistake rather than an
- * environmental one: docs/season-phases.md's "every reconnect must re-read the row
- * unconditionally". That is a property of the loop's shape, and the loop's shape is testable.</p>
- *
- * <h2>Why this file is in :common and not in network-control</h2>
- * It was {@code PhaseListenerTest} there until 2026-09-04, when the loop moved into this module so
- * that the three Paper backends could open an admin listener without a fourth copy of it. The cases
- * are the same ones; what changed is that they no longer go through a {@code PhaseDirectory} fake to
- * count re-reads, because the loop no longer knows what a phase is.
+ * <p>What these tests do pin is the rule that is a coding mistake rather than an environmental one:
+ * every reconnect re-reads unconditionally.
  */
 class NotificationListenerTest {
 
@@ -88,9 +77,8 @@ class NotificationListenerTest {
     @Test
     @DisplayName("every refresh runs on every signal, because the channel is never inspected")
     void allRefreshesRideTheSameSignals() throws Exception {
-        // The whole reason several channels share one connection: both halves want the identical
-        // thing on a wake-up. If one of them were refreshed on fewer signals than the other, it
-        // would be the one trusting a notification it never received.
+        // The reason several channels share one connection: both halves want the identical thing on
+        // a wake-up.
         final NotificationListener listener = new NotificationListener(
                 () -> FakeChannel.publishing(3), "test", two(), LOGGER, WAIT, BACKOFF);
 
@@ -104,8 +92,7 @@ class NotificationListenerTest {
     @Test
     @DisplayName("a refresh that throws does not take the loop, or the other refreshes, down")
     void aBrokenRefreshIsContainedAndRetried() throws Exception {
-        // One of these rides along with the other; a failure in either must not cost the other its
-        // propagation. It is self-correcting anyway, because the next signal asks again.
+        // A failure in either refresh must not cost the other its propagation.
         final NotificationListener listener = new NotificationListener(
                 () -> FakeChannel.publishing(3), "test",
                 List.of(new NotificationListener.Refresh("the broken thing", () -> {
@@ -125,9 +112,8 @@ class NotificationListenerTest {
 
     @Test
     void aLostConnectionIsReplacedAndTheNewOneReReadsAgain() throws Exception {
-        // Three connections in a row, each of which dies on its first wait. Every one of them has
-        // to re-read on the way in, because a change could have happened in the gap - and nothing
-        // will ever tell this process about it if it does not go and look.
+        // Three connections in a row, each dying on its first wait: every one has to re-read on the
+        // way in, because a change in the gap is never announced again.
         final AtomicInteger opened = new AtomicInteger();
         final CountDownLatch thirdOpened = new CountDownLatch(3);
         final NotificationListener listener = new NotificationListener(() -> {
@@ -194,8 +180,7 @@ class NotificationListenerTest {
     @DisplayName("a channel name that is not an identifier is refused, because it is not a parameter")
     void channelNamesAreCheckedBeforeTheyReachAStatement() {
         // The name goes into `LISTEN <name>` unquoted - it is an identifier, and there is no
-        // placeholder for one. Every caller passes a Channels constant; this is what happens the
-        // day one does not.
+        // placeholder for one.
         assertThrows(IllegalArgumentException.class, () -> PostgresNotifications.connector(
                 "jdbc:postgresql://localhost/x", "u", "p", 3, "test",
                 List.of("nordtal_admin; DROP TABLE discord_user")));
@@ -228,7 +213,7 @@ class NotificationListenerTest {
 
     /**
      * A scripted {@link Notifications}: a queue of answers, then either quiet forever or an
-     * exception. It is a script, not a socket - see this class's own documentation.
+     * exception. A script, not a socket.
      */
     private static final class FakeChannel implements Notifications {
 

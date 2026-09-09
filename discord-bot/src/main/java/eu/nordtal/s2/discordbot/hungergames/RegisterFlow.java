@@ -26,16 +26,10 @@ import java.util.concurrent.ExecutorService;
 /**
  * Team registration end to end: the {@link Ids#REGISTER} button opens the team name modal, the
  * confirmation offers {@link Ids#INVITE} which opens a user picker, and the invited partner gets a
- * DM with accept/decline. See {@code docs/hunger-games.md#registration}.
- * <p>
- * <b>Readiness is not here.</b> {@code hg_member.ready} is written only by the {@code hunger-games}
- * Paper plugin's lobby broadcast - nothing in this class reads or writes it (decided explicitly,
- * since the concept places "I am ready" entirely in the in-game lobby).
- * </p>
- * <p>
- * Blocking work - every database call - runs on {@code executor}, off the gateway thread, the same
- * discipline {@code LinkFlow}/{@code PurchaseFlow} use.
- * </p>
+ * DM with accept/decline.
+ *
+ * <p>Readiness is not here: {@code hg_member.ready} is written only by the Paper plugin's in-game
+ * lobby. Every database call runs on {@code executor}, off the gateway thread.</p>
  */
 @Slf4j
 public final class RegisterFlow extends ListenerAdapter {

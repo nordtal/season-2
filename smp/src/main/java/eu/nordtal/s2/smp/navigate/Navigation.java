@@ -8,12 +8,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Who is currently navigating where.
  *
- * <p>{@code /navigate} is <b>off by default and switched on by the player</b> (docs/smp.md#navigate),
- * so the absence of an entry here is the normal state and not a missing value. HUD line 2 exists
- * only while there is one.
+ * <p>{@code /navigate} is off by default and switched on by the player, so the absence of an entry
+ * here is the normal state and not a missing value. HUD line 2 exists only while there is one.
  *
- * <p>Deliberately not persisted. A navigation is a thing you are doing right now, and one that
- * survived a relog would point somebody at a place they had already given up on.
+ * <p>Deliberately not persisted: a navigation that survived a relog would point somebody at a place
+ * they had already given up on.
  */
 public final class Navigation {
 
@@ -38,8 +37,8 @@ public final class Navigation {
     /**
      * Drops every navigation pointing into a world.
      *
-     * <p>Called for the farm world at each daily reset, alongside its POIs: the arrow would still be
-     * confident about terrain that no longer exists, and a confident arrow is worse than none.
+     * <p>Called for the farm world at each daily reset, alongside its POIs: the arrow would
+     * otherwise point confidently at terrain that no longer exists.
      */
     public void clearWorld(final String world) {
         active.entrySet().removeIf(entry -> entry.getValue().isIn(world));

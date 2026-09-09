@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
 """Draws the German characters into the nordtal:bossbar font's own ascii.png.
 
-Why this exists: nordtal/font/bossbar.json carries its own 128x128 ascii sheet so the
-readable half of a boss bar line is rendered by the same font as the glyphs beside it
-(see season-2/CLAUDE.md on why the whole line goes in one component). That sheet was
-drawn with the pure-ASCII rows only - 166 characters, and not one of a o u A O U s.
-A German HUD line is one umlaut away from a row of missing-glyph boxes, and nothing in
-the build would have said so; today no German string in smp.hud.* or hg.hud.* happens to
-contain one, which is luck rather than design.
+nordtal/font/bossbar.json carries its own 128x128 ascii sheet, so the readable half of a
+boss bar line is rendered by the same font as the glyphs beside it. That sheet was drawn
+with the pure-ASCII rows only, which leaves a German HUD line one umlaut away from a row
+of missing-glyph boxes with nothing in the build to say so.
 
-The sheet's character map is Minecraft's own ascii.png map (verified 2026-09-04: the
-drawn cells at rows 9, 10 and 14 land exactly on the vanilla CP437 positions for the
-pound sign, the ordinals and the guillemets). The seven characters are therefore drawn
-at their canonical positions rather than at free ones - so a future pass that drops the
-real vanilla sheet in here still lines up with bossbar.json.
-
-The art is derived from the base letters already on the sheet: lowercase keeps its shape
-and takes the diaeresis on the free top row; uppercase is one row too tall for that, so
-it is compressed by one duplicated row, which is what the vanilla font does too.
+The characters are drawn at their canonical positions in Minecraft's own ascii.png map,
+not at free cells, so dropping the real vanilla sheet in here still lines up with
+bossbar.json. The art is derived from the base letters already on the sheet: lowercase
+keeps its shape and takes the diaeresis on the free top row; uppercase is compressed by
+one duplicated row, as the vanilla font does.
 
 Idempotent - it clears each target cell before drawing, so re-running changes nothing.
 

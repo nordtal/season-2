@@ -18,22 +18,13 @@ import org.bukkit.plugin.Plugin;
 /**
  * Join and quit: the operator grant, the surfaces, and the language the join line waits for.
  *
- * <h2>Chat needs no plugin, but the line in front of the message does</h2>
- * Chat itself is per Paper server, which is Minecraft's default: the SMP is one server holding four
- * worlds, so Nordtal, the farm world, the Nether and the End share one chat, and that is what keeps
- * a small community feeling like one place instead of four empty ones. The composition in front of
- * the message is drawn by {@link SystemLines} in {@code :paper-common} - it was drawn here until
- * 2026-09-09, which is exactly why the hunger games had none of it.
+ * <p>Chat itself is per Paper server: the SMP is one server holding four worlds, so Nordtal, the
+ * farm world, the Nether and the End share one chat. The composition in front of the message is
+ * drawn by {@link SystemLines} in {@code :paper-common}.
  *
- * <h2>Permissions without LuckPerms</h2>
- * An admin becomes a server <b>operator</b> at join and stops being one at quit, through
- * {@link AdminOperators}. The admin flag itself is mirrored from Discord into the database by the
- * bot, so there is one truth, no sync cycle, and nothing to reconcile (docs/smp.md#admins).
- *
- * <p>Until 2026-09-04 this attached a configured list of six permission nodes instead. A list
- * cannot answer "an admin must reliably have every permission" - it only knows what somebody wrote
- * down - so {@code config.yml#admin-permissions} is retired and {@link AdminOperators} carries the
- * whole reasoning, including why {@code ops.json} is swept at every enable.</p>
+ * <p>An admin becomes a server <b>operator</b> at join and stops being one at quit, through
+ * {@link AdminOperators}. The admin flag is mirrored from Discord into the database by the bot, so
+ * there is one truth and nothing to reconcile.
  */
 public final class PresenceListener implements Listener {
 
@@ -45,10 +36,6 @@ public final class PresenceListener implements Listener {
     private final SystemLines lines;
     private final SeasonWelcome welcome;
 
-    // The composition, the config and the message bundle were constructor arguments until
-    // 2026-09-09. The first two of those had already stopped being read by anything here; the third
-    // went with the chat renderer. A field nothing reads is a dependency nothing needs, and it is
-    // what makes a class look like it does more than it does.
     public PresenceListener(final Plugin plugin, final Identities identities,
                             final PlayerSurfaces surfaces, final PlayerLocales locales,
                             final AdminOperators operators, final SystemLines lines,
@@ -77,20 +64,11 @@ public final class PresenceListener implements Listener {
 
     /**
      * Reads the player's language off the main thread and redraws their surfaces once it is known.
-     * <p>
-     * Missing until 2026-09-05: this module built a {@link PlayerLocales} and handed it to fifteen
-     * classes, and nothing ever called {@code joinAsync} - so {@code of()} answered English for
-     * every player for the whole season, and the first German account on the local stack read
-     * {@code /smp} in English while the proxy had just answered {@code /phase} in German.
-     * {@code CLAUDE.md} said this module "inherits the rule rather than rediscovering it"; a rule
-     * inherited by nobody. {@code LocaleJoinWiringTest} in {@code :common} is what makes the third
-     * backend forgetting this a red build rather than a season in the wrong language.
-     * </p>
-     * <p>
-     * Off the main thread for the reason limbo's listener spells out; the HUD and the boards render
-     * from {@code of()} on their own timers and pick the language up by themselves, the tab list
-     * header does not, which is why {@code refresh} runs again once the value has landed.
-     * </p>
+     *
+     * <p>Without this call {@code PlayerLocales#of} answers English for every player, so
+     * {@code LocaleJoinWiringTest} in {@code :common} fails the build if a backend omits it. The
+     * HUD and the boards pick the language up on their own timers; the tab-list header does not,
+     * which is why {@code refresh} runs again once the value has landed.</p>
      */
     private void loadLanguage(final Player player) {
         locales.joinAsync(player.getUniqueId(), task -> Bukkit.getScheduler()
@@ -99,11 +77,10 @@ public final class PresenceListener implements Listener {
                 // line through, in English, rather than swallow it.
                 .whenComplete((locale, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
                     if (!player.isOnline()) {
-                        // They left while the query was in flight; onQuit has already run and the
-                        // entry this just wrote would otherwise stay for the life of the process.
-                        // Unless they are already back: the cache is keyed by UUID, so a callback
-                        // from the session before a rejoin would drop the language the new one has
-                        // just loaded and leave that player English (finding 105).
+                        // They left while the query was in flight, so the entry this just wrote
+                        // would stay for the life of the process. Unless they are already back:
+                        // the cache is keyed by UUID, and a callback from the previous session
+                        // would drop the language the new one has just loaded.
                         if (Bukkit.getPlayer(player.getUniqueId()) == null) {
                             locales.quit(player.getUniqueId());
                         }
@@ -124,12 +101,10 @@ public final class PresenceListener implements Listener {
     /**
      * Fills in a nametag the moment DisplayTags creates one.
      *
-     * <p>This is the only place the composition reliably reaches the tag.
-     * {@code NameTagManagerImpl#createNameTag} removes the previous tag and constructs a new one
-     * whose constructor applies DisplayTags' own configured lines, then fires this event - so a tag
-     * written at join is overwritten, and a handler on any later Bukkit event races the tick that
-     * has already rendered the stock format. Firing from inside the creation leaves no ordering to
-     * get wrong, and it covers every path that creates a tag: join, a world change, a reload.</p>
+     * <p>The only place the composition reliably reaches the tag: DisplayTags applies its own
+     * configured lines while constructing the tag and fires this event afterwards, so anything
+     * written at join or on a later Bukkit event is overwritten or races the render. This covers
+     * every path that creates a tag: join, a world change, a reload.</p>
      */
     @EventHandler
     public void onNameTagCreate(final NameTagCreateEvent event) {
@@ -142,10 +117,4 @@ public final class PresenceListener implements Listener {
         locales.quit(event.getPlayer().getUniqueId());
         // Identities forgets them in JoinGate's quit handler, which owns the cache's lifetime.
     }
-
-    // The chat line is not rendered here any more, since 2026-09-09. It is
-    // :paper-common's SystemLines, together with join, leave, death and advancement - the hunger
-    // games needed the same five and had none of them, in yellow, in one language, with no flag on
-    // anybody (finding 149). What was specific to this server is the composition, and that is the
-    // one thing SystemLines takes as an argument.
 }

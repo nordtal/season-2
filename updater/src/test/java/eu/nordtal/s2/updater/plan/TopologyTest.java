@@ -25,14 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@link Topology} and {@code compose.yml} are two copies of one fact. This is the test that
- * makes the second copy fail loudly instead of quietly.
- * <p>
- * It reads the real compose file rather than a fixture, on purpose: a fixture would be a third
- * copy, and the whole point is that there are only ever two and they agree. The file is found by
- * walking up from the module directory, so it does not depend on where Gradle puts the working
- * directory.
- * </p>
+ * {@link Topology} and {@code compose.yml} are two copies of one fact, and this makes the second
+ * copy fail loudly instead of quietly. It reads the real compose file rather than a fixture,
+ * because a fixture would be a third copy.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TopologyTest {
@@ -59,15 +54,10 @@ class TopologyTest {
     @Test
     @DisplayName("every plugin the topology gives a service is one that service's guard asks for")
     void theEntrypointGuardAsksForEveryPlugin() {
-        // The entrypoint refuses to start on a plugins folder that is missing any of these, which
-        // is what finding B4 needed: a folder holding SOME of a server's jars looked exactly like a
-        // healthy one, because the old guard only counted them.
-        //
-        // Counts rather than names, deliberately. For our own four jars the artefact id IS the
-        // filename prefix, and those are asserted by name below; for the third-party three it is
-        // not - `packetevents` resolves to packetevents-spigot-*.jar and `chunky` to
-        // Chunky-Bukkit-*.jar - and Topology exists partly to avoid assuming that mapping. What has
-        // to hold is that adding a plugin to a service here cannot be forgotten there.
+        // The entrypoint refuses to start on a plugins folder missing any of these. Counts rather
+        // than names, because a third-party artefact id is not its filename prefix (`packetevents`
+        // resolves to packetevents-spigot-*.jar); what has to hold is that adding a plugin to a
+        // service here cannot be forgotten there.
         for (final Topology.Service service : Topology.SERVICES) {
             @SuppressWarnings("unchecked")
             final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
@@ -94,14 +84,9 @@ class TopologyTest {
     @Test
     @DisplayName("an artefact that may have no build for this version is not one the guard demands")
     void anOptionalPluginIsNotGuarded() {
-        // The other direction of the test above, and the reason Service#optional exists at all.
-        // EXPECTED_PLUGINS is a list of jars the container REFUSES TO START WITHOUT. Pointing it at
-        // an artefact whose publisher has not built for this Minecraft version would hand somebody
-        // else's release schedule the power to keep the SMP down - and there is one such artefact
-        // today: CoreProtect's newest release, 24.0, stops at 26.1.2 (checked 2026-09-08).
-        //
-        // It stays in the plan while it waits, which is the half worth having: the run that follows
-        // the day a build appears installs it, and nobody has to remember to add it back.
+        // The reason Service#optional exists: EXPECTED_PLUGINS lists jars the container refuses to
+        // start without, so putting an artefact there whose publisher has not built for this
+        // Minecraft version hands somebody else's release schedule the power to keep the SMP down.
         final Topology.Service smp = Topology.SERVICES.stream()
                 .filter(service -> service.name().equals(Topology.SMP))
                 .findFirst()
@@ -115,9 +100,8 @@ class TopologyTest {
                         + " not start, every start, for a reason nobody here can act on.");
         assertFalse(smp.guarded().contains(Topology.CORE_PROTECT), "guarded() ignores optional()");
 
-        // And it really is absent from the string an operator would edit, not merely absent from a
-        // count. `${file%-*.jar}` on CoreProtect-CE-24.0.jar is CoreProtect-CE, so that - and not
-        // the artefact id - is what a guard entry for it would look like.
+        // Absent from the string an operator would edit, not merely from a count: `${file%-*.jar}`
+        // on CoreProtect-CE-24.0.jar is CoreProtect-CE, which is what a guard entry would look like.
         @SuppressWarnings("unchecked")
         final Map<String, Object> environment =
                 (Map<String, Object>) ((Map<String, Object>) services.get(Topology.SMP))
@@ -130,18 +114,10 @@ class TopologyTest {
     @Test
     @DisplayName("voice chat is one UDP port, on the proxy, and no backend publishes one")
     void voiceChatIsOneUdpPortOnTheProxy() {
-        // This replaced a per-backend rule on 2026-09-09, and the two are worth contrasting because
-        // the earlier one described a working arrangement too. Without Simple Voice Chat's Velocity
-        // plugin, audio never touches the proxy: every backend publishes its own UDP port, each
-        // needs a different number, each needs voice_host set by hand, and every one of those ports
-        // has to be open to the internet. With the plugin the proxy detects each backend's voice
-        // address and port itself and forwards to it over the internal network, so the whole of
-        // what the outside world needs is ONE port (Simple Voice Chat wiki, "Proxy Setup" and
-        // "Proxy Config File", read 2026-09-09).
-        //
-        // What this asserts is therefore the shape of the second arrangement, and the failure it
-        // catches is a partial return to the first: a backend that grows a UDP port again is one
-        // whose audio is expected to arrive somewhere the proxy is not looking.
+        // With Simple Voice Chat's Velocity plugin the proxy detects each backend's voice address
+        // itself and forwards over the internal network, so the outside world needs exactly one UDP
+        // port. A backend that grows a UDP port again expects audio somewhere the proxy is not
+        // looking.
         final List<String> proxyUdp = udpPorts(Topology.NETWORK_CONTROL);
         assertEquals(1, proxyUdp.size(), "the proxy publishes " + proxyUdp + " UDP. Voice chat needs"
                 + " exactly one, because voicechat-proxy.properties ships port: -1 and therefore"
@@ -156,9 +132,8 @@ class TopologyTest {
                 + " INSIDE the container, so a remapped port answers the handshake and then times"
                 + " out every packet after it.");
 
-        // The same bind as the Minecraft port and the same number the TCP line ends on: the voice
-        // endpoint is the Minecraft endpoint with a different protocol, and if those two ever
-        // separate the client is told to talk to a port compose does not publish.
+        // The voice endpoint is the Minecraft endpoint with a different protocol; if the two ever
+        // separate, the client is told to talk to a port compose does not publish.
         final List<String> tcp = ports(Topology.NETWORK_CONTROL).stream()
                 .filter(port -> !port.endsWith("/udp"))
                 .toList();
@@ -170,8 +145,8 @@ class TopologyTest {
                 + " inside the container and voice chat is published from " + parts.get(2)
                 + ". port: -1 means they are the same port, so these cannot differ.");
 
-        // And nobody else has one. A backend publishing UDP is either the old arrangement half
-        // restored, or a port left behind by a plugin that moved.
+        // Nobody else has one: a backend publishing UDP is a port left behind or a half-restored
+        // per-backend arrangement.
         for (final Topology.Service service : Topology.SERVICES) {
             if (service.name().equals(Topology.NETWORK_CONTROL)) {
                 continue;
@@ -186,12 +161,9 @@ class TopologyTest {
     @Test
     @DisplayName("the proxy runs voice chat's proxy half, and it is not one the proxy refuses to start without")
     void theProxyVoicePluginIsOptional() {
-        // The rule is Service#optional, and the reason here is stronger than anywhere else it is
-        // used: this container is the network. voicechat-velocity is resolved from a pre-release
-        // (Modrinth has never published a Velocity release of it), and a plugin on that footing is
-        // exactly the one whose next version may fail to resolve or fail to load. Guarding on it
-        // would turn that into a proxy that will not start - which is nobody being able to play,
-        // for a feature that is optional for a player in the first place.
+        // Service#optional matters most here, because this container is the network:
+        // voicechat-velocity is resolved from a pre-release, and guarding on it would turn its next
+        // bad version into a proxy that will not start.
         final Topology.Service proxy = Topology.SERVICES.stream()
                 .filter(service -> service.name().equals(Topology.NETWORK_CONTROL))
                 .findFirst()
@@ -216,9 +188,8 @@ class TopologyTest {
     @Test
     @DisplayName("neither backend refuses to start over a missing voice chat jar")
     void voiceChatIsOptionalOnTheBackends() {
-        // Owner, 2026-09-09, and it reverses what was built the day before. Voice chat is optional
-        // for a player - the audio needs a client mod - so a missing jar costs a quiet evening,
-        // while a guard entry for it costs the server. The two are not close.
+        // Voice chat needs a client mod, so a missing jar costs a quiet evening while a guard entry
+        // for it costs the server.
         for (final String name : List.of(Topology.SMP, Topology.HUNGER_GAMES)) {
             final Topology.Service service = Topology.SERVICES.stream()
                     .filter(candidate -> candidate.name().equals(name))
@@ -233,8 +204,8 @@ class TopologyTest {
             @SuppressWarnings("unchecked")
             final Map<String, Object> environment =
                     (Map<String, Object>) ((Map<String, Object>) services.get(name)).get("environment");
-            // `${file%-*.jar}` on voicechat-bukkit-2.6.23.jar is voicechat-bukkit, so that - not
-            // the artefact id - is what a guard entry for it would look like.
+            // `${file%-*.jar}` on voicechat-bukkit-2.6.23.jar is voicechat-bukkit, which is what a
+            // guard entry would look like.
             final String guard = defaultOf(String.valueOf(environment.get("EXPECTED_PLUGINS")));
             assertFalse(guard.toLowerCase(java.util.Locale.ROOT).contains("voicechat"),
                     name + "'s EXPECTED_PLUGINS asks for voice chat: " + guard);
@@ -258,21 +229,10 @@ class TopologyTest {
     @Test
     @DisplayName("one player number, on the proxy and on every Paper backend")
     void oneNumberLimitsTheNetwork() {
-        // This test has now asserted three different things, and the two it used to assert are why
-        // it is worth reading rather than trusting. First: that all three backends carried the SAME
-        // limit - because whichever one a player landed on decided, and the smallest of them was the
-        // network's real limit. Before that, nothing set a limit at all, so Paper's default of 20
-        // stood while the browser advertised 500 and the 21st player was refused with "Server full"
-        // AFTER passing the login gate, accepting the resource pack and waiting in limbo. Then, from
-        // 2026-09-03: that the backends carried a number DELIBERATELY UNRELATED to the network's, set
-        // out of reach so only the proxy ever refused anybody.
-        //
-        // That last one was safe and still wrong, because the backends' number is the one every
-        // screen ON a backend can reach: Bukkit.getMaxPlayers() is what a tab list has, so the
-        // browser advertised 500 while the tab list said 3/1000. Since 2026-09-04 there is one
-        // number - NETWORK_MAX_PLAYERS - and this test exists to keep it one. The admins the proxy
-        // lets past a full network are let past the backends by the plugins themselves; see
-        // common's FullServerAdmission.
+        // One number, NETWORK_MAX_PLAYERS, everywhere. A backend's own limit is what every screen on
+        // that backend reads - Bukkit.getMaxPlayers() is what the tab list shows - so a second number
+        // set out of reach still contradicts the browser. Admins past a full network are admitted by
+        // the plugins themselves; see common's FullServerAdmission.
         final List<String> limits = new java.util.ArrayList<>();
         for (final Topology.Service service : Topology.SERVICES) {
             if (service.kind() != Topology.Kind.PAPER) {
@@ -357,13 +317,9 @@ class TopologyTest {
     @Test
     @DisplayName("the server version in compose.yml is the one :common declares, as a literal")
     void oneSourceForThePlatformVersion() {
-        // Until 2026-09-09 every one of these read ${PAPER_VERSION:-26.2} or ${VELOCITY_VERSION:-
-        // 4.1.1}, and the updater was fed the same two variables. So an .env could point the whole
-        // network at a Minecraft version nothing in this repository was compiled for, and the first
-        // sign of it would have been plugins refusing to load on a running server.
-        //
-        // The literal is asserted rather than merely required to exist: a `${…:-26.2}` here would
-        // pass a shape check and reintroduce exactly the override that was removed.
+        // A platform version must not be settable from .env: it would point the whole network at a
+        // Minecraft nothing in this repository was compiled for. The literal is asserted rather than
+        // merely required to exist, because a `${…:-26.2}` would pass a shape check.
         for (final Topology.Service service : Topology.SERVICES) {
             @SuppressWarnings("unchecked")
             final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
@@ -387,7 +343,7 @@ class TopologyTest {
                             + " against; a deployment where they differ loads no plugins.");
         }
 
-        // And nothing feeds the updater a version any more - it reads Platform directly.
+        // Nothing feeds the updater a version: it reads Platform directly.
         @SuppressWarnings("unchecked")
         final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
         @SuppressWarnings("unchecked")
@@ -404,15 +360,12 @@ class TopologyTest {
     @Test
     @DisplayName("compose.yml does not fetch plugins any more - two owners is one too many")
     void pluginOwnershipStaysWithTheUpdater() {
-        // SEASON_PLUGINS and EXTRA_PLUGIN_URLS were removed on 2026-09-01 and must stay removed.
-        // entrypoint.sh fetched `<module>-$SEASON_VERSION.jar` and deleted every other version of
-        // the same plugin by prefix; an updater that puts 0.3.0 in a volume while .env still says
-        // 0.2.0 would have the next restart delete exactly the jar it had just fetched. Re-adding
-        // either line brings that collision back, silently, and this is the only place that says so.
+        // SEASON_PLUGINS and EXTRA_PLUGIN_URLS must stay removed: entrypoint.sh would fetch
+        // `<module>-$SEASON_VERSION.jar` and delete every other version by prefix, so a restart with
+        // a stale .env deletes exactly the jar the updater just installed.
         //
-        // PACK_URL and PACK_SHA1 went for a different reason: a jcore environment override wins
-        // over the file and is never written back, so with them set the updater would be writing a
-        // new sha1 into a value nothing reads.
+        // PACK_URL and PACK_SHA1 for a different reason: a jcore environment override wins over the
+        // file and is never written back, so the updater would write a new sha1 nothing reads.
         for (final String forbidden : List.of("SEASON_PLUGINS", "EXTRA_PLUGIN_URLS",
                 "NORDTAL_NETWORK_CONTROL_PACK_URL", "NORDTAL_NETWORK_CONTROL_PACK_SHA1")) {
             services.forEach((name, definition) -> {
@@ -422,7 +375,7 @@ class TopologyTest {
                 if (environment != null) {
                     assertFalse(environment.containsKey(forbidden),
                             "compose.yml sets " + forbidden + " on '" + name + "' again. The updater"
-                                    + " owns the jars and the pack now - see docs/updater.md.");
+                                    + " owns the jars and the pack now.");
                 }
             });
         }
@@ -437,8 +390,7 @@ class TopologyTest {
 
         final String mounts = String.valueOf(updater.get("volumes"));
         for (final Topology.Service service : Topology.SERVICES) {
-            // A server whose volume is not mounted reports as "unknown" for ever - which the
-            // updater says out loud, but only if somebody reads it. Caught here instead.
+            // A server whose volume is not mounted reports as "unknown" for ever. Caught here.
             assertTrue(mounts.contains("/volumes/" + service.name()),
                     "the updater service does not mount /volumes/" + service.name()
                             + "; it would report that server as unmounted on every run");
@@ -474,22 +426,17 @@ class TopologyTest {
                             + " `apply` reports success, the jars are on disk, and no server runs"
                             + " a single one of them."));
 
-            // The two have to be the SAME source, expression for expression. A variable spelt
-            // differently in the two places, or one side copying the default rather than the
-            // variable, is exactly the silent split above.
+            // The same source, expression for expression: a variable spelt differently in the two
+            // places, or one side copying the default, is a silent split.
             assertEquals(sourceOf(onTheServer), sourceOf(onTheUpdater),
                     service.name() + ": the server and the updater are pointed at two different"
                             + " plugin sources");
 
-            // AND THE DEFAULT HAS TO BE A VOLUME NAME (2026-09-08, finding 151). It was
-            // ${SERVERS_ROOT:-./deploy/servers}/<service>/plugins for three days, which put every
-            // deployed config.yml, milestones.yml, sounds.yml and pack.yml inside the directory
-            // Arcane's GitOps sync pulls - and that sync DELETES IGNORED FILES, so the first sync
-            // after a hand edit takes the lot and every server comes back writing fresh defaults.
-            //
-            // Docker distinguishes a bind mount from a volume by nothing but the shape of the
-            // string: anything containing a `/` is a path. A `.` is checked too because that is
-            // what a relative path starts with here and what a stray `./` leaves behind.
+            // The default has to be a VOLUME NAME, never a path: a path under the directory Arcane's
+            // GitOps sync pulls is deleted by that sync, taking every hand-edited config.yml,
+            // milestones.yml and pack.yml with it. Docker tells a bind mount from a volume by the
+            // shape of the string alone - anything containing a `/` is a path, and a `.` is what a
+            // stray `./` leaves behind.
             final String fallback = defaultOf(sourceOf(onTheServer));
             assertFalse(fallback.contains("/") || fallback.contains("."),
                     service.name() + "'s plugins/ defaults to '" + fallback + "', which Docker"
@@ -517,11 +464,9 @@ class TopologyTest {
     @Test
     @DisplayName("the local env file answers every variable compose.yml requires")
     void theLocalEnvFileIsComplete() throws IOException {
-        // COMPOSE INTERPOLATES THE WHOLE FILE BEFORE IT FILTERS BY PROFILE. So one `${X:?}` with no
-        // value stops the local stack before an image is pulled, and it does that for services the
-        // local selection never starts - every one of the bot's twelve. That is why the example
-        // carries obvious placeholders for them rather than nothing, and why this is checked here:
-        // the alternative is finding out from a `docker compose up` that refuses to parse.
+        // Compose interpolates the whole file before it filters by profile, so one `${X:?}` with no
+        // value stops the local stack before an image is pulled - even for a service the local
+        // selection never starts. Hence the obvious placeholders in the example file.
         final String compose = Files.readString(findUpwards("compose.yml"), StandardCharsets.UTF_8);
         final String env = Files.readString(findUpwards("deploy/dev.env.example"), StandardCharsets.UTF_8);
 
@@ -579,14 +524,9 @@ class TopologyTest {
     @Test
     @DisplayName("every process that can fail silently reports a readiness marker to its container")
     void everyLongRunningServiceHasAHealthcheck() {
-        // FINDING 55. Until 2026-09-04 only `postgres` and `updater` had a healthcheck at all, while
-        // CLAUDE.md justified the "a plugin whose config fails to load stops its whole server" rule
-        // with the words "the port is open, so the healthcheck passes" - describing a mechanism this
-        // file did not contain. The rule was right and the sentence quoted nothing.
-        //
-        // What has to hold now: the four Minecraft services and the bot each carry a check for the
-        // marker their process refreshes, and it is the marker rather than the port that decides,
-        // because an open port is exactly what a Paper server with a disabled plugin still has.
+        // The four Minecraft services and the bot each carry a check for the marker their process
+        // refreshes. The marker decides, not the port: an open port is exactly what a Paper server
+        // with a disabled plugin still has.
         final List<String> named = new java.util.ArrayList<>(List.of("bot"));
         Topology.SERVICES.forEach(service -> named.add(service.name()));
 
@@ -598,8 +538,8 @@ class TopologyTest {
             @SuppressWarnings("unchecked")
             final Map<String, Object> healthcheck = (Map<String, Object>) service.get("healthcheck");
             assertNotNull(healthcheck, name + " has no healthcheck, so nothing outside its JVM"
-                    + " reports anything about it - which is the state finding 55 is about: a"
-                    + " container that is up, green by default, and running nothing useful");
+                    + " reports anything about it - a container that is up, green by default, and"
+                    + " running nothing useful");
 
             final String test = String.valueOf(healthcheck.get("test"));
             assertTrue(test.contains("/tmp/nordtal-ready"),
@@ -612,10 +552,9 @@ class TopologyTest {
     @Test
     @DisplayName("the staleness window in compose.yml is still the one Readiness beats to")
     void theStalenessWindowMatchesTheHelper() {
-        // Two copies of one number, and they cannot be one: compose.yml's test is a shell command
-        // inside a YAML file and can read nothing from Java. `-lt 90` there, STALE_AFTER here. A
-        // window shortened below the beat interval would make every healthy container flap; one
-        // widened would hide a dead process for longer than anybody reading either file expects.
+        // Two copies of one number that cannot be one: compose.yml's test is a shell command and can
+        // read nothing from Java. Shortened below the beat interval, every healthy container flaps;
+        // widened, a dead process stays hidden.
         final java.util.regex.Pattern window = java.util.regex.Pattern.compile("-lt (\\d+)");
         final List<String> named = new java.util.ArrayList<>(List.of("bot"));
         Topology.SERVICES.forEach(service -> named.add(service.name()));
@@ -639,11 +578,9 @@ class TopologyTest {
     @Test
     @DisplayName("the Minecraft services still test the port as well as the marker")
     void theMinecraftServicesKeepTheirPortTest() {
-        // The compose healthcheck REPLACES the one in deploy/minecraft/Dockerfile rather than adding
-        // to it, so the TCP connect that image carries is repeated in the anchor. Dropping it would
-        // trade one blind spot for another: the marker is written at the end of onEnable, which is
-        // not the same instant the server starts accepting connections, and "healthy" on these four
-        // is supposed to mean "accepts players".
+        // The compose healthcheck REPLACES the image's rather than adding to it, so the TCP connect
+        // is repeated here: the marker is written at the end of onEnable, which is not the instant
+        // the server starts accepting connections, and "healthy" has to mean "accepts players".
         for (final Topology.Service service : Topology.SERVICES) {
             @SuppressWarnings("unchecked")
             final Map<String, Object> defined = (Map<String, Object>) services.get(service.name());
@@ -666,9 +603,8 @@ class TopologyTest {
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
             final Map<String, Object> service = (Map<String, Object>) definition;
-            // postgres is the database; postgres-backup only ever talks to it through pg_dump;
-            // pack-host is an nginx serving one zip on loopback under a development-only profile
-            // and reads nothing at all. None of the three can be out of step with a schema.
+            // postgres is the database, postgres-backup only reaches it through pg_dump, and
+            // pack-host serves one zip: none of the three can be out of step with a schema.
             if (name.equals("updater") || name.equals("postgres") || name.equals("postgres-backup")
                     || name.equals("pack-host")) {
                 return;
@@ -686,10 +622,8 @@ class TopologyTest {
     @Test
     @DisplayName("the two Arcane defaults repeated in compose.yml still match the spec's own")
     void theArcaneDefaultsAgreeWithTheSpec() {
-        // They have to be repeated: an environment variable set to the empty string still wins
-        // over the file in jcore's config system, so `${VAR:-}` in compose would blank out the
-        // spec's default rather than fall back to it. Two copies, and this is the test that stops
-        // them drifting.
+        // An environment variable set to the empty string still wins over the file in jcore, so
+        // `${VAR:-}` would blank out the spec's default rather than fall back to it.
         @SuppressWarnings("unchecked")
         final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
         @SuppressWarnings("unchecked")
@@ -710,15 +644,10 @@ class TopologyTest {
     @Test
     @DisplayName("every volume a backup saves is a volume compose.yml declares, prefix included")
     void theBackupNamesRealVolumes() {
-        // TWO COPIES OF ONE FACT, the same shape Topology and compose.yml already are. Arcane
-        // addresses a volume by its REAL Docker name, which is compose's `name:` plus an
-        // underscore plus the key under `volumes:` - so a volume renamed here and not there is a
-        // 404 from Arcane on the one night it matters, and a run that reports a failed backup for
-        // a volume that has not existed for weeks.
-        //
-        // A 404 is the GOOD version of getting this wrong. The bad one is a typo that happens to
-        // name a volume Docker will simply CREATE on first use: Arcane would snapshot an empty
-        // directory and report success for ever.
+        // Arcane addresses a volume by its real Docker name - compose's `name:` plus an underscore
+        // plus the key under `volumes:` - so a rename in one place and not the other is a 404 on the
+        // night it matters. Worse than a 404 is a typo naming a volume Docker CREATES on first use:
+        // Arcane then snapshots an empty directory and reports success for ever.
         final String project = composeProject();
         final Set<String> declared = composeVolumes();
 
@@ -738,9 +667,8 @@ class TopologyTest {
     @Test
     @DisplayName("every service a backup stops is a service compose.yml runs")
     void theBackupStopsRealServices() {
-        // A name Arcane does not list is reported as "Arcane does not list a container for this
-        // service" and aborts the run before anything is saved - which is the right direction to
-        // fail in, and still an outage for nothing at a quarter to five in the morning.
+        // A name Arcane does not list aborts the run before anything is saved - the right direction
+        // to fail in, and still an outage for nothing.
         for (final String service : defaults().backup().stopServices()) {
             assertNotNull(services.get(service), "backup.stop-services names '" + service
                     + "', which is not a service in compose.yml. The run would stop nothing, save"
@@ -798,20 +726,18 @@ class TopologyTest {
     @Test
     @DisplayName("the bootstrap default repeated in compose.yml still matches the spec's own")
     void theBootstrapDefaultAgreesWithTheSpec() {
-        // Same reason as the two Arcane defaults above: an empty environment variable wins over the
-        // file, so the fallback has to say what the spec says rather than nothing.
+        // An empty environment variable wins over the file, so the fallback has to say what the spec
+        // says rather than nothing.
         @SuppressWarnings("unchecked")
         final Map<String, Object> updater = (Map<String, Object>) services.get("updater");
         @SuppressWarnings("unchecked")
         final Map<String, Object> environment = (Map<String, Object>) updater.get("environment");
 
-        // arcane() is the one member of UpdaterSpec without a default, so it has to be supplied
-        // even though this test only reads bootstrap().
+        // arcane() is the one member without a default, so it has to be supplied here.
         final UpdaterSpec spec = new UpdaterSpec() {
             @Override
             public BackupSpec backup() {
-                // Defaults throughout: this test is not about a backup, and BackupSpec's own
-                // defaults are the production ones.
+                // Defaults throughout: this test is not about a backup.
                 return new BackupSpec() {
                 };
             }
@@ -832,14 +758,10 @@ class TopologyTest {
     @Test
     @DisplayName("every image of ours defaults to one the release workflow actually pushes")
     void ourImagesArePulledAndNotInventedLocally() {
-        // THIS IS THE TEST FOR A REAL OUTAGE. compose.yml defaulted the Minecraft image to
-        // `ghcr.io/nordtal/minecraft:local`, a tag nothing has ever pushed, on the assumption that
-        // the host would build it. Arcane deploys by PULLING - its Redeploy never builds - so the
-        // deploy failed with `denied` from the registry, which is also what a private package
-        // answers and therefore explains nothing. A `build:` block next to it made it look fine.
-        //
-        // The rule this pins down: if an image is ours, its DEFAULT must be a ghcr.io/nordtal
-        // reference tagged from IMAGE_TAG, because that is exactly what release.yml publishes.
+        // Arcane deploys by PULLING and never builds, so a default tag nothing has pushed fails with
+        // a registry `denied` - which is also what a private package answers, and a `build:` block
+        // beside it makes the file look fine. If an image is ours, its default must be a
+        // ghcr.io/nordtal reference tagged from IMAGE_TAG, which is what release.yml publishes.
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
             final Map<String, Object> service = (Map<String, Object>) definition;
@@ -861,8 +783,7 @@ class TopologyTest {
     @Test
     @DisplayName("DisplayTags really is required by smp, which is why the topology lists it")
     void theRequiredPluginsAreRequiredBySmpsOwnManifest() throws IOException {
-        // The topology's smp row is not a preference. Checked against the manifest that enforces
-        // it rather than against a comment about it.
+        // Checked against the manifest that enforces it rather than against a comment about it.
         final Path manifest = findUpwards("smp/src/main/resources/paper-plugin.yml");
         final String text = Files.readString(manifest, StandardCharsets.UTF_8);
 
@@ -876,8 +797,8 @@ class TopologyTest {
     @Test
     @DisplayName("no Minecraft service exists in compose.yml that the topology does not know about")
     void nothingIsMissedOut() {
-        // The direction that actually catches a fifth backend server: adding one to compose.yml
-        // without adding it here would otherwise mean an updater that quietly never touches it.
+        // Catches a fifth backend added to compose.yml and not here, which the updater would then
+        // quietly never touch.
         final Set<String> known = new LinkedHashSet<>();
         Topology.SERVICES.forEach(service -> known.add(service.name()));
 

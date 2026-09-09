@@ -21,41 +21,22 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * The plugin disable Velocity does not have: a {@code LoginEvent} handler that refuses
+ * The per-plugin disable Velocity does not have: a {@code LoginEvent} handler that refuses
  * <b>everybody</b> because {@code network-control}'s own configuration could not be read.
  *
- * <h2>Why this exists</h2>
- * docs/architecture.md#failing-closed-on-a-bad-config, settled 2026-08-31. Until then a bad
- * {@code database.yml} or {@code gate.yml} was logged loudly and the login gate was simply never
- * registered - so the proxy kept running and kept accepting logins <b>un-gated</b>. That is the
- * wrong way round for a value whose whole job is deciding who may join: <i>"the proxy is up but
- * nobody can join"</i> announces itself within seconds of the first player trying, while <i>"the
- * proxy is up and the gate is off"</i> announces itself never, and a single mistyped key silently
- * opens the network.
- * <p>
- * The objection the old behaviour was justified with - Velocity has no per-plugin disable - is true
- * and beside the point. This class is that disable, built by hand, and it costs one class.
- * </p>
+ * <p>Failing closed is the point. "The proxy is up but nobody can join" announces itself within
+ * seconds of the first player trying; "the proxy is up and the gate is off" announces itself never,
+ * and a single mistyped key would silently open the network.</p>
  *
- * <h2>Admins are not exempted, and cannot be</h2>
- * There is nobody to exempt. The admin flag is a column on {@code discord_user}, in the database
- * that a broken {@code database.yml} is the reason we cannot reach. An exemption here would have to
- * invent a second notion of who is an admin - a UUID list in a config file that is itself the thing
- * that is broken - which is exactly the design docs/season-phases.md#how-an-admin-is-recognised
- * rejects. The recovery path is a human fixing the file and restarting the proxy; that is the whole
- * of it, on purpose.
+ * <p>Admins cannot be exempted: the admin flag is a column in the database a broken
+ * {@code database.yml} is the reason we cannot reach, and an exemption would mean inventing a second
+ * notion of who is an admin inside the file that is itself broken. The recovery path is a human
+ * fixing the file and restarting the proxy.</p>
  *
- * <h2>The screen is bilingual</h2>
- * For a stronger version of the reason the unlinked screen is: not only is the player unidentified,
- * the table that stores every player's language is unreachable. English first, German underneath in
- * grey italics, exactly like {@link GateMessages#notLinked}.
- *
- * <h2>It answers the ping too, since 2026-09-03</h2>
- * The MOTD moved out of {@code velocity.toml} and into {@code network.yml}, and {@code network.yml}
- * is one of the files that can be what is broken - so without this the server browser would fall
- * back to Velocity's own "A Velocity Server" at exactly the moment the network most needs to
- * explain itself. The line comes from the message bundle, which is a classpath resource and
- * therefore the one thing still readable when the configuration is the problem.
+ * <p>The screen is bilingual because the table that stores every player's language is unreachable.
+ * It also answers the ping, since the MOTD lives in {@code network.yml} and that is one of the files
+ * that can be broken - the line comes from the message bundle, a classpath resource and therefore
+ * the one thing still readable when the configuration is the problem.</p>
  */
 public final class MisconfiguredGate {
 
@@ -79,15 +60,13 @@ public final class MisconfiguredGate {
                 .append(MessageRenderer.of(messages).get(Locale.GERMAN, "gate.misconfigured")
                         .color(NamedTextColor.GRAY)
                         .decorate(TextDecoration.ITALIC));
-        // English only: a ping carries no player, so there is no language to pick - the same reason
-        // NetworkPing renders its countdown in English.
+        // English only: a ping carries no player, so there is no language to pick.
         this.motd = MiniMessage.miniMessage().deserialize(messages.get(Locale.ENGLISH, "motd.misconfigured"));
     }
 
     /**
-     * What the server browser shows while nobody can join. Deliberately not the configured MOTD:
-     * the configuration is what failed, and a network advertising its season while refusing every
-     * login is a worse lie than one that says it is broken.
+     * What the server browser shows while nobody can join. Deliberately not the configured MOTD -
+     * the configuration is what failed.
      */
     @Subscribe
     public void onPing(final ProxyPingEvent event) {
@@ -106,9 +85,8 @@ public final class MisconfiguredGate {
      * The decision itself, without the Velocity event around it: refuse, count, and log the first
      * one and every {@value #REPEAT_LOG_EVERY}th after that.
      * <p>
-     * Package-visible so that a test can prove "everybody is refused, admin or not" without
-     * constructing a {@code LoginEvent} and a {@code Player}, neither of which exists outside a
-     * running proxy. There is no state to vary here anyway - that is the point of this class.
+     * Package-visible so a test can assert it without constructing a {@code LoginEvent} and a
+     * {@code Player}, neither of which exists outside a running proxy.
      * </p>
      *
      * @param mcUuid   who tried
@@ -130,10 +108,6 @@ public final class MisconfiguredGate {
         return refused.get();
     }
 
-    /**
-     * A busy proxy in this state would otherwise write one error line per join attempt for as long
-     * as it takes somebody to notice. The first is always logged, because that is the one that has
-     * to reach whoever is watching.
-     */
+    /** Keeps a busy proxy in this state from writing one error line per join attempt. */
     private static final int REPEAT_LOG_EVERY = 25;
 }

@@ -12,9 +12,7 @@ import java.util.Set;
 /**
  * What a balloon shows, worked out without a server so it can be tested as a table.
  *
- * <p>The layout was settled on 2026-09-01 as "the other overworld, wide, above Nether | End" and
- * re-settled on 2026-09-05 (owner's call) as four equal cards in fixed places, in the manner of
- * Origin Realms' travel menu:
+ * <p>Four equal cards in fixed places:
  *
  * <pre>
  *   +-------------+   +-------------+
@@ -24,18 +22,12 @@ import java.util.Set;
  *   +-------------+   +-------------+
  * </pre>
  *
- * <p>Every world has the same place at every balloon, and the card of the world the player is
- * standing in is marked rather than moved. That is what the fixed places buy: nobody has to learn
- * where "home" went, because it never goes anywhere.
- *
- * <p>A destination that is not unlocked yet <b>stays in its place, greyed</b>, naming the milestone
- * that opens it and pointing at the objective board - rather than disappearing. The moment somebody
- * stands at the balloon is the moment they want to know why the Nether is not available, and an
- * entry that is simply absent answers nothing.
+ * <p>Every world keeps its place at every balloon; the card of the world the player is standing in
+ * is marked rather than moved. A destination that is not unlocked yet <b>stays in its place,
+ * greyed</b>, naming the milestone that opens it, rather than disappearing.
  *
  * <p>The End has no balloon of its own, so it is never the "here" world: the way out is the vanilla
- * exit portal, which does not work until the dragon is dead. That asymmetry is intended and is the
- * point of unlocking the End together.
+ * exit portal, which does not work until the dragon is dead.
  */
 public final class BalloonMenu {
 
@@ -134,7 +126,7 @@ public final class BalloonMenu {
             case NETHER -> unlocked.contains(Unlock.NETHER) ? State.OPEN : State.LOCKED;
             case END -> unlocked.contains(Unlock.END) ? State.OPEN : State.LOCKED;
             // The two overworlds are never locked here: until the opening expansion the farm world
-            // is withheld by the border, not by this menu - see docs/smp.md#the-balloon-gui.
+            // is withheld by the border, not by this menu.
             case NORDTAL, FARM -> State.OPEN;
         };
     }

@@ -14,19 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The two things about the portal gate that only a running server could otherwise answer.
  *
- * <h2>The failure it exists for</h2>
- * Cancelling {@code PortalCreateEvent} stops the portal and nothing else. The flint and steel has
- * already placed a fire block by the time the event is raised, and vanilla leaves it standing
- * because to vanilla the frame was simply invalid. Here the frame is valid and the <em>server</em>
- * refused - so the player read "the Nether is not open yet" while standing in the flames losing
- * hearts, and a death there would have cost five aura on top (finding 130). The refusal charged
- * them for the thing it had just refused.
+ * <p>Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and steel
+ * has already placed a fire block, and vanilla leaves it standing. So a refused ignition burns the
+ * player who just read the refusal.
  *
- * <h2>Why a text search</h2>
- * Raising a real {@code PortalCreateEvent} needs a world, a frame and an ignition. What this
- * protects is one call sitting next to the cancel, which is exactly the kind of line a later edit
- * drops without noticing - the command still works, the message still arrives, and only somebody
- * standing in the portal can tell.
+ * <p>A text search, because raising a real {@code PortalCreateEvent} needs a world, a frame and an
+ * ignition. What it protects is one call next to the cancel, which a later edit can drop with no
+ * visible symptom.
  */
 class PortalGateWiringTest {
 
@@ -36,19 +30,17 @@ class PortalGateWiringTest {
     @Test
     @DisplayName("the farm world's exit hangs off the event that actually arrives there")
     void theFarmWorldExitExists() {
-        // docs/smp.md: every portal in the farm world leads to the Nordtal spawn. PlayerPortalEvent
-        // is never raised there - the farm world is a custom dimension and vanilla links only
-        // overworld to nether - so the branch in onPortal is unreachable and a player stood in a
-        // purple screen for as long as they liked (finding 131). EntityPortalEnterEvent is raised
-        // from the block rather than from the travel logic, which is why it arrives at all.
+        // Every portal in the farm world leads to the Nordtal spawn, but PlayerPortalEvent is never
+        // raised there: the farm world is a custom dimension and vanilla links only overworld to
+        // nether. EntityPortalEnterEvent is raised from the block, which is why it arrives at all.
         final String source = read();
 
         assertTrue(source.contains("EntityPortalEnterEvent"),
                 "nothing carries a player out of the farm world: PlayerPortalEvent does not arrive"
                         + " for a custom dimension, so the exit has to hang off the portal block");
         assertTrue(source.contains("LandingSite.safeAt("),
-                "the farm world's exit drops the player at a raw spawn location, which finding 124"
-                        + " already showed is a coordinate rather than a promise");
+                "the farm world's exit drops the player at a raw spawn location, which is a"
+                        + " coordinate rather than a promise that anybody survives it");
         assertTrue(source.contains("leaving.add(player.getUniqueId())"),
                 "EntityPortalEnterEvent fires every tick the player is in the portal, so the"
                         + " countdown has to be armed once rather than once per tick");

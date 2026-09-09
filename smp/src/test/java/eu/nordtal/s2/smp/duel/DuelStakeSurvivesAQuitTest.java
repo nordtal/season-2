@@ -15,27 +15,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Logging out of a duel has to cost the same as losing one.
  *
- * <h2>What this is about</h2>
- * {@code docs/smp.md} states it in one sentence - "<b>Disconnecting is a defeat and the aura is
- * booked.</b> Otherwise logging out is a free escape from losing." It was not true, and the way it
- * failed is why this is a test rather than a comment.
+ * <p>Disconnecting is a defeat and the aura is booked, otherwise logging out is a free escape from
+ * losing. The trap: {@code Identities} is a per-session cache that {@code JoinGate}'s quit handler
+ * clears, and {@code JoinGate} is registered first - so a booking that reads ids from it at settle
+ * time finds nothing and silently writes neither stake.
  *
- * <p>{@code Duels#book} resolved both fighters' discord ids out of {@code Identities}, which is a
- * per-session cache. {@code JoinGate}'s quit handler clears it, and {@code JoinGate} is registered
- * before {@code DuelListener} in {@code SmpPlugin}, so by the time the duel's own quit handler ran,
- * the leaver's id was gone. {@code book} took its early return and wrote <b>nothing</b> - not the
- * loser's stake, and not the winner's either. Everything visible still happened: the arena came
- * down, the survivor was returned to the spawn with their own inventory and a "you won" title, and
- * only the number was missing. Measured on the local stack, 2026-09-07 (finding 137): a mid-fight
- * disconnect left both aura totals untouched and {@code smp_aura_event} with no row.
- *
- * <h2>Why the fix is a captured value and not a reordering</h2>
- * Moving {@code DuelListener} ahead of {@code JoinGate} would also have worked, today. It would have
- * made whether a duel pays out depend on the order two unrelated listeners happen to be registered
- * in - a fact nothing states, nothing checks, and any later edit to {@code onEnable} can reverse
- * without touching a line of duel code. A duel's two participants cannot change once it is running,
- * so the ids are knowable when it starts; taking them then removes the ordering question instead of
- * answering it.
+ * <p>The ids are therefore captured when the duel starts, rather than the two listeners being
+ * reordered: registration order is a fact nothing states and any later edit to {@code onEnable} can
+ * reverse.
  */
 class DuelStakeSurvivesAQuitTest {
 

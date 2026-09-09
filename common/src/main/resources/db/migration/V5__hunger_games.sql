@@ -1,27 +1,17 @@
 -- The hunger games start event's schema: one game, its teams, their members, and the event log a
--- kill tiebreaker and a post-game evaluation both read from. See docs/hunger-games.md, especially
--- "Data model".
+-- kill tiebreaker and a post-game evaluation both read from. The bot applies it at startup, and both
+-- the bot (registration) and the `hunger-games` plugin (game state) read and write it afterwards.
 --
--- Migrated here, like every other table (docs/architecture.md#schema-ownership): the bot applies
--- this at startup, and both the bot (registration) and the `hunger-games` plugin (game state) read
--- and write it afterwards.
+-- Every point in time is `timestamptz` and no duration is an `interval` - see V4's header for why.
 --
--- Every point in time is `timestamptz`, and no duration in this file is an `interval 'N days'` -
--- see V4's header for why; the same reasoning applies to every timestamp below.
---
--- Everything hangs off `discord_user`, never off the Minecraft UUID directly - the UUID reaches a
--- row through `account_link`, exactly like every other table in this schema, and duplicating it
--- here would create a second answer to "whose account is this" (docs/hunger-games.md#data-model).
--- Where docs/hunger-games.md's own ER sketch draws a foreign key as `bigint discord_user_id`, this
--- file uses `varchar(32) discord_id` instead - the schema's actual key has been that since V1, and
--- V4 already made the same correction for `player_playtime` rather than repeat the sketch's type.
+-- Everything hangs off `discord_user`, never off the Minecraft UUID directly: the UUID reaches a row
+-- through `account_link`, and duplicating it here would create a second answer to "whose account is
+-- this".
 
 
--- One hunger games event. There is ordinarily exactly one of these open at a time, but the row
--- exists to be created more than once across a season: a rehearsal (docs/hunger-games.md#verification
--- demands one with several real clients before the event is ever called done) is itself a game, and
--- reusing team names between a rehearsal and the real event must not collide - see the per-game
--- uniqueness on hg_team below.
+-- One hunger games event. Ordinarily one is open at a time, but the row exists to be created more
+-- than once across a season: a rehearsal is itself a game, and reusing team names between a
+-- rehearsal and the real event must not collide - see the per-game uniqueness on hg_team below.
 CREATE TABLE hg_game
 (
     id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -42,18 +32,15 @@ CREATE TABLE hg_game
     -- winner_member_id is added by an ALTER below, once hg_member exists to reference.
 );
 
--- At most one non-DECIDED game, ever. A constant expression as the indexed value is the standard
--- way to make a partial unique index enforce "at most one row matching this WHERE", the same trick
--- payment_request_one_open_per_user_key uses per-user; here the whole table is the scope. Without
--- it, two admins racing the start command - or a rehearsal left open by accident - could produce
--- two games both accepting registrations, and Discord registration has no way to know which one a
--- team belongs to.
+-- At most one non-DECIDED game, ever: a constant expression as the indexed value makes a partial
+-- unique index enforce "at most one row matching this WHERE". Without it, two games could both
+-- accept registrations and Discord registration could not know which one a team belongs to.
 CREATE UNIQUE INDEX hg_game_one_open_key ON hg_game ((true))
     WHERE state <> 'DECIDED';
 
 
 -- One registered team. `name` is what a player picks, not a colour - colours are generated at
--- countdown time (docs/hunger-games.md#teams-colours-and-hearts) and start out unknown.
+-- countdown time and start out unknown.
 CREATE TABLE hg_team
 (
     id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -76,19 +63,16 @@ CREATE TABLE hg_team
     created      timestamptz NOT NULL DEFAULT now()
 );
 
--- A team name is unique within its own game, not across every game a season ever runs - a
--- rehearsal and the real event must each be free to use "Foxes". Case-insensitive: two teams
--- named "Foxes" and "foxes" in the same game are the same collision to a player reading a lobby
--- board out loud.
+-- A team name is unique within its own game, not across a season - a rehearsal and the real event
+-- must each be free to use the same name. Case-insensitive, because two teams differing only in case
+-- are the same collision to a player reading a lobby board out loud.
 CREATE UNIQUE INDEX hg_team_game_id_name_lower_key ON hg_team (game_id, lower(name));
 
 
 -- One player's membership in one team, for one game.
 --
--- `game_id` duplicates `hg_team.game_id` on purpose. It is what lets the partial unique index
--- below say "one active membership per player per game" without a join or a trigger - the same
--- trade-off `player_playtime`'s comments describe for denormalising a key that is only ever read
--- back, not chosen independently.
+-- `game_id` duplicates `hg_team.game_id` on purpose: it is what lets the partial unique index below
+-- say "one active membership per player per game" without a join or a trigger.
 CREATE TABLE hg_member
 (
     id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -111,18 +95,16 @@ CREATE TABLE hg_member
         CONSTRAINT hg_member_state_check
             CHECK (state IN ('OWNER', 'INVITED', 'ACCEPTED', 'DECLINED')),
 
-    -- Written by the plugin's lobby broadcast ("I have read the rules and I am ready"), never by
-    -- the bot - docs/hunger-games.md places readiness entirely in the Paper lobby, and nothing in
-    -- the Discord half of this feature reads or writes this column.
+    -- Written by the plugin's lobby broadcast, never by the bot: readiness lives entirely in the
+    -- Paper lobby.
     ready      boolean     NOT NULL DEFAULT false,
 
     created    timestamptz NOT NULL DEFAULT now()
 );
 
--- One active (non-declined) membership per player per game: a Discord account cannot own or be
--- invited into two teams at once, and a repeated invite attempt while one is already pending or
--- accepted is refused by this constraint rather than by application code remembering to check.
--- A DECLINED row does not count, which is what lets a new invitation follow a declined one.
+-- One active (non-declined) membership per player per game, refused by this constraint rather than
+-- by application code remembering to check. A DECLINED row does not count, which is what lets a new
+-- invitation follow a declined one.
 CREATE UNIQUE INDEX hg_member_one_active_membership_key ON hg_member (game_id, discord_id)
     WHERE state IN ('OWNER', 'INVITED', 'ACCEPTED');
 
@@ -137,8 +119,7 @@ ALTER TABLE hg_game
 
 
 -- Everything that happens during a run: kills, deaths, disconnects, border shrinks, loot refills,
--- the tie call. Not CHECK-constrained on `type`, the same reasoning as `audit_log.action` and
--- `managed_message.kind` - a new event type must not need a migration.
+-- the tie call. Not CHECK-constrained on `type`, so a new event type does not need a migration.
 CREATE TABLE hg_event
 (
     id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -150,9 +131,8 @@ CREATE TABLE hg_event
     type      varchar(32) NOT NULL,
 
     -- Who did it and who it happened to, where either makes sense - a KILL has both, a
-    -- BORDER_SHRINK has neither, a DEATH by the border has only a victim. ON DELETE SET NULL rather
-    -- than CASCADE: an event is history and must survive a member row being reworked, even though
-    -- nothing today deletes an hg_member.
+    -- BORDER_SHRINK has neither. ON DELETE SET NULL rather than CASCADE: an event is history and
+    -- must survive a member row being reworked.
     actor_id  uuid
         REFERENCES hg_member (id) ON DELETE SET NULL,
     victim_id uuid
@@ -163,7 +143,7 @@ CREATE TABLE hg_event
     at        timestamptz NOT NULL DEFAULT now()
 );
 
--- The kill tiebreaker (docs/hunger-games.md#winning) counts KILL events by actor_id for one game;
--- the evaluation board reads the whole log for one game in order. One index serves both.
+-- The kill tiebreaker counts KILL events by actor_id for one game; the evaluation board reads the
+-- whole log for one game in order.
 CREATE INDEX hg_event_game_id_at_idx ON hg_event (game_id, at);
 CREATE INDEX hg_event_type_actor_id_idx ON hg_event (type, actor_id);

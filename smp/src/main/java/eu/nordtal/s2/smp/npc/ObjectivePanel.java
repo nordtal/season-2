@@ -13,36 +13,22 @@ import java.util.List;
 /**
  * Draws the spawn NPC's surface: the active milestone, four objective cards, and your own share.
  *
- * <h2>What the picture is</h2>
- * Design {@code O3} from the owner's menu artifact - the variant that carries the player's own
- * contribution, which {@code docs/smp.md} names as content of this menu and which no code has ever
- * shown. Six rows: a darker heading plate naming the milestone with a text bar and an
- * "n of m done" counter; two rows of two cards, each 68 x 32 with a type icon, a name, a painted
- * progress bar and its numbers; and a share line along the bottom.
+ * <p>Six rows: a heading plate naming the milestone with a text bar and an "n of m done" counter;
+ * two rows of two cards, each 68 x 32 with a type icon, a name, a painted progress bar and its
+ * numbers; and a share line along the bottom.
  *
- * <h2>Why a card is a {@code nordtal:gui} glyph and everything on it is a row glyph</h2>
- * A card spans two chest rows and a row font's whole purpose is one ascent per layer per row - so
- * the plate needs a code point per card row ({@link Glyphs#GUI_CARD_TOP}, {@code _BOTTOM}). What
- * sits <em>on</em> the card does not: the icon and the name fall inside the upper row's own icon and
- * text bands, the numbers inside the lower row's text band, so those cost nothing per card. The bar
- * is the one thing in between - it lands in the four-pixel gap between two row bands - which is why
- * its fill has an ascent of its own too.
+ * <p>A card spans two chest rows, and a row font gives one ascent per layer per row, so the plate
+ * needs a code point per card row ({@link Glyphs#GUI_CARD_TOP}, {@code _BOTTOM}). The icon, name and
+ * numbers fall inside the rows' own bands and cost nothing extra; the bar lands in the four-pixel
+ * gap between two bands, which is why its fill carries an ascent of its own.
  *
- * <h2>The bar is painted, and it is six glyphs</h2>
- * The track is baked into the card, so an empty bar costs nothing. The fill is a power-of-two
- * decomposition of its width, exactly as the board frame's edges are: any fill from 0 to
- * {@link #BAR_MAX} is at most four glyphs, because 60 is 32 + 16 + 8 + 4. The alternative the
- * artifact offers - a text bar out of {@code ProgressBar} - is what the <em>heading</em> uses, where
- * there is no room for a painted one beside the name and the counter.
+ * <p>The bar's track is baked into the card and the fill is a power-of-two decomposition of its
+ * width, so any fill up to {@link #BAR_MAX} is at most four glyphs. The heading uses a text bar
+ * instead, where there is no room for a painted one.
  *
- * <h2>Four cards, and a milestone that has five</h2>
- * The design is four cards and the shipped track's last three milestones have <b>five</b>
- * objectives. Dropping the fifth is the one outcome this menu must not produce - nobody reports an
- * objective they were never shown - so {@link #CARDS_PER_PAGE} is a page and not a limit, and
- * {@link ObjectiveGui} pages. The two page buttons sit on the share row's last two slot cells and
- * are drawn only when there is a second page, so a four-objective milestone is exactly the
- * artifact's drawing and nothing else. That the design has no answer for five is the owner's to
- * settle; this is the reading of it that hides nothing.
+ * <p><b>{@link #CARDS_PER_PAGE} is a page, not a limit</b>: milestones with five objectives exist,
+ * and dropping the fifth is the one outcome this menu must not produce. {@link ObjectiveGui} pages,
+ * and the two page buttons are drawn only when there is a second page.
  */
 public final class ObjectivePanel {
 
@@ -191,10 +177,8 @@ public final class ObjectivePanel {
     /**
      * One card: its plate, then everything on it, then the wash if it is finished.
      *
-     * <p>Order is draw order and it matters twice. The plate is laid first because everything on it
-     * would otherwise be painted over; the wash is laid last because it is the one thing that has to
-     * tint what is under it, the bar included - a finished objective's bar is full, and washing only
-     * the heading would say the card was half settled.</p>
+     * <p>Order is draw order: the plate first, so nothing on it is painted over, and the wash last,
+     * because it has to tint everything under it including the bar.</p>
      */
     private static void card(final MenuTitle.Canvas canvas, final int index, final Card card) {
         final int x = CARD_X[index % 2];
@@ -221,8 +205,7 @@ public final class ObjectivePanel {
      *
      * <p>Largest first, so the run is the number's binary representation and there is exactly one
      * way to write any width. A ratio that has started but rounds to nothing still draws one pixel,
-     * for the reason {@code ProgressBar} floors to one character: "1 of 3000" must not look like
-     * "not begun".</p>
+     * so "1 of 3000" does not look like "not begun".</p>
      */
     private static void fill(final MenuTitle.Canvas canvas, final int x, final boolean top,
                              final double ratio) {
@@ -261,9 +244,8 @@ public final class ObjectivePanel {
     /**
      * One page button, drawn greyed when there is no page on that side.
      *
-     * <p>The same rule {@code NavigatePanel} states: a control that vanishes moves nothing, but a
-     * player who saw it a second ago has to work out whether it was ever there. The click on a
-     * greyed one is refused with the refusal sound.</p>
+     * <p>Greyed rather than removed, so a control never appears to have moved. A click on a greyed
+     * one is refused with the refusal sound.</p>
      */
     private static void pageButton(final MenuTitle.Canvas canvas, final int x, final String arrow,
                                    final boolean enabled) {

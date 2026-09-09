@@ -31,15 +31,13 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * The three-line HUD, per docs/hunger-games.md#the-hud: players (alive/dead + arrow to nearest
- * living player), loot (countdown + direction to nearest point), border (shrink status). A stack of
- * three {@link BossBar} instances shown simultaneously per player, updated a few times a second.
- * <p>
- * The vanilla bar itself is made invisible by the resource pack (white_background.png /
- * white_progress.png overridden - docs/hunger-games.md#the-hud); this class only has to decide what
- * each line says. Each line is one pill ({@link BossBarLine}): the icon, the text, and - on the two
- * lines that have one - the bearing arrow riding at the end of the same pill.
- * </p>
+ * The three-line HUD: players (alive/dead plus an arrow to the nearest living player), loot
+ * (countdown plus a direction), border (shrink status). Three {@link BossBar} instances per player,
+ * redrawn a few times a second.
+ *
+ * <p>The resource pack makes the vanilla bar itself invisible, so this class only decides what each
+ * line says. Each line is one {@link BossBarLine} pill: icon, text, and the bearing arrow riding at
+ * the end of the same pill.</p>
  */
 public final class HudRenderer {
 
@@ -60,18 +58,8 @@ public final class HudRenderer {
     private BukkitTask task;
 
     /**
-     * The living count is <b>read</b> here, never pushed in.
-     *
-     * <p>It used to be two {@code volatile} fields plus a {@code setCounts(alive, dead)} for
-     * somebody to call. Nobody ever did - the setter had no caller anywhere in the repository, so
-     * the first line of this HUD read "Alive 0, Dead 0" for the whole of every game (finding 139,
-     * seen on the local stack 2026-09-07). Both halves of the wire existed and nothing joined them:
-     * {@code WinTracker#aliveCount()} and {@code #deadCount(int)} had no caller either.
-     *
-     * <p>A push would work and would break again the same way, because "remember to call this
-     * whenever somebody dies" is a rule with no enforcement. Reading the tracker at render time
-     * cannot go stale: the HUD redraws four times a second from the same object the death handler
-     * writes to.</p>
+     * The living count is read at render time, never pushed in: a push depends on somebody
+     * remembering to call it, while reading the tracker four times a second cannot go stale.
      */
     private final WinTracker wins;
 

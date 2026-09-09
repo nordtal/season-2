@@ -11,60 +11,32 @@ import java.util.Optional;
 
 /**
  * The {@code nordtal:limbo} plugin-message channel: its name, its wire format, and the only encoder
- * and decoder either side uses.
+ * and decoder either side uses. Both ends live in this repository, and a byte format written twice
+ * would drift silently - a plugin message that does not parse looks exactly like one never sent.
  *
- * <h2>Why this lives in {@code :common}</h2>
- * Both ends are in this repository and neither can be right on its own. A byte format written twice
- * - once in {@code network-control}, once in {@code limbo} - is a format that drifts on the first
- * change and fails silently, because a plugin message that does not parse looks exactly like a
- * plugin message that was never sent. {@code :common} is compiled against no platform, and a
- * {@link DataOutputStream} is a JDK type, so the protocol costs this module nothing.
- *
- * <h2>The channel</h2>
- * <b>{@code nordtal:limbo}</b>, decided 2026-09-01. docs/season-phases.md#routing asked for "a
- * plugin message on a {@code nordtal:} channel" without naming one. The name says which
- * conversation it is rather than which direction it runs in ({@code nordtal:route} would have been
- * wrong the moment the proxy started talking back), and it is a legal Minecraft identifier:
- * namespace {@code [a-z0-9_.-]}, value {@code [a-z0-9/._-]}.
- *
- * <h2>The format</h2>
  * <pre>
  * byte  version   always 1
- * byte  type      1 = WAIT (proxy -> limbo), 2 = READY (limbo -> proxy)
+ * byte  type      1 = WAIT (proxy -&gt; limbo), 2 = READY (limbo -&gt; proxy)
  * ...   body
  *
  * WAIT   body: UTF  the {@link WaitReason} constant's name
  * READY  body: empty
  * </pre>
- * Two messages, one byte of version, and no room for a field nobody reads. It is
- * {@link DataOutputStream}'s format because that is what both platforms' plugin-message APIs hand
- * you a stream for, not because anything here needs to be compact - the whole conversation is two
- * packets per login.
  *
- * <h2>Both directions, and why READY is not redundant</h2>
- * The proxy knows the pack status; {@code limbo} knows the player has actually arrived and finished
- * loading. Neither fact implies the other, and releasing a player on the pack status alone would
- * mean connecting them onward while their client is still joining the waiting room. So:
- * {@code limbo} sends {@link #ready()} once per join, the proxy sends {@link #wait(WaitReason)}
- * whenever the reason changes, and the release happens when both halves agree.
+ * <p>Both directions are needed: the proxy knows the pack status, {@code limbo} knows the player has
+ * arrived and finished loading, and neither fact implies the other. The release happens when both
+ * halves agree.
  *
- * <p><b>Once per join is a property to design against, not to rely on</b> (2026-09-03, finding 38).
- * Nothing here retries and nothing acknowledges, so a {@link #ready()} that the proxy does not act
- * on is gone - and Velocity 4.1.1 has two ways for that to happen, one a dispatch race and one an
- * outright loss inside {@code TransitionSessionHandler}. The proxy's {@code WaitingBook} therefore
- * records a {@code READY} whenever it arrives, in any order, and releases the player anyway after a
- * grace period if it never does. <b>Do not make this protocol the only thing standing between a
- * player and a black screen</b>; it was, and the result was permanent and silent.
+ * <p><b>A {@code READY} can be lost.</b> Nothing here retries or acknowledges, and Velocity can drop
+ * one. The proxy's {@code WaitingBook} therefore accepts one whenever it arrives, in any order, and
+ * releases the player after a grace period if it never does - do not make this protocol the only
+ * thing between a player and a black screen.
  *
- * <h2>What a decoder must not trust</h2>
- * On the proxy, a plugin message on this channel can arrive from a <b>client</b> as easily as from
- * a backend - registering a channel makes the proxy advertise it to the client, and a modded client
- * can write any bytes it likes onto it. A forged {@code READY} would be a player releasing
- * themselves from the waiting room, which is to say skipping the resource pack. This class cannot
- * defend against that (the sender is not in the message), so <b>the caller must reject any message
- * whose source is a player rather than a server connection</b>; {@code PackStation} does.
- * {@link #decode(byte[])} does the other half: it never throws, and returns empty for anything it
- * does not recognise, because a malformed message on a network boundary is data, not a bug.
+ * <p>On the proxy a message on this channel can come from a <b>client</b> as easily as from a
+ * backend, and a forged {@code READY} would be a player skipping the resource pack. The sender is
+ * not in the message, so the caller must reject anything whose source is a player rather than a
+ * server connection. {@link #decode(byte[])} does the other half: it never throws and returns empty
+ * for anything it does not recognise.
  */
 public final class LimboProtocol {
 
@@ -120,8 +92,8 @@ public final class LimboProtocol {
             out.writeByte(TYPE_WAIT);
             out.writeUTF(reason.name());
         } catch (final IOException impossible) {
-            // ByteArrayOutputStream does not do I/O. Rethrown rather than swallowed so that a
-            // future change to this method cannot quietly start returning half a message.
+            // ByteArrayOutputStream does not do I/O; rethrown so a future change cannot quietly
+            // start returning half a message.
             throw new UncheckedIOException(impossible);
         }
         return bytes.toByteArray();
@@ -142,12 +114,8 @@ public final class LimboProtocol {
     }
 
     /**
-     * Reads a message off the wire.
-     * <p>
-     * Never throws, whatever the bytes are. Everything that reaches this method came off a socket
-     * somebody else controls; the only correct response to nonsense is to ignore it, and the only
-     * way to guarantee that at every call site is for the failure to be a value.
-     * </p>
+     * Reads a message off the wire. Never throws, whatever the bytes are: everything reaching it
+     * came off a socket somebody else controls, so the failure has to be a value.
      *
      * @param data the payload of the plugin message, may be {@code null}
      * @return the message, or empty when the payload is truncated, carries another version, names

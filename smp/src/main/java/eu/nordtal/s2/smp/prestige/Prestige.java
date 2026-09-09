@@ -6,21 +6,15 @@ import java.util.Objects;
 /**
  * The prestige crest: a tier from 1 to 13, derived from a player's total online time.
  *
- * <p>docs/smp.md#prestige--a-crest-earned-by-time: "A coat-of-arms glyph in 13 design tiers,
- * assigned by total online time. AFK time counts, on purpose: this is a measure of presence, not of
- * effort, and it is the reason play time is not an aura source."
+ * <p>AFK time counts on purpose: this measures presence, not effort, which is why play time is not
+ * an aura source.
  *
- * <h2>Why this is a function and not a column</h2>
- * <b>The tier is derived, never stored.</b> It falls out of {@code player_playtime.seconds} and the
- * configured thresholds every time it is rendered, so retuning the thresholds is a config edit
- * rather than a migration plus a backfill of every player. That is also why this class has no state
- * and no database: it is called from a render path - the tab list, a nametag, a chat line - many
- * times a second, and it must never do anything but arithmetic.
+ * <p><b>The tier is derived, never stored</b>, so retuning the thresholds is a config edit rather
+ * than a migration and a backfill. This class therefore has no state and no database: it is called
+ * from render paths many times a second and must never do anything but arithmetic.
  *
- * <h2>Where the seconds come from</h2>
- * {@code player_playtime}, written by <b>the proxy</b> and not by this plugin
- * (docs/architecture.md#schema-ownership). Only the proxy sees a whole session across servers; a
- * backend sees its own slice. That is also why the table carries no {@code smp_} prefix.
+ * <p>The seconds come from {@code player_playtime}, written by <b>the proxy</b>: only the proxy
+ * sees a whole session across servers.
  */
 public final class Prestige {
 
@@ -35,10 +29,8 @@ public final class Prestige {
     public static final int TIER_COUNT = 13;
 
     /**
-     * The proposal in docs/smp.md, in hours, "calibrated so tier 13 is reachable in two to three
-     * months by somebody who plays regularly and leaves the client running some nights". Listed
-     * here as the config default; the table is
-     * [a proposal, not a decision](docs/smp.md#numbers-that-are-proposals-not-decisions).
+     * The config default, in hours, calibrated so tier 13 is reachable in two to three months by
+     * somebody who plays regularly.
      */
     public static final List<Integer> DEFAULT_THRESHOLD_HOURS =
             List.of(0, 2, 5, 10, 20, 35, 55, 85, 125, 175, 250, 350, 500);
@@ -81,24 +73,21 @@ public final class Prestige {
         }
     }
 
-    /** @return the tier table using the defaults from docs/smp.md */
+    /** @return the tier table built from {@link #DEFAULT_THRESHOLD_HOURS} */
     public static Prestige defaults() {
         return new Prestige(DEFAULT_THRESHOLD_HOURS);
     }
 
     /**
-     * @param seconds total online time, network-wide, from {@code player_playtime.seconds}. A
-     *                negative value - which the schema's own CHECK forbids, so this is defence
-     *                against a caller and not against the database - is treated as none
+     * @param seconds total online time, network-wide, from {@code player_playtime.seconds}; a
+     *                negative value is treated as none
      * @return the crest tier, between {@link #MINIMUM_TIER} and {@link #TIER_COUNT}
      */
     public int tierOf(final long seconds) {
         if (seconds <= 0) {
             return MINIMUM_TIER;
         }
-        // Walking down from the top rather than up from the bottom: the answer is the highest
-        // threshold the player has passed, and saying that directly is shorter than saying it as
-        // "the first one they have not".
+        // The answer is the highest threshold the player has passed.
         for (int index = TIER_COUNT - 1; index >= 0; index--) {
             if (seconds >= thresholdSeconds[index]) {
                 return index + 1;
@@ -124,8 +113,7 @@ public final class Prestige {
      * How far a player is through their current tier, for a progress bar that has somewhere to go.
      *
      * @param seconds total online time
-     * @return the seconds still needed for the next tier, or {@code 0} at tier 13, which is the top
-     *         and stays the top - there is no prestige beyond the last crest the pack can draw
+     * @return the seconds still needed for the next tier, or {@code 0} at tier 13
      */
     public long secondsToNextTier(final long seconds) {
         final int tier = tierOf(seconds);

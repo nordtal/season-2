@@ -8,22 +8,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Everything the login path needs to know about one Minecraft account <b>and about the network it
- * is trying to join</b>, answered by a single query.
- * <p>
- * The proxy asks three questions in order - linked? member and not banned? access active? - and
- * each one has its own disconnect screen. They are fields of one record rather than separate calls
- * because a login must not cost several round trips to PostgreSQL.
- * </p>
- * <p>
- * <b>{@link #phase()} rides along for the same reason, since 2026-08-31.</b>
- * {@code docs/season-phases.md} requires that "one database round trip on the login path carries
- * both the access state and the phase", and until this field existed the proxy made a second call
- * to {@code PhaseDirectory#currentPhase()} right next to this one. The phase is not a property of
- * the account, which is exactly why it is documented here as what it is: the phase the row said the
- * network was in <em>at the instant this state was read</em>. Nothing caches it as truth; the next
- * login reads it again.
- * </p>
+ * Everything the login path needs to know about one Minecraft account and about the network it is
+ * trying to join, answered by a single query, because a login must not cost several round trips to
+ * PostgreSQL.
+ *
+ * <p>{@link #phase()} is not a property of the account: it is the phase the row said the network
+ * was in at the instant this state was read. Nothing caches it as truth.
  *
  * @param minecraftAccount the UUID that was asked about - always the UUID that was asked about,
  *                         even when nothing is linked to it
@@ -36,19 +26,15 @@ import java.util.UUID;
  * @param admin            whether the linked account carries the admin flag mirrored from the
  *                         Discord admin role; it authorises the proxy's emergency {@code /phase}
  *                         command, and during {@code MAINTENANCE} it is what keeps a player off
- *                         {@code limbo}. Since 2026-08-31 it is no longer part of
- *                         {@link #mayJoin()} - maintenance holds non-admins in {@code limbo}
- *                         instead of refusing them
+ *                         {@code limbo}
  * @param locale           the player's language, English when unknown - never {@code null}
  * @param phase            the season phase the {@code season_phase} row carried when this state was
  *                         read; {@link SeasonPhase#MAINTENANCE} when it could not be read at all,
  *                         because the state that lets nobody in is the safe one to guess
  * @param launch           when the network opens, from the same {@code season_phase} row;
- *                         {@code null} when no date has been announced. It rides along for the
- *                         same reason {@code phase} does - the three {@link SeasonPhase#PRE_LAUNCH}
- *                         disconnect screens all count down to it, and a second round trip to
- *                         fetch a timestamp for a screen would break the one-query rule that
- *                         {@code docs/season-phases.md} pins the login path to
+ *                         {@code null} when no date has been announced. It rides along for the same
+ *                         reason {@code phase} does: the {@link SeasonPhase#PRE_LAUNCH} disconnect
+ *                         screens count down to it and must not cost a second round trip
  */
 public record AccessState(
         UUID minecraftAccount,
@@ -63,17 +49,12 @@ public record AccessState(
         Instant launch) {
 
     /**
-     * A {@code null} phase becomes {@link SeasonPhase#MAINTENANCE} rather than staying {@code null}.
-     * {@link #mayJoin()} switches on this field, so a null would be a {@code NullPointerException}
-     * on the login path.
-     * <p>
-     * {@code MAINTENANCE} is still the value to guess, but the reason changed on 2026-08-31 and is
-     * worth stating exactly. It is no longer "the one that lets nobody in" - it lets in the same
-     * linked member every other phase does. It is the safe guess because it is the one phase that
-     * puts a player somewhere <b>harmless</b>: {@code limbo} shows nothing and nobody, so a proxy
-     * that cannot read the phase parks players in a waiting room rather than guessing them onto a
-     * game server that may not be theirs.
-     * </p>
+     * A {@code null} phase becomes {@link SeasonPhase#MAINTENANCE}: {@link #mayJoin()} switches on
+     * this field, so a null would be a {@code NullPointerException} on the login path.
+     *
+     * <p>{@code MAINTENANCE} is the safe guess because it is the phase that puts a player somewhere
+     * harmless - a proxy that cannot read the phase parks them in the waiting room rather than
+     * guessing them onto a game server that may not be theirs.
      */
     public AccessState {
         if (phase == null) {
@@ -82,14 +63,9 @@ public record AccessState(
     }
 
     /**
-     * The answer for a UUID that has never been linked: no Discord account, no membership, no
-     * access, not an admin, English - in a network whose phase could not be read either.
-     * <p>
-     * This is the "nothing at all came back" answer, so it pairs an unlinked account with
-     * {@link SeasonPhase#MAINTENANCE}. The real login query cannot produce it any more - it always
-     * returns exactly one row, with the phase in it - so this survives as the defensive fallback
-     * and as a fixture for tests.
-     * </p>
+     * The "nothing at all came back" answer: an unlinked account in
+     * {@link SeasonPhase#MAINTENANCE}. The login query always returns a row, so this is a defensive
+     * fallback and a test fixture.
      *
      * @param minecraftAccount the UUID that was asked about
      * @return an unlinked state in {@code MAINTENANCE}
@@ -131,16 +107,9 @@ public record AccessState(
     }
 
     /**
-     * Whether any access period has ever been bought and still has time on it - which is <b>not</b>
-     * the same question as {@link #accessActive()}, and the difference is the whole point of the
-     * {@link SeasonPhase#PRE_LAUNCH} screens.
-     * <p>
-     * A period bought before the season opens is meant to be waiting rather than running (todo.md
-     * #9: it must start at the season start, not at the moment of purchase). Somebody who has
-     * bought one is "all set" and must not be asked to buy again, even though nothing is active
-     * yet. {@code accessValidUntil} is the max over every unrevoked grant that has not yet ended,
-     * so it is set for exactly those players.
-     * </p>
+     * Whether any access period has been bought and still has time on it - <b>not</b> the same
+     * question as {@link #accessActive()}. A period bought before the season opens is waiting
+     * rather than running, and somebody who has one must not be asked to buy again.
      *
      * @return whether a period exists that has not run out
      */
@@ -161,13 +130,7 @@ public record AccessState(
 
     /**
      * The whole login decision in one place, so no caller re-derives it.
-     * <p>
-     * <b>This is phase-aware as of 2026-08-31</b>, which closed finding 1 in
-     * {@code docs/state-of-play.md}. It used to require active access from every linked member
-     * unconditionally, i.e. it behaved as if the network were permanently in
-     * {@link SeasonPhase#SMP}. {@code docs/season-phases.md}'s phase table is what it now encodes,
-     * exactly:
-     * </p>
+     *
      * <table>
      *   <caption>Who gets in, per phase</caption>
      *   <tr><th>phase</th><th>who gets in</th></tr>
@@ -178,31 +141,16 @@ public record AccessState(
      *   <tr><td>{@code MAINTENANCE}</td><td>the same linked, non-banned member - see below</td></tr>
      * </table>
      *
-     * <h2>{@code MAINTENANCE} lets players onto the network, decided 2026-08-31</h2>
-     * It used to answer {@code admin} here, i.e. maintenance disconnected everybody else at the
-     * login gate. {@code docs/season-phases.md} left that as an unresolved either/or - "disconnect
-     * <b>or</b> hold in limbo with a bilingual explanation" - while its own phase table said
-     * non-admins land in {@code limbo}. The owner settled it on <b>hold in limbo</b>, so this method
-     * now answers {@code true} for any linked, non-banned member during maintenance and the
-     * <em>destination</em> is what makes maintenance different, not admission.
-     * <p>
-     * {@link #admin()} appears in this method for two phases. {@code PRE_LAUNCH}, where being an
-     * admin <em>is</em> the admission rule - before the opening nobody else gets in. And
-     * {@code SMP}, since 2026-09-05, where it stands in for an access period: this method used to
-     * say "the flag is not a free access period", and the first local rehearsal showed the cost of
-     * that - the admin who switched the network to {@code SMP} was disconnected by their own switch
-     * with "no active access". The owner decided the flag is a free pass, the way it already is for
-     * the player limit. In the remaining phases it decides <em>where</em> a player goes rather than
-     * whether ({@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting}). A banned admin is still
-     * banned, because {@link #linkedMember()} is still asked first.
-     * </p>
-     * <p>
-     * <b>What this method deliberately does not do is pick the disconnect screen.</b> "Refused
-     * because unlinked", "refused because banned" and "refused because no access" are three
-     * different messages, and {@code network-control}'s {@code LoginGate} walks the same table
-     * itself to choose between them. This method is the single-boolean form, for callers - the
-     * fallback cache and the mid-session expiry sweep - that only need the answer.
-     * </p>
+     * <p>During {@code MAINTENANCE} admission is unchanged and the <em>destination</em>
+     * ({@code limbo}) is what differs. {@link #admin()} matters in two phases: in
+     * {@code PRE_LAUNCH} it <em>is</em> the admission rule, and in {@code SMP} it stands in for an
+     * access period so that the admin who switches the network into {@code SMP} is not disconnected
+     * by their own switch. A banned admin is still banned, because {@link #linkedMember()} is asked
+     * first.
+     *
+     * <p>This deliberately does not pick the disconnect screen - unlinked, banned and no-access are
+     * three different messages, and {@code network-control}'s {@code LoginGate} chooses between
+     * them. This is the single-boolean form for callers that only need the answer.
      *
      * @return whether this account may join right now, in the phase this state was read in
      */
@@ -211,16 +159,10 @@ public record AccessState(
             return false;
         }
         return switch (phase) {
-            // Every phase admits the same linked, non-banned member; only SMP asks for more. The
-            // phase decides where they land, and that is not this method's question.
+            // Every phase admits the same linked, non-banned member; only SMP asks for more.
             case PRE_EVENT, START_EVENT, MAINTENANCE -> true;
-            // ... and an admin needs none (2026-09-05): the flag is a free pass in every phase, the
-            // way it already exempts them from the player limit. A banned admin is still banned,
-            // because linkedMember() was asked first.
             case SMP -> accessActive || admin;
-            // The exception to the paragraph above, and the only one: before the network has ever
-            // opened, an admin is the only person who may be on it. Everybody else is refused with
-            // a countdown - see GateOutcome for which of the three screens they get.
+            // Before the network has ever opened, an admin is the only person who may be on it.
             case PRE_LAUNCH -> admin;
         };
     }

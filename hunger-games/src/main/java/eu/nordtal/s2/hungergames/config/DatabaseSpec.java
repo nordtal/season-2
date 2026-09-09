@@ -6,15 +6,9 @@ import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
 /**
- * {@code config/database.yml} - this plugin's own connection to the shared PostgreSQL database.
- * <p>
- * A separate pool from every other process's - the bot's, the proxy's - even though all of them
- * eventually point at the same instance; see {@code network-control}'s {@code DatabaseSpec} for
- * the same reasoning. This plugin never migrates anything: the schema (including {@code hg_game},
- * {@code hg_team}, {@code hg_member} and {@code hg_event}) is owned and applied by
- * {@code discord-bot} (docs/architecture.md#schema-ownership); this pool only ever reads and
- * writes rows in tables that already exist.
- * </p>
+ * {@code config/database.yml} - this plugin's own pool on the shared PostgreSQL database, separate
+ * from every other process's. This plugin never migrates anything: {@code discord-bot} owns and
+ * applies the schema, and this pool only reads and writes rows in tables that already exist.
  */
 @ConfigSpec(header = {
         "-------------------------------------------------------------------",
@@ -68,12 +62,7 @@ public interface DatabaseSpec {
             "acquiring a connection from the pool and, through the PostgreSQL driver's own",
             "socketTimeout, to a query that is already running. Without the second one a database",
             "that accepts a connection and then hangs is not caught by the first at all.",
-            "",
-            "The language lookup at join is made off",
-            "the main thread; the game's own reads and writes are not. 'Off the main thread' bounds",
-            "where the wait happens, not how long it lasts. Three seconds is the same value",
-            "network-control uses on the login path, and for the same reason: a struggling",
-            "database should fail fast rather than queue joins behind itself."
+            "Kept short so a struggling database fails fast rather than queueing joins behind it."
     })
     default int queryTimeoutSeconds() {
         return 3;

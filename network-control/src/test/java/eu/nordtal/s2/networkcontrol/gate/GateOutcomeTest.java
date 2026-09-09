@@ -16,19 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * docs/season-phases.md's phase table, asserted phase by phase.
+ * The gate's phase table, asserted phase by phase.
  * <p>
- * This is the regression for finding 1 in docs/state-of-play.md: the gate used to refuse every
- * linked member without active access, unconditionally, so a {@code PRE_EVENT} network would have
- * turned away everyone who had not paid - in the phase whose entire purpose is being free. Every
- * combination below would have answered {@code NO_ACCESS} before 2026-08-31.
- * </p>
- * <p>
- * <b>The maintenance rule was reversed on 2026-08-31 and these assertions were rewritten, not
- * deleted.</b> {@code MAINTENANCE} used to refuse every non-admin with {@code gate.maintenance};
- * it now admits the same linked member every other phase does, and the player is held in
- * {@code limbo} by {@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting} instead. The full
- * decision table after that change:
+ * {@code MAINTENANCE} admits the same linked member every other phase does; the player is held in
+ * {@code limbo} by {@code eu.nordtal.s2.networkcontrol.routing.PhaseRouting} instead.
  * </p>
  * <table>
  *   <caption>Gate outcome per phase and player kind</caption>
@@ -69,8 +60,7 @@ class GateOutcomeTest {
 
     @Test
     void anUnlinkedAccountIsToldToLinkEvenDuringMaintenance() {
-        // Order matters: "here is your link code" is more useful than "the network is closed", and
-        // it is what the flowchart in docs/season-phases.md asks first.
+        // Order matters: "here is your link code" is more useful than "the network is closed".
         assertEquals(GateOutcome.NOT_LINKED,
                 GateOutcome.of(AccessState.unlinked(PLAYER, SeasonPhase.MAINTENANCE)));
     }
@@ -118,11 +108,9 @@ class GateOutcomeTest {
 
     @Test
     void theAdminFlagIsAFreeAccessPeriod() {
-        // Reversed 2026-09-05. This used to assert NO_ACCESS - "the flag decides where a player
-        // goes during maintenance, never whether they may join" - and the first local rehearsal
-        // showed what that costs: the admin who typed /phase set SMP was disconnected by the switch
-        // they had just confirmed, with "no active access". The owner decided the flag is a free
-        // pass, the same way it already exempts an admin from the player limit.
+        // The admin flag is a free pass in SMP, the same way it already exempts an admin from the
+        // player limit - otherwise the admin who types /phase set SMP is disconnected by the switch
+        // they just confirmed.
         final AccessState adminWithoutAccess = state(SeasonPhase.SMP, MemberState.MEMBER, false, true);
 
         assertEquals(GateOutcome.ALLOW, GateOutcome.of(adminWithoutAccess),
@@ -134,7 +122,6 @@ class GateOutcomeTest {
     @Test
     void theFullDecisionTableIsWhatThisClassProduces() {
         // Every cell of the table in this class's documentation, asserted rather than described.
-        // Five phases times five player kinds; the reversal is auditable by reading this method.
         assertRow(SeasonPhase.PRE_LAUNCH, GateOutcome.PRE_LAUNCH_BUY, GateOutcome.PRE_LAUNCH_READY,
                 GateOutcome.ALLOW);
         assertRow(SeasonPhase.PRE_EVENT, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
@@ -163,10 +150,8 @@ class GateOutcomeTest {
 
     @Test
     void maintenanceLetsAPlainLinkedMemberInSoTheyCanBeHeldInLimbo() {
-        // Reversed 2026-08-31. docs/season-phases.md's flowchart left "disconnect OR hold in limbo"
-        // open while its own phase table already said non-admins land in `limbo`; the owner settled
-        // it on holding them. This assertion used to be MAINTENANCE_CLOSED, and the constant it
-        // named no longer exists - maintenance is a routing decision now, not a gate decision.
+        // Maintenance is a routing decision, not a gate decision: a non-admin is admitted and then
+        // held in limbo.
         assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.MAINTENANCE, false)),
                 "a linked member is admitted during maintenance and then routed to limbo");
     }
@@ -188,9 +173,9 @@ class GateOutcomeTest {
     @Test
     void theAdminFlagChangesTheGateDecisionInPreLaunchAndSmpAndNowhereElse() {
         // PRE_LAUNCH: before the network has ever opened, being an admin IS the admission rule.
-        // SMP, since 2026-09-05: the flag stands in for an access period. In the three remaining
-        // phases it decides where a player goes (PhaseRouting), not whether they get in - and this
-        // loop is what keeps a third exception from arriving quietly.
+        // SMP: the flag stands in for an access period. In the three remaining phases it decides
+        // where a player goes, not whether they get in - and this loop keeps a third exception from
+        // arriving quietly.
         for (final SeasonPhase phase : SeasonPhase.values()) {
             if (phase == SeasonPhase.PRE_LAUNCH || phase == SeasonPhase.SMP) {
                 continue;
@@ -241,18 +226,15 @@ class GateOutcomeTest {
                 false, false, Locale.ENGLISH, null, null);
 
         assertEquals(SeasonPhase.MAINTENANCE, state.phase());
-        // The guess still lands on MAINTENANCE, but since 2026-08-31 that no longer means "nobody
-        // gets in" - it means "everybody waits in limbo", which is the harmless place to put a
-        // player the proxy cannot yet locate.
+        // The guess lands on MAINTENANCE, which means "everybody waits in limbo" - the harmless
+        // place to put a player the proxy cannot yet locate.
         assertEquals(GateOutcome.ALLOW, GateOutcome.of(state));
         assertTrue(state.mayJoin());
     }
 
     @Test
     void thereIsNoOutcomeLeftThatOnlyMaintenanceCouldProduce() {
-        // MAINTENANCE_CLOSED was deleted rather than left unreachable, so nothing can accidentally
-        // start returning it again. The two added on 2026-09-03 are the PRE_LAUNCH screens, and
-        // neither of them is a maintenance concept.
+        // No maintenance refusal constant exists, so nothing can accidentally start returning one.
         assertEquals(6, GateOutcome.values().length,
                 "ALLOW, NOT_LINKED, NOT_MEMBER, NO_ACCESS, PRE_LAUNCH_BUY, PRE_LAUNCH_READY"
                         + " - and nothing about maintenance");
@@ -272,9 +254,9 @@ class GateOutcomeTest {
 
     @Test
     void preLaunchAsksWhetherAccessWasBoughtAndNotWhetherItIsRunning() {
-        // THE POINT OF THE TWO SCREENS. A period bought before the season opens is meant to sit and
-        // wait rather than burn (todo.md #9), so it can be paid for and not active - and asking
-        // accessActive() there would show "buy your first month" to the very people who just did.
+        // THE POINT OF THE TWO SCREENS. A period bought before the season opens sits and waits
+        // rather than burning, so it is paid for and not active - asking accessActive() here would
+        // show "buy your first month" to the very people who just did.
         final AccessState boughtButNotRunning = new AccessState(PLAYER, DISCORD_ID, MemberState.MEMBER,
                 false, Instant.now().plus(Duration.ofDays(30)), false, false, Locale.ENGLISH,
                 SeasonPhase.PRE_LAUNCH, null);

@@ -4,13 +4,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The simultaneous-death tiebreaker: "if the last two die at the same moment, the one with more
- * kills wins. Equal kills means nobody wins" - docs/hunger-games.md#winning.
- * <p>
- * Pure function over kill counts already looked up from {@code hg_event} - the counting itself is
- * {@code HungerGamesDao#killCount}, a database concern; only the comparison lives here so it can be
- * unit tested without a database.
- * </p>
+ * The simultaneous-death tiebreaker: if the last two die at the same moment, the one with more
+ * kills wins, and equal kills means nobody wins. Only the comparison lives here, so it can be unit
+ * tested without a database.
  */
 public final class Tiebreak {
 

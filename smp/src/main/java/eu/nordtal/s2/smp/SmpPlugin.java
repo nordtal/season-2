@@ -98,10 +98,8 @@ import java.util.Locale;
  * The season 2 SMP: Nordtal, the farm world, the Nether and the End, plus milestones, aura,
  * prestige, duels, POIs and graves.
  *
- * <p>The concept is docs/smp.md; see the module section in CLAUDE.md for the build rules. This
- * class is wiring and startup refusals, and the refusals are the interesting part: three conditions
- * stop the plugin rather than letting it run degraded, because each of them produces damage that
- * cannot be undone afterwards.
+ * <p>Wiring and startup refusals. The refusals are the interesting part: each stops the plugin
+ * rather than letting it run degraded, because each produces damage that cannot be undone.
  */
 public final class SmpPlugin extends JavaPlugin {
 
@@ -112,9 +110,8 @@ public final class SmpPlugin extends JavaPlugin {
     /**
      * Its own file, and its own handle, so that {@code /smp reload} can re-read it.
      *
-     * <p>{@code config.yml} deliberately cannot be reloaded - the plugin binds worlds, borders and
-     * coordinates once at enable and would not notice them changing - and the sounds are the one
-     * thing in it an operator was expected to iterate on with players online.
+     * <p>{@code config.yml} deliberately cannot be reloaded: the plugin binds worlds, borders and
+     * coordinates once at enable and would not notice them changing.
      */
     private ConfigHandle<SoundsSpec> soundsHandle;
 
@@ -131,11 +128,10 @@ public final class SmpPlugin extends JavaPlugin {
      * The command layer: what this server runs itself, what it sends elsewhere, and what it is
      * asked to run.
      *
-     * <p>Two {@code SmpEffects} exist and the difference is the executor. {@link #chatEffects} is
-     * built with the plugin's async scheduler, because a Brigadier handler runs on the main thread.
-     * The inbox's is built with {@code Runnable::run}, because the inbox settles a request row when
-     * the command returns - {@code CommandInbox#register} refuses the wrong one at startup rather
-     * than letting it be found as an empty answer in Discord.</p>
+     * <p>Two {@code SmpEffects} exist and the difference is the executor. {@link #chatEffects} uses
+     * the plugin's async scheduler, because a Brigadier handler runs on the main thread; the
+     * inbox's uses {@code Runnable::run}, because the inbox settles a request row when the command
+     * returns. {@code CommandInbox#register} refuses the wrong one at startup.</p>
      */
     private SmpEffects chatEffects;
     private Outbox outbox;
@@ -149,8 +145,7 @@ public final class SmpPlugin extends JavaPlugin {
      * What the last {@code /smp reload} refused the file for, or empty when it took it.
      *
      * <p>Read by the reload command so the answer names the disagreement rather than only saying
-     * that something went wrong - an operator editing {@code milestones.yml} mid-season is the one
-     * person who can act on "you renamed a key that has rows against it".</p>
+     * that something went wrong.</p>
      */
     private volatile List<String> trackProblems = List.of();
 
@@ -159,25 +154,12 @@ public final class SmpPlugin extends JavaPlugin {
     private PlayerLocales locales;
 
     /**
-
      * The milestone track, replaced by {@code /smp reload}.
-
      *
-
      * <p><b>volatile</b>, because the write and the reads are on different threads:
-
-     * {@code reloadTrack} runs on Bukkit's async executor behind {@code /smp reload}, and the
-
-     * suggestion supplier handed to {@code SmpCommand.build} reads it on the server thread,
-
-     * once per keystroke. Without it the supplier may go on seeing the old instance for no
-
-     * bounded length of time, which looks exactly like the captured-instance bug this supplier
-
-     * exists to fix.</p>
-
+     * {@code reloadTrack} runs on Bukkit's async executor and the suggestion supplier reads it on
+     * the server thread, once per keystroke.</p>
      */
-
     private volatile MilestoneTrack track;
     private Worlds worlds;
     private final SeasonState season = new SeasonState();
@@ -201,18 +183,12 @@ public final class SmpPlugin extends JavaPlugin {
     /**
      * <b>One try around the whole start, and that is the point of it.</b>
      *
-     * <p>The configuration read used to be the only guarded step, so anything that threw after it -
-     * {@code Messages.load} on an unwritable data folder, a milestone file that parses and then
-     * fails validation, a listener whose constructor disagrees with the world - escaped
-     * {@code onEnable}, Paper disabled this plugin, and <b>the server carried on running without
-     * it</b>. That is the exact state {@code severe} exists to prevent, and it was reachable by
-     * every step but the first. Found by review, 2026-09-04, in {@code network-control} first,
-     * where the same shape left the proxy accepting logins un-gated.</p>
+     * <p>Anything that throws anywhere in the start would otherwise escape {@code onEnable}, Paper
+     * would disable this plugin, and <b>the server would carry on running without it</b> - which is
+     * the exact state {@code severe} exists to prevent.
      *
-     * <p>The readiness marker makes that state visible - it is written as the last line of a start
-     * that finished, so a start that did not go red within thirty seconds. Visible is not the same
-     * as safe: nothing outside this JVM can act on it, Docker restarts nothing on health alone, and
-     * a backend that is up and empty is a season nobody can play. Stopping is still ours to do.</p>
+     * <p>The readiness marker makes that state visible but not safe: nothing outside this JVM acts
+     * on it, and Docker restarts nothing on health alone. Stopping is still ours to do.</p>
      *
      * <p>{@code RuntimeException} only, because {@code ConfigException} is checked and
      * {@code start()} already answers it where it is thrown - the one step that was guarded before
@@ -246,16 +222,15 @@ public final class SmpPlugin extends JavaPlugin {
         final SmpSpec config = configHandle.get();
         track = Milestones.read(milestonesHandle.get()).track();
 
-        // The sound vocabulary, read once. A key that is wrong is reported here and silences its
-        // own category; it deliberately does not join the refusals below, because a typo in a chime
-        // is not worth a season offline and the console line says exactly what was ignored.
+        // The sound vocabulary, read once. A wrong key is reported and silences its own category
+        // rather than joining the refusals below: a typo in a chime is not worth a season offline.
         final SmpSounds sounds = SmpSounds.of(soundsHandle.get(), getLogger()::warning);
         this.sounds = sounds;
 
         // ---- refusal 1: the datapacks -------------------------------------------------------
         // A world generated without them is vanilla terrain permanently, because terrain is never
-        // re-rolled once it is on disk. For the farm world that is one flat day; for Nordtal, which
-        // has a spawn built on it and therefore cannot be thrown away, it is the whole season.
+        // re-rolled once it is on disk. For Nordtal, which cannot be thrown away, that is the whole
+        // season.
         final Datapacks.Result packs = Datapacks.check(config.requiredDatapacks());
         if (!packs.ok()) {
             severe("smp is not starting: " + packs.describe() + ". Datapacks are read once at server "
@@ -290,10 +265,9 @@ public final class SmpPlugin extends JavaPlugin {
         dao = jdbi.onDemand(SmpDao.class);
         identities = new Identities(dao);
 
-        // Three roots, most general first: :paper-common's five system lines, then :commands'
-        // shared bundle, then this module's own. What a shared mechanism says has to say the same
-        // thing on every surface. Later roots win, so this module's own keys beat both - which is
-        // the mechanism for rewording a shared line here, and not a way of adding one.
+        // Three roots, most general first, so a shared mechanism says the same thing on every
+        // surface. Later roots win, so this module's own keys beat both - the mechanism for
+        // rewording a shared line here, not a way of adding one.
         messages = Messages.load(getClass().getClassLoader(),
                 java.util.List.of("messages/paper-common", "messages/commands", "messages/smp"),
                 getDataFolder().toPath().resolve("messages"), Locale.ENGLISH, Locale.GERMAN);
@@ -302,8 +276,7 @@ public final class SmpPlugin extends JavaPlugin {
                 .map(id -> Locales.parse(dao.localeOf(id).orElse(null)))
                 .orElse(Locales.DEFAULT));
 
-        // Everything below this line touches the database, so it happens off the main thread. The
-        // rule was written into this repository on 2026-09-01 and it has no exceptions.
+        // Everything below this line touches the database, so it happens off the main thread.
         Bukkit.getScheduler().runTaskAsynchronously(this, this::loadSeasonState);
 
         final PreGenerator pregen = PreGenerator.open(this, config.pregenerationPattern()).orElse(null);
@@ -316,15 +289,13 @@ public final class SmpPlugin extends JavaPlugin {
 
         final FarmWorldSwap swap = new FarmWorldSwap(this, config.worldFarm(),
                 config.farmWorldStagingSuffix(), config.farmWorldRetiredSuffix());
-        // The HUD is built before the reset and not after it: the four reset warnings take the
-        // status bar over for eight seconds each, which is the half of "chat + HUD" that reaches
-        // somebody mining with chat closed. Nothing else in this method depends on the order.
+        // The HUD is built before the reset: the four reset warnings take the status bar over, and
+        // that is the half of the warning that reaches somebody mining with chat closed.
         hud = new SmpHud(this, worlds, season, navigation, messages, locales);
         hud.start();
 
         // The SMP's line into Discord: one command_request row per language, fire and forget.
-        // Built before the two things that have a moment to announce, on the same request table
-        // the outbox below uses.
+        // Built before the two things that have a moment to announce.
         requests = eu.nordtal.s2.common.command.CommandRequests.borrowing(pool);
         announcer = new eu.nordtal.s2.smp.announce.Announcer(requests, messages,
                 BukkitSmpEffects.async(this),
@@ -334,17 +305,15 @@ public final class SmpPlugin extends JavaPlugin {
                 dao, navigation, sounds, hud, announcer);
         farmReset.start();
 
-        // The network's backup clock, and it is here for a reason that is not about the SMP: the
-        // updater must not schedule its own work (docs/updater.md - `serve` is not a scheduler),
-        // and this is the one process that already runs a daily clock. It writes an update_request
-        // row and nothing else; the updater does the stopping, the snapshot and the starting.
+        // The network's backup clock, here because the updater must not schedule its own work -
+        // `serve` is not a scheduler - and this is the one process that already runs a daily clock.
+        // It writes an update_request row and nothing else.
         nightlyBackup = new eu.nordtal.s2.smp.backup.NightlyBackup(this,
                 UpdateDirectory.using(pool), BukkitSmpEffects.async(this), config.backupTime());
         nightlyBackup.start();
 
-        // One instance, registered as a listener and handed to everything that has a moment: it
-        // has to be the same object that stamped a rocket and the one asked whether that rocket may
-        // hurt anybody (WorldEffects#onDamage).
+        // One instance: the object that stamped a rocket has to be the one asked whether that
+        // rocket may hurt anybody (WorldEffects#onDamage).
         final WorldEffects effects = new WorldEffects(this);
         getServer().getPluginManager().registerEvents(effects, this);
 
@@ -356,10 +325,8 @@ public final class SmpPlugin extends JavaPlugin {
         boards = new Boards(this, config, season, messages, locales);
         boards.start();
 
-        // One async sweep on a timer for everything a surface reads out of the database: the active
-        // milestone's progress and the aura leaderboard. Both change a few times an hour and are
-        // drawn several times a second, which is the whole argument for reading them here and not
-        // there.
+        // One async sweep on a timer for everything a surface reads out of the database: both
+        // halves change a few times an hour and are drawn several times a second.
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::refreshSurfaceData, 100L, 100L);
         // The one main-thread read of the player collection, for /smp status - see the field.
         Bukkit.getScheduler().runTaskTimer(this, () -> online = Bukkit.getOnlinePlayers().size(),
@@ -367,32 +334,28 @@ public final class SmpPlugin extends JavaPlugin {
 
         final Boxes regions = ConfigBoxes.spawnRegions(config);
 
-        // Admins are operators for as long as they are admins. The sweep runs here, before a single
-        // join can be handled: ops.json is persistent, so anybody left in it by a crash or a
-        // SIGKILL would otherwise still be an operator on this start. AdminOperators carries the
-        // whole reasoning, including why it asks the database nothing.
+        // Admins are operators for as long as they are admins. The sweep runs before a single join
+        // can be handled: ops.json is persistent, so anybody left in it by a crash would otherwise
+        // still be an operator on this start.
         final AdminOperators operators = BukkitOps.create();
         operators.sweep();
 
-        // One instance, shared with the watcher below: the gate fills the admin flag at pre-login
-        // and the watcher keeps it in step while people are online. Two instances would be two
-        // caches, and the one the fullness check reads would be the stale one.
+        // One instance, shared with the watcher below: two would be two caches, and the one the
+        // fullness check reads would be the stale one.
         final FullServerAdmission admission = new FullServerAdmission();
 
         getServer().getPluginManager().registerEvents(
                 new JoinGate(identities, admission, messages, logger()), this);
-        // The composition is this server's half of the shared lines: flag, name and the prestige
-        // crest a season earns. Everything around it - the five keys, the icons, the per-reader
-        // language - is :paper-common's and is the same on the hunger games.
+        // The composition is this server's half of the shared lines; everything around it is
+        // :paper-common's and is the same on every backend.
         final SystemLines systemLines = new SystemLines(
                 player -> composition.chatPrefix(player.getName(),
                         identities.of(player.getUniqueId())),
                 messages, locales);
 
-        // The staging device, and the one moment that uses it so far. Registered as a listener
-        // because a staging ends when the player leaves or dies, and stopped at disable because
-        // Paper disables plugins before it saves players - a blindness still running at that point
-        // would be written to disk with them.
+        // Registered as a listener because a staging ends when the player leaves or dies, and
+        // stopped at disable because Paper disables plugins before it saves players - a blindness
+        // still running then would be written to disk with them.
         cinematics = new BukkitCinematics(this, sounds::play);
         getServer().getPluginManager().registerEvents(cinematics, this);
         final SeasonWelcome welcome =
@@ -410,14 +373,12 @@ public final class SmpPlugin extends JavaPlugin {
                 new HeadStart(this, dao, identities, surfaces, config, messages, locales, sounds),
                 this);
 
-        // ...and keeps being one only for as long as the database says so. Without this the flag is
-        // read once per session and a revoked admin keeps operator until they disconnect; see
-        // AdminWatch.
+        // ...and keeps being one only for as long as the database says so; without this a revoked
+        // admin keeps operator until they disconnect.
         //
-        // This is the one module that passes an extra cache: Identities holds the admin flag for
-        // the six-element composition, so the admin tag on a nametag every other player can see is
-        // drawn from it. The redraw is conditional because a redraw of every surface on a
-        // thirty-second timer, for the length of a season, is work nobody would ever notice going in.
+        // The extra cache is Identities, which holds the admin flag for the player composition, so
+        // the admin tag on a nametag is drawn from it. The redraw is conditional so an unchanged
+        // roster costs nothing on every tick of the timer.
         adminWatch = new AdminWatch(this, eu.nordtal.s2.common.access.AccessDirectory.using(pool),
                 operators, admission,
                 admins -> {
@@ -455,22 +416,20 @@ public final class SmpPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new NpcListener(this, dao, npc, () -> track, engine, identities,
                         config::wheelExtraSpinPercents, messages, locales, sounds), this);
-        // Separate from NpcListener on purpose: that one is what the figure is FOR, this one is
-        // what keeps it standing. Invulnerable does not survive a creative-mode hit or the void,
-        // and the spawn protection covers blocks rather than entities - see NpcProtection.
+        // Separate from NpcListener: that one is what the figure is FOR, this one keeps it
+        // standing. Invulnerable survives neither a creative-mode hit nor the void, and the spawn
+        // protection covers blocks rather than entities.
         getServer().getPluginManager().registerEvents(new NpcProtection(npc), this);
         getServer().getPluginManager().registerEvents(
                 new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
 
-        // A grave in the farm world dies with the daily reset, like everything else there. That is
-        // intended and announced, and it is the one real risk of going there.
+        // A grave in the farm world dies with the daily reset, like everything else there.
         farmReset.onWorldReplaced(world -> {
             graves.forgetWorld(world);
             Bukkit.getScheduler().runTaskAsynchronously(this, () -> dao.deleteGravesIn(world));
         });
 
-        // Graves outlive a restart, which is most of what "the grave stands forever" means in
-        // practice. Read them back once the world is up.
+        // Graves outlive a restart, so they are read back once the world is up.
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             final var rows = dao.openGraves();
             Bukkit.getScheduler().runTask(this, () -> graves.restore(rows));
@@ -481,16 +440,14 @@ public final class SmpPlugin extends JavaPlugin {
                 new BalloonListener(balloons, worlds, season, () -> track, messages, locales, sounds,
                         effects), this);
         // The balloon a player sees, as opposed to the box they step into: one item display per
-        // configured box, wearing the pack's model. Until 2026-09-05 the pack carried the model
-        // and nothing placed it, so the balloon was a volume of air that opened a menu.
+        // configured box, wearing the pack's model.
         balloonDisplay = new BalloonDisplay(this, balloons);
         balloonDisplay.spawn();
         getServer().getPluginManager().registerEvents(
                 new PortalGate(this, worlds, season, messages, locales, sounds), this);
 
-        // One listener for SURFACE_OPEN and SURFACE_CLOSE across every menu this plugin opens - see
-        // Surface. The grave inventory has a null holder and is recognised by identity, which is
-        // what the predicate is for.
+        // One listener for SURFACE_OPEN and SURFACE_CLOSE across every menu this plugin opens. The
+        // grave inventory has a null holder and is recognised by identity, hence the predicate.
         getServer().getPluginManager().registerEvents(
                 new SurfaceListener(sounds, graves::isShowingGrave), this);
 
@@ -498,8 +455,7 @@ public final class SmpPlugin extends JavaPlugin {
         //
         // Built after the activities because half of what /smp does goes through the objective
         // engine, and started before the admin watch because the inbox rides on that watch's
-        // LISTEN connection - one connection carrying nordtal_admin and nordtal_command, which is
-        // what NotificationListener was built for.
+        // LISTEN connection - one connection carrying nordtal_admin and nordtal_command.
         final eu.nordtal.s2.common.access.AccessDirectory access =
                 eu.nordtal.s2.common.access.AccessDirectory.using(pool);
         chatEffects = new BukkitSmpEffects(this, BukkitSmpEffects.async(this), jdbi, dao, engine,
@@ -514,9 +470,8 @@ public final class SmpPlugin extends JavaPlugin {
                 (message, failure) -> getLogger()
                         .log(java.util.logging.Level.WARNING, message, failure));
 
-        // Built here rather than inside the inbox so that /smp reload can move it: it is a second
-        // view of the same message files, and one that never reloaded would answer a Discord admin
-        // with the wording this process started with.
+        // Built here rather than inside the inbox so /smp reload can replace it; one that never
+        // reloaded would answer a Discord admin with the wording this process started with.
         sharedMessages = PaperCommandInbox.sharedBundle(this);
         final PaperCommandInbox inbox =
                 new PaperCommandInbox(this, Target.SMP, requests, access, sharedMessages);
@@ -528,11 +483,9 @@ public final class SmpPlugin extends JavaPlugin {
 
         registerCommands(sounds);
 
-        // The command allowlist. The proxy refuses a command before it reaches this server, which
-        // is the enforcement; this is the half the proxy cannot do - what this server tells a
-        // client exists at all. Same poll rhythm as the admin roster, and its notification rides
-        // the same connection. See CommandFilter, which fails OPEN and says so if no list has been
-        // published yet.
+        // The command allowlist. The proxy's refusal is the enforcement; this is the half the proxy
+        // cannot do - what this server tells a client exists at all. CommandFilter fails OPEN and
+        // says so when no list has been published yet.
         commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(this,
                 eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
                         eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
@@ -560,13 +513,10 @@ public final class SmpPlugin extends JavaPlugin {
     /**
      * The container readiness marker - see {@link Readiness}, and note where this call sits.
      *
-     * <p>It is the <b>last</b> thing {@code start()} does, and so the last thing a successful
-     * {@code onEnable} reaches, because that is the entire rule: all
-     * four refusals above return before reaching it, so a marker on disk means this plugin got all
-     * the way through - which is precisely the state the first deployment could not tell apart from
-     * a Paper server with no season on it. Written from Bukkit's async scheduler, which is also
-     * deliberate - a repeating async task is re-queued by the main-thread heartbeat, so a server
-     * frozen mid-tick stops beating and the container goes stale rather than staying green on an
+     * <p>It is the <b>last</b> thing {@code start()} does: every refusal above returns before
+     * reaching it, so a marker on disk means this plugin got all the way through. Written from
+     * Bukkit's async scheduler, because a repeating async task is re-queued by the main-thread
+     * heartbeat - a server frozen mid-tick therefore goes stale rather than staying green on an
      * open port.</p>
      */
     private void startHeartbeat() {
@@ -593,25 +543,21 @@ public final class SmpPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Stops the beat, so a server that is going down stops claiming to be up. The marker is
-        // deliberately not deleted: going stale is the signal, and it costs nothing here.
+        // Stops the beat, so a server going down stops claiming to be up. The marker is
+        // deliberately not deleted: going stale is the signal.
         if (heartbeat != null) {
             quietly("heartbeat.cancel", heartbeat::cancel);
         }
         // Before anything else that could throw, and long before the pool: a wheel still spinning
         // when the server goes down pays out now or never.
         //
-        // Paper disables plugins BEFORE it saves and disconnects players - measured on a real 26.2
-        // shutdown on 2026-09-06, `Disabling smp` and the pool's `Shutdown completed` both come
-        // several lines above `annicx lost connection`. So the InventoryCloseEvent that normally
-        // finishes a spin arrives when no listener is registered any more, and the animation's own
-        // chain simply stops at its next tick: the spin was already spent in SQL, and the player
-        // got nothing (finding 136). Here they are still online, so this hands over the prize
-        // itself - and `Saving players`, three lines later, is what writes it to disk.
+        // Paper disables plugins BEFORE it saves and disconnects players, so the InventoryCloseEvent
+        // that normally finishes a spin never arrives and the animation's chain stops at its next
+        // tick - with the spin already spent in SQL. Here the player is still online, and the save
+        // that follows writes the prize to disk.
         quietly("wheel.payOutInFlight", this::payOutSpinsInFlight);
         // Before anything else that touches players: a staging still running holds a potion effect
-        // on somebody who is about to be saved to disk, and `Saving players` comes several lines
-        // after `Disabling smp`. Same ordering argument as the wheel above.
+        // on somebody who is about to be saved to disk.
         if (cinematics != null) {
             quietly("cinematics.stop", cinematics::stop);
         }
@@ -639,9 +585,8 @@ public final class SmpPlugin extends JavaPlugin {
         if (farmReset != null) {
             quietly("farmReset.stop", farmReset::stop);
         }
-        // Its own guard rather than farmReset's: the two are built one line apart, and a throw in
-        // between would leave this null while farmReset is not - which is a NullPointerException
-        // inside the shutdown that was already dealing with a broken start.
+        // Its own guard rather than farmReset's: a throw between the two would leave this null
+        // while farmReset is not.
         if (nightlyBackup != null) {
             quietly("nightlyBackup.stop", nightlyBackup::stop);
         }
@@ -670,16 +615,15 @@ public final class SmpPlugin extends JavaPlugin {
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final NavigateCommand commands =
                     new NavigateCommand(this, dao, navigation, identities, messages, locales, sounds);
-            // Not folded into :commands, deliberately: /navigate opens an inventory and /poi add
-            // reads the caller's position. Both are commands about being somewhere, and a Discord
-            // half of either would be a different command wearing the same name.
+            // Not folded into :commands: /navigate opens an inventory and /poi add reads the
+            // caller's position, so a Discord half of either would be a different command wearing
+            // the same name.
             event.registrar().register(commands.navigate());
             event.registrar().register(commands.poi());
 
             SmpCommand.build(this, messages, locales, identities, sounds, outbox, chatEffects,
-                            // Over the pool this plugin already owns. The updater is a different
-                            // container and this is how it is reached: a row and a notification,
-                            // never a call.
+                            // The updater is a different container and this is how it is reached:
+                            // a row and a notification, never a call.
                             new UpdateWatcher(this, UpdateDirectory.using(pool)),
                             // A supplier and not the field: /smp reload replaces it.
                             () -> track, season)
@@ -690,10 +634,8 @@ public final class SmpPlugin extends JavaPlugin {
     /**
      * The one place a surface's data is read. <b>Async</b>, on a timer.
      *
-     * <p>Both halves are cheap and both are drawn far more often than they change: the active
-     * milestone's objectives move a few times an hour, the aura leaderboard a few times a day. The
-     * HUD redraws four times a second and the boards every five, so reading either at the point of
-     * use would be a database round trip inside a render loop.
+     * <p>Both halves are drawn far more often than they change, so reading either at the point of
+     * use would put a database round trip inside a render loop.
      */
     private void refreshSurfaceData() {
         try {
@@ -704,8 +646,8 @@ public final class SmpPlugin extends JavaPlugin {
             poller.setActiveMilestone(active);
             boards.setLeaderboard(dao.topAura(10));
         } catch (final RuntimeException exception) {
-            // The database being briefly unreachable must not kill the repeating task - the surfaces
-            // keep showing what they last knew, which is the right thing for a scoreboard to do.
+            // The database being briefly unreachable must not kill the repeating task; the
+            // surfaces keep showing what they last knew.
             getLogger().warning("could not refresh the boards and HUD: " + exception);
         }
     }
@@ -713,33 +655,19 @@ public final class SmpPlugin extends JavaPlugin {
     /**
      * Re-reads {@code milestones.yml} while players are online.
      *
-     * <p>One of the concept's three escape hatches: a target lowered below its collected progress
-     * completes the objective at once and pays it out, scaled to what was actually reached. Only the
-     * track is re-read - never the duel loadouts or the database password - which is why it is a
-     * separate file in the first place.
+     * <p>A target lowered below its collected progress completes the objective at once and pays it
+     * out. Only the track is re-read, never the duel loadouts or the database password.
      */
     /**
      * Finishes every objective the reloaded targets have already been reached by. <b>Async.</b>
      *
-     * <p>This is the second half of the one thing {@code milestones.yml} is a reloadable file
-     * <em>for</em>. Its own header promises it in as many words: lowering a target is "the finest
-     * of the three escape hatches for an objective that turns out to be impossible, and if the
-     * collected progress is already at or above the new target the objective completes at once and
-     * pays its FULL pot". {@code TrackValidation} permits the lowering and has a test for permitting
-     * it; {@code ObjectiveEngine#payOut} names the case in its javadoc. Nothing did it.
+     * <p>Without this a lowered target only takes effect the next time somebody hands something in
+     * - and for an objective that has become impossible there is no next time, which is why the
+     * target was lowered in the first place.
      *
-     * <p>What the gap cost is exactly the case the hatch exists for. Completion is decided inside
-     * {@code credit}, when progress is <em>added</em> - so a lowered target took effect the next
-     * time somebody handed something in. For an objective that has become impossible there is no
-     * next time, which is why the target was lowered. Measured on the local SMP, 2026-09-06:
-     * {@code diamonds} at 20 with its target moved to 10, reload reported success, and the row sat
-     * there unfinished with no aura paid (finding 129).
-     *
-     * <p>{@code finishObjective} guards itself in SQL - {@code completeObjective} returns zero for a
-     * row somebody else has already closed - so running this on every reload is safe, and running
-     * it on a reload that changed nothing does nothing. {@code completedBy} is null: a target moved
-     * by hand has no player standing behind it, which is the same shape the admin escape hatch
-     * already passes.
+     * <p>{@code finishObjective} guards itself in SQL, so running this on every reload is safe and
+     * a reload that changed nothing does nothing. {@code completedBy} is null: a target moved by
+     * hand has no player standing behind it.
      */
     private void completeWhateverTheNewTargetsAlreadyReach() {
         dao.activeMilestoneKey().ifPresent(milestoneKey -> dao.objectivesOf(milestoneKey).stream()
@@ -753,9 +681,8 @@ public final class SmpPlugin extends JavaPlugin {
     }
 
     private List<String> reloadTrack() {
-        // Three files, three reports, three independent failures - see the comment below. The
-        // sounds go first because they are the cheapest thing to get wrong and the only one an
-        // operator is expected to be iterating on while somebody waits to hear the result.
+        // Three files, three reports, three independent failures. The sounds go first because they
+        // are the one an operator is expected to be iterating on while somebody waits.
         try {
             soundsHandle.reload();
             sounds.reload(soundsHandle.get());
@@ -770,16 +697,9 @@ public final class SmpPlugin extends JavaPlugin {
             final MilestoneTrack candidate = Milestones.read(milestonesHandle.get()).track();
 
             // "May this file replace the running one?" - asked against the rows, which is the only
-            // place the answer lives. A renamed milestone key orphans everything recorded against
-            // it, an objective that changes type carries progress that means something else now,
-            // and a completed objective whose target moved rewrites arithmetic that is already in
-            // the aura ledger. None of that is visible from the file.
-            //
-            // TrackValidation has answered this since the module was built and NOTHING CALLED IT:
-            // twelve tests, two javadoc references, and no caller. So a reload that removed the
-            // active milestone was applied, reported success, and stopped progression with nothing
-            // anywhere saying why. Found through a review finding about something else, 2026-09-05;
-            // the owner chose to refuse rather than warn on the same day.
+            // place the answer lives: a renamed milestone key orphans everything recorded against
+            // it, a changed type carries progress that now means something else, and a completed
+            // objective whose target moved rewrites arithmetic already in the aura ledger.
             final List<TrackValidation.Problem> problems = TrackValidation.validate(candidate,
                     new StoredProgress(dao.storedMilestones(), dao.storedObjectives()));
             if (!problems.isEmpty()) {
@@ -788,15 +708,12 @@ public final class SmpPlugin extends JavaPlugin {
                         + " unchanged:");
                 problems.forEach(problem -> getLogger().severe("  " + problem));
                 trackProblems = problems.stream().map(TrackValidation.Problem::toString).toList();
-                // No early return: the wording below is re-read regardless, for the reason the
-                // comment there gives - the three fail independently, and a milestones.yml somebody
-                // is still fixing must not hold back a corrected message.
+                // No early return: the three fail independently, and a milestones.yml somebody is
+                // still fixing must not hold back a corrected message.
             } else {
-                // The rows first, the track second, deliberately. ensureRows writes one row per
-                // milestone and one per objective; if it throws halfway, the catch below reports
-                // that the running track is unchanged - which was a lie while the assignment came
-                // first, because every command was already reading a definition whose objective
-                // rows were missing or half written (finding 103).
+                // The rows first, the track second: if ensureRows throws halfway, the catch below
+                // reports that the running track is unchanged, which is only true while the
+                // assignment comes afterwards.
                 ensureRows(candidate);
                 trackProblems = List.of();
                 track = candidate;
@@ -815,9 +732,8 @@ public final class SmpPlugin extends JavaPlugin {
         // and a typo'd override must not read as a track that failed to load.
         try {
             messages.reload();
-            // The command inbox's own view of the shared bundle, in the same breath. Its unknown
-            // keys are deliberately not reported: it holds one root, so a key this module declares
-            // would be named as unknown by it and is not.
+            // The command inbox's own view of the shared bundle. Its unknown keys are deliberately
+            // not reported: it holds one root, so a key this module declares would be named unknown.
             if (sharedMessages != null) {
                 sharedMessages.reload();
             }
@@ -835,8 +751,7 @@ public final class SmpPlugin extends JavaPlugin {
      * Names every override entry that overrode nothing.
      *
      * <p>An override for a key no bundle declares is stored and never looked up, so the failure is
-     * a line that does not change and no error anywhere. Naming them in the console is the only
-     * place the difference between "my override is wrong" and "my override is ignored" is visible.
+     * a line that does not change and no error anywhere.
      */
     private void reportUnknownOverrides() {
         messages.unknownOverrideKeys().forEach(key -> getLogger().warning(
@@ -848,8 +763,7 @@ public final class SmpPlugin extends JavaPlugin {
      * Reads the track's progress and puts Nordtal's border where the completed milestones say.
      *
      * <p>Runs async, then hops back for the border. Not animated: this is a restart catching up
-     * with a border that moved before it, and animating it would show every player a wall crawling
-     * outwards for something that happened last week.
+     * with a border that moved before it.
      */
     /**
      * What {@code /smp status} says, in the asker's language. Off the main thread: the phase is a
@@ -868,10 +782,9 @@ public final class SmpPlugin extends JavaPlugin {
     /**
      * How many people are on this server, sampled on the main thread once a second.
      *
-     * <p>{@code status()} runs on the effects' executor - an async task for the chat surface, the
-     * request thread for the inbox - and Paper's player collection is documented as unsafe to touch
-     * from anywhere but the server thread. A number that is at most a second old is what a status
-     * line needs; reaching across for a live one is what it does not (finding 104).</p>
+     * <p>{@code status()} runs on the effects' executor, and Paper's player collection is unsafe to
+     * touch from anywhere but the server thread. A number at most a second old is what a status line
+     * needs.</p>
      */
     private volatile int online;
 
@@ -879,26 +792,18 @@ public final class SmpPlugin extends JavaPlugin {
      * The database rows the file's definition needs: one per milestone and one per objective.
      * Idempotent, and run at enable and after every accepted reload - an objective appended to
      * {@code milestones.yml} mid-season has to exist as a row before anybody can hand anything in
-     * against it. The objective half was missing until 2026-09-06 (finding 99).
+     * against it.
      */
     /**
      * Writes one row per milestone and one per objective, <b>all of them or none</b>.
      *
-     * <h2>Why the transaction</h2>
-     * {@code ensureObjective} updates the target on conflict, because lowering one is the first
-     * escape hatch for an objective that has become impossible. So this is not only an insert of
-     * rows nothing reads yet: it rewrites the arithmetic {@code ObjectiveEngine#credit} reads,
-     * which takes {@code target} from the database row rather than from the running track.
+     * <p>The transaction matters because {@code ensureObjective} updates the target on conflict -
+     * it rewrites the arithmetic {@code ObjectiveEngine#credit} reads, which takes {@code target}
+     * from the row rather than from the running track. Statement by statement, a failure in the
+     * middle would leave some objectives on the candidate file's targets and the rest on the
+     * running track's, while the log said the reload had been refused.
      *
-     * <p>Statement by statement, a failure in the middle - a connection that has stopped answering
-     * inside {@code query-timeout-seconds} is the ordinary way - left some objectives carrying the
-     * candidate file's targets and the rest carrying the running track's, with {@code track} itself
-     * unchanged and the log line saying the reload had been refused. Progress credited after that
-     * would complete an objective against a number from a file that was never applied. One
-     * transaction makes the reported outcome and the database agree (CodeRabbit, PR #8).
-     *
-     * <p>Called at enable and on every {@code /smp reload}; it is idempotent, so the cost of the
-     * transaction is one round trip rather than a decision.</p>
+     * <p>Idempotent, so the transaction costs one round trip rather than a decision.</p>
      */
     private void ensureRows(final MilestoneTrack definition) {
         jdbi.useTransaction(handle -> {
@@ -934,9 +839,8 @@ public final class SmpPlugin extends JavaPlugin {
      *
      * <p>Nordtal's balloon must stand outside radius 10 and inside radius 21.5 of the border centre.
      * That is what makes the opening border of 20 withhold travel and the first expansion to 43 hand
-     * it over; everything else social sits inside radius 10, so the only thing the opening minutes
-     * withhold is the balloon. Get it wrong in the build and the season's first milestone means
-     * nothing - which is not something a player would ever report as a bug.
+     * it over; everything else social sits inside radius 10. Get it wrong and the season's first
+     * milestone means nothing, which nobody would report as a bug.
      *
      * @return null when the placement is fine, or the complaint to refuse the start with
      */
@@ -963,26 +867,12 @@ public final class SmpPlugin extends JavaPlugin {
     /**
      * The plugin cannot run, so neither can this server.
      *
-     * <h2>Why it takes the server with it, since 2026-09-02</h2>
-     * It used to log and call {@code disablePlugin} alone, which is the convention this repository
-     * states for {@code papermc-display-tags} - a plugin on somebody else's server, where "the
-     * plugin goes down, the server keeps running" is plainly right. On our own dedicated backends it
-     * is plainly wrong, and the first deployment showed what it costs: four nested config
-     * interfaces without {@code @ConfigSpec} made the first write of {@code config.yml} throw, this
-     * plugin disabled itself, and Paper carried on. The container stayed up, its healthcheck stayed
-     * green, and what was left was a Minecraft server with no season on it - which nothing about
-     * looks wrong until somebody joins.
+     * <p>It takes the server down with it rather than only disabling itself: on a dedicated backend,
+     * a plugin that disables itself while Paper carries on leaves a Minecraft server with no season
+     * on it - up, healthy on every check outside the JVM, and wrong only once somebody joins.
      *
-     * <p>No check outside the JVM could tell that state from a healthy one when this rule was
-     * written. The jars are all in the folder, so the entrypoint's guard passes; the port was open,
-     * so the port check passed. The only place the difference was knowable is here, which is why the
-     * answer is here.</p>
-     *
-     * <p>Since 2026-09-04 the container does report it, because {@link #startHeartbeat()} is below
-     * every refusal and its marker is never written on this path. That does not soften the rule: an
-     * unhealthy container is a red square in Arcane and nothing else - Docker restarts nothing on
-     * health alone - so without the shutdown the server would still be up, still accepting players,
-     * and merely honest about it.</p>
+     * <p>{@link #startHeartbeat()} sits below every refusal so the container does report it, but an
+     * unhealthy container is a red square and nothing else: Docker restarts nothing on health alone.
      *
      * <p>{@code disablePlugin} first and then {@code shutdown}: the disable runs whatever cleanup
      * {@code onDisable} does, and if the shutdown were ever ignored the plugin is still off rather

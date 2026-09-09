@@ -6,12 +6,10 @@ import eu.nordtal.s2.smp.config.DatabaseSpec;
 
 /**
  * The SMP's connection pool, built here rather than taken from jcore's {@code Database} so that the
- * pool name, the size and both timeouts are this module's own - the same reasoning, and the same
- * shape, as {@code hunger-games}' pool.
+ * pool name, the size and both timeouts are this module's own.
  *
- * <p>This plugin never migrates anything. Exactly one process owns the schema and it is the Discord
- * bot (docs/architecture.md#schema-ownership), which is also why {@code flyway-core} is excluded
- * from this module's dependencies.
+ * <p>This plugin never migrates anything: the Discord bot owns the schema, which is why
+ * {@code flyway-core} is excluded from this module's dependencies.
  */
 public final class SmpPool {
 

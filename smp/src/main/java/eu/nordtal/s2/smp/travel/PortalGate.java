@@ -26,7 +26,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.plugin.Plugin;
 
 /**
- * The three portal rules from docs/smp.md#travel, each of them deliberate.
+ * The three portal rules, each of them deliberate.
  *
  * <ul>
  *   <li><b>Nether portals are gated by the milestone, not disabled.</b> Until the Nether milestone
@@ -96,17 +96,13 @@ public final class PortalGate implements Listener {
     /**
      * Clears the fire the refused ignition left standing.
      *
-     * <p>Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and steel
-     * has already placed a fire block by the time this event is raised, and vanilla leaves it there
-     * because to vanilla the frame was simply invalid. Here the frame is valid and the <em>server</em>
-     * said no - so leaving the fire burning charges the player for an action that was refused. Seen
-     * on the local SMP on 2026-09-06 by lighting a frame from the inside: the message arrived, the
-     * portal did not, and the player stood in the flames losing hearts (finding 130). A death there
-     * would also have cost five aura.
+     * <p>Cancelling {@code PortalCreateEvent} stops the portal and nothing else: the flint and
+     * steel has already placed a fire block, so a refused ignition otherwise burns the player who
+     * just read the refusal.
      *
      * <p>Next tick, because the block is placed by the same call stack this event is raised from and
      * setting it to air here is undone. The blocks are the ones that would have become portal, which
-     * is exactly the column the fire is in whichever face was clicked.
+     * is the column the fire is in whichever face was clicked.
      */
     private void putOutTheFire(final PortalCreateEvent event) {
         final World world = event.getWorld();
@@ -140,21 +136,15 @@ public final class PortalGate implements Listener {
      *
      * <p><b>The farm world is a custom dimension.</b> Vanilla's portal travel links
      * {@code minecraft:overworld} to {@code minecraft:the_nether} and nothing else, so a lit portal
-     * in {@code minecraft:farm} has no destination the server will even look for - it never
-     * attempts a transfer and never raises {@code PlayerPortalEvent}. Measured on the local SMP,
-     * 2026-09-06: a frame in the farm world lights (correctly - the milestone gate does not apply
-     * there), the portal block forms, the screen goes purple, and the player stands in it for as
-     * long as they like. The same frame in Nordtal moved them to the Nether and back in seconds.
-     * docs/smp.md says every portal in the farm world leads to the Nordtal spawn; until this method
-     * existed, none of them led anywhere (finding 131).
+     * there never attempts a transfer and never raises {@code PlayerPortalEvent} - the player just
+     * stands in a purple screen.
      *
-     * <p>{@code EntityPortalEnterEvent} is the hook that does arrive, because it is raised from the
-     * block the entity is standing in rather than from the travel logic. It fires every tick, hence
-     * {@link #leaving}: the countdown is armed once and the delayed task is what re-checks. Four
-     * seconds is vanilla's own dwell time, so the portal behaves the way a player already expects.
+     * <p>{@code EntityPortalEnterEvent} does arrive, because it is raised from the block rather than
+     * from the travel logic. It fires every tick, hence {@link #leaving}: the countdown is armed
+     * once and the delayed task re-checks. Four seconds is vanilla's own dwell time.
      *
-     * <p>The arrival goes through {@link LandingSite#safeAt} for the same reason the duel's does:
-     * a world's spawn location is a coordinate, not a promise.
+     * <p>The arrival goes through {@link LandingSite#safeAt}: a world's spawn location is a
+     * coordinate, not a promise that anybody survives it.
      */
     @EventHandler(ignoreCancelled = true)
     public void onEnterPortal(final EntityPortalEnterEvent event) {
@@ -185,8 +175,7 @@ public final class PortalGate implements Listener {
             return;
         }
         if (player.getLocation().getBlock().getType() != Material.NETHER_PORTAL) {
-            // They stepped out during the four seconds, which is the whole point of the four
-            // seconds.
+            // They stepped out during the four seconds, which is what the four seconds are for.
             return;
         }
         final World nordtal = worlds.world(WorldRole.NORDTAL).orElse(null);
@@ -204,11 +193,10 @@ public final class PortalGate implements Listener {
         }
 
         if (from == WorldRole.FARM) {
-            // Belt and braces, and on Paper 26.2 it is only that: this event never arrives for a
-            // portal in the farm world, because the farm world is a custom dimension and vanilla
-            // links only overworld to nether. See takeTheFarmWorldExit, which is what actually
-            // carries a player out (finding 131). Kept because a future Paper that did fire it
-            // must not send anybody to a nether that does not exist.
+            // Belt and braces: this event never arrives for a portal in the farm world, because
+            // the farm world is a custom dimension - takeTheFarmWorldExit is what carries a player
+            // out. Kept so a future Paper that did fire it cannot send anybody to a nether that
+            // does not exist.
             final World nordtal = worlds.world(WorldRole.NORDTAL).orElse(null);
             if (nordtal == null) {
                 event.setCancelled(true);

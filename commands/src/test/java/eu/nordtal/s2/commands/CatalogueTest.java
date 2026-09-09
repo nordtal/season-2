@@ -158,10 +158,10 @@ class CatalogueTest {
     @Test
     @DisplayName("every command is admin-only, which is the whole of the authorisation model")
     void thereIsOneAdminList() {
-        // discord_user.admin, mirrored from the Discord role, and the console. No LuckPerms, no
-        // permission nodes, no second list. The exceptions are named one by one so that another
-        // does not arrive by accident: /smp status is the one thing a player may ask the SMP
-        // (read-only, 2026-09-06), and announce is typed by nobody at all - its surface is SYSTEM,
+        // discord_user.admin, mirrored from the Discord role, and the console: no permission nodes
+        // and no second list. The exceptions are named one by one so that another does not arrive by
+        // accident: /smp status is the one read-only thing a player may ask the SMP, and announce is
+        // typed by nobody at all - its surface is SYSTEM,
         // so no adapter registers it and the only thing that can run it is a request row from a
         // server.
         //

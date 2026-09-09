@@ -15,17 +15,8 @@ import java.util.UUID;
 /**
  * {@code /access status <member>} - access, donor, language, every grant and every purchase.
  *
- * <h2>The long version of {@code /smp access}</h2>
- * {@code /smp access} is three lines an admin needs while standing next to somebody who cannot get
- * in. This is the whole file: it names the roles, the language, the history of grants and the
- * history of purchases, which is what somebody wants when the question is "why does this account
- * look like that" rather than "can they get in right now". Both exist on purpose; neither is the
- * other one truncated.
- *
- * <h2>Every line was hardcoded English until it moved here</h2>
- * Nine of them, built with a {@code StringBuilder}, in a bot whose entire message system exists so
- * that nothing is. That is not a matter of taste: the admins of this network are not all English
- * speakers, and docs/architecture.md calls a hardcoded string a bug rather than a shortcut.
+ * <p>The long form of {@code /smp access}, which answers only "can they get in right now". Both
+ * exist on purpose; neither is the other truncated.</p>
  */
 public final class ShowStatus implements NordtalCommand<AccessEffects> {
 
@@ -48,16 +39,15 @@ public final class ShowStatus implements NordtalCommand<AccessEffects> {
                 return;
             }
             if (status.isEmpty()) {
-                // The id is one Discord no longer has - somebody left, or the account was deleted.
-                // Its own sentence, because the row is not wrong and the person is simply gone.
+                // The id is one Discord no longer has: the row is not wrong, the person is gone.
                 user.reply("access.no-such-member", Map.of("discord", discordId),
                         Feedback.REFUSED, Tone.BAD);
                 return;
             }
 
             final AccessEffects.Status account = status.get();
-            // The tones make the shape of a readout rather than eight equal lines: the header
-            // says who, exactly one line carries the news, and everything under it is detail.
+            // The tones shape the readout: the header says who, one line carries the news, the
+            // rest is detail.
             user.reply("access.header", Map.of("player", account.name(), "discord", discordId),
                     Tone.NEUTRAL);
             user.reply(account.accessUntil().isPresent() ? "access.until" : "access.none",

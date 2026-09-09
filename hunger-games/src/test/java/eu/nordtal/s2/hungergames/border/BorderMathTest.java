@@ -9,7 +9,7 @@ class BorderMathTest {
 
     @Test
     void deathStepMatchesTheDocumentedExampleForTwentyPlayers() {
-        // "With 20 players that is roughly 13 blocks of diameter per death" - docs/hunger-games.md
+        // With 20 players, roughly 13 blocks of diameter per death.
         final double step = BorderMath.deathStep(250.0, 1.0, 20);
         assertEquals(13.105263157894736, step, 1e-9);
     }

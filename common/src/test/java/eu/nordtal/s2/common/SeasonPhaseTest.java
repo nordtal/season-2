@@ -7,18 +7,15 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * {@link SeasonPhase} sits on the login path the same way {@code Locales} does, and the same rule
- * applies: every case has to end in a phase rather than an exception, and the one it ends in when
- * something is wrong has to be the phase that lets nobody in.
+ * {@link SeasonPhase} sits on the login path: every case has to end in a phase rather than an
+ * exception, and an unreadable value must never be more permissive than the real one.
  */
 class SeasonPhaseTest {
 
     @Test
     void theOrderingIsTheNetworksRoutingOrder() {
-        // The enum's own javadoc calls this the routing order, and docs/season-phases.md draws the
-        // season as PRE_LAUNCH -> PRE_EVENT -> START_EVENT -> SMP with MAINTENANCE as the
-        // interruption of any of them. Something later will switch on ordinals or render this list;
-        // pin it. PRE_LAUNCH was added at the FRONT on 2026-09-03, which is where the season starts.
+        // The season runs PRE_LAUNCH -> PRE_EVENT -> START_EVENT -> SMP, with MAINTENANCE as the
+        // interruption of any of them. Pinned because something later may switch on ordinals.
         assertEquals(
                 List.of(SeasonPhase.PRE_LAUNCH, SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT,
                         SeasonPhase.SMP, SeasonPhase.MAINTENANCE),

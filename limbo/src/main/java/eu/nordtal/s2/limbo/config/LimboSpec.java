@@ -9,11 +9,10 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * {@code plugins/limbo/config.yml} - the whole of the waiting room's settings, which is small on
  * purpose.
  * <p>
- * docs/architecture.md settles what this module shows: "nothing. Black, no visible world, no other
- * players and no chat. A title in the player's language says what they are waiting for, and that is
- * the entire interface." There is correspondingly little to configure - the world it builds, how
- * often the title is refreshed, and one switch for making the screen visible while somebody is
- * working on it.
+ * This module shows nothing: black, no visible world, no other players and no chat, with one title
+ * in the player's language as the entire interface. So there is little to configure - the world it
+ * builds, how often the title is refreshed, and one switch for making the screen visible while
+ * somebody is working on it.
  * </p>
  * <p>
  * <b>What is deliberately not here: the waiting reason.</b> The proxy decides that and sends it on
@@ -111,9 +110,9 @@ public interface LimboSpec {
             "How often this server re-reads who is an admin, in seconds.",
             "",
             "An admin is a server operator for as long as they are an admin, and the flag lives in",
-            "discord_user.admin - nowhere else. Until 2026-09-04 it was read once, at join, so a",
-            "revoked admin kept operator until they chose to disconnect. An emergency revocation is",
-            "exactly the case where waiting for somebody to log off is the wrong direction.",
+            "discord_user.admin - nowhere else. Read once at join it would leave a revoked admin",
+            "with operator until they chose to disconnect, and an emergency revocation is exactly",
+            "the case where waiting for a logout is the wrong direction.",
             "",
             "THIS POLL IS THE GUARANTEE, not the LISTEN connection below. A tick on which nothing",
             "changed costs one indexed query and writes nothing to ops.json, which is what makes it",

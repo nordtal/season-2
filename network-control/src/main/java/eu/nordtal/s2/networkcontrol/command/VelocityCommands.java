@@ -38,24 +38,16 @@ import java.util.function.Supplier;
 /**
  * {@code :paper-common}'s {@code PaperCommands}, for Velocity.
  *
- * <h2>Why this is a second class and not a shared one</h2>
- * The two platforms resolve <b>different Brigadier artefacts</b> - {@code com.mojang:brigadier} on
- * Paper, {@code com.velocitypowered:velocity-brigadier} on Velocity - and neither is on Maven
- * Central. A module compiled against both does not exist; a module compiled against neither cannot
- * name {@code CommandSource} or {@code CommandSourceStack}. That is the same reason
- * docs/architecture.md gave in 2026-08-31 for having no shared command helper at all, and it is
- * still true of the <em>tree building</em>. What changed is that everything above the tree - the
- * declaration, the decisions, the messages, the confirmation - is now shared, so what is duplicated
- * here is only the twenty lines that name a platform type.
+ * <p>A second class rather than a shared one because the two platforms resolve different Brigadier
+ * artefacts - {@code com.mojang:brigadier} on Paper, {@code com.velocitypowered:velocity-brigadier}
+ * here - so no module can be compiled against both, and one compiled against neither cannot name
+ * {@code CommandSource}. Only the tree building is duplicated; the declarations, decisions, messages
+ * and confirmation are shared. The two are kept in the same shape - same method names, same order -
+ * so a rule added to one is findable in the other.</p>
  *
- * <p>The two are deliberately kept in the same shape, so a rule added to one is findable in the
- * other: same method names, same order, same comments where the reasoning is identical.</p>
- *
- * <h2>What the proxy does not register</h2>
- * The backends' commands. Velocity answers a command it knows <b>before the packet reaches a
- * backend</b>, so registering {@code /smp} here would shadow the SMP's own - turning a local command
- * into a round trip through a request row, on the very server that owns it. The backends register
- * each other's instead, which is why an admin on limbo can still run {@code /smp reload}.
+ * <p>The proxy does not register the backends' commands. Velocity answers a command it knows before
+ * the packet reaches a backend, so registering {@code /smp} here would shadow the SMP's own and turn
+ * a local command into a round trip through a request row.</p>
  */
 public final class VelocityCommands {
 
@@ -124,17 +116,14 @@ public final class VelocityCommands {
             }
             node.command = entry;
         }
-        // Bottom-up, for the reason PaperCommands#build spells out: Brigadier's
-        // ArgumentBuilder.then(ArgumentBuilder) builds its argument on the spot, so anything added
-        // to a node after its parent took it is silently lost.
+        // Bottom-up: Brigadier's ArgumentBuilder.then(ArgumentBuilder) builds its argument on the
+        // spot, so anything added to a node after its parent took it is silently lost.
         return roots.values().stream()
                 .map(root -> {
                     final LiteralArgumentBuilder<CommandSource> builder = materialise(root);
-                    // A root whose every command is admin-only is gated itself - see
-                    // PaperCommands#build. /update is such a root and its bare form is a
-                    // command; with the check on the children alone, any player ran the report.
-                    // On the proxy the gate has a second effect: Velocity forwards a command the
-                    // source may not use to the backend, so a non-admin.s /update leaves here.
+                    // A root whose every command is admin-only is gated itself: the check on the
+                    // children alone would leave a runnable bare root open to any player. On the
+                    // proxy it also stops Velocity forwarding the command to a backend.
                     if (adminOnly(root)) {
                         builder.requires(this::mayUse);
                     }
@@ -143,7 +132,7 @@ public final class VelocityCommands {
                 .toList();
     }
 
-    /** Whether everything runnable at or below this node is admin-only. See finding 117. */
+    /** Whether everything runnable at or below this node is admin-only. */
     private static boolean adminOnly(final Node node) {
         if (node.command != null && !node.command.declaration().adminOnly()) {
             return false;
@@ -155,8 +144,7 @@ public final class VelocityCommands {
         final LiteralArgumentBuilder<CommandSource> builder =
                 BrigadierCommand.literalArgumentBuilder(node.literal);
         for (final Node child : node.children.values()) {
-            // Only when everything below it is admin-only - see PaperCommands#adminOnly and
-            // finding 117.
+            // Only when everything below it is admin-only.
             final LiteralArgumentBuilder<CommandSource> sub = materialise(child);
             builder.then(adminOnly(child) ? sub.requires(this::mayUse) : sub);
         }
@@ -272,9 +260,8 @@ public final class VelocityCommands {
                         values.put(argument.name(), target.get().getUniqueId());
                         continue;
                     }
-                    // The roster filled the Discord id at login, so this is a map lookup. A player
-                    // without one cannot be past the gate at all, which makes the empty case a
-                    // symptom rather than an ordinary answer - it still gets a sentence.
+                    // A map lookup: the roster filled the Discord id at login, and a player
+                    // without one cannot be past the gate, so the empty case is a symptom.
                     final var linked = roster.of(target.get().getUniqueId())
                             .map(eu.nordtal.s2.networkcontrol.gate.LoginRoster.Session::discordId);
                     if (linked.isEmpty()) {
@@ -296,14 +283,13 @@ public final class VelocityCommands {
         if (user.origin() == NordtalUser.Origin.CONSOLE
                 && !entry.declaration().surfaces().contains(Surface.CONSOLE)) {
             // /phase is the one this exists for: it records who took the decision, and the console
-            // is nobody in particular. Rejected 2026-08-31 and enforced by each adapter separately
-            // until the surface set became the single place that says so.
+            // is nobody in particular.
             user.reply("command.not-from-console", Map.of(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
-        // The lock behind the tree.s gate - see PaperCommands#run. A root-level command has no
-        // node above it to carry a requires, and this check cannot be skipped by the tree.s shape.
+        // The lock behind the tree's gate: a root-level command has no node above it to carry a
+        // requires, so this check cannot be skipped by the tree's shape.
         if (entry.declaration().adminOnly() && !mayUse(context.getSource())) {
             user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
@@ -323,9 +309,8 @@ public final class VelocityCommands {
             }
         }
 
-        // Before the confirmation, deliberately. Without this, /phase set NOT_A_PHASE answers
-        // "this cannot be undone, type it again", takes the retype, and only then says the phase
-        // does not exist.
+        // Before the confirmation: otherwise /phase set NOT_A_PHASE demands a retype and only then
+        // says the phase does not exist.
         final var problem = entry.problem().apply(new Values(entry.declaration(), values));
         if (problem.isPresent()) {
             user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED,
@@ -353,12 +338,9 @@ public final class VelocityCommands {
     }
 
     private int help(final CommandContext<CommandSource> context, final Node node) {
-        // A root with a declared default runs it instead of listing itself: /phase is /phase show
-        // (Catalogue#rootDefault) - the emergency command answers with the phase, not with syntax.
+        // A root with a declared default runs it instead of listing itself: /phase is /phase show.
         // The admin flag goes with it, because this path goes around the child node's requires -
-        // which is the whole admin gate. A comment here claimed the child's own run applied the
-        // check; run() has never applied one, so any player's bare /phase printed the phase and
-        // both season dates (finding 102).
+        // which is the whole admin gate.
         final java.util.Optional<Declaration> preset = eu.nordtal.s2.commands.Catalogue
                 .rootDefault(node.literal, mayUse(context.getSource()));
         if (preset.isPresent()) {
@@ -432,8 +414,7 @@ public final class VelocityCommands {
     private NordtalUser user(final CommandSource source) {
         return source instanceof Player player
                 ? new VelocityUser(player, roster, messages)
-                // The console.s own audience, so a reply reaches the proxy log the way every other
-                // line does. Without it ConsoleUser fell back to System.out (finding 2026-09-08).
+                // The console's own audience, so a reply reaches the proxy log rather than stdout.
                 : new ConsoleUser(messages, proxy.getConsoleCommandSource());
     }
 }

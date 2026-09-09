@@ -7,24 +7,8 @@ import java.util.Optional;
 /**
  * One argument of a command, described rather than parsed.
  *
- * <h2>A closed set of five kinds, not a type hierarchy</h2>
- * Every argument in this network is one of five things, and the list is not a guess - it is what the
- * commands that exist actually take: a word ({@code /smp objective complete <key>}), a greedy string
- * ({@code /phase launch 2026-10-01 18:00}, where a date carries a space), a bounded integer
- * ({@code /smp aura <player> <delta>}), a player, or one of a fixed set of choices
- * ({@code /phase set <phase>}).
- *
- * <p>A generic {@code Argument<T>} with parsers and codecs would cover more, and the more it would
- * cover is nothing anybody has asked for. docs/architecture.md rejected two command frameworks on
- * exactly that trade - "the surface is small and shallow" - and a home-grown one gets no exemption
- * from its own reasoning. When a sixth kind is genuinely needed, adding it here is a line; unpicking
- * a type hierarchy nothing used would not be.</p>
- *
- * <h2>What each adapter does with this</h2>
- * Brigadier builds a real argument node and gets suggestions and client-side syntax highlighting for
- * free; JDA builds an {@code OptionData}; the remote channel writes the value into the request row.
- * None of them re-decides what the argument <em>is</em>, which is the whole point of declaring it
- * once.
+ * <p>The kinds are a closed set: each adapter (Brigadier, JDA, the remote request row) builds its
+ * own representation from this declaration and never re-decides what the argument is.</p>
  *
  * @param name     the argument's name, as it appears in both the chat syntax and the Discord option
  * @param kind     what it accepts
@@ -36,7 +20,7 @@ import java.util.Optional;
 public record Argument(String name, Kind kind, boolean required, int min, int max,
                        List<String> choices) {
 
-    /** What an argument accepts. Five, because five is what the network's commands take. */
+    /** What an argument accepts. */
     public enum Kind {
 
         /** A single unquoted word. Keys, names of things. */
@@ -46,9 +30,7 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
          * The rest of the line, spaces included.
          *
          * <p>Must be last in a command, and {@link Declaration} refuses one that is not: Brigadier
-         * would otherwise hand the whole remainder to it and call the next argument unexpected.
-         * That is not hypothetical - {@code /phase launch} takes a date and a time, and it is
-         * greedy for exactly that reason.</p>
+         * would otherwise hand the whole remainder to it and call the next argument unexpected.</p>
          */
         GREEDY_STRING,
 
@@ -59,9 +41,8 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
          * A player.
          *
          * <p>In chat that is a Minecraft name; in Discord it is a member picked from the list and
-         * resolved through {@code account_link}. The adapter does the resolving, so a command sees a
-         * player either way - which is what stops "who does this correct?" from being two different
-         * questions on two surfaces.</p>
+         * resolved through {@code account_link}. The adapter resolves, so a command sees a player
+         * either way.</p>
          */
         PLAYER,
 
@@ -71,18 +52,10 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
         /**
          * A person, identified by their <b>Discord account</b>.
          *
-         * <h2>Why this is not {@link #PLAYER}</h2>
-         * Because {@code PLAYER} resolves through {@code account_link} on both surfaces, and the
-         * commands that need this one act on people who may not have linked yet:
-         * {@code /access grant} is exactly what an admin runs for a member whose payment arrived
-         * outside the normal flow, and requiring a link would mean the command could not be used on
-         * the person it exists for. It was written as {@code PLAYER} for half an afternoon and that
-         * is what it would have cost.
-         *
-         * <p>In Discord it is a member picked from the list, taken as their id and nothing else. In
-         * chat it is a Minecraft name resolved through {@code account_link} - which is the one
-         * direction that <em>does</em> need a link, and is refused with its own sentence when there
-         * is none, because an admin in game has no other way to name a Discord account.</p>
+         * <p>Not {@link #PLAYER}: the commands taking this one act on people who may not have
+         * linked a Minecraft account yet ({@code /access grant} on a payment that arrived outside
+         * the normal flow). In Discord it is the member's id and nothing else; in chat it is a
+         * Minecraft name resolved through {@code account_link}, refused when there is no link.</p>
          */
         ACCOUNT
     }
@@ -111,16 +84,9 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
     /**
      * The declared choice a typed value means, in the case the declaration wrote it.
      *
-     * <h2>Why matching ignores case and the answer does not</h2>
-     * {@code /phase set maintenance} has always worked in chat - {@code SetPhase#parse} compares
-     * phase names case-insensitively, and a name typed at three in the morning is not the place to
-     * be strict. Discord's dropdown only ever sends the declared form, so the two surfaces have to
-     * agree on what a value <em>means</em> while disagreeing about how it is typed.
-     *
-     * <p>So the comparison ignores case and the answer is the declared spelling, which is what every
-     * reader downstream sees: a command comparing against {@code SeasonPhase.name()}, a request row
-     * carrying the value to another process, an audit entry recording what was asked for. Normalise
-     * once, here, or every one of those gets to be wrong on its own.</p>
+     * <p>Matching ignores case (chat is lenient) but the answer is always the declared spelling, so
+     * that everything downstream - a comparison against {@code SeasonPhase.name()}, a request row,
+     * an audit entry - sees one normalised form.</p>
      *
      * @return the declared choice, or empty when this is not one of them
      */

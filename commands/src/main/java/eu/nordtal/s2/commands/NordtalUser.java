@@ -11,37 +11,17 @@ import java.util.UUID;
 /**
  * Whoever is asking for something - a Minecraft player, a Discord member, or the console.
  *
- * <h2>Why this type exists at all</h2>
- * A command has two halves. The <b>front</b> - who is asking, may they, in which language, what is
- * said back - is the same wherever the command was typed. The <b>back</b> - the effect - is bound to
- * one process, because {@code /smp farmreset} deletes a world and can only run in the JVM that has
- * that world open. Everything this interface carries is the front half, which is exactly the half
- * that can be written once and adapted three times.
+ * <p>Carries only the platform-independent half of a request: who is asking, whether they may, in
+ * which language, and where the answer goes.</p>
  *
- * <p>It is also a type this repository was already missing before commands made it obvious.
- * {@code account_link} <em>is</em> the table that says a Discord member and a Minecraft player are
- * one person; until now nothing named that person.</p>
+ * <p>Both identities are optional. The console has neither; a Discord member who has never linked
+ * has no {@link #minecraftUuid()}. A player is linked in practice - the login gate refuses an
+ * unlinked one - but that is another process's rule, so a command must not assume
+ * {@link #discordId()} is present.</p>
  *
- * <h2>Both identities are optional, and that is not a shrug</h2>
- * The console has neither. A Discord member who has never linked has no {@link #minecraftUuid()}.
- * A player is always linked in practice - the login gate refuses an unlinked one - but a command
- * must not be written as though {@link #discordId()} were guaranteed, because the gate is a
- * different process's rule and this module cannot enforce it.
- *
- * <p>A command that genuinely needs one of them says so by asking for it, and gets a refusal it can
- * render rather than an {@link Optional} it will forget to check.</p>
- *
- * <h2>The reply is a key, never a sentence</h2>
- * {@link #reply(String, Map)} takes a message key and its placeholders, not text. Rendering happens
- * in the adapter, because the three surfaces do not render alike: Paper and Velocity want an
- * Adventure {@code Component}, and Discord wants a string it can put in an ephemeral message. A
- * command that built a sentence here would have to pick one of those, and would hardcode a language
- * while doing it - which docs/architecture.md already calls a bug rather than a shortcut.
- *
- * <p>{@link #replyLiteral(String)} is the one exception and it is deliberately ugly to type: it
- * exists for text that is <em>already</em> the answer and must not be re-rendered, which today means
- * the updater's report. docs/updater.md's rule is that nothing is rendered twice - a second
- * rendering somewhere is the thing that eventually disagrees with the first.</p>
+ * <p>Replies are message keys, never text: the adapter renders, because Paper and Velocity want an
+ * Adventure {@code Component} and Discord wants a string. {@link #replyLiteral(String)} is the one
+ * exception, for text that is already the answer and must not be rendered twice.</p>
  */
 public interface NordtalUser {
 
@@ -57,10 +37,9 @@ public interface NordtalUser {
         /**
          * The server console, or the container's {@code mc} wrapper.
          *
-         * <p>The console is the operator and is always an admin ({@link #admin()} answers true for
-         * it) - which is the one place in this repository where something other than
-         * {@code discord_user.admin} decides. That is not a second admin list: it is the physical
-         * access that would let somebody edit the database by hand anyway.</p>
+         * <p>Always an admin ({@link #admin()} answers true) - the one place where something other
+         * than {@code discord_user.admin} decides, because console access already implies the
+         * ability to edit the database by hand.</p>
          */
         CONSOLE
     }
@@ -82,7 +61,7 @@ public interface NordtalUser {
      *
      * <p>{@code discord_user.locale} through {@code account_link}, the same one
      * {@link eu.nordtal.s2.common.message.PlayerLocales} resolves - never the Minecraft client's own
-     * setting, for the reason docs/i18n.md gives.</p>
+     * setting.</p>
      */
     Locale locale();
 
@@ -119,12 +98,7 @@ public interface NordtalUser {
     /**
      * Say something, and let the surface show at a glance whether it is good news.
      *
-     * <p>The same shape as the {@link Feedback} overload above and for the same reason: a surface
-     * that cannot do it implements nothing and loses nothing. Discord is that surface here - an
-     * embed has one colour for the whole of it - so the default is what the bot uses.</p>
-     *
-     * <p>It exists for {@code /update}, whose answer is up to forty lines of which one is the
-     * failure. See {@link Tone}.</p>
+     * <p>Discord cannot - an embed has one colour - so the bot uses the default. See {@link Tone}.</p>
      */
     default void reply(final String messageKey, final Map<String, ?> placeholders,
                        final Tone tone) {
@@ -134,22 +108,10 @@ public interface NordtalUser {
     /**
      * Say something, make a noise about it, and colour it - the overload nearly every command uses.
      *
-     * <h2>Why the sound and the colour are two arguments and not one</h2>
-     * They agree at most call sites and they are not the same fact, and collapsing them would have
-     * to pick which one loses. {@link Feedback} is a nine-entry <em>vocabulary of noises</em> whose
-     * whole design (see its javadoc) is that a call site cannot name a sound; five of its entries -
-     * {@code SURFACE_OPEN}, {@code SELECT}, {@code TRAVEL} and the rest - describe an action rather
-     * than an outcome and imply no colour at all. {@link Tone} is five outcomes and implies no
-     * sound: a line of supporting detail under a report is {@link Tone#MUTED} and makes no noise
-     * whatever, and a command that says four things in a row wants one chime and four colours.
-     *
-     * <p>Deriving one from the other was the alternative, and what it costs is that the colour
-     * becomes invisible at the call site - the thing this repository has twice paid for by having a
-     * mechanism nobody could see was missing. Two arguments are read in the diff.</p>
-     *
-     * <p>The default drops the sound rather than the colour: a surface that cannot make a noise is
-     * ordinary here (Velocity, Discord, the console, a remote request row), and a surface that
-     * cannot colour already implements the {@link Tone} overload as a no-op.</p>
+     * <p>Sound and colour stay separate arguments because they are different facts: {@link Feedback}
+     * names actions as well as outcomes, and a command saying four things in a row wants one chime
+     * and four colours. The default drops the sound rather than the colour, since a surface that
+     * cannot make noise is the common case.</p>
      */
     default void reply(final String messageKey, final Map<String, ?> placeholders,
                        final Feedback feedback, final Tone tone) {
@@ -160,10 +122,8 @@ public interface NordtalUser {
      * One message key, rendered in their language, as plain text meant to go <em>inside</em> another
      * message.
      *
-     * <p>Not a second way to say something: nothing is sent. It exists because a few replies name a
-     * thing that is itself translated - "{what} on 2026-10-01", where {@code what} is "when the
-     * network opens" or "wann das Netzwerk öffnet". A command cannot render that itself (it holds no
-     * bundle, deliberately), and putting the key straight into the placeholder would print the key.
+     * <p>Nothing is sent. It exists because a few replies carry a placeholder that is itself
+     * translated - "{what} on 2026-10-01" - and a command holds no bundle to render it with.</p>
      *
      * <p>The rendering is plain: whatever markup a surface uses is stripped or never applied, because
      * the result is substituted into another string that will be rendered again.</p>
@@ -173,9 +133,8 @@ public interface NordtalUser {
     /**
      * Hand back text that is already the answer, verbatim.
      *
-     * <p>Only for output produced elsewhere and passed through unchanged - the updater's report is
-     * the case this exists for. Anything a command composes itself goes through
-     * {@link #reply(String, Map)}, or it is a sentence in one language.</p>
+     * <p>Only for output produced elsewhere and passed through unchanged - the updater's report.
+     * Anything a command composes itself goes through {@link #reply(String, Map)}.</p>
      */
     void replyLiteral(String text);
 }

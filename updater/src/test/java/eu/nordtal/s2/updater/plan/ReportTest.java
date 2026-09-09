@@ -86,7 +86,7 @@ class ReportTest {
                                 null, null),
                         Change.unsupported("smp", "coreprotect",
                                 "no stable release is tagged for this platform")),
-                List.of());
+                List.of(), List.of());
 
         final String rendered = Report.render(plan);
 

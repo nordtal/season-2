@@ -21,6 +21,14 @@ repositoryRootTestInputs {
     // and timing out as though this server were down.
     reads("smp/src/main/java/eu/nordtal/s2/smp/SmpPlugin.java")
     reads("smp/src/main/java/eu/nordtal/s2/smp/command/SmpCommand.java")
+
+    // NpcSurvivesTest and SpawnNpcLabelTest read these two as text, for the same reason: what they
+    // assert is a call that is present or absent, and half of it (the registration) lives in
+    // SmpPlugin above. A change to a comment in either file produces identical bytecode, so without
+    // this the check that says the spawn NPC cannot be punched out of existence is the one that
+    // does not run.
+    reads("smp/src/main/java/eu/nordtal/s2/smp/npc/SpawnNpc.java")
+    reads("smp/src/main/java/eu/nordtal/s2/smp/npc/NpcProtection.java")
 }
 
 repositories {

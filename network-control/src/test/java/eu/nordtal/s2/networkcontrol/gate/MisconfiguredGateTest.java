@@ -60,8 +60,14 @@ class MisconfiguredGateTest {
     void theScreenShowsBothLanguagesBecauseNobodyCanBeIdentified() {
         final String rendered = flatten(gate.refuse(UUID.randomUUID(), "someone"));
 
-        assertTrue(rendered.contains(messages.get(Locale.ENGLISH, "gate.misconfigured")), rendered);
-        assertTrue(rendered.contains(messages.get(Locale.GERMAN, "gate.misconfigured")), rendered);
+        // Compared against the DRAWN text, not the raw bundle value. The two were the same string
+        // while this screen carried no markup; since the palette pass they are not, and a raw
+        // comparison would have made "a kick screen may have colour" fail as though it were a
+        // missing translation.
+        assertTrue(rendered.contains(drawn(messages.get(Locale.ENGLISH, "gate.misconfigured"))),
+                rendered);
+        assertTrue(rendered.contains(drawn(messages.get(Locale.GERMAN, "gate.misconfigured"))),
+                rendered);
     }
 
     @Test
@@ -87,6 +93,11 @@ class MisconfiguredGateTest {
     @Test
     void aFreshHandlerHasRefusedNobody() {
         assertEquals(0, gate.refusedCount());
+    }
+
+    /** A bundle value with its MiniMessage tags taken off - what a player reads off this screen. */
+    private static String drawn(final String raw) {
+        return raw.replaceAll("</?[a-zA-Z_#][a-zA-Z0-9_:.#'\\-]*>", "");
     }
 
     /**

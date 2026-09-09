@@ -9,7 +9,6 @@ import eu.nordtal.s2.hungergames.db.RosterEntry;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.format.NamedTextColor;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -21,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -94,11 +94,18 @@ public final class Lobby {
 
         for (final Player player : world.getPlayers()) {
             final Locale locale = locales.of(player.getUniqueId());
+            // No .color() here: the link's colour is in the bundle, like every other colour on this
+            // server. Setting one on the rendered component would win over whatever the bundle
+            // says, so an operator editing hg.lobby.ready-link would see nothing change.
             final Component link = MessageRenderer.of(messages).get(locale, "hg.lobby.ready-link")
-                    .color(NamedTextColor.GREEN)
                     .clickEvent(ClickEvent.runCommand("/hg ready"));
+            // <_link> and not an append, which is what this was until the bundle was read against
+            // what a player sees: hg.lobby.broadcast has always ended in "{link}", nothing ever
+            // filled that parameter, and Messages leaves an unfilled placeholder standing on
+            // purpose - so the line every player in the lobby read carried a literal "{link}" with
+            // the real button after it. A component slot is the only way the bundle can place it.
             final Component message = MessageRenderer.of(messages).format(locale, "hg.lobby.broadcast",
-                    "ready", readyTeams, "total", totalTeams).append(Component.text(" ")).append(link);
+                    Map.of("_link", link), "ready", readyTeams, "total", totalTeams);
             player.sendMessage(message);
         }
     }

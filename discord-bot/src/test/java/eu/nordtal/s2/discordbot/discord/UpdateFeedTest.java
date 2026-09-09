@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -164,6 +165,50 @@ class UpdateFeedTest {
     private final Messages messages = Messages.load(UpdateFeedTest.class.getClassLoader(),
             "messages/commands", Locale.ENGLISH, Locale.GERMAN);
     private final UpdateFeed feed = new UpdateFeed(rows, board, messages);
+
+    @Test
+    @DisplayName("a pass is admitted before the hand-over, so a busy pool queues one and not thirty")
+    void onlyOnePassIsEverOutstanding() {
+        // The executor stands in for four workers that are busy with payments: it takes the task
+        // and holds it. Before this guard moved in front of the hand-over, the timer submitted one
+        // task every two seconds regardless, each of them found the flag free when it finally ran,
+        // and each made its own database round trip - a burst of queries at exactly the moment the
+        // pool is already the thing struggling.
+        final List<Runnable> queued = new ArrayList<>();
+        final java.util.concurrent.Executor busy = queued::add;
+
+        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING,
+                reportAt(UpdateReport.Stage.STOPPING), null));
+
+        feed.submit(busy);
+        feed.submit(busy);
+        feed.submit(busy);
+        assertEquals(1, queued.size(), "three ticks against a busy pool queued more than one pass");
+
+        queued.getFirst().run();
+        assertEquals(1, board.posted.size(), "the one pass that was admitted did not run");
+
+        feed.submit(busy);
+        assertEquals(2, queued.size(), "the flag was not released when the pass finished");
+    }
+
+    @Test
+    @DisplayName("a pool that refuses the pass releases the flag instead of switching the feed off")
+    void aRejectedSubmissionIsNotPermanent() {
+        final java.util.concurrent.Executor shuttingDown = task -> {
+            throw new java.util.concurrent.RejectedExecutionException("shutting down");
+        };
+        assertThrows(java.util.concurrent.RejectedExecutionException.class,
+                () -> feed.submit(shuttingDown));
+
+        // Without the release in the catch, one rejection during a restart would leave the feed
+        // silent for the rest of the season, and nothing anywhere would say so.
+        rows.put(row(1, UpdateSource.GAME, UpdateStatus.RUNNING,
+                reportAt(UpdateReport.Stage.STOPPING), null));
+        final List<Runnable> queued = new ArrayList<>();
+        feed.submit(queued::add);
+        assertEquals(1, queued.size(), "the flag stayed taken after a rejected submission");
+    }
 
     @Test
     @DisplayName("a run that fails mentions the admin role; one that succeeds does not")

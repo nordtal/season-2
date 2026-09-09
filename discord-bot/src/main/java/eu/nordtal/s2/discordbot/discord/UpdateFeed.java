@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 
 /**
  * Every update run in the admin channel, including the ones nobody in Discord started.
@@ -152,7 +153,11 @@ public final class UpdateFeed {
         try {
             final long mark = updates.latestId();
             for (final UpdateRequest request : updates.finishedWithin(CATCH_UP)) {
-                if (request.source() == UpdateSource.DISCORD) {
+                // `id > mark` is the row that finished BETWEEN the two reads above. It is not part
+                // of the history this back-fill exists for - tick() will find it on its first pass,
+                // because lastSeen ends at the mark - and posting it here as well is the one way
+                // this method can put the same run into the channel twice.
+                if (request.source() == UpdateSource.DISCORD || request.id() > mark) {
                     continue;
                 }
                 // Posted and forgotten: it is over, so there is nothing left to edit into it.
@@ -199,6 +204,42 @@ public final class UpdateFeed {
             pass();
         } finally {
             ticking.set(false);
+        }
+    }
+
+    /**
+     * Hands one pass to {@code worker}, and only if no pass is outstanding.
+     *
+     * <p><b>The flag has to be taken before the hand-over, not inside it.</b> {@link #tick} takes it
+     * on the worker thread, which is one thread too late: the timer submits every
+     * {@link #INTERVAL} regardless, so four workers busy with payments for a minute leave thirty
+     * queued passes in an unbounded queue. Each of them then finds the flag free - they run one
+     * after another - and makes its own database round trip. Nothing is posted twice, because
+     * {@code lastSeen} only grows; the cost is a burst of pointless queries at exactly the moment
+     * the pool is already the thing that is struggling.</p>
+     *
+     * <p>A rejected submission releases the flag rather than leaving the feed switched off for the
+     * rest of the season, which is what a plain {@code compareAndSet} with no {@code catch} would
+     * do the first time the executor is shutting down.</p>
+     */
+    public void submit(final Executor worker) {
+        Objects.requireNonNull(worker, "worker");
+        if (!ticking.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            worker.execute(() -> {
+                try {
+                    pass();
+                } catch (final RuntimeException failure) {
+                    log.error("The update feed pass failed; it runs again on schedule", failure);
+                } finally {
+                    ticking.set(false);
+                }
+            });
+        } catch (final RuntimeException rejected) {
+            ticking.set(false);
+            throw rejected;
         }
     }
 

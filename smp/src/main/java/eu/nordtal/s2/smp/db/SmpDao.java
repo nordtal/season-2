@@ -401,15 +401,23 @@ public interface SmpDao {
      *
      * <p>Ties share a place - the count is of everybody with <em>strictly</em> more - so two people
      * on the same number are not told different things about it.</p>
+     *
+     * <h2>The asker counts even with no row of their own</h2>
+     * A player who has never been given aura has no {@code smp_player} row, so the total counted
+     * everybody <em>but</em> them while the place still counted them: on a fresh season that printed
+     * <b>"1 of 0"</b>, and on a running one "6 of 5". The id is passed in for that one reason - to
+     * add the asker to the population when the population does not already contain them. It changes
+     * nothing for anybody who has ever earned or lost a point.
      */
     @SqlQuery("""
             SELECT count(*) FILTER (WHERE player.aura > :aura) + 1 AS place,
-                   count(*)                                       AS total
+                   count(*) + CASE WHEN coalesce(bool_or(player.discord_id = :discordId), false)
+                                   THEN 0 ELSE 1 END                AS total
             FROM smp_player player
                      JOIN account_link link ON link.discord_id = player.discord_id
             """)
     @RegisterConstructorMapper(AuraPlace.class)
-    AuraPlace auraPlace(@Bind("aura") int aura);
+    AuraPlace auraPlace(@Bind("aura") int aura, @Bind("discordId") String discordId);
 
     // ---------------------------------------------------------------- the start event's winner
 

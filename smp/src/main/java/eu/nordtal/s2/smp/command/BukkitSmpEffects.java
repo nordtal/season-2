@@ -223,7 +223,8 @@ public final class BukkitSmpEffects implements SmpEffects {
                     // the honest answer for them - the alternative is telling somebody their account
                     // cannot be read on their first day.
                     final int own = attached.auraOf(discordId.get()).orElse(0);
-                    return new AuraSnapshot(own, attached.auraPlace(own), attached.topAura(10));
+                    return new AuraSnapshot(own, attached.auraPlace(own, discordId.get()),
+                            attached.topAura(10));
                 });
         final int aura = snapshot.aura();
         final AuraPlace place = snapshot.place();

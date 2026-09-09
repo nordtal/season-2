@@ -74,11 +74,11 @@ Steps 3 to 6 collapse into one command from the repository root, and it still bu
 docker compose up -d
 ```
 
-**Pinning a release** is one line of environment, and it is how a rollback is expressed:
-
-```bash
-IMAGE_TAG=0.2.1
-```
+**A release cannot be pinned, and there is no rollback.** `IMAGE_TAG` and `UPDATER_SEASON_RELEASE`
+were removed on 2026-09-09: every image is `latest` and the updater follows the newest published
+release. A bad release is corrected by publishing a better one — the same trade this project already
+took on the Paper build, for the same reason, which is that a pin is a version number kept somewhere
+other than `gradle.properties` and every one of those went stale.
 
 ## First-start seeding
 
@@ -245,9 +245,9 @@ nothing is fetched, nothing is written, and every service that was stopped is st
 
 The updater asks GitHub, Modrinth and the PaperMC Fill API what the newest version of everything is,
 compares that against the jars in the volumes, and moves the ones that differ. **What a server runs
-is the jar in its volume**; no version is written into a file. What the updater *follows* is
-`UPDATER_SEASON_RELEASE`, and setting it to an exact tag instead of `latest` is how a rollback is
-expressed.
+is the jar in its volume**; no version is written into a file. What it *follows* is not configurable
+at all — GitHub's `/releases/latest`, which skips drafts and pre-releases, so an update that never
+arrived is usually a release nobody published.
 
 Four properties worth knowing before reading a report:
 

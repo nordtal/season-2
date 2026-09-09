@@ -121,12 +121,16 @@ jobs:
       # THE IMAGES ARE A FLOOR, NOT THE VERSION. The bot and the updater run whatever jar is in
       # their volume, which the updater fills from the release assets above; the jar baked in is
       # what makes a first deployment possible before any updater run has happened. `latest` is what
-      # compose.yml points at by default, and IMAGE_TAG pins a release for a rollback.
+      # compose.yml points at, and since 2026-09-09 it is the only thing it can point at: there is no
+      # tag variable and no rollback-by-tag any more. The version tag below is still pushed, because
+      # a registry that only ever holds `latest` cannot say what `latest` was last week.
+      #
+      # NO BUILD ARGS. The two Dockerfiles that carry a jar find it by glob in build/libs, so this
+      # workflow no longer has to spell out a version that Gradle has already decided.
       - name: Build and push the bot image
         uses: docker/build-push-action@v7
         with:
           context: discord-bot
-          build-args: JAR=build/libs/discord-bot-${{ env.VERSION }}.jar
           push: true
           tags: |
             ghcr.io/nordtal/discord-bot:${{ env.VERSION }}
@@ -139,7 +143,6 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: updater
-          build-args: JAR=build/libs/updater-${{ env.VERSION }}.jar
           push: true
           tags: |
             ghcr.io/nordtal/updater:${{ env.VERSION }}

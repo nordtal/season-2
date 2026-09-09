@@ -69,9 +69,18 @@ One file, `config/updater.yml`, one namespace `NORDTAL_UPDATER_*`. The environme
 and is never written back. Its defaults are the real values — the repositories, project ids and
 platform versions are facts about this project, not about a deployment.
 
-`season-release` takes `latest` or an exact tag. `latest` asks GitHub's `/releases/latest`, which
-skips drafts and pre-releases, so the resolved tag is printed on every run. An exact tag is how a
-rollback is expressed.
+**Which release it follows is not a setting.** There is no `season-release` key and no environment
+variable for it — both were removed on 2026-09-09 — and there is no way to pin a tag. Every repository
+is read through GitHub's `/releases/latest`, and the resolved tag is printed on every run.
+
+That endpoint **skips drafts and pre-releases** by GitHub's own definition. It is what we want and it
+is the one trap left: a release sitting as a draft is invisible here, so an update that "did not
+arrive" is usually a release nobody pressed Publish on. Check the releases page first.
+
+**There is no rollback.** A bad release is corrected by publishing a better one. That is the same
+trade this project already took on the Paper build, and the same reasoning: a pin is a version number
+kept somewhere other than `gradle.properties`, and every one of those this repository kept went
+stale.
 
 ## What it owns
 

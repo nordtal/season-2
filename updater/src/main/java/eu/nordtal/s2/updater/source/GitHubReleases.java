@@ -9,8 +9,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,8 +33,8 @@ public final class GitHubReleases {
 
     private static final String API = "https://api.github.com/repos/";
 
-    /** The literal an operator writes to mean "whatever is newest", rather than a tag. */
-    public static final String LATEST = "latest";
+    /** What the endpoint is called, and all a failure message can honestly name. */
+    private static final String LATEST = "latest";
 
     private final Http http;
 
@@ -50,9 +48,11 @@ public final class GitHubReleases {
      * @param tag        the tag as GitHub reports it - {@code v0.2.0} for season-2, {@code 2.0.0}
      *                   for display-tags. Reported rather than assumed, because the two
      *                   repositories disagree about the leading {@code v} and always have.
-     * @param prerelease kept even though {@code /releases/latest} never returns one: a release
-     *                   fetched <em>by tag</em> can be a pre-release, and that is worth saying out
-     *                   loud in a report before somebody deploys it.
+     * @param prerelease read off the payload rather than assumed. {@code /releases/latest} is
+     *                   documented not to return one, and since 2026-09-09 that is the only
+     *                   endpoint this class asks - so this should always be {@code false}. It is
+     *                   still reported, because "GitHub said something we did not expect" belongs
+     *                   in a report and not in a comment claiming it cannot happen.
      */
     public record Release(@NotNull String tag, boolean prerelease, @NotNull List<Asset> assets) {
 
@@ -66,18 +66,25 @@ public final class GitHubReleases {
     }
 
     /**
-     * @param repo    {@code owner/name}.
-     * @param release {@link #LATEST}, or an exact tag.
+     * The newest published release of a repository.
+     *
+     * <p>There is no way to ask for a particular tag, and that is the decision, taken 2026-09-09
+     * along with the removal of {@code IMAGE_TAG} and the {@code season-release} config key: a
+     * fetch-by-tag exists only to serve a pin, and a pin is a version number kept somewhere other
+     * than {@code gradle.properties}. Every one this project kept went stale. A bad release is
+     * corrected by publishing a better one, and the cost - there is no way back except forward - is
+     * the same one already accepted for the Paper build.</p>
+     *
+     * <p>{@code /releases/latest} SKIPS DRAFTS AND PRE-RELEASES by GitHub's own definition. That is
+     * wanted, and it is also the trap that replaces the old one: a release left as a draft is
+     * invisible here, so an update that "did not arrive" is usually a release nobody published.</p>
+     *
+     * @param repo {@code owner/name}.
      */
-    public @NotNull Release fetch(final @NotNull String repo, final @NotNull String release) throws IOException {
-        final URI uri = LATEST.equals(release)
-                ? URI.create(API + repo + "/releases/latest")
-                // Tags are user-supplied and may contain anything a git ref may contain. Encoded so
-                // that a tag with a slash in it is a path segment and not a different endpoint.
-                : URI.create(API + repo + "/releases/tags/"
-                        + URLEncoder.encode(release, StandardCharsets.UTF_8).replace("+", "%20"));
+    public @NotNull Release latest(final @NotNull String repo) throws IOException {
+        final URI uri = URI.create(API + repo + "/releases/latest");
 
-        final String what = "GitHub release " + repo + "@" + release;
+        final String what = "GitHub release " + repo + "@" + LATEST;
         final JsonObject payload = Json.object(http.get(uri), what);
 
         final List<Asset> assets = new ArrayList<>();

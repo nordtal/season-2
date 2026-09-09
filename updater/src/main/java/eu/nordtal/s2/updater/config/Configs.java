@@ -64,8 +64,6 @@ public final class Configs {
                 .validator(config -> {
                     requireRepo("season-repo", config.seasonRepo());
                     requireRepo("display-tags-repo", config.displayTagsRepo());
-                    requireText("season-release", config.seasonRelease());
-                    requireText("display-tags-release", config.displayTagsRelease());
                     requireModrinthId("packetevents-project", config.packetEventsProject());
                     requireModrinthId("chunky-project", config.chunkyProject());
                     requireText("volumes-root", config.volumesRoot());

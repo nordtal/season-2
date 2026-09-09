@@ -250,7 +250,8 @@ public final class WaitingBook {
      *         connected onward twice
      */
     public WaitingDecision decide(final UUID uuid, final SeasonPhase phase, final boolean admin,
-                                  final boolean destinationAvailable, final String destination) {
+                                  final boolean destinationAvailable, final String destination,
+                                  final boolean destinationUpdating) {
         Objects.requireNonNull(phase, "phase");
         final Session session = sessions.get(uuid);
         if (session == null) {
@@ -277,7 +278,7 @@ public final class WaitingBook {
                     && clock.instant().isBefore(session.backendDownUntil);
             final boolean available = destinationAvailable && !stillDown;
             final Optional<WaitReason> reason =
-                    LimboHold.reason(packSettled, phase, admin, available);
+                    LimboHold.reason(packSettled, phase, admin, available, destinationUpdating);
             if (reason.isPresent()) {
                 // Something other than READY is still in the way, so the grace period restarts.
                 session.settledAt = null;

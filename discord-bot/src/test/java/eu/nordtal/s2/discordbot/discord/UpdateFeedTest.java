@@ -80,6 +80,11 @@ class UpdateFeedTest {
 
         final Map<Long, UpdateRequest> byId = new LinkedHashMap<>();
 
+        @Override
+        public java.util.Optional<UpdateRequest> running() {
+            return java.util.Optional.empty();
+        }
+
         void put(final UpdateRequest request) {
             byId.put(request.id(), request);
         }

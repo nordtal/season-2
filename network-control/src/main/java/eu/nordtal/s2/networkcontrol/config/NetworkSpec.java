@@ -115,6 +115,55 @@ public interface NetworkSpec {
     }
 
     @Order(3)
+    @Key("command-allowlist")
+    @Comment({
+            "Every command a player who is NOT an admin may type, anywhere on the network.",
+            "",
+            "Nothing else can be typed and nothing else is offered in tab completion - not by the",
+            "proxy, not by any of the three Paper servers, and not by Velocity itself. Admins are",
+            "exempt from all of it and see the network exactly as they did before this list",
+            "existed.",
+            "",
+            "WHY THIS IS A LIST AND NOT A SET OF PERMISSIONS: Velocity's own /server is open to",
+            "every player - its permission check only refuses on an explicit FALSE, and nothing",
+            "ever set one - so a player could type '/server hunger-games' during the SMP phase and",
+            "land there, past every routing decision this proxy takes. A list of what IS allowed",
+            "cannot have that shape of hole, because a command nobody thought about is refused",
+            "rather than permitted.",
+            "",
+            "AN ENTRY IS A PATH, without the slash: 'smp status', 'hg ready', 'msg'. A leading",
+            "slash, extra spaces and capitals are accepted and ignored, and so is a namespace",
+            "('minecraft:me' is 'me'). Everything under an allowed path is allowed, so 'msg'",
+            "covers '/msg Someone hello'; and a path ABOVE an allowed one is allowed too, so",
+            "'smp status' still lets '/smp' print its own help. Which subcommands an admin-only",
+            "tree offers is not this list's business - Brigadier's own check decides that.",
+            "",
+            "A REFUSED COMMAND GETS THE SAME LINE AS A MISTYPED ONE (\"That command does not",
+            "exist\"), so nobody learns what exists by being refused it.",
+            "",
+            "The three Paper servers read this list out of the database, where this proxy",
+            "publishes it on every start: it is one truth and an edit here reaches all four",
+            "processes. Until a proxy has published it once, a backend filters nothing and says so",
+            "in its log - this proxy's own enforcement never waits for anything."
+    })
+    default java.util.List<String> commandAllowlist() {
+        return java.util.List.of(
+                // Ours, and only ours. Every vanilla command is deliberately absent, including the
+                // harmless-looking ones: /help lists what a player may not run, /trigger and /me
+                // are surfaces this season has no answer for, and /tell is replaced by /msg below.
+                "smp status",
+                "navigate",
+                "poi",
+                "hg ready",
+                "aura",
+                "msg",
+                "whisper",
+                "r",
+                "discord",
+                "rules");
+    }
+
+    @Order(4)
     @Key("motd")
     @Comment({
             "What the server browser shows, per season phase. MiniMessage, so <gradient>,",

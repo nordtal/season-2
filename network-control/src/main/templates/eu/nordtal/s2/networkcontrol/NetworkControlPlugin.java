@@ -43,6 +43,9 @@ import eu.nordtal.s2.commands.phase.PhaseEffects;
 import eu.nordtal.s2.commands.remote.CommandInbox;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.phase.SeasonDates;
+import eu.nordtal.s2.common.command.AllowlistDirectory;
+import eu.nordtal.s2.common.command.CommandAllowlist;
+import eu.nordtal.s2.networkcontrol.command.CommandGate;
 import eu.nordtal.s2.networkcontrol.command.ProxyNetworkEffects;
 import eu.nordtal.s2.networkcontrol.command.VelocityCommands;
 import eu.nordtal.s2.networkcontrol.phase.ProxyPhaseEffects;
@@ -57,6 +60,7 @@ import eu.nordtal.s2.networkcontrol.playtime.PlaytimeWriter;
 import eu.nordtal.s2.networkcontrol.routing.PhaseRouting;
 import eu.nordtal.s2.networkcontrol.routing.PhaseServers;
 import eu.nordtal.s2.networkcontrol.routing.PlayerRouter;
+import eu.nordtal.s2.networkcontrol.routing.RouteIntents;
 import eu.nordtal.s2.networkcontrol.update.RestartWatch;
 
 import org.slf4j.Logger;
@@ -240,8 +244,16 @@ public final class NetworkControlPlugin {
                 packMessages, packConfig, offer, book);
         packs.registerChannel();
 
+        // Every destination this plugin chooses is recorded, and every other one is refused - the
+        // layer underneath CommandGate, below. Routing was a decision nothing enforced: Velocity's
+        // own /server is open to every player, so /server hunger-games during the SMP phase put
+        // somebody there past the phase, past that backend's access check and past the pack.
+        final RouteIntents intents =
+                new RouteIntents(roster, gateConfig.serverLimbo(), logger);
+        proxy.getEventManager().register(this, intents);
+
         final PlayerRouter router = new PlayerRouter(this, proxy, logger, access, routing, phaseWatch,
-                roster, fallback, gateMessages, packs);
+                roster, fallback, gateMessages, packs, intents);
         routerRef.set(router);
         packs.onRelease(router::releaseFromLimbo);
         proxy.getEventManager().register(this, router);
@@ -405,6 +417,35 @@ public final class NetworkControlPlugin {
                 .delay(RestartWatch.INTERVAL)
                 .repeat(RestartWatch.INTERVAL)
                 .schedule();
+
+        // ------------------------------------------------------------ the command allowlist
+
+        // One list, in network.yml, for the whole network. This proxy enforces it directly - it
+        // sees every command a player types, including the ones bound for a backend - and
+        // publishes it for the three Paper servers, which need it for the one half a proxy cannot
+        // do: what a client is told exists. See CommandGate and :common's CommandFilter.
+        final CommandAllowlist allowlist =
+                CommandAllowlist.parse(networkConfig.commandAllowlist());
+        proxy.getEventManager().register(this, new CommandGate(roster, allowlist, messages, logger));
+        if (allowlist.entries().isEmpty()) {
+            logger.warn("network.yml#command-allowlist is empty: a player who is not an admin can "
+                    + "type no command at all, anywhere on this network. That is a valid setting "
+                    + "and almost certainly not the one that was meant.");
+        } else {
+            logger.info("Players who are not admins may use: {}", allowlist);
+        }
+        try {
+            if (AllowlistDirectory.using(pool).publish(allowlist)) {
+                logger.info("Published the command allowlist for the three Paper backends");
+            }
+        } catch (final RuntimeException failure) {
+            // Not fatal, and deliberately so. This proxy's own enforcement does not depend on the
+            // row - it reads the file. What a failure here costs is the backends' completion
+            // filter, which stays as it was until the next start; and the login gate behind this
+            // point is worth more than the tab list on three servers.
+            logger.warn("Could not publish the command allowlist; the Paper backends will keep "
+                    + "whatever list they last read. This proxy still enforces it.", failure);
+        }
 
         // ------------------------------------------------------------ the emergency command
 

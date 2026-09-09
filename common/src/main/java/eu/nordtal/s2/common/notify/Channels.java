@@ -62,6 +62,21 @@ public final class Channels {
      */
     public static final String UPDATE = "nordtal_update";
 
+    /**
+     * The proxy published a new command allowlist. Payload: empty.
+     *
+     * <p>Matches the bare {@code NOTIFY nordtal_allowlist} in {@code AllowlistDao#notifyChanged} -
+     * the one notification here that is its own statement rather than a {@code pg_notify} riding
+     * inside the write, for the reason that method gives. The three Paper backends listen; the
+     * proxy does not, because it reads the list out of its own {@code network.yml} and is the
+     * process that wrote the row.</p>
+     *
+     * <p>It is emitted only when the value actually changed, so a proxy restart with an unedited
+     * list wakes nobody. That is an optimisation and not the contract: each backend polls as well,
+     * and re-reads the whole list on every signal and every reconnect.</p>
+     */
+    public static final String ALLOWLIST = "nordtal_allowlist";
+
     private Channels() {
     }
 }

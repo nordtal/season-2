@@ -86,6 +86,21 @@ public final class Configs {
         return load(directory, logger, "network", NetworkSpec.class, "NORDTAL_NETWORK_CONTROL_NETWORK", config -> {
             requirePositive("max-players", config.maxPlayers());
             requirePositive("snapshot-refresh-seconds", config.snapshotRefreshSeconds());
+            if (config.commandAllowlist() == null) {
+                throw new IllegalArgumentException("command-allowlist is missing; an absent list is"
+                        + " not the same as an empty one and this proxy will not guess which was"
+                        + " meant");
+            }
+            for (final String entry : config.commandAllowlist()) {
+                // A blank line in the list is dropped when it is parsed, which is exactly the shape
+                // of mistake nothing else would ever report: the file looks like it has ten entries
+                // and the network behaves as though it had nine.
+                if (entry == null || entry.isBlank()) {
+                    throw new IllegalArgumentException("command-allowlist has a blank entry. Delete"
+                            + " the line rather than emptying it - an empty one allows nothing and"
+                            + " would be silently ignored");
+                }
+            }
             final NetworkSpec.MotdSpec motd = config.motd();
             if (motd == null) {
                 throw new IllegalArgumentException("motd is missing; it needs one entry per season phase");

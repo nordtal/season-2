@@ -46,7 +46,8 @@ class SeasonWelcomeIsWiredTest {
     void theDeviceIsWired() {
         final String plugin = read(PLUGIN);
 
-        assertTrue(plugin.contains("new eu.nordtal.s2.papercommon.stage.BukkitCinematics("),
+        assertTrue(plugin.contains("new BukkitCinematics(")
+                        || plugin.contains("new eu.nordtal.s2.papercommon.stage.BukkitCinematics("),
                 "nothing builds the staging device, so nothing can run a staged moment");
         assertTrue(plugin.contains("registerEvents(cinematics, this)"),
                 "the staging device is not registered as a listener, so a player who leaves or dies"
@@ -63,7 +64,8 @@ class SeasonWelcomeIsWiredTest {
     void theMomentIsWired() {
         final String plugin = read(PLUGIN);
 
-        assertTrue(plugin.contains("new eu.nordtal.s2.smp.welcome.SeasonWelcome("),
+        assertTrue(plugin.contains("new SeasonWelcome(")
+                        || plugin.contains("new eu.nordtal.s2.smp.welcome.SeasonWelcome("),
                 "nothing builds the season's opening moment");
         assertTrue(plugin.contains("systemLines, welcome), this)"),
                 "the moment is built but never handed to PresenceListener, which is the only place"

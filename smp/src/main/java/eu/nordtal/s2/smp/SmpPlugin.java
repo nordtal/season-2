@@ -438,8 +438,8 @@ public final class SmpPlugin extends JavaPlugin {
         npc = new SpawnNpc(this, config);
         npc.spawn();
         getServer().getPluginManager().registerEvents(
-                new NpcListener(this, dao, npc, () -> track, engine, identities, messages, locales,
-                        sounds), this);
+                new NpcListener(this, dao, npc, () -> track, engine, identities,
+                        config::wheelExtraSpinPercents, messages, locales, sounds), this);
         getServer().getPluginManager().registerEvents(
                 new WheelListener(ConfigBoxes.wheelRegions(config), wheel), this);
 

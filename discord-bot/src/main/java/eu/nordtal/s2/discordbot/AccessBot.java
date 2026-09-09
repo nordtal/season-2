@@ -349,7 +349,14 @@ public class AccessBot implements AutoCloseable {
         // answers nothing for the whole of a season except while somebody is updating. Two seconds
         // because a run moves stage by stage and the channel is where the rest of the admins watch
         // it - the same interval the asker's own embed redraws on.
-        timers.scheduleWithFixedDelay(guarded("update feed", updateFeed::tick),
+        // The timer thread only hands the work over. Everything else on this scheduler - the
+        // payment poll, the reconcile, the expiry sweep, the status channels, the readiness marker
+        // - shares one thread, and the feed is the only tick here that reads the database on every
+        // pass. A database that has stopped answering would otherwise stall all of them for the
+        // pool's whole connection timeout. UpdateFeed#tick carries the single-flight guard, so a
+        // pass that outlives its interval is skipped rather than overtaken.
+        timers.scheduleWithFixedDelay(
+                guarded("update feed", () -> worker.execute(guarded("update feed", updateFeed::tick))),
                 UpdateFeed.INTERVAL.toSeconds(), UpdateFeed.INTERVAL.toSeconds(), TimeUnit.SECONDS);
     }
 

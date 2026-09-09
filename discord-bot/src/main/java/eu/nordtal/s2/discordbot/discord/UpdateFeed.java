@@ -130,6 +130,10 @@ public final class UpdateFeed {
      */
     private final Map<Long, Drawn> drawing = new ConcurrentHashMap<>();
 
+    /** Whether a pass is running. See {@link #tick()} for why this is a flag and not a lock. */
+    private final java.util.concurrent.atomic.AtomicBoolean ticking =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
     public UpdateFeed(final UpdateDirectory updates, final Board board, final Messages messages) {
         this.updates = Objects.requireNonNull(updates, "updates");
         this.board = Objects.requireNonNull(board, "board");
@@ -146,7 +150,7 @@ public final class UpdateFeed {
      */
     public void start() {
         try {
-            lastSeen = updates.latestId();
+            final long mark = updates.latestId();
             for (final UpdateRequest request : updates.finishedWithin(CATCH_UP)) {
                 if (request.source() == UpdateSource.DISCORD) {
                     continue;
@@ -154,6 +158,20 @@ public final class UpdateFeed {
                 // Posted and forgotten: it is over, so there is nothing left to edit into it.
                 board.post(embed(request), messageId -> { });
             }
+            // A run that was still going when this bot went down is the third case, and it fell
+            // through both of the others: its id is at or below the mark, so `since(lastSeen)`
+            // will never return it, and it is not finished, so `finishedWithin` did not either.
+            // The run everybody most wants to watch is exactly the one that outlives a bot
+            // restart. Registering it before the mark moves is what makes tick() follow it.
+            for (final UpdateRequest request : updates.since(0L)) {
+                if (request.source() == UpdateSource.DISCORD || request.status().isFinished()
+                        || request.id() > mark) {
+                    continue;
+                }
+                board.post(embed(request), messageId ->
+                        drawing.put(request.id(), new Drawn(messageId, request.result())));
+            }
+            lastSeen = mark;
         } catch (final RuntimeException failure) {
             // Not fatal. The feed starts from whatever it managed to read - zero, in the worst
             // case, which posts the history once and then behaves. A bot that refuses to start
@@ -163,8 +181,28 @@ public final class UpdateFeed {
         }
     }
 
-    /** One pass. Scheduled every {@link #INTERVAL}. */
+    /**
+     * One pass. Scheduled every {@link #INTERVAL}, and never two at once.
+     *
+     * <p>The guard is not about correctness of the drawing - {@code drawing} is concurrent and
+     * `lastSeen` only grows. It is about the thread. This runs on a worker rather than on the
+     * single timer thread, because a slow database call here would otherwise hold up the payment
+     * poll, the role reconciliation, the expiry sweep, the status channels and the readiness
+     * marker, all of which share that one thread. Handing the work to a pool without this flag
+     * would then let a slow pass be overtaken by the next one and post a row twice.</p>
+     */
     public void tick() {
+        if (!ticking.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            pass();
+        } finally {
+            ticking.set(false);
+        }
+    }
+
+    private void pass() {
         final List<UpdateRequest> fresh;
         try {
             fresh = updates.since(lastSeen);

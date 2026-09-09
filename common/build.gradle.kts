@@ -22,6 +22,12 @@ repositoryRootTestInputs {
     // quietly untaught. Every one of them came out of a drill against a running container.
     reads("deploy/minecraft/entrypoint.sh")
 
+    // PlatformTest holds Platform against the version catalog - what the updater installs against
+    // what every module compiles against. The catalog is in no source set, so without this line an
+    // edit to it leaves :common:test UP-TO-DATE and the drift is invisible until a plugin refuses
+    // to load on a real server.
+    reads("gradle/libs.versions.toml")
+
     // BossBarFontTest and GlyphShadowTest read the two boss bar renderers as text, for the reason
     // BossBarFontTest's own comment gives: a missing font key draws the wrong glyph rather than no
     // glyph, and a missing shadowColor draws every tile twice. Neither is visible from a component

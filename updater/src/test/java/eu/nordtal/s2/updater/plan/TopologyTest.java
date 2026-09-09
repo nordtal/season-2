@@ -761,7 +761,7 @@ class TopologyTest {
         // Arcane deploys by PULLING and never builds, so a default tag nothing has pushed fails with
         // a registry `denied` - which is also what a private package answers, and a `build:` block
         // beside it makes the file look fine. If an image is ours, its default must be a
-        // ghcr.io/nordtal reference tagged from IMAGE_TAG, which is what release.yml publishes.
+        // ghcr.io/nordtal reference at `latest`, which is what release.yml publishes.
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
             final Map<String, Object> service = (Map<String, Object>) definition;
@@ -773,10 +773,16 @@ class TopologyTest {
                     "compose.yml's '" + name + "' defaults to the image " + image + ", which is not"
                             + " a ghcr.io/nordtal reference. Arcane pulls and never builds, so an"
                             + " image only this host can produce fails the deploy with `denied`.");
-            assertTrue(image.contains("${IMAGE_TAG:-latest}"),
-                    "compose.yml's '" + name + "' does not take its tag from IMAGE_TAG. One variable"
-                            + " pins every image for a rollback; a second way to spell it is a way"
-                            + " for two of them to disagree.");
+            // The tag is the literal `latest` and there is no variable in it. IMAGE_TAG was
+            // removed on 2026-09-09: a rollback lever is a version number kept outside
+            // gradle.properties, and its own documented example still said 0.2.1 against a
+            // repository on 0.8.1. This assertion is what stops one coming back one image at a
+            // time - the shape that would be invisible is three images on `latest` and a fourth
+            // quietly pinned.
+            assertTrue(image.endsWith(":latest}"),
+                    "compose.yml's '" + name + "' defaults to " + image + ", which is not `latest`."
+                            + " Nothing pins an image any more; a bad release is fixed by publishing"
+                            + " a better one.");
         });
     }
 

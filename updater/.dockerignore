@@ -1,16 +1,15 @@
 # The context is everything this image needs and nothing else: `*` excludes the whole module -
 # src/, the Gradle build directory, the README - and each line below adds back one file the
 # Dockerfile actually COPYs. That means a new COPY needs a line here, or the build fails with
-# `failed to compute cache key: "/<file>": not found` and nothing points at this file. It happened
-# on 2026-09-02: docker-entrypoint.sh was added to the Dockerfile on 2026-09-01 and not here, and
-# the release workflow's image push was the first thing to notice.
+# `failed to compute cache key: "/<file>": not found` and nothing points at this file. That is
+# exactly how it went wrong once in discord-bot, on 2026-09-02.
 *
 !build/libs/*.jar
 !docker-entrypoint.sh
 
 # ...and the thin jar back out again. THIS LINE IS LOAD-BEARING, not tidiness. The Dockerfile picks
-# its jar with a glob rather than being told a version, and `shadowJar` leaves discord-bot-<v>.jar
-# and discord-bot-<v>-thin.jar side by side, so without this both match.
+# its jar with a glob rather than being told a version, and `shadowJar` leaves updater-<v>.jar
+# and updater-<v>-thin.jar side by side, so without this both match.
 #
 # Two matches is not a build failure. Measured on 2026-09-09 with Docker 29.7.2: BuildKit copies one
 # of them into the destination and reports nothing. The one it picked was the right one only because

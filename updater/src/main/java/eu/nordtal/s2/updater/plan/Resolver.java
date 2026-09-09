@@ -122,10 +122,10 @@ public final class Resolver {
                                                            final Map<String, String> failures) {
         final GitHubReleases.Release release;
         try {
-            release = github.fetch(config.seasonRepo(), config.seasonRelease());
+            release = github.latest(config.seasonRepo());
         } catch (final IOException failed) {
             // Our own jars and the pack all come from this one call, so one reason covers every row.
-            final String why = "could not read " + config.seasonRepo() + "@" + config.seasonRelease()
+            final String why = "could not read the latest release of " + config.seasonRepo()
                     + ": " + failed.getMessage();
             log.warn("Season release unresolved - {}", why);
             Topology.SEASON_JARS.forEach(artifact -> failures.put(artifact, why));
@@ -193,8 +193,7 @@ public final class Resolver {
 
     private void resolveDisplayTags(final Map<String, RemoteFile> newest, final Map<String, String> failures) {
         try {
-            final GitHubReleases.Release release =
-                    github.fetch(config.displayTagsRepo(), config.displayTagsRelease());
+            final GitHubReleases.Release release = github.latest(config.displayTagsRepo());
             GitHubReleases.Asset jar = null;
             for (final GitHubReleases.Asset asset : release.assets()) {
                 if (JarName.isJar(asset.name()) && !asset.name().endsWith("-sources.jar")) {
@@ -209,8 +208,8 @@ public final class Resolver {
             newest.put(Topology.DISPLAY_TAGS, new RemoteFile(Topology.DISPLAY_TAGS,
                     versionOrTag(jar.name(), release.tag()), jar.name(), jar.url(), null));
         } catch (final IOException failed) {
-            failures.put(Topology.DISPLAY_TAGS, "could not read " + config.displayTagsRepo()
-                    + "@" + config.displayTagsRelease() + ": " + failed.getMessage());
+            failures.put(Topology.DISPLAY_TAGS, "could not read the latest release of "
+                    + config.displayTagsRepo() + ": " + failed.getMessage());
         }
     }
 

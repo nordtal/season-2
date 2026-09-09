@@ -12,13 +12,16 @@
 # checkout could not build them. All four come from ghcr.io/nordtal, pushed by release.yml. The
 # `build:` blocks that remain are for developing on this machine.
 #
-# IMAGE_TAG picks which release runs and defaults to `latest`. Pinning it is the rollback:
+# EVERY IMAGE IS `latest`, AND THERE IS NO WAY TO PIN ONE. That is the decision, not an oversight,
+# and it is the same one this project already made about the Paper build: a rollback lever is a
+# version number written down outside gradle.properties, and every version number written down twice
+# in this repository has gone stale - IMAGE_TAG's own example said 0.2.1 while the release was 0.8.1.
+# A bad release is fixed by publishing a better one. The escape hatch that remains is not a version:
 #
-#   IMAGE_TAG=0.2.1     every nordtal image at that release
 #   MC_IMAGE=...        one image somewhere else entirely, if it ever comes to that
 #
 # The images are a FLOOR, not the version of what runs: the updater replaces jars inside the volumes
-# at runtime, so `latest` here plus a pinned UPDATER_SEASON_RELEASE below is deliberate.
+# at runtime, and it follows whatever GitHub calls the latest release.
 #
 # COMPOSE_PROFILES in .env decides what "everything" means. Production is `db,bot,mc,backup`:
 #
@@ -63,7 +66,7 @@ x-minecraft: &minecraft
   # which catches a Dockerfile that COPYs a file .dockerignore excludes.
   build:
     context: ./deploy/minecraft
-  image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:${IMAGE_TAG:-latest}}
+  image: ${MC_IMAGE:-ghcr.io/nordtal/minecraft:latest}
   restart: unless-stopped
   depends_on:
     # The schema, and nothing else. Not the database - see the note at the top of this file.
@@ -176,7 +179,7 @@ services:
       context: ./deploy/postgres-backup
       args:
         POSTGRES_IMAGE: ${POSTGRES_IMAGE:-postgres:17-alpine}
-    image: ${BACKUP_IMAGE:-ghcr.io/nordtal/postgres-backup:${IMAGE_TAG:-latest}}
+    image: ${BACKUP_IMAGE:-ghcr.io/nordtal/postgres-backup:latest}
     restart: unless-stopped
     environment:
       TZ: ${TZ:-Europe/Berlin}
@@ -205,18 +208,14 @@ services:
     # THE IMAGE TAG IS A FLOOR, NOT THE VERSION. The bot runs whatever discord-bot-*.jar is in the
     # `bot-jar` volume; the jar baked into the image only makes a first deployment possible. What is
     # actually running is printed by the entrypoint on every start.
-    #
-    # BOT_VERSION still pins the image and still has to match gradle.properties for a build, but it
-    # does not decide what the bot runs.
-    image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:${IMAGE_TAG:-latest}}
+    image: ${BOT_IMAGE:-ghcr.io/nordtal/discord-bot:latest}
     build:
       # Compose cannot run Gradle: `./gradlew :discord-bot:shadowJar` has to happen first, which is
-      # why a production host pulls this image. BOT_VERSION is defaulted rather than required because
-      # compose interpolates build args even on a deploy that only pulls - a `:?` here would stop
+      # why a production host pulls this image. There are no build args at all any more - the
+      # Dockerfile finds its jar in build/libs by glob - which also settles the older trap that a
+      # `:?` in a build arg is interpolated even by a deploy that only pulls, and would have stopped
       # Arcane before it reached a single image.
       context: ./discord-bot
-      args:
-        JAR: build/libs/discord-bot-${BOT_VERSION:-local}.jar
     restart: unless-stopped
     depends_on:
       # The bot refuses a database it was not built against, so without this it would crash-loop
@@ -562,12 +561,10 @@ services:
   # one to ask is refused rather than queued.
   updater:
     build:
-      # Same as the bot: Gradle first, so production pulls. Defaulted for the same reason - a `:?` in
-      # a build arg is evaluated even by a deploy that builds nothing.
+      # Same as the bot: Gradle first, so production pulls, and no build args - the Dockerfile globs
+      # build/libs for its jar rather than being told a version.
       context: ./updater
-      args:
-        JAR: build/libs/updater-${SEASON_VERSION:-local}.jar
-    image: ${UPDATER_IMAGE:-ghcr.io/nordtal/updater:${IMAGE_TAG:-latest}}
+    image: ${UPDATER_IMAGE:-ghcr.io/nordtal/updater:latest}
     restart: unless-stopped
     # `serve`. THIS LINE IS ALSO WHAT A `run` INHERITS: a `docker compose run` naming no subcommand
     # is handed this one and starts a SECOND daemon. Removing it does not help - a `run` against a
@@ -601,12 +598,11 @@ services:
       NORDTAL_UPDATER_DATABASE_PASSWORD: *db-password
 
       # --- updater.yml -------------------------------------------------------------------
-      # Which release to follow: 'latest', or an exact tag to pin, which is how a rollback is
-      # expressed. What a server runs is the jar lying in its volume, never a variable claiming to
-      # describe it.
+      # WHICH RELEASE IS NOT A SETTING. The updater follows whatever GitHub calls the latest release
+      # of each repository, and there is no variable and no config key that says otherwise - the
+      # rollback-by-tag lever was removed on 2026-09-09 for the reason at the top of this file. What
+      # a server runs is the jar lying in its volume, never a variable claiming to describe it.
       NORDTAL_UPDATER_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
-      NORDTAL_UPDATER_SEASON_RELEASE: ${UPDATER_SEASON_RELEASE:-latest}
-      NORDTAL_UPDATER_DISPLAY_TAGS_RELEASE: ${UPDATER_DISPLAY_TAGS_RELEASE:-latest}
       # No platform version and no build pin here, deliberately: the versions are constants in
       # :common, because a Minecraft version is a property of the season rather than of an
       # installation, and the newest STABLE build is what all five processes install and run.

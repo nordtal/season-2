@@ -76,8 +76,7 @@ version() { sed -n 's/^version=//p' gradle.properties | head -n1; }
 
 compose() {
     [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
-    SEASON_VERSION="$(version)" BOT_VERSION="$(version)" \
-        docker compose --env-file "$ENV_FILE" "$@"
+    docker compose --env-file "$ENV_FILE" "$@"
 }
 
 plugins_dir() {

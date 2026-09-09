@@ -20,9 +20,12 @@ import java.util.List;
  * {@link eu.nordtal.s2.common.Platform}, because a fact nothing should be able to override does not
  * belong in a file the environment wins over.</p>
  *
- * <p>{@link #seasonRelease()} and {@link #displayTagsRelease()} take the word {@code latest} - which
- * asks GitHub's {@code /releases/latest} and so skips drafts and pre-releases - or an exact tag,
- * which is how a rollback is expressed and is always a person's decision.</p>
+ * <p><b>Which release to follow is not a setting.</b> Both repositories are read through GitHub's
+ * {@code /releases/latest}, which skips drafts and pre-releases by GitHub's own definition. The
+ * {@code season-release} and {@code display-tags-release} keys were removed on 2026-09-09: a key
+ * that pins a tag is a version number kept outside {@code gradle.properties}, and every version
+ * number this project wrote down twice went stale. A bad release is corrected by publishing a
+ * better one. The cost, stated plainly: there is no way back off a bad release except forward.</p>
  *
  * <p>Every setting is overridable by {@code NORDTAL_UPDATER_<PATH>} with {@code -} becoming
  * {@code _}; the environment wins over the file and is never written back to it.</p>
@@ -37,14 +40,14 @@ import java.util.List;
         "the updater never updates on its own, only when it is asked.",
         "",
         "The defaults are the real values for nordtal.eu and are meant to be",
-        "left alone. Change them to point a test deployment somewhere else,",
-        "or to pin a release for a rollback.",
+        "left alone. Change them to point a test deployment somewhere else.",
+        "There is nothing here that pins a version: the newest release wins.",
         "",
         "Every setting can be overridden with an environment variable named",
         "NORDTAL_UPDATER_<PATH>, with '-' becoming '_':",
         "",
-        "  season-release  ->  NORDTAL_UPDATER_SEASON_RELEASE",
-        "  volumes-root    ->  NORDTAL_UPDATER_VOLUMES_ROOT",
+        "  season-repo   ->  NORDTAL_UPDATER_SEASON_REPO",
+        "  volumes-root  ->  NORDTAL_UPDATER_VOLUMES_ROOT",
         "",
         "The environment wins over this file and is never written back to it."
 })
@@ -55,31 +58,17 @@ public interface UpdaterSpec {
     @Comment({
             "The GitHub repository the five season 2 jars and the resource pack come from,",
             "as owner/name. Its releases are the only place those artefacts exist - nothing",
-            "in this project publishes them anywhere else."
+            "in this project publishes them anywhere else.",
+            "",
+            "WHICH release is not a setting and cannot be pinned: the newest published one",
+            "wins, always. /releases/latest skips drafts and pre-releases, so an update that",
+            "'did not arrive' is usually a release nobody pressed Publish on."
     })
     default String seasonRepo() {
         return "nordtal/season-2";
     }
 
     @Order(2)
-    @Key("season-release")
-    @Comment({
-            "Which release of season-repo to follow: the word 'latest', or an exact tag such",
-            "as 'v0.2.0'.",
-            "",
-            "'latest' asks GitHub's /releases/latest, which SKIPS DRAFTS AND PRE-RELEASES by",
-            "GitHub's own definition. That is the wanted behaviour and also the trap: a",
-            "release left as a draft is invisible here, and the update that 'did not arrive'",
-            "is a release nobody pressed Publish on.",
-            "",
-            "An exact tag is how a rollback is expressed. It is a person's decision and this",
-            "module never writes it."
-    })
-    default String seasonRelease() {
-        return "latest";
-    }
-
-    @Order(3)
     @Key("display-tags-repo")
     @Comment({
             "Our fork of the Text Display nametag plugin. Required on the SMP server:",
@@ -90,17 +79,7 @@ public interface UpdaterSpec {
         return "nordtal/papermc-display-tags";
     }
 
-    @Order(4)
-    @Key("display-tags-release")
-    @Comment({
-            "'latest' or an exact tag, exactly like season-release. Note that this repository's",
-            "tags carry no leading 'v' - 2.0.0, not v2.0.0."
-    })
-    default String displayTagsRelease() {
-        return "latest";
-    }
-
-    @Order(5)
+    @Order(3)
     @Key("packetevents-project")
     @Comment({
             "The Modrinth project id of PacketEvents - the packet library DisplayTags is built",
@@ -114,7 +93,7 @@ public interface UpdaterSpec {
         return "HYKaKraK";
     }
 
-    @Order(6)
+    @Order(4)
     @Key("chunky-project")
     @Comment({
             "The Modrinth project id of Chunky, the chunk pre-generator ('chunky').",
@@ -135,7 +114,7 @@ public interface UpdaterSpec {
     // pins have no replacement on purpose; do not reintroduce one, because an emergency brake nobody
     // has ever exercised is worse than none.
 
-    @Order(7)
+    @Order(5)
     @Key("voicechat-project")
     @Comment({
             "The Modrinth project id of Simple Voice Chat ('simple-voice-chat').",
@@ -161,7 +140,7 @@ public interface UpdaterSpec {
         return "9eGKb6K1";
     }
 
-    @Order(8)
+    @Order(6)
     @Key("coreprotect-project")
     @Comment({
             "The Modrinth project id of CoreProtect ('coreprotect'), the block logger, on smp.",
@@ -180,7 +159,7 @@ public interface UpdaterSpec {
         return "Lu3KuzdV";
     }
 
-    @Order(9)
+    @Order(7)
     @Key("volumes-root")
     @Comment({
             "Where the four Minecraft volumes are mounted inside this container - one",
@@ -198,7 +177,7 @@ public interface UpdaterSpec {
         return "/volumes";
     }
 
-    @Order(10)
+    @Order(8)
     @Key("github-token")
     @Comment({
             "Optional. A token raises GitHub's unauthenticated rate limit of 60 requests per",
@@ -212,7 +191,7 @@ public interface UpdaterSpec {
         return "";
     }
 
-    @Order(11)
+    @Order(9)
     @Key("http-timeout-seconds")
     @Comment({
             "How long any single API call may take before the run gives up.",
@@ -224,7 +203,7 @@ public interface UpdaterSpec {
         return 30;
     }
 
-    @Order(12)
+    @Order(10)
     @Key("download-timeout-seconds")
     @Comment({
             "How long a single jar may take to download during `updater apply`.",
@@ -237,7 +216,7 @@ public interface UpdaterSpec {
         return 600;
     }
 
-    @Order(13)
+    @Order(11)
     @Key("poll-interval-seconds")
     @Comment({
             "How often `updater serve` looks in update_request for work it was not told about.",
@@ -257,7 +236,7 @@ public interface UpdaterSpec {
         return 15;
     }
 
-    @Order(14)
+    @Order(12)
     @Key("bootstrap")
     @Comment({
             "Whether `updater serve` installs what is MISSING before it reports itself ready.",
@@ -283,7 +262,7 @@ public interface UpdaterSpec {
         return true;
     }
 
-    @Order(15)
+    @Order(13)
     @Key("arcane")
     @Comment({
             "How the restart is actually performed: one redeploy of the whole compose project",
@@ -300,7 +279,7 @@ public interface UpdaterSpec {
     })
     ArcaneSpec arcane();
 
-    @Order(16)
+    @Order(14)
     @Key("backup")
     @Comment({
             "The nightly volume backup: which volumes are saved and which services are stopped",

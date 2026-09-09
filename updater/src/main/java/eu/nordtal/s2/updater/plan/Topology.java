@@ -177,9 +177,10 @@ public final class Topology {
      * The two artefacts that are a whole container each.
      * <p>
      * Since 2026-09-01 both run from a volume rather than from a jar baked into an image, so both
-     * move by the same mechanism as everything else and roll back the same way. Their volume is
-     * {@code <volumes-root>/<name>} and the jar sits in its root - no {@code plugins/}, nothing
-     * else in there.
+     * move by the same mechanism as everything else. They do not roll <em>back</em> by any
+     * mechanism: since 2026-09-09 nothing pins a release, and the way out of a bad one is to publish
+     * a better one. Their volume is {@code <volumes-root>/<name>} and the jar sits in its root - no
+     * {@code plugins/}, nothing else in there.
      * </p>
      *
      * <p><b>The updater installing its own new jar is deliberate and cannot take effect during the

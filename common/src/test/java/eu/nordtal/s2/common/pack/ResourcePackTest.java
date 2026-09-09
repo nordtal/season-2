@@ -65,8 +65,22 @@ class ResourcePackTest {
     private static final FontFile GUI_FONT =
             FontFile.load(Glyphs.FONT_GUI, ASSETS + "/nordtal/font/gui.json");
 
-    private static final List<FontFile> FONTS =
-            List.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT);
+    /**
+     * The six row fonts, which declare exactly the same characters at six different ascents.
+     *
+     * <p>They are checked one by one rather than as one font, because "the same characters" is
+     * precisely what can stop being true: the six files are generated together and a hand edit to
+     * one of them is invisible from every other check here. {@link #theRowFontsAreSixCopies} is
+     * what asserts they still agree.</p>
+     */
+    private static final List<FontFile> GUI_ROW_FONTS = java.util.stream.IntStream.range(0, 6)
+            .mapToObj(row -> FontFile.load(Glyphs.FONT_GUI_ROWS[row],
+                    ASSETS + "/nordtal/font/gui_r" + row + ".json"))
+            .toList();
+
+    private static final List<FontFile> FONTS = Stream.concat(
+            Stream.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT),
+            GUI_ROW_FONTS.stream()).toList();
 
     /**
      * The message keys whose text is drawn inside a boss bar, mirroring what
@@ -176,6 +190,19 @@ class ResourcePackTest {
         }
         assertEquals(List.of(), orphans, "art nothing can reach is art nobody will ever see - it is"
                 + " a chars entry somebody forgot, not a spare cell");
+    }
+
+    @Test
+    @DisplayName("the six row fonts declare the same characters, one row apart")
+    void theRowFontsAreSixCopies() {
+        final Set<Integer> first = GUI_ROW_FONTS.get(0).declared();
+        for (int row = 1; row < GUI_ROW_FONTS.size(); row++) {
+            assertEquals(new TreeSet<>(first), new TreeSet<>(GUI_ROW_FONTS.get(row).declared()),
+                    Glyphs.FONT_GUI_ROWS[row] + " declares a different set of characters from"
+                            + " nordtal:gui_r0. The six are one font drawn at six heights - a"
+                            + " character in five of them is a row that renders on five rows and"
+                            + " draws a missing-glyph box on the sixth");
+        }
     }
 
     @Test
@@ -363,6 +390,11 @@ class ResourcePackTest {
         }
         if (constant.startsWith("BOARD_")) {
             return BOARD_FONT;
+        }
+        // GUI_ROW_* before GUI_*: a row glyph lives in the six row fonts and nordtal:gui declares
+        // none of them, so the prefix test has to be the more specific one first.
+        if (constant.startsWith("GUI_ROW_")) {
+            return GUI_ROW_FONTS.get(0);
         }
         if (constant.startsWith("GUI_")) {
             return GUI_FONT;

@@ -69,7 +69,8 @@ class ChestOnlyMenuTest {
      * {@code MenuTitle.} itself, and {@link #everyComposerGoesThroughMenuTitle} checks that it does.
      */
     private static final Map<String, String> COMPOSERS = Map.of(
-            "TravelPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/travel/TravelPanel.java");
+            "TravelPanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/travel/TravelPanel.java",
+            "NavigatePanel.title(", "smp/src/main/java/eu/nordtal/s2/smp/navigate/NavigatePanel.java");
 
     @Test
     @DisplayName("no menu opens anything but a chest")

@@ -651,9 +651,17 @@ Three decisions the implementation had to take, none of which the concept had re
 **The trap that follows from the first decision, written down 2026-09-08 so nobody rediscovers it on
 opening day:** the prize goes to the winner of the **earliest** `DECIDED` game. A practice game run to
 `DECIDED` before the real start event therefore owns the head start for good. If that happens:
-`DELETE FROM hg_game WHERE id = '<the practice game>'` before the SMP phase opens - or, if it was
-already paid, `UPDATE smp_player SET hg_winner_reward_granted = false WHERE discord_id = '<the real
-winner>'` plus `/smp aura` to straighten the books.
+`DELETE FROM hg_game WHERE id = '<the practice game>'` before the SMP phase opens. **Deleting the
+practice row is the whole of the fix, and it comes first in every case** - the reward follows
+whichever `DECIDED` game is earliest, so while that row exists nothing done to `smp_player` can
+move the head start to the real winner.
+
+If the practice winner was already paid, the order is: delete the practice game, then
+`UPDATE smp_player SET hg_winner_reward_granted = false WHERE discord_id = '<the real winner>'` so
+the real one can still be granted, and then take the practice winner's aura back by hand with
+`/smp aura <player> -<amount>` - it writes its reason like every other aura change. Resetting the
+flag without deleting the row pays nobody; deleting the row without taking the aura back pays
+twice.
 
 ### Deaths cost aura
 

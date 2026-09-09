@@ -589,7 +589,7 @@ deploy/dev pack
 builds the zip, puts it under `PACK_ROOT`, and writes `url` and `sha1` into the proxy's `pack.yml` —
 the same two lines the updater's `PackWriter` owns and no others. The `devpack` profile serves that
 directory on `http://localhost:8080`, which is the client's `localhost` too, because the client runs
-on this machine. `pack.yml` is an ordinary file on the host now (under `SERVERS_ROOT`), which is
+on this machine. `pack.yml` is an ordinary file on the host now (under `NETWORK_CONTROL_PLUGINS`), which is
 what makes this two lines of `perl -pi` rather than a container round trip.
 
 A `FAILED_DOWNLOAD` on the client is almost always the hash and not the network — rerun
@@ -661,6 +661,36 @@ own table of contents back with `pg_restore --list`, and only then renamed — a
 that looks like every other dump in the directory is the one the retention sweep keeps and the
 restore picks. It runs as `postgres`, not root, and stops on SIGTERM instead of waiting out the
 grace period.
+
+### Upgrading a deployment that still has `SERVERS_ROOT`
+
+Until 2026-09-09 each server's `plugins/` was a bind mount at
+`${SERVERS_ROOT:-./deploy/servers}/<service>/plugins`. It is a **named volume** now, one per
+service, and Docker copies nothing between the two: bring the stack up on the new compose file
+without moving the data first and every server finds an empty `plugins/`, the entrypoint guard
+stops it, and the bootstrap then writes fresh default `config.yml`, `milestones.yml`, `sounds.yml`
+and `pack.yml` over the deployment's own.
+
+Do this once, with the stack **stopped**:
+
+```
+docker compose stop
+for s in network-control limbo hunger-games smp; do
+  docker run --rm \
+    -v nordtal-s2_mc-$s-plugins:/dst \
+    -v "$PWD/deploy/servers/$s/plugins:/src:ro" \
+    alpine cp -a /src/. /dst/
+done
+docker compose up -d
+```
+
+Check `docker compose logs` for the four servers before deleting anything. **Keep a copy of
+`deploy/servers/` outside the checkout until you have seen a server come up with its own config** -
+that directory is inside the tree Arcane's GitOps sync pulls, and the sync deletes ignored files,
+which is the whole reason for this change (finding 151).
+
+To roll back, set the four `<SERVICE>_PLUGINS` variables to the old paths in `.env`; the volumes
+are left untouched and can be removed later with `docker volume rm`.
 
 ### Voice chat: one UDP port, no file to edit
 

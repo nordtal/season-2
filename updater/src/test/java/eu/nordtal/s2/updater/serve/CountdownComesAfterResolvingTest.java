@@ -39,11 +39,10 @@ class CountdownComesAfterResolvingTest {
     @Test
     @DisplayName("nothing is counted down before the plan is resolved")
     void resolvingComesFirst() {
-        final int resolved = source.indexOf("final UpdatePlan plan = Runs.resolve(config);");
-        final int countdown = source.indexOf("countDown(request.id()");
+        final String update = updateMethod();
+        final int resolved = at(update, "final UpdatePlan plan = Runs.resolve(config);");
+        final int countdown = at(update, "countDown(request.id()");
 
-        assertTrue(resolved > 0, "the update path no longer resolves a plan; this test is stale");
-        assertTrue(countdown > 0, "the update path no longer counts down; this test is stale");
         assertTrue(resolved < countdown,
                 "the countdown is started before the plan is known. Every /update now would warn"
                         + " every player on the network for thirty seconds, including the"
@@ -54,10 +53,10 @@ class CountdownComesAfterResolvingTest {
     @Test
     @DisplayName("a run with no work returns before any countdown is started")
     void nothingToDoCountsNothingDown() {
-        final int nothingToDo = source.indexOf("if (!planned.isWork())");
-        final int countdown = source.indexOf("countDown(request.id()");
+        final String update = updateMethod();
+        final int nothingToDo = at(update, "if (!planned.isWork())");
+        final int countdown = at(update, "countDown(request.id()");
 
-        assertTrue(nothingToDo > 0, "the 'nothing to do' guard is gone; this test is stale");
         assertTrue(nothingToDo < countdown,
                 "the countdown is reachable on a run that has nothing to install");
     }
@@ -68,13 +67,48 @@ class CountdownComesAfterResolvingTest {
         // The order that matters most: countDown answers false when somebody pressed "Stop the
         // countdown", and the very next thing in the sequence takes servers away. A run that
         // logged the cancellation and carried on would be the worst possible reading of the button.
-        final int countdown = source.indexOf("countDown(request.id()");
-        final int firstStop = source.indexOf("run.stop(planned, runtime)");
+        final String update = updateMethod();
+        final int countdown = at(update, "countDown(request.id()");
+        final int firstStop = at(update, "run.stop(planned, runtime)");
 
         assertTrue(firstStop > countdown,
                 "a service is stopped before the countdown has been committed");
-        assertTrue(source.contains("return cancelled();"),
+        assertTrue(update.contains("return cancelled();"),
                 "the cancelled branch must leave the sequence, not fall through it");
+    }
+
+    /**
+     * The body of {@code update}, so an ordering assertion cannot straddle two methods.
+     *
+     * <p>{@code countDown(request.id()} and {@code run.stop(planned, runtime)} each appear twice in
+     * this file - once in {@code update} and once in {@code restartUnderLock}. Searching the whole
+     * source happens to work today because {@code update} comes first; reorder the two methods and
+     * the same assertions would compare a call in one against a call in the other, and still
+     * pass.</p>
+     */
+    private String updateMethod() {
+        final int from = source.indexOf("Outcome update(");
+        assertTrue(from > 0, "Runner#update is gone - if it was renamed, this test moves with it,"
+                + " because a check that cannot find its subject silently stops running");
+        final int to = source.indexOf("\n    private Outcome restartUnderLock(");
+        assertTrue(to > from, "Runner#restartUnderLock is gone or has moved above update; this"
+                + " test brackets one method and needs both ends");
+        return source.substring(from, to);
+    }
+
+    /**
+     * Where {@code token} is, refusing {@code -1}.
+     *
+     * <p>The reason this is not {@code indexOf} at the call site: a missing token answers -1, and
+     * -1 is smaller than every real position - so an ordering assertion goes <b>green</b> the
+     * moment the call it protects is deleted. That is the failure mode this whole file exists to
+     * prevent, arriving through the file itself.</p>
+     */
+    private static int at(final String haystack, final String token) {
+        final int index = haystack.indexOf(token);
+        assertTrue(index >= 0, "Runner#update no longer contains `" + token + "`. If that call was"
+                + " removed the guard is gone; if it was renamed, rename it here too.");
+        return index;
     }
 
     private static String read(final String relative) {

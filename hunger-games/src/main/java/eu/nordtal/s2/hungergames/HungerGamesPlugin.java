@@ -84,6 +84,9 @@ public final class HungerGamesPlugin extends JavaPlugin {
     private HikariDataSource pool;
     private AdminWatch adminWatch;
 
+    /** What a non-admin may type here, and what their client is told exists. */
+    private eu.nordtal.s2.papercommon.command.CommandFilter commandFilter;
+
     /**
      * The command layer. Two effects instances, and the difference is the executor: the chat one
      * schedules, the inbox's runs inline because the inbox settles a request row when the command
@@ -278,13 +281,28 @@ public final class HungerGamesPlugin extends JavaPlugin {
 
         registerCommands(config, world);
 
+        // The command allowlist. The proxy refuses a command before it reaches this server, which
+        // is the enforcement; this is the half the proxy cannot do - what this server tells a
+        // client exists at all. Same poll rhythm as the admin roster, and its notification rides
+        // the same connection. See CommandFilter, which fails OPEN and says so if no list has been
+        // published yet.
+        commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(this,
+                eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
+                        eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
+                adminWatch::isAdmin, locales, messages, getLogger0());
+        getServer().getPluginManager().registerEvents(commandFilter, this);
+        commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
+
         adminWatch.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()),
                 config.adminListenEnabled()
                         ? new AdminWatch.DatabaseConnection(databaseHandle.get().jdbcUrl(),
                                 databaseHandle.get().username(), databaseHandle.get().password(),
                                 databaseHandle.get().queryTimeoutSeconds())
                         : null,
-                inbox.refreshes(), inbox.channels());
+                java.util.stream.Stream.concat(inbox.refreshes().stream(),
+                        commandFilter.refreshes().stream()).toList(),
+                java.util.stream.Stream.concat(inbox.channels().stream(),
+                        commandFilter.channels().stream()).toList());
 
         startHeartbeat();
 

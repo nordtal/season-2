@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * <h2>Why this cannot be an in-memory test</h2>
  * Every claim worth making here is the database's. The upsert only writes when the value actually
  * moved, which is what keeps a proxy restart from waking three servers about a list nobody edited -
- * and that is expressed as {@code WHERE bot_setting.value IS DISTINCT FROM EXCLUDED.value} on the
+ * and that is expressed as {@code WHERE network_setting.value IS DISTINCT FROM EXCLUDED.value} on the
  * conflict branch, which no fake can evaluate. The notification is a bare {@code NOTIFY}, the one in
  * this repository issued as its own statement rather than riding inside a write; whether pgjdbc will
  * even run that through {@code executeUpdate} is a fact about the driver.
@@ -79,7 +79,7 @@ class AllowlistIntegrationTest {
     void clean() throws SQLException {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
-            statement.execute("DELETE FROM bot_setting WHERE key = 'network.command-allowlist'");
+            statement.execute("DELETE FROM network_setting WHERE key = 'network.command-allowlist'");
         }
         directory = AllowlistDirectory.using(dataSource);
     }

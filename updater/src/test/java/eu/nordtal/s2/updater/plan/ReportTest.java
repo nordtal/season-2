@@ -68,7 +68,7 @@ class ReportTest {
         // go and find it, and there is nothing to deduplicate.
         final UpdatePlan plan = new UpdatePlan(Instant.EPOCH, "v0.2.1", false,
                 List.of(Change.unresolved("smp", "chunky", "Modrinth answered 503")),
-                List.of());
+                List.of(), List.of());
 
         final String rendered = Report.render(plan);
         assertTrue(rendered.contains("Modrinth answered 503"), rendered);
@@ -109,7 +109,7 @@ class ReportTest {
         changes.add(Change.unresolved("discord-bot", "discord-bot", GITHUB_403));
         changes.add(Change.unresolved("updater", "updater", GITHUB_403));
         return new UpdatePlan(Instant.EPOCH, null, false, changes,
-                List.of(new UpdatePlan.Unclaimed("smp", "SomebodysPlugin-1.0.0.jar")));
+                List.of(new UpdatePlan.Unclaimed("smp", "SomebodysPlugin-1.0.0.jar")), List.of());
     }
 
     private static int occurrences(final String text, final String needle) {

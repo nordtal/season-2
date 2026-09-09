@@ -1,5 +1,6 @@
 package eu.nordtal.s2.updater.plan;
 
+import eu.nordtal.s2.common.Platform;
 import eu.nordtal.s2.updater.config.UpdaterSpec;
 import eu.nordtal.s2.updater.http.FakeHttp;
 import eu.nordtal.s2.updater.http.HttpException;
@@ -66,6 +67,9 @@ class ResolverTest {
                 // of "no version matches" is the thing under test.
                 .serving("/project/Lu3KuzdV/version", "modrinth-coreprotect-none.json")
                 .serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json")
+                // Two calls for the proxy since 2026-09-09: the project list says which version
+                // Velocity's major 4 is on, and only then is that version's build list read.
+                .serving("/projects/velocity", "fill-velocity-project.json")
                 .serving("/projects/velocity/versions/4.1.1/builds", "fill-velocity-4.1.1.json")
                 .answering(".zip.sha1", PACK_SHA1 + "\n");
     }
@@ -73,25 +77,56 @@ class ResolverTest {
     // ---------------------------------------------------------------- scenarios
 
     @Test
-    @DisplayName("a pinned older Paper build is a move like any other - which is what makes it a rollback")
-    void aPinnedBuildIsARollback() throws IOException {
+    @DisplayName("the proxy's version is resolved out of its family, and says nothing while it agrees")
+    void theVelocityFamilyResolvesToTheCompiledApi() throws IOException {
         installCurrentEverything();
-        http.answering("/projects/paper/versions/26.2/builds/119", """
-                {"id":119,"channel":"STABLE","time":"2026-08-20T00:00:00Z","downloads":{
-                   "server:default":{"name":"paper-26.2-119.jar","url":"https://x/119",
-                                     "checksums":{"sha256":"cc"}}}}
+
+        final UpdatePlan plan = resolve();
+
+        // 4.0.0 is Fill's name for the whole 4.x line and carries four SNAPSHOTs; what comes out is
+        // 4.1.1, which is the version network-control is compiled against - the same number the
+        // retired velocity-version pin held, reached without anybody maintaining it.
+        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "network-control", "velocity"));
+        assertEquals(List.of(), plan.notes(),
+                "the proxy resolved to the API it was built against, so there is nothing to warn"
+                        + " about - a note here would be one an operator learns to ignore");
+    }
+
+    @Test
+    @DisplayName("a Velocity newer than the API network-control was built for is named, not refused")
+    void aVelocityAheadOfTheCatalogIsReported() throws IOException {
+        installCurrentEverything();
+        // The same family with one release added. This is the situation the whole note exists for:
+        // nothing in the run fails, the proxy simply ends up on an API the plugin in it predates.
+        http.answering("/projects/velocity", """
+                {"project":{"id":"velocity","name":"Velocity"},
+                 "versions":{"4.0.0":["4.2.0-SNAPSHOT","4.2.0","4.1.1","4.1.0","4.0.0"]}}
+                """);
+        http.answering("/projects/velocity/versions/4.2.0/builds", """
+                [{"id":31,"channel":"STABLE","time":"2026-09-08T00:00:00Z","downloads":{
+                   "server:default":{"name":"velocity-4.2.0-31.jar","url":"https://x/31",
+                                     "checksums":{"sha256":"dd"}}}}]
                 """);
 
-        final UpdatePlan plan = resolve("119");
+        final UpdatePlan plan = resolve();
 
-        // Three Paper servers, all on 121, all asked to go to 119; the proxy is untouched.
-        for (final String service : List.of("limbo", "hunger-games", "smp")) {
-            final Change change = changeFor(plan, service, "paper");
-            assertEquals(Change.Status.OUTDATED, change.status(), service);
-            assertEquals("paper-26.2-121.jar", change.installed());
-            assertEquals("paper-26.2-119.jar", change.wanted().fileName());
-        }
-        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "network-control", "velocity"));
+        // MISSING and not OUTDATED, and that is the filename identity rule showing through rather
+        // than a defect: a jar is superseded by its prefix, and `velocity-4.1.1` and `velocity-4.2.0`
+        // are different prefixes. It is the same thing a Paper version bump has always done. What it
+        // costs is one line of the report - "velocity 4.2.0" instead of "4.1.1 -> 4.2.0" - and one
+        // stale jar in .server/ that the entrypoint removes on the very start this run performs,
+        // because it keeps exactly one jar per kind. Asserted rather than left to be discovered.
+        assertEquals(Change.Status.MISSING, statusOf(plan, "network-control", "velocity"));
+        assertTrue(plan.hasWork());
+        assertEquals("velocity-4.2.0-31.jar",
+                changeFor(plan, "network-control", "velocity").wanted().fileName());
+
+        assertEquals(1, plan.notes().size(), "expected exactly one note: " + plan.notes());
+        final String note = plan.notes().getFirst();
+        assertTrue(note.contains("4.2.0") && note.contains(Platform.VELOCITY_API), note);
+        assertTrue(PlanReport.of(plan).render().contains(note),
+                "the note is decided by the resolver and drawn by PlanReport - a report that drops"
+                        + " it is a version skew nobody is told about");
     }
 
     @Test
@@ -542,19 +577,10 @@ class ResolverTest {
     // ---------------------------------------------------------------- plumbing
 
     private UpdatePlan resolve() {
-        return resolve(PaperFill.LATEST);
-    }
-
-    private UpdatePlan resolve(final String paperBuild) {
         final UpdaterSpec config = new UpdaterSpec() {
             @Override
             public String volumesRoot() {
                 return volumes.toString();
-            }
-
-            @Override
-            public String paperBuild() {
-                return paperBuild;
             }
 
             @Override

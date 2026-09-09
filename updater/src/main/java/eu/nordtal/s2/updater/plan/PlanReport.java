@@ -37,7 +37,12 @@ public final class PlanReport {
     public static @NotNull UpdateReport of(final @NotNull UpdatePlan plan) {
         final Map<String, List<UpdateReport.Change>> work = new LinkedHashMap<>();
         final Map<String, String> trouble = new LinkedHashMap<>();
-        final List<String> notes = new ArrayList<>();
+
+        // The resolver's own notes come first, and they are copied rather than composed: this class
+        // draws, it does not decide. A note there is something worked out while resolving that
+        // belongs to no service - the proxy moving past the Velocity API network-control was built
+        // against is the one that exists.
+        final List<String> notes = new ArrayList<>(plan.notes());
 
         for (final Change change : plan.changes()) {
             if (change.service() == null) {

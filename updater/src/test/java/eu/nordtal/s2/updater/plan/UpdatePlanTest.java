@@ -26,7 +26,7 @@ class UpdatePlanTest {
 
     private static UpdatePlan planOf(final Change... changes) {
         return new UpdatePlan(Instant.EPOCH, "v0.2.0", false, List.of(changes),
-                List.of(new UpdatePlan.Unclaimed("smp", "SomethingSomebodyDropped.jar")));
+                List.of(new UpdatePlan.Unclaimed("smp", "SomethingSomebodyDropped.jar")), List.of());
     }
 
     @Test

@@ -419,17 +419,20 @@ than an implied one.
 
 The **server jar** is the updater's too, since 2026-09-02. It installs the newest `STABLE` build of
 the version pinned in `.env` into each server's `.server/` cache, and `entrypoint.sh` runs whatever
-build of that version it finds there. `PAPER_BUILD` and `VELOCITY_BUILD` are only read into an
-**empty** cache — a fresh volume, or a version bump before the updater has run against it — and are
-fetched exactly once. Until that day the entrypoint fetched the pinned build unconditionally and
-deleted every other jar, which undid each updater run on the next restart and turned every restart
-after an update into a Fill API call, i.e. the outage the cache exists to survive.
+build of that version it finds there. **There is no build number anywhere in the deployment any
+more** (2026-09-09): the updater installs the newest `STABLE` build, and the entrypoint resolves
+the same one when `.server/` is empty rather than reading a variable somebody has to keep current.
 
-Rolling back to an older build is `UPDATER_PAPER_BUILD=121` (or `UPDATER_VELOCITY_BUILD`) in
-`.env`, then `/update now` — one run, no separate restart — the same shape as
-`UPDATER_SEASON_RELEASE=v0.1.0`. The
-report shows `paper-26.2-125.jar -> paper-26.2-121.jar` like any other move. It is *not*
-`PAPER_BUILD`: that one seeds an empty cache and never moves a running server.
+`SERVER_VERSION` is a literal in `compose.yml` and mirrors `eu.nordtal.s2.common.Platform`. On the
+three Paper backends it is the exact Minecraft version, `26.2`. **On the proxy it is `4.0.0`, which
+is not a version** — it is Fill's name for the whole Velocity 4 line, and the proxy follows the
+newest release inside it. The cache match is therefore by kind alone (`velocity-*.jar`), taking the
+highest version and then the highest build; a jar of another version is deleted at the next start.
+
+**Rolling back to an older platform build is not provided for.** That was `UPDATER_PAPER_BUILD`
+until 2026-09-09 and the owner removed it deliberately — a rollback path nobody had ever exercised,
+sitting in front of the one thing the updater does every day. A bad Paper build is healed by the
+next one.
 
 ### Restarting the network
 

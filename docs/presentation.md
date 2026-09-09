@@ -86,6 +86,23 @@ reads the panel PNG back and asserts every card is exactly where the Java says.
 **A further menu in this style is a panel, its overlays and a slot map**, and nothing in `:common`
 changes for it. That is the shape the balloon was built to establish.
 
+### Art that spans more than one row (2026-09-09)
+
+A row glyph is drawn in one of the six `nordtal:gui_rN` fonts and lands inside that row's
+furniture, icon or text band. **Anything taller than one row is a `nordtal:gui` glyph with its own
+ascent** - the objective card is the worked example: the plate and the painted bar fill are `gui`,
+the type icon, the name and the numbers are row glyphs laid over them. Deciding by *height* rather
+than by what the thing is keeps the two fonts from becoming a matter of taste.
+
+**A tray and a recess per slot are different statements, not two styles.** The hand-in window is
+one sunken tray across its deposit rows; the grave is a recess under every slot. A tray is a
+surface you throw things into and an inventory is one you take things out of, and both files carry
+that sentence so the next reader does not tidy one into the other.
+
+**A string drawn by `MenuFont` carries no MiniMessage.** The five-pixel sheet has one colour and the
+renderer is not a message renderer; a tag written into one of those keys reaches the player as the
+literal text `<GRAY>`. Each panel test pins its own keys in both languages.
+
 ### The numbers
 
 | quantity | value | note |
@@ -257,6 +274,14 @@ session does not "finish" it:
 - **an admin command whose effect the admin can see** — `/smp reload`, `/smp farmreset`. The chat
   line is the confirmation, and the world in front of them is the rest of it.
 
+**And one whole category is silent, which is different from a call site being silent.**
+`Feedback.STAGING` was added on 2026-09-09 for staged moments and ships with an empty key. The other
+ten name a vanilla sound because a vanilla sound is what they *are* - a pickup, a level-up, a click.
+A staged moment is not one of those: its sound is this project's own and arrives with the artwork.
+Borrowing `NETWORK_EVENT` would have given the season's opening the phase-switch chime, which reads
+as a bug rather than as a welcome. Both `SoundDefaultsTest`s name it as the one category allowed to
+be silent and assert that it is, so filling it in is a visible decision rather than a quiet one.
+
 The one admin command that *does* get a sound is `/hg start`, and the line is worth stating because
 it looks like an exception and is not: **a command whose whole effect happens to other people,
 somewhere else, gets a confirmation the admin can hear.** Starting the games teleports forty
@@ -403,6 +428,20 @@ literal and `BrandColourTest` fails a phase that colours the name again.
 ---
 
 ## 6. Moments
+
+**A staged moment is the fourth form, next to the menu, the HUD and the board** (2026-09-09). Where
+those three are surfaces a player reads, a staging *takes the screen*: a sequence of pictures in the
+title slot, at a tick spacing, with the world blinded behind them for exactly as long as they run.
+It is `:common`'s `stage` package and `:paper-common`'s, and the one thing pointed at it so far is a
+player's first arrival of the season.
+
+The reason it is a device rather than one moment is that the same shape is wanted in five more
+places - a milestone closing, the hunger games starting, its winner, a phase opening, a prestige
+promotion - and every one of those is a sequence of pictures with an effect and a sound. What it is
+*not* is a replacement for section 6's four world moments below: those happen in the world, where
+everybody nearby sees them. A staging happens to one player and takes their screen, which is why it
+is reserved for things that happen once.
+
 
 Four places where something happens in the world rather than on a screen, **built 2026-09-04**
 (`smp`'s `WorldEffects`). Before that date `spawnParticle` and `Particle.` returned zero hits across

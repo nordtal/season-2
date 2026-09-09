@@ -72,7 +72,7 @@ a value that has to be carried by hand from a release to a config file:
 - The proxy's resource pack `url` and `sha1` were reachable only by editing `pack.yml` inside the
   `mc-network-control` volume. They are settings now (fixed 2026-09-01, before this module exists),
   but the sha1 still has to be copied out of the release by a person. The updater removes that.
-- `PAPER_BUILD` and `VELOCITY_BUILD` are pinned exactly, correctly, and nobody would notice them
+- ~~`PAPER_BUILD` and `VELOCITY_BUILD` are pinned exactly, correctly, and nobody would notice them going stale~~ — **answered by deletion on 2026-09-09.** Both variables are gone, and so are `paper-build`, `velocity-build` and `SERVER_BUILD`. There is no pin left to go stale, and no way back out of a bad platform build either; that trade is the owner's and is written down in `CLAUDE.md` under "Target platform"
   going a year stale. *(Since 2026-09-02 they seed an empty cache and nothing else — see below.)*
 
 ## What it owns
@@ -100,7 +100,7 @@ deployment starts with the updater, not with the database and the bot.
 | DisplayTags | GitHub releases API on `nordtal/papermc-display-tags` | our own fork, 2.0.0 on `main` |
 | PacketEvents | Modrinth API, `game_versions=["26.2"] loaders=["paper"]` | **exactly one** version: `2.13.0+spigot`, published 2026-06-22 |
 | Chunky | Modrinth API, same filter | **exactly one** version: `1.5.3`, published 2026-05-04 |
-| Paper, Velocity | PaperMC Fill API, newest `STABLE` of the pinned minor | the entrypoint speaks the same API, but only to seed an empty `.server/` from `PAPER_BUILD` / `VELOCITY_BUILD`; from then on it runs whatever build of the version this module put there |
+| Paper, Velocity | PaperMC Fill API. Paper: newest `STABLE` build of `Platform.MINECRAFT`, an exact version. Velocity: newest release version inside `Platform.VELOCITY_FAMILY` (Fill's own name for the major), then its newest `STABLE` build | the entrypoint speaks the same API and resolves the same build, but only to fill an *empty* `.server/`; from then on it runs the highest version-then-build it finds cached. **`/builds/latest` is not the newest stable** — measured 2026-09-09, it answers the newest build of any channel — so both programs filter the list |
 
 The Modrinth answers were queried against the live API on 2026-09-01 and the filenames come back
 identical to what `compose.yml` pins today — `packetevents-spigot-2.13.0.jar` and
@@ -429,7 +429,7 @@ seconds it is showing.
   is not a version to preserve. Anything already carrying a jar is left exactly as it is, so the
   sentence above stays literally true for every container that has ever run.
 - **It does not roll back by itself.** A run can be given an explicit tag instead of "newest" —
-  `season-release`, `display-tags-release`, and since 2026-09-02 `paper-build` / `velocity-build`
+  `season-release` and `display-tags-release`. The two platform pins that stood here until 2026-09-09 are gone
   for the platform — which is the rollback, and it is a person's decision.
 - **It does not touch worlds, configuration files inside volumes, or anything a player built.** It
   moves jars, one zip's URL and hash, and the schema.
@@ -464,7 +464,9 @@ the schema.
 installed build 125 into `.server/` and superseded 121, the entrypoint built the name
 `paper-26.2-121.jar` from `PAPER_BUILD`, found it gone, fetched it again and deleted 125 — on every
 restart after every apply, with a Fill API call in the middle of each one. The entrypoint now runs
-whichever build of `SERVER_VERSION` is in the cache and reads `SERVER_BUILD` only into an empty one.
+whichever build it finds in the cache. *(`SERVER_BUILD` is gone as of 2026-09-09; an empty cache is
+filled with the newest `STABLE` build the Fill API lists, and the match is by kind rather than by
+version so the proxy can follow Velocity's minors.)*
 
 **The pack's URL and hash live in `pack.yml`, not in the environment.** *(Carried out in step 3.)* They were made compose
 variables earlier the same day, for a good reason: they were reachable only by editing a file

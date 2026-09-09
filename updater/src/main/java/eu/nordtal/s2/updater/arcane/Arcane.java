@@ -54,6 +54,18 @@ public final class Arcane implements ArcaneOps {
     /** The header Arcane's documentation names for token authentication. */
     private static final String API_KEY_HEADER = "X-Api-Key";
 
+    /**
+     * How much longer than an ordinary call a recreate may take.
+     *
+     * <p>Added to {@code arcane.timeout-seconds} rather than replacing it, so an operator who has
+     * widened that for a slow Arcane widens this too. The work behind the call is a registry pull
+     * and a compose up that waits for the service - minutes on a cold image layer, and a client
+     * timeout in the middle of it leaves a container half moved with nothing here having asked for
+     * that. It is not the run's patience: {@code UpdateRun#verify} is still what decides whether
+     * the service came back.</p>
+     */
+    private static final Duration RECREATE_PATIENCE = Duration.ofMinutes(10);
+
     /** Replaced in {@code redeploy-path} by the configured environment id. */
     private static final String ENVIRONMENT_PLACEHOLDER = "{environment}";
 
@@ -402,6 +414,135 @@ public final class Arcane implements ArcaneOps {
     @Override
     public @NotNull RedeployResult start(final @NotNull String containerId) {
         return container(containerId, "start");
+    }
+
+    /**
+     * Reads which of the project's services are running an image the registry has moved past.
+     *
+     * <p>One GET and no check is triggered from here, deliberately. Arcane answers from the results
+     * its own image-update check has persisted, so this reports what Arcane knows rather than what
+     * a registry says right now - and {@link ImageResult} keeps "nobody has looked" apart from "up
+     * to date" so that the difference is visible in the report instead of being decided here.</p>
+     *
+     * @return what Arcane said, or unreachable with the reason. Never throws: an image that cannot
+     *         be checked must not stop a run that is otherwise able to move the jars
+     */
+    @Override
+    public @NotNull ImageResult images() {
+        final java.util.Optional<String> refused = refusedForCleartext();
+        if (refused.isPresent()) {
+            return ImageResult.unreachable(refused.get());
+        }
+        if (!configured()) {
+            return ImageResult.unreachable("Arcane is not configured (arcane.base-url is empty),"
+                    + " so no image can be checked or renewed.");
+        }
+        final String url = config.baseUrl() + substitute(config.updatesPath());
+        final URI uri;
+        try {
+            uri = new URI(url);
+        } catch (final URISyntaxException broken) {
+            return ImageResult.unreachable("arcane.base-url and arcane.updates-path do not form a"
+                    + " valid URL: " + url);
+        }
+
+        try {
+            final HttpResponse<String> response = client.send(get(uri),
+                    HttpResponse.BodyHandlers.ofString());
+            final String redirected = redirect(response.statusCode(), response.headers(), url);
+            if (redirected != null) {
+                return ImageResult.unreachable(redirected);
+            }
+            if (response.statusCode() / 100 != 2) {
+                return ImageResult.unreachable("Arcane answered HTTP " + response.statusCode()
+                        + " for " + url + ", so this run cannot tell a current image from a stale"
+                        + " one. The jars are unaffected.");
+            }
+            return ImageResult.of(ArcaneImages.parse(response.body()));
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return ImageResult.unreachable("Interrupted while reading the project's image updates.");
+        } catch (final IOException failure) {
+            return ImageResult.unreachable(unreachable(uri, failure, config.baseUrl()));
+        }
+    }
+
+    /**
+     * Pulls one service's image and recreates its container from it.
+     *
+     * <p>Arcane's own {@code update-services}, addressed by <b>service name</b>: it pulls the image
+     * of each service named, stops those services and brings them back up with a forced recreate.
+     * Read from its source on 2026-09-09, v2.10.2 -
+     * {@code backend/internal/project/project_lifecycle.go}, {@code UpdateProjectServices}. Volumes
+     * are not touched on that path ({@code recreateVolumes} is false), which is what makes it safe
+     * to point at a server carrying a world.</p>
+     *
+     * <p><b>The known hazard, and it is not ours to fix from here:</b> Arcane calls compose with
+     * {@code RecreateDependencies: RecreateDiverged}, so a service this project's compose file has
+     * changed underneath - the updater itself included, since every backend depends on it - can be
+     * recreated as a dependency of the one service named. That would end this run from the outside.
+     * The run reports each recreate as it asks for it, so a run that stops here says which service
+     * it was asking about.</p>
+     */
+    @Override
+    public @NotNull RedeployResult recreate(final @NotNull String service) {
+        final java.util.Optional<String> refused = refusedForCleartext();
+        if (refused.isPresent()) {
+            return RedeployResult.refused(refused.get());
+        }
+        if (!configured()) {
+            return RedeployResult.refused("Arcane is not configured, so " + service + " could not"
+                    + " be recreated and is running its old image.");
+        }
+        final String url = config.baseUrl() + substitute(config.updateServicesPath());
+        final URI uri;
+        try {
+            uri = new URI(url);
+        } catch (final URISyntaxException broken) {
+            return RedeployResult.refused("arcane.base-url and arcane.update-services-path do not"
+                    + " form a valid URL: " + url);
+        }
+
+        // One service per call rather than every moving service in one body: a single call would
+        // report one outcome for several servers, and this sequence's whole contract is that it
+        // says which one did not come back.
+        final String body = "{\"services\":[\"" + service.replace("\\", "\\\\").replace("\"", "\\\"")
+                + "\"]}";
+
+        log.info("Asking Arcane to pull and recreate service {}", service);
+        try {
+            final HttpResponse<String> response = client.send(
+                    HttpRequest.newBuilder(uri)
+                            .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                            .header(API_KEY_HEADER, config.apiKey())
+                            .header("Content-Type", "application/json")
+                            .header("Accept", "application/json")
+                            .header("User-Agent", "nordtal-season-2/updater")
+                            // A recreate pulls an image and waits for the service to come up, so it
+                            // is minutes rather than seconds - the ordinary timeout would abort a
+                            // pull that is going perfectly well and leave the container half moved.
+                            .timeout(Duration.ofSeconds(config.timeoutSeconds()).plus(RECREATE_PATIENCE))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() / 100 == 2) {
+                return RedeployResult.triggered("HTTP " + response.statusCode()
+                        + " - image pulled and " + service + " recreated");
+            }
+            final String redirected = redirect(response.statusCode(), response.headers(), url);
+            if (redirected != null) {
+                return RedeployResult.refused(redirected);
+            }
+            return RedeployResult.refused("Arcane answered HTTP " + response.statusCode()
+                    + " to recreate " + service + " (" + url + "). A 404 here is usually"
+                    + " arcane.project, which is an id and not the compose project's name; a 400 is"
+                    + " usually the service name, which is the key in compose.yml.");
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return RedeployResult.refused("Interrupted while asking Arcane to recreate " + service);
+        } catch (final IOException failure) {
+            return RedeployResult.refused(unreachable(uri, failure, config.baseUrl()));
+        }
     }
 
     /**

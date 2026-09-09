@@ -3,6 +3,7 @@ package eu.nordtal.s2.updater.serve;
 import eu.nordtal.s2.common.update.UpdateReport;
 import eu.nordtal.s2.updater.arcane.ArcaneOps;
 import eu.nordtal.s2.updater.arcane.BackupResult;
+import eu.nordtal.s2.updater.arcane.ImageResult;
 import eu.nordtal.s2.updater.arcane.RedeployResult;
 import eu.nordtal.s2.updater.arcane.RuntimeResult;
 import eu.nordtal.s2.updater.arcane.ServiceRuntime;
@@ -219,14 +220,55 @@ final class UpdateRun {
         return report;
     }
 
-    /** Starts everything this run stopped, and says so. */
+    /**
+     * Starts everything this run stopped, and says so.
+     *
+     * <h2>Two ways back up, and the image decides which</h2>
+     * A {@code start} hands the container back to Docker on exactly the image it was created from.
+     * That is right for the ordinary case and wrong for the one where the image itself has moved:
+     * the jars would be new and {@code entrypoint.sh}, the JRE and every change to
+     * {@code compose.yml} would still be whatever was pulled at the last deploy. A service
+     * {@link ImageResult} calls outdated is therefore <b>recreated</b> - Arcane pulls its image and
+     * brings it back up from that - and every other one is started exactly as before.
+     *
+     * <p>The recreate is asked for one service at a time and reported before it is asked for, so a
+     * run that never comes back from one names it. That matters more here than anywhere else in
+     * this class: the call can take the updater down with it if compose considers it a diverged
+     * dependency, and then this line is the last thing written.</p>
+     */
     @NotNull UpdateReport start(final Stopped state) {
+        return start(state, ImageResult.of(java.util.Map.of()));
+    }
+
+    /**
+     * @param images which services are running a stale image and must be recreated rather than
+     *               started. Empty on every path that is putting the network back the way it was -
+     *               an abort, a restart, a backup: all three promise to change no version, and
+     *               pulling an image during one would change the biggest version there is
+     */
+    @NotNull UpdateReport start(final Stopped state, final @NotNull ImageResult images) {
         UpdateReport report = state.report().withStage(UpdateReport.Stage.STARTING);
         progress.accept(report);
 
         for (final String service : state.services()) {
-            final ServiceRuntime entry = state.runtime().service(service).orElse(null);
             final UpdateReport.ServiceLine line = report.line(service);
+
+            if (images.isOutdated(service)) {
+                // Written before the call, not after: a recreate that never returns leaves this as
+                // the report's last word, and "recreating smp" is the whole diagnosis.
+                report = report.with(line.at(UpdateReport.State.STARTING)
+                        .withDetail("pulling its image and recreating the container"));
+                progress.accept(report);
+                final RedeployResult recreated = arcane.recreate(service);
+                report = report.with(recreated.triggered()
+                        ? report.line(service).at(UpdateReport.State.STARTING)
+                        : report.line(service).failed("its image is out of date and the container"
+                                + " could not be recreated: " + recreated.message()));
+                progress.accept(report);
+                continue;
+            }
+
+            final ServiceRuntime entry = state.runtime().service(service).orElse(null);
             if (entry == null || entry.containerId() == null) {
                 report = report.with(line.failed("no container id to start it with"));
                 progress.accept(report);

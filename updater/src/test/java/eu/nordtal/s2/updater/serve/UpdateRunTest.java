@@ -394,4 +394,89 @@ class UpdateRunTest {
             }
         };
     }
+
+    // ---------------------------------------------------------------- the image
+
+    @Test
+    @DisplayName("a service whose image has moved is recreated, not started")
+    void aStaleImageIsRecreated() {
+        // The whole point of the image path. A start hands the container back to Docker on exactly
+        // the image it was created from, so the jars would be new and entrypoint.sh, the JRE and
+        // every change to compose.yml would still be whatever was pulled at the last deploy.
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP).imageOutdated(Topology.SMP);
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        run.start(run.stop(planned(Topology.SMP), arcane.runtime()), arcane.images());
+
+        assertEquals(List.of("stop:smp-container", "recreate:smp"), arcane.calls,
+                "the stop is unchanged - the gap is still where jars move - and only the way back"
+                        + " up differs");
+    }
+
+    @Test
+    @DisplayName("a current image is started exactly as before, and so is an unchecked one")
+    void aCurrentImageIsStarted() {
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP, Topology.LIMBO)
+                .imageCurrent(Topology.SMP);
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        run.start(run.stop(planned(Topology.SMP, Topology.LIMBO), arcane.runtime()), arcane.images());
+
+        // limbo is not in the images map at all, which is UNKNOWN - "nobody has looked", and never
+        // a reason to pull anything. Only smp had work, so only smp was stopped and started.
+        assertEquals(List.of("stop:smp-container", "start:smp-container"), arcane.calls);
+    }
+
+    @Test
+    @DisplayName("putting the network back never pulls an image, whatever the images say")
+    void anAbortNeverRecreates() {
+        // Every path that is undoing something - a refused stop, a failed migration, a restart -
+        // calls the one-argument start(). All three promise to change no version, and pulling an
+        // image there would change the biggest one there is.
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP).imageOutdated(Topology.SMP);
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        run.start(run.stop(planned(Topology.SMP), arcane.runtime()));
+
+        assertEquals(List.of("stop:smp-container", "start:smp-container"), arcane.calls,
+                "an abort puts the network back the way it was and does not take the opportunity"
+                        + " to move an image nobody asked it to move");
+    }
+
+    @Test
+    @DisplayName("a refused recreate fails that service and names the image as the reason")
+    void aRefusedRecreateIsNamed() {
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP)
+                .imageOutdated(Topology.SMP).recreateRefused(Topology.SMP);
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        final UpdateReport report =
+                run.start(run.stop(planned(Topology.SMP), arcane.runtime()), arcane.images());
+
+        assertEquals(UpdateReport.State.FAILED, report.line(Topology.SMP).state());
+        assertTrue(report.line(Topology.SMP).detail().contains("image is out of date"),
+                "the server is down and the reason has to say which half of the run stopped: "
+                        + report.line(Topology.SMP).detail());
+    }
+
+    @Test
+    @DisplayName("the recreate is announced before it is asked for, so a run that dies in it says where")
+    void theRecreateIsAnnouncedFirst() {
+        // Arcane recreates a service with RecreateDependencies = RecreateDiverged, and every
+        // backend depends on the updater - so this call can take the process making it down. When
+        // that happens the last report written is the whole diagnosis. See nordtal/todo.md, A19.
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP).imageOutdated(Topology.SMP);
+        final UpdateRun run = new UpdateRun(arcane, progress::add);
+
+        run.start(run.stop(planned(Topology.SMP), arcane.runtime()), arcane.images());
+
+        final int announced = progress.stream()
+                .filter(report -> report.line(Topology.SMP).detail() != null
+                        && report.line(Topology.SMP).detail().contains("recreating"))
+                .findFirst()
+                .map(progress::indexOf)
+                .orElse(-1);
+        assertTrue(announced >= 0, "no report said the recreate was about to happen");
+        assertTrue(arcane.calls.indexOf("recreate:" + Topology.SMP) >= 0);
+    }
 }

@@ -29,6 +29,7 @@ import eu.nordtal.s2.networkcontrol.gate.FallbackCache;
 import eu.nordtal.s2.networkcontrol.gate.GateMessages;
 import eu.nordtal.s2.networkcontrol.gate.LoginGate;
 import eu.nordtal.s2.networkcontrol.gate.LoginRoster;
+import eu.nordtal.s2.networkcontrol.gate.BackendKick;
 import eu.nordtal.s2.networkcontrol.gate.MisconfiguredGate;
 import eu.nordtal.s2.networkcontrol.launch.LaunchCountdown;
 import eu.nordtal.s2.networkcontrol.pack.PackMessages;
@@ -375,6 +376,10 @@ public final class NetworkControlPlugin {
         proxy.getEventManager().register(this, loginGate);
         proxy.getEventManager().register(this, roster);
         proxy.getEventManager().register(this, expiryWatch);
+        // Text only: a backend's own disconnect screen, without Velocity's English wrapper around
+        // it. It moves nobody - see BackendKick for the boundary and for the question it leaves
+        // open.
+        proxy.getEventManager().register(this, new BackendKick());
 
         proxy.getScheduler().buildTask(this, expiryWatch::check)
                 .delay(Duration.ofSeconds(gateConfig.expiryCheckIntervalSeconds()))

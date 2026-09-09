@@ -7,6 +7,7 @@ import eu.nordtal.s2.common.command.CommandOutcome;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.command.NewCommandRequest;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.Locales;
 
 import java.time.Duration;
@@ -94,7 +95,7 @@ public final class Outbox {
             // to send, and nothing a person can do about it - so it is logged in full and answered
             // with the same sentence a failure on the far side gets.
             warn.accept(declaration.name() + " could not be encoded for sending", malformed);
-            user.reply("command.remote.failed", Map.of(), Feedback.REFUSED);
+            user.reply("command.remote.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
             return;
         }
 
@@ -115,11 +116,13 @@ public final class Outbox {
                         Instant.now().plus(timeout)));
             } catch (final RuntimeException failure) {
                 warn.accept("could not send " + declaration.name(), failure);
-                user.reply("command.remote.failed", Map.of(), Feedback.REFUSED);
+                user.reply("command.remote.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
+            // MUTED: it is the receipt before the wait, not the answer. Colouring it like news
+            // would make the line that says nothing yet the brightest one in the exchange.
             user.reply("command.remote.sent",
-                    Map.of("target", user.phrase(declaration.target().messageKey())));
+                    Map.of("target", user.phrase(declaration.target().messageKey())), Tone.MUTED);
             await(id, declaration, user, Instant.now().plus(timeout));
         });
     }
@@ -132,7 +135,7 @@ public final class Outbox {
                 outcome = requests.outcome(id);
             } catch (final RuntimeException failure) {
                 warn.accept("could not read the outcome of " + declaration.name(), failure);
-                user.reply("command.remote.failed", Map.of(), Feedback.REFUSED);
+                user.reply("command.remote.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
 
@@ -140,7 +143,7 @@ public final class Outbox {
                 // The row is gone. Nothing in this repository deletes one, so this is a database
                 // somebody has been in by hand - worth a log line and a plain refusal.
                 warn.accept("command request " + id + " vanished while waiting for it", null);
-                user.reply("command.remote.failed", Map.of(), Feedback.REFUSED);
+                user.reply("command.remote.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
 
@@ -164,18 +167,19 @@ public final class Outbox {
                 // to be why the deadline was reached. An exception here killed the scheduled task
                 // silently and the asker was left with no answer at all.
                 warn.accept("could not expire " + declaration.name(), failure);
-                user.reply("command.remote.failed", Map.of(), Feedback.REFUSED);
+                user.reply("command.remote.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return;
             }
 
             if (gaveUp) {
                 user.reply("command.remote.no-answer",
                         Map.of("target", user.phrase(declaration.target().messageKey())),
-                        Feedback.REFUSED);
+                        Feedback.REFUSED, Tone.BAD);
             } else {
                 // Lost the race, which is the good outcome: it was claimed while the deadline
                 // passed and is running now. The answer just is not coming back here.
-                user.reply("command.remote.still-running", Map.of(), Feedback.SMALL_SUCCESS);
+                user.reply("command.remote.still-running", Map.of(), Feedback.SMALL_SUCCESS,
+                        Tone.WARN);
             }
         }, poll.toMillis(), TimeUnit.MILLISECONDS);
     }
@@ -183,7 +187,7 @@ public final class Outbox {
     private static void deliver(final CommandOutcome outcome, final NordtalUser user) {
         outcome.result().ifPresent(user::replyLiteral);
         if (outcome.status() == CommandOutcome.Status.FAILED) {
-            user.reply("command.remote.failed", Map.of(), Feedback.REFUSED);
+            user.reply("command.remote.failed", Map.of(), Feedback.REFUSED, Tone.BAD);
         }
     }
 }

@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.List;
 import java.util.Map;
@@ -30,19 +31,23 @@ public final class ReadyStatus implements NordtalCommand<HungerGamesEffects> {
         effects.async(() -> {
             final Optional<HungerGamesEffects.Registration> registration = effects.registration();
             if (registration.isEmpty()) {
-                user.reply("hg.start.no-game", Map.of(), Feedback.REFUSED);
+                user.reply("hg.start.no-game", Map.of(), Feedback.REFUSED, Tone.WARN);
                 return;
             }
 
             final List<HungerGamesEffects.TeamReady> teams =
                     effects.readyStatus(registration.get().gameId());
-            user.reply("hg.ready-status.header");
+            user.reply("hg.ready-status.header", Map.of(), Tone.NEUTRAL);
+            // The tone is the whole point of this list: the admin is looking for who is NOT ready
+            // yet, and reading a word at the end of forty identically shaped lines is what the
+            // colour saves them from.
             teams.forEach(team -> user.reply("hg.ready-status.line",
                     Map.of("team", team.team(),
                             // A nested message, resolved in the reader's own language: this is what
                             // NordtalUser#phrase exists for.
                             "status", user.phrase(team.ready()
-                                    ? "hg.ready-status.ready" : "hg.ready-status.not-ready"))));
+                                    ? "hg.ready-status.ready" : "hg.ready-status.not-ready")),
+                    team.ready() ? Tone.GOOD : Tone.MUTED));
         });
     }
 }

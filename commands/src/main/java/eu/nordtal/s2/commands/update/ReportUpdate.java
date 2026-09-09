@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateKind;
 
 import java.util.Map;
@@ -31,9 +32,9 @@ public final class ReportUpdate implements NordtalCommand<UpdateEffects> {
                 // The id is deliberately not in the sentence. It was, and it is a database
                 // primary key being read out to somebody who cannot do anything with it; the one
                 // reader who can is looking at the updater's log, where it still is.
-                user.reply("update.asked", Map.of(), Feedback.SMALL_SUCCESS);
+                user.reply("update.asked", Map.of(), Feedback.SMALL_SUCCESS, Tone.GOOD);
             } catch (final RuntimeException failure) {
-                user.reply("update.write-failed", Map.of(), Feedback.REFUSED);
+                user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

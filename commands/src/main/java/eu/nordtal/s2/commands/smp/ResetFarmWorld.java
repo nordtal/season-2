@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 
 import java.util.Map;
 
@@ -26,13 +27,13 @@ public final class ResetFarmWorld implements NordtalCommand<SmpEffects> {
 
     @Override
     public void run(final NordtalUser user, final Values values, final SmpEffects effects) {
-        user.reply("smp.admin.farmreset", Map.of(), Feedback.NETWORK_EVENT);
+        user.reply("smp.admin.farmreset", Map.of(), Feedback.NETWORK_EVENT, Tone.GOOD);
         effects.async(() -> {
             try {
                 effects.resetFarmWorld();
             } catch (final RuntimeException failure) {
                 effects.warn("/smp farmreset now failed", failure);
-                user.reply("smp.admin.farmreset-failed", Map.of(), Feedback.REFUSED);
+                user.reply("smp.admin.farmreset-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

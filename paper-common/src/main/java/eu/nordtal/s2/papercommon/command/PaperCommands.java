@@ -17,6 +17,7 @@ import eu.nordtal.s2.commands.Target;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.remote.Outbox;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.Messages;
 
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -459,7 +460,7 @@ public final class PaperCommands {
         if (!mayUse(context.getSource())) {
             below.removeIf(Declaration::adminOnly);
             if (below.isEmpty()) {
-                user.reply("command.not-admin", Map.of(), Feedback.REFUSED);
+                user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -467,19 +468,19 @@ public final class PaperCommands {
         if (below.isEmpty()) {
             // Only reachable for a root whose every command was skipped by remote(), which today
             // cannot happen - a root exists because something was added under it.
-            user.reply("command.help.nothing", Map.of(), Feedback.REFUSED);
+            user.reply("command.help.nothing", Map.of(), Feedback.REFUSED, Tone.WARN);
             return Command.SINGLE_SUCCESS;
         }
         if (below.size() == 1) {
             return usage(context, below.getFirst());
         }
 
-        user.reply("command.help.header", Map.of("command", "/" + node.literal));
+        user.reply("command.help.header", Map.of("command", "/" + node.literal), Tone.NEUTRAL);
         below.stream()
                 .sorted(java.util.Comparator.comparing(Declaration::name))
                 .forEach(declaration -> user.reply("command.help.line",
                         Map.of("usage", declaration.usage(),
-                                "what", user.phrase(declaration.describeKey()))));
+                                "what", user.phrase(declaration.describeKey())), Tone.MUTED));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -487,8 +488,10 @@ public final class PaperCommands {
     private int usage(final CommandContext<CommandSourceStack> context,
                       final Declaration declaration) {
         final NordtalUser user = user(context.getSource().getSender());
-        user.reply("command.help.usage", Map.of("usage", declaration.usage()), Feedback.REFUSED);
-        user.reply("command.help.what", Map.of("what", user.phrase(declaration.describeKey())));
+        user.reply("command.help.usage", Map.of("usage", declaration.usage()),
+                Feedback.REFUSED, Tone.NEUTRAL);
+        user.reply("command.help.what", Map.of("what", user.phrase(declaration.describeKey())),
+                Tone.MUTED);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -630,7 +633,7 @@ public final class PaperCommands {
                     plugin.getLogger().log(java.util.logging.Level.WARNING,
                             "Could not read the account link for " + account.getValue(), failure);
                     back(() -> user(sender).reply("command.account-unreachable", Map.of(),
-                            Feedback.REFUSED));
+                            Feedback.REFUSED, Tone.BAD));
                     return;
                 }
                 if (linked.isEmpty()) {
@@ -664,7 +667,7 @@ public final class PaperCommands {
         // it differently.
         if (user.origin() == NordtalUser.Origin.CONSOLE
                 && !entry.declaration().surfaces().contains(eu.nordtal.s2.commands.Surface.CONSOLE)) {
-            user.reply("command.not-from-console", Map.of(), Feedback.REFUSED);
+            user.reply("command.not-from-console", Map.of(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -673,7 +676,7 @@ public final class PaperCommands {
         // typed bare ran for every player. A check that lives on the decision itself cannot be
         // skipped by the shape of the tree.
         if (entry.declaration().adminOnly() && !mayUse(sender, isAdmin)) {
-            user.reply("command.not-admin", Map.of(), Feedback.REFUSED);
+            user.reply("command.not-admin", Map.of(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -685,13 +688,13 @@ public final class PaperCommands {
                 continue;
             }
             if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.PLAYER) {
-                user.reply("command.player-offline", Map.of(), Feedback.REFUSED);
+                user.reply("command.player-offline", Map.of(), Feedback.REFUSED, Tone.WARN);
                 return Command.SINGLE_SUCCESS;
             }
             if (argument.kind() == eu.nordtal.s2.commands.Argument.Kind.ACCOUNT) {
                 // Either not online, or online and not linked. Both mean "there is no Discord
                 // account this name reaches", which is one answer from where the admin is standing.
-                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED);
+                user.reply("command.account-unreachable", Map.of(), Feedback.REFUSED, Tone.BAD);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -701,7 +704,8 @@ public final class PaperCommands {
         // does not exist.
         final var problem = entry.problem().apply(new Values(entry.declaration(), values));
         if (problem.isPresent()) {
-            user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED);
+            user.reply(problem.get().getKey(), problem.get().getValue(), Feedback.REFUSED,
+                    Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -725,7 +729,8 @@ public final class PaperCommands {
         }
         user.reply("command.confirm.retype", Map.of(
                 "command", what,
-                "seconds", String.valueOf(Confirmations.WINDOW.toSeconds())), Feedback.REFUSED);
+                "seconds", String.valueOf(Confirmations.WINDOW.toSeconds())),
+                Feedback.REFUSED, Tone.WARN);
         return false;
     }
 

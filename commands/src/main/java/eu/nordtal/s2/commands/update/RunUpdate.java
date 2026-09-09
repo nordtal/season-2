@@ -5,6 +5,7 @@ import eu.nordtal.s2.commands.NordtalCommand;
 import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.common.feedback.Feedback;
+import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.common.update.UpdateKind;
 
@@ -47,9 +48,9 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
                 // back out while there still is one.
                 user.reply("update.started", Map.of(
                         "seconds", UpdateDirectory.UPDATE_COUNTDOWN.toSeconds()),
-                        Feedback.BIG_SUCCESS);
+                        Feedback.BIG_SUCCESS, Tone.GOOD);
             } catch (final RuntimeException failure) {
-                user.reply("update.write-failed", Map.of(), Feedback.REFUSED);
+                user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);
             }
         });
     }

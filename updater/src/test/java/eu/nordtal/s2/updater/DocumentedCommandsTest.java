@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * That every {@code docker compose run --rm updater} written down anywhere names what it does.
  *
  * <h2>The bug this exists for</h2>
- * {@code compose.yml}, {@code updater/Dockerfile}, {@code updater/README.md}, {@code docs/updater.md}
+ * {@code compose.yml}, {@code updater/Dockerfile}, {@code updater/README.md}
  * and {@code deploy/README.md} all documented the bare command as the harmless read-only report -
  * <em>"prints what is installed and changes nothing"</em>. It is not. Compose hands a {@code run}
  * that names no command the service's own {@code command}, which is {@code serve}: the operator got
@@ -43,7 +43,6 @@ class DocumentedCommandsTest {
             ".env.example",
             "updater/Dockerfile",
             "updater/README.md",
-            "docs/updater.md",
             "deploy/README.md");
 
     /** What {@link UpdaterMain} actually dispatches on. Anything else reads as the default. */

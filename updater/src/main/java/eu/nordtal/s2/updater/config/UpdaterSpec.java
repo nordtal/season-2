@@ -13,10 +13,15 @@ import java.util.List;
  *
  * <h2>Everything here has a real default, and that is not this repository's habit</h2>
  * Every other config in season 2 leaves ids, tokens and URLs empty and refuses to start, because
- * a guessed id is somebody else's guild. This file is the opposite on purpose: the repositories,
- * the two Modrinth project ids and the platform versions are facts about <em>this</em> project,
- * not about a deployment, and an updater that cannot start until an operator retypes
- * {@code nordtal/season-2} is an updater that will be started with a typo in it.
+ * a guessed id is somebody else's guild. This file is the opposite on purpose: the repositories
+ * and the two Modrinth project ids are facts about <em>this</em> project, not about a deployment,
+ * and an updater that cannot start until an operator retypes {@code nordtal/season-2} is an
+ * updater that will be started with a typo in it.
+ *
+ * <p>The platform versions used to be here for the same reason and are not any more: a fact about
+ * the project that <em>nothing</em> should be able to override does not belong in a file the
+ * environment wins over. They are {@link eu.nordtal.s2.common.Platform} since 2026-09-09 - see the
+ * comment where the four retired keys stood.</p>
  *
  * <p>The one value that behaves the usual way is {@link #githubToken()}: empty, optional, and
  * only there for the rate limit.</p>
@@ -56,7 +61,7 @@ import java.util.List;
         "NORDTAL_UPDATER_<PATH>, with '-' becoming '_':",
         "",
         "  season-release  ->  NORDTAL_UPDATER_SEASON_RELEASE",
-        "  paper-build     ->  NORDTAL_UPDATER_PAPER_BUILD",
+        "  volumes-root    ->  NORDTAL_UPDATER_VOLUMES_ROOT",
         "",
         "The environment wins over this file and is never written back to it."
 })
@@ -140,6 +145,24 @@ public interface UpdaterSpec {
         return "fALzjamp";
     }
 
+    // minecraft-version, velocity-version, paper-build and velocity-build were here until
+    // 2026-09-09, and all four are retired rather than moved.
+    //
+    // THE TWO VERSIONS ARE eu.nordtal.s2.common.Platform NOW. A platform version is a property of
+    // the season, not of an installation: every plugin in the organisation is compiled against
+    // exactly one Paper API, and the resource pack's pack_format is chosen for the same version.
+    // An operator who typed a different number here was not configuring the updater, they were
+    // pointing the network at a Minecraft nothing in the repository was built for - and compose.yml
+    // fed both keys out of .env, so the environment won over the source tree in the one place where
+    // it must not. Platform.MINECRAFT is the exact Paper version and Platform.VELOCITY_FAMILY is
+    // Fill's name for Velocity's major, of which the newest release is installed.
+    //
+    // THE TWO BUILD PINS ARE GONE WITH NO REPLACEMENT, decided by the owner on 2026-09-09. What
+    // they bought was a way back out of a bad platform build, and what they cost was a rollback
+    // path nobody had ever exercised sitting in front of the one thing this module does every day.
+    // Do not reintroduce one, here or anywhere else: an undocumented emergency brake is worse than
+    // none, because the next person will believe the file rather than the code.
+
     @Order(7)
     @Key("voicechat-project")
     @Comment({
@@ -185,55 +208,25 @@ public interface UpdaterSpec {
         return "Lu3KuzdV";
     }
 
+    // minecraft-version, velocity-version, paper-build and velocity-build were here until
+    // 2026-09-09, and all four are retired rather than moved.
+    //
+    // THE TWO VERSIONS ARE eu.nordtal.s2.common.Platform NOW. A platform version is a property of
+    // the season, not of an installation: every plugin in the organisation is compiled against
+    // exactly one Paper API, and the resource pack's pack_format is chosen for the same version.
+    // An operator who typed a different number here was not configuring the updater, they were
+    // pointing the network at a Minecraft nothing in the repository was built for - and compose.yml
+    // fed both keys out of .env, so the environment won over the source tree in the one place where
+    // it must not. Platform.MINECRAFT is the exact Paper version and Platform.VELOCITY_FAMILY is
+    // Fill's name for Velocity's major, of which the newest release is installed.
+    //
+    // THE TWO BUILD PINS ARE GONE WITH NO REPLACEMENT, decided by the owner on 2026-09-09. What
+    // they bought was a way back out of a bad platform build, and what they cost was a rollback
+    // path nobody had ever exercised sitting in front of the one thing this module does every day.
+    // Do not reintroduce one, here or anywhere else: an undocumented emergency brake is worse than
+    // none, because the next person will believe the file rather than the code.
+
     @Order(9)
-    @Key("minecraft-version")
-    @Comment({
-            "The Minecraft version the network runs. Used as the game_versions filter against",
-            "Modrinth and as the version whose builds are read from the PaperMC Fill API.",
-            "",
-            "This is not a value the updater may change on its own: a new Minecraft version is",
-            "a season decision, and every plugin in the org is compiled against exactly one."
-    })
-    default String minecraftVersion() {
-        return "26.2";
-    }
-
-    @Order(10)
-    @Key("velocity-version")
-    @Comment({
-            "The Velocity version the proxy runs. Same rule as minecraft-version: the updater",
-            "follows BUILDS within it and never moves the version itself."
-    })
-    default String velocityVersion() {
-        return "4.1.1";
-    }
-
-    @Order(11)
-    @Key("paper-build")
-    @Comment({
-            "Which build of minecraft-version the three Paper servers run: the word 'latest'",
-            "for the newest STABLE build the Fill API lists, or an exact build number such",
-            "as '121'.",
-            "",
-            "An exact number is how a rollback is expressed, exactly like season-release: the",
-            "next apply installs that build, whether it is older or newer than what is there.",
-            "It is a person's decision and this module never writes it. PAPER_BUILD in .env is",
-            "a different thing - the build the entrypoint seeds an EMPTY cache with, once."
-    })
-    default String paperBuild() {
-        return "latest";
-    }
-
-    @Order(12)
-    @Key("velocity-build")
-    @Comment({
-            "Which build of velocity-version the proxy runs. Same rule as paper-build."
-    })
-    default String velocityBuild() {
-        return "latest";
-    }
-
-    @Order(13)
     @Key("volumes-root")
     @Comment({
             "Where the four Minecraft volumes are mounted inside this container - one",
@@ -251,7 +244,7 @@ public interface UpdaterSpec {
         return "/volumes";
     }
 
-    @Order(14)
+    @Order(10)
     @Key("github-token")
     @Comment({
             "Optional. A token raises GitHub's unauthenticated rate limit of 60 requests per",
@@ -265,7 +258,7 @@ public interface UpdaterSpec {
         return "";
     }
 
-    @Order(15)
+    @Order(11)
     @Key("http-timeout-seconds")
     @Comment({
             "How long any single API call may take before the run gives up.",
@@ -277,7 +270,7 @@ public interface UpdaterSpec {
         return 30;
     }
 
-    @Order(16)
+    @Order(12)
     @Key("download-timeout-seconds")
     @Comment({
             "How long a single jar may take to download during `updater apply`.",
@@ -290,7 +283,7 @@ public interface UpdaterSpec {
         return 600;
     }
 
-    @Order(17)
+    @Order(13)
     @Key("poll-interval-seconds")
     @Comment({
             "How often `updater serve` looks in update_request for work it was not told about.",
@@ -310,7 +303,7 @@ public interface UpdaterSpec {
         return 15;
     }
 
-    @Order(18)
+    @Order(14)
     @Key("bootstrap")
     @Comment({
             "Whether `updater serve` installs what is MISSING before it reports itself ready.",
@@ -336,7 +329,7 @@ public interface UpdaterSpec {
         return true;
     }
 
-    @Order(19)
+    @Order(15)
     @Key("arcane")
     @Comment({
             "How the restart is actually performed: one redeploy of the whole compose project",
@@ -353,7 +346,7 @@ public interface UpdaterSpec {
     })
     ArcaneSpec arcane();
 
-    @Order(20)
+    @Order(16)
     @Key("backup")
     @Comment({
             "The nightly volume backup: which volumes are saved and which services are stopped",

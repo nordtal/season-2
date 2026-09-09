@@ -1,7 +1,5 @@
 package eu.nordtal.s2.updater.config;
 
-import eu.nordtal.s2.updater.source.PaperFill;
-
 import eu.nordtal.jcore.config.ConfigHandle;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
@@ -75,10 +73,10 @@ public final class Configs {
                     requireText("display-tags-release", config.displayTagsRelease());
                     requireModrinthId("packetevents-project", config.packetEventsProject());
                     requireModrinthId("chunky-project", config.chunkyProject());
-                    requireText("minecraft-version", config.minecraftVersion());
-                    requireText("velocity-version", config.velocityVersion());
-                    requireBuild("paper-build", config.paperBuild());
-                    requireBuild("velocity-build", config.velocityBuild());
+                    // minecraft-version, velocity-version, paper-build and velocity-build were
+                    // checked here until 2026-09-09. There is nothing left to check: the two
+                    // versions are constants in :common and the two build pins are retired. See
+                    // the comment in UpdaterSpec where they stood.
                     requireText("volumes-root", config.volumesRoot());
                     requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
                     requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
@@ -120,22 +118,6 @@ public final class Configs {
                         + " place for it to fail. The pg_dump sidecar writes postgres-dumps; list"
                         + " that instead. See deploy/README.md#backups.");
             }
-        }
-    }
-
-    /**
-     * {@code latest} or a positive integer - the two things a Fill build pin can be. Anything else
-     * ({@code 'stable'}, {@code 'v121'}, {@code '121.jar'}) is refused here rather than turning
-     * into a 404 on the morning of an update.
-     */
-    private static void requireBuild(final String key, final String value) {
-        requireText(key, value);
-        if (PaperFill.LATEST.equals(value)) {
-            return;
-        }
-        if (!value.matches("[1-9][0-9]*")) {
-            throw new IllegalArgumentException(key + " must be 'latest' or a build number such as 121,"
-                    + " not '" + value + "'");
         }
     }
 

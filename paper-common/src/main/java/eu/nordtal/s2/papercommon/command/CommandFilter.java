@@ -14,6 +14,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.command.UnknownCommandEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerCommandSendEvent;
 import org.bukkit.plugin.Plugin;
@@ -174,11 +175,49 @@ public final class CommandFilter implements Listener {
             return;
         }
         event.setCancelled(true);
-        // The same line a mistyped command gets, in the player's own language - discord_user.locale
-        // through PlayerLocales, never the client's setting. of(...) answers English until the
-        // join lookup lands, which is the whole reason it exists.
-        event.getPlayer().sendMessage(Tones.paint(MessageRenderer.of(messages)
-                .get(locales.of(event.getPlayer().getUniqueId()), "command.unknown"), Tone.BAD));
+        event.getPlayer().sendMessage(refusal(event.getPlayer().getUniqueId()));
+    }
+
+    /**
+     * Answers a command that does not exist with the same line a refused one gets.
+     *
+     * <h2>Why the same line, and why it has to be said twice</h2>
+     * <b>There is exactly one sentence for "that does not exist" and "you may not type that."</b>
+     * That is the whole point of the allowlist's wording: a player who learns which of the two they
+     * hit has learned what exists on this server, which is what the list is keeping from them. Two
+     * sentences saying one thing is also the kind of seam nobody notices - both are correct, both
+     * are translated, and they only ever appear one at a time.
+     *
+     * <p>It is said twice because two different things produce it. {@link #onCommand} answers a
+     * command that <em>does</em> exist and is not on the list. This answers one Paper cannot find at
+     * all - which is what a genuine typo is, what an <b>admin</b> gets (they skip the filter
+     * entirely), and what <b>everybody</b> gets while no allowlist has been published yet. Without
+     * this handler each of those reads vanilla's "Unknown or incomplete command, see below for
+     * error" with a red caret under the offending character, in the server's language.</p>
+     *
+     * <h2>The console keeps vanilla's</h2>
+     * Deliberately. Paper's default text carries the parse position, which is diagnosis rather than
+     * decoration, and the console is an operator reading a log next to a stack trace - not somebody
+     * who has to be kept from enumerating the command tree. They already have the whole of it.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onUnknownCommand(final UnknownCommandEvent event) {
+        if (!(event.getSender() instanceof org.bukkit.entity.Player player)) {
+            return;
+        }
+        event.message(refusal(player.getUniqueId()));
+    }
+
+    /**
+     * The one refusal line, in that player's own language.
+     *
+     * <p>{@code discord_user.locale} through {@link PlayerLocales}, never the client's setting;
+     * {@code of(...)} answers English until the join lookup lands, which is the whole reason it
+     * exists.</p>
+     */
+    private net.kyori.adventure.text.Component refusal(final UUID player) {
+        return Tones.paint(MessageRenderer.of(messages).get(locales.of(player), "command.unknown"),
+                Tone.BAD);
     }
 
     /**

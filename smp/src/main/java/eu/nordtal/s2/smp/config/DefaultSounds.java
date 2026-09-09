@@ -52,6 +52,14 @@ final class DefaultSounds {
     /** The advancement toast, which is the one sound vanilla itself uses to mean "look". */
     static final SoundsSpec.SoundSpec NETWORK_EVENT = sound("minecraft:ui.toast.challenge_complete", 1.0f);
 
+    /**
+     * The one category with no sound. See {@code Feedback.STAGING}: the blank is the decision.
+     *
+     * <p>Written through the same map as the others so the key still appears in a fresh file with
+     * its comment - an absent key would leave nobody anything to fill in.</p>
+     */
+    static final SoundsSpec.SoundSpec STAGING = sound("", 1.0f);
+
     private DefaultSounds() {
     }
 

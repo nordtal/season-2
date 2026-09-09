@@ -107,6 +107,18 @@ public interface SoundsSpec {
     @Comment("Everybody hears it: a loot refill, the same-team warning, somebody else winning.")
     default SoundSpec networkEvent() { return DefaultSounds.NETWORK_EVENT; }
 
+    @Order(11) @Key("staging")
+    @Comment({
+            "A staged moment - today only the season's opening on a player's first join.",
+            "",
+            "SHIPS EMPTY, deliberately (owner, 2026-09-09). Every other key here names a vanilla",
+            "sound because a vanilla sound is what that category is; a staged moment's sound comes",
+            "into the resource pack with its artwork and does not exist yet. An empty key is",
+            "silence, which is what this is meant to be until then - so filling it in is one line",
+            "here and no release."
+    })
+    default SoundSpec staging() { return DefaultSounds.STAGING; }
+
     /** One sound: the key, how loud, how fast. */
     @ConfigSpec
     interface SoundSpec {

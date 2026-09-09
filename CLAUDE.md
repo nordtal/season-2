@@ -1260,7 +1260,7 @@ back** — not `yes`, which is what somebody types when they have stopped readin
 through `checkDev`. The rest of `deploy/dev` is `docker compose` with an env file and is verified by
 running it.
 
-**Nine modules have tests: 1498 in total, none skipped, all green** (`./gradlew build` with a
+**Nine modules have tests: 1528 in total, none skipped, all green** (`./gradlew build` with a
 Docker daemon present, 2026-09-09, on `release/0.7.1`). The counts
 below are what the JUnit XML reports, not `@Test` counts.
 
@@ -1333,12 +1333,12 @@ window and `ArcaneDiagnosisTest`'s fourth static string check, an API key on an 
 
 | module | tests |
 |---|---|
-| `common` | 385 |
-| `smp` | 235 |
+| `common` | 393 |
+| `smp` | 256 |
 | `network-control` | 217 |
 | `commands` | 219 |
 | `updater` | 192 |
-| `discord-bot` | 158 |
+| `discord-bot` | 159 |
 | `hunger-games` | 74 |
 | `limbo` | 11 |
 | `paper-common` | 7 |

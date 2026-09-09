@@ -157,6 +157,21 @@ public record CommandAllowlist(List<List<String>> entries) {
      * has to remember to keep in step; an argument that happens to contain a colon is not a
      * namespace and is left alone.</p>
      */
+    /**
+     * Whether one written line names a command at all.
+     *
+     * <p>Blank is not the only way to write nothing: {@code "/"} and {@code "minecraft:"} both
+     * normalise to the empty path, so they pass a blank check, match no command, and sit in
+     * {@code network.yml} looking like an entry that does something. The proxy refuses one at load
+     * rather than starting with a list that quietly has a hole in it.</p>
+     *
+     * @param line one entry as an operator wrote it
+     * @return {@code true} when it survives normalisation
+     */
+    public static boolean names(final String line) {
+        return !segments(line).isEmpty();
+    }
+
     private static List<String> segments(final String line) {
         if (line == null) {
             return List.of();

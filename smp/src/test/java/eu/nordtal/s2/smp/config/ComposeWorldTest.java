@@ -108,6 +108,19 @@ class ComposeWorldTest {
     void theBackupClockIsPassedThroughAndDefaultsToTheSpec() throws Exception {
         final String expression =
                 String.valueOf(environmentOf("smp").get("NORDTAL_SMP_BACKUP_TIME"));
+        // `${VAR:-x}` falls back when the variable is unset OR empty; `${VAR-x}` only when it is
+        // unset. This is the one setting whose empty value MEANS something - "never" - so `:-`
+        // here would make `SMP_BACKUP_TIME=` in deploy/dev.env silently become 04:45, and the
+        // local stack would ask for a nightly backup against an Arcane that does not exist.
+        //
+        // THE SINGLE DASH IS THE ASSERTION, and it comes first because the pattern below rejects
+        // a colon: with `${VAR:-x}` the match fails, and the test would then report the generic
+        // "no default" message about an expression that has one. Naming the actual regression is
+        // the whole point of a test that guards one character.
+        assertFalse(expression.contains(":-"),
+                "smp.NORDTAL_SMP_BACKUP_TIME uses `:-`, so setting it to an empty value falls back"
+                        + " to the default instead of turning the nightly backup off");
+
         final Matcher matcher =
                 Pattern.compile("^\\$\\{[A-Z0-9_]+-(.*)}$").matcher(expression);
         assertTrue(matcher.matches(), "smp.NORDTAL_SMP_BACKUP_TIME is '" + expression + "', which"
@@ -118,14 +131,6 @@ class ComposeWorldTest {
                         + " defaults to something else. An empty value here means no nightly"
                         + " backup anywhere in the network, and nothing would say so.");
 
-        // THE SINGLE DASH IS THE ASSERTION, and it is the only one in compose.yml. `${VAR:-x}`
-        // falls back when the variable is unset OR empty; `${VAR-x}` only when it is unset. This
-        // is the one setting whose empty value MEANS something - "never" - so `:-` here would make
-        // `SMP_BACKUP_TIME=` in deploy/dev.env silently become 04:45, and the local stack would ask
-        // for a nightly backup against an Arcane that does not exist.
-        assertFalse(expression.contains(":-"),
-                "smp.NORDTAL_SMP_BACKUP_TIME uses `:-`, so setting it to an empty value falls back"
-                        + " to the default instead of turning the nightly backup off");
     }
 
     /** The datapacks have to land in the world Paper actually generates, not beside it. */

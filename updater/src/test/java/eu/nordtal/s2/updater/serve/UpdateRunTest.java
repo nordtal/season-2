@@ -255,7 +255,8 @@ class UpdateRunTest {
                 Duration.ofMinutes(60), patient());
         run.start(new UpdateRun.Stopped(saved, stopped.services(), arcane.runtime()));
 
-        assertEquals(List.of("stop:smp-container", "backup:mc-smp", "start:smp-container"),
+        assertEquals(List.of("stop:smp-container", "backup:mc-smp", "poll:mc-smp",
+                        "start:smp-container"),
                 arcane.calls,
                 "stopped, then saved, then started - a snapshot outside that gap is a torn one");
         assertEquals(UpdateReport.State.SAVED, saved.line("mc-smp").state());
@@ -272,8 +273,10 @@ class UpdateRunTest {
         run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
                 List.of("mc-smp", "bot-config"), Duration.ofMinutes(60), patient());
 
-        assertEquals(List.of("backup:mc-smp", "backup:bot-config"), arcane.calls,
+        assertEquals(List.of("backup:mc-smp", "backup:bot-config"), arcane.calls.subList(0, 2),
                 "both POSTs go out before the first poll");
+        assertTrue(arcane.calls.stream().anyMatch(call -> call.startsWith("poll:")),
+                "nothing was polled at all, so the assertion above proves nothing: " + arcane.calls);
     }
 
     @Test

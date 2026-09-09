@@ -37,7 +37,13 @@ class BodyDeathIsAnnouncedTest {
         assertTrue(marker > 0, "onMarkerDeath is gone - if it was renamed, this test moves with it,"
                 + " because a check that cannot find its subject silently stops running");
 
-        final String body = source.substring(marker, source.indexOf("private void handleDeath"));
+        // Ends at the helper's DECLARATION, not at the next method: the declaration contains the
+        // string this test searches for, so a slice that reaches past it goes green even when
+        // onMarkerDeath has stopped calling it - the same way an indexOf of -1 does.
+        final int helper = source.indexOf("private void announceBodyDeath");
+        assertTrue(helper > marker, "announceBodyDeath is gone or has moved above onMarkerDeath;"
+                + " this test brackets the handler and needs the helper below it");
+        final String body = source.substring(marker, helper);
         assertTrue(body.contains("announceBodyDeath("),
                 "onMarkerDeath books the death without announcing it. That is the state this file"
                         + " was in until 2026-09-09: the sound plays, the roster updates, the body"

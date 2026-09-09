@@ -2,12 +2,16 @@ package eu.nordtal.s2.smp.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import eu.nordtal.s2.commands.NordtalUser;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.common.message.Tone;
+import eu.nordtal.s2.papercommon.command.PaperUser;
 import eu.nordtal.s2.smp.db.PlaceRow;
 import eu.nordtal.s2.smp.db.PoiRow;
 import eu.nordtal.s2.smp.db.SmpDao;
@@ -27,6 +31,7 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -77,13 +82,101 @@ public final class NavigateCommand {
     public LiteralCommandNode<CommandSourceStack> poi() {
         return Commands.literal("poi")
                 .requires(source -> source.getSender() instanceof Player)
-                .then(Commands.literal("add")
-                        .then(Commands.argument("name", StringArgumentType.greedyString())
-                                .executes(this::addPoi)))
-                .then(Commands.literal("remove")
-                        .then(Commands.argument("name", StringArgumentType.greedyString())
-                                .executes(this::removePoi)))
+                // Every node below is reachable by typing exactly it, and every one of them
+                // answers - see the class comment. A bare /poi lists what it takes; /poi add
+                // says what it is still missing.
+                .executes(this::poiHelp)
+                .then(subcommand(Sub.ADD, this::addPoi))
+                .then(subcommand(Sub.REMOVE, this::removePoi))
                 .build();
+    }
+
+    /**
+     * One {@code /poi} subcommand: the literal, its name argument, and the usage line the literal
+     * answers with on its own.
+     */
+    private LiteralArgumentBuilder<CommandSourceStack> subcommand(
+            final Sub sub, final Command<CommandSourceStack> action) {
+        return Commands.literal(sub.literal)
+                .executes(context -> usage(context, sub))
+                .then(Commands.argument("name", StringArgumentType.greedyString())
+                        .executes(action));
+    }
+
+    /**
+     * What {@code /poi} takes, and the one place it is written down.
+     *
+     * <p>The tree is built from this and so is the help, for the reason
+     * {@code Declaration#usage} gives: a usage line kept by hand next to a command is the first
+     * thing to go stale when an argument is added, and the way it goes stale is that it keeps
+     * telling people to type something that no longer parses.</p>
+     */
+    private enum Sub {
+
+        ADD("add"),
+        REMOVE("remove");
+
+        private final String literal;
+
+        Sub(final String literal) {
+            this.literal = literal;
+        }
+
+        /** {@code /poi add <name>} - the same convention {@code Declaration#usage} uses. */
+        String usage() {
+            return "/poi " + literal + " <name>";
+        }
+
+        String describeKey() {
+            return "command.describe.poi." + literal;
+        }
+    }
+
+    // ------------------------------------------------------------------ /poi help
+
+    /**
+     * What can be typed here, and what each one is for.
+     *
+     * <h2>Why this is duplicated from PaperCommands rather than shared</h2>
+     * {@code PaperCommands} gives every node of a {@link eu.nordtal.s2.commands.Declaration} tree
+     * this answer already, and until 2026-09-09 {@code /poi} had none - a bare {@code /poi} fell
+     * through to {@code UnknownCommandEvent} and told a player "That command does not exist" about
+     * a command that does. This is one of the two hand-built trees in the repository (see
+     * {@code SmpPlugin#registerCommands} for why they are hand-built), so it carries the answer
+     * itself. It uses the adapter's own four message keys, so the wording and the shape stay one
+     * decision and an operator's override reaches both.
+     */
+    private int poiHelp(final CommandContext<CommandSourceStack> context) {
+        final NordtalUser user = user(context);
+        user.reply("command.help.header", Map.of("command", "/poi"), Tone.NEUTRAL);
+        for (final Sub sub : Sub.values()) {
+            user.reply("command.help.line",
+                    Map.of("usage", sub.usage(), "what", user.phrase(sub.describeKey())),
+                    Tone.MUTED);
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** The usage of one subcommand, plus the sentence saying what it is for. */
+    private int usage(final CommandContext<CommandSourceStack> context, final Sub sub) {
+        final NordtalUser user = user(context);
+        user.reply("command.help.usage", Map.of("usage", sub.usage()), Feedback.REFUSED,
+                Tone.NEUTRAL);
+        user.reply("command.help.what", Map.of("what", user.phrase(sub.describeKey())), Tone.MUTED);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * Whoever typed it - always a player, since the root's {@code requires} refuses the console.
+     *
+     * <p>The admin flag comes from the cache and not a query: this runs on the main thread, inside
+     * a Brigadier handler, on a command any player can type.</p>
+     */
+    private NordtalUser user(final CommandContext<CommandSourceStack> context) {
+        final Player player = (Player) context.getSource().getSender();
+        return PaperUser.of(plugin, player, locales.of(player.getUniqueId()),
+                identities.of(player.getUniqueId()).admin(),
+                () -> identities.discordIdOf(player.getUniqueId()), messages, sounds::play);
     }
 
     // ------------------------------------------------------------------ /navigate

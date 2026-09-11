@@ -458,12 +458,38 @@ public final class Arcane implements ArcaneOps {
                         + " for " + url + ", so this run cannot tell a current image from a stale"
                         + " one. The jars are unaffected.");
             }
-            return ImageResult.of(ArcaneImages.parse(response.body()));
+            // The names are not in this payload - see ArcaneImages. They come from the runtime
+            // endpoint, which is read here rather than passed in so that `images()` stays one call
+            // from the caller's side. A runtime that cannot be read is not a failure of this
+            // method: the result is then every service UNKNOWN, which is already "do nothing and
+            // say so" and is strictly better than guessing which container to recreate.
+            return ArcaneImages.parse(response.body(), runtimeBody());
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             return ImageResult.unreachable("Interrupted while reading the project's image updates.");
         } catch (final IOException failure) {
             return ImageResult.unreachable(unreachable(uri, failure, config.baseUrl()));
+        }
+    }
+
+    /**
+     * The raw {@code /runtime} body, or {@code null} if it cannot be had.
+     *
+     * <p>Deliberately swallows everything. Its only caller is {@link #images()}, whose answer
+     * without it is "nothing is known about any image" - the same answer an error here should
+     * produce, and one that is never work.</p>
+     */
+    private String runtimeBody() {
+        try {
+            final HttpResponse<String> response = client.send(
+                    get(new URI(config.baseUrl() + substitute(config.runtimePath()))),
+                    HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() / 100 == 2 ? response.body() : null;
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (final IOException | URISyntaxException | RuntimeException failure) {
+            return null;
         }
     }
 

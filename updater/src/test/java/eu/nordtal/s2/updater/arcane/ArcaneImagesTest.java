@@ -139,15 +139,41 @@ class ArcaneImagesTest {
 
         assertEquals(ImageResult.State.UNKNOWN, result.state("updater"));
         assertFalse(result.isOutdated("updater"));
-        assertEquals(java.util.Set.of("updater"), result.notCheckable());
+        assertEquals(java.util.Set.of("updater"), result.unverifiable());
 
-        final String note = result.nothingChecked().orElseThrow(
+        final String note = result.notCheckable().orElseThrow(
                 () -> new AssertionError("a run that compared nothing has to say so"));
         assertTrue(note.contains("build:"), "the note must name the real cause rather than send"
                 + " somebody to a setting that is already on: " + note);
-        assertFalse(note.contains("turn the image update check on"),
-                "that sentence is for a project with no results at all, not for one whose results"
-                        + " all say 'local': " + note);
+        assertTrue(result.nothingChecked().isEmpty(),
+                "the two notes are alternatives - saying both about one cause is how a report"
+                        + " stops being read: " + result.nothingChecked().orElse(""));
+    }
+
+    @Test
+    @DisplayName("one checked service does not silence the ones nobody could check")
+    void oneCheckedServiceDoesNotSilenceTheRest() {
+        // THE SECOND HALF OF THE 0.8.5 FIX, and it is the shape of this deployment exactly:
+        // postgres is the only service without a `build:` directive, so it is the only one Arcane
+        // really checks - and before this, that one success made the report say nothing at all
+        // about the four images we publish. Silence reads as "checked, and current".
+        final ImageResult result = ArcaneImages.parse("""
+                {"updateInfo": {"updateInfoByRef": {
+                  "postgres:17-alpine":            {"updateType": "digest", "hasUpdate": false, "latestDigest": "sha256:aaa"},
+                  "ghcr.io/nordtal/updater:latest": {"updateType": "local", "hasUpdate": false, "latestDigest": ""}
+                }}}
+                """, """
+                {"runtimeServices": [
+                  {"name": "postgres", "image": "postgres:17-alpine"},
+                  {"name": "updater",  "image": "ghcr.io/nordtal/updater:latest"}
+                ]}
+                """);
+
+        assertEquals(ImageResult.State.UP_TO_DATE, result.state("postgres"));
+        assertEquals(ImageResult.State.UNKNOWN, result.state("updater"));
+        assertTrue(result.nothingChecked().isEmpty(), "something was checked, so that note is wrong");
+        assertTrue(result.notCheckable().orElse("").contains("updater"),
+                "the service nobody could check has to be named anyway");
     }
 
     @Test

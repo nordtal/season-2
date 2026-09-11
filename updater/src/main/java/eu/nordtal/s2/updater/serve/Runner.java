@@ -163,6 +163,14 @@ public final class Runner implements RequestRunner {
     private static UpdateReport withImages(final UpdateReport planned, final ImageResult images) {
         UpdateReport report = planned;
 
+        // Named first and not returned on: services whose image Arcane never compared are UNKNOWN
+        // and therefore silent, and on this deployment that is every image we publish. A run that
+        // says nothing about them reads exactly like one that checked them and found them current.
+        final java.util.Optional<String> unverifiable = images.notCheckable();
+        if (unverifiable.isPresent()) {
+            report = report.withNote(unverifiable.get());
+        }
+
         final java.util.Optional<String> nothing = images.nothingChecked();
         if (nothing.isPresent()) {
             return report.withNote(nothing.get());

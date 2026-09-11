@@ -203,7 +203,17 @@ services:
   # -------------------------------------------------------------------------------------------
   # The Discord bot. No Minecraft dependency: PostgreSQL, the Discord gateway and bunq. It validates
   # the schema and refuses to start on a database nobody migrated. Runbook: discord-bot/README.md.
-  bot:
+  #
+  # THE SERVICE NAME IS `discord-bot` AND IT IS THE SAME STRING AS EVERYTHING ELSE ABOUT THIS JAR:
+  # the module directory, the artefact id in :updater's Topology, the volume path the updater writes
+  # to (/volumes/discord-bot) and the image. It was `bot` until 2026-09-11, and that one shorter
+  # name was a whole class of failure: the updater asks Arcane's runtime endpoint for the service
+  # called `discord-bot`, got nothing back, and refused the entire run - "NOTHING WAS INSTALLED",
+  # every server stopped and started again for no reason. TopologyTest now holds the two equal.
+  #
+  # THE PROFILE IS STILL `bot`, deliberately. A profile name is not a service name, and renaming it
+  # would invalidate every COMPOSE_PROFILES=db,bot,mc,backup already written into a .env on a host.
+  discord-bot:
     profiles: ["bot"]
     # THE IMAGE TAG IS A FLOOR, NOT THE VERSION. The bot runs whatever discord-bot-*.jar is in the
     # `bot-jar` volume; the jar baked into the image only makes a first deployment possible. What is

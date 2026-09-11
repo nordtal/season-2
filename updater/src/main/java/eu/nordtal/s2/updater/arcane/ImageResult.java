@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Which of the project's services are running an image older than the registry's.
@@ -16,15 +17,21 @@ import java.util.Optional;
  * no entries at all. Folding that into "no updates" would let a stale image sit there for ever
  * while every run reported the network current.
  *
- * @param reached  whether Arcane answered at all
- * @param services one entry per compose service Arcane named, service name to what it said
- * @param message  why not, or {@code null} when it did
+ * @param reached      whether Arcane answered at all
+ * @param services     one entry per compose service Arcane named, service name to what it said
+ * @param notCheckable the subset of {@code services} whose image Arcane never asked a registry
+ *                     about, because it classified it as local - see {@link #nothingChecked()}.
+ *                     They are {@link State#UNKNOWN} like any other unchecked image; this only
+ *                     records <em>why</em>, so the report can say something true instead of
+ *                     sending somebody to a setting that is already on
+ * @param message      why not, or {@code null} when it did
  */
 public record ImageResult(boolean reached, @NotNull Map<String, State> services,
-                          @Nullable String message) {
+                          @NotNull Set<String> notCheckable, @Nullable String message) {
 
     public ImageResult {
         services = Map.copyOf(services);
+        notCheckable = Set.copyOf(notCheckable);
     }
 
     /** What Arcane knows about one service's image. */
@@ -44,11 +51,16 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
     }
 
     public static ImageResult of(final @NotNull Map<String, State> services) {
-        return new ImageResult(true, services, null);
+        return of(services, Set.of());
+    }
+
+    public static ImageResult of(final @NotNull Map<String, State> services,
+                                 final @NotNull Set<String> notCheckable) {
+        return new ImageResult(true, services, notCheckable, null);
     }
 
     public static ImageResult unreachable(final @NotNull String message) {
-        return new ImageResult(false, Map.of(), message);
+        return new ImageResult(false, Map.of(), Set.of(), message);
     }
 
     /** @return what Arcane said about that service, or {@link State#UNKNOWN} if it named none */
@@ -72,6 +84,19 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
             return Optional.of("Arcane could not be asked about image updates: " + message);
         }
         if (services.isEmpty() || services.values().stream().allMatch(state -> state == State.UNKNOWN)) {
+            if (!notCheckable.isEmpty()) {
+                // The honest sentence, and the reason this field exists. Sending somebody to turn
+                // on a check that is already on is worse than saying nothing: they turn it on,
+                // nothing changes, and the next person reads the same note and believes it less.
+                return Optional.of("Arcane never asked a registry about "
+                        + String.join(", ", notCheckable) + ", so this run cannot tell a current"
+                        + " image from a stale one. That is not a setting: Arcane treats the image"
+                        + " of any service carrying a `build:` directive as local and only reports"
+                        + " the digest it already has. compose.yml keeps those blocks on purpose,"
+                        + " for developing the images here - the price is that image drift cannot"
+                        + " be detected for them, and a new image reaches this host only through a"
+                        + " Redeploy in Arcane.");
+            }
             return Optional.of("Arcane holds no image-update result for any service, so this run"
                     + " cannot tell a current image from a stale one. It answers from its own"
                     + " persisted checks rather than asking a registry when asked - turn the image"

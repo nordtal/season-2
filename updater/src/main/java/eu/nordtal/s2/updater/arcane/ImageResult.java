@@ -19,19 +19,19 @@ import java.util.Set;
  *
  * @param reached      whether Arcane answered at all
  * @param services     one entry per compose service Arcane named, service name to what it said
- * @param notCheckable the subset of {@code services} whose image Arcane never asked a registry
- *                     about, because it classified it as local - see {@link #nothingChecked()}.
+ * @param unverifiable the subset of {@code services} whose image Arcane never asked a registry
+ *                     about, because it classified it as local - see {@link #notCheckable()}.
  *                     They are {@link State#UNKNOWN} like any other unchecked image; this only
  *                     records <em>why</em>, so the report can say something true instead of
  *                     sending somebody to a setting that is already on
  * @param message      why not, or {@code null} when it did
  */
 public record ImageResult(boolean reached, @NotNull Map<String, State> services,
-                          @NotNull Set<String> notCheckable, @Nullable String message) {
+                          @NotNull Set<String> unverifiable, @Nullable String message) {
 
     public ImageResult {
         services = Map.copyOf(services);
-        notCheckable = Set.copyOf(notCheckable);
+        unverifiable = Set.copyOf(unverifiable);
     }
 
     /** What Arcane knows about one service's image. */
@@ -55,8 +55,8 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
     }
 
     public static ImageResult of(final @NotNull Map<String, State> services,
-                                 final @NotNull Set<String> notCheckable) {
-        return new ImageResult(true, services, notCheckable, null);
+                                 final @NotNull Set<String> unverifiable) {
+        return new ImageResult(true, services, unverifiable, null);
     }
 
     public static ImageResult unreachable(final @NotNull String message) {
@@ -83,20 +83,13 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
         if (!reached) {
             return Optional.of("Arcane could not be asked about image updates: " + message);
         }
+        if (!unverifiable.isEmpty()) {
+            // Never both. When some image really was unreadable for another reason the sentence
+            // below is still the honest one, and two notes about the same thing is how a report
+            // stops being read.
+            return Optional.empty();
+        }
         if (services.isEmpty() || services.values().stream().allMatch(state -> state == State.UNKNOWN)) {
-            if (!notCheckable.isEmpty()) {
-                // The honest sentence, and the reason this field exists. Sending somebody to turn
-                // on a check that is already on is worse than saying nothing: they turn it on,
-                // nothing changes, and the next person reads the same note and believes it less.
-                return Optional.of("Arcane never asked a registry about "
-                        + String.join(", ", notCheckable) + ", so this run cannot tell a current"
-                        + " image from a stale one. That is not a setting: Arcane treats the image"
-                        + " of any service carrying a `build:` directive as local and only reports"
-                        + " the digest it already has. compose.yml keeps those blocks on purpose,"
-                        + " for developing the images here - the price is that image drift cannot"
-                        + " be detected for them, and a new image reaches this host only through a"
-                        + " Redeploy in Arcane.");
-            }
             return Optional.of("Arcane holds no image-update result for any service, so this run"
                     + " cannot tell a current image from a stale one. It answers from its own"
                     + " persisted checks rather than asking a registry when asked - turn the image"
@@ -104,5 +97,31 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
                     + " image they were created from.");
         }
         return Optional.empty();
+    }
+
+    /**
+     * @return the sentence naming the services whose image Arcane never compared against anything,
+     *         or empty when there are none
+     *
+     * <h2>Why this is separate from {@link #nothingChecked()} and fires on its own</h2>
+     * Because one service that <em>was</em> checked is enough to silence that method, and on this
+     * deployment that service is {@code postgres} - the only one in the project without a
+     * {@code build:} directive. Everything this project publishes is in the other group. Folding
+     * the two together produced the worst of the three possible behaviours: before 0.8.5 every run
+     * carried a note blaming a setting that was already on, and the first cut of the fix carried no
+     * note at all while four images sat unverifiable. Saying nothing reads exactly like "checked,
+     * and current".
+     */
+    public Optional<String> notCheckable() {
+        if (!reached || unverifiable.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of("Arcane never asked a registry about " + String.join(", ", unverifiable)
+                + ", so nothing here can tell a current image from a stale one for "
+                + (unverifiable.size() == 1 ? "it" : "them") + ". That is not a setting somebody"
+                + " forgot: Arcane treats the image of any service carrying a `build:` directive as"
+                + " local and only reports the digest it already holds. compose.yml keeps those"
+                + " blocks deliberately, for developing the images here - the price is this, and a"
+                + " newer image reaches this host only through a Redeploy in Arcane.");
     }
 }

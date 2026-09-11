@@ -493,6 +493,32 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("every service name the updater sends to Arcane is a service compose.yml defines")
+    void everyNameTheUpdaterAsksArcaneForExists() {
+        // THIS IS THE TEST THAT WAS MISSING ON 2026-09-11. Topology named the bot `discord-bot`
+        // and compose.yml called the service `bot`, so Arcane's runtime endpoint - which answers
+        // with compose's service names - never listed it. UpdateRun#stop cannot stop a service it
+        // cannot find, and refusing to install into something still running is correct, so every
+        // /update ended FAILED with "NOTHING WAS INSTALLED" after taking the whole network down
+        // and putting it back. Nothing in the build said a word: the two checks below this one
+        // covered the bot by the literal "bot", which is how the drift survived them.
+        //
+        // The updater is deliberately in this list. It never stops itself, but it does look itself
+        // up - a run reads the runtime before it does anything - and its own image note names it.
+        final List<String> asked = new java.util.ArrayList<>();
+        Topology.SERVICES.forEach(service -> asked.add(service.name()));
+        asked.addAll(Topology.STANDALONE_JARS);
+
+        for (final String name : asked.stream().distinct().toList()) {
+            assertNotNull(services.get(name), "Topology sends the service name '" + name + "' to"
+                    + " Arcane, but compose.yml defines no service called that. Arcane answers with"
+                    + " compose's own service names, so this one can never be found - and a service"
+                    + " that cannot be found cannot be stopped, which fails the entire update run"
+                    + " rather than just that line.");
+        }
+    }
+
+    @Test
     @DisplayName("the bot's and the updater's own volumes are mounted too, or neither could be updated")
     void theUpdaterCanSeeTheTwoStandaloneJars() {
         @SuppressWarnings("unchecked")
@@ -527,7 +553,7 @@ class TopologyTest {
         // The four Minecraft services and the bot each carry a check for the marker their process
         // refreshes. The marker decides, not the port: an open port is exactly what a Paper server
         // with a disabled plugin still has.
-        final List<String> named = new java.util.ArrayList<>(List.of("bot"));
+        final List<String> named = new java.util.ArrayList<>(List.of(Topology.DISCORD_BOT));
         Topology.SERVICES.forEach(service -> named.add(service.name()));
 
         for (final String name : named) {
@@ -556,7 +582,7 @@ class TopologyTest {
         // read nothing from Java. Shortened below the beat interval, every healthy container flaps;
         // widened, a dead process stays hidden.
         final java.util.regex.Pattern window = java.util.regex.Pattern.compile("-lt (\\d+)");
-        final List<String> named = new java.util.ArrayList<>(List.of("bot"));
+        final List<String> named = new java.util.ArrayList<>(List.of(Topology.DISCORD_BOT));
         Topology.SERVICES.forEach(service -> named.add(service.name()));
 
         for (final String name : named) {

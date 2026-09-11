@@ -1,5 +1,7 @@
 package eu.nordtal.s2.updater.config;
 
+import eu.nordtal.s2.updater.plan.Topology;
+
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
@@ -355,10 +357,15 @@ public interface UpdaterSpec {
                 "limbo and hunger-games are absent: neither holds a world worth saving, and an",
                 "outage with nothing to show for it is worse than no backup. Their plugins/",
                 "volumes are still snapshotted - a config.yml is written at enable and at reload",
-                "and at no other time, so there is nothing in flight to tear."
+                "and at no other time, so there is nothing in flight to tear.",
+                "",
+                "THESE ARE COMPOSE SERVICE NAMES AND ARE THEREFORE TAKEN FROM Topology RATHER THAN",
+                "TYPED. A literal here was `bot` while compose.yml's service became `discord-bot`,",
+                "and a name Arcane does not know is a service that is never stopped - which is a",
+                "snapshot of a running server, i.e. the exact thing this list exists to prevent."
         })
         default List<String> stopServices() {
-            return List.of("smp", "network-control", "bot");
+            return List.of(Topology.SMP, Topology.NETWORK_CONTROL, Topology.DISCORD_BOT);
         }
 
         @Order(3)

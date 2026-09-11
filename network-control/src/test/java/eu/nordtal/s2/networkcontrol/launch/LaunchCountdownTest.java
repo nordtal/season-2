@@ -72,7 +72,18 @@ class LaunchCountdownTest {
     void noAnnouncedDateSaysSoInsteadOfCountingFromNothing() {
         final String line = LaunchCountdown.render(MESSAGES, Locale.ENGLISH, null, NOW);
 
-        assertTrue(line.toLowerCase(Locale.ROOT).contains("no opening date"), line);
+        assertTrue(line.toLowerCase(Locale.ROOT).contains("not announced"), line);
+    }
+
+    @Test
+    void theNoDateFragmentCarriesNoMiniMessageTag() {
+        // render() feeds gate.countdown and the MOTD's {countdown} - both substitute this value
+        // before MiniMessage ever parses the surrounding template, and Placeholders escapes
+        // whatever it inserts. A tag here would not become colour, it would become the literal
+        // text "<gray>" in the server browser, which is exactly what shipped before this fixed it.
+        final String line = LaunchCountdown.render(MESSAGES, Locale.ENGLISH, null, NOW);
+
+        assertFalse(line.contains("<"), line);
     }
 
     @Test

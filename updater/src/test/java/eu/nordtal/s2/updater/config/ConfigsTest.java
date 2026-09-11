@@ -73,7 +73,9 @@ class ConfigsTest {
         // The stop list and the volume list are not the same list, deliberately: limbo and
         // hunger-games hold no world worth saving, so stopping them would be an outage with
         // nothing to show for it, while their plugins/ volumes are still worth a snapshot.
-        assertEquals(java.util.List.of("smp", "network-control", "bot"),
+        assertEquals(java.util.List.of(eu.nordtal.s2.updater.plan.Topology.SMP,
+                        eu.nordtal.s2.updater.plan.Topology.NETWORK_CONTROL,
+                        eu.nordtal.s2.updater.plan.Topology.DISCORD_BOT),
                 config.backup().stopServices());
 
         // Thirty rather than sixty (owner, 2026-09-09), and the two halves of that decision are

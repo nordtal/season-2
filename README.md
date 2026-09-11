@@ -24,7 +24,7 @@ flowchart TB
             HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
             SMP["<b>smp</b><br/><i>:smp</i><br/>the season"]:::paper
         end
-        BOT["<b>bot</b><br/><i>:discord-bot</i><br/>access · payments"]:::app
+        BOT["<b>discord-bot</b><br/><i>:discord-bot</i><br/>access · payments"]:::app
         PG[("<b>postgres</b><br/>source of truth")]:::db
         BACKUP["postgres-backup"]:::side
         PACKHOST["pack-host<br/>dev only"]:::side

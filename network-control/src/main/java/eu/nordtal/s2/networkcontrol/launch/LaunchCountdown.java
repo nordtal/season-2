@@ -43,7 +43,11 @@ public final class LaunchCountdown {
     public static String render(final Messages messages, final Locale locale, final Instant launch,
                                 final Instant now) {
         if (launch == null) {
-            return messages.get(locale, "gate.countdown.unknown");
+            // Not gate.countdown.unknown: that key is an already-tagged whole sentence for when
+            // nothing wraps it, and this value is a plain-text fragment that gets substituted into
+            // one - both gate.countdown and the MOTD template. A tag here would survive
+            // Placeholders' escaping as literal text instead of colour.
+            return messages.get(locale, "countdown.unknown");
         }
 
         final Duration remaining = Duration.between(now, launch);

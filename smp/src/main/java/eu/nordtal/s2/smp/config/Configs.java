@@ -83,6 +83,10 @@ public final class Configs {
     private static void validate(final SmpSpec config) {
         requireText("world-nordtal", config.worldNordtal());
         requireText("world-farm", config.worldFarm());
+        // Only that it names something. Whether that world EXISTS cannot be answered here - the
+        // config is read before Worlds#bootstrap creates the three that are not Nordtal - so
+        // SmpPlugin checks it once at enable and warns, and SeasonWelcome skips the teleport.
+        requireText("first-join-spawn: world", config.firstJoinSpawn().world());
         // Zero or negative here would not disable the watcher - AdminWatch floors the timer at
         // one second - so it would quietly become a query per second for the life of the season.
         requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());

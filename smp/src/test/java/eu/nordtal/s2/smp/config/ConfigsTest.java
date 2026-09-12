@@ -187,6 +187,46 @@ class ConfigsTest {
         assertEquals(written.spawnRegions().size(), reread.spawnRegions().size());
         assertEquals(written.npc().world(), reread.npc().world());
         assertEquals(written.balloons().getFirst().world(), reread.balloons().getFirst().world());
+
+        // Two levels of nesting, which nothing else in this file has: balloon-spawn-points is a
+        // spec whose four values are themselves specs. A missing key in DefaultSmp comes back null
+        // from createUnsafe, and the first getter to touch it throws - so reading all five numbers
+        // of all four points is the check, not that the object exists.
+        final SmpSpec.BalloonSpawnPointsSpec points = reread.balloonSpawnPoints();
+        assertAll(
+                () -> assertPoint(written.balloonSpawnPoints().nordtal(), points.nordtal(), "nordtal"),
+                () -> assertPoint(written.balloonSpawnPoints().farm(), points.farm(), "farm"),
+                () -> assertPoint(written.balloonSpawnPoints().nether(), points.nether(), "nether"),
+                () -> assertPoint(written.balloonSpawnPoints().end(), points.end(), "end")
+        );
+
+        final SmpSpec.FirstJoinSpawnSpec spawn = reread.firstJoinSpawn();
+        assertAll(
+                () -> assertEquals(written.firstJoinSpawn().world(), spawn.world()),
+                () -> assertEquals(written.firstJoinSpawn().x(), spawn.x()),
+                () -> assertEquals(written.firstJoinSpawn().y(), spawn.y()),
+                () -> assertEquals(written.firstJoinSpawn().z(), spawn.z()),
+                () -> assertEquals(written.firstJoinSpawn().yaw(), spawn.yaw()),
+                () -> assertEquals(written.firstJoinSpawn().pitch(), spawn.pitch()),
+                // The world has to resolve to something on a real server, and the only name this
+                // file knows is world-nordtal's. A default that disagreed with it would be a
+                // deployment where no first join is ever moved and nothing but a log line says so.
+                () -> assertEquals(reread.worldNordtal(), spawn.world(),
+                        "first-join-spawn's default world has to be the build world's default name,"
+                                + " or a fresh config.yml ships a first join that goes nowhere")
+        );
+    }
+
+    /** Every number of one landing point, because a null only shows up when it is read. */
+    private static void assertPoint(final SmpSpec.SpawnPointSpec written,
+                                    final SmpSpec.SpawnPointSpec reread, final String which) {
+        assertAll(
+                () -> assertEquals(written.x(), reread.x(), which + ": x"),
+                () -> assertEquals(written.y(), reread.y(), which + ": y"),
+                () -> assertEquals(written.z(), reread.z(), which + ": z"),
+                () -> assertEquals(written.yaw(), reread.yaw(), which + ": yaw"),
+                () -> assertEquals(written.pitch(), reread.pitch(), which + ": pitch")
+        );
     }
 
     /**

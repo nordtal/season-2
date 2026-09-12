@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.PlayerLocales;
 import eu.nordtal.s2.papercommon.menu.BlankItem;
+import eu.nordtal.s2.smp.config.SmpSpec;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.Surface;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
@@ -169,28 +170,36 @@ public final class BalloonGui implements Surface {
         // Both ends of the trip, and the departure has to be read off before the teleport: to
         // anybody left standing at the balloon this is the whole of what they see happen.
         final org.bukkit.Location from = player.getLocation();
-        // Always the world spawn. The balloon never drops anyone anywhere else, which is what makes
-        // a world spawn a landmark everybody knows; portals are the only exception in the design.
+        // Always the configured balloon landing point for that world - `balloon-spawn-points` in
+        // config.yml, one per role. The balloon never drops anyone anywhere else, which is what
+        // makes an arrival point a landmark everybody knows; portals are the only exception in the
+        // design. It is deliberately NOT the world spawn any more (2026-09-12): a built spawn is
+        // somewhere to arrive, and the world spawn is a separate thing that also decides where a
+        // bed-less death puts you.
         //
-        // Through LandingSite#safeAt, which takes the world spawn itself whenever a player actually
-        // fits there and searches outwards from that column when they do not - so on a built world
-        // this is the world spawn and the landmark is untouched. On a GENERATED one it is the
-        // difference between arriving and dying: the Nether's world spawn is 0/66/0, which on the
-        // local server is solid netherrack, and the balloon killed the first player to take it
-        // (`DEATH_LISTED -20`, `in_wall`, finding 134). That is the third place this repository has
-        // learned that a world spawn is a coordinate and not a promise - see finding 124.
+        // Through LandingSite#safeAt, which takes the configured point itself whenever a player
+        // actually fits there and searches outwards from that column when they do not - so on a
+        // built world this is the point as written and the landmark is untouched. On a GENERATED
+        // one it is the difference between arriving and dying, and making the point configurable
+        // did not change that: the Nether's world spawn is 0/66/0, which on the local server is
+        // solid netherrack, and the balloon killed the first player to take it (`DEATH_LISTED -20`,
+        // `in_wall`, finding 134). A hand-typed Y is the same block of stone. That is the third
+        // place this repository has learned that a coordinate is not a promise - see finding 124.
         //
         // The failure branch is unreachable from an open chest screen today - a player clicking one
         // is by definition alive, awake and connected - but the success path below is six
         // unconditional statements and one of them is a message saying they arrived. Reusing the
         // branch six lines up rather than inventing a second way to say the same thing.
         //
-        // findSafeAt rather than safeAt, for the same reason: safeAt ends with the world spawn
+        // findSafeAt rather than safeAt, for the same reason: safeAt ends with the preferred point
         // itself when its search finds nothing, and here that would be a message saying somebody
         // arrived somewhere they cannot survive. The balloon is the one caller that is allowed to
         // say no, because it already has the sentence for it (CodeRabbit, PR #8).
+        final SmpSpec.SpawnPointSpec point = worlds.balloonSpawnPoint(entry.destination());
+        final org.bukkit.Location target = new org.bukkit.Location(destination, point.x(), point.y(),
+                point.z(), point.yaw(), point.pitch());
         final org.bukkit.Location landing = eu.nordtal.s2.smp.farm.LandingSite
-                .findSafeAt(destination, destination.getSpawnLocation())
+                .findSafeAt(destination, target)
                 .orElse(null);
         if (landing == null || !player.teleport(landing)) {
             player.sendMessage(MessageRenderer.of(messages).get(locale, "smp.balloon.unavailable"));

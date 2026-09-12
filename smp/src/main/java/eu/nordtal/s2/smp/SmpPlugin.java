@@ -248,6 +248,18 @@ public final class SmpPlugin extends JavaPlugin {
                     + "deployment behind a world nobody recognises.");
             return;
         }
+
+        // Not a refusal: a first join that cannot be placed leaves the player where the server
+        // spawned them, which is what every first join did before the setting existed. It is a
+        // warning HERE rather than only in SeasonWelcome because the alternative is finding out on
+        // the first new player of the season - Configs.validate can only ask whether the key names
+        // something, since the three worlds above do not exist until bootstrap has run.
+        if (Bukkit.getWorld(config.firstJoinSpawn().world()) == null) {
+            getLogger().warning("first-join-spawn names the world '"
+                    + config.firstJoinSpawn().world() + "', which does not exist on this server. "
+                    + "First joins will not be moved anywhere. The build world is called '"
+                    + config.worldNordtal() + "'.");
+        }
         worlds.applyFixedBorders();
 
         // ---- refusal 3: where the balloon stands ----------------------------------------------
@@ -359,7 +371,7 @@ public final class SmpPlugin extends JavaPlugin {
         cinematics = new BukkitCinematics(this, sounds::play);
         getServer().getPluginManager().registerEvents(cinematics, this);
         final SeasonWelcome welcome =
-                new SeasonWelcome(this, dao, identities, locales, cinematics);
+                new SeasonWelcome(this, dao, identities, locales, cinematics, config, worlds);
 
         getServer().getPluginManager().registerEvents(
                 new PresenceListener(this, identities, surfaces, locales, operators,

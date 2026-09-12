@@ -68,6 +68,48 @@ final class DefaultSmp {
     static final SmpSpec.NpcSpec NPC = npc("nordtal", 106.5, 68.0, 92.5, 180f, "", "Nordtal");
 
     /**
+     * Placeholder landing points for the balloon, one per world it flies to.
+     *
+     * <p>Chosen to agree with the other placeholders in this file rather than to be neutral:
+     * Nordtal's is the border centre X 106 / Z 88 that the NPC, the boards and the duel platforms
+     * are already written around, and the other three are the 0/0 their borders are centred on and
+     * their pre-generation runs from. The Nether's Y follows its balloon box at 32 for the same
+     * reason the box is there - 64 in the Nether is as likely to be inside rock as above it.
+     *
+     * <p>None of that makes them right. They are the shape of the setting, and every one of them
+     * is replaced from the built spawn; what keeps a wrong one from killing anybody in the
+     * meantime is {@code LandingSite#findSafeAt}, not the numbers.
+     */
+    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NORDTAL =
+            spawnPoint(106.5, 68.0, 88.5, 0f, 0f);
+
+    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_FARM =
+            spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
+
+    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_NETHER =
+            spawnPoint(0.5, 32.0, 0.5, 0f, 0f);
+
+    static final SmpSpec.SpawnPointSpec BALLOON_SPAWN_POINT_END =
+            spawnPoint(0.5, 64.0, 0.5, 0f, 0f);
+
+    /** The four of them together, which is what the top-level key answers with. */
+    static final SmpSpec.BalloonSpawnPointsSpec BALLOON_SPAWN_POINTS = balloonSpawnPoints(
+            BALLOON_SPAWN_POINT_NORDTAL,
+            BALLOON_SPAWN_POINT_FARM,
+            BALLOON_SPAWN_POINT_NETHER,
+            BALLOON_SPAWN_POINT_END);
+
+    /**
+     * A placeholder first-join point, in Nordtal on the border centre with everything else social.
+     *
+     * <p>The world name is written out rather than taken from {@link SmpSpec#worldNordtal()} -
+     * a {@code default} method on a spec interface can only return values, so there is nothing here
+     * to read it from. That duplication is named in the key's own comment.
+     */
+    static final SmpSpec.FirstJoinSpawnSpec FIRST_JOIN_SPAWN =
+            firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
+
+    /**
      * The curated advancement list. Twenty-two entries across the four bands described in
      * {@link SmpSpec#advancementAwards()}, chosen to follow the shape of a playthrough.
      */
@@ -249,6 +291,41 @@ final class DefaultSmp {
         values.put("skin-name", skinName);
         values.put("name", name);
         return Specs.createUnsafe(SmpSpec.NpcSpec.class, values);
+    }
+
+    private static SmpSpec.SpawnPointSpec spawnPoint(final double x, final double y, final double z,
+                                                     final float yaw, final float pitch) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("x", x);
+        values.put("y", y);
+        values.put("z", z);
+        values.put("yaw", yaw);
+        values.put("pitch", pitch);
+        return Specs.createUnsafe(SmpSpec.SpawnPointSpec.class, values);
+    }
+
+    private static SmpSpec.BalloonSpawnPointsSpec balloonSpawnPoints(
+            final SmpSpec.SpawnPointSpec nordtal, final SmpSpec.SpawnPointSpec farm,
+            final SmpSpec.SpawnPointSpec nether, final SmpSpec.SpawnPointSpec end) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("nordtal", nordtal);
+        values.put("farm", farm);
+        values.put("nether", nether);
+        values.put("end", end);
+        return Specs.createUnsafe(SmpSpec.BalloonSpawnPointsSpec.class, values);
+    }
+
+    private static SmpSpec.FirstJoinSpawnSpec firstJoinSpawn(final String world, final double x,
+                                                             final double y, final double z,
+                                                             final float yaw, final float pitch) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("world", world);
+        values.put("x", x);
+        values.put("y", y);
+        values.put("z", z);
+        values.put("yaw", yaw);
+        values.put("pitch", pitch);
+        return Specs.createUnsafe(SmpSpec.FirstJoinSpawnSpec.class, values);
     }
 
     private static SmpSpec.AdvancementAwardSpec award(final String advancement, final int aura) {

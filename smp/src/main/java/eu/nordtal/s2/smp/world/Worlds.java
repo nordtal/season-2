@@ -43,6 +43,27 @@ public final class Worlds {
         return names.get(role);
     }
 
+    /**
+     * Where the balloon puts a player down in that world.
+     *
+     * <p><b>Not the world spawn.</b> The balloon travelled to {@code World#getSpawnLocation} until
+     * 2026-09-12; it now travels to a configured point per role, and the world spawn keeps whatever
+     * else it means - a bed-less respawn, a compass needle - without the balloon moving with it.
+     *
+     * <p>The point is a coordinate and not a promise, exactly like the world spawn was: it is put
+     * through {@code LandingSite#findSafeAt} at the call site, which is what keeps a wrong Y in the
+     * Nether from being a death rather than a landing.
+     */
+    public SmpSpec.SpawnPointSpec balloonSpawnPoint(final WorldRole role) {
+        final SmpSpec.BalloonSpawnPointsSpec points = config.balloonSpawnPoints();
+        return switch (role) {
+            case NORDTAL -> points.nordtal();
+            case FARM -> points.farm();
+            case NETHER -> points.nether();
+            case END -> points.end();
+        };
+    }
+
     /** The loaded world for a role, if it is loaded at all. The farm world briefly is not. */
     public Optional<World> world(final WorldRole role) {
         return Optional.ofNullable(Bukkit.getWorld(names.get(role)));
@@ -102,8 +123,8 @@ public final class Worlds {
      * from {@code config.yml}.
      *
      * <p>The three secondary worlds are centred on 0/0, which is where their pre-generation is
-     * centred and where the balloon lands - Nordtal is the only world whose centre is a built place
-     * and therefore the only one that needs a configured one.
+     * centred and where {@link #balloonSpawnPoint} defaults to - Nordtal is the only world whose
+     * centre is a built place and therefore the only one that needs a configured one.
      */
     public void applyFixedBorders() {
         world(WorldRole.NORDTAL).ifPresent(world -> {

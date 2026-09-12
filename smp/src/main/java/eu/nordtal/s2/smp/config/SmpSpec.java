@@ -852,4 +852,152 @@ public interface SmpSpec {
     default boolean adminListenEnabled() {
         return true;
     }
+
+    // ---------------------------------------------------------------- where the balloon lands
+
+    @Order(43)
+    @Key("balloon-spawn-points")
+    @Comment({
+            "Where the balloon PUTS A PLAYER DOWN, one point per world it flies to.",
+            "",
+            "Three things this is not. It is not `balloons` above - those are the boxes a player",
+            "steps INTO to open the travel GUI, at the departure end. It is not the vanilla world",
+            "spawn either: the balloon stopped using it on 2026-09-12, so moving a point here moves",
+            "nothing else - not where a bed-less death respawns, not where /spawn goes, not what a",
+            "compass points at. And it is not the first join, which has its own point below.",
+            "",
+            "Each point is still put through LandingSite#findSafeAt, which takes it as written",
+            "whenever a player fits there and searches outwards from that column when they do not.",
+            "That is what stopped the Nether balloon killing the player who took it - the Nether's",
+            "world spawn is 0/66/0, which on a generated world is solid netherrack - and it stays",
+            "in place for a configured point, because a typo in a Y coordinate is the same block of",
+            "stone. If the search finds nothing at all the balloon REFUSES the trip and says so,",
+            "which is the one thing it is allowed to do that the other callers are not.",
+            "",
+            "There is no world name here: which world a point belongs to is the key it sits under,",
+            "so a coordinate set cannot name a world the balloon does not travel to.",
+            "",
+            "THE COORDINATES BELOW ARE PLACEHOLDERS - the spawn build does not exist yet."
+    })
+    default BalloonSpawnPointsSpec balloonSpawnPoints() {
+        return DefaultSmp.BALLOON_SPAWN_POINTS;
+    }
+
+    /** One landing point per world the balloon flies to. */
+    @ConfigSpec
+    interface BalloonSpawnPointsSpec {
+
+        @Order(1) @Key("nordtal")
+        @Comment("Where the balloon lands in the permanent build world.")
+        default SpawnPointSpec nordtal() {
+            return DefaultSmp.BALLOON_SPAWN_POINT_NORDTAL;
+        }
+
+        @Order(2) @Key("farm")
+        @Comment({
+                "Where it lands in the farm world. Regenerated daily, so this one is a column in",
+                "fresh terrain rather than a built place - expect the safety search to move it."
+        })
+        default SpawnPointSpec farm() {
+            return DefaultSmp.BALLOON_SPAWN_POINT_FARM;
+        }
+
+        @Order(3) @Key("nether")
+        @Comment({
+                "Where it lands in the Nether. The one point with a known way to be wrong: a Y",
+                "chosen without looking is inside the roof or inside solid rock."
+        })
+        default SpawnPointSpec nether() {
+            return DefaultSmp.BALLOON_SPAWN_POINT_NETHER;
+        }
+
+        @Order(4) @Key("end")
+        @Comment({
+                "Where it lands in the End. The balloon is the only way in, so this is the only",
+                "arrival point players ever see there."
+        })
+        default SpawnPointSpec end() {
+            return DefaultSmp.BALLOON_SPAWN_POINT_END;
+        }
+    }
+
+    /**
+     * One landing point.
+     *
+     * <p>Deliberately without a {@code world}: which world a point is in comes from the
+     * {@link eu.nordtal.s2.smp.world.WorldRole} it is filed under, and a point that could name its
+     * own world could name one the balloon does not fly to.
+     */
+    @ConfigSpec
+    interface SpawnPointSpec {
+
+        @Order(1) @Key("x") default double x() { return 0.5; }
+
+        @Order(2) @Key("y") default double y() { return 64.0; }
+
+        @Order(3) @Key("z") default double z() { return 0.5; }
+
+        @Order(4) @Key("yaw")
+        @Comment("Which way they face on arrival, in degrees. 0 is south, 90 west, 180 north, 270 east.")
+        default float yaw() { return 0.0f; }
+
+        @Order(5) @Key("pitch")
+        @Comment("Up or down, in degrees. 0 is level, negative looks up, 90 looks at their feet.")
+        default float pitch() { return 0.0f; }
+    }
+
+    // ---------------------------------------------------------------- the first join
+
+    @Order(44)
+    @Key("first-join-spawn")
+    @Comment({
+            "Where a player is put down on their VERY FIRST JOIN of the season, and nowhere else.",
+            "",
+            "Separate from both of the above on purpose: it is not a balloon destination, and it is",
+            "not the vanilla world spawn, so changing it moves the opening moment and leaves every",
+            "later join, every respawn and every balloon trip exactly where they were.",
+            "",
+            "USED EXACTLY ONCE PER PLAYER. It rides the same one-shot claim as the season's opening",
+            "pictures - smp_player.welcome_shown, taken in one statement - so a reconnect, a restart",
+            "mid-welcome and two racing sessions all end with one arrival. A player with no linked",
+            "Discord account has no row to claim against and is not moved at all.",
+            "",
+            "This one DOES name its world, because it is not tied to one of the four roles. The name",
+            "has to be a world that exists; the plugin checks at start and warns if it does not, and",
+            "a first join that cannot be placed leaves the player where the server spawned them.",
+            "Note that it is a second place a world name is written down - if `world-nordtal` above",
+            "is ever renamed, this is the line that has to move with it.",
+            "",
+            "The point is put through LandingSite#safeAt, which unlike the balloon's search CANNOT",
+            "refuse: a first join has to end somewhere, so a point nobody fits at falls back to the",
+            "point as written rather than cancelling the arrival.",
+            "",
+            "THE COORDINATES BELOW ARE PLACEHOLDERS - the spawn build does not exist yet."
+    })
+    default FirstJoinSpawnSpec firstJoinSpawn() {
+        return DefaultSmp.FIRST_JOIN_SPAWN;
+    }
+
+    /** Where the first join lands, world included. */
+    @ConfigSpec
+    interface FirstJoinSpawnSpec {
+
+        @Order(1) @Key("world")
+        @Comment("Which world. Normally the same name as `world-nordtal` at the top of this file.")
+        default String world() { return "nordtal"; }
+
+        @Order(2) @Key("x") default double x() { return 0.5; }
+
+        @Order(3) @Key("y") default double y() { return 64.0; }
+
+        @Order(4) @Key("z") default double z() { return 0.5; }
+
+        @Order(5) @Key("yaw")
+        @Comment("Which way they face on arrival, in degrees. 0 is south, 90 west, 180 north, 270 east.")
+        default float yaw() { return 0.0f; }
+
+        @Order(6) @Key("pitch")
+        @Comment("Up or down, in degrees. 0 is level, negative looks up, 90 looks at their feet.")
+        default float pitch() { return 0.0f; }
+    }
 }

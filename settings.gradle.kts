@@ -38,6 +38,11 @@ include("discord-bot")
 // The container that owns every version and the database schema.
 include("updater")
 
+// Steward: the web interface and the one service allowed to create containers. Named after §8a of
+// the concept - the module directory is the compose service name is the runtime identity.
+include("steward-ui")
+include("steward-deployer")
+
 // Shared code, shaded into the plugins that use it.
 include("common")
 

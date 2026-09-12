@@ -54,6 +54,17 @@ testcontainers = "1.21.4"
 # Pinned to what Paper ships in libraries/, so the parser reading the fonts is the one the
 # client-facing platform uses. Never shaded: Paper and Velocity both provide it.
 gson = "2.14.0"
+# Javalin, the web layer of steward-ui and the small internal API of steward-deployer. Checked on
+# Maven Central 2026-09-12: 7.2.3 is the current release. It pulls jetty-server, jetty-ee10-servlet
+# and the jetty websocket module, and NOTHING ELSE that matters here - jackson-databind, gson,
+# brotli4j and zstd-jni are all `optional` in its POM, so the json mapper is a deliberate choice
+# rather than a transitive surprise. That choice is gson, the parser jcore already exports; a second
+# databind on the classpath is how the repo got two Gson types that were not each other.
+javalin = "7.2.3"
+# The Gradle plugin that downloads its own Node for the vite build of steward-ui's frontend. This
+# host has no node and is not going to get one: the plugin unpacks a private copy under build/.
+# Checked in the Gradle Plugin Portal 2026-09-12.
+node = "7.1.0"
 junit = "6.0.0"
 shadow = "9.6.1"
 runpaper = "3.1.0"
@@ -81,6 +92,7 @@ slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+javalin = { module = "io.javalin:javalin", version.ref = "javalin" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
@@ -96,3 +108,4 @@ access-persistence = ["jdbi-core", "jdbi-sqlobject", "jdbi-postgres", "hikaricp"
 [plugins]
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 run-paper = { id = "xyz.jpenilla.run-paper", version.ref = "runpaper" }
+node = { id = "com.github.node-gradle.node", version.ref = "node" }

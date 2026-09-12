@@ -1,7 +1,7 @@
 package eu.nordtal.s2.common.update;
 
 /**
- * What an {@link UpdateRequest} asks the updater to do. Stored verbatim in
+ * What an {@link UpdateRequest} asks steward-worker to do. Stored verbatim in
  * {@code update_request.kind}, which a database {@code CHECK} restricts to these four.
  *
  * <p>Separate kinds rather than one command with flags, on purpose: a button that says "check what
@@ -30,7 +30,7 @@ public enum UpdateKind {
      * migrate, swap, start them again, and wait until each one reports healthy.
      *
      * <p>Only the services that actually change are stopped - a server with nothing to install is
-     * an outage with nothing to show for it - and the updater is never one of them, because it is
+     * an outage with nothing to show for it - and the worker is never one of them, because it is
      * the process running the sequence.</p>
      */
     UPDATE,
@@ -47,7 +47,7 @@ public enum UpdateKind {
     /**
      * The same sequence again, with a volume backup in the gap: count down, stop, save, start.
      *
-     * <h2>Why the updater carries this and Arcane's own schedule does not</h2>
+     * <h2>Why steward-worker carries this and Arcane's own schedule does not</h2>
      * Arcane can run a backup policy on a timer of its own, and it can be told to stop the
      * containers using a volume first. Both halves of that are wrong here. A stop nobody announced
      * takes the world out from under whoever is standing in it with no countdown at all - and the
@@ -60,7 +60,7 @@ public enum UpdateKind {
      * {@code /backup now} exists and is what an admin uses. The nightly one is written by
      * {@code smp}, which already owns a daily clock for the farm world - see {@code smp}'s
      * {@code NightlyBackup}. That is deliberate and it is the rule {@code serve} is protected by:
-     * <b>the updater is not a scheduler</b>, and a timer inside it would be one however small.
+     * <b>the worker is not a scheduler</b>, and a timer inside it would be one however small.
      */
     BACKUP;
 

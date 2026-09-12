@@ -103,7 +103,7 @@ public class AccessBot implements AutoCloseable {
 
         boolean started = false;
         try {
-            // The bot does not migrate - the updater does. This check makes a bot started against
+            // The bot does not migrate - steward-worker does. This check makes a bot started against
             // an unmigrated database refuse here, naming the command, rather than failing on its
             // first query inside a Discord interaction minutes later.
             SchemaCheck.validate(database.dataSource());
@@ -114,7 +114,7 @@ public class AccessBot implements AutoCloseable {
             // Over the pool the bot already owns, like the access directory. Nothing here holds a
             // resource, so there is nothing to close.
             final PhaseDirectory phases = PhaseDirectory.using(database.dataSource());
-            // The updater's inbox. The bot writes requests into it and reads the answers back; it
+            // steward-worker's inbox. The bot writes requests into it and reads the answers back; it
             // never updates anything itself and could not - the jars and volumes are in another
             // container.
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());

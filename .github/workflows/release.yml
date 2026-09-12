@@ -71,7 +71,7 @@ jobs:
           cp smp/build/libs/smp-${VERSION}.jar dist/
           cp network-control/build/libs/network-control-${VERSION}.jar dist/
           cp discord-bot/build/libs/discord-bot-${VERSION}.jar dist/
-          cp updater/build/libs/updater-${VERSION}.jar dist/
+          cp steward-worker/build/libs/steward-worker-${VERSION}.jar dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
           ls -la dist
@@ -118,9 +118,9 @@ jobs:
       # happened with ghcr.io/nordtal/minecraft:local. Two of these cannot be built from a checkout
       # at all: they COPY a jar Gradle produces into a directory .gitignore excludes.
       #
-      # THE IMAGES ARE A FLOOR, NOT THE VERSION. The bot and the updater run whatever jar is in
-      # their volume, which the updater fills from the release assets above; the jar baked in is
-      # what makes a first deployment possible before any updater run has happened. `latest` is what
+      # THE IMAGES ARE A FLOOR, NOT THE VERSION. The bot and steward-worker run whatever jar is in
+      # their volume, which the worker fills from the release assets above; the jar baked in is
+      # what makes a first deployment possible before any worker run has happened. `latest` is what
       # compose.yml points at, and since 2026-09-09 it is the only thing it can point at: there is no
       # tag variable and no rollback-by-tag any more. The version tag below is still pushed, because
       # a registry that only ever holds `latest` cannot say what `latest` was last week.
@@ -139,14 +139,14 @@ jobs:
       # The bootstrap. It used to be deliberately unpublished, on the reasoning that a host with
       # nothing yet builds it from this repository - which stopped being true the moment the host
       # was Arcane rather than a shell.
-      - name: Build and push the updater image
+      - name: Build and push the steward-worker image
         uses: docker/build-push-action@v7
         with:
-          context: updater
+          context: steward-worker
           push: true
           tags: |
-            ghcr.io/nordtal/updater:${{ env.VERSION }}
-            ghcr.io/nordtal/updater:latest
+            ghcr.io/nordtal/steward-worker:${{ env.VERSION }}
+            ghcr.io/nordtal/steward-worker:latest
 
       # One image for all four Minecraft services; the difference between them is environment. It
       # contains no Gradle output at all - entrypoint.sh and a JRE - so a change to it still needs a

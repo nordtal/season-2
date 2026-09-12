@@ -11,8 +11,8 @@ import java.util.function.BiConsumer;
  * {@code NoClassDefFoundError} for an inner class the JVM had never needed until then - the old
  * classloader was reading from a file that no longer existed. Everything after that step was
  * skipped: the grave and board displays stayed in the world, the poller and the pool were never
- * closed. {@code updater apply} does exactly the same thing to a production server - it swaps the
- * jar first and restarts second - so this is not a development-only shape.</p>
+ * closed. The retired {@code updater apply} did exactly the same thing to a production server - it
+ * swaps the jar first and restarts second - so this is not a development-only shape.</p>
  *
  * <p>A disable step that throws is logged and the next one runs. The alternative is a shutdown
  * sequence that is only as long as its most fragile line.</p>

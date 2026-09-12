@@ -20,8 +20,8 @@
 #
 #   MC_IMAGE=...        one image somewhere else entirely, if it ever comes to that
 #
-# The images are a FLOOR, not the version of what runs: the updater replaces jars inside the volumes
-# at runtime, and it follows whatever GitHub calls the latest release.
+# The images are a FLOOR, not the version of what runs: steward-worker replaces jars inside the
+# volumes at runtime, and it follows whatever GitHub calls the latest release.
 #
 # COMPOSE_PROFILES in .env decides what "everything" means. Production is `db,bot,mc,backup`:
 #
@@ -36,7 +36,7 @@
 # WHATEVER IS CHOSEN, `up` AND `down` HAVE TO USE THE SAME SELECTION. Compose only acts on the
 # services the current selection names, in both directions.
 #
-# THE UPDATER HAS NO PROFILE, so it is in every selection. It is the only process that applies the
+# STEWARD-WORKER HAS NO PROFILE, so it is in every selection. It is the only process that applies the
 # schema, so nothing else can correctly start before it; and it answers /update in Discord and
 # /smp update in game, which needs it running rather than run.
 #
@@ -48,10 +48,10 @@
 # without editing this file. Every service fails fast on an unreachable database and
 # `restart: unless-stopped` retries it.
 #
-# THERE IS A depends_on ON THE UPDATER, and it is the one ordering rule this file can express: after
-# a redeploy the whole stack starts at once, and without it a plugin can come up against a schema
-# older than itself. The updater becomes healthy the moment the schema is current. This is safe
-# where a database dependency would not be, because the updater has no profile.
+# THERE IS A depends_on ON STEWARD-WORKER, and it is the one ordering rule this file can express:
+# after a redeploy the whole stack starts at once, and without it a plugin can come up against a
+# schema older than itself. The worker becomes healthy the moment the schema is current. This is
+# safe where a database dependency would not be, because the worker has no profile.
 
 name: nordtal-s2
 
@@ -70,7 +70,7 @@ x-minecraft: &minecraft
   restart: unless-stopped
   depends_on:
     # The schema, and nothing else. Not the database - see the note at the top of this file.
-    updater:
+    steward-worker:
       condition: service_healthy
   # The entrypoint MUST be PID 1: it traps SIGTERM and turns it into a graceful save, and it holds
   # the stdout that `docker logs` reads. `init: true` would put tini there instead and break both.
@@ -87,7 +87,7 @@ x-minecraft: &minecraft
   # the image's outright - which is why the TCP half is repeated here.
   #
   # 90 SECONDS IS THREE MISSED BEATS, a literal because a shell test in a YAML file cannot read
-  # Readiness.STALE_AFTER. :updater's TopologyTest holds the two equal.
+  # Readiness.STALE_AFTER. :steward-worker's TopologyTest holds the two equal.
   #
   # `bash -c` and not CMD-SHELL: /bin/sh in this image is dash, which has no /dev/tcp.
   healthcheck:
@@ -107,15 +107,15 @@ x-minecraft: &minecraft
     TZ: ${TZ:-Europe/Berlin}
     # SERVER_VERSION, set per service below, is a LITERAL and deliberately not from .env: it is the
     # Minecraft version for the three Paper backends and Fill's name for Velocity's major on the
-    # proxy, both mirrored by eu.nordtal.s2.common.Platform, which is what the updater resolves
+    # proxy, both mirrored by eu.nordtal.s2.common.Platform, which is what steward-worker resolves
     # against and what every plugin here is compiled for.
     #
-    # There is no SERVER_BUILD: the updater owns the server jar, the entrypoint runs whatever build
+    # There is no SERVER_BUILD: the worker owns the server jar, the entrypoint runs whatever build
     # is in .server/, and an empty cache is filled from the Fill API's newest STABLE build. Nothing
     # pins a build anywhere.
     #
-    # The plugin jars are the `updater` service's, not this container's - two owners is one too
-    # many. What this container still owns is the server jar, the datapacks and the seeded
+    # The plugin jars are the `steward-worker` service's, not this container's - two owners is one
+    # too many. What this container still owns is the server jar, the datapacks and the seeded
     # configuration.
   logging: &logging
     driver: json-file
@@ -205,11 +205,12 @@ services:
   # the schema and refuses to start on a database nobody migrated. Runbook: discord-bot/README.md.
   #
   # THE SERVICE NAME IS `discord-bot` AND IT IS THE SAME STRING AS EVERYTHING ELSE ABOUT THIS JAR:
-  # the module directory, the artefact id in :updater's Topology, the volume path the updater writes
-  # to (/volumes/discord-bot) and the image. It was `bot` until 2026-09-11, and that one shorter
-  # name was a whole class of failure: the updater asks Arcane's runtime endpoint for the service
-  # called `discord-bot`, got nothing back, and refused the entire run - "NOTHING WAS INSTALLED",
-  # every server stopped and started again for no reason. TopologyTest now holds the two equal.
+  # the module directory, the artefact id in :steward-worker's Topology, the volume path the worker
+  # writes to (/volumes/discord-bot) and the image. It was `bot` until 2026-09-11, and that one
+  # shorter name was a whole class of failure: the worker asks Arcane's runtime endpoint for the
+  # service called `discord-bot`, got nothing back, and refused the entire run - "NOTHING WAS
+  # INSTALLED", every server stopped and started again for no reason. TopologyTest now holds the two
+  # equal.
   #
   # THE PROFILE IS STILL `bot`, deliberately. A profile name is not a service name, and renaming it
   # would invalidate every COMPOSE_PROFILES=db,bot,mc,backup already written into a .env on a host.
@@ -229,8 +230,8 @@ services:
     restart: unless-stopped
     depends_on:
       # The bot refuses a database it was not built against, so without this it would crash-loop
-      # until the updater got there.
-      updater:
+      # until the worker got there.
+      steward-worker:
         condition: service_healthy
     # The same marker the four Minecraft services use. Written after JDA is ready and both reconciles
     # are done, and refreshed on the timer thread - so a wedged timer thread, which is a bot that has
@@ -281,8 +282,8 @@ services:
       NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES: ${NORDTAL_ACCESS_ROLE_RECONCILE_INTERVAL_MINUTES:-}
     volumes:
       - bot-config:/app/config
-      # The jar itself. The updater writes into this same volume as /volumes/discord-bot; here it is
-      # /app/lib, where the entrypoint looks.
+      # The jar itself. steward-worker writes into this same volume as /volumes/discord-bot; here
+      # it is /app/lib, where the entrypoint looks.
       - bot-jar:/app/lib
       # bunq binds an API context to the device it was registered from: this must be created on
       # the host that will use it, never copied over from a laptop.
@@ -292,7 +293,7 @@ services:
   # -------------------------------------------------------------------------------------------
   # The resource pack, served off this machine. NOT PART OF PRODUCTION: `devpack` is a profile and
   # nothing on the production host selects it - there the client fetches the pack from the GitHub
-  # release URL the updater wrote into pack.yml.
+  # release URL steward-worker wrote into pack.yml.
   #
   # It exists because the pack and the plugins are one change and not two: a glyph code point is
   # declared in :common's Glyphs, in a font file and in a PNG, and every menu panel is a texture the
@@ -319,10 +320,10 @@ services:
       <<: *minecraft-env
       SERVER_KIND: velocity
       # What this volume has to hold before the proxy is allowed to start. Filename prefixes, split
-      # the way the updater splits them (JarName, ${file%-*.jar}); a MINIMUM, never an exact set, so
-      # a hand-installed extra is fine.
+      # the way steward-worker splits them (JarName, ${file%-*.jar}); a MINIMUM, never an exact set,
+      # so a hand-installed extra is fine.
       #
-      # SIMPLE VOICE CHAT'S PROXY PLUGIN IS DELIBERATELY NOT IN THIS LIST. The updater installs it
+      # SIMPLE VOICE CHAT'S PROXY PLUGIN IS DELIBERATELY NOT IN THIS LIST. The worker installs it
       # and carries the row in its Topology, but voice chat is optional for a player and this
       # container is the whole network: a proxy refusing to start because an alpha of somebody
       # else's plugin did not resolve is an outage bought for something nice to have.
@@ -345,7 +346,7 @@ services:
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_SMP: ${NETWORK_MOTD_SMP:-}
       NORDTAL_NETWORK_CONTROL_NETWORK_MOTD_MAINTENANCE: ${NETWORK_MOTD_MAINTENANCE:-}
       # FILL'S NAME FOR VELOCITY'S MAJOR, NOT A VERSION. The proxy follows the newest release inside
-      # the 4.x line, which Fill calls `4.0.0`; the entrypoint and the updater both resolve it out of
+      # the 4.x line, which Fill calls `4.0.0`; the entrypoint and the worker both resolve it out of
       # Platform.VELOCITY_FAMILY. A literal and not a variable, because a platform version is a
       # property of the season and not of a deployment. TopologyTest holds this against the constant.
       SERVER_VERSION: "4.0.0"
@@ -358,15 +359,15 @@ services:
       VELOCITY_SERVERS: ${VELOCITY_SERVERS:-limbo=limbo:25565 hunger-games=hunger-games:25565 smp=smp:25565}
       VELOCITY_TRY: ${VELOCITY_TRY:-limbo}
       # THE RESOURCE PACK IS NOT A VARIABLE HERE, and must not become one: a jcore environment
-      # override wins over the file and is never written back, so an updater writing a new sha1 into
+      # override wins over the file and is never written back, so the worker writing a new sha1 into
       # pack.yml while PACK_URL and PACK_SHA1 were set would write into a value nothing reads.
       #
-      # pack.yml in this volume is the place, and `updater bootstrap` writes it, taking the URL from
-      # the release asset and the hash from the .sha1 asset beside it.
+      # pack.yml in this volume is the place, and `steward-worker bootstrap` writes it, taking the
+      # URL from the release asset and the hash from the .sha1 asset beside it.
       #
       # The proxy refuses to start with an empty url or sha1 while pack.enabled is true. On a brand
       # new volume that means: bring network-control up once so it writes its config, then run the
-      # updater, then start it for real. See deploy/README.md.
+      # worker, then start it for real. See deploy/README.md.
       NORDTAL_NETWORK_CONTROL_DATABASE_JDBC_URL: *db-url
       NORDTAL_NETWORK_CONTROL_DATABASE_USERNAME: *db-username
       NORDTAL_NETWORK_CONTROL_DATABASE_PASSWORD: *db-password
@@ -397,7 +398,7 @@ services:
       # Setting one to a path is what the local stack does, so that reading plugins/smp/config.yml is
       # opening a file rather than two `docker compose cp`s. A value with a `/` in it is a bind mount
       # to Docker and a value without one is a volume name; nothing else distinguishes them, which is
-      # why :updater's TopologyTest asserts the default carries neither a slash nor a dot.
+      # why :steward-worker's TopologyTest asserts the default carries neither a slash nor a dot.
       - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
@@ -473,9 +474,9 @@ services:
       <<: *minecraft-env
       SERVER_KIND: paper
       SERVER_VERSION: "26.2"
-      # DisplayTags, PacketEvents and Chunky are resolved by the updater - DisplayTags from its own
-      # repository's releases, the other two from Modrinth filtered to this Minecraft version and
-      # `paper` - and are not pinned here.
+      # DisplayTags, PacketEvents and Chunky are resolved by steward-worker - DisplayTags from its
+      # own repository's releases, the other two from Modrinth filtered to this Minecraft version
+      # and `paper` - and are not pinned here.
       #
       # They are still REQUIRED: smp's paper-plugin.yml declares DisplayTags load: BEFORE,
       # required: true, and PacketEvents is required under it. The guard is in entrypoint.sh.
@@ -493,7 +494,7 @@ services:
       # holds one is compared and warned about, never re-rolled. Terralith and Dungeons and Taverns
       # decide the terrain on top of it, so this number produces a different landscape without them.
       LEVEL_SEED: ${SMP_LEVEL_SEED:-1837371427}
-      # All four, by FILENAME PREFIX. The two third-party prefixes are not the updater's artefact ids
+      # All four, by FILENAME PREFIX. The two third-party prefixes are not the worker's artefact ids
       # (`packetevents` resolves to packetevents-spigot-*.jar, `chunky` to Chunky-Bukkit-*.jar):
       # Topology reads those back off the resolved filename and this list assumes them, so a
       # publisher renaming a jar stops this container with the prefix in the message.
@@ -504,7 +505,7 @@ services:
       # but voice chat is optional for a player: a server nobody can talk on is a far smaller thing
       # than a server nobody can join.
       #
-      # :updater's TopologyTest asserts the guard asks for exactly the artefacts that are not
+      # :steward-worker's TopologyTest asserts the guard asks for exactly the artefacts that are not
       # optional, in both directions.
       EXPECTED_PLUGINS: ${SMP_EXPECTED_PLUGINS:-smp papermc-display-tags packetevents-spigot Chunky-Bukkit}
       MAX_PLAYERS: ${NETWORK_MAX_PLAYERS:-500}
@@ -524,9 +525,9 @@ services:
       # own default. smp's ConfigsTest asserts the two copies agree.
       NORDTAL_SMP_PREGENERATION_ON_START: ${SMP_PREGENERATION_ON_START:-true}
       # WHEN THIS SERVER ASKS FOR THE NETWORK'S NIGHTLY BACKUP. It lives on this service because the
-      # updater must not schedule its own work - `serve` is not a scheduler, so a crash restart at
+      # worker must not schedule its own work - `serve` is not a scheduler, so a crash restart at
       # three in the morning cannot move a version - and this plugin is the one process that already
-      # runs a daily clock. It writes an update_request row of kind BACKUP; the updater counts down,
+      # runs a daily clock. It writes an update_request row of kind BACKUP; the worker counts down,
       # stops smp, network-control and the bot, asks Arcane for one snapshot per volume, starts them
       # again and waits for every healthcheck.
       #
@@ -550,7 +551,7 @@ services:
       - ${SMP_PLUGINS:-mc-smp-plugins}:/data/plugins
 
   # -------------------------------------------------------------------------------------------
-  # The updater. No profile, because everything else in this stack depends on it.
+  # steward-worker. No profile, because everything else in this stack depends on it.
   #
   # WHAT IT OWNS: the database schema, and the version of every jar that runs anywhere here - the
   # four servers' plugins, their Paper and Velocity jars, the proxy's resource-pack url and sha1,
@@ -563,23 +564,23 @@ services:
   # THE THREE ONE-SHOT COMMANDS work beside the running one, and are how a first deployment happens,
   # because the servers refuse to start on an empty plugins folder:
   #
-  #   docker compose run --rm updater report     # resolve and report. Writes no file a server reads.
-  #   docker compose run --rm updater migrate    # the schema, and nothing else.
-  #   docker compose run --rm updater bootstrap  # fill EMPTY volumes. Upgrades nothing.
+  #   docker compose run --rm steward-worker report     # resolve and report. Writes no file a server reads.
+  #   docker compose run --rm steward-worker migrate    # the schema, and nothing else.
+  #   docker compose run --rm steward-worker bootstrap  # fill EMPTY volumes. Upgrades nothing.
   #
   # A bootstrap takes a PostgreSQL advisory lock, so it cannot collide with the service: the second
   # one to ask is refused rather than queued.
-  updater:
+  steward-worker:
     build:
       # Same as the bot: Gradle first, so production pulls, and no build args - the Dockerfile globs
       # build/libs for its jar rather than being told a version.
-      context: ./updater
-    image: ${UPDATER_IMAGE:-ghcr.io/nordtal/updater:latest}
+      context: ./steward-worker
+    image: ${STEWARD_WORKER_IMAGE:-ghcr.io/nordtal/steward-worker:latest}
     restart: unless-stopped
     # `serve`. THIS LINE IS ALSO WHAT A `run` INHERITS: a `docker compose run` naming no subcommand
     # is handed this one and starts a SECOND daemon. Removing it does not help - a `run` against a
-    # service with no `command` takes the image's CMD instead. The read-only run is `updater report`,
-    # by name, and that is why the name exists.
+    # service with no `command` takes the image's CMD instead. The read-only run is
+    # `steward-worker report`, by name, and that is why the name exists.
     command: ["serve"]
     # ARCANE IS ON THE HOST AND THIS IS A CONTAINER, so `localhost` in arcane.base-url is this
     # container and nothing is listening on it. This mapping is what makes the answer -
@@ -589,7 +590,7 @@ services:
     healthcheck:
       # Written once the schema is current and the request loop is about to start. Everything else in
       # this file waits for it.
-      test: ["CMD-SHELL", "test -f /tmp/updater-ready"]
+      test: ["CMD-SHELL", "test -f /tmp/steward-worker-ready"]
       interval: 10s
       timeout: 3s
       # 15 minutes: on a FIRST deployment the marker is written only once the bootstrap has downloaded
@@ -601,32 +602,33 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       # --- database.yml ------------------------------------------------------------------
       # THIS IS THE PROCESS THAT MIGRATES. `serve` applies the schema at startup and then becomes
-      # healthy; `updater migrate` applies it and nothing else; `updater bootstrap` does it before it
-      # moves a jar, so a plugin never comes up against a schema older than itself.
-      NORDTAL_UPDATER_DATABASE_JDBC_URL: *db-url
-      NORDTAL_UPDATER_DATABASE_USERNAME: *db-username
-      NORDTAL_UPDATER_DATABASE_PASSWORD: *db-password
+      # healthy; `steward-worker migrate` applies it and nothing else; `steward-worker bootstrap`
+      # does it before it moves a jar, so a plugin never comes up against a schema older than
+      # itself.
+      NORDTAL_STEWARD_DATABASE_JDBC_URL: *db-url
+      NORDTAL_STEWARD_DATABASE_USERNAME: *db-username
+      NORDTAL_STEWARD_DATABASE_PASSWORD: *db-password
 
-      # --- updater.yml -------------------------------------------------------------------
-      # WHICH RELEASE IS NOT A SETTING. The updater follows whatever GitHub calls the latest release
-      # of each repository, and there is no variable and no config key that says otherwise - the
-      # rollback-by-tag lever was removed on 2026-09-09 for the reason at the top of this file. What
-      # a server runs is the jar lying in its volume, never a variable claiming to describe it.
-      NORDTAL_UPDATER_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
+      # --- steward.yml -------------------------------------------------------------------
+      # WHICH RELEASE IS NOT A SETTING. steward-worker follows whatever GitHub calls the latest
+      # release of each repository, and there is no variable and no config key that says otherwise -
+      # the rollback-by-tag lever was removed on 2026-09-09 for the reason at the top of this file.
+      # What a server runs is the jar lying in its volume, never a variable claiming to describe it.
+      NORDTAL_STEWARD_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
       # No platform version and no build pin here, deliberately: the versions are constants in
       # :common, because a Minecraft version is a property of the season rather than of an
       # installation, and the newest STABLE build is what all five processes install and run.
       # Whether `serve` fills EMPTY volumes before it reports ready. This is what lets a stack come up
       # with nobody typing anything on the host: a Minecraft server refuses to start on an empty
-      # plugins folder, and Arcane cannot run `docker compose run --rm updater bootstrap`.
+      # plugins folder, and Arcane cannot run `docker compose run --rm steward-worker bootstrap`.
       #
       # It cannot move a version - only artefacts with nothing installed at all are fetched - so a
       # restart of a live network finds nothing missing and does nothing. Repeated from
-      # UpdaterSpec#bootstrap because an env var set to the empty string still wins over the file.
-      NORDTAL_UPDATER_BOOTSTRAP: ${UPDATER_BOOTSTRAP:-true}
+      # StewardSpec#bootstrap because an env var set to the empty string still wins over the file.
+      NORDTAL_STEWARD_BOOTSTRAP: ${STEWARD_WORKER_BOOTSTRAP:-true}
       # Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP; a run makes
       # two GitHub calls, so it only matters on a host sharing its address with something busy.
-      NORDTAL_UPDATER_GITHUB_TOKEN: ${UPDATER_GITHUB_TOKEN:-}
+      NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_WORKER_GITHUB_TOKEN:-}
 
       # The restart, through Arcane's REST API - NOT through the Docker socket, which is not mounted
       # anywhere in this file and must not be: a container with it can do anything on the host, and
@@ -635,27 +637,27 @@ services:
       # LEAVING ARCANE_URL EMPTY STOPS UPDATES, deliberately. An update stops each affected server
       # before its jars move, so a run that cannot reach Arcane refuses before resolving a version or
       # touching a file rather than installing into servers that are still running. What still works
-      # is `docker compose run --rm updater bootstrap`, which fills EMPTY slots and stops nothing.
+      # is `docker compose run --rm steward-worker bootstrap`, which fills EMPTY slots and stops nothing.
       #
       # THE TWO IDS ARE IDS AND NOT NAMES. ARCANE_ENVIRONMENT is 0 for Arcane's own host and a UUID
       # for a remote agent; ARCANE_PROJECT is a UUID Arcane generated and is NOT the compose project
       # name - putting `nordtal-s2` there answers 404. Read them from
       # GET $ARCANE_URL/api/environments/0/projects with the same token.
-      NORDTAL_UPDATER_ARCANE_BASE_URL: ${ARCANE_URL:-}
-      NORDTAL_UPDATER_ARCANE_API_KEY: ${ARCANE_API_KEY:-}
-      NORDTAL_UPDATER_ARCANE_PROJECT: ${ARCANE_PROJECT:-}
-      # Repeated from UpdaterSpec.ArcaneSpec, and they have to be: an environment variable set to the
+      NORDTAL_STEWARD_ARCANE_BASE_URL: ${ARCANE_URL:-}
+      NORDTAL_STEWARD_ARCANE_API_KEY: ${ARCANE_API_KEY:-}
+      NORDTAL_STEWARD_ARCANE_PROJECT: ${ARCANE_PROJECT:-}
+      # Repeated from StewardSpec.ArcaneSpec, and they have to be: an environment variable set to the
       # empty string still WINS over the file in jcore, so `${VAR:-}` would blank out the spec's own
       # default. TopologyTest asserts the two copies still say the same thing.
-      NORDTAL_UPDATER_ARCANE_ENVIRONMENT: ${ARCANE_ENVIRONMENT:-0}
-      NORDTAL_UPDATER_ARCANE_REDEPLOY_PATH: ${ARCANE_REDEPLOY_PATH:-/api/environments/{environment}/projects/{project}/redeploy}
+      NORDTAL_STEWARD_ARCANE_ENVIRONMENT: ${ARCANE_ENVIRONMENT:-0}
+      NORDTAL_STEWARD_ARCANE_REDEPLOY_PATH: ${ARCANE_REDEPLOY_PATH:-/api/environments/{environment}/projects/{project}/redeploy}
       # The two paths a run actually uses: one read of the project's services, and one stop/start per
-      # container. redeploy above is not on any production path - it took the updater down with
+      # container. redeploy above is not on any production path - it took steward-worker down with
       # everything else, leaving nothing to report whether the network came back. Settings for the
       # same reason redeploy-path is: Arcane's documentation does not publish them, so a version that
       # moves a path is a line here and not a release of ours.
-      NORDTAL_UPDATER_ARCANE_RUNTIME_PATH: ${ARCANE_RUNTIME_PATH:-/api/environments/{environment}/projects/{project}/runtime}
-      NORDTAL_UPDATER_ARCANE_CONTAINER_PATH: ${ARCANE_CONTAINER_PATH:-/api/environments/{environment}/containers/{container}/{action}}
+      NORDTAL_STEWARD_ARCANE_RUNTIME_PATH: ${ARCANE_RUNTIME_PATH:-/api/environments/{environment}/projects/{project}/runtime}
+      NORDTAL_STEWARD_ARCANE_CONTAINER_PATH: ${ARCANE_CONTAINER_PATH:-/api/environments/{environment}/containers/{container}/{action}}
       # And the two the IMAGE path uses. A run replaces jars inside the volumes and hands each
       # container back with `start`, which recreates nothing - so entrypoint.sh, the JRE under it and
       # every change to this file stay on whatever image was pulled at the last deploy. The first
@@ -665,10 +667,10 @@ services:
       # ARCANE ANSWERS THE FIRST FROM ITS OWN PERSISTED CHECKS. With its image update check switched
       # off, every run reports "nobody has looked" and nothing is ever recreated - which is a line in
       # the report and not a silence.
-      NORDTAL_UPDATER_ARCANE_UPDATES_PATH: ${ARCANE_UPDATES_PATH:-/api/environments/{environment}/projects/{project}/updates}
-      NORDTAL_UPDATER_ARCANE_UPDATE_SERVICES_PATH: ${ARCANE_UPDATE_SERVICES_PATH:-/api/environments/{environment}/projects/{project}/update-services}
+      NORDTAL_STEWARD_ARCANE_UPDATES_PATH: ${ARCANE_UPDATES_PATH:-/api/environments/{environment}/projects/{project}/updates}
+      NORDTAL_STEWARD_ARCANE_UPDATE_SERVICES_PATH: ${ARCANE_UPDATE_SERVICES_PATH:-/api/environments/{environment}/projects/{project}/update-services}
     volumes:
-      - updater-config:/app/config
+      - steward-worker-config:/app/config
       # Everything this module owns, under the names Topology expects beneath volumes-root. Writable,
       # because `apply` puts the jars here and writes network-control's pack.yml.
       - mc-network-control:/volumes/network-control
@@ -690,7 +692,7 @@ services:
       # Mounted at the path the entrypoint reads on the next start. This container installs its own
       # new jar here and carries on running the old one: no process replaces the jar it is executing,
       # so the new one takes effect at the restart and never during a run.
-      - updater-jar:/volumes/updater
+      - steward-worker-jar:/volumes/steward-worker
     logging: *logging
 
 volumes:
@@ -699,11 +701,12 @@ volumes:
   # cannot be rebuilt from the repository and a world folder.
   postgres-dumps:
   bot-config:
-  updater-config:
-  # The two jars that are a whole container each. Written by the updater, read by the container they
-  # belong to; neither is worth backing up - a lost one is refilled by `updater bootstrap`.
+  steward-worker-config:
+  # The two jars that are a whole container each. Written by steward-worker, read by the container
+  # they belong to; neither is worth backing up - a lost one is refilled by
+  # `steward-worker bootstrap`.
   bot-jar:
-  updater-jar:
+  steward-worker-jar:
   bunq-context:
   mc-network-control:
   mc-limbo:
@@ -713,7 +716,7 @@ volumes:
   # HOLD THE ONLY HAND-EDITED FILES IN THE DEPLOYMENT - every plugin's config.yml, smp's
   # milestones.yml and sounds.yml, the proxy's pack.yml - so they are worth Arcane's backup policy,
   # and they are separate from the worlds so that saving them is not saving four gigabytes of
-  # terrain. The jars in them are the updater's and are not worth saving.
+  # terrain. The jars in them are steward-worker's and are not worth saving.
   #
   # A local stack points the four variables above at directories instead and none of these is
   # created. See deploy/dev.env.example.

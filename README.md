@@ -1,8 +1,11 @@
 # season-2
 
-Everything nordtal.eu season 2 deploys: four Minecraft plugins, a Discord bot, a version updater and
+Everything nordtal.eu season 2 deploys: four Minecraft plugins, a Discord bot, steward-worker and
 the resource pack. One Gradle multi-module build, one version in `gradle.properties`, one
 `docker compose` stack.
+
+`steward-worker` was called `updater` until 2026-09-12, and Steward is the name of the whole system
+it belongs to.
 
 ## The network
 
@@ -16,7 +19,7 @@ flowchart TB
 
     subgraph stack["docker compose stack"]
         direction TB
-        UPD["<b>updater</b><br/><i>:updater</i><br/>versions · schema · jars"]:::app
+        UPD["<b>steward-worker</b><br/><i>:steward-worker</i><br/>versions · schema · jars"]:::app
         subgraph servers["Minecraft servers · one image"]
             direction TB
             NC["<b>network-control</b><br/><i>:network-control</i><br/>Velocity proxy"]:::proxy
@@ -67,7 +70,7 @@ roles are a projection of it, never the other way round.
 | `hunger-games` | Paper | The start event — registration, teams, border, loot, HUD, winning. |
 | `smp` | Paper | The SMP: Nordtal, the farm world, the Nether and the End, milestones, aura, prestige, duels, graves. |
 | `discord-bot` | JVM app | Sells access periods, books bunq payments, mirrors admins. |
-| `updater` | JVM app | Resolves platform and plugin versions, migrates the schema, swaps jars, restarts the stack. |
+| `steward-worker` | JVM app | Resolves platform and plugin versions, migrates the schema, swaps jars, restarts the stack. |
 | `common` | library | Access API, message system, glyph constants, the phase enum, the `LISTEN`/`NOTIFY` loop, the migration SQL. |
 | `paper-common` | library | What the three Paper plugins share and Velocity cannot use. |
 | `commands` | library | Every command in the network, declared once. |

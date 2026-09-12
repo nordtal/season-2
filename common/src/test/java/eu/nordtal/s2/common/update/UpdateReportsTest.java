@@ -45,7 +45,7 @@ class UpdateReportsTest {
     @DisplayName("a version that is not installed yet stays absent")
     void aNullVersionIsNotTheWordNull() {
         final UpdateReport report = new UpdateReport(UpdateReport.Stage.PLANNED, List.of(
-                new UpdateReport.ServiceLine("updater", UpdateReport.State.PLANNED, List.of(
+                new UpdateReport.ServiceLine("steward-worker", UpdateReport.State.PLANNED, List.of(
                         new UpdateReport.Change("chunky", null, "1.4.36")), null)),
                 List.of());
 
@@ -83,7 +83,7 @@ class UpdateReportsTest {
     }
 
     @Test
-    @DisplayName("the plain text an older updater wrote is not a report, and does not throw")
+    @DisplayName("the plain text an older worker wrote is not a report, and does not throw")
     void oldRowsAreNotReports() {
         // A deployed database holds these today. Every surface falls back to printing the text, so
         // the one thing this must never do is throw on the way to that fallback.

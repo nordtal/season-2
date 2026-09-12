@@ -91,7 +91,7 @@ class UpdateIsServedEverywhereTest {
     void everyStoppingKindIsReachable() {
         // The gap this closes has happened once already, on the other side: the head start was
         // configured, migrated and documented on 2026-09-01 and had no READER at all until
-        // 2026-09-07. A kind in the enum, in the CHECK and in the updater's switch, with nothing
+        // 2026-09-07. A kind in the enum, in the CHECK and in steward-worker's switch, with nothing
         // anywhere able to write one, is the same shape - and it looks exactly like a feature.
         final java.util.Set<eu.nordtal.s2.common.update.UpdateKind> asked =
                 new java.util.HashSet<>();
@@ -113,7 +113,7 @@ class UpdateIsServedEverywhereTest {
             if (!kind.stopsServers()) {
                 continue;
             }
-            assertTrue(asked.contains(kind), "nothing can ask for " + kind + ". The updater would"
+            assertTrue(asked.contains(kind), "nothing can ask for " + kind + ". steward-worker would"
                     + " run it, the CHECK would accept it and no surface could write one.");
         }
     }

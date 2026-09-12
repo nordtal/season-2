@@ -18,7 +18,7 @@ import java.util.Map;
  * Both stop the services, both count down for {@link UpdateDirectory#UPDATE_COUNTDOWN}, both are
  * confirmed before the countdown even starts, and both are cancelled by the same
  * {@code /update cancel}. The only difference is whether jars move in the gap - which is the
- * updater's business and not this command's. Two classes would be two places for the countdown
+ * steward-worker's business and not this command's. Two classes would be two places for the countdown
  * length and the confirmation to drift apart.
  */
 public final class RunUpdate implements NordtalCommand<UpdateEffects> {
@@ -48,7 +48,7 @@ public final class RunUpdate implements NordtalCommand<UpdateEffects> {
                 // back out while there still is one.
                 //
                 // Accepted, not started - the same correction RunBackup carries. submit() writes a
-                // row; the updater can still find nothing to do, or refuse the run before any
+                // row; the worker can still find nothing to do, or refuse the run before any
                 // countdown. update.started already words it conditionally ("if there is
                 // anything"), so only the tone was overclaiming.
                 user.reply("update.started", Map.of(

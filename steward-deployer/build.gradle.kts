@@ -17,3 +17,15 @@ dependencies {
     testCompileOnly(libs.lombok)
     testAnnotationProcessor(libs.lombok)
 }
+
+// compose.yml is baked into the image, so it has to be in the build context first. Gradle copies
+// it rather than the Dockerfile reaching up out of its context - a context that is the repository
+// root would ship the whole tree to the daemon on every build.
+val stageComposeFile by tasks.registering(Copy::class) {
+    from(rootProject.layout.projectDirectory.file("compose.yml"))
+    into(layout.buildDirectory.dir("compose"))
+}
+
+tasks.named("build") {
+    dependsOn(stageComposeFile)
+}

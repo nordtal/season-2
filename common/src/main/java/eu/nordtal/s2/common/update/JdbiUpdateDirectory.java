@@ -73,7 +73,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         Objects.requireNonNull(status, "status");
         if (!status.isFinished() || status == UpdateStatus.CANCELLED) {
             // CANCELLED is reachable only through cancelCountdown, which is a person withdrawing
-            // a countdown. Letting it in here would mean an updater could report work it had
+            // a countdown. Letting it in here would mean a worker could report work it had
             // already started as somebody else's cancellation.
             throw new IllegalArgumentException(
                     "A claimed request finishes as DONE or FAILED, not as " + status);

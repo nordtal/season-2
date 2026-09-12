@@ -18,9 +18,9 @@ tasks.register("releaseArtifacts") {
         ":smp:shadowJar",
         ":network-control:shadowJar",
         ":discord-bot:shadowJar",
-        // The updater is on the release like every other module, and for the same reason it
+        // steward-worker is on the release like every other module, and for the same reason it
         // exists: its own version has to be movable by the mechanism it implements.
-        ":updater:shadowJar",
+        ":steward-worker:shadowJar",
         ":resource-pack:packZip",
     )
 }

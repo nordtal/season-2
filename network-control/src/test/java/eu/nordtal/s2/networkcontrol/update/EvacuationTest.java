@@ -113,7 +113,7 @@ class EvacuationTest {
     @DisplayName("a row whose report cannot be read moves nobody rather than everybody")
     void anUnreadableReportMovesNobody() {
         // The safe direction: the behaviour this class replaced, not a guess at the whole network.
-        // A row written by an updater older than the report codec is plain text and lands here.
+        // A row written by a worker older than the report codec is plain text and lands here.
         final UpdateRequest row = new UpdateRequest(3L, UpdateKind.UPDATE, UpdateStatus.RUNNING,
                 UpdateSource.CONSOLE, null, NOW, NOW.minusSeconds(5), null, null,
                 "Restart triggered.");

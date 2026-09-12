@@ -37,7 +37,7 @@ class OneMessageFormatTest {
     /**
      * Every file in the four modules that still calls {@code Component.text(...)}, and why. Three
      * kinds of thing legitimately do: text that is not a message (a glyph, an entity's display
-     * name), text that must not be parsed (the updater's report), and a message composed in Java
+     * name), text that must not be parsed (steward-worker's report), and a message composed in Java
      * around arbitrary player-supplied text.
      *
      * <p>Adding a file here is cheap and deliberate; adding one <em>without</em> noticing is what

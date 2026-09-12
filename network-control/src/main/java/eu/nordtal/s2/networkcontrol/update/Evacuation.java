@@ -189,8 +189,8 @@ public final class Evacuation {
     /**
      * The services a request's report says are moving.
      *
-     * <p>Read off the report the updater has already written into the row, rather than worked out
-     * again here. That is the same rule the rest of this network follows - the updater is the only
+     * <p>Read off the report steward-worker has already written into the row, rather than worked out
+     * again here. That is the same rule the rest of this network follows - the worker is the only
      * thing that decides what an update touches - and it is what keeps a proxy from evacuating a
      * server the run was never going to stop.</p>
      *

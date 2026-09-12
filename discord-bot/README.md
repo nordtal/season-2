@@ -4,13 +4,13 @@ The one season 2 process with no Minecraft dependency. At runtime it talks to **
 Discord gateway and bunq** and to nothing else, so it can be deployed and operated long before the
 proxy or any Paper backend exists.
 
-It does not apply the schema — the `updater` container does, because a release that adds a table is a
+It does not apply the schema — the `steward-worker` container does, because a release that adds a table is a
 release that adds a migration and the two belong to one owner. The bot runs Flyway's `validate()` at
 startup and refuses to start on a mismatch, naming the command to run. So an empty database is not
-enough; the updater has to have run first:
+enough; the worker has to have run first:
 
 ```bash
-docker compose run --rm updater migrate
+docker compose run --rm steward-worker migrate
 ```
 
 This file is only about starting the container; the deployment as a whole is
@@ -76,22 +76,22 @@ so a local build cannot pick up a jar from an older run of it. `BOT_VERSION` did
 2026-09-09 and had been saying 0.2.3 against a repository on 0.8.1.
 
 **The image tag is a floor, not the version.** The bot runs whatever `discord-bot-*.jar` is in the
-`bot-jar` volume, which the updater fills exactly as it fills every `plugins/` folder — so the bot
+`bot-jar` volume, which steward-worker fills exactly as it fills every `plugins/` folder — so the bot
 moves by the same mechanism as every other module. It does not roll *back* by any mechanism: nothing
 pins a release any more, and the way out of a bad one is to publish a better one. The jar baked into
 the image is used only while that volume is empty, which is a first deployment and nothing else, and
 reading it as "what is running" is wrong: the entrypoint prints the jar it picked on every start, and
-`docker compose run --rm updater report` says what is installed.
+`docker compose run --rm steward-worker report` says what is installed.
 
 `COMPOSE_PROFILES` decides what comes up: `bot` alone against an existing database, `db,bot` with a
-PostgreSQL beside it, `db,bot,mc` for the full network. The `updater` service has no profile and comes
+PostgreSQL beside it, `db,bot,mc` for the full network. The `steward-worker` service has no profile and comes
 up with all of them — it is the only process that applies the schema, and the bot would otherwise
 crash-loop on its schema check.
 
 There is deliberately **no `depends_on` on the database**: Compose implicitly enables a dependency's
 profile, which would start a PostgreSQL even when the deployment does not want one. The bot exits when
 the database is unreachable and the restart policy brings it back, so a first boot may log one
-connection failure. The `depends_on` on the updater is safe for the same reason reversed — the updater
+connection failure. The `depends_on` on `steward-worker` is safe for the same reason reversed — the worker
 has no profile, so depending on it cannot drag in a service nobody asked for.
 
 ## In production

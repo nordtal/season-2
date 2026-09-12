@@ -61,7 +61,7 @@ public interface CommandRequests extends AutoCloseable {
     /**
      * Deletes every settled request older than {@code days}, and answers how many.
      *
-     * <p>Called once by the updater at the start of {@code serve}, where nothing else is running
+     * <p>Called once by steward-worker at the start of {@code serve}, where nothing else is running
      * yet. Deliberately not on a timer, so a container that has not restarted keeps its rows longer
      * than the window.
      *

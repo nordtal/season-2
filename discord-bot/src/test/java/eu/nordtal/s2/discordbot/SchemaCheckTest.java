@@ -62,13 +62,13 @@ class SchemaCheckTest {
     @DisplayName("an unmigrated database is refused, and the message names the command that fixes it")
     void refusesAnEmptyDatabase() {
         // Deliberately first: this test runs against the container BEFORE anything migrates it,
-        // which is exactly the state a deployment is in when somebody starts the bot before the
-        // updater. Without this check the bot would come up and fail on its first query, inside a
+        // which is exactly the state a deployment is in when somebody starts the bot before
+        // steward-worker. Without this check the bot would come up and fail on its first query, inside a
         // Discord interaction, minutes later.
         final IllegalStateException refused =
                 assertThrows(IllegalStateException.class, () -> SchemaCheck.validate(database.dataSource()));
 
-        assertTrue(refused.getMessage().contains("updater migrate"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("steward-worker migrate"), refused.getMessage());
         assertTrue(refused.getMessage().contains("does not apply migrations any more"),
                 refused.getMessage());
     }

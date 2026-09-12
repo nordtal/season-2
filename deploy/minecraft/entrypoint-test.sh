@@ -270,9 +270,10 @@ expect_pick paper-26.2-121.jar
 ok "highest build"
 
 # ------------------------------------------------------------------------------------------------
-# WHY THIS CASE EXISTS. Until 2026-09-09 the glob carried the version - velocity-4.1.1-*.jar - so an
-# updater that moved the proxy to 4.2.0 left a cache this script read as EMPTY, and it fetched 4.1.1
-# back. Every update to the proxy would have been undone by the restart meant to apply it.
+# WHY THIS CASE EXISTS. Until 2026-09-09 the glob carried the version - velocity-4.1.1-*.jar - so a
+# steward-worker run that moved the proxy to 4.2.0 left a cache this script read as EMPTY, and it
+# fetched 4.1.1 back. Every update to the proxy would have been undone by the restart meant to
+# apply it.
 case_begin "the highest version wins, not the version somebody asked for"
 dir=$(cache versions velocity-4.1.1-24.jar velocity-4.2.0-15.jar)
 pick "$dir" velocity

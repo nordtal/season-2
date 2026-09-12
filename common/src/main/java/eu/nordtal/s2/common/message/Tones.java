@@ -9,7 +9,7 @@ import net.kyori.adventure.text.format.TextColor;
  * tone is a default that a line's own MiniMessage can override.
  *
  * <p>Separate from the enum because it names Adventure, which {@code discord-bot} and
- * {@code updater} do not have on their classpath even though they load {@link Tone}.
+ * {@code steward-worker} do not have on their classpath even though they load {@link Tone}.
  */
 public final class Tones {
 

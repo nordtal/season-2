@@ -305,7 +305,7 @@ public final class SmpPlugin extends JavaPlugin {
                 dao, navigation, sounds, hud, announcer);
         farmReset.start();
 
-        // The network's backup clock, here because the updater must not schedule its own work -
+        // The network's backup clock, here because steward-worker must not schedule its own work -
         // `serve` is not a scheduler - and this is the one process that already runs a daily clock.
         // It writes an update_request row and nothing else.
         nightlyBackup = new eu.nordtal.s2.smp.backup.NightlyBackup(this,
@@ -622,7 +622,7 @@ public final class SmpPlugin extends JavaPlugin {
             event.registrar().register(commands.poi());
 
             SmpCommand.build(this, messages, locales, identities, sounds, outbox, chatEffects,
-                            // The updater is a different container and this is how it is reached:
+                            // steward-worker is a different container and this is how it is reached:
                             // a row and a notification, never a call.
                             new UpdateWatcher(this, UpdateDirectory.using(pool)),
                             // A supplier and not the field: /smp reload replaces it.

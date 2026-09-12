@@ -20,9 +20,9 @@ import java.util.concurrent.Executor;
  *
  * <h2>Why this lives in a Minecraft plugin</h2>
  * Because the process that <em>performs</em> the backup must not own its schedule. {@code serve} in
- * the updater has exactly one rule protecting it - it does nothing at all until a row appears in
+ * steward-worker has exactly one rule protecting it - it does nothing at all until a row appears in
  * {@code update_request} - and that rule is what stops a crash restart at three in the morning from
- * moving a version. A timer inside the updater would end it, however small the timer.
+ * moving a version. A timer inside the worker would end it, however small the timer.
  *
  * <p>So the row is written from outside, and this plugin is the natural place: it is the only one
  * in the network that already runs a daily clock, for the farm world reset, and it is the process
@@ -31,7 +31,7 @@ import java.util.concurrent.Executor;
  * notices.</b> The only evidence either way is Arcane's own backup list.</p>
  *
  * <h2>It writes a request and nothing else</h2>
- * No stop, no snapshot, no Arcane. The row is claimed by the updater, which counts thirty seconds
+ * No stop, no snapshot, no Arcane. The row is claimed by the worker, which counts thirty seconds
  * down to every player online, stops the services that hold the volumes, asks Arcane for one
  * snapshot each, starts them again and waits for every healthcheck. That is the same run
  * {@code /backup now} asks for, and there is deliberately no second path: a backup nobody was
@@ -114,7 +114,7 @@ public final class NightlyBackup {
         async.execute(() -> {
             try {
                 directory.submit(UpdateKind.BACKUP, UpdateSource.CONSOLE, SENDER, Duration.ZERO);
-                plugin.getLogger().info("asked the updater for the nightly backup");
+                plugin.getLogger().info("asked steward-worker for the nightly backup");
             } catch (final RuntimeException failure) {
                 plugin.getLogger().log(java.util.logging.Level.WARNING,
                         "the nightly backup could not be asked for - nothing was saved tonight",

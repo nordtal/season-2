@@ -98,7 +98,7 @@ public final class SmpCommand {
 
         // /update, folded into :commands on 2026-09-08. It used to hang under /smp as a subtree
         // this adapter knew nothing about, with a comment saying it should never become a
-        // NordtalCommand - because "the updater's report must not be rendered twice". That rule was
+        // NordtalCommand - because "steward-worker's report must not be rendered twice". That rule was
         // deliberately rewritten the day before: what must not happen twice is the DECIDING, and
         // the report is now data that every surface draws. So the command is declared once and
         // this server serves it like any other.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# The local season 2 network: the SAME compose.yml, the same Dockerfiles and the same updater that
-# the production host runs, pointed at locally built jars.
+# The local season 2 network: the SAME compose.yml, the same Dockerfiles and the same
+# steward-worker that the production host runs, pointed at locally built jars.
 #
 # What makes that possible is one line in compose.yml: each server's plugins/ is a directory on
 # this machine (<SERVICE>_PLUGINS) rather than a volume of its own. So installing a freshly built
@@ -30,7 +30,7 @@ ENV_FILE="deploy/dev.env"
 EXAMPLE="deploy/dev.env.example"
 
 # The four services that run one of our plugins, and the module that builds it. The service name is
-# also the <SERVICE>_PLUGINS variable's - the same identity compose.yml and :updater's Topology use.
+# also the <SERVICE>_PLUGINS variable's - the same identity compose.yml and :steward-worker's Topology use.
 MODULES=(network-control limbo hunger-games smp)
 
 log()  { printf '\033[36m[dev]\033[0m %s\n' "$*"; }
@@ -171,9 +171,9 @@ install_module() {
     target="$(plugins_dir "$module")"
     mkdir -p "$target"
 
-    # Remove every other jar of this plugin first. The updater splits a filename on the LAST hyphen
-    # (JarName), and so does entrypoint.sh; two jars sharing a prefix is Paper loading two versions
-    # of one plugin without complaining about it.
+    # Remove every other jar of this plugin first. steward-worker splits a filename on the LAST
+    # hyphen (JarName), and so does entrypoint.sh; two jars sharing a prefix is Paper loading two
+    # versions of one plugin without complaining about it.
     local existing
     for existing in "$target/$module-"*.jar; do
         [[ -e "$existing" ]] || continue
@@ -190,7 +190,7 @@ install_module() {
 cmd_up() {
     [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is not there. Run: deploy/dev init"
     build_modules "${MODULES[@]}"
-    sh gradlew :updater:shadowJar
+    sh gradlew :steward-worker:shadowJar
 
     local module
     for module in "${MODULES[@]}"; do
@@ -198,13 +198,13 @@ cmd_up() {
     done
 
     # The images are ours and are built here, never pulled: a locally built plugin needs the locally
-    # built updater, because the migrations it applies are compiled into :common and shaded into
-    # that jar. A stale ghcr updater would migrate to the released schema and the plugin would come
-    # up against it.
-    log "building the minecraft and updater images"
-    compose build updater network-control
+    # built steward-worker, because the migrations it applies are compiled into :common and shaded
+    # into that jar. A stale ghcr worker would migrate to the released schema and the plugin would
+    # come up against it.
+    log "building the minecraft and steward-worker images"
+    compose build steward-worker network-control
 
-    # Our jars are already in plugins/, so the updater's bootstrap - which installs only what is
+    # Our jars are already in plugins/, so the worker's bootstrap - which installs only what is
     # MISSING - fetches the third-party plugins, the Paper and Velocity jars and pack.yml, and
     # leaves ours alone. That is the whole of the first start.
     compose up -d
@@ -255,8 +255,8 @@ cmd_pack() {
     port="$(sed -n 's/^PACK_PORT=//p' "$ENV_FILE" | tail -n1)"
     port="${port:-8080}"
 
-    # THE SAME TWO LINES THE UPDATER'S PackWriter OWNS, and no others. It rewrites url and sha1 and
-    # has no opinion about enabled, force or apply-timeout-seconds; neither does this.
+    # THE SAME TWO LINES STEWARD-WORKER'S PackWriter OWNS, and no others. It rewrites url and sha1
+    # and has no opinion about enabled, force or apply-timeout-seconds; neither does this.
     perl -pi -e "s|^url:.*|url: \"http://localhost:$port/$name\"|" "$pack_yml"
     perl -pi -e "s|^sha1:.*|sha1: \"$sha\"|" "$pack_yml"
     log "pack.yml now points at http://localhost:$port/$name ($sha)"

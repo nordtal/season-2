@@ -6,11 +6,11 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * The updater's inbox, as seen by every process that can ask for a run.
+ * steward-worker's inbox, as seen by every process that can ask for a run.
  *
- * <p>The updater is a separate container and nothing in this deployment can call it - there is no
+ * <p>The worker is a separate container and nothing in this deployment can call it - there is no
  * socket between the processes - so a request travels through the one PostgreSQL they share: a row,
- * a {@code pg_notify}, and the updater listening. A request therefore survives an updater that
+ * a {@code pg_notify}, and the worker listening. A request therefore survives a worker that
  * happens to be restarting.
  *
  * <p><b>The notification is never the state.</b> Notifications are lost while a process is
@@ -31,7 +31,7 @@ public interface UpdateDirectory {
     /**
      * How long between an update being asked for and the servers going down.
      *
-     * <p>A constant rather than a setting: the updater starts the countdown and the proxy renders it
+     * <p>A constant rather than a setting: the worker starts the countdown and the proxy renders it
      * to every player, and two containers configured separately would eventually disagree. The
      * instant itself travels on the row ({@code not_before}), so it is never computed twice.
      *
@@ -55,9 +55,9 @@ public interface UpdateDirectory {
      * @param kind        what to do
      * @param source      which surface is asking
      * @param requestedBy a Discord id, a Minecraft name, or {@code null} for the console
-     * @param delay       how long the updater must wait before acting. {@link Duration#ZERO} for
+     * @param delay       how long the worker must wait before acting. {@link Duration#ZERO} for
      *                    every kind: the countdown is started by {@link #startCountdown} once the
-     *                    updater knows there is work to do, so a request that finds nothing new
+     *                    worker knows there is work to do, so a request that finds nothing new
      *                    never counts anything down. Negative is treated as zero
      * @return the row as written, with the id to read the answer back by
      */
@@ -90,14 +90,14 @@ public interface UpdateDirectory {
     java.util.List<UpdateRequest> finishedWithin(Duration window);
 
     /**
-     * Takes the oldest due request and marks it running. <b>Only the updater calls this.</b>
+     * Takes the oldest due request and marks it running. <b>Only steward-worker calls this.</b>
      *
      * @return the claimed request, or empty when nothing is due
      */
     Optional<UpdateRequest> claimNext();
 
     /**
-     * Writes the answer to a claimed request. <b>Only the updater calls this.</b>
+     * Writes the answer to a claimed request. <b>Only the worker calls this.</b>
      *
      * @param id     the row
      * @param status {@link UpdateStatus#DONE} or {@link UpdateStatus#FAILED}
@@ -121,9 +121,9 @@ public interface UpdateDirectory {
     boolean progress(long id, String result);
 
     /**
-     * Starts the countdown on a request this process has claimed. <b>Only the updater calls this.</b>
+     * Starts the countdown on a request this process has claimed. <b>Only the worker calls this.</b>
      *
-     * <p>The updater and not the submitter, because only the updater knows whether the plan has work
+     * <p>The worker and not the submitter, because only the worker knows whether the plan has work
      * in it - otherwise every request counts down thirty seconds before announcing that nothing
      * changed.
      *
@@ -135,7 +135,7 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> startCountdown(long id, Duration length);
 
     /**
-     * Ends the countdown and says whether it was still there to end. <b>Only the updater calls
+     * Ends the countdown and says whether it was still there to end. <b>Only the worker calls
      * this.</b>
      *
      * <p>The one statement that decides the race at zero: a cancel arriving in the same millisecond
@@ -179,7 +179,7 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> cancelCountdown(String reason);
 
     /**
-     * When the next pending request becomes due. The updater sleeps until this instant rather than
+     * When the next pending request becomes due. The worker sleeps until this instant rather than
      * for a fixed interval, so a restart fires when its counter reaches zero and not a poll later.
      *
      * @return the earliest {@code not_before} among pending rows, or empty when there are none
@@ -187,9 +187,9 @@ public interface UpdateDirectory {
     Optional<Instant> nextDue();
 
     /**
-     * Fails everything left {@code RUNNING}. <b>Only the updater calls this, once, at startup.</b>
+     * Fails everything left {@code RUNNING}. <b>Only the worker calls this, once, at startup.</b>
      *
-     * <p>Nothing is running those rows: the only process that claims one is an updater, exactly one
+     * <p>Nothing is running those rows: the only process that claims one is a worker, exactly one
      * {@code serve} may exist, and this one has just started. An orphaned request of any kind means
      * it died in the middle, so all of them fail rather than any being reported as success.
      *

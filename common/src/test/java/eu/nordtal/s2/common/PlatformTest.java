@@ -20,11 +20,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * what makes the second one fail loudly.
  *
  * <h2>What each half is for</h2>
- * The catalog is what the modules <em>compile</em> against; {@link Platform} is what the updater
+ * The catalog is what the modules <em>compile</em> against; {@link Platform} is what steward-worker
  * <em>installs</em> and what {@code compose.yml} names. Nothing else compares them, and the way
  * they part company is silent in both directions: a catalog bumped on its own gives a network
  * running one Minecraft version and plugins built for another, and a constant bumped on its own
- * gives an updater fetching a Paper the plugins were never compiled for. Either way the first
+ * gives a worker fetching a Paper the plugins were never compiled for. Either way the first
  * symptom is a plugin that does not load, on a server, in front of players.
  *
  * <p>The file is at the repository root and in no source set, so {@code common/build.gradle.kts}
@@ -55,7 +55,7 @@ class PlatformTest {
 
         assertEquals(paper.substring(0, build), Platform.MINECRAFT,
                 "Platform.MINECRAFT and the paper-api version in gradle/libs.versions.toml name"
-                        + " different Minecraft versions. One of them decides what the updater"
+                        + " different Minecraft versions. One of them decides what the worker"
                         + " installs and the other decides what every plugin is compiled against;"
                         + " a network where they disagree loads no plugins.");
     }
@@ -66,22 +66,22 @@ class PlatformTest {
         // This is the number the update report compares a resolved Velocity version against, and it
         // is only worth anything if it is the version network-control was actually built with.
         assertEquals(version("velocity"), Platform.VELOCITY_API,
-                "Platform.VELOCITY_API no longer matches the catalog. The updater's warning about"
+                "Platform.VELOCITY_API no longer matches the catalog. The worker's warning about"
                         + " running the proxy on a newer API than it was built for is measured"
                         + " against this string, so a stale one makes that warning meaningless.");
     }
 
     @Test
-    @DisplayName("the catalog's Velocity falls inside the family the updater follows")
+    @DisplayName("the catalog's Velocity falls inside the family steward-worker follows")
     void theCatalogVersionIsAMemberOfTheFamily() {
         // VELOCITY_FAMILY is Fill's key for a major, not a version - `4.0.0` is what it calls the
-        // whole 4.x line. What has to hold is that the line the updater follows is the line the
+        // whole 4.x line. What has to hold is that the line the worker follows is the line the
         // proxy is compiled for: following major 5 while compiling against 4.1.1 is not a warning
         // in a report, it is a proxy that does not start.
         assertEquals(major(Platform.VELOCITY_API), major(Platform.VELOCITY_FAMILY),
                 "Platform.VELOCITY_FAMILY (" + Platform.VELOCITY_FAMILY + ") and the velocity-api in"
                         + " the catalog (" + Platform.VELOCITY_API + ") are different majors. The"
-                        + " updater would install a proxy network-control cannot run on.");
+                        + " worker would install a proxy network-control cannot run on.");
     }
 
     private static String major(final String version) {

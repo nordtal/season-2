@@ -40,11 +40,11 @@ public final class RunBackup implements NordtalCommand<UpdateEffects> {
             try {
                 final long id = effects.submit(UpdateKind.BACKUP, user).id();
                 effects.watch(id, user);
-                // Accepted, not started. submit() writes a row and nothing more: the updater can
+                // Accepted, not started. submit() writes a row and nothing more: steward-worker can
                 // still refuse this run before any countdown - Arcane unreachable, an empty
                 // backup.volumes, another run holding the lock - and a line that says "backing up"
                 // would then be the last thing anybody was told. The watcher reports the countdown
-                // once the updater has actually recorded it, which is where that news belongs.
+                // once the worker has actually recorded it, which is where that news belongs.
                 // SMALL_SUCCESS rather than BIG_SUCCESS for the same reason: the sound says the
                 // command was taken, not that the network is about to go down.
                 user.reply("backup.started", Map.of(

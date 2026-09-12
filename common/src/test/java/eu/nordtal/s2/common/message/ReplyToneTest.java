@@ -64,7 +64,7 @@ class ReplyToneTest {
      */
     private static final Map<String, String> ALLOWED = Map.of(
             "commands/src/main/java/eu/nordtal/s2/commands/update/UpdateFollower.java",
-            "it forwards the tone the updater's own report put on each line - it does not pick one",
+            "it forwards the tone the worker's own report put on each line - it does not pick one",
             "commands/src/main/java/eu/nordtal/s2/commands/NordtalUser.java",
             "the default overloads, which are what every other call site is measured against");
 

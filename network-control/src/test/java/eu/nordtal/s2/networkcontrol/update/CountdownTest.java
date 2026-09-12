@@ -83,7 +83,7 @@ class CountdownTest {
     @Test
     @DisplayName("a countdown that is not a whole number of seconds still lands on the second")
     void theOddMillisecondsAreTheReasonThisIsNotSeconds() {
-        // The updater writes now() + 30s on the database's clock and the proxy reads the row some
+        // steward-worker writes now() + 30s on the database's clock and the proxy reads the row some
         // milliseconds later, so a countdown is never a round number here. Truncating to whole
         // seconds first would put every beat up to 999 ms out - the counter would read 3 with 2.1
         // seconds to go, on the one number that has to be believed.

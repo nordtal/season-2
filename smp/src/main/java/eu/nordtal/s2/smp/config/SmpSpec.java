@@ -145,9 +145,9 @@ public interface SmpSpec {
     @Order(12)
     @Key("backup-time")
     @Comment({
-            "Local time of day this plugin asks the updater for a network backup, HH:mm.",
+            "Local time of day this plugin asks steward-worker for a network backup, HH:mm.",
             "",
-            "WHY THE SMP OWNS THE NETWORK'S BACKUP CLOCK. The updater is not a scheduler and must",
+            "WHY THE SMP OWNS THE NETWORK'S BACKUP CLOCK. steward-worker is not a scheduler and must",
             "never become one - `serve` does nothing at all until a row appears in update_request,",
             "which is what stops a crash restart at three in the morning from moving a version.",
             "So somebody else has to write that row on a timer, and this plugin is the one process",

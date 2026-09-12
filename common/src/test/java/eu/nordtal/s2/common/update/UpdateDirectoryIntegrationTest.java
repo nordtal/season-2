@@ -202,10 +202,10 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
-    void twoUpdatersNeverClaimTheSameRow() throws Exception {
+    void twoWorkersNeverClaimTheSameRow() throws Exception {
         updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
 
-        // Hold the row in an open transaction, the way a second updater that claimed it would.
+        // Hold the row in an open transaction, the way a second worker that claimed it would.
         try (Connection holder = dataSource.getConnection()) {
             holder.setAutoCommit(false);
             try (Statement statement = holder.createStatement()) {
@@ -250,7 +250,7 @@ class UpdateDirectoryIntegrationTest {
         updates.claimNext().orElseThrow();
         assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "x").isPresent());
         assertTrue(updates.finish(submitted.id(), UpdateStatus.FAILED, "y").isEmpty(),
-                "and an answer that is already there is not overwritten by a second updater");
+                "and an answer that is already there is not overwritten by a second worker");
     }
 
     @Test
@@ -259,7 +259,7 @@ class UpdateDirectoryIntegrationTest {
         updates.claimNext().orElseThrow();
 
         // CANCELLED is reachable only through cancelCountdown, which is a person withdrawing one.
-        // Letting it in here would mean an updater could report its own work as somebody's cancel.
+        // Letting it in here would mean a worker could report its own work as somebody's cancel.
         assertThrows(IllegalArgumentException.class,
                 () -> updates.finish(submitted.id(), UpdateStatus.CANCELLED, "too late"));
         assertThrows(IllegalArgumentException.class,
@@ -277,12 +277,12 @@ class UpdateDirectoryIntegrationTest {
         assertEquals("Till changed their mind", cancelled.result());
 
         assertTrue(updates.countingDown().isEmpty(), "and nothing is counting down any more");
-        assertTrue(updates.claimNext().isEmpty(), "and no updater will ever pick it up");
+        assertTrue(updates.claimNext().isEmpty(), "and no worker will ever pick it up");
     }
 
     @Test
-    @DisplayName("the countdown the updater starts is the one the proxy shows and the button stops")
-    void theUpdatersOwnCountdownIsCancellable() {
+    @DisplayName("the countdown steward-worker starts is the one the proxy shows and the button stops")
+    void theWorkersOwnCountdownIsCancellable() {
         // The whole of V13, driven end to end. The row is written due immediately, claimed, and
         // only then given a countdown - which is the order that stops a run finding nothing new
         // from counting thirty seconds down to everybody playing first.
@@ -436,8 +436,8 @@ class UpdateDirectoryIntegrationTest {
         // It was read as SUCCESS until this change, and the inference was right at the time: a
         // RESTART was one Arcane redeploy of the whole project, which took the container running it
         // down every time by design. A restart now cycles the four Minecraft services one at a time
-        // and never stops the updater, so an orphaned one means what every other kind means - the
-        // updater died in the middle of it. Reporting that as "the redeploy happened" is the one
+        // and never stops the worker, so an orphaned one means what every other kind means - the
+        // worker died in the middle of it. Reporting that as "the redeploy happened" is the one
         // reading nobody can act on.
         final UpdateRequest restart = updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "a", Duration.ZERO);
         updates.claimNext().orElseThrow();

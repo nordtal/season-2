@@ -37,18 +37,18 @@ final class FakeUpdateDirectory implements UpdateDirectory {
 
     @Override
     public Optional<UpdateRequest> claimNext() {
-        throw new UnsupportedOperationException("only the updater claims");
+        throw new UnsupportedOperationException("only steward-worker claims");
     }
 
     @Override
     public Optional<UpdateRequest> finish(final long id, final UpdateStatus status,
                                           final String result) {
-        throw new UnsupportedOperationException("only the updater finishes");
+        throw new UnsupportedOperationException("only steward-worker finishes");
     }
 
     @Override
     public boolean progress(final long id, final String result) {
-        throw new UnsupportedOperationException("only the updater reports progress");
+        throw new UnsupportedOperationException("only steward-worker reports progress");
     }
 
     @Override
@@ -68,12 +68,12 @@ final class FakeUpdateDirectory implements UpdateDirectory {
 
     @Override
     public Optional<UpdateRequest> startCountdown(final long id, final java.time.Duration seconds) {
-        throw new UnsupportedOperationException("only the updater counts down");
+        throw new UnsupportedOperationException("only steward-worker counts down");
     }
 
     @Override
     public boolean commitCountdown(final long id) {
-        throw new UnsupportedOperationException("only the updater counts down");
+        throw new UnsupportedOperationException("only steward-worker counts down");
     }
 
     @Override
@@ -88,12 +88,12 @@ final class FakeUpdateDirectory implements UpdateDirectory {
 
     @Override
     public Optional<Instant> nextDue() {
-        throw new UnsupportedOperationException("only the updater asks");
+        throw new UnsupportedOperationException("only steward-worker asks");
     }
 
     @Override
     public int settleOrphans(final String failed) {
-        throw new UnsupportedOperationException("only the updater settles");
+        throw new UnsupportedOperationException("only steward-worker settles");
     }
 
     @Override

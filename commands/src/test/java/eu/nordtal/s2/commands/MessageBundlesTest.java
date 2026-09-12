@@ -123,7 +123,7 @@ class MessageBundlesTest {
     }
 
     @Test
-    @DisplayName("every stage and every service state the updater can report has a line to say")
+    @DisplayName("every stage and every service state steward-worker can report has a line to say")
     void theUpdateReportIsFullyTranslated() throws IOException {
         // The sweep above cannot see these: the key is built from an enum constant, so a stage
         // added to UpdateReport would reach an admin as the literal string update.stage.PAUSING.

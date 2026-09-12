@@ -12,7 +12,7 @@ jcore = "3.1.0"
 # module is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to
 # be installed on the SMP server.
 #
-# NOT A FIXED VERSION, deliberately: `updater.yml` ships `display-tags-release: latest`, so the jar
+# NOT A FIXED VERSION, deliberately: `steward.yml` ships `display-tags-release: latest`, so the jar
 # that runs on the SMP is whatever the fork released most recently, and a pinned compile version
 # can only agree with that by accident. The cost is that a DisplayTags release can turn CI red with
 # no commit in between; if one does, pin this line to the last good version and say why - do not

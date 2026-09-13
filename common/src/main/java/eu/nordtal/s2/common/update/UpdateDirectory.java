@@ -72,6 +72,13 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> find(long id);
 
     /**
+     * The most recent requests, newest first - what the interface's list of runs is drawn from.
+     *
+     * @param limit how many, at most. A screenful; this is a page, not an export
+     */
+    java.util.List<UpdateRequest> recent(int limit);
+
+    /**
      * Every request written after the one named, oldest first - what the Discord bot's
      * admin-channel feed reads, so a run started in game is visible to an admin who did not start
      * it.

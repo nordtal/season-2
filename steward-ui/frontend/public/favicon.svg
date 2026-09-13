@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- Placeholder mark: the real logo is a paintbrush job. Brand blue, warm off-white stroke. -->
+  <rect width="16" height="16" rx="4" fill="#4a63d8"/>
+  <path d="M4.6 11.4V4.6l6.8 6.8V4.6" fill="none" stroke="#fffcf6" stroke-width="1.6"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

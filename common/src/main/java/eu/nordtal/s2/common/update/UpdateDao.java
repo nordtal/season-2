@@ -153,6 +153,16 @@ interface UpdateDao {
      * whole history into the admin channel. What that costs is the runs that finished while the bot
      * was down, which {@link #finishedWithin(long)} is for.</p>
      */
+    /**
+     * The most recent requests, newest first.
+     *
+     * <p>For a person looking at a list rather than for a process deciding something, which is why
+     * it is bounded by a count and not by a time: "what happened here lately" has an answer of a
+     * screenful, and a season's worth of rows is not it.</p>
+     */
+    @SqlQuery("SELECT * FROM update_request ORDER BY id DESC LIMIT :limit")
+    java.util.List<UpdateRequest> recent(@Bind("limit") int limit);
+
     @SqlQuery("SELECT coalesce(max(id), 0) FROM update_request")
     long latestId();
 

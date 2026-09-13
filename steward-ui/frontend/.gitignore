@@ -1,0 +1,6 @@
+# npm's install tree and Vite's caches. The build output does not appear here at all: vite.config.ts
+# sends it to ../build/frontend-dist, which the repository-root .gitignore already covers.
+/node_modules/
+/.vite/
+/dist/
+npm-debug.log*

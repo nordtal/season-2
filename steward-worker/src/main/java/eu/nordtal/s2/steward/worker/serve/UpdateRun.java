@@ -1,12 +1,12 @@
 package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.s2.common.update.UpdateReport;
-import eu.nordtal.s2.steward.worker.arcane.ArcaneOps;
-import eu.nordtal.s2.steward.worker.arcane.BackupResult;
-import eu.nordtal.s2.steward.worker.arcane.ImageResult;
-import eu.nordtal.s2.steward.worker.arcane.RedeployResult;
-import eu.nordtal.s2.steward.worker.arcane.RuntimeResult;
-import eu.nordtal.s2.steward.worker.arcane.ServiceRuntime;
+import eu.nordtal.s2.steward.worker.ops.BackupResult;
+import eu.nordtal.s2.steward.worker.ops.ContainerOps;
+import eu.nordtal.s2.steward.worker.ops.ImageResult;
+import eu.nordtal.s2.steward.worker.ops.RedeployResult;
+import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
+import eu.nordtal.s2.steward.worker.ops.ServiceRuntime;
 import eu.nordtal.s2.steward.worker.plan.Topology;
 
 import lombok.extern.slf4j.Slf4j;
@@ -72,10 +72,10 @@ final class UpdateRun {
      */
     private static final Duration BACKUP_POLL = Duration.ofSeconds(15);
 
-    private final ArcaneOps arcane;
+    private final ContainerOps arcane;
     private final Consumer<UpdateReport> progress;
 
-    UpdateRun(final @NotNull ArcaneOps arcane, final @NotNull Consumer<UpdateReport> progress) {
+    UpdateRun(final @NotNull ContainerOps arcane, final @NotNull Consumer<UpdateReport> progress) {
         this.arcane = arcane;
         this.progress = progress;
     }
@@ -146,7 +146,7 @@ final class UpdateRun {
      * them concurrently; this only asks.
      *
      * <h2>An unreadable poll is not a failure</h2>
-     * {@link ArcaneOps#backupState} answers {@code RUNNING} for anything it could not read, so a
+     * {@link ContainerOps#backupState} answers {@code RUNNING} for anything it could not read, so a
      * momentary 502 does not end a snapshot that is still being written. What ends a wait is the
      * patience, and a volume that runs out of it is reported {@code FAILED} with the last thing
      * Arcane said about it - the snapshot may well still finish, which is exactly why the sentence

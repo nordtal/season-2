@@ -1,5 +1,7 @@
 package eu.nordtal.s2.steward.worker.arcane;
 
+import eu.nordtal.s2.steward.worker.ops.BackupResult;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;

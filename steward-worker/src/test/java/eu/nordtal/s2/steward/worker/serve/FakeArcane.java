@@ -1,11 +1,11 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.steward.worker.arcane.ArcaneOps;
-import eu.nordtal.s2.steward.worker.arcane.BackupResult;
-import eu.nordtal.s2.steward.worker.arcane.ImageResult;
-import eu.nordtal.s2.steward.worker.arcane.RedeployResult;
-import eu.nordtal.s2.steward.worker.arcane.RuntimeResult;
-import eu.nordtal.s2.steward.worker.arcane.ServiceRuntime;
+import eu.nordtal.s2.steward.worker.ops.BackupResult;
+import eu.nordtal.s2.steward.worker.ops.ContainerOps;
+import eu.nordtal.s2.steward.worker.ops.ImageResult;
+import eu.nordtal.s2.steward.worker.ops.RedeployResult;
+import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
+import eu.nordtal.s2.steward.worker.ops.ServiceRuntime;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -23,7 +23,7 @@ import java.util.Map;
  * other two - a snapshot taken of a server that is still running fails at RESTORE and nowhere
  * else.</p>
  */
-final class FakeArcane implements ArcaneOps {
+final class FakeArcane implements ContainerOps {
 
     /** Every stop and start, in the order they were asked for. */
     final List<String> calls = new ArrayList<>();

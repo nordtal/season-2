@@ -1,19 +1,24 @@
-package eu.nordtal.s2.steward.worker.arcane;
+package eu.nordtal.s2.steward.worker.ops;
 
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The calls an update sequence makes against Arcane, as a seam.
+ * What an update sequence needs a container runtime to do, as a seam.
  *
- * <h2>Why an interface over a class with one implementation</h2>
- * The sequence behind these - read the runtime, stop each service, save a volume, start it again
- * and watch until it is healthy - is the part of this module with the most decisions in it and the
- * least chance of ever being rehearsed: it needs a real Arcane, a real project and a willingness to take
- * the network down. Nobody has seen a 2xx from Arcane yet at all. So the ordering, the refusals and
- * the timeout are held by tests against a fake, and {@link Arcane} remains the only thing that
- * speaks HTTP.
+ * <h2>Two implementations, and that is why it is an interface</h2>
+ * {@code ArcaneRuntime} and its siblings speak to Arcane over HTTP; {@code DockerOps} speaks to the
+ * Docker daemon over its socket. The sequence behind these calls - read the runtime, stop each
+ * service, save a volume, start it again and watch until it is healthy - is the part of this module
+ * with the most decisions in it and the least chance of ever being rehearsed, so its ordering, its
+ * refusals and its timeout are held by tests against a fake, and only the implementations touch a
+ * network or a socket.
+ *
+ * <h2>What is deliberately NOT on this interface</h2>
+ * Creating a container. Doing it correctly needs the compose file, and the service that has the
+ * compose file is {@code steward-deployer} (§8b). {@link #recreate} therefore asks somebody else
+ * rather than doing it, and an implementation that cannot ask says so instead of improvising.
  */
-public interface ArcaneOps {
+public interface ContainerOps {
 
     /** Every service of the project with its container id, status and health. */
     @NotNull RuntimeResult runtime();

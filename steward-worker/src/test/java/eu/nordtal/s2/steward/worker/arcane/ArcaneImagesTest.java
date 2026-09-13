@@ -1,5 +1,7 @@
 package eu.nordtal.s2.steward.worker.arcane;
 
+import eu.nordtal.s2.steward.worker.ops.ImageResult;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

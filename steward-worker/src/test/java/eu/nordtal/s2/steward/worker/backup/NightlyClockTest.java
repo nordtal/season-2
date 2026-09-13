@@ -89,6 +89,31 @@ class NightlyClockTest {
         assertTrue(NightlyClock.from(noDirectory(), null, BERLIN).isEmpty());
     }
 
+    @Test
+    @DisplayName("the next backup is a moment on this host, whoever is asking and from where")
+    void theNextBackupIsThisHostsMoment() {
+        // The interface offers "tonight" for a run that stops servers, and it used to work that
+        // out in the browser's time zone. An admin one hour east of the host therefore scheduled
+        // 04:00 their time - 03:00 here on a good day, 05:00 on a bad one, which is AFTER the
+        // nightly backup and therefore exactly the collision the offer exists to avoid.
+        final ZonedDateTime beforeIt = ZonedDateTime.of(2026, 9, 13, 3, 0, 0, 0, BERLIN);
+        final ZonedDateTime afterIt = ZonedDateTime.of(2026, 9, 13, 5, 0, 0, 0, BERLIN);
+
+        assertEquals(ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", BERLIN, beforeIt).orElseThrow());
+        assertEquals(ZonedDateTime.of(2026, 9, 14, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", BERLIN, afterIt).orElseThrow(),
+                "past today's, so it is tomorrow's - never a moment already gone");
+
+        // Asked from somewhere else entirely: the answer is the same instant, expressed here.
+        assertEquals(ZonedDateTime.of(2026, 9, 13, 4, 45, 0, 0, BERLIN),
+                NightlyClock.next("04:45", BERLIN,
+                        beforeIt.withZoneSameInstant(ZoneId.of("Pacific/Auckland"))).orElseThrow());
+
+        assertTrue(NightlyClock.next("", BERLIN, beforeIt).isEmpty(), "empty means no backup");
+        assertTrue(NightlyClock.next("quarter to five", BERLIN, beforeIt).isEmpty());
+    }
+
     /** Nothing here ever submits, so the directory is a proxy that refuses every call. */
     private static UpdateDirectory noDirectory() {
         return (UpdateDirectory) java.lang.reflect.Proxy.newProxyInstance(

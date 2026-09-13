@@ -19,6 +19,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -48,7 +49,8 @@ class WorkerApiIntegrationTest {
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
         api = new WorkerApi(docker, new DockerOps(docker, PROJECT), new Console(docker, PROJECT),
-                new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN);
+                new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN,
+                new WorkerApi.Nightly("04:45", ZoneId.of("Europe/Berlin")));
         api.start(PORT);
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }
@@ -160,6 +162,23 @@ class WorkerApiIntegrationTest {
                 one.shutdownNow();
             }
         }
+    }
+
+    @Test
+    @DisplayName("the nightly clock is readable, so \"tonight\" can mean a moment on this host")
+    void theScheduleIsThisHosts() throws Exception {
+        final JsonObject schedule = GSON.fromJson(get("/api/schedule"), JsonObject.class);
+
+        assertEquals("04:45", schedule.get("backupAt").getAsString());
+        assertEquals("Europe/Berlin", schedule.get("zone").getAsString());
+        // An offset, not a local time: the browser has to be able to turn it into an instant, and
+        // "04:45" on its own is a number that means something different in every time zone - which
+        // is the defect this endpoint exists to end.
+        final java.time.ZonedDateTime next = java.time.ZonedDateTime.parse(
+                schedule.get("nextBackupAt").getAsString());
+        assertTrue(next.isAfter(java.time.ZonedDateTime.now()), "it has already been: " + next);
+        assertEquals(45, next.getMinute());
+        assertEquals(4, next.getHour(), "read in the zone the worker was given, not this JVM's");
     }
 
     /**

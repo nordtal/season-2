@@ -61,7 +61,7 @@ jobs:
       # has - without one Testcontainers tests skip themselves and the run stays green while
       # proving less.
       - name: Build and test every release artifact
-        run: ./gradlew check releaseArtifacts
+        run: ./gradlew check releaseArtifacts imageContexts
 
       - name: Collect artifacts
         run: |
@@ -111,7 +111,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ALL FOUR IMAGES ARE PUSHED, and until 2026-09-02 only this first one was. The reason it
+      # ALL FIVE IMAGES ARE PUSHED, and until 2026-09-02 only this first one was. The reason it
       # changed is not a preference: THE DEPLOYMENT PULLS, IT DOES NOT BUILD. steward-deployer runs
       # `compose pull` and then `up --no-detach --no-deps`, so an image that exists nowhere but a
       # host's local daemon makes a deploy fail with `denied` from the registry - which is what
@@ -160,4 +160,29 @@ jobs:
           tags: |
             ghcr.io/nordtal/minecraft:${{ env.VERSION }}
             ghcr.io/nordtal/minecraft:latest
+
+      # The web interface. The frontend is inside this jar and not in the image as files - vite runs
+      # under `:steward-ui:build` and processResources puts build/frontend-dist in under `web/` -
+      # so there is no Node here and none in the image either.
+      - name: Build and push the steward-ui image
+        uses: docker/build-push-action@v7
+        with:
+          context: steward-ui
+          push: true
+          tags: |
+            ghcr.io/nordtal/steward-ui:${{ env.VERSION }}
+            ghcr.io/nordtal/steward-ui:latest
+
+      # The one image that carries compose.yml (§8b), which is what makes "which compose file is
+      # live" a question with a version number for an answer. It is also the one image nothing in
+      # the stack can renew: the service that would have to do it is this one, so a new version of
+      # it arrives through deploy/setup.sh on the host.
+      - name: Build and push the steward-deployer image
+        uses: docker/build-push-action@v7
+        with:
+          context: steward-deployer
+          push: true
+          tags: |
+            ghcr.io/nordtal/steward-deployer:${{ env.VERSION }}
+            ghcr.io/nordtal/steward-deployer:latest
 

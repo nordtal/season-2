@@ -25,6 +25,27 @@ tasks.register("releaseArtifacts") {
     )
 }
 
+// The five images are built from a module directory, and four of those directories are empty until
+// Gradle has run: their Dockerfiles COPY a jar out of `build/libs`, and steward-deployer also
+// copies `compose.yml` out of `build/compose`. `docker build` says `failed to compute cache key`
+// when it is not there, which reads like a Dockerfile mistake rather than a missing build step.
+//
+// It is separate from `releaseArtifacts` because these are not release assets. Nothing here is
+// attached to a release: steward-ui and steward-deployer exist only as images, and the bot's and
+// the worker's jars are attached by `releaseArtifacts` for a different reason - the worker installs
+// them out of the release into a volume.
+tasks.register("imageContexts") {
+    group = "distribution"
+    description = "Builds what the image Dockerfiles COPY, so `docker build` has something to find."
+    dependsOn(
+        ":discord-bot:shadowJar",
+        ":steward-worker:shadowJar",
+        ":steward-ui:shadowJar",
+        // `build`, not `shadowJar`: the deployer's context is the jar AND the staged compose.yml.
+        ":steward-deployer:build",
+    )
+}
+
 // The deployment's shell is verified here and nowhere else.
 //
 // `deploy/minecraft/entrypoint.sh` decides whether a world folder is deleted, on a container that
@@ -69,4 +90,25 @@ val checkDev = tasks.register<Exec>("checkDev") {
     }
 }
 
-tasks.named("check") { dependsOn(checkEntrypoint, checkDev) }
+// And the third, for deploy/setup.sh. Its subject is not a deletion this time but a wait: §10 says
+// a finished setup means everything works, which rests entirely on the comparison between what the
+// name resolves to and what this host is. That comparison cannot be checked by running the script -
+// the run either waits or it deploys - and getting it wrong in the lenient direction produces a
+// host that deploys an interface whose certificate can never be issued.
+val setupScript = layout.projectDirectory.file("deploy/setup.sh")
+val setupTest = layout.projectDirectory.file("deploy/setup-test.sh")
+
+val checkSetup = tasks.register<Exec>("checkSetup") {
+    group = "verification"
+    description = "Runs deploy/setup-test.sh against deploy/setup.sh's checks."
+    commandLine("bash", setupTest.asFile.absolutePath)
+    inputs.file(setupScript).withPropertyName("setup")
+    inputs.file(setupTest).withPropertyName("test")
+    val marker = layout.buildDirectory.file("checkSetup/passed")
+    outputs.file(marker).withPropertyName("marker")
+    doLast {
+        marker.get().asFile.apply { parentFile.mkdirs() }.writeText("passed\n")
+    }
+}
+
+tasks.named("check") { dependsOn(checkEntrypoint, checkDev, checkSetup) }

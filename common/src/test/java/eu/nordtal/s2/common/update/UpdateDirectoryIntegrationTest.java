@@ -106,6 +106,26 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
+    @DisplayName("a page size of zero is still a page, and says so in the interface as well")
+    void aLimitBelowOneIsStillAPage() {
+        // `/api/updates?limit=0` reaches this method as a zero, and what it must not do is come
+        // back with nothing while the javadoc promises "at most limit". Either behaviour is
+        // defensible; only one of them is written down, and this is the one - clamped, like the
+        // journal next door, so the two lists cannot drift apart on a query nobody thinks about.
+        updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest newest =
+                updates.submit(UpdateKind.BACKUP, UpdateSource.CONSOLE, "b", Duration.ZERO);
+
+        assertEquals(List.of(newest.id()), ids(updates.recent(0)));
+        assertEquals(List.of(newest.id()), ids(updates.recent(-5)));
+        assertEquals(2, updates.recent(10).size());
+    }
+
+    private static List<Long> ids(final List<UpdateRequest> requests) {
+        return requests.stream().map(UpdateRequest::id).toList();
+    }
+
+    @Test
     @DisplayName("every kind the code can name is a kind the CHECK accepts")
     void theEnumAndTheConstraintAgree() {
         // The one thing an in-memory test cannot say anything about. UpdateKind is a Java enum and

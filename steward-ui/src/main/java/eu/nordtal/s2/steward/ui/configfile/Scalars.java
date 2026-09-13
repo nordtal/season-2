@@ -5,7 +5,10 @@ import org.jetbrains.annotations.NotNull;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
 import java.util.ArrayList;
@@ -104,7 +107,50 @@ final class Scalars {
                     path + " is " + type.name().toLowerCase(java.util.Locale.ROOT) + " in this file"
                             + ", and \"" + value + "\" is not one" + expected(type));
         }
+        // ASKING THE TYPE IS NOT ENOUGH. `8080 # oops` resolves to the integer 8080, so the switch
+        // above is happy - and what would be written is the whole line, comment included. The file
+        // then reads back 8080 where 8080 # oops was asked for, ConfigFiles.verify catches the
+        // disagreement one step before the write and throws "this is a bug in ConfigFiles", which
+        // reaches the operator as a 500 for their own typo. So the text has to be the scalar, not
+        // merely contain one: whatever YAML would take as the value has to be all of it.
+        if (!trimmed.equals(lexically(trimmed, where))) {
+            throw new IllegalArgumentException(
+                    path + " is " + type.name().toLowerCase(java.util.Locale.ROOT) + " in this file"
+                            + ", and \"" + value + "\" carries something after the number"
+                            + " - a comment, or a second word" + expected(type));
+        }
         return trimmed;
+    }
+
+    /**
+     * What YAML would read as the scalar itself, out of {@code rendered} put where it is going.
+     *
+     * <p>This is the text of the node, not the value it resolves to: {@code 1.50} comes back
+     * {@code 1.50} rather than {@code 1.5}, because canonicalising a number the operator did not
+     * ask to have canonicalised is a line they did not ask to have rewritten. What it does drop is
+     * everything that is not the scalar - a trailing {@code # comment} above all.</p>
+     *
+     * @return the node's own text, or {@code null} if that position does not hold one plain scalar
+     */
+    private static String lexically(final String rendered, final Where where) {
+        final Node root;
+        try {
+            root = new Yaml(new SafeConstructor(new LoaderOptions()))
+                    .compose(new java.io.StringReader(where.document(rendered)));
+        } catch (final RuntimeException e) {
+            return null;
+        }
+        if (!(root instanceof MappingNode mapping) || mapping.getValue().size() != 1) {
+            return null;
+        }
+        Node held = mapping.getValue().getFirst().getValueNode();
+        if (where != Where.VALUE) {
+            if (!(held instanceof SequenceNode sequence) || sequence.getValue().size() != 1) {
+                return null;
+            }
+            held = sequence.getValue().getFirst();
+        }
+        return held instanceof ScalarNode scalar ? scalar.getValue() : null;
     }
 
     /** {@code .nan} and {@code .inf} are numbers to YAML and nothing a config should hold. */

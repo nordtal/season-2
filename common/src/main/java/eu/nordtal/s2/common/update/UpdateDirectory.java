@@ -74,7 +74,13 @@ public interface UpdateDirectory {
     /**
      * The most recent requests, newest first - what the interface's list of runs is drawn from.
      *
-     * @param limit how many, at most. A screenful; this is a page, not an export
+     * <p>A number below 1 is clamped to 1, exactly as {@code AuditDirectory#recent} clamps it - a
+     * caller that computed a page size down to zero wants the newest run, not an empty table with
+     * no explanation in it. It was already the behaviour; saying so here is the point, because a
+     * clamp nobody documents is a promise of "at most {@code limit} rows" that the implementation
+     * quietly does not keep.</p>
+     *
+     * @param limit how many, at most. A screenful; this is a page, not an export. Below 1 is 1
      */
     java.util.List<UpdateRequest> recent(int limit);
 

@@ -40,6 +40,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Nordtal Steward - the web interface.
@@ -87,6 +90,26 @@ public final class StewardUi {
     /** The one service allowed to create a container, asked for exactly one thing (10a.4). */
     private final DeployerApi deployments;
     private final ExecutorService streams = Executors.newVirtualThreadPerTaskExecutor();
+
+    /**
+     * How often an open log follow says something into the browser's connection.
+     *
+     * <p><b>Nothing else ever notices a closed tab.</b> Javalin's {@code keepAlive()} does not send
+     * anything - it holds the request open with an unfinished future - and a disconnected browser
+     * is discovered only by a write that fails. A container that logs every three seconds therefore
+     * hid the problem; one that is quiet for an hour, which is what a healthy server is, held a
+     * connection to the worker and a thread here for that hour, per tab anybody had ever opened.
+     * A comment line every ten seconds is also what keeps a reverse proxy from dropping an idle
+     * stream, so it pays for itself twice.</p>
+     */
+    private static final Duration HEARTBEAT = Duration.ofSeconds(10);
+
+    private final ScheduledExecutorService heartbeats = Executors.newSingleThreadScheduledExecutor(
+            runnable -> {
+                final Thread thread = new Thread(runnable, "steward-ui-sse-heartbeat");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     private Javalin app;
 
@@ -186,20 +209,20 @@ public final class StewardUi {
                     throw new UnauthorizedResponse("sign in first");
                 }
                 if (isWrite(ctx)) {
-                    // Double submit: the browser reads the token out of its own session through
-                    // /api/me and sends it back in a header. A form posted from another site can
-                    // carry the cookie but cannot read that value.
-                    final String sent = ctx.header("X-Steward-CSRF");
-                    final String expected = ctx.sessionAttribute(CSRF);
-                    if (expected == null || !expected.equals(sent)) {
-                        throw new ForbiddenResponse("missing or wrong CSRF token");
-                    }
+                    requireCsrfToken(ctx);
                 }
             });
 
             cfg.routes.get("/auth/login", this::login);
             cfg.routes.get("/auth/callback", this::callback);
             cfg.routes.post("/auth/logout", ctx -> {
+                // THE SAME CHECK THE API IS BEHIND, and it has to be repeated here because this
+                // route is not under /api/* and the filter above therefore never sees it. Javalin
+                // 7.2.3 leaves SameSite unset on JSESSIONID - that is Jetty's default and the
+                // framework does not override it - so a form on any other site can post here
+                // carrying the cookie. Signing somebody out in the middle of a deployment they are
+                // watching is not a disaster, but it is a thing a stranger should not be able to do.
+                requireCsrfToken(ctx);
                 ctx.req().getSession().invalidate();
                 ctx.status(204);
             });
@@ -209,8 +232,8 @@ public final class StewardUi {
             cfg.routes.get("/api/services/{name}", ctx ->
                     passThrough(ctx, "/api/services/" + ctx.pathParam("name")));
             cfg.routes.get("/api/services/{name}/logs/search", ctx -> passThrough(ctx,
-                    "/api/services/" + ctx.pathParam("name") + "/logs/search?"
-                            + ctx.queryString()));
+                    "/api/services/" + ctx.pathParam("name") + "/logs/search"
+                            + forwardedQuery(ctx.queryString())));
             cfg.routes.post("/api/services/{name}/console", ctx -> {
                 final String answer = worker.post(
                         "/api/services/" + ctx.pathParam("name") + "/console", ctx.body());
@@ -241,8 +264,22 @@ public final class StewardUi {
                 }
                 final String name = client.ctx().pathParam("name");
                 final String query = client.ctx().queryString();
+                // TWO SOCKETS, AND ONLY ONE OF THEM NOTICES A CLOSED TAB. The browser's end going
+                // away tells this process nothing about the worker's end, which stays blocked in
+                // readLine() until the container it is following stops - so every reload left a
+                // connection and a thread behind, and a person clicking through four services left
+                // four. Registered BEFORE the follow is submitted, because the other order has a
+                // gap in it: a browser that leaves in that gap would find nothing to cancel.
+                final Upstream upstream = new Upstream();
+                final ScheduledFuture<?> heartbeat = heartbeats.scheduleWithFixedDelay(
+                        () -> client.sendComment("open"), HEARTBEAT.toSeconds(),
+                        HEARTBEAT.toSeconds(), TimeUnit.SECONDS);
+                client.onClose(() -> {
+                    heartbeat.cancel(false);
+                    upstream.close();
+                });
                 client.keepAlive();
-                streams.submit(() -> follow(client, name, query));
+                streams.submit(() -> follow(client, upstream, name, query));
             });
 
             // --- what is in the database, which is where the curves and the runs live ---------
@@ -268,8 +305,11 @@ public final class StewardUi {
             });
 
             cfg.routes.get("/api/updates", ctx -> {
-                final int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(20);
-                ctx.json(data.updates().recent(Math.min(200, limit)).stream()
+                // The same helper every other list on this class uses. It used to clamp only the
+                // top end, which left `?limit=0` and `?limit=-5` to be reinterpreted three layers
+                // down in the directory - so one endpoint had its floor somewhere else than all
+                // the others, and nothing said where.
+                ctx.json(data.updates().recent(limit(ctx, 20, 200)).stream()
                         .map(StewardUi::describe).toList());
             });
 
@@ -591,6 +631,19 @@ public final class StewardUi {
         return Optional.ofNullable(ctx.sessionAttribute(ACCOUNT));
     }
 
+    /**
+     * Double submit: the browser reads the token out of its own session through {@code /api/me}
+     * and sends it back in a header. A form posted from another site can carry the cookie but
+     * cannot read that value.
+     */
+    private void requireCsrfToken(final Context ctx) {
+        final String sent = ctx.header("X-Steward-CSRF");
+        final String expected = ctx.sessionAttribute(CSRF);
+        if (expected == null || !expected.equals(sent)) {
+            throw new ForbiddenResponse("missing or wrong CSRF token");
+        }
+    }
+
     private static boolean isWrite(final Context ctx) {
         final String method = ctx.method().name();
         return method.equals("POST") || method.equals("PUT") || method.equals("PATCH")
@@ -603,15 +656,31 @@ public final class StewardUi {
         ctx.contentType("application/json").result(worker.get(path));
     }
 
-    private void follow(final io.javalin.http.sse.SseClient client, final String name,
-                        final String query) {
-        final String path = "/api/services/" + name + "/logs"
-                + (query == null || query.isBlank() ? "" : "?" + query);
+    private void follow(final io.javalin.http.sse.SseClient client, final Upstream upstream,
+                        final String name, final String query) {
+        final String path = "/api/services/" + name + "/logs" + forwardedQuery(query);
         try (InputStream stream = worker.stream(path);
              BufferedReader reader = new BufferedReader(
                      new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            upstream.hold(stream);
             String line;
             while ((line = reader.readLine()) != null) {
+                // The tab is gone. Javalin does not throw on a terminated client - it logs "Cannot
+                // send data" and returns - so without this the proxy reads the worker's stream to
+                // its end and writes every line of it to nobody, one warning each. Returning here
+                // runs the `finally`, which closes the upstream.
+                if (client.terminated()) {
+                    return;
+                }
+                // AUTHORISATION IS NOT A THING THAT HAPPENED ONCE. The check at the top of the
+                // route is made when the connection opens; a follow outlives it by hours, and a
+                // logout or an expiry in between used to change nothing at all - the logs kept
+                // arriving in a tab whose session no longer existed. Re-read per line, which is as
+                // often as there is anything to withhold.
+                if (!stillSignedIn(client)) {
+                    client.sendEvent("gone", "this session ended - sign in again to keep watching");
+                    return;
+                }
                 // The worker speaks SSE too, so this is re-emitting its events rather than
                 // inventing a second format. `data:` lines are the payload; everything else is
                 // framing that this end produces itself.
@@ -620,9 +689,79 @@ public final class StewardUi {
                 }
             }
         } catch (IOException | InternalClient.Failure e) {
-            client.sendEvent("gone", "the log stream ended: " + e.getMessage());
+            // A stream this end closed on purpose fails the read that was in flight. That is the
+            // cancellation working, not an outage, and telling the browser its logs "ended" would
+            // be reporting our own hang-up as the worker's.
+            if (!upstream.wasClosed()) {
+                client.sendEvent("gone", "the log stream ended: " + e.getMessage());
+            }
         } finally {
             client.close();
+        }
+    }
+
+    /**
+     * Whoever is watching, still allowed to.
+     *
+     * <p>An invalidated session is not a {@code false} from the servlet container - it is an
+     * {@link IllegalStateException} on the next read of it, thrown from a thread that is not
+     * serving a request and has nowhere to report it. That case is exactly the one this method
+     * exists for, so it is the answer <em>no</em> rather than a failure.</p>
+     */
+    private boolean stillSignedIn(final io.javalin.http.sse.SseClient client) {
+        try {
+            return account(client.ctx()).isPresent();
+        } catch (RuntimeException gone) {
+            return false;
+        }
+    }
+
+    /** A forwarded query string: {@code "?q=..."}, or nothing at all when there was none. */
+    private static String forwardedQuery(final String query) {
+        // `"?" + null` is the string "?null", which the worker then parses as a parameter named
+        // null - so a search with no parameters arrived as a search for something.
+        return query == null || query.isBlank() ? "" : "?" + query;
+    }
+
+    /**
+     * The worker's end of one log follow, held so that whoever notices the browser has gone can
+     * close it.
+     *
+     * <p>The two halves are opened by two different threads and either can finish first, which is
+     * why this is a holder and not a field: a browser that disappears while the worker is still
+     * being connected to must leave the stream closed <em>on arrival</em>, and one that leaves an
+     * hour in must interrupt a read already in flight. Both are one lock and four lines.</p>
+     */
+    private static final class Upstream {
+
+        private InputStream stream;
+        private boolean closed;
+
+        synchronized void hold(final InputStream open) {
+            stream = open;
+            if (closed) {
+                shut(open);
+            }
+        }
+
+        synchronized void close() {
+            closed = true;
+            shut(stream);
+        }
+
+        synchronized boolean wasClosed() {
+            return closed;
+        }
+
+        private static void shut(final InputStream open) {
+            if (open == null) {
+                return;
+            }
+            try {
+                open.close();
+            } catch (IOException ignored) {
+                // Closing to cancel a read; the read is what reports anything worth reporting.
+            }
         }
     }
 
@@ -637,5 +776,6 @@ public final class StewardUi {
             app.stop();
         }
         streams.shutdownNow();
+        heartbeats.shutdownNow();
     }
 }

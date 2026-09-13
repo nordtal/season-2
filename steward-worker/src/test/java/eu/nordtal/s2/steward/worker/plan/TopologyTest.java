@@ -803,6 +803,41 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("the database can write its dump where the worker later looks for it")
+    void theDumpDirectoryIsMountedInBothContainers() {
+        // The dump is taken by running pg_dump INSIDE the postgres container - that is what makes
+        // it impossible for the client to be older than the server - so `backup.output-root` is a
+        // path in THAT container, not in steward-worker's. Mount it in only one of them and the
+        // nightly run fails on a directory that does not exist, every night, while the volume
+        // archives beside it keep succeeding and the report still looks mostly green.
+        final StewardSpec.BackupSpec backup = new StewardSpec.BackupSpec() {
+        };
+        final String directory = backup.outputRoot();
+
+        final String worker = writableMountAt("steward-worker", directory);
+        final String database = writableMountAt(backup.databaseService(), directory);
+        assertEquals(worker, database, backup.databaseService() + " writes the dump to "
+                + directory + " out of one volume and steward-worker reads " + directory
+                + " out of another, so the dump is saved where nothing ever looks for it.");
+    }
+
+    /** The volume behind a service's mount at {@code path}, insisting it is not read-only. */
+    private String writableMountAt(final String service, final String path) {
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> definition = (Map<String, Object>) services.get(service);
+        assertNotNull(definition, "compose.yml has no service '" + service + "'");
+        final String mount = mountsOf(definition).stream()
+                .filter(each -> each.split(":")[1].equals(path))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(
+                        service + " mounts nothing at " + path + ", and the nightly database dump"
+                                + " is written there by name."));
+        assertFalse(mount.endsWith(":ro"),
+                service + " mounts " + path + " read-only, and the dump is written to it.");
+        return mount.split(":")[0];
+    }
+
+    @Test
     @DisplayName("the bootstrap default repeated in compose.yml still matches the spec's own")
     void theBootstrapDefaultAgreesWithTheSpec() {
         // An empty environment variable wins over the file, so the fallback has to say what the spec

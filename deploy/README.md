@@ -30,6 +30,8 @@ deploy/
                        (named scripts/ and not bin/ - .gitignore has a repo-wide bin/ rule)
   setup.sh             the host's own script: the .env, the two secrets, the name, the deployer
   setup-test.sh        its checks, without Docker or a resolver (runs on `check`)
+  restore.sh           put one archive back - a volume, or a dump into a NEW database
+  restore-test.sh      its guards, without Docker (runs on `check`)
   dev                  the local stack: init · up · deploy · pack · reset - see Locally below
   dev-test.sh          the guard on `dev reset`, without Docker (runs on `check`)
   dev.env.example      every setting the local stack needs; copy to dev.env
@@ -548,15 +550,34 @@ against nothing else. There is deliberately no untested S3 path in the code — 
 ### Restoring
 
 ```bash
-docker compose exec postgres psql -U "$POSTGRES_USER" -d postgres -c 'CREATE DATABASE restored;'
-docker compose exec postgres sh -c 'pg_restore --dbname=restored --no-owner /backups/<file>'
-tar --zstd -xf /backups/<volume>-<stamp>.tar.zst -C /where/it/goes
+sudo bash deploy/restore.sh --list                                  # what is on the disk
+sudo bash deploy/restore.sh nordtal-s2_mc-smp-<stamp>.tar.zst       # a volume
+sudo bash deploy/restore.sh nordtal-<stamp>.dump                    # the database
 ```
 
-Restore into a *new* database and look at it before you point anything at it. `--no-owner` is what
-lets a dump taken as one role restore under another.
+**A volume archive replaces a volume.** Not merges — replaces: the script empties it and unpacks the
+archive into it, so anything younger than the archive is gone. On `nordtal-s2_mc-smp` that is
+Nordtal. So it stops whatever mounts the volume, prints what it is about to do, and **makes you type
+the volume's name back** — not "yes", the name, the same guard `deploy/dev reset` has and for the
+same reason. Afterwards it starts again exactly what it stopped.
 
-A restore of the real season database has not been rehearsed; it needs the host.
+**A database dump replaces nothing.** It is restored into a *new* database called
+`restore_<stamp>` beside the live one, with `--no-owner --no-privileges`, so you can look inside it
+before anything points at it. Promoting it is a separate, deliberate act and the script does not do
+it — nor does it need the stack to be broken, it needs postgres to be *running*, because a dump is
+restored by the server.
+
+It reads everything out of the `steward-backups` volume and unpacks with a container of the
+`steward-worker` image — the same `tar` and the same `zstd` that wrote the archive. A `.partial`
+file is refused by name: steward-worker renames an archive only after reading it back, so one still
+carrying that suffix is a backup that was interrupted, and it is the only file in that directory
+that *looks* restorable.
+
+`deploy/restore-test.sh` pins which names are recognised and that the confirmation cannot be
+satisfied by "yes", by a bare Return or by a neighbouring volume's name; it runs on `check`.
+
+**A restore of the real season database has not been rehearsed** — that needs the host and an
+evening, and it is in `todo.md`. A green script is not a rehearsed restore.
 
 ### The world volumes are a different problem
 

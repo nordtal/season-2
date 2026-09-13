@@ -166,6 +166,15 @@ services:
       - "${POSTGRES_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # WHERE THE NIGHTLY DUMP LANDS, and it has to be mounted HERE rather than only in
+      # steward-worker. The worker runs `pg_dump` INSIDE this container - which is how the dump can
+      # never be taken by a client older than its server - so the path it writes to is this
+      # container's, not the worker's. Without this line pg_dump fails on a directory that does not
+      # exist, every night, and the volume archives beside it keep succeeding.
+      #
+      # postgres-data itself is deliberately NOT backed up: a tar of a live PGDATA is torn and it
+      # fails at restore, which is the worst place for it to fail.
+      - steward-backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s

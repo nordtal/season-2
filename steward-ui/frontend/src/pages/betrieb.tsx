@@ -1376,7 +1376,7 @@ function matchingRun(backup: Backup | undefined, runs: Run[]): Run | undefined {
 export function BetriebWiederherstellenPage() {
   const backups = useBackups()
   const [chosen, setChosen] = useState<string>("")
-  const command = `sudo sh deploy/restore.sh ${chosen || "<archiv>"}`
+  const command = `sudo bash deploy/restore.sh ${chosen || "<archiv>"}`
 
   return (
     <div className="flex flex-col gap-6">
@@ -1450,10 +1450,9 @@ export function BetriebWiederherstellenPage() {
               </code>
               <CopyButton text={command} disabled={!chosen} />
             </div>
-            <p className="max-w-prose text-xs text-warning">
-              <code className="text-xs">deploy/restore.sh</code> gibt es noch nicht – das Skript
-              entsteht mit dem Deployment-Schritt. Bis dahin ist dieser Befehl der geplante Weg und
-              nicht der vorhandene.
+            <p className="max-w-prose text-xs text-muted-foreground">
+              Das Skript fragt vor dem Überschreiben den Volume-Namen ab – getippt, nicht bestätigt.
+              <code className="text-xs"> --list</code> zeigt, was auf der Platte liegt.
             </p>
           </div>
         </CardContent>

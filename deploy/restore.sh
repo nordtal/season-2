@@ -1,0 +1,248 @@
+#!/usr/bin/env bash
+#
+# Put one archive back. The other half of §9a, and the half that is never a button.
+#
+# WHY IT IS A SCRIPT ON THE HOST AND NOT A PAGE IN THE INTERFACE: a backup is needed on the day
+# something is broken, and steward-ui runs as a container in the very stack it would be restoring.
+# A button there would work in every situation except the one it exists for. So /betrieb/wiederherstellen
+# builds the command and a person runs it here - which is where they would have to be anyway.
+#
+#   sudo bash deploy/restore.sh --list                                  what is on the disk
+#   sudo bash deploy/restore.sh nordtal-s2_mc-smp-20260913T031500Z.tar.zst
+#   sudo bash deploy/restore.sh nordtal-20260913T031500Z.dump
+#
+# A VOLUME ARCHIVE REPLACES A VOLUME. Not merges - replaces. Everything in that volume that is
+# younger than the archive is gone, and on nordtal-s2_mc-smp that is Nordtal, a hand-built world
+# that is in no repository and in no release. So this script does what `deploy/dev reset` does: it
+# makes you type the name of the thing it is about to overwrite. Not "yes" - the name.
+#
+# A DATABASE DUMP DOES NOT REPLACE ANYTHING. It is restored into a NEW database beside the live one,
+# so you can look inside it before anything points at it. Promoting it is a separate, deliberate act
+# and this script does not do it.
+#
+# Everything here runs from the repository root whatever directory it is called from.
+set -Eeuo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+DEFAULT_ENV_FILE="/etc/nordtal/season-2.env"
+DEFAULT_PROJECT="nordtal-s2"
+BACKUPS_SUFFIX="_steward-backups"
+
+log()  { printf '\033[36m[restore]\033[0m %s\n' "$*"; }
+warn() { printf '\033[33m[restore]\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[31m[restore]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# --- decisions, kept apart so they can be tested ---------------------------------------------------
+# Same arrangement as deploy/setup.sh and deploy/dev: everything above the source guard is a question
+# with an answer and no side effect, and deploy/restore-test.sh drives it without Docker. The two
+# that matter are which kind of file this is and whether a confirmation counts - one decides whether
+# a world is overwritten, the other decides whether it happens on a bare Return.
+
+# The stamp steward-worker writes into every name: UTC, fixed width, no separator a glob would mind.
+STAMP_PATTERN='[0-9]{8}T[0-9]{6}Z'
+
+# What this file is: `volume`, `database`, `partial` or `unknown`.
+#
+# `partial` is its own answer and not an error message, because a half-written archive is the one
+# thing in that directory that LOOKS restorable. steward-worker writes under `.partial` and renames
+# only after reading the file back, so a name still carrying it is a backup that was interrupted.
+archive_kind() {
+    local name="$1"
+    [[ "$name" == *.partial ]]                                  && { echo partial;  return; }
+    [[ "$name" =~ ^.+-${STAMP_PATTERN}\.tar\.zst$ ]]            && { echo volume;   return; }
+    [[ "$name" =~ ^nordtal-${STAMP_PATTERN}\.dump$ ]]           && { echo database; return; }
+    echo unknown
+}
+
+# The volume an archive belongs to. The name already carries the compose project prefix, because
+# that is what the volume is actually called - `nordtal-s2_mc-smp`, not `mc-smp`. A volume name
+# cannot contain the stamp, so the last dash before it is the split and a volume whose own name has
+# dashes in it comes back whole.
+volume_of() {
+    local name="$1"
+    [[ "$(archive_kind "$name")" == volume ]] || return 1
+    sed -E "s/-${STAMP_PATTERN}\.tar\.zst$//" <<<"$name"
+}
+
+# The stamp out of any archive name, for naming the scratch database after the dump it came from.
+stamp_of() {
+    local name="$1"
+    grep -oE "$STAMP_PATTERN" <<<"$name" | head -1
+}
+
+# Whether a typed confirmation matches. Deliberately identical in shape to deploy/dev's: the name
+# itself, nothing else, and an empty target confirms nothing - otherwise a bare Return on a prompt
+# somebody did not read would overwrite a world.
+restore_confirmed() {
+    local wanted="$1" typed="$2"
+    [[ -n "$wanted" && "$typed" == "$wanted" ]]
+}
+
+# --- sourced rather than executed ----------------------------------------------------------------
+[[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
+
+# --- arguments -------------------------------------------------------------------------------------
+ARCHIVE=""
+ENV_FILE="${STEWARD_ENV_FILE:-$DEFAULT_ENV_FILE}"
+BACKUPS_VOLUME=""
+LIST_ONLY=false
+
+while (( $# > 0 )); do
+    case "$1" in
+        --list)            LIST_ONLY=true; shift ;;
+        --env-file)        ENV_FILE="${2:?--env-file needs a path}"; shift 2 ;;
+        --backups-volume)  BACKUPS_VOLUME="${2:?--backups-volume needs a name}"; shift 2 ;;
+        -h|--help)         sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -*)                die "unknown argument: $1 (try --help)" ;;
+        *)                 [[ -z "$ARCHIVE" ]] || die "one archive at a time."; ARCHIVE="$1"; shift ;;
+    esac
+done
+
+cd "$ROOT"
+
+command -v docker >/dev/null 2>&1 || die "no docker on this host."
+docker info >/dev/null 2>&1 || die "this user cannot talk to the docker daemon. The volumes belong
+       to Docker, so this needs root."
+
+# Which deployment. The project name is the prefix on every volume, and getting it wrong here means
+# restoring into volumes nothing mounts - which fails silently, as a server that comes back empty.
+PROJECT=""
+if [[ -f "$ENV_FILE" ]]; then
+    PROJECT="$(grep -m1 -E '^[[:space:]]*(export[[:space:]]+)?COMPOSE_PROJECT_NAME=' "$ENV_FILE" \
+        | sed -E 's/^[^=]*=//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' || true)"
+fi
+PROJECT="${PROJECT:-$DEFAULT_PROJECT}"
+BACKUPS_VOLUME="${BACKUPS_VOLUME:-${PROJECT}${BACKUPS_SUFFIX}}"
+docker volume inspect "$BACKUPS_VOLUME" >/dev/null 2>&1 \
+    || die "there is no volume called $BACKUPS_VOLUME on this host, so there are no archives to
+       restore from. --backups-volume names another one; --env-file points at the environment file
+       whose COMPOSE_PROJECT_NAME decides the prefix (this run used '$PROJECT')."
+
+# The image the archives were written with, so they are read with the same tar and the same zstd.
+# Its entrypoint is the worker, so every run below overrides it.
+TOOLS="${STEWARD_WORKER_IMAGE:-ghcr.io/nordtal/steward-worker:latest}"
+in_backups() {
+    docker run --rm --entrypoint sh \
+        -v "$BACKUPS_VOLUME:/backups:ro" "$TOOLS" -c "$1"
+}
+
+if $LIST_ONLY; then
+    log "archives in $BACKUPS_VOLUME:"
+    in_backups 'ls -lh /backups 2>/dev/null || echo "(empty)"'
+    exit 0
+fi
+
+[[ -n "$ARCHIVE" ]] || die "name an archive. \`--list\` shows what is there, and
+       /betrieb/wiederherstellen in the interface builds this whole command for you."
+[[ "$ARCHIVE" != */* ]] || die "an archive is a file name, not a path: '$ARCHIVE'. Everything is
+       read out of the $BACKUPS_VOLUME volume, which is not a directory on this host."
+
+kind="$(archive_kind "$ARCHIVE")"
+case "$kind" in
+    partial)
+        die "'$ARCHIVE' is a .partial file. steward-worker writes every archive under that name and
+       renames it only after reading it back, so this one is a backup that was interrupted - there
+       is nothing complete in it to restore." ;;
+    unknown)
+        die "'$ARCHIVE' is not a name this deployment writes. A volume archive is
+       <volume>-<YYYYMMDDTHHMMSSZ>.tar.zst and a database dump is nordtal-<stamp>.dump." ;;
+esac
+
+in_backups "test -f '/backups/$ARCHIVE'" \
+    || die "there is no $ARCHIVE in $BACKUPS_VOLUME. \`--list\` shows what is there."
+
+# --- a database dump: into a new database, never over the live one -----------------------------------
+if [[ "$kind" == database ]]; then
+    # THIS DOES NOT RESTORE THE DATABASE, and that is the decision. A dump put straight over the
+    # live one destroys the state you would need to work out what went wrong, and it does it before
+    # anybody has looked inside the dump. So it lands beside the live database under its own name,
+    # and pointing anything at it is a separate act with its own thinking.
+    stamp="$(stamp_of "$ARCHIVE")"
+    container="$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" \
+        --filter "label=com.docker.compose.service=postgres" | head -1)"
+    [[ -n "$container" ]] || die "postgres is not running in project '$PROJECT'. A dump is restored
+       BY the database server, so it has to be up - this is the one restore that needs the stack
+       working rather than broken."
+
+    target="restore_$stamp"
+    log "restoring $ARCHIVE into a NEW database '$target' beside the live one"
+    docker exec "$container" sh -c \
+        "createdb -U \"\$POSTGRES_USER\" '$target'" \
+        || die "could not create '$target'. If it already exists, a previous run made it - drop it
+       or restore under another name."
+    # --no-owner --no-privileges: the roles in the dump are the ones in the live cluster, and this
+    # copy exists to be READ. Re-granting them here would be a second, half-finished deployment.
+    docker exec "$container" sh -c \
+        "pg_restore -U \"\$POSTGRES_USER\" -d '$target' --no-owner --no-privileges '/backups/$ARCHIVE'" \
+        || warn "pg_restore reported errors. The database '$target' exists and may be incomplete;
+       look at it before trusting it."
+
+    log "done. Nothing that was running has changed."
+    log "  look inside it:   docker exec -it $container psql -U \"\$POSTGRES_USER\" -d $target"
+    log "  throw it away:    docker exec $container dropdb -U \"\$POSTGRES_USER\" $target"
+    log "Promoting it over the live database is deliberately not something this script does."
+    exit 0
+fi
+
+# --- a volume archive: stop, replace, start ---------------------------------------------------------
+VOLUME="$(volume_of "$ARCHIVE")"
+
+if ! docker volume inspect "$VOLUME" >/dev/null 2>&1; then
+    # A volume that does not exist is the disaster-recovery case rather than a typo, but it is also
+    # exactly what a typo looks like, so it is said out loud instead of created quietly.
+    warn "there is no volume '$VOLUME' on this host yet; it will be created."
+    if [[ "$VOLUME" != "$PROJECT"_* ]]; then
+        warn "and it does not start with '${PROJECT}_', so nothing in this deployment mounts it."
+    fi
+fi
+
+# Which containers hold it, running or not. Asked of the daemon rather than worked out from
+# compose.yml: what matters is what is actually mounting the volume on this host right now.
+mapfile -t holders < <(docker ps -a --format '{{.Names}}' --filter "volume=$VOLUME" | sort)
+mapfile -t running < <(docker ps --format '{{.Names}}' --filter "volume=$VOLUME" | sort)
+
+size="$(in_backups "ls -lh '/backups/$ARCHIVE' | awk '{ print \$5 }'")"
+
+printf '\n'
+warn "ABOUT TO REPLACE THE CONTENTS OF A VOLUME."
+warn "  archive:    $ARCHIVE  ($size)"
+warn "  volume:     $VOLUME"
+warn "  stopping:   ${running[*]:-nothing is running on it}"
+warn "  everything in that volume is deleted first. What is in the archive takes its place,"
+warn "  and anything created since $(stamp_of "$ARCHIVE") - built houses, edited configs - is gone."
+printf '\n'
+printf 'Type the volume name to confirm: '
+read -r typed
+restore_confirmed "$VOLUME" "$typed" \
+    || die "that is not '$VOLUME'. Nothing has been touched."
+
+if (( ${#running[@]} > 0 )); then
+    log "stopping ${running[*]}"
+    docker stop "${running[@]}" >/dev/null
+fi
+
+# Unpacked by a container of the same image that wrote it, so the tar and the zstd are the ones the
+# archive was made with. `find -mindepth 1 -delete` rather than `rm -rf /dst/*`, because a glob
+# misses dotfiles - and a world's `.server` cache and a plugin's dotfiles would then survive a
+# restore and mix two states, which is the failure this whole step exists to avoid.
+log "replacing $VOLUME from $ARCHIVE"
+docker run --rm --entrypoint sh \
+    -v "$BACKUPS_VOLUME:/backups:ro" \
+    -v "$VOLUME:/dst" \
+    "$TOOLS" -c "set -e
+        find /dst -mindepth 1 -delete
+        zstd -dc '/backups/$ARCHIVE' | tar -xf - -C /dst" \
+    || die "the restore failed. '$VOLUME' has been emptied and may be partly filled - do NOT start
+       the stack on it. Run this again with the same archive, or with an older one."
+
+if (( ${#running[@]} > 0 )); then
+    log "starting ${running[*]} again"
+    docker start "${running[@]}" >/dev/null
+fi
+
+log "done. $VOLUME now holds what $ARCHIVE held."
+if (( ${#holders[@]} > ${#running[@]} )); then
+    log "these mount it and were not running, so they were left alone: ${holders[*]}"
+fi
+log "Watch one come back before you trust it: docker compose --env-file $ENV_FILE ps"

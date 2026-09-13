@@ -29,11 +29,33 @@ public enum Surface {
     CONSOLE,
 
     /**
+     * The Steward web interface.
+     *
+     * <p>Added 2026-09-13 (concept §10b). It is a real surface and not a convenience: a command
+     * asked for here is a {@code command_request} row like any other, so the interface needs
+     * neither RCON nor tmux for the five admin commands that stayed in the game, and none of the
+     * command logic is rebuilt anywhere.</p>
+     *
+     * <p><b>A WEB row always carries the asker's Discord id</b>, pinned by a CHECK in V18 the same
+     * way {@link #DISCORD} is. That is the whole reason this value exists rather than reusing
+     * {@link #CONSOLE}: V11 pins a CONSOLE row to having no identity at all, so an admin command
+     * sent from the interface as CONSOLE would be anonymous - and "who did this" is precisely what
+     * the journal exists to answer.</p>
+     */
+    WEB,
+
+    /**
      * Typed by no one: a command one process sends to another as a {@code command_request} row,
      * with nobody waiting for the answer beyond the row itself. No adapter registers a SYSTEM
      * command anywhere a person could type it, and the catalogue does not ask it for a description
      * a person would read. Added 2026-09-06 for {@code announce}, the SMP's line into the Discord
      * announcement channels - the transport was there since V11, this is the surface it lacked.
+     *
+     * <p><b>SYSTEM is not a value of {@code command_request.source}</b>, and {@link #WEB} is. The
+     * distinction is easy to miss: this one describes where a command may be <em>registered</em>,
+     * and the row {@code announce} travels on is written with {@code CONSOLE} - correctly, because
+     * it genuinely has no human identity behind it. So V18 adds WEB to the source CHECK and does
+     * not add SYSTEM, which nothing has ever written.</p>
      */
     SYSTEM
 }

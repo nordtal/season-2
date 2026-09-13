@@ -25,7 +25,9 @@ public final class AnnounceCommands {
     }
 
     public static final Declaration ANNOUNCE = new Declaration(
-            List.of("announce"), Target.BOT, Set.of(Surface.SYSTEM), false, false,
+            // SYSTEM because the SMP writes these rows by itself at a milestone, WEB because an
+            // admin can also write one by hand - the same command, two askers, one implementation.
+            List.of("announce"), Target.BOT, Set.of(Surface.SYSTEM, Surface.WEB), false, false,
             List.of(Argument.word("language"), Argument.greedy("text")));
 
     public static List<NordtalCommand<AnnounceEffects>> all() {

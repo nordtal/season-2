@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import type { Season } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
 import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
+import { CommandCard } from "@/components/steward/command-card"
 import { PageHeader } from "@/components/steward/page-header"
 import { Failure, QueryState } from "@/components/steward/query-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -95,6 +96,7 @@ export function SaisonPage() {
           <>
             <PhaseCard season={current} />
             <DatesCard season={current} />
+            <CommandCard />
             <Alert>
               <ShieldAlert aria-hidden />
               <AlertTitle>Zwischen Saisons wird nichts übernommen.</AlertTitle>

@@ -10,6 +10,9 @@ function Progress({
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
+      // Destructured out of `props` above, so without this the root is handed nothing: the bar
+      // moves and a screen reader is told the progress is indeterminate.
+      value={value}
       className={cn(
         "relative h-2 w-full overflow-hidden rounded-full bg-primary/20",
         className

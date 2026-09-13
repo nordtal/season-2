@@ -3,12 +3,17 @@ package eu.nordtal.s2.steward.worker;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.s2.common.command.CommandRequests;
+import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.arcane.Arcane;
 import eu.nordtal.s2.steward.worker.config.Configs;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
+import eu.nordtal.s2.steward.worker.docker.Docker;
+import eu.nordtal.s2.steward.worker.docker.DockerSocket;
+import eu.nordtal.s2.steward.worker.host.HostMetrics;
+import eu.nordtal.s2.steward.worker.metric.Sampler;
 import eu.nordtal.s2.steward.worker.plan.Change;
 import eu.nordtal.s2.steward.worker.plan.Report;
 import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
@@ -374,6 +379,27 @@ public final class StewardWorker {
 
                 markReady();
 
+                // The curves on the start page (§10c). Additive: it reads the daemon and writes
+                // rows, and it is deliberately started AFTER the readiness marker so that a
+                // missing socket or a slow first sample can never delay the four servers waiting
+                // on this container. Without the socket it does not start at all and says so once -
+                // an interface with no curves is a smaller problem than a worker that will not
+                // come up because a chart could not be drawn.
+                final Docker docker = new Docker(new DockerSocket(
+                        Path.of(config.docker().socket()), Duration.ofSeconds(30)));
+                try (Sampler sampler = new Sampler(docker, new HostMetrics(),
+                        MetricDirectory.using(database.dataSource()), config.docker().project())) {
+                    if (!config.docker().metrics()) {
+                        log.info("Metric sampling is off in steward.yml, so the start page will"
+                                + " have no curves.");
+                    } else if (!docker.isReachable()) {
+                        log.warn("No docker socket at {}, so there are no container metrics and no"
+                                + " image drift check. Everything else works.",
+                                config.docker().socket());
+                    } else {
+                        sampler.start();
+                    }
+
                 // One directory, shared: the server claims and settles rows through it and the
                 // runner starts and commits the countdown on the row it is running. Two would be
                 // two pools for one table.
@@ -389,6 +415,7 @@ public final class StewardWorker {
                     // grace period instead of putting its pool down.
                     Runtime.getRuntime().addShutdownHook(new Thread(server::close, "steward-worker-shutdown"));
                     server.serve();
+                }
                 }
             }
         }

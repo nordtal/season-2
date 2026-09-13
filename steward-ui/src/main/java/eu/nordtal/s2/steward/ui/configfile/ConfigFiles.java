@@ -24,8 +24,11 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -35,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static java.nio.file.StandardOpenOption.CREATE;
@@ -730,6 +734,7 @@ public final class ConfigFiles {
         Path temp = null;
         try {
             temp = Files.createTempFile(directory, ".", ".tmp");
+            keepTheMode(file, temp);
             try (FileChannel channel = FileChannel.open(temp, CREATE, TRUNCATE_EXISTING, WRITE)) {
                 channel.write(ByteBuffer.wrap(content.getBytes(StandardCharsets.UTF_8)));
                 // Without the force() the bytes can still be in the page cache when the move
@@ -753,6 +758,37 @@ public final class ConfigFiles {
                 }
             }
         }
+    }
+
+    /**
+     * Gives {@code temp} the permissions {@code file} already has, so the move does not change them.
+     *
+     * <p>{@link Files#createTempFile} makes an owner-only file on purpose, and that is the right
+     * default for a temporary file - but this one is about to <em>become</em> the destination. A
+     * {@code config.yml} that was {@code rw-r--r--} would come back {@code rw-------} from one
+     * click in the browser, and nothing would say so. Nothing in this stack runs as a second user
+     * today, so that is a quiet change rather than an outage; it stops being quiet the day any of
+     * these images gains a {@code USER} line.</p>
+     *
+     * <p>A failure here is not swallowed. Reporting a saved file whose permissions are not the
+     * ones it had is the failure this method exists to prevent, so it fails the save instead.</p>
+     */
+    private static void keepTheMode(final Path file, final Path temp) throws IOException {
+        final PosixFileAttributeView view =
+                Files.getFileAttributeView(file, PosixFileAttributeView.class);
+        if (view == null) {
+            // Not a POSIX filesystem. There is nothing to carry across and nothing to report.
+            return;
+        }
+        final Set<PosixFilePermission> mode;
+        try {
+            mode = view.readAttributes().permissions();
+        } catch (final NoSuchFileException e) {
+            // A file that is not there yet has no permissions to keep; the restrictive default of
+            // the temporary file is then the better of the two answers.
+            return;
+        }
+        Files.setPosixFilePermissions(temp, mode);
     }
 
     // -----------------------------------------------------------------------------------------
@@ -780,6 +816,12 @@ public final class ConfigFiles {
         }
         try (Stream<Path> walk = Files.walk(root)) {
             return walk.filter(Files::isRegularFile)
+                    // A LINK IS NOT A CONFIG FILE. `isRegularFile` follows one, so a `.yml` link
+                    // dropped into a shared config volume would be listed, read and written
+                    // through - wherever it points. That is the one way out of this mount, and
+                    // this class's whole claim is that there is none: the browser's string is
+                    // matched against this list and never joined onto a path.
+                    .filter(path -> !Files.isSymbolicLink(path))
                     .filter(path -> path.getFileName().toString().endsWith(".yml"))
                     .map(path -> locationOf(root, path))
                     .sorted(Comparator.comparing(ConfigLocation::service)

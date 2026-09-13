@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.ui.configfile;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -11,6 +12,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -615,5 +618,42 @@ class ConfigFilesWriteTest {
                 .findFirst()
                 .orElseThrow();
         assertEquals("public-url: " + expected, line, "writing «" + value + "»");
+    }
+
+    /**
+     * A save is a replace, and a replace must not quietly re-decide who may read the file.
+     *
+     * <p>{@code Files.createTempFile} makes an owner-only file, and the atomic move installs that
+     * inode under the destination's name - so a {@code config.yml} that was {@code rw-r--r--}
+     * comes back {@code rw-------} from one click in the browser. Nothing in this stack runs as a
+     * second user <em>today</em> (no {@code USER} in any Dockerfile, no {@code user:} in
+     * {@code compose.yml}, checked 2026-09-13), which is why this is a quiet change rather than an
+     * outage - and exactly why it has to be caught here instead of on the day one of those images
+     * gains a {@code USER} line.</p>
+     */
+    @Test
+    void savingLeavesTheFilesOwnPermissionsAlone() throws IOException {
+        Assumptions.assumeTrue(Files.getFileStore(fixture)
+                .supportsFileAttributeView(PosixFileAttributeView.class));
+        Files.setPosixFilePermissions(fixture, PosixFilePermissions.fromString("rw-r--r--"));
+
+        ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("9090")));
+
+        assertEquals("rw-r--r--",
+                PosixFilePermissions.toString(Files.getPosixFilePermissions(fixture)));
+    }
+
+    /**
+     * {@code 8080 # oops} is a typo, and a typo is a 400.
+     *
+     * <p>YAML resolves it to the integer 8080 and hands back the whole line, comment included. The
+     * value then reads back as {@code 8080}, {@code verify} notices the disagreement and refuses -
+     * correctly, but with an {@link IllegalStateException} that says "This is a bug in ConfigFiles"
+     * and reaches the operator as a 500. It is their mistake, so it has to be their sentence.</p>
+     */
+    @Test
+    void aNumberWithSomethingAfterItIsTheOperatorsMistakeAndNotThisPrograms() {
+        assertThrows(IllegalArgumentException.class,
+                () -> ConfigFiles.write(fixture, Map.of("port", ConfigChange.of("8080 # oops"))));
     }
 }

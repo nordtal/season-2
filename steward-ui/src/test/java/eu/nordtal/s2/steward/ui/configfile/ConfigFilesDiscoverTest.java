@@ -26,6 +26,10 @@ class ConfigFilesDiscoverTest {
     @TempDir
     Path root;
 
+    /** Somewhere a link can point that the mount does not contain. */
+    @TempDir
+    Path outside;
+
     @Test
     void everyYmlIsFoundAndSortedByServiceThenName() throws IOException {
         write("steward-worker/steward.yml");
@@ -105,6 +109,49 @@ class ConfigFilesDiscoverTest {
         } finally {
             Files.setPosixFilePermissions(service, PosixFilePermissions.fromString("rwxr-xr-x"));
             Files.deleteIfExists(file);
+        }
+    }
+
+    /**
+     * A symbolic link is not a config file, however much its name ends in {@code .yml}.
+     *
+     * <p>{@link ConfigFiles} says of itself that a file is found by matching and never by joining,
+     * and that this is what makes {@code ../../etc/shadow} a 404 rather than a question about
+     * decoding. A link defeats exactly that claim from the other end: {@code Files.isRegularFile}
+     * follows it, so the discovered {@link ConfigLocation} points wherever the link does and both
+     * the read and the save cross the mount. Whoever can drop a file into a shared config volume
+     * can drop a link into it, so the boundary has to be checked where the list is made.</p>
+     */
+    @Test
+    void aSymbolicLinkOutOfTheMountIsNotListed() throws IOException {
+        Assumptions.assumeTrue(canLink(), "this filesystem does not do symbolic links");
+        final Path secret = Files.writeString(outside.resolve("secret.yml"), "token: hunter2\n");
+        write("smp/real.yml");
+        Files.createSymbolicLink(root.resolve("smp/escape.yml"), secret);
+
+        assertEquals(List.of("real.yml"), ConfigFiles.discover(root).stream()
+                .map(ConfigLocation::name).toList());
+    }
+
+    /** The same, for a link that stays inside the mount: one file, listed once, under its own name. */
+    @Test
+    void aSymbolicLinkInsideTheMountIsNotListedEither() throws IOException {
+        Assumptions.assumeTrue(canLink(), "this filesystem does not do symbolic links");
+        write("smp/real.yml");
+        Files.createSymbolicLink(root.resolve("smp/also.yml"), root.resolve("smp/real.yml"));
+
+        assertEquals(List.of("real.yml"), ConfigFiles.discover(root).stream()
+                .map(ConfigLocation::name).toList());
+    }
+
+    private boolean canLink() {
+        try {
+            final Path probe = outside.resolve("probe");
+            Files.createSymbolicLink(probe, outside);
+            Files.delete(probe);
+            return true;
+        } catch (final IOException | UnsupportedOperationException e) {
+            return false;
         }
     }
 

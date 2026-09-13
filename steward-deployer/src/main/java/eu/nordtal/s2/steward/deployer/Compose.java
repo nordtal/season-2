@@ -69,16 +69,36 @@ public final class Compose {
     }
 
     /**
-     * {@code up -d --no-deps}, for the whole project or for named services.
+     * {@code up -d --no-deps <services>}, for named services, steward-deployer refused.
      *
-     * <p>With no services named this is the bootstrap the setup script runs: it brings up
-     * everything the selected profiles contain. {@code --no-deps} is harmless in that case and
-     * load-bearing in every other.</p>
+     * <p>The list is never empty here: an empty one means <i>all</i> services to compose, which is
+     * the bootstrap and belongs to {@link #bootstrap}. {@code --no-deps} keeps compose from
+     * dragging in a dependency nobody asked about - harmless when everything is named, load-bearing
+     * when one service is.</p>
      */
     public int up(List<String> services, Consumer<String> output) throws IOException {
         List<String> command = base();
         command.addAll(List.of("up", "--detach", "--no-deps"));
         command.addAll(refuseSelf(services));
+        return run(command, output);
+    }
+
+    /**
+     * {@code up -d --no-deps <services>}, <b>steward-deployer included</b>.
+     *
+     * <p><b>Only {@code deployer up} may call this</b> - the throwaway container the setup script
+     * runs with {@code docker run --rm}. That process is not the compose-managed service, so
+     * creating steward-deployer from it is not a container recreating itself; it is how §9c renews
+     * this service, and without it the bootstrap would bring up a stack with no deployer in it.</p>
+     *
+     * <p>Everything else goes through {@link #up}, which refuses. The two used to be one method
+     * that passed an empty list on the whole-stack path - and an empty list means <i>every</i>
+     * service to compose, so the refusal was skipped exactly when it mattered most.</p>
+     */
+    public int bootstrap(List<String> services, Consumer<String> output) throws IOException {
+        List<String> command = base();
+        command.addAll(List.of("up", "--detach", "--no-deps"));
+        command.addAll(services);
         return run(command, output);
     }
 

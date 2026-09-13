@@ -166,7 +166,9 @@ function ChartTooltipContent({
       )
     }
 
-    if (!value) {
+    // Not `!value`: a label of 0 is a label. Zero players online, zero failed runs - the numbers
+    // this interface draws are counts, and the one that matters most is the one that is zero.
+    if (value == null || value === "") {
       return null
     }
 
@@ -211,7 +213,7 @@ function ChartTooltipContent({
                   indicator === "dot" && "items-center"
                 )}
               >
-                {formatter && item?.value !== undefined && item.name ? (
+                {formatter && item?.value !== undefined && item.name != null ? (
                   formatter(item.value, item.name, item, index, item.payload)
                 ) : (
                   <>

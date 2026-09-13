@@ -21,12 +21,20 @@ import { NAVIGATION } from "@/app/navigation"
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
   const navigate = useNavigate()
+  // The listener is registered once, so it would otherwise read the `open` of the render it was
+  // created in - which is always false.
+  const openRef = React.useRef(open)
+  openRef.current = open
 
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== "k") return
       if (!event.metaKey && !event.ctrlKey) return
-      // Let the browser keep its own Ctrl+K when the user is typing into something.
+      // Let the browser keep its own Ctrl+K when the user is typing into something. The comment
+      // said so and the code did the opposite: every Ctrl+K in a console line or a config field
+      // was swallowed and opened the search instead. The palette's own input is the exception -
+      // there the shortcut is how you close it again.
+      if (!openRef.current && isEditable(event.target)) return
       event.preventDefault()
       setOpen((previous) => !previous)
     }
@@ -77,4 +85,11 @@ export function CommandPalette() {
       </CommandList>
     </CommandDialog>
   )
+}
+
+/** Whether the key went to something somebody is typing in. */
+function isEditable(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
 }

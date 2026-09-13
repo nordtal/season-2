@@ -139,6 +139,22 @@ const SECTION_LABELS: Record<string, string> = {
   einstellungen: "Einstellungen",
 }
 
+/**
+ * A path segment as a person should read it, or exactly as it arrived.
+ *
+ * `decodeURIComponent` throws on a malformed escape - `/dienste/%` is enough - and it is called
+ * while the header renders, so the whole page became a blank screen for a URL somebody mistyped
+ * or a link that lost a character. An undecodable segment is shown as it is; it is a breadcrumb,
+ * not a value anything is computed from.
+ */
+function readable(segment: string) {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
+
 function breadcrumbsFor(pathname: string) {
   const segments = pathname.split("/").filter(Boolean)
   const crumbs = [{ label: "Zustand", href: "/" }]
@@ -146,7 +162,7 @@ function breadcrumbsFor(pathname: string) {
   for (const segment of segments) {
     href += `/${segment}`
     crumbs.push({
-      label: SECTION_LABELS[segment] ?? decodeURIComponent(segment),
+      label: SECTION_LABELS[segment] ?? readable(segment),
       href,
     })
   }

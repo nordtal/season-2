@@ -66,9 +66,16 @@ class ConfigsTest {
         // sync used to be able to delete (finding 151).
         assertTrue(volumes.contains("nordtal-s2_mc-smp"), volumes.toString());
         assertTrue(volumes.contains("nordtal-s2_mc-smp-plugins"), volumes.toString());
-        assertTrue(volumes.contains("nordtal-s2_postgres-dumps"), volumes.toString());
         assertTrue(volumes.stream().noneMatch(volume -> volume.endsWith("postgres-data")),
                 "a snapshot of a live PGDATA fails at RESTORE and nowhere else: " + volumes);
+
+        // The database is DUMPED rather than snapshotted, straight into backup.output-root, so it
+        // needs no volume here at all - and the postgres-dumps volume that used to be in this list
+        // went with the sidecar that wrote it (§9a). Nor is the output directory itself ever here:
+        // a backup of the backups doubles every night until the disk is gone.
+        assertTrue(volumes.stream().noneMatch(volume -> volume.contains("dumps")
+                        || volume.contains("backups")),
+                "the backups are not a thing to back up: " + volumes);
 
         // The stop list and the volume list are not the same list, deliberately: limbo and
         // hunger-games hold no world worth saving, so stopping them would be an outage with

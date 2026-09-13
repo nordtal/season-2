@@ -8,6 +8,9 @@ import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.arcane.Arcane;
+import eu.nordtal.s2.steward.worker.backup.Backups;
+import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
+import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
@@ -77,21 +80,24 @@ public final class Runner implements RequestRunner {
     private final StewardSpec config;
     private final Database database;
     private final Arcane arcane;
+    private final Backups backups;
     private final UpdateDirectory directory;
     private final UpdateRun.Waiting waiting;
 
     public Runner(final @NotNull StewardSpec config, final @NotNull Database database,
-                  final @NotNull Arcane arcane, final @NotNull UpdateDirectory directory) {
-        this(config, database, arcane, directory, UpdateRun.Waiting.real());
+                  final @NotNull Arcane arcane, final @NotNull Backups backups,
+                  final @NotNull UpdateDirectory directory) {
+        this(config, database, arcane, backups, directory, UpdateRun.Waiting.real());
     }
 
     /** Package-visible so a test can drive a thirty-second countdown without waiting for one. */
     Runner(final @NotNull StewardSpec config, final @NotNull Database database,
-           final @NotNull Arcane arcane, final @NotNull UpdateDirectory directory,
-           final @NotNull UpdateRun.Waiting waiting) {
+           final @NotNull Arcane arcane, final @NotNull Backups backups,
+           final @NotNull UpdateDirectory directory, final @NotNull UpdateRun.Waiting waiting) {
         this.config = config;
         this.database = database;
         this.arcane = arcane;
+        this.backups = backups;
         this.directory = directory;
         this.waiting = waiting;
     }
@@ -234,7 +240,7 @@ public final class Runner implements RequestRunner {
      * plugin can no longer see a schema half a version away from itself.</p>
      */
     private Outcome update(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(arcane, progress);
+        final UpdateRun run = new UpdateRun(arcane, backups.volumes(), progress);
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
@@ -474,7 +480,7 @@ public final class Runner implements RequestRunner {
      * outage caused by a safety measure, which is worse than having no backup at all.
      */
     private Outcome backup(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(arcane, progress);
+        final UpdateRun run = new UpdateRun(arcane, backups.volumes(), progress);
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
@@ -520,7 +526,20 @@ public final class Runner implements RequestRunner {
                                     final RuntimeResult runtime, final List<String> volumes,
                                     final Consumer<UpdateReport> progress) {
 
-        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
+        // THE DATABASE FIRST, WITH EVERYTHING STILL RUNNING.
+        //
+        // pg_dump takes an MVCC snapshot, so it is consistent as of the moment it starts and needs
+        // nothing stopped. Taking it here rather than after the stop is minutes off the outage for
+        // free - and it means that if the volume half goes wrong, the database dump of that night
+        // still exists.
+        final SnapshotResult dumped = backups.saveDatabase();
+        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
+                .with(new UpdateReport.ServiceLine(DatabaseDump.NAME,
+                        dumped.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
+                        List.of(new UpdateReport.Change("backup", null, dumped.message())),
+                        dumped.ok() ? null : dumped.message()));
+        progress.accept(planned);
+
         for (final String service : config.backup().stopServices()) {
             if (service == null || service.isBlank()) {
                 continue;
@@ -561,12 +580,19 @@ public final class Runner implements RequestRunner {
                     .withStage(UpdateReport.Stage.FAILED)));
         }
 
-        final UpdateReport saved = run.save(stopped.report(), volumes,
-                Duration.ofMinutes(Math.max(1, config.backup().patienceMinutes())),
-                UpdateRun.Waiting.real());
+        final UpdateReport saved = run.save(stopped.report(), volumes);
+
+        // Retention runs while the servers are still down, and that is deliberate: deleting files
+        // is quick, and doing it here means the disk has room before the next run rather than
+        // after it. What was deleted goes into the report - a retention nobody sees is one that
+        // has been deleting the wrong thing for months.
+        final List<String> pruned = backups.volumes().prune(config.backup().keep());
+        final UpdateReport swept = pruned.isEmpty() ? saved
+                : saved.withNote("kept the newest " + config.backup().keep() + " of each and"
+                        + " removed " + pruned.size() + ": " + String.join(", ", pruned));
 
         final UpdateReport started = run.start(
-                new UpdateRun.Stopped(saved, stopped.services(), runtime));
+                new UpdateRun.Stopped(swept, stopped.services(), runtime));
         final UpdateReport verified = run.verify(started, stopped.services(),
                 UpdateRun.Waiting.real());
 
@@ -591,7 +617,7 @@ public final class Runner implements RequestRunner {
      * Minecraft services one at a time leaves steward-worker running, so it can watch and say.</p>
      */
     private Outcome restart(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(arcane, progress);
+        final UpdateRun run = new UpdateRun(arcane, backups.volumes(), progress);
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {

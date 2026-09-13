@@ -532,6 +532,146 @@ class UpdateDirectoryIntegrationTest {
         assertEquals(UpdateStatus.PENDING, UpdateStatus.fromDatabase("PENDING"));
     }
 
+    // ---------------------------------------------------------------- proving a backup happened
+
+    /**
+     * The one volume line that makes a report a backup, and the one that does not.
+     *
+     * <p>Built through {@link UpdateReports#toJson} rather than written out as a string, because
+     * what is being asserted is that the reader and the writer agree - a literal here would pass
+     * for as long as somebody remembered to edit it.</p>
+     */
+    private static UpdateReport report(final UpdateReport.State volume) {
+        return UpdateReport.at(UpdateReport.Stage.DONE)
+                .with(new UpdateReport.ServiceLine("nordtal-s2_mc-smp", volume,
+                        List.of(new UpdateReport.Change("backup", null, "1.2 GiB in 41s")), null))
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
+    }
+
+    /**
+     * A23: every service back, nothing snapshotted, and the row says DONE.
+     *
+     * <p>This is the shape that made the check necessary. Run 23 reported a successful backup
+     * having saved zero volumes, and no surface anywhere drew a difference between that and a night
+     * that worked.</p>
+     */
+    private static UpdateReport reportWithNoVolumes() {
+        return UpdateReport.at(UpdateReport.Stage.DONE)
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
+    }
+
+    @Test
+    @DisplayName("a run that finished and saved a volume is the one it answers with")
+    void aBackupThatSavedSomethingCounts() {
+        final long id = backupRow("DONE", 0.25, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+
+        final UpdateRequest found = updates.lastSuccessfulBackup(Duration.ofHours(12)).orElseThrow();
+        assertEquals(id, found.id());
+        assertEquals(UpdateKind.BACKUP, found.kind());
+    }
+
+    @Test
+    @DisplayName("DONE with nothing saved is not a backup - the A23 case")
+    void aRunThatSavedNothingIsNotABackup() {
+        backupRow("DONE", 0.25, UpdateReports.toJson(reportWithNoVolumes()));
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
+                "a DONE row whose report lists no saved volume was accepted as a backup. That is"
+                        + " exactly run 23: every service healthy, every snapshot missing.");
+    }
+
+    @Test
+    @DisplayName("DONE with every volume FAILED is not a backup either")
+    void aRunWhoseVolumesAllFailedIsNotABackup() {
+        backupRow("DONE", 0.25, UpdateReports.toJson(report(UpdateReport.State.FAILED)));
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
+                "the report is read, not just the status column");
+    }
+
+    @Test
+    @DisplayName("a FAILED run does not count even when its report saved something first")
+    void aFailedRunIsNotABackup() {
+        // The database dump succeeds before the servers are stopped, so a run that fails later
+        // genuinely has a SAVED line in it. The status is what decides here, and it has to:
+        // whatever went wrong afterwards, nobody has said the volumes are consistent.
+        backupRow("FAILED", 0.25, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
+    }
+
+    @Test
+    @DisplayName("yesterday's backup is outside a window measured in hours")
+    void anOldBackupIsOutsideTheWindow() {
+        backupRow("DONE", 25.0, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
+                "the whole point of the window is that yesterday's backup does not authorise"
+                        + " today's reset");
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(48)).isPresent(),
+                "and the row is still there - it is the window that excluded it, not the filter");
+    }
+
+    @Test
+    @DisplayName("a result nobody can parse proves nothing")
+    void anUnreadableResultIsNotProof() {
+        // What a steward-worker older than 2026-09-07 wrote into that column. Every drawing surface
+        // falls back to printing this raw; a caller deciding whether a world may be deleted must
+        // not, because it cannot tell a saved volume from a sentence.
+        backupRow("DONE", 0.25, "Update finished. smp: running");
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
+    }
+
+    @Test
+    @DisplayName("the newest row that can be proved wins, not simply the newest row")
+    void itWalksPastARunItCannotProve() {
+        final long good = backupRow("DONE", 20.0, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+        backupRow("DONE", 1.0, UpdateReports.toJson(reportWithNoVolumes()));
+
+        // A LIMIT 1 on the SQL would answer with the one-hour-old row, find nothing saved in it,
+        // and report no backup at all - while a provable one sat two rows down inside the window.
+        assertEquals(good, updates.lastSuccessfulBackup(Duration.ofHours(24)).orElseThrow().id());
+    }
+
+    @Test
+    @DisplayName("an update is not a backup, however healthy it came back")
+    void onlyBackupsCount() {
+        execute("INSERT INTO update_request (kind, source, status, started, finished, result)"
+                + " VALUES ('UPDATE', 'DISCORD', 'DONE', now(), now(), $json$"
+                + UpdateReports.toJson(report(UpdateReport.State.SAVED)) + "$json$)");
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
+    }
+
+    /**
+     * Writes a settled {@code BACKUP} row {@code hoursAgo} in the past, on the database's clock.
+     *
+     * @return the id, so a test can say which row it expected back
+     */
+    private static long backupRow(final String status, final double hoursAgo, final String result) {
+        execute("INSERT INTO update_request (kind, source, status, requested, not_before, started,"
+                + " finished, result) VALUES ('BACKUP', 'CONSOLE', '" + status + "',"
+                + " now() - make_interval(hours => " + (int) Math.ceil(hoursAgo) + "),"
+                + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
+                + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
+                + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
+                + " $json$" + result + "$json$)");
+        return lastId();
+    }
+
+    private static long lastId() {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             java.sql.ResultSet rows = statement.executeQuery(
+                     "SELECT max(id) FROM update_request")) {
+            rows.next();
+            return rows.getLong(1);
+        } catch (final SQLException failure) {
+            throw new IllegalStateException(failure);
+        }
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static void execute(final String sql) {

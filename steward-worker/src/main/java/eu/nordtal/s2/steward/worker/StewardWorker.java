@@ -7,6 +7,10 @@ import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.arcane.Arcane;
+import eu.nordtal.s2.steward.worker.backup.Backups;
+import eu.nordtal.s2.steward.worker.backup.NightlyClock;
+import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
+import eu.nordtal.s2.steward.worker.backup.TarSnapshots;
 import eu.nordtal.s2.steward.worker.config.Configs;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
@@ -33,6 +37,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -400,13 +405,39 @@ public final class StewardWorker {
                         sampler.start();
                     }
 
+                // What a BACKUP run saves with. The volumes are tarred from their read-only
+                // mounts; the database is dumped inside the postgres container, because a pg_dump
+                // older than its server is refused outright and running the one that is already
+                // in that image makes the version match by construction.
+                final String databaseService = config.backup().databaseService();
+                final Backups backups = new Backups(
+                        new TarSnapshots(Path.of(config.backup().sourcesRoot()),
+                                Path.of(config.backup().outputRoot()), Clock.systemUTC(),
+                                Duration.ofMinutes(Math.max(1, config.backup().patienceMinutes()))),
+                        databaseService == null || databaseService.isBlank() ? null
+                                : new DatabaseDump(docker, config.docker().project(),
+                                        databaseService, config.backup().outputRoot(),
+                                        Clock.systemUTC()));
+
                 // One directory, shared: the server claims and settles rows through it and the
                 // runner starts and commits the countdown on the row it is running. Two would be
                 // two pools for one table.
                 final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+                // §9a: the nightly backup is asked for here now, not by `smp`. It writes a row
+                // and nothing else - see NightlyClock for why that keeps the protection that
+                // mattered.
+                try (NightlyClock nightly = NightlyClock.from(updates, config.backup().at(),
+                        ZoneId.systemDefault()).orElse(null)) {
+                    if (nightly != null) {
+                        nightly.start();
+                    } else {
+                        log.info("backup.at is empty, so there is no nightly backup. Nothing else"
+                                + " is affected, and nothing will say so at 04:45 either.");
+                    }
+
                 try (UpdateServer server = new UpdateServer(
                         updates,
-                        new Runner(config, database, arcane, updates),
+                        new Runner(config, database, arcane, backups, updates),
                         PostgresNotifications.connector(databaseConfig),
                         Duration.ofSeconds(config.pollIntervalSeconds()),
                         Clock.systemUTC())) {
@@ -415,6 +446,7 @@ public final class StewardWorker {
                     // grace period instead of putting its pool down.
                     Runtime.getRuntime().addShutdownHook(new Thread(server::close, "steward-worker-shutdown"));
                     server.serve();
+                }
                 }
                 }
             }

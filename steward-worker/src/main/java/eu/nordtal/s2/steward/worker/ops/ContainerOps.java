@@ -56,23 +56,4 @@ public interface ContainerOps {
      *                project, and a container id here is a 404
      */
     @NotNull RedeployResult recreate(@NotNull String service);
-
-    /**
-     * Asks Arcane to snapshot one volume, and answers with the backup's id.
-     *
-     * <p>Started is not saved: the POST answers 202 and the work happens on Arcane's side. What
-     * follows is {@link #backupState} until it settles or the run's patience runs out.</p>
-     */
-    @NotNull BackupResult backup(@NotNull String volume);
-
-    /**
-     * Where one started snapshot has got to.
-     *
-     * <p>An unreadable answer is {@link BackupResult.Status#RUNNING} and never a failure - the
-     * snapshot is still happening on the far side, and calling it failed here would start the
-     * servers back up on top of a half-written one.</p>
-     *
-     * @param backupId what {@link #backup} handed back
-     */
-    @NotNull BackupResult backupState(@NotNull String volume, @NotNull String backupId);
 }

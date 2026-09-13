@@ -15,9 +15,6 @@
  */
 
 const NUMBER = new Intl.NumberFormat("de-DE")
-// Intl's own default is three fraction digits, so `NUMBER` is not the zero-decimal formatter it
-// looks like: it printed "87,457 %" where a whole number was asked for.
-const NO_DECIMAL = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 })
 const ONE_DECIMAL = new Intl.NumberFormat("de-DE", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
@@ -40,14 +37,47 @@ export function bytes(value: number | null | undefined): string {
     scaled /= 1000
     unit += 1
   }
+  // The loop scales the raw number, and the rounding to one decimal happens after it - so 999 999
+  // came out as "1.000,0 kB", a quantity this function never means to print and the header's own
+  // "base 1000" says it does not. The carry is checked on the rounded value, where it happens.
+  if (Math.round(scaled * 10) >= 10_000 && unit < UNITS.length - 1) {
+    scaled /= 1000
+    unit += 1
+  }
   return `${ONE_DECIMAL.format(scaled)} ${UNITS[unit]}`
 }
 
-/** A percentage that is already 0-100. */
+/**
+ * A percentage that is already 0-100.
+ *
+ * `decimals` is honoured, all of it. It used to pick between two formatters - "no decimals" and
+ * "one" - and the first of those was `Intl.NumberFormat("de-DE")` with nothing set, whose own
+ * default is THREE. So `percent(87.4567, 0)` printed "87,457 %" in the Ampel's own sentence about
+ * a full disk. And because the choice was `decimals === 0 ? … : …`, every other number the
+ * signature accepts quietly meant one - `percent(x, 2)` type-checked and gave one decimal, which
+ * is the kind of wrong nobody can see at the call site.
+ */
 export function percent(value: number | null | undefined, decimals = 1): string {
   if (value == null || !Number.isFinite(value)) return "–"
-  const formatter = decimals === 0 ? NO_DECIMAL : ONE_DECIMAL
-  return `${formatter.format(value)} %`
+  return `${percentFormat(decimals).format(value)} %`
+}
+
+/** One `Intl.NumberFormat` per decimal count, built once - they are not cheap to construct. */
+const PERCENT_FORMATS = new Map<number, Intl.NumberFormat>()
+
+function percentFormat(decimals: number): Intl.NumberFormat {
+  // Intl throws outside 0..20, and a caller asking for 21 decimals of a percentage has made a
+  // mistake that must not become an exception in a dashboard.
+  const wanted = Math.min(Math.max(Math.trunc(decimals) || 0, 0), 20)
+  let format = PERCENT_FORMATS.get(wanted)
+  if (!format) {
+    format = new Intl.NumberFormat("de-DE", {
+      minimumFractionDigits: wanted,
+      maximumFractionDigits: wanted,
+    })
+    PERCENT_FORMATS.set(wanted, format)
+  }
+  return format
 }
 
 /** A plain count. */

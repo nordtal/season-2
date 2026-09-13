@@ -269,7 +269,7 @@ type Kind = "UPDATE" | "BACKUP" | "RESTART"
  * minutes is the gap the default configuration has (04:00 against `backup.at` 04:45) and is far
  * more than a run of either kind takes.
  */
-const MINUTES_BEFORE_BACKUP = 45
+export const MINUTES_BEFORE_BACKUP = 45
 
 /** The hour „heute Nacht" means when there is no nightly backup to stay out of the way of. */
 const NIGHT_HOUR = 4
@@ -296,10 +296,20 @@ export function tonight(nextBackupAt: string | null | undefined, now = new Date(
     if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1)
     return target
   }
-  const target = new Date(backup.getTime() - MINUTES_BEFORE_BACKUP * 60_000)
+  let target = backup.getTime() - MINUTES_BEFORE_BACKUP * 60_000
   // Less than three quarters of an hour to the backup: tonight's slot has gone, take tomorrow's
   // rather than asking for a moment in the past, which the worker would run immediately.
-  return target.getTime() > now.getTime() ? target : new Date(target.getTime() + 24 * 60 * 60 * 1000)
+  //
+  // A WHILE AND NOT AN IF. One day forward only rescues a schedule less than about 23 hours stale,
+  // and this one can be older than that: `useSchedule` has an hour of staleTime, no refetch
+  // interval, and main.tsx turns refetchOnWindowFocus off for every query - so a dashboard left
+  // open over a weekend still holds Friday's `nextBackupAt`. What came back then was a moment in
+  // the past, which lands in `not_before` on the update_request row, which the worker takes as
+  // "now": smp and the network stop while somebody is standing in the world. That is precisely
+  // the collision this function exists to avoid.
+  const day = 24 * 60 * 60 * 1000
+  while (target <= now.getTime()) target += day
+  return new Date(target)
 }
 
 const ASKS: Record<

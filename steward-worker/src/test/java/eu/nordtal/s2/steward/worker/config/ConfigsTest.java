@@ -91,6 +91,27 @@ class ConfigsTest {
     }
 
     @Test
+    @DisplayName("a volume list without the world is refused, because the farm reset leans on it")
+    void theWorldCannotBeDroppedFromTheList() throws Exception {
+        // The hole this closes: smp resets the farm world only when a successful backup is recent
+        // enough behind it, and this list decides what "successful" saved. Keep one volume, drop
+        // mc-smp, and every night reports DONE while Nordtal is in no archive at all - the gate
+        // then authorises a reset over a world nobody can put back.
+        java.nio.file.Files.writeString(directory.resolve("steward.yml"), """
+                backup:
+                  volumes:
+                    - 'nordtal-s2_bot-config'
+                """);
+
+        final ConfigValidationException error =
+                assertThrows(ConfigValidationException.class, () -> Configs.steward(directory, LOGGER));
+
+        final String message = String.valueOf(error.getMessage() + error.getCause());
+        assertTrue(message.contains("resets the farm world"),
+                "and it says what the missing volume is load-bearing for: " + message);
+    }
+
+    @Test
     @DisplayName("a deployed steward.yml still carrying retired keys loses them and starts")
     void theRetiredKeysAreDroppedRatherThanFatal() throws Exception {
         // The four keys that were retired on 2026-09-09: two versions that became constants in

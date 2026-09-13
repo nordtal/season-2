@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -91,6 +92,9 @@ public final class Configs {
      */
     private static void requireBackup(final StewardSpec.BackupSpec backup) {
         requirePositive("backup.patience-minutes", backup.patienceMinutes());
+        // The forbidden entry is reported before the missing one: a list naming postgres-data is
+        // an operator who wrote something wrong, and telling them about a different volume first
+        // would send them off fixing the wrong line.
         for (final String volume : backup.volumes()) {
             if (volume != null && volume.endsWith("postgres-data")) {
                 throw new IllegalArgumentException("backup.volumes lists '" + volume + "'. A"
@@ -99,6 +103,33 @@ public final class Configs {
                         + " place for it to fail. The pg_dump sidecar writes postgres-dumps; list"
                         + " that instead. See deploy/README.md#backups.");
             }
+        }
+        requireTheWorld(backup.volumes());
+    }
+
+    /**
+     * The farm reset is authorised by <em>this</em> list, so the world has to be in it.
+     *
+     * <h2>What a successful backup is taken to prove</h2>
+     * {@code smp} refuses to reset the farm world unless a successful backup sits within
+     * {@code farm-reset-backup-window-hours} behind it, and "successful" means this service
+     * reported {@code DONE}. What it does <b>not</b> mean, until here, is that the world was among
+     * the things saved: a list that kept {@code bot-config} and dropped {@code mc-smp} produced a
+     * perfectly successful backup every night, and the gate then let the reset proceed over a world
+     * that was in no archive anywhere. The one volume in this deployment that cannot be rebuilt is
+     * the one the guarantee quietly stopped covering.
+     *
+     * <p>Refused at load, therefore, and not warned about: the cost of being wrong here is Nordtal,
+     * and the operator who edits this list is not the one standing in the world at 04:45.</p>
+     */
+    private static void requireTheWorld(final List<String> volumes) {
+        if (volumes.stream().noneMatch(volume -> volume != null && volume.endsWith("mc-smp"))) {
+            throw new IllegalArgumentException("backup.volumes does not list the smp world volume"
+                    + " (a name ending in mc-smp), and it is not optional: smp asks whether a"
+                    + " successful backup is recent enough before it resets the farm world, and a"
+                    + " backup that saved everything except the world would answer yes. Nordtal is"
+                    + " the one thing in this deployment that is in no repository and in no"
+                    + " release. See deploy/README.md#backups.");
         }
     }
 

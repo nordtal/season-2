@@ -19,7 +19,14 @@ import { toast } from "sonner"
 
 import type { Backup, ReportChange, ReportLine, Run, ServiceTable } from "@/lib/api"
 import { bytes, count, dateTime, duration, parseInstant, relative, since } from "@/lib/format"
-import { useAskForRun, useBackups, useRun, useRuns, useServices } from "@/lib/queries"
+import {
+  useAskForRun,
+  useBackups,
+  useRun,
+  useRuns,
+  useSchedule,
+  useServices,
+} from "@/lib/queries"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import {
@@ -255,20 +262,44 @@ const SOURCE_LABEL: Record<string, string> = {
 type Kind = "UPDATE" | "BACKUP" | "RESTART"
 
 /**
- * The hour „heute Nacht" means.
+ * How long before the worker's own backup „heute Nacht" lands.
  *
- * 04:00 rather than a round midnight, and before the worker's own backup clock at 04:45
- * (`steward.yml#backup.at`) rather than on top of it: update and backup take the same lock, so two
- * runs at the same minute are one run waiting for the other with the network already down.
+ * Before that clock rather than on top of it: update and backup take the same lock, so two runs at
+ * the same minute are one run waiting for the other with the network already down. Forty-five
+ * minutes is the gap the default configuration has (04:00 against `backup.at` 04:45) and is far
+ * more than a run of either kind takes.
  */
+const MINUTES_BEFORE_BACKUP = 45
+
+/** The hour „heute Nacht" means when there is no nightly backup to stay out of the way of. */
 const NIGHT_HOUR = 4
 
-/** Seconds from now until the next {@link NIGHT_HOUR} o'clock, in the browser's own time zone. */
-function untilTonight(now = new Date()): number {
-  const target = new Date(now)
-  target.setHours(NIGHT_HOUR, 0, 0, 0)
-  if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1)
-  return Math.round((target.getTime() - now.getTime()) / 1000)
+/**
+ * When „heute Nacht" is.
+ *
+ * THIS USED TO BE 04:00 IN THE BROWSER'S TIME ZONE, and the dialog said it was „kurz vor der
+ * eigenen Sicherungsuhr des Workers" - a promise it could not keep. The worker's clock runs in the
+ * container's zone (compose sets `TZ`), so an admin an hour east of the host scheduled 03:00 there,
+ * and one two hours west scheduled 06:00: after the backup, which is exactly the collision the
+ * offer exists to avoid. So the moment is derived from what the worker says its next backup is.
+ *
+ * Exported and pure because this frontend has no test runner: this is the part with arithmetic in
+ * it, and it can at least be read as one function rather than found inside a component.
+ */
+export function tonight(nextBackupAt: string | null | undefined, now = new Date()): Date {
+  const backup = nextBackupAt ? new Date(nextBackupAt) : null
+  if (!backup || Number.isNaN(backup.getTime())) {
+    // No nightly backup at all, so there is nothing to stay out of the way of and no zone to
+    // borrow. Four o'clock here, and the dialog says that is what it is.
+    const target = new Date(now)
+    target.setHours(NIGHT_HOUR, 0, 0, 0)
+    if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1)
+    return target
+  }
+  const target = new Date(backup.getTime() - MINUTES_BEFORE_BACKUP * 60_000)
+  // Less than three quarters of an hour to the backup: tonight's slot has gone, take tomorrow's
+  // rather than asking for a moment in the past, which the worker would run immediately.
+  return target.getTime() > now.getTime() ? target : new Date(target.getTime() + 24 * 60 * 60 * 1000)
 }
 
 const ASKS: Record<
@@ -306,10 +337,11 @@ const ASKS: Record<
  */
 function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "default" | "outline" }) {
   const ask = useAskForRun()
+  const schedule = useSchedule()
   const spec = ASKS[kind]
   const Icon = spec.icon
-  const delay = untilTonight()
-  const tonight = new Date(Date.now() + delay * 1000)
+  const night = tonight(schedule.data?.nextBackupAt)
+  const delay = Math.round((night.getTime() - Date.now()) / 1000)
 
   const submit = (delaySeconds?: number) => {
     ask.mutate(
@@ -360,15 +392,34 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
             Eintragen und das Lesen eines Laufs.
           </p>
           <p className="text-muted-foreground">
-            „Heute Nacht" heißt <span className="text-foreground tnum">{dateTime(tonight)}</span>
-            – kurz vor der eigenen Sicherungsuhr des Workers, damit sich beide nicht um dieselbe
-            Sperre streiten.
+            „Heute Nacht" heißt <span className="text-foreground tnum">{dateTime(night)}</span>
+            {schedule.data?.nextBackupAt ? (
+              <>
+                {" "}
+                – {MINUTES_BEFORE_BACKUP} Minuten vor der eigenen Sicherungsuhr des Workers (
+                {schedule.data.backupAt} {schedule.data.zone}), damit sich beide nicht um dieselbe
+                Sperre streiten.
+              </>
+            ) : schedule.isPending ? (
+              <> – die Sicherungsuhr des Workers wird gerade gelesen.</>
+            ) : (
+              <>
+                {" "}
+                – {NIGHT_HOUR} Uhr in der Zeitzone dieses Browsers. Der Worker hat keine nächtliche
+                Sicherung eingetragen (<code className="text-xs">backup.at</code> ist leer), es gibt
+                also keine zweite Uhr, der auszuweichen wäre.
+              </>
+            )}
           </p>
         </div>
 
         <AlertDialogFooter>
           <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-          <AlertDialogAction variant="outline" onClick={() => submit(delay)}>
+          <AlertDialogAction
+            variant="outline"
+            disabled={schedule.isPending}
+            onClick={() => submit(delay)}
+          >
             Heute Nacht
           </AlertDialogAction>
           <AlertDialogAction
@@ -479,9 +530,11 @@ function DriftCard({ note }: { note?: string }) {
 
                 {table.drift.unverifiable.length > 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    Ungeprüft: {table.drift.unverifiable.join(", ")} – ein hier gebautes Image trägt
-                    keinen Registry-Digest und lässt sich deshalb mit nichts vergleichen. Das ist
-                    nicht „aktuell".
+                    Ungeprüft: {table.drift.unverifiable.join(", ")} – entweder trägt das Image
+                    keinen Registry-Digest (hier gebaut und nirgends hingeschoben), oder die
+                    Registry hat für dieses Image nicht geantwortet. Der Worker unterscheidet beides
+                    intern; hier steht nur, dass verglichen nicht werden konnte. Das ist nicht
+                    „aktuell".
                   </p>
                 ) : null}
               </>
@@ -971,7 +1024,7 @@ function RunDetail({ run }: { run: Run }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <StageTrail stage={report.stage} />
+            <StageTrail stage={report.stage} kind={run.kind} />
             {!finished ? (
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="size-2 animate-pulse rounded-full bg-warning" aria-hidden />
@@ -1019,16 +1072,36 @@ function RunDetail({ run }: { run: Run }) {
   )
 }
 
-function StageTrail({ stage }: { stage: string }) {
+/**
+ * Which stations a finished run of each kind really walked.
+ *
+ * A finished run's report keeps only its last stage, so the trail behind it has to be derived -
+ * and it used to be derived as „alle", which drew a completed backup as having passed through
+ * „Ermittelt" and „Eingespielt". Neither is something a backup does: `RESOLVING` and `INSTALLING`
+ * belong to an update (`Runner#update`), `BACKING_UP` to a backup (`Runner#backup`, the one caller
+ * of `UpdateRun#save`), and a restart walks none of the three.
+ *
+ * A run that ended any other way than DONE gets no ticks at all. `NOTHING_TO_DO` stopped nothing
+ * and installed nothing, and a `FAILED` or `CANCELLED` run stopped somewhere this report no longer
+ * says - and a grey trail is the honest shape of „nicht bekannt".
+ */
+const WALKED: Record<string, ReadonlySet<string>> = {
+  UPDATE: new Set(TRAIL),
+  BACKUP: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "BACKING_UP", "STARTING", "VERIFYING"]),
+  RESTART: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+}
+
+function StageTrail({ stage, kind }: { stage: string; kind: string }) {
   const reached = TRAIL.indexOf(stage as (typeof TRAIL)[number])
   const ending = ENDINGS.has(stage)
+  const walked = stage === "DONE" ? WALKED[kind] : undefined
 
   return (
     <ol className="flex flex-wrap items-center gap-x-2 gap-y-3">
       {TRAIL.map((step, index) => {
-        // A run that has ended has walked everything it was going to walk, so every step behind it
-        // is past; a running one has walked everything before its current stage.
-        const past = ending || (reached >= 0 && index < reached)
+        // A running run has walked everything before its current stage. A finished one has walked
+        // what its kind walks - which is not all of them, and not anything at all unless it is DONE.
+        const past = ending ? (walked?.has(step) ?? false) : reached >= 0 && index < reached
         const now = index === reached
         return (
           <li key={step} className="flex items-center gap-2">
@@ -1200,7 +1273,10 @@ export function BetriebSicherungPage() {
     if (!wantsNewest) return all.find((entry) => entry.name === id)
     // "letzte" means the newest FINISHED one: a .partial is not a backup, and sending the sidebar's
     // link to a half-written file would be the one case where the word is actively misleading.
-    return all.find((entry) => !entry.partial) ?? all[0]
+    // NO FALLBACK TO all[0]. It used to be there, and it undid the line above it: a directory
+    // holding nothing but a backup that is still being written answered "letzte" with that file,
+    // labelled "unvollständig", on a page whose whole job is to say which backup there is.
+    return all.find((entry) => !entry.partial)
   }, [backups.data, id, wantsNewest])
 
   const runs = useRuns(50)
@@ -1230,7 +1306,9 @@ export function BetriebSicherungPage() {
           title={wantsNewest ? "Keine Sicherung vorhanden" : "Unbekannte Datei"}
           note={
             wantsNewest
-              ? "Im Sicherungsverzeichnis liegt keine Datei."
+              ? backups.data && backups.data.length > 0
+                ? "Im Sicherungsverzeichnis liegt noch keine fertige Datei – was dort liegt, wird gerade geschrieben oder ist abgebrochen (.partial)."
+                : "Im Sicherungsverzeichnis liegt keine Datei."
               : `„${id}" liegt nicht im Sicherungsverzeichnis. Möglicherweise hat der Aufräumlauf sie inzwischen weggeräumt.`
           }
         />
@@ -1376,6 +1454,12 @@ function matchingRun(backup: Backup | undefined, runs: Run[]): Run | undefined {
 export function BetriebWiederherstellenPage() {
   const backups = useBackups()
   const [chosen, setChosen] = useState<string>("")
+  // What can actually be restored. A .partial is a file being written or a run that died in the
+  // middle of one, and restore.sh will not take it.
+  const restorable = useMemo(
+    () => (backups.data ?? []).filter((backup) => !backup.partial),
+    [backups.data],
+  )
   const command = `sudo bash deploy/restore.sh ${chosen || "<archiv>"}`
 
   return (
@@ -1416,10 +1500,17 @@ export function BetriebWiederherstellenPage() {
             <Loading rows={3} />
           ) : backups.error ? (
             <Failure error={backups.error} onRetry={backups.refetch} />
-          ) : (backups.data ?? []).length === 0 ? (
+          ) : restorable.length === 0 ? (
+            // The empty state is about what can be RESTORED, not about what lies there. A
+            // directory holding three .partial files used to draw a selector with three entries,
+            // every one of them disabled - a control that cannot be used and does not say why.
             <Empty
               title="Kein Archiv auf der Platte"
-              note="Es liegt keine Datei im Sicherungsverzeichnis, die sich zurückspielen ließe."
+              note={
+                (backups.data ?? []).length > 0
+                  ? "Jede Datei im Sicherungsverzeichnis trägt noch die Endung .partial: sie wird gerade geschrieben oder der Lauf ist dabei gestorben. Zurückspielen lässt sich keine davon."
+                  : "Es liegt keine Datei im Sicherungsverzeichnis, die sich zurückspielen ließe."
+              }
             />
           ) : (
             <div className="flex max-w-xl flex-col gap-1.5">
@@ -1429,10 +1520,9 @@ export function BetriebWiederherstellenPage() {
                   <SelectValue placeholder="Archiv auswählen…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(backups.data ?? []).map((backup) => (
-                    <SelectItem key={backup.name} value={backup.name} disabled={backup.partial}>
+                  {restorable.map((backup) => (
+                    <SelectItem key={backup.name} value={backup.name}>
                       {backup.name} · {bytes(backup.bytes)} · {relative(backup.modified)}
-                      {backup.partial ? " · unvollständig" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

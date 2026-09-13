@@ -192,6 +192,18 @@ export type Host = {
   containerLimits: string
 }
 
+/**
+ * The worker's own nightly clock, read from the worker rather than guessed here.
+ *
+ * `nextBackupAt` is an ISO instant with an offset, so it can be turned into a moment; `backupAt`
+ * and `zone` are for saying it out loud. All three are null / "off" when `backup.at` is empty.
+ */
+export type Schedule = {
+  backupAt: string | null
+  zone: string
+  nextBackupAt: string | null
+}
+
 export type Backup = {
   name: string
   bytes: number

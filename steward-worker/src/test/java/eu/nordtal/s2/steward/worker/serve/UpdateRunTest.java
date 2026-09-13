@@ -447,7 +447,7 @@ class UpdateRunTest {
     }
 
     @Test
-    @DisplayName("a refused recreate fails that service and names the image as the reason")
+    @DisplayName("a refused recreate puts the old container back and still reports the failure")
     void aRefusedRecreateIsNamed() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP)
                 .imageOutdated(Topology.SMP).recreateRefused(Topology.SMP);
@@ -456,9 +456,19 @@ class UpdateRunTest {
         final UpdateReport report =
                 run.start(run.stop(planned(Topology.SMP), containers.runtime()), containers.images());
 
-        assertEquals(UpdateReport.State.FAILED, report.line(Topology.SMP).state());
+        // The server is BACK. This used to stop it, fail the line and move on, which left every
+        // outdated service off until somebody looked - and DockerOps#recreate refuses every time,
+        // so "every outdated service" was all of them. The old image is the second-best outcome;
+        // an empty server is the worst one.
+        assertEquals(List.of("stop:smp-container", "recreate:smp", "start:smp-container"),
+                containers.calls);
+        assertEquals(UpdateReport.State.FAILED, report.line(Topology.SMP).state(),
+                "the update did not happen, and a run is settled FAILED the moment a line is");
         assertTrue(report.line(Topology.SMP).detail().contains("image is out of date"),
-                "the server is down and the reason has to say which half of the run stopped: "
+                "the reason has to say which half of the run stopped: "
+                        + report.line(Topology.SMP).detail());
+        assertTrue(report.line(Topology.SMP).detail().contains("on the old version"),
+                "and it has to say the service is up, or an operator restarts it by hand: "
                         + report.line(Topology.SMP).detail());
     }
 

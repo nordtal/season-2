@@ -89,6 +89,17 @@ class StewardUiIntegrationTest {
                 return UI_PORT;
             }
 
+            /**
+             * The Ampel's thresholds. Left at the interface's own defaults - this test is about
+             * routing and sessions, and a threshold invented here would be a second set of numbers
+             * that could drift away from the ones in the spec.
+             */
+            @Override
+            public AlertSpec alerts() {
+                return new AlertSpec() {
+                };
+            }
+
             @Override
             public WorkerSpec worker() {
                 return new WorkerSpec() {

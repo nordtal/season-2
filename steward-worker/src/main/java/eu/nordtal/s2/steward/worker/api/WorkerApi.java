@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,6 +65,19 @@ public final class WorkerApi implements AutoCloseable {
 
     /** Log follows are long and blocking; each one gets a thread of its own, and they are cheap. */
     private final ExecutorService followers = Executors.newVirtualThreadPerTaskExecutor();
+
+    /**
+     * How long a registry answer is good for.
+     *
+     * <p>A minute, because drift is caused by a push and not by a page refresh, and because the
+     * answer is read by whoever is looking at the start page - which refreshes on a timer. The
+     * response carries {@code driftCheckedAt} so the interface can say how old the comparison is
+     * rather than implying it was made just now.</p>
+     */
+    private static final Duration DRIFT_TTL = Duration.ofMinutes(1);
+
+    private ImageResult lastDrift;
+    private Instant driftAt;
 
     private Javalin app;
 
@@ -105,7 +120,7 @@ public final class WorkerApi implements AutoCloseable {
             // Everything the start page's service table needs, in one request: §10c wants state,
             // health, image, uptime, RAM and CPU per service, and ten round trips for one table
             // would make the page slower than the thing it is describing.
-            config.routes.get("/api/services", ctx -> ctx.json(services()));
+            config.routes.get("/api/services", ctx -> ctx.json(serviceTable()));
 
             config.routes.get("/api/services/{name}", ctx -> ctx.json(
                     service(ctx.pathParam("name")).orElseThrow(
@@ -195,18 +210,90 @@ public final class WorkerApi implements AutoCloseable {
         log.info("the internal API is on {} - steward-ui reads the daemon through it", port);
     }
 
-    private List<Map<String, Object>> services() {
-        final ImageResult drift = ops.images();
-        final List<Map<String, Object>> all = new ArrayList<>();
-        for (final Docker.Container container : docker.containers(project)) {
-            if (container.service() == null) {
-                continue;
-            }
-            all.add(describe(container, drift));
+    /**
+     * The service table, with the age of the drift comparison beside it.
+     *
+     * <p>An envelope rather than a bare array, because the interface has to be able to say
+     * <em>"images compared a minute ago"</em>. A page that draws a green tick next to an answer
+     * cached for an unknown length of time is making a promise it cannot keep - and image drift
+     * going unnoticed for four releases is the failure this whole column exists to prevent.</p>
+     */
+    private Map<String, Object> serviceTable() {
+        final List<Map<String, Object>> rows = services();
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("services", rows);
+        final ImageResult drift = drift();
+        final Map<String, Object> about = new LinkedHashMap<>();
+        about.put("checkedAt", driftAt == null ? null : driftAt.toString());
+        about.put("reached", drift.reached());
+        about.put("unverifiable", List.copyOf(drift.unverifiable()));
+        drift.notCheckable().ifPresent(reason -> about.put("reason", reason));
+        if (drift.message() != null) {
+            about.put("message", drift.message());
         }
-        all.sort((left, right) -> String.valueOf(left.get("service"))
-                .compareTo(String.valueOf(right.get("service"))));
-        return all;
+        answer.put("drift", about);
+        return answer;
+    }
+
+    /**
+     * The rows themselves, and the two measurements that made them worth writing carefully.
+     *
+     * <p>On this host on 2026-09-13: {@code /containers/{id}/stats?stream=false} takes <b>1.03 s</b>
+     * per container, because the daemon collects two samples to compute a CPU delta and there is no
+     * {@code one-shot} that still yields a real percentage. Nine running containers read one after
+     * another is a nine-second request - slower than most of what it is describing. So the rows are
+     * read in parallel, one virtual thread each, and the table costs about as long as its slowest
+     * row.</p>
+     *
+     * <p>The drift answer is cached for {@link #DRIFT_TTL}. It asks a registry over the network,
+     * and image drift changes when somebody pushes - not between two refreshes of a page. Without
+     * the cache the start page would send a burst of registry requests every few seconds for an
+     * answer that is the same all day.</p>
+     */
+    private List<Map<String, Object>> services() {
+        final ImageResult drift = drift();
+        final List<Docker.Container> containers = docker.containers(project).stream()
+                .filter(container -> container.service() != null)
+                .toList();
+        final List<Map<String, Object>> all;
+        try (var scope = Executors.newVirtualThreadPerTaskExecutor()) {
+            all = scope.invokeAll(containers.stream()
+                            .map(container -> (java.util.concurrent.Callable<Map<String, Object>>)
+                                    () -> describe(container, drift))
+                            .toList()).stream()
+                    .map(WorkerApi::resultOf)
+                    .toList();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("reading the service table was interrupted", e);
+        }
+        return all.stream()
+                .sorted((left, right) -> String.valueOf(left.get("service"))
+                        .compareTo(String.valueOf(right.get("service"))))
+                .toList();
+    }
+
+    private static Map<String, Object> resultOf(final java.util.concurrent.Future<Map<String, Object>> future) {
+        try {
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("reading one service was interrupted", e);
+        } catch (java.util.concurrent.ExecutionException e) {
+            // describe() already swallows a Docker failure into an `unreadable` field, so anything
+            // arriving here is a programming error and belongs in the log rather than in a row.
+            throw new IllegalStateException("reading one service failed", e.getCause());
+        }
+    }
+
+    /** The cached drift answer, refreshed at most once per {@link #DRIFT_TTL}. */
+    private synchronized ImageResult drift() {
+        final Instant now = Instant.now();
+        if (lastDrift == null || driftAt == null || driftAt.plus(DRIFT_TTL).isBefore(now)) {
+            lastDrift = ops.images();
+            driftAt = now;
+        }
+        return lastDrift;
     }
 
     private Map<String, Object> describe(final Docker.Container container, final ImageResult drift) {
@@ -237,7 +324,7 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     private Optional<Map<String, Object>> service(final String name) {
-        final ImageResult drift = ops.images();
+        final ImageResult drift = drift();
         return docker.containers(project).stream()
                 .filter(container -> name.equals(container.service()))
                 .findFirst()

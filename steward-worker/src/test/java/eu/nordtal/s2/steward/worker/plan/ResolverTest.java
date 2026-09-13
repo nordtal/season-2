@@ -605,15 +605,6 @@ class ResolverTest {
                 };
             }
 
-            @Override
-            public ArcaneSpec arcane() {
-                // Every setting on it has a default and none of them matters here: an empty
-                // base-url means "no restart is possible", which is exactly right for a test
-                // about resolving and installing files.
-                return new ArcaneSpec() {
-                };
-            }
-
         };
         return new Resolver(config, new GitHubReleases(http), new Modrinth(http), new PaperFill(http),
                 Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC)).resolve();

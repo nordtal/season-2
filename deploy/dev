@@ -6,8 +6,8 @@
 # What makes that possible is one line in compose.yml: each server's plugins/ is a directory on
 # this machine (<SERVICE>_PLUGINS) rather than a volume of its own. So installing a freshly built
 # plugin is a `cp` and a restart of one container, and reading plugins/smp/config.yml is opening a
-# file. Worlds, the .server/ jar cache and logs stay in the volumes, where Arcane's volume backup
-# can still see them on the host.
+# file. Worlds, the .server/ jar cache and logs stay in the volumes, where the nightly backup can
+# still find them.
 #
 #   deploy/dev init                 write deploy/dev.env, generate the two secrets, make the dirs
 #   deploy/dev up                   build everything, then bring the stack up
@@ -82,7 +82,7 @@ compose() {
 plugins_dir() {
     # Where one service's plugins/ lives on THIS machine. compose.yml defaults each of these to a
     # named volume (mc-<service>-plugins) because production must not keep its configs inside the
-    # directory Arcane's GitOps sync pulls; deploy/dev.env sets them to paths instead, which is what
+    # directory a deployment checks out over; deploy/dev.env sets them to paths instead, which is what
     # makes a local `cp` of a jar and a plain `$EDITOR` on config.yml possible at all.
     #
     # So this reads the variable rather than assuming a layout, and REFUSES a value with no `/` in

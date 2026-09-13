@@ -29,13 +29,14 @@ import java.util.function.Consumer;
  * died halfway through on a real deployment; what was lost that time was an arena teardown, and
  * what it would have lost with a duel in progress is both fighters' inventories. The gap between
  * stopping and starting is where jars are safe to move, and nothing but this class can create one:
- * Arcane's project-level calls do stop <em>and</em> start in a single request.
+ * a project-level redeploy does stop <em>and</em> start in a single request, which leaves no gap at
+ * all.
  *
  * <h2>What it will not do</h2>
  * <ul>
- *   <li><b>Begin without Arcane.</b> The very first thing is a read of the project's runtime, and a
- *       run that cannot reach Arcane stops there having touched nothing. Swapping anyway would be
- *       the defect this class exists to remove, performed as a fallback.</li>
+ *   <li><b>Begin without a container runtime.</b> The very first thing is a read of the project's
+ *       runtime, and a run that cannot read it stops there having touched nothing. Swapping anyway
+ *       would be the defect this class exists to remove, performed as a fallback.</li>
  *   <li><b>Stop a server with nothing to install.</b> An outage with nothing to show for it is
  *       worse than no update, and the plan already knows which services move.</li>
  *   <li><b>Stop itself.</b> Steward-worker is in the same compose project, so a project-wide call
@@ -60,16 +61,16 @@ final class UpdateRun {
      */
     static final Duration HEALTH_PATIENCE = Duration.ofMinutes(5);
 
-    /** How often the runtime is re-read while waiting. Cheap: one GET against a local Arcane. */
+    /** How often the runtime is re-read while waiting. Cheap: one call over the local socket. */
     private static final Duration HEALTH_POLL = Duration.ofSeconds(5);
 
-    private final ContainerOps arcane;
+    private final ContainerOps containers;
     private final Snapshots snapshots;
     private final Consumer<UpdateReport> progress;
 
-    UpdateRun(final @NotNull ContainerOps arcane, final @NotNull Snapshots snapshots,
+    UpdateRun(final @NotNull ContainerOps containers, final @NotNull Snapshots snapshots,
               final @NotNull Consumer<UpdateReport> progress) {
-        this.arcane = arcane;
+        this.containers = containers;
         this.snapshots = snapshots;
         this.progress = progress;
     }
@@ -81,7 +82,7 @@ final class UpdateRun {
      * decision Q14: an update that cannot stop a server has no safe way to continue.</p>
      */
     @NotNull RuntimeResult check() {
-        return arcane.runtime();
+        return containers.runtime();
     }
 
     /**
@@ -113,12 +114,12 @@ final class UpdateRun {
             }
             final ServiceRuntime service = runtime.service(line.service()).orElse(null);
             if (service == null || service.containerId() == null) {
-                report = report.with(line.failed("Arcane does not list a container for this"
+                report = report.with(line.failed("the compose project has no container for this"
                         + " service, so it could not be stopped and nothing was installed for it"));
                 progress.accept(report);
                 continue;
             }
-            final RedeployResult result = arcane.stop(service.containerId());
+            final RedeployResult result = containers.stop(service.containerId());
             if (!result.triggered()) {
                 report = report.with(line.failed("could not be stopped: " + result.message()));
                 progress.accept(report);
@@ -135,8 +136,9 @@ final class UpdateRun {
      * Saves every volume, with the servers already stopped.
      *
      * <h2>One at a time, and that is a change</h2>
-     * The Arcane version started every snapshot at once and then waited for all of them, because it
-     * was asking somebody else to do the work and could not do it faster by waiting differently.
+     * The version that asked a panel over HTTP started every snapshot at once and then waited for
+     * all of them, because it was asking somebody else to do the work and could not do it faster by
+     * waiting differently.
      * A local {@code tar} is this container's own CPU and this host's own disk: running eight of
      * them at once would not shorten the outage, it would lengthen it by making them fight for the
      * same disk. So they run in order, and the report shows each one finishing.
@@ -177,8 +179,8 @@ final class UpdateRun {
      * That is right for the ordinary case and wrong for the one where the image itself has moved:
      * the jars would be new and {@code entrypoint.sh}, the JRE and every change to
      * {@code compose.yml} would still be whatever was pulled at the last deploy. A service
-     * {@link ImageResult} calls outdated is therefore <b>recreated</b> - Arcane pulls its image and
-     * brings it back up from that - and every other one is started exactly as before.
+     * {@link ImageResult} calls outdated is therefore <b>recreated</b> - its image is pulled and the
+     * container is brought back up from that - and every other one is started exactly as before.
      *
      * <p>The recreate is asked for one service at a time and reported before it is asked for, so a
      * run that never comes back from one names it. That matters more here than anywhere else in
@@ -208,7 +210,7 @@ final class UpdateRun {
                 report = report.with(line.at(UpdateReport.State.STARTING)
                         .withDetail("pulling its image and recreating the container"));
                 progress.accept(report);
-                final RedeployResult recreated = arcane.recreate(service);
+                final RedeployResult recreated = containers.recreate(service);
                 report = report.with(recreated.triggered()
                         ? report.line(service).at(UpdateReport.State.STARTING)
                         : report.line(service).failed("its image is out of date and the container"
@@ -223,7 +225,7 @@ final class UpdateRun {
                 progress.accept(report);
                 continue;
             }
-            final RedeployResult result = arcane.start(entry.containerId());
+            final RedeployResult result = containers.start(entry.containerId());
             report = report.with(result.triggered()
                     ? line.at(UpdateReport.State.STARTING)
                     : line.failed("could not be started: " + result.message()));
@@ -256,7 +258,7 @@ final class UpdateRun {
         final Instant deadline = clock.now().plus(HEALTH_PATIENCE);
 
         while (!pending.isEmpty()) {
-            final RuntimeResult now = arcane.runtime();
+            final RuntimeResult now = containers.runtime();
             if (now.reached()) {
                 final List<String> back = new ArrayList<>();
                 for (final String service : pending) {
@@ -275,15 +277,15 @@ final class UpdateRun {
             }
             if (!clock.now().isBefore(deadline)) {
                 // The snapshot this iteration already read, not a fresh GET per pending
-                // service: that was one extra request each on the exact path where Arcane is slow
-                // or failing, and because every call is its own snapshot the descriptions could
-                // disagree with one another inside a single report.
+                // service: that was one extra round trip each on the exact path where the daemon
+                // is slow or failing, and because every call is its own snapshot the descriptions
+                // could disagree with one another inside a single report.
                 final RuntimeResult last = now;
                 for (final String service : pending) {
                     final String seen = last.reached()
                             ? last.service(service).map(ServiceRuntime::describe)
-                                    .orElse("not listed by Arcane")
-                            : "Arcane could not be read: " + last.message();
+                                    .orElse("no container for it in the project")
+                            : "the container runtime could not be read: " + last.message();
                     report = report.with(report.line(service).failed("did not come back within "
                             + HEALTH_PATIENCE.toMinutes() + " minutes (" + seen + ") - its own log"
                             + " is where the reason is, and the jar it was running before this"

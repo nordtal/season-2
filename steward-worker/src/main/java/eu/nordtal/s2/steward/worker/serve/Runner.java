@@ -7,7 +7,6 @@ import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
-import eu.nordtal.s2.steward.worker.arcane.Arcane;
 import eu.nordtal.s2.steward.worker.backup.Backups;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
@@ -44,8 +43,8 @@ import java.util.function.Consumer;
  * <h2>The kinds are different amounts of damage</h2>
  * {@code REPORT} writes nothing at all. {@code UPDATE} takes the advisory lock, stops the servers
  * whose jars change, migrates, swaps and starts them again. {@code RESTART} is the same sequence
- * with nothing installed, and {@code BACKUP} is that sequence with an Arcane volume snapshot in the
- * gap. {@code APPLY} is retired and refused - see {@code UpdateKind}.
+ * with nothing installed, and {@code BACKUP} is that sequence with a volume snapshot in the gap.
+ * {@code APPLY} is retired and refused - see {@code UpdateKind}.
  *
  * <h2>Every answer is a report, and the report is JSON</h2>
  * Since 2026-09-07 an answer is an {@code UpdateReport} rather than a paragraph, so that Discord
@@ -61,8 +60,8 @@ import java.util.function.Consumer;
  * is usually wrong is one people learn to ignore, which is the warning that will be standing there
  * on the day it is true.
  *
- * <p>So the order is: claim, check Arcane, resolve, plan - and only then, if the plan has work in
- * it, {@code startCountdown} on this run's own row and wait it out.</p>
+ * <p>So the order is: claim, read the container runtime, resolve, plan - and only then, if the plan
+ * has work in it, {@code startCountdown} on this run's own row and wait it out.</p>
  */
 @Slf4j
 public final class Runner implements RequestRunner {
@@ -79,24 +78,24 @@ public final class Runner implements RequestRunner {
 
     private final StewardSpec config;
     private final Database database;
-    private final Arcane arcane;
+    private final ContainerOps containers;
     private final Backups backups;
     private final UpdateDirectory directory;
     private final UpdateRun.Waiting waiting;
 
     public Runner(final @NotNull StewardSpec config, final @NotNull Database database,
-                  final @NotNull Arcane arcane, final @NotNull Backups backups,
+                  final @NotNull ContainerOps containers, final @NotNull Backups backups,
                   final @NotNull UpdateDirectory directory) {
-        this(config, database, arcane, backups, directory, UpdateRun.Waiting.real());
+        this(config, database, containers, backups, directory, UpdateRun.Waiting.real());
     }
 
     /** Package-visible so a test can drive a thirty-second countdown without waiting for one. */
     Runner(final @NotNull StewardSpec config, final @NotNull Database database,
-           final @NotNull Arcane arcane, final @NotNull Backups backups,
+           final @NotNull ContainerOps containers, final @NotNull Backups backups,
            final @NotNull UpdateDirectory directory, final @NotNull UpdateRun.Waiting waiting) {
         this.config = config;
         this.database = database;
-        this.arcane = arcane;
+        this.containers = containers;
         this.backups = backups;
         this.directory = directory;
         this.waiting = waiting;
@@ -133,7 +132,7 @@ public final class Runner implements RequestRunner {
         final UpdatePlan plan = Runs.resolve(config);
         // The images too, or the two surfaces disagree: a report saying "nothing to do" followed by
         // an update that stops four servers is the report being wrong, not the update.
-        final UpdateReport report = withImages(PlanReport.of(plan), arcane.images());
+        final UpdateReport report = withImages(PlanReport.of(plan), containers.images());
         // A plan full of rows that could not be checked is still a report, and the report says so
         // in the service lines. Marking the request FAILED would make "GitHub was briefly
         // unreachable" look like a broken steward-worker.
@@ -144,7 +143,7 @@ public final class Runner implements RequestRunner {
     // ---------------------------------------------------------------- images
 
     /**
-     * Puts what Arcane says about the images into the plan, so that a stale image is work.
+     * Puts what the registries say about the images into the plan, so that a stale image is work.
      *
      * <h2>Why it has to be in the plan and not in the starting step</h2>
      * {@code isWork()} is what decides whether anybody is counted down and whether a server is
@@ -157,22 +156,23 @@ public final class Runner implements RequestRunner {
      * <h2>What it will not claim</h2>
      * <ul>
      *   <li><b>Steward-worker's own image.</b> The recreate would take this process down mid-run.
-     *       It is a note, and moving it needs a Redeploy in Arcane by hand - the one thing in this
-     *       deployment that still does.</li>
+     *       It is a note, and moving it needs a redeploy of the project from outside this process -
+     *       the one thing in this deployment that still does.</li>
      *   <li><b>A service this worker does not own.</b> {@code postgres} and the backup sidecar are
      *       not in {@link Topology}, are never stopped by this sequence, and recreating one behind
      *       a report that does not mention it would be the worst kind of surprise. They are named
      *       in a note instead.</li>
-     *   <li><b>Anything Arcane has not actually checked.</b> {@link ImageResult} keeps "nobody has
-     *       looked" apart from "up to date", and only the first of those is ever silent here.</li>
+     *   <li><b>Anything whose registry could not be asked.</b> {@link ImageResult} keeps "nobody
+     *       has looked" apart from "up to date", and only the first of those is ever silent
+     *       here.</li>
      * </ul>
      */
     private static UpdateReport withImages(final UpdateReport planned, final ImageResult images) {
         UpdateReport report = planned;
 
-        // Named first and not returned on: services whose image Arcane never compared are UNKNOWN
-        // and therefore silent, and on this deployment that is every image we publish. A run that
-        // says nothing about them reads exactly like one that checked them and found them current.
+        // Named first and not returned on: a service whose image could not be compared is UNKNOWN
+        // and therefore silent. A run that says nothing about it reads exactly like one that
+        // checked it and found it current.
         final java.util.Optional<String> unverifiable = images.notCheckable();
         if (unverifiable.isPresent()) {
             report = report.withNote(unverifiable.get());
@@ -191,9 +191,9 @@ public final class Runner implements RequestRunner {
             final String service = entry.getKey();
             if (Topology.STEWARD_WORKER.equals(service)) {
                 report = report.withNote("Steward-worker's own image is out of date. Nothing here"
-                        + " can renew it: the recreate would take this process down in the middle of"
-                        + " its own run. Click Redeploy on the project in Arcane when the network"
-                        + " is quiet - that is the one thing in this deployment which still needs a"
+                        + " can renew it: the recreate would take this process down in the middle"
+                        + " of its own run. Redeploy the project from the host when the network is"
+                        + " quiet - that is the one thing in this deployment which still needs a"
                         + " hand.");
                 continue;
             }
@@ -206,9 +206,10 @@ public final class Runner implements RequestRunner {
         }
 
         if (!foreign.isEmpty()) {
-            report = report.withNote("Arcane reports a newer image for " + String.join(", ", foreign)
-                    + ", which steward-worker does not own and never stops. Renew "
-                    + (foreign.size() == 1 ? "it" : "them") + " with a Redeploy in Arcane.");
+            report = report.withNote("The registry has a newer image for "
+                    + String.join(", ", foreign) + ", which steward-worker does not own and never"
+                    + " stops. Renew " + (foreign.size() == 1 ? "it" : "them")
+                    + " with a redeploy of the project from the host.");
         }
         return report;
     }
@@ -232,15 +233,15 @@ public final class Runner implements RequestRunner {
      * The whole sequence: check, resolve, count down (already spent), stop, migrate, swap, start,
      * verify.
      *
-     * <p>The order is the design and every step of it is load-bearing. Arcane is read <b>first</b>,
-     * before a version is resolved or a byte is downloaded, because a run that cannot stop a server
-     * must not move a jar - that is finding 147, and continuing anyway would be the defect
+     * <p>The order is the design and every step of it is load-bearing. The container runtime is read
+     * <b>first</b>, before a version is resolved or a byte is downloaded, because a run that cannot
+     * stop a server must not move a jar - that is finding 147, and continuing anyway would be the defect
      * performed as a fallback. The migration runs with every affected server <b>stopped</b>, which
      * is stronger than the old rule (it ran before the jars moved, but with the servers up), so a
      * plugin can no longer see a schema half a version away from itself.</p>
      */
     private Outcome update(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(arcane, backups.volumes(), progress);
+        final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
@@ -269,7 +270,7 @@ public final class Runner implements RequestRunner {
         // After the runtime check and before anything is resolved: an image update is a reason to
         // take a server down, so it belongs in the plan a person confirms rather than in a step
         // discovered halfway through a run that was counted down for something else.
-        final ImageResult images = arcane.images();
+        final ImageResult images = containers.images();
 
         try (RunLock held = lock.get()) {
             final UpdatePlan plan = Runs.resolve(config);
@@ -459,15 +460,13 @@ public final class Runner implements RequestRunner {
     /**
      * Count down, stop the servers, snapshot the volumes, start the servers, wait for them.
      *
-     * <h2>Why steward-worker stops the servers and Arcane does not</h2>
-     * Arcane's backup policy has a {@code Stop Containers} flag that would do the same job in one
-     * click. It stays <b>off</b>, and both halves of that matter. Leaving it on means Arcane takes
-     * the world away from whoever is standing in it with no countdown - and the countdown is the
-     * entire reason this network has a request row rather than a cron job. Leaving it off <em>and
-     * letting Arcane's own schedule run</em> means snapshotting a world Paper is writing to, which
-     * fails at restore rather than at backup, months later, on the day it is needed. So the
-     * schedule is here, the stopping is here, and Arcane's policy decides only where a snapshot
-     * goes.
+     * <h2>Why the stopping is here and belongs nowhere else</h2>
+     * Anything that could stop these containers on a schedule of its own would take the world away
+     * from whoever is standing in it with no countdown - and the countdown is the entire reason
+     * this network has a request row rather than a cron job. Snapshotting without stopping is the
+     * other half of the same trap: a world Paper is writing to tars cleanly and fails at
+     * <em>restore</em>, months later, on the day it is needed. Both halves are why the schedule,
+     * the stopping and the tar are one sequence in one process, and this one.
      *
      * <h2>It always has work</h2>
      * Unlike an update there is nothing to resolve and no "everything is already current", so the
@@ -480,7 +479,7 @@ public final class Runner implements RequestRunner {
      * outage caused by a safety measure, which is worse than having no backup at all.
      */
     private Outcome backup(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(arcane, backups.volumes(), progress);
+        final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {
@@ -610,14 +609,14 @@ public final class Runner implements RequestRunner {
     /**
      * The same sequence with nothing installed: stop the servers, start them, wait for them.
      *
-     * <p>It used to be one Arcane redeploy of the whole project, whose successful outcome was
-     * usually that it never returned - the redeploy took this container down mid-call and the next
-     * start read a {@code RESTART} left {@code RUNNING} as "it happened". That is gone, and with it
-     * the reason nobody could ever be told whether the network came back: cycling the four
+     * <p>It used to be one redeploy of the whole project asked for over HTTP, whose successful
+     * outcome was usually that it never returned - the redeploy took this container down mid-call
+     * and the next start read a {@code RESTART} left {@code RUNNING} as "it happened". That is gone,
+     * and with it the reason nobody could ever be told whether the network came back: cycling the four
      * Minecraft services one at a time leaves steward-worker running, so it can watch and say.</p>
      */
     private Outcome restart(final UpdateRequest request, final Consumer<UpdateReport> progress) {
-        final UpdateRun run = new UpdateRun(arcane, backups.volumes(), progress);
+        final UpdateRun run = new UpdateRun(containers, backups.volumes(), progress);
 
         final RuntimeResult runtime = run.check();
         if (!runtime.reached()) {

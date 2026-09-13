@@ -18,15 +18,16 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * {@link ContainerOps} against the Docker daemon itself, replacing the half of Arcane that only
- * ever read.
+ * {@link ContainerOps} against the Docker daemon itself.
  *
- * <h2>Why this exists rather than another Arcane call</h2>
- * Arcane's image check never asked a registry. It compared what it had, answered "up to date", and
- * four releases ran behind while nothing said so - {@code todo.md} A24, found on 2026-09-12. The
- * daemon can answer the question properly ({@code GET /distribution/{ref}/json}), and the daemon is
- * on the other end of a socket this container already needs for logs and the console. Two of the
- * three reasons to keep Arcane disappear with this class.
+ * <h2>Why the daemon and not a panel</h2>
+ * This project read its container runtime and its image drift out of Arcane, a management panel,
+ * until 2026-09-12. Arcane's image check never asked a registry: it compared what it had already
+ * persisted, answered "up to date", and four releases ran behind while nothing said so
+ * ({@code todo.md} A24). The daemon can answer the question properly
+ * ({@code GET /distribution/{ref}/json}), and it is on the other end of a socket this container
+ * already needs for logs and the console - so the panel's read half was replaced by this class and
+ * the panel itself was removed.
  *
  * <h2>What it still cannot do</h2>
  * <b>Creating containers.</b> {@link #recreate} needs the compose file, which lives in
@@ -102,10 +103,12 @@ public final class DockerOps implements ContainerOps {
      *   <li>the registry's digest is among the image's - {@code UP_TO_DATE}</li>
      *   <li>it is not - {@code OUTDATED}, and there is work</li>
      *   <li>the question could not be asked or answered - {@code UNKNOWN} <b>and</b> a line in
-     *       {@code unverifiable}. A locally built image has no digest at all, a private registry
-     *       answers nothing without credentials, and a machine with no network answers nothing at
-     *       all. None of those is "current", and reporting them as current is exactly the failure
-     *       this check exists to end.</li>
+     *       {@code unverifiable}. An image built here and pushed nowhere carries no registry digest
+     *       to compare, and a registry that is down or unreachable answers nothing. Neither is
+     *       "current", and reporting them as current is exactly the failure this check exists to
+     *       end. Credentials are not among the reasons here: every image this stack runs is a
+     *       public {@code ghcr.io/nordtal} package, measured answering {@code /distribution} with
+     *       no authentication on 2026-09-13.</li>
      * </ul>
      */
     @Override
@@ -113,6 +116,11 @@ public final class DockerOps implements ContainerOps {
         try {
             final Map<String, ImageResult.State> states = new HashMap<>();
             final Set<String> unverifiable = new LinkedHashSet<>();
+            // One answer per image, not per container. The four Minecraft services run the same
+            // `ghcr.io/nordtal/minecraft:latest` from the same image id, and asking the registry
+            // four times for one answer is four round trips - measured at ~250 ms each on this host
+            // on 2026-09-13 - on a call the start page makes every time it refreshes.
+            final Map<String, ImageCheck> asked = new HashMap<>();
             for (final Docker.Container container : docker.containers(project)) {
                 if (container.service() == null || !container.isRunning()) {
                     continue;
@@ -123,7 +131,9 @@ public final class DockerOps implements ContainerOps {
                     unverifiable.add(container.service());
                     continue;
                 }
-                final ImageCheck check = check(reference, container.imageId());
+                final ImageCheck check = asked.computeIfAbsent(
+                        reference + "@" + container.imageId(),
+                        ignored -> check(reference, container.imageId()));
                 states.put(container.service(), check.state());
                 if (check.reason() != null) {
                     unverifiable.add(container.service());

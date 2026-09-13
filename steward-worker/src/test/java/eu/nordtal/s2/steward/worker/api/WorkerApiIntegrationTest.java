@@ -71,7 +71,7 @@ class WorkerApiIntegrationTest {
     @Test
     @DisplayName("the service list carries what the start page's table needs")
     void theTableHasItsColumns() throws Exception {
-        final JsonArray services = GSON.fromJson(get("/api/services"), JsonArray.class);
+        final JsonArray services = serviceRows();
         assumeTrue(!services.isEmpty(), "nothing of the stack is running - skipping");
 
         final JsonObject first = services.get(0).getAsJsonObject();
@@ -96,9 +96,33 @@ class WorkerApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("the table comes with the age of the image comparison beside it")
+    void theDriftAnswerCarriesItsAge() throws Exception {
+        final JsonObject table = GSON.fromJson(get("/api/services"), JsonObject.class);
+
+        assertTrue(table.has("services"), "the rows are under `services`: " + table);
+        final JsonObject drift = table.getAsJsonObject("drift");
+        assertTrue(drift.has("checkedAt"), "no age means the interface cannot say how old it is");
+        assertTrue(drift.has("reached"), "whether a registry answered at all is not optional");
+
+        // The envelope exists for exactly this: the answer is cached for a minute, so a page that
+        // did not know its age would put a tick next to a comparison of unknown vintage - which is
+        // the failure this column was added for (A24). A second call inside the TTL must therefore
+        // report the SAME instant, not a fresh one.
+        final JsonObject again = GSON.fromJson(get("/api/services"), JsonObject.class);
+        assertEquals(drift.get("checkedAt"), again.getAsJsonObject("drift").get("checkedAt"),
+                "two calls a moment apart must share one comparison, or nothing is being cached");
+    }
+
+    /** The rows out of the envelope. Three tests want them and none of them wants the envelope. */
+    private JsonArray serviceRows() throws Exception {
+        return GSON.fromJson(get("/api/services"), JsonObject.class).getAsJsonArray("services");
+    }
+
+    @Test
     @DisplayName("a running service can be asked about on its own, with its digests")
     void oneServiceInFull() throws Exception {
-        final JsonArray services = GSON.fromJson(get("/api/services"), JsonArray.class);
+        final JsonArray services = serviceRows();
         assumeTrue(!services.isEmpty(), "nothing running - skipping");
         final String name = services.get(0).getAsJsonObject().get("service").getAsString();
 
@@ -145,7 +169,7 @@ class WorkerApiIntegrationTest {
     @Test
     @DisplayName("the log search reads what docker still has, and says when it stopped early")
     void searchReadsWhatDockerStillHas() throws Exception {
-        final JsonArray services = GSON.fromJson(get("/api/services"), JsonArray.class);
+        final JsonArray services = serviceRows();
         assumeTrue(!services.isEmpty(), "nothing running - skipping");
         final String name = services.get(0).getAsJsonObject().get("service").getAsString();
 
@@ -166,7 +190,7 @@ class WorkerApiIntegrationTest {
     @Test
     @DisplayName("a search for nothing is refused rather than answered with everything")
     void anEmptySearchIsRefused() throws Exception {
-        final JsonArray services = GSON.fromJson(get("/api/services"), JsonArray.class);
+        final JsonArray services = serviceRows();
         assumeTrue(!services.isEmpty(), "nothing running - skipping");
         final String name = services.get(0).getAsJsonObject().get("service").getAsString();
 

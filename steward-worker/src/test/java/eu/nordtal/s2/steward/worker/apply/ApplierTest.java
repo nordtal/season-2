@@ -486,15 +486,6 @@ class ApplierTest {
                 };
             }
 
-            @Override
-            public ArcaneSpec arcane() {
-                // Every setting on it has a default and none of them matters here: an empty
-                // base-url means "no restart is possible", which is exactly right for a test
-                // about resolving and installing files.
-                return new ArcaneSpec() {
-                };
-            }
-
         };
         return new Applier(config, fetcher).apply(plan);
     }

@@ -79,7 +79,9 @@ class ComposeWorldTest {
      * <p>The second is that the fallback has to <em>repeat</em> the spec's default rather than be
      * empty. An environment variable set to the empty string still wins over the file in jcore's
      * config system, so a {@code ${VAR:-}} here would blank the default rather than fall back to
-     * it - the same trap steward-worker's two Arcane defaults carry, and the same test.
+     * it - the same trap every spec default that names a volume or a path carries, and the same
+     * test. steward-worker's own pair of that kind went out with the deployment panel on
+     * 2026-09-13; this one is now the example.
      */
     @Test
     void thePreGenerationSwitchIsPassedThroughAndDefaultsToTheSpec() throws Exception {

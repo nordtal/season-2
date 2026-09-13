@@ -27,7 +27,13 @@ import java.util.OptionalDouble;
  *
  * @param load1                the 1-minute load average, as {@code /proc/loadavg} gives it. Compare
  *                             it against {@link #cpus()} and not against 1 - on this six-core host
- *                             a load of 3 is half idle.
+ *                             a load of 3 is three tasks' worth of demand against six CPUs, which
+ *                             is a machine with room. It is <b>not</b> "half idle", and the
+ *                             difference is not pedantry: Linux counts uninterruptible sleep in the
+ *                             load average, so a host whose disk has stalled climbs past its core
+ *                             count with every CPU doing nothing. For how busy the CPUs were, read
+ *                             {@link #cpuPercent()}, which is the only number here that measures
+ *                             that.
  * @param load5                the 5-minute load average.
  * @param load15               the 15-minute load average.
  * @param cpus                 how many CPUs the HOST has, counted as {@code cpuN} lines in

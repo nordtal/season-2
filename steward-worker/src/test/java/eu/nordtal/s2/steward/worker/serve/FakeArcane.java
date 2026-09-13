@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward.worker.serve;
 
-import eu.nordtal.s2.steward.worker.ops.BackupResult;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
@@ -139,37 +138,6 @@ final class FakeArcane implements ContainerOps {
         return this;
     }
 
-    /** This volume's snapshot stays RUNNING for ever, so only the patience can end the wait. */
-    FakeArcane backupNeverFinishes(final String volume) {
-        backupDelay.put(volume, Integer.MAX_VALUE);
-        return this;
-    }
-
-    @Override
-    public @NotNull BackupResult backup(final @NotNull String volume) {
-        calls.add("backup:" + volume);
-        if (!reachable || backupRefused.contains(volume)) {
-            return BackupResult.refused("refused");
-        }
-        return BackupResult.running(volume + "-backup", "started");
-    }
-
-    @Override
-    public @NotNull BackupResult backupState(final @NotNull String volume,
-                                             final @NotNull String backupId) {
-        // Recorded, so an ordering assertion can see a poll and not only a POST. Without this the
-        // "both POSTs go out before the first poll" test would pass on an implementation that
-        // polls after each POST, which is the shape it exists to forbid: waiting per volume holds
-        // the network down for the sum of the uploads rather than the longest.
-        calls.add("poll:" + volume);
-        final int seen = polls.merge(volume, 1, Integer::sum);
-        if (seen <= backupDelay.getOrDefault(volume, 0)) {
-            return BackupResult.running(backupId, "running");
-        }
-        return backupSucceeds.getOrDefault(volume, true)
-                ? BackupResult.succeeded(backupId, "saved")
-                : BackupResult.failed(backupId, "the archive could not be written");
-    }
 
     @Override
     public @NotNull RuntimeResult runtime() {

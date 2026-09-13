@@ -165,42 +165,6 @@ services:
     logging: *logging
 
   # -------------------------------------------------------------------------------------------
-  # The database backup. Its own profile, because it is the one service you might legitimately run
-  # against a database this compose does not own.
-  #
-  # It writes a pg_dump into `postgres-dumps` and touches nothing else. Point Arcane's volume backup
-  # policy at THAT volume, not at `postgres-data`: for a live PGDATA both settings of the policy's
-  # `Stop Containers` flag are wrong - off gives a torn copy that fails at restore, on gives a
-  # nightly outage of the whole stack. Nothing holds `postgres-dumps` open between runs.
-  # See deploy/README.md#backups.
-  postgres-backup:
-    profiles: ["backup"]
-    build:
-      context: ./deploy/postgres-backup
-      args:
-        POSTGRES_IMAGE: ${POSTGRES_IMAGE:-postgres:17-alpine}
-    image: ${BACKUP_IMAGE:-ghcr.io/nordtal/postgres-backup:latest}
-    restart: unless-stopped
-    environment:
-      TZ: ${TZ:-Europe/Berlin}
-      # libpq's own variables - pg_dump reads these directly, so there is nothing to pass on the
-      # command line and no password in a process listing. They default to this compose's own
-      # PostgreSQL and can be pointed at an external one without touching anything else.
-      PGHOST: ${BACKUP_PGHOST:-postgres}
-      PGPORT: ${BACKUP_PGPORT:-5432}
-      PGDATABASE: ${BACKUP_PGDATABASE:-${POSTGRES_DB:?set POSTGRES_DB in .env}}
-      PGUSER: ${BACKUP_PGUSER:-${POSTGRES_USER:?set POSTGRES_USER in .env}}
-      PGPASSWORD: ${BACKUP_PGPASSWORD:-${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}}
-      # Time of day in TZ above, how many dumps to keep, and whether to dump once at start-up. The
-      # start-up dump turns a wrong password into an error you see while deploying.
-      BACKUP_AT: ${BACKUP_AT:-04:00}
-      BACKUP_KEEP: ${BACKUP_KEEP:-14}
-      BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-true}
-    volumes:
-      - postgres-dumps:/dumps
-    logging: *logging
-
-  # -------------------------------------------------------------------------------------------
   # The Discord bot. No Minecraft dependency: PostgreSQL, the Discord gateway and bunq. It validates
   # the schema and refuses to start on a database nobody migrated. Runbook: discord-bot/README.md.
   #
@@ -524,24 +488,18 @@ services:
       # the empty string still WINS over the file in jcore, so `${VAR:-}` would blank out the spec's
       # own default. smp's ConfigsTest asserts the two copies agree.
       NORDTAL_SMP_PREGENERATION_ON_START: ${SMP_PREGENERATION_ON_START:-true}
-      # WHEN THIS SERVER ASKS FOR THE NETWORK'S NIGHTLY BACKUP. It lives on this service because the
-      # worker must not schedule its own work - `serve` is not a scheduler, so a crash restart at
-      # three in the morning cannot move a version - and this plugin is the one process that already
-      # runs a daily clock. It writes an update_request row of kind BACKUP; the worker counts down,
-      # stops smp, network-control and the bot, asks Arcane for one snapshot per volume, starts them
-      # again and waits for every healthcheck.
+      # HOW RECENT A BACKUP HAS TO BE BEFORE THIS SERVER WILL RESET THE FARM WORLD.
       #
-      # 04:45 is a quarter of an hour before farm-reset-time. The other way round would snapshot a
-      # farm world that is about to be deleted, on servers that had only just come back.
+      # The nightly clock moved to steward-worker on 2026-09-13 (§9a), because a season with `smp`
+      # down had no backup at all and nothing said so. What used to make the order safe was two
+      # times fifteen minutes apart in two different config files - a promise no test could hold.
+      # Now the reset asks the database instead: no successful backup inside this window means the
+      # world is left alone, loudly.
       #
-      # EMPTY MEANS NO NIGHTLY BACKUP AT ALL, which is what a local stack wants. The default is
-      # REPEATED from SmpSpec because an empty environment variable wins over the file.
-      #
-      # NOTE THE SINGLE DASH, the only one in this file. `${VAR:-x}` falls back when the variable is
-      # unset OR EMPTY, so `SMP_BACKUP_TIME=` would silently become 04:45 again; `${VAR-x}` falls
-      # back only when it is unset, which is what makes "set it to empty to turn it off" work.
-      # :smp's ComposeWorldTest asserts the dash.
-      NORDTAL_SMP_BACKUP_TIME: ${SMP_BACKUP_TIME-04:45}
+      # The default is repeated from SmpSpec because an empty environment variable wins over the
+      # file; smp's ConfigsTest asserts the two copies agree. `0` turns the check off, which is
+      # what a local stack with no steward-worker wants, and which is logged on every start.
+      NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS: ${SMP_FARM_RESET_BACKUP_WINDOW_HOURS:-12}
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password
@@ -693,6 +651,27 @@ services:
       # new jar here and carries on running the old one: no process replaces the jar it is executing,
       # so the new one takes effect at the restart and never during a run.
       - steward-worker-jar:/volumes/steward-worker
+      # THE VOLUMES THIS SERVICE SAVES, READ-ONLY (§9a).
+      #
+      # One line per volume in steward.yml#backup.volumes, mounted where TarSnapshots looks for it.
+      # `:ro` is load-bearing here, unlike on the socket below: these are worlds and databases, the
+      # one thing in this stack that cannot be rebuilt from the repository, and this container's
+      # other job is writing jars. A backup that can write to what it is saving is one bug away
+      # from being what destroyed it.
+      #
+      # A volume named in the config but missing here is a FAILED line naming the path - not a
+      # small archive that looks like a success. That distinction is todo.md A23, which was a run
+      # reporting success having saved nothing.
+      - mc-smp:/backup-sources/nordtal-s2_mc-smp:ro
+      - mc-smp-plugins:/backup-sources/nordtal-s2_mc-smp-plugins:ro
+      - mc-network-control:/backup-sources/nordtal-s2_mc-network-control:ro
+      - mc-network-control-plugins:/backup-sources/nordtal-s2_mc-network-control-plugins:ro
+      - mc-limbo-plugins:/backup-sources/nordtal-s2_mc-limbo-plugins:ro
+      - mc-hunger-games-plugins:/backup-sources/nordtal-s2_mc-hunger-games-plugins:ro
+      - bot-config:/backup-sources/nordtal-s2_bot-config:ro
+      # Where the archives and the database dump land. NOT one of the volumes above: a backup
+      # directory inside a backed-up volume grows by its own contents every night.
+      - steward-backups:/backups
       # THE DOCKER SOCKET, AND WHAT THAT ACTUALLY MEANS.
       #
       # With this, steward-worker can read every container's state, health, image digest, log and
@@ -711,10 +690,11 @@ services:
     logging: *logging
 
 volumes:
+  # Every archive steward-worker writes: one tar.zst per volume per run, plus the database dump.
+  # It is deliberately NOT in backup.volumes - saving the backups into the backups is how a disk
+  # fills up overnight - and it is what the Storage Box upload reads when there is one.
+  steward-backups:
   postgres-data:
-  # The only volume in this stack that is worth shipping offsite, and the only one whose contents
-  # cannot be rebuilt from the repository and a world folder.
-  postgres-dumps:
   bot-config:
   steward-worker-config:
   # The two jars that are a whole container each. Written by steward-worker, read by the container

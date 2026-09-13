@@ -143,31 +143,34 @@ public interface SmpSpec {
     }
 
     @Order(12)
-    @Key("backup-time")
+    @Key("farm-reset-backup-window-hours")
     @Comment({
-            "Local time of day this plugin asks steward-worker for a network backup, HH:mm.",
+            "How recently a network backup must have succeeded for the daily reset above to run.",
             "",
-            "WHY THE SMP OWNS THE NETWORK'S BACKUP CLOCK. steward-worker is not a scheduler and must",
-            "never become one - `serve` does nothing at all until a row appears in update_request,",
-            "which is what stops a crash restart at three in the morning from moving a version.",
-            "So somebody else has to write that row on a timer, and this plugin is the one process",
-            "in the network that already runs a daily clock: the farm world reset below.",
+            "THE RESET DELETES A WORLD AND THERE IS NO WAY BACK. Until 2026-09-13 the guarantee",
+            "that the world had just been saved was two clocks in two files: this plugin asked for",
+            "a backup at 04:45 and reset at 05:00, and the fifteen minutes between them were the",
+            "whole of it. Nothing could hold those two numbers against each other, and a season",
+            "with this plugin down had no backup at all with nothing saying so. The clock now",
+            "belongs to steward-worker, so the coupling is gone and the reset asks the database",
+            "instead: it looks for a BACKUP run that finished, succeeded, and whose report shows a",
+            "volume actually saved. NO SUCH RUN MEANS NO RESET - a loud line in the log and a farm",
+            "world that lives another day. That is the trade, and it was chosen deliberately.",
             "",
-            "Fifteen minutes before farm-reset-time on purpose. The backup stops smp,",
-            "network-control and the bot for the length of the snapshot; running it into the reset",
-            "would mean the world swap happening on a server that was just brought back, and the",
-            "saved copy of the farm world would be the one about to be deleted anyway.",
+            "TWELVE HOURS, and the number has two edges. It must be long enough that a backup which",
+            "ran late still counts - the run stops three servers and snapshots several volumes, so",
+            "it is minutes, not seconds, and an operator may well move it. And it must be far",
+            "enough under 24 that YESTERDAY's backup can never pass for today's: at 15 minutes of",
+            "separation, a 24-hour window would have accepted yesterday's by ten minutes, and the",
+            "hour that Europe/Berlin moves twice a year would have decided it either way.",
             "",
-            "EMPTY MEANS NO NIGHTLY BACKUP, which is what a local stack wants: there is no Arcane",
-            "on a laptop, so the run would fail every night at a quarter to five. The cost of",
-            "leaving it empty in production is that nothing is saved and nothing says so - the",
-            "only evidence either way is Arcane's own backup list.",
-            "",
-            "A backup asked for here is the same run as /backup now, countdown included: every",
-            "player online sees thirty seconds of warning before the servers go down."
+            "ZERO TURNS THE CHECK OFF and the reset runs unconditionally. That is for a stack with",
+            "no steward-worker in it, where the check would otherwise block every reset forever.",
+            "It is logged as a WARNING at every start, because a guard nobody can see is off is",
+            "worse than no guard."
     })
-    default String backupTime() {
-        return "04:45";
+    default int farmResetBackupWindowHours() {
+        return 12;
     }
 
     @Order(13)

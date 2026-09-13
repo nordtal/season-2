@@ -35,7 +35,19 @@ WORKDIR /app
 COPY build/libs/steward-worker-*.jar /app/app.jar
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
-RUN mkdir -p config \
+# zstd, because the backup is a tar piped through it (§9a). tar is already in this base image;
+# zstd is not - verified against eclipse-temurin:25-jre on 2026-09-13. Measured on the real SMP
+# world the same night: 657 MiB in, 512.9 MiB out, 4.0 s including the read-back that verifies the
+# archive. That read-back is a third of the time and is not optional - a tar truncated before its
+# end-of-archive blocks decompresses perfectly and only fails when somebody needs it.
+#
+# A Java zstd binding was the alternative and was not taken: it would put a native library in the
+# jar for something the caller can pipe, and the pipeline here is the same one an operator types by
+# hand when restoring.
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y zstd \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p config \
     && chmod +x /app/docker-entrypoint.sh
 
 # WHAT THIS CONTAINER IS FOR, and what it is not:

@@ -629,9 +629,9 @@ class TopologyTest {
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
             final Map<String, Object> service = (Map<String, Object>) definition;
-            // postgres is the database, postgres-backup only reaches it through pg_dump, and
+            // postgres is the database itself, and
             // pack-host serves one zip: none of the three can be out of step with a schema.
-            if (name.equals("steward-worker") || name.equals("postgres") || name.equals("postgres-backup")
+            if (name.equals("steward-worker") || name.equals("postgres")
                     || name.equals("pack-host")) {
                 return;
             }

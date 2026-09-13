@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward.worker.docker;
 
-import eu.nordtal.s2.steward.worker.ops.BackupResult;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
@@ -32,9 +31,9 @@ import java.util.Set;
  * <h2>What it still cannot do</h2>
  * <b>Creating containers.</b> {@link #recreate} needs the compose file, which lives in
  * {@code steward-deployer} (§8b), and this class refuses rather than improvising a container
- * definition out of an inspect. <b>Volume snapshots</b> are steward-worker's own job from §9a and
- * are not wired here yet; until they are, the backup calls say so instead of answering something
- * that looks like a snapshot nobody took.
+ * definition out of an inspect. <b>Volume snapshots</b> are not on this interface at all any
+ * more: saving a volume is steward-worker's own work (§9a), done with tar against read-only
+ * mounts, and a container runtime is the wrong thing to ask for one.
  */
 public final class DockerOps implements ContainerOps {
 
@@ -179,20 +178,6 @@ public final class DockerOps implements ContainerOps {
         return RedeployResult.refused("recreating " + service + " is steward-deployer's: it has the "
                 + "compose file, and a container rebuilt from an inspect would drift from it "
                 + "silently. Not wired from here yet - see §8b.");
-    }
-
-    @Override
-    public @NotNull BackupResult backup(final @NotNull String volume) {
-        return BackupResult.refused("steward-worker takes its own snapshots (§9a) and that is not "
-                + "built yet, so nothing was saved of " + volume + ". Refused rather than failed: "
-                + "there is a difference between a snapshot that went wrong and one nobody has "
-                + "written the code for, and a run must not proceed as if a volume were safe.");
-    }
-
-    @Override
-    public @NotNull BackupResult backupState(final @NotNull String volume, final @NotNull String backupId) {
-        return BackupResult.refused("no snapshot of " + volume + " was started, so there is no "
-                + "state to read.");
     }
 
     private static String shortId(final String containerId) {

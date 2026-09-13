@@ -160,6 +160,38 @@ That table is dumped with the rest of the database, so **the retention is also a
 big every backup is**. It is `docker.metrics` in `steward.yml`, and turning it off costs the start
 page its curves and nothing else.
 
+## The backup
+
+Two halves, because a database and a world are not the same problem.
+
+**The database is dumped, not tarred.** `pg_dump` inside the postgres container — inside, so the
+client can never be older than the server it dumps, which is a refusal rather than a warning. It
+takes an MVCC snapshot, so it is consistent as of the moment it starts and **nothing has to be
+stopped for it**: it runs before the servers go down, which is minutes off the outage for free.
+
+**The volumes are tarred** from read-only mounts, piped through `zstd`, into `/backups`. Measured
+on this host on 2026-09-13 against the real SMP world: 657 MiB in, 512.9 MiB out, **4.0 seconds**,
+of which about 1.6 s is reading the archive back to check it. `-1` and not `-3`: the extra three
+seconds of downtime bought 0.6 % — region files are already deflated.
+
+Both write `<name>.partial` and rename only after the archive has been read back. A half-written
+file that looks like every other one is worse than none: it is the one the retention sweep keeps
+and the one a restore picks.
+
+**Saved means a file exists.** Every line in the report carries the size and the duration, and a
+volume that produced nothing is FAILED even if every call succeeded. That is `todo.md` A23: run 23
+reported a successful backup having saved zero volumes, and nothing made it visible.
+
+**The clock is here since 2026-09-13** (§9a). It used to be `smp`'s, because `serve` was not
+allowed to schedule anything — and a season with `smp` down therefore had no backup and nothing
+said so. The protection that mattered is kept: this clock writes a request row and nothing else,
+and everything after that row is the path `/backup now` already took. The farm world reset no
+longer trusts a clock either; it asks the database whether a backup actually succeeded.
+
+**What is not built: the offsite copy.** §9a's Storage Box does not exist yet, so every archive is
+on the same disk as the thing it is a copy of. Fourteen of them protect against a mistake and
+against nothing else. There is deliberately no untested S3 path in this code — see `todo.md` A29.
+
 ## The images
 
 A `start` hands a container back to Docker on exactly the image it was created from. So the jars move

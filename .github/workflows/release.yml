@@ -160,15 +160,3 @@ jobs:
             ghcr.io/nordtal/minecraft:${{ env.VERSION }}
             ghcr.io/nordtal/minecraft:latest
 
-      # The backup sidecar. POSTGRES_IMAGE is NOT passed here on purpose: the Dockerfile's own
-      # default is the version this repository tests against, and a build arg set from a workflow
-      # would be a second place that has to agree with .env. A deployment that runs a different
-      # PostgreSQL builds this one locally - the compose `build:` block still does that.
-      - name: Build and push the backup image
-        uses: docker/build-push-action@v7
-        with:
-          context: deploy/postgres-backup
-          push: true
-          tags: |
-            ghcr.io/nordtal/postgres-backup:${{ env.VERSION }}
-            ghcr.io/nordtal/postgres-backup:latest

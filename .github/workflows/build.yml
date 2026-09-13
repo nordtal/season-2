@@ -47,4 +47,3 @@ jobs:
           docker build --build-arg "JAR=build/libs/steward-worker-$version.jar" \
             -t nordtal/steward-worker:ci steward-worker
           docker build -t nordtal/minecraft:ci deploy/minecraft
-          docker build -t nordtal/postgres-backup:ci deploy/postgres-backup

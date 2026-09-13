@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -126,8 +127,11 @@ class SamplerIntegrationTest {
             sampler.tick(at);
         }
 
-        assertTrue(metrics.range("host", "memory_used_bytes", at.minusSeconds(1), at.plusSeconds(1))
-                        .size() <= 1,
-                "one instant produced more than one reading of the same series");
+        // Exactly one, not "at most one": <= 1 is also what two rounds that wrote nothing at all
+        // look like, and a sampler that has quietly stopped recording passes that assertion every
+        // time. The row has to be there, and there has to be one of it.
+        assertEquals(1, metrics.range("host", "memory_used_bytes",
+                        at.minusSeconds(1), at.plusSeconds(1)).size(),
+                "one instant, sampled twice, is one row of that series - no more and no fewer");
     }
 }

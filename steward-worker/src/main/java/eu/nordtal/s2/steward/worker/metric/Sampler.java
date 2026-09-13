@@ -14,7 +14,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -138,24 +140,19 @@ public final class Sampler implements AutoCloseable {
             return List.of();
         }
 
-        final List<Callable<List<MetricSample>>> reads = containers.stream()
-                .map(container -> (Callable<List<MetricSample>>) () -> {
+        final List<Callable<Reading>> reads = containers.stream()
+                .map(container -> (Callable<Reading>) () -> {
                     final Docker.Stats stats = docker.stats(container.id());
-                    final List<MetricSample> mine = new ArrayList<>(2);
-                    mine.add(new MetricSample(container.service(), "memory_bytes", at,
-                            stats.memoryBytes()));
-                    stats.cpuPercent().ifPresent(percent -> mine.add(
-                            new MetricSample(container.service(), "cpu_percent", at, percent)));
-                    return mine;
+                    return new Reading(container.service(), stats.memoryBytes(), stats.cpuPercent());
                 })
                 .toList();
 
-        final List<MetricSample> samples = new ArrayList<>();
+        final List<Reading> readings = new ArrayList<>();
         try {
-            for (final Future<List<MetricSample>> future
+            for (final Future<Reading> future
                     : perContainer.invokeAll(reads, ROUND_TIMEOUT.toSeconds(), TimeUnit.SECONDS)) {
                 try {
-                    samples.addAll(future.get());
+                    readings.add(future.get());
                 } catch (Exception e) {
                     // One container that would not answer is one gap in one chart, not a lost round.
                     log.debug("a container did not answer with stats", e);
@@ -164,6 +161,45 @@ public final class Sampler implements AutoCloseable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        return byService(readings, at);
+    }
+
+    /** What one container answered, before it is a series. */
+    record Reading(String service, long memoryBytes, java.util.OptionalDouble cpuPercent) { }
+
+    /**
+     * One sample per service and metric, however many containers that service is running.
+     *
+     * <h2>Two containers, one key</h2>
+     * A metric row is keyed by {@code (subject, metric, resolution, at)} and written with
+     * {@code ON CONFLICT DO NOTHING}, and the subject here is the <b>compose service</b>. Two
+     * containers of one service in the same round therefore produce two rows with the same key, of
+     * which the database silently keeps whichever arrived first: the chart would show one replica's
+     * memory and call it the service's, and nothing anywhere would say a number had been dropped.
+     *
+     * <p>This stack runs one container per service and the deployer never scales anything, so today
+     * that is a fold over lists of one. It is here because the failure it prevents is invisible:
+     * somebody trying {@code --scale smp=2} for an afternoon would get a graph that is quietly
+     * wrong rather than one that is obviously broken.</p>
+     *
+     * <p>Memory adds up and so does CPU - both are "what this service is using on this host", and a
+     * percentage that is already relative to the whole host stays meaningful when summed. A service
+     * whose containers gave no CPU reading at all gets no CPU sample rather than a zero, for the
+     * reason {@link HostSnapshot#cpuPercent()} gives: a chart that opens at zero because nothing was
+     * measured is a lie the page then inherits.</p>
+     */
+    static List<MetricSample> byService(final List<Reading> readings, final Instant at) {
+        final Map<String, Double> memory = new LinkedHashMap<>();
+        final Map<String, Double> cpu = new LinkedHashMap<>();
+        for (final Reading reading : readings) {
+            memory.merge(reading.service(), (double) reading.memoryBytes(), Double::sum);
+            reading.cpuPercent().ifPresent(percent -> cpu.merge(reading.service(), percent, Double::sum));
+        }
+        final List<MetricSample> samples = new ArrayList<>();
+        memory.forEach((service, bytes) ->
+                samples.add(new MetricSample(service, "memory_bytes", at, bytes)));
+        cpu.forEach((service, percent) ->
+                samples.add(new MetricSample(service, "cpu_percent", at, percent)));
         return samples;
     }
 

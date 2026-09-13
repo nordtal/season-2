@@ -1,9 +1,7 @@
-package eu.nordtal.s2.steward.ui.worker;
+package eu.nordtal.s2.steward.ui.internal;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +12,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 
 /**
- * How the interface reaches the daemon: by asking steward-worker.
+ * How the interface reaches the two services behind it: steward-worker and steward-deployer.
  *
  * <h2>Why there is a client here at all</h2>
  * §3 says this process holds no docker socket, and it means it: the container runs without one. So
@@ -22,28 +20,48 @@ import java.time.Duration;
  * internal network, with a shared secret. That is a hop the interface would not need if it had the
  * socket - and the hop is the point, because this is the part an attacker reaches first.
  *
- * <h2>It answers with the worker's own JSON, unparsed</h2>
- * Deliberately. The shapes belong to the worker, the browser is the only consumer, and a DTO in the
+ * <h2>One class for both, because it is one protocol</h2>
+ * The worker and the deployer speak the same three sentences: JSON in, JSON out, the secret in
+ * {@code X-Steward-Token}. They are two services rather than one because they hold different
+ * privileges - the deployer may create containers and the worker may not - and that boundary lives
+ * in the deployment, not in a second copy of an HTTP client. What the two do not share is their
+ * secret: {@link #name} is which of them this instance is, and it is what a failure says out loud,
+ * because "steward-deployer is not answering" is a sentence somebody can act on.
+ *
+ * <h2>It answers with the other service's own JSON, unparsed</h2>
+ * Deliberately. The shapes belong over there, the browser is the only consumer, and a DTO in the
  * middle would be a third copy of the same fields that goes stale on the day somebody adds one. The
  * exception is errors: those are turned into something the interface can show, because "the worker
  * said 502" is a sentence and an empty page is not.
  */
-public final class WorkerClient {
-
-    private static final Logger log = LoggerFactory.getLogger(WorkerClient.class);
+public final class InternalClient {
 
     private final HttpClient http;
+    private final String name;
     private final String baseUrl;
     private final String token;
 
-    public WorkerClient(final @NotNull String baseUrl, final @NotNull String token,
-                        final @NotNull Duration timeout) {
+    /**
+     * @param name    the compose service this talks to, as it will appear in a failure message
+     * @param baseUrl its address on the internal network, with or without a trailing slash
+     * @param token   the shared secret, sent as {@code X-Steward-Token}
+     * @param timeout how long to wait for the connection - not for the answer, which a log follow
+     *                is allowed to take hours over
+     */
+    public InternalClient(final @NotNull String name, final @NotNull String baseUrl,
+                          final @NotNull String token, final @NotNull Duration timeout) {
+        this.name = name;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.token = token;
         this.http = HttpClient.newBuilder().connectTimeout(timeout).build();
     }
 
-    /** Whether the worker is there at all - asked so the start page can say which half is down. */
+    /** Which service this is, for a message that names it. */
+    public @NotNull String name() {
+        return name;
+    }
+
+    /** Whether it is there at all - asked so the start page can say which half is down. */
     public boolean isReachable() {
         try {
             return http.send(request("/api/health").GET().build(),
@@ -61,16 +79,16 @@ public final class WorkerClient {
             final HttpResponse<String> response = http.send(request(path).GET().build(),
                     HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 400) {
-                throw new WorkerException(response.statusCode(),
-                        "steward-worker answered " + response.statusCode() + " for " + path,
+                throw new Failure(name, response.statusCode(),
+                        name + " answered " + response.statusCode() + " for " + path,
                         response.body());
             }
             return response.body();
         } catch (IOException e) {
-            throw new WorkerException(502, "steward-worker could not be reached at " + baseUrl, null);
+            throw new Failure(name, 502, name + " could not be reached at " + baseUrl, null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new WorkerException(503, "interrupted while asking steward-worker", null);
+            throw new Failure(name, 503, "interrupted while asking " + name, null);
         }
     }
 
@@ -81,14 +99,14 @@ public final class WorkerClient {
                             .POST(HttpRequest.BodyPublishers.ofString(json)).build(),
                     HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 400) {
-                throw new WorkerException(response.statusCode(), response.body(), response.body());
+                throw new Failure(name, response.statusCode(), response.body(), response.body());
             }
             return response.body();
         } catch (IOException e) {
-            throw new WorkerException(502, "steward-worker could not be reached at " + baseUrl, null);
+            throw new Failure(name, 502, name + " could not be reached at " + baseUrl, null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new WorkerException(503, "interrupted while asking steward-worker", null);
+            throw new Failure(name, 503, "interrupted while asking " + name, null);
         }
     }
 
@@ -105,15 +123,15 @@ public final class WorkerClient {
                     request(path).header("Accept", "text/event-stream").GET().build(),
                     HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() >= 400) {
-                throw new WorkerException(response.statusCode(),
-                        "steward-worker answered " + response.statusCode() + " for " + path, null);
+                throw new Failure(name, response.statusCode(),
+                        name + " answered " + response.statusCode() + " for " + path, null);
             }
             return response.body();
         } catch (IOException e) {
-            throw new WorkerException(502, "steward-worker could not be reached at " + baseUrl, null);
+            throw new Failure(name, 502, name + " could not be reached at " + baseUrl, null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new WorkerException(503, "interrupted while streaming from steward-worker", null);
+            throw new Failure(name, 503, "interrupted while streaming from " + name, null);
         }
     }
 
@@ -125,16 +143,24 @@ public final class WorkerClient {
                 .timeout(Duration.ofHours(12));
     }
 
-    /** What the interface shows when the worker will not answer. */
-    public static final class WorkerException extends RuntimeException {
+    /** What the interface shows when one of the two will not answer. */
+    public static final class Failure extends RuntimeException {
 
+        private final String where;
         private final int status;
         private final @Nullable String body;
 
-        WorkerException(final int status, final String message, final @Nullable String body) {
+        Failure(final String where, final int status, final String message,
+                final @Nullable String body) {
             super(message);
+            this.where = where;
             this.status = status;
             this.body = body;
+        }
+
+        /** Which service did not answer. The interface shows it, so it must not be a guess. */
+        public @NotNull String where() {
+            return where;
         }
 
         public int status() {

@@ -12,7 +12,7 @@ import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.steward.ui.config.Configs;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
-import eu.nordtal.s2.steward.ui.worker.WorkerClient;
+import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.http.BadRequestResponse;
@@ -62,7 +62,7 @@ public final class StewardUi {
 
     private final UiSpec config;
     private final DiscordAuth discord;
-    private final WorkerClient worker;
+    private final InternalClient worker;
 
     /**
      * Where "who is this" is answered.
@@ -83,17 +83,21 @@ public final class StewardUi {
 
     /** The admin commands that also exist in the game, over `command_request`. */
     private final CommandApi commands;
+
+    /** The one service allowed to create a container, asked for exactly one thing (10a.4). */
+    private final DeployerApi deployments;
     private final ExecutorService streams = Executors.newVirtualThreadPerTaskExecutor();
 
     private Javalin app;
 
-    public StewardUi(final UiSpec config, final DiscordAuth discord, final WorkerClient worker,
-                     final Data data) {
-        this(config, discord, worker, data, StewardUi::fromSession);
+    public StewardUi(final UiSpec config, final DiscordAuth discord, final InternalClient worker,
+                     final InternalClient deployer, final Data data) {
+        this(config, discord, worker, deployer, data, StewardUi::fromSession);
     }
 
-    StewardUi(final UiSpec config, final DiscordAuth discord, final WorkerClient worker,
-              final Data data, final Function<Context, Optional<DiscordAuth.Account>> accounts) {
+    StewardUi(final UiSpec config, final DiscordAuth discord, final InternalClient worker,
+              final InternalClient deployer, final Data data,
+              final Function<Context, Optional<DiscordAuth.Account>> accounts) {
         this.config = config;
         this.discord = discord;
         this.worker = worker;
@@ -101,6 +105,8 @@ public final class StewardUi {
         this.accounts = accounts;
         this.configs = new ConfigApi(Path.of(config.configs().root()));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
+        this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(),
+                !config.deployer().token().isBlank());
     }
 
     /**
@@ -127,15 +133,23 @@ public final class StewardUi {
             return;
         }
 
-        final WorkerClient worker = new WorkerClient(config.worker().baseUrl(),
-                config.worker().token(), Duration.ofSeconds(10));
+        final InternalClient worker = new InternalClient("steward-worker",
+                config.worker().baseUrl(), config.worker().token(), Duration.ofSeconds(10));
         if (config.worker().token().isBlank()) {
             log.warn("worker.token is empty, so nothing about a container can be read. Every page"
                     + " that would show one says so instead of drawing an empty table.");
         }
+        // A SECOND CLIENT AND A SECOND SECRET, deliberately. The deployer may create containers and
+        // the worker may not; one token for both would make that boundary a comment.
+        final InternalClient deployer = new InternalClient("steward-deployer",
+                config.deployer().baseUrl(), config.deployer().token(), Duration.ofSeconds(10));
+        if (config.deployer().token().isBlank()) {
+            log.warn("deployer.token is empty, so no container can be recreated from here. The"
+                    + " button is not drawn and the page says why.");
+        }
         Runtime.getRuntime().addShutdownHook(new Thread(data::close, "steward-ui-shutdown"));
-        new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()), worker, data)
-                .start(config.port());
+        new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()), worker,
+                deployer, data).start(config.port());
     }
 
     public Javalin start(final int port) {
@@ -202,6 +216,18 @@ public final class StewardUi {
                         "/api/services/" + ctx.pathParam("name") + "/console", ctx.body());
                 ctx.status(202).contentType("application/json").result(answer);
             });
+            // --- and creating one comes from steward-deployer, which is a different service ---
+            //
+            // Not the same door as an update: an update is a countable, cancellable row that
+            // steward-worker carries out with a countdown in front of every player online. This is
+            // one container, made again from the image that is already on the host, and the only
+            // process in the stack allowed to do it is the deployer (8a).
+            cfg.routes.get("/api/deployer", deployments::state);
+            cfg.routes.get("/api/deployer/services", deployments::services);
+            cfg.routes.post("/api/deployer/recreate/{service}", deployments::recreate);
+            cfg.routes.get("/api/deployer/jobs", deployments::jobs);
+            cfg.routes.get("/api/deployer/jobs/{id}", deployments::job);
+
             cfg.routes.get("/api/host", ctx -> passThrough(ctx, "/api/host"));
             cfg.routes.get("/api/backups", ctx -> passThrough(ctx, "/api/backups"));
 
@@ -413,13 +439,15 @@ public final class StewardUi {
                 ctx.json(season);
             });
 
-            cfg.routes.exception(WorkerClient.WorkerException.class, (failure, ctx) -> {
-                // The interface has to say which half is down. "steward-worker is not answering"
-                // is a sentence somebody can act on; an empty table is a stack that looks stopped.
-                log.warn("the worker did not answer: {}", failure.getMessage());
+            cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
+                // The interface has to say which half is down, BY NAME. "steward-worker is not
+                // answering" and "steward-deployer is not answering" are two different evenings -
+                // the first is a stack nobody can see, the second is a stack nobody can change -
+                // and an empty table says neither.
+                log.warn("{} did not answer: {}", failure.where(), failure.getMessage());
                 ctx.status(failure.status() == 0 ? 502 : failure.status())
                         .json(Map.of("error", failure.getMessage(),
-                                "where", "steward-worker",
+                                "where", failure.where(),
                                 "detail", failure.body() == null ? "" : failure.body()));
             });
         }).start(port);
@@ -591,7 +619,7 @@ public final class StewardUi {
                     client.sendEvent("line", line.substring(5).stripLeading());
                 }
             }
-        } catch (IOException | WorkerClient.WorkerException e) {
+        } catch (IOException | InternalClient.Failure e) {
             client.sendEvent("gone", "the log stream ended: " + e.getMessage());
         } finally {
             client.close();

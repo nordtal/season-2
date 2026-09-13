@@ -10,6 +10,8 @@ import {
   type ConfigChanges,
   type ConfigDocument,
   type ConfigLocation,
+  type DeployerJob,
+  type DeployerState,
   type Grant,
   type Host,
   type JournalEntry,
@@ -61,6 +63,8 @@ export const keys = {
   commands: ["commands"] as const,
   commandRun: (id: string) => ["command-run", id] as const,
   configs: ["configs"] as const,
+  deployer: ["deployer"] as const,
+  deployerJob: (id: string) => ["deployer-job", id] as const,
   config: (file: string) => ["config", file] as const,
 }
 
@@ -245,6 +249,58 @@ export function useCommandRun(id: string | null) {
       const status = query.state.data?.status
       return status === undefined || status === "PENDING" || status === "RUNNING" ? SECOND : false
     },
+  })
+}
+
+// --- steward-deployer -------------------------------------------------------------------------
+//
+// A recreate is NOT an update and is deliberately not on the same hook. An update is a row in
+// `update_request` that steward-worker claims, counts down in front of every player online and
+// writes a report for; this is one compose operation on one container, carried out by the only
+// process allowed to create one. They look alike on screen and are not alike at all.
+
+/** Whether the deployer has a secret and answers - asked before the button is drawn. */
+export function useDeployer(enabled = true) {
+  return useQuery({
+    queryKey: keys.deployer,
+    queryFn: () => api<DeployerState>("/api/deployer"),
+    staleTime: 60 * SECOND,
+    enabled,
+  })
+}
+
+/**
+ * Recreate one service's container from the image already on the host.
+ *
+ * The answer is the job, not the result: compose takes seconds to a minute and the caller follows
+ * it with `useDeployerJob`. Nothing is invalidated here - the service table refreshes on its own
+ * ten-second interval, and doing it now would show the container mid-recreate.
+ */
+export function useRecreate() {
+  return useMutation({
+    mutationFn: (service: string) =>
+      api<DeployerJob>(`/api/deployer/recreate/${encodeURIComponent(service)}`, { method: "POST" }),
+  })
+}
+
+/** One job, polled while it runs. `lines` is compose's own output and arrives with it. */
+export function useDeployerJob(id: string | null) {
+  const client = useQueryClient()
+  return useQuery({
+    queryKey: keys.deployerJob(id ?? ""),
+    queryFn: async () => {
+      const job = await api<DeployerJob>(`/api/deployer/jobs/${encodeURIComponent(id ?? "")}`)
+      if (job.state !== "RUNNING") {
+        // The container is new, so everything about it is: state, uptime, image digest. Asked for
+        // once the job is over rather than while it runs, when the answer would be a container
+        // that is being taken down.
+        client.invalidateQueries({ queryKey: keys.services })
+        client.invalidateQueries({ queryKey: ["service"] })
+      }
+      return job
+    },
+    enabled: Boolean(id),
+    refetchInterval: (query) => (query.state.data?.state === "RUNNING" ? SECOND : false),
   })
 }
 

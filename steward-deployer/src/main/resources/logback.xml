@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+    <!--
+      The same reason steward-ui has one (2026-09-13): logback with no configuration logs at DEBUG,
+      and this process embeds a Javalin as well. It matters a little more here, because the output
+      an operator actually wants from this service is the output of `docker compose`, replayed
+      through /api/jobs - a debug transcript around it is noise in the one place somebody is
+      reading carefully.
+    -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.eclipse.jetty" level="INFO"/>
+    <logger name="io.javalin" level="INFO"/>
+
+    <root level="info">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+</configuration>

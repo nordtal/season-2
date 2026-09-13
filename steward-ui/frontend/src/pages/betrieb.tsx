@@ -29,6 +29,7 @@ import {
   StatusBadge,
   type Tone,
 } from "@/components/steward/status"
+import { RecreateButton } from "@/components/steward/recreate"
 import { Empty, Failure, Loading, QueryState } from "@/components/steward/query-state"
 import {
   AlertDialog,
@@ -447,6 +448,7 @@ function DriftCard({ note }: { note?: string }) {
                       <TableHead className="w-[14rem]">Dienst</TableHead>
                       <TableHead>Image</TableHead>
                       <TableHead className="w-[8rem]">Vergleich</TableHead>
+                      <TableHead className="w-[10rem] text-right">Container</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -466,6 +468,9 @@ function DriftCard({ note }: { note?: string }) {
                         </TableCell>
                         <TableCell>
                           <DriftBadge drift={service.drift} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <RecreateButton service={service.service} />
                         </TableCell>
                       </TableRow>
                     ))}

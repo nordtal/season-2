@@ -8,6 +8,7 @@ import { useConsole, useLogSearch, useService } from "@/lib/queries"
 import { useLogStream, LIMIT } from "@/lib/use-log-stream"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
+import { RecreateButton } from "@/components/steward/recreate"
 import { DriftBadge, ServiceState, StatusBadge } from "@/components/steward/status"
 import { Empty, Failure, Loading } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -35,6 +36,7 @@ export function DienstPage() {
       <PageHeader
         title={name}
         note="Zustand, Logfenster und – wo es eine gibt – die Konsole."
+        actions={<RecreateButton service={name} />}
       />
 
       {service.isPending ? (

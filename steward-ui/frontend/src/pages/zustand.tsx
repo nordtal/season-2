@@ -96,6 +96,9 @@ export function ZustandPage() {
 
 // --- the traffic light -------------------------------------------------------------------------
 
+/** What the Ampel says when it found nothing wrong and also could not look. */
+const UNKNOWN = "Ob alles in Ordnung ist, lässt sich gerade nicht sagen."
+
 const AMPEL: Record<Level, { icon: typeof CheckCircle2; ring: string; text: string }> = {
   ok: { icon: CheckCircle2, ring: "border-success/30 bg-success/8", text: "text-success" },
   warn: { icon: CircleAlert, ring: "border-warning/30 bg-warning/8", text: "text-warning" },
@@ -122,14 +125,20 @@ function Ampel({
     )
   }
 
-  const { icon: Icon, ring, text } = AMPEL[level]
+  // A GREEN LIGHT ON NO EVIDENCE IS THE ONE THING THIS PAGE MUST NOT DO. With all three queries
+  // failed there is nothing to summarise, so `summarise` returns no trigger and the level is "ok" -
+  // which drew the green tick and "Alles in Ordnung" under a grey footnote saying the opposite.
+  // Not knowing is yellow. It is the whole argument of health.ts: A24 went unnoticed for four
+  // releases because nothing said it did not know.
+  const shown: Level = failed && level === "ok" ? "warn" : level
+  const { icon: Icon, ring, text } = AMPEL[shown]
   return (
     <div className={`flex flex-col gap-3 rounded-md border px-4 py-3 ${ring}`} role="status">
       <div className="flex items-start gap-3">
         <Icon className={`mt-0.5 size-5 shrink-0 ${text}`} aria-hidden />
         <div className="flex min-w-0 flex-col gap-1">
           {triggers.length === 0 ? (
-            <p className="text-sm font-medium">{ALL_CLEAR}</p>
+            <p className="text-sm font-medium">{failed ? UNKNOWN : ALL_CLEAR}</p>
           ) : (
             <ul className="flex flex-col gap-1">
               {triggers.map((trigger) => (

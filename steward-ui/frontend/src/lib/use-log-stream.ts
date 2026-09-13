@@ -11,7 +11,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
  * **The buffer is bounded and says so.** A busy Minecraft server writes faster than anybody reads,
  * and an unbounded array in a tab left open overnight is a browser that has to be killed. The oldest
  * lines fall out at {@link LIMIT}; `dropped` counts them, and the window prints that count rather
- * than pretending the list is complete.
+ * than pretending the list is complete. **The bound holds while paused too** - the held lines are
+ * the same memory and a tab left paused overnight is the same dead browser.
+ *
+ * **The lines and the count are one state, and it is not tidiness.** They used to be two, with the
+ * counter raised from inside the list's own updater. React may call an updater more than once for
+ * one update and StrictMode does it on every render in development, so each trim counted its
+ * dropped lines twice and the window printed a number that was simply wrong. An updater that only
+ * returns the next state can be called as often as React likes.
  */
 
 /** How many lines the window keeps. 5 000 lines of Minecraft log is roughly 500 kB in memory. */
@@ -39,8 +46,11 @@ export type LogStream = {
 }
 
 export function useLogStream(service: string, tail = 200): LogStream {
-  const [lines, setLines] = useState<LogLine[]>([])
-  const [dropped, setDropped] = useState(0)
+  const [buffer, setBuffer] = useState<{ lines: LogLine[]; dropped: number }>({
+    lines: [],
+    dropped: 0,
+  })
+  const { lines, dropped } = buffer
   const [state, setState] = useState<LogStream["state"]>("connecting")
   const [error, setError] = useState<string | null>(null)
   const [paused, setPaused] = useState(false)
@@ -52,6 +62,17 @@ export function useLogStream(service: string, tail = 200): LogStream {
   const held = useRef<LogLine[]>([])
   const pausedRef = useRef(paused)
   pausedRef.current = paused
+
+  /** Appends, trims to {@link LIMIT} and counts what fell out - in one pure updater. */
+  const push = useCallback((incoming: LogLine[]) => {
+    if (incoming.length === 0) return
+    setBuffer((previous) => {
+      const next = [...previous.lines, ...incoming]
+      if (next.length <= LIMIT) return { lines: next, dropped: previous.dropped }
+      const cut = next.length - LIMIT
+      return { lines: next.slice(cut), dropped: previous.dropped + cut }
+    })
+  }, [])
 
   useEffect(() => {
     if (!service) return undefined
@@ -67,16 +88,16 @@ export function useLogStream(service: string, tail = 200): LogStream {
       const line: LogLine = { seq: sequence.current++, text, at: Date.now() }
       if (pausedRef.current) {
         held.current.push(line)
+        if (held.current.length > LIMIT) {
+          const cut = held.current.length - LIMIT
+          held.current = held.current.slice(cut)
+          setBuffer((previous) => ({ ...previous, dropped: previous.dropped + cut }))
+        }
         return
       }
-      setLines((previous) => {
-        const next = held.current.length ? [...previous, ...held.current, line] : [...previous, line]
-        held.current = []
-        if (next.length <= LIMIT) return next
-        const cut = next.length - LIMIT
-        setDropped((count) => count + cut)
-        return next.slice(cut)
-      })
+      const incoming = held.current.length ? [...held.current, line] : [line]
+      held.current = []
+      push(incoming)
     }
 
     source.addEventListener("open", () => setState("open"))
@@ -96,25 +117,19 @@ export function useLogStream(service: string, tail = 200): LogStream {
     }
 
     return () => source.close()
-  }, [service, tail, attempt])
+  }, [service, tail, attempt, push])
 
   // Resuming flushes whatever arrived while paused, in arrival order.
   useEffect(() => {
     if (paused || held.current.length === 0) return
-    setLines((previous) => {
-      const next = [...previous, ...held.current]
-      held.current = []
-      if (next.length <= LIMIT) return next
-      const cut = next.length - LIMIT
-      setDropped((count) => count + cut)
-      return next.slice(cut)
-    })
-  }, [paused])
+    const incoming = held.current
+    held.current = []
+    push(incoming)
+  }, [paused, push])
 
   const clear = useCallback(() => {
     held.current = []
-    setLines([])
-    setDropped(0)
+    setBuffer({ lines: [], dropped: 0 })
   }, [])
 
   const reconnect = useCallback(() => {

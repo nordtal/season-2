@@ -45,8 +45,14 @@ import java.util.concurrent.TimeUnit;
  * <h2>Timeouts</h2>
  * A blocking {@link SocketChannel} has no read timeout, so one is imposed by closing the channel
  * from a watchdog - the read then fails with a closed-channel exception, which this turns into a
- * {@link DockerException} that says it timed out. <b>Streaming calls get no watchdog</b>: a log
- * follow is supposed to sit there saying nothing for hours, and a timeout on it would be a bug.
+ * {@link DockerException} that says it timed out.
+ *
+ * <p><b>Every call is watched while the connection is being made</b>, streams included. Connecting,
+ * writing the request and reading the status line and headers are all steps a daemon that has
+ * stopped answering can leave hanging forever, and "forever" here is an HTTP request from the
+ * interface with a person behind it. What a follow must not have is a watchdog on its <i>body</i>:
+ * a log follow is supposed to sit there saying nothing for hours. So the alarm covers the
+ * establishment and is cancelled the moment the headers are in.
  */
 public final class DockerSocket {
 
@@ -154,11 +160,12 @@ public final class DockerSocket {
         ScheduledFuture<?> alarm = null;
         try {
             channel = connect();
-            if (deadline != null) {
-                final SocketChannel toClose = channel;
-                alarm = watchdog.schedule(() -> closeQuietly(toClose, method + " " + path),
-                        deadline.toMillis(), TimeUnit.MILLISECONDS);
-            }
+            // A call with a deadline is watched to the end of it; one without - a log follow - is
+            // watched only until the headers are in, and the cancellation is below.
+            final Duration untilItAnswers = deadline == null ? timeout : deadline;
+            final SocketChannel toClose = channel;
+            alarm = watchdog.schedule(() -> closeQuietly(toClose, method + " " + path),
+                    untilItAnswers.toMillis(), TimeUnit.MILLISECONDS);
             write(channel, method, path, jsonBody);
 
             final BufferedInputStream raw = new BufferedInputStream(
@@ -166,6 +173,11 @@ public final class DockerSocket {
             final StatusLine statusLine = readStatusLine(raw, method, path);
             final Map<String, String> headers = readHeaders(raw);
             final InputStream body = bodyOf(raw, headers);
+            if (deadline == null) {
+                // The daemon answered, so the follow may now be silent for as long as it likes.
+                alarm.cancel(false);
+                alarm = null;
+            }
             return new Stream(statusLine.status(), headers, body, channel, alarm);
         } catch (IOException e) {
             closeQuietly(channel, method + " " + path);

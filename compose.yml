@@ -797,6 +797,12 @@ services:
       # there and not from here; the variable is repeated only so that a `docker compose` typed on
       # the host and a deploy from the interface act on the same set of services.
       COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,backup,steward}
+      # AND THE SAME PROJECT, for a sharper reason. This service names the project on its own
+      # command line, so if it ever disagreed with the project compose used out here it would not
+      # fail - it would deploy a SECOND, empty stack beside the running one, with its own volumes
+      # and its own database, and the first sign would be a fresh world. The default is spelled in
+      # two places (here and StewardDeployer) so that neither can be the only one.
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-nordtal-s2}
     volumes:
       # THE SOCKET. It is not read-only and cannot be made read-only: `:ro` restricts the socket
       # FILE and not the API behind it, and a container that can talk to this daemon can start a

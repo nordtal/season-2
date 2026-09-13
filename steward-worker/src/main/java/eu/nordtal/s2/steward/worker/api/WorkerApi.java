@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.worker.api;
 
 import com.google.gson.Gson;
+import eu.nordtal.s2.steward.worker.backup.NightlyClock;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
 import eu.nordtal.s2.steward.worker.docker.Console;
 import eu.nordtal.s2.steward.worker.docker.Docker;
@@ -27,6 +28,9 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,6 +72,16 @@ public final class WorkerApi implements AutoCloseable {
     private final String project;
     private final Path backups;
     private final String token;
+
+    /**
+     * What {@code backup.at} says, and in which zone, so the interface can offer "tonight".
+     *
+     * @param at   {@code HH:mm} in this container's own time zone, or blank for no nightly backup
+     * @param zone this container's zone - compose sets {@code TZ}, and it is not the browser's
+     */
+    public record Nightly(@NotNull String at, @NotNull ZoneId zone) { }
+
+    private final Nightly nightly;
 
     /** Log follows are long and blocking; each one gets a thread of its own, and they are cheap. */
     private final ExecutorService followers = Executors.newVirtualThreadPerTaskExecutor();
@@ -125,15 +139,25 @@ public final class WorkerApi implements AutoCloseable {
      */
     private static final Duration DRIFT_TTL = Duration.ofMinutes(1);
 
-    private ImageResult lastDrift;
-    private Instant driftAt;
+    /**
+     * One comparison and the moment it was made, as one value.
+     *
+     * <p>They were two fields, read one after the other: {@code services()} took the result and
+     * {@code serviceTable()} then read the timestamp, with a TTL expiry possible in between. The
+     * page could therefore draw a green tick from one comparison beside the words "compared a
+     * minute ago" belonging to another - and this whole column exists because image drift went
+     * unnoticed for four releases, so a row and its age have to be the same reading.</p>
+     */
+    private record Drift(@NotNull ImageResult result, @NotNull Instant checkedAt) { }
+
+    private Drift drift;
 
     private Javalin app;
 
     public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
                      final @NotNull Console console, final @NotNull HostMetrics host,
                      final @NotNull String project, final @NotNull Path backups,
-                     final @NotNull String token) {
+                     final @NotNull String token, final @NotNull Nightly nightly) {
         this.docker = docker;
         this.ops = ops;
         this.console = console;
@@ -141,6 +165,7 @@ public final class WorkerApi implements AutoCloseable {
         this.project = project;
         this.backups = backups;
         this.token = token;
+        this.nightly = nightly;
     }
 
     public void start(final int port) {
@@ -274,6 +299,11 @@ public final class WorkerApi implements AutoCloseable {
 
             config.routes.get("/api/host", ctx -> ctx.json(hostNumbers()));
 
+            // The nightly clock, so that "tonight" in the interface means a moment on THIS host.
+            // A browser works out four o'clock in its own time zone, which is not this container's
+            // - and the whole point of the offer is to land before the backup rather than on it.
+            config.routes.get("/api/schedule", ctx -> ctx.json(schedule()));
+
             // What is actually on the disk, not what a run reported. A backup list read from the
             // report is a list of things somebody meant to write.
             config.routes.get("/api/backups", ctx -> ctx.json(archives()));
@@ -291,17 +321,19 @@ public final class WorkerApi implements AutoCloseable {
      * going unnoticed for four releases is the failure this whole column exists to prevent.</p>
      */
     private Map<String, Object> serviceTable() {
-        final List<Map<String, Object>> rows = services();
+        // Taken once, for the rows AND for the sentence about them.
+        final Drift drift = drift();
+        final List<Map<String, Object>> rows = services(drift.result());
         final Map<String, Object> answer = new LinkedHashMap<>();
         answer.put("services", rows);
-        final ImageResult drift = drift();
+        final ImageResult images = drift.result();
         final Map<String, Object> about = new LinkedHashMap<>();
-        about.put("checkedAt", driftAt == null ? null : driftAt.toString());
-        about.put("reached", drift.reached());
-        about.put("unverifiable", List.copyOf(drift.unverifiable()));
-        drift.notCheckable().ifPresent(reason -> about.put("reason", reason));
-        if (drift.message() != null) {
-            about.put("message", drift.message());
+        about.put("checkedAt", drift.checkedAt().toString());
+        about.put("reached", images.reached());
+        about.put("unverifiable", List.copyOf(images.unverifiable()));
+        images.notCheckable().ifPresent(reason -> about.put("reason", reason));
+        if (images.message() != null) {
+            about.put("message", images.message());
         }
         answer.put("drift", about);
         return answer;
@@ -322,8 +354,7 @@ public final class WorkerApi implements AutoCloseable {
      * the cache the start page would send a burst of registry requests every few seconds for an
      * answer that is the same all day.</p>
      */
-    private List<Map<String, Object>> services() {
-        final ImageResult drift = drift();
+    private List<Map<String, Object>> services(final ImageResult drift) {
         final List<Docker.Container> containers = docker.containers(project).stream()
                 .filter(container -> container.service() != null)
                 .toList();
@@ -359,13 +390,12 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     /** The cached drift answer, refreshed at most once per {@link #DRIFT_TTL}. */
-    private synchronized ImageResult drift() {
+    private synchronized Drift drift() {
         final Instant now = Instant.now();
-        if (lastDrift == null || driftAt == null || driftAt.plus(DRIFT_TTL).isBefore(now)) {
-            lastDrift = ops.images();
-            driftAt = now;
+        if (drift == null || drift.checkedAt().plus(DRIFT_TTL).isBefore(now)) {
+            drift = new Drift(ops.images(), now);
         }
-        return lastDrift;
+        return drift;
     }
 
     private Map<String, Object> describe(final Docker.Container container, final ImageResult drift) {
@@ -396,7 +426,7 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     private Optional<Map<String, Object>> service(final String name) {
-        final ImageResult drift = drift();
+        final ImageResult drift = drift().result();
         return docker.containers(project).stream()
                 .filter(container -> name.equals(container.service()))
                 .findFirst()
@@ -407,6 +437,18 @@ public final class WorkerApi implements AutoCloseable {
                             + "nothing older; recreating the container starts that again");
                     return row;
                 });
+    }
+
+    /** {@code backup.at}, the zone it is read in, and the next moment it comes round. */
+    private Map<String, Object> schedule() {
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("backupAt", nightly.at().isBlank() ? null : nightly.at());
+        answer.put("zone", nightly.zone().getId());
+        answer.put("nextBackupAt", NightlyClock.next(nightly.at(), nightly.zone(),
+                        ZonedDateTime.now(nightly.zone()))
+                .map(next -> next.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .orElse(null));
+        return answer;
     }
 
     private Map<String, Object> hostNumbers() {

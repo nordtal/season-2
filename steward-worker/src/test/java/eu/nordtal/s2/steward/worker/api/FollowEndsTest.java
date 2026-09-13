@@ -20,6 +20,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,7 +83,8 @@ class FollowEndsTest {
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
         final WorkerApi api = new WorkerApi(docker, new DockerOps(docker, PROJECT),
-                new Console(docker, PROJECT), new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN);
+                new Console(docker, PROJECT), new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN,
+                new WorkerApi.Nightly("04:45", ZoneId.of("Europe/Berlin")));
         api.start(PORT);
 
         final HttpClient http = HttpClient.newBuilder()

@@ -28,8 +28,12 @@ import java.util.Map;
  *       is a job, and the caller reads its output as it appears.</li>
  * </ul>
  *
- * <p><b>It never recreates itself.</b> {@link Compose#SELF} is refused wherever a service name is
- * accepted; renewing this container is the setup script's job (§9c).</p>
+ * <p><b>The serving process never recreates itself.</b> {@link Compose#SELF} is refused wherever
+ * the API accepts a service name, and the whole-stack deployment names every service one by one so
+ * that it can be left out - an empty list would mean "all of them" to compose and put it back.
+ * Renewing this container is the setup script's job (§9c), which is why {@code deployer up} - and
+ * only it, running as a throwaway container beside the stack - goes through
+ * {@link Compose#bootstrap}.</p>
  */
 public final class StewardDeployer {
 
@@ -49,7 +53,7 @@ public final class StewardDeployer {
                 env("COMPOSE_PROJECT_NAME", "nordtal-s2"));
 
         switch (mode) {
-            case "up" -> System.exit(deploy(compose, List.of(), System.out::println));
+            case "up" -> System.exit(deploy(compose, List.of(), System.out::println, true));
             case "serve" -> serve(compose);
             default -> {
                 System.err.println("usage: steward-deployer [serve|up]");
@@ -68,10 +72,18 @@ public final class StewardDeployer {
      */
     static int deploy(Compose compose, List<String> requested, java.util.function.Consumer<String> output)
             throws Exception {
-        List<String> services = requested.isEmpty()
-                ? new ArrayList<>(compose.services().keySet())
-                : new ArrayList<>(requested);
-        services.remove(Compose.SELF);
+        return deploy(compose, requested, output, false);
+    }
+
+    /**
+     * @param bootstrap {@code true} only for {@code deployer up}: the throwaway container the setup
+     *                  script runs, which is allowed to create steward-deployer because it is not
+     *                  the compose-managed one. Every other caller is, and must not.
+     */
+    static int deploy(Compose compose, List<String> requested,
+                      java.util.function.Consumer<String> output, boolean bootstrap)
+            throws Exception {
+        List<String> services = servicesToDeploy(compose.services().keySet(), requested, bootstrap);
 
         for (String service : services) {
             Compose.PullOutcome outcome = compose.pull(service, output);
@@ -81,7 +93,25 @@ public final class StewardDeployer {
                 return 1;
             }
         }
-        return compose.up(requested.isEmpty() ? List.of() : services, output);
+        return bootstrap ? compose.bootstrap(services, output) : compose.up(services, output);
+    }
+
+    /**
+     * Which services one deployment touches, named one by one.
+     *
+     * <p><b>Never an empty list, and that is the point.</b> An empty list of service names means
+     * <i>every</i> service to {@code docker compose up}. Passing one on the whole-stack path
+     * therefore put steward-deployer back in after it had just been taken out - so the service that
+     * must never recreate itself did exactly that on the most ordinary deployment there is, and the
+     * new container would have killed the process still writing the report.</p>
+     */
+    static List<String> servicesToDeploy(java.util.Collection<String> all, List<String> requested,
+                                         boolean bootstrap) {
+        List<String> services = requested.isEmpty() ? new ArrayList<>(all) : new ArrayList<>(requested);
+        if (!bootstrap) {
+            services.remove(Compose.SELF);
+        }
+        return List.copyOf(services);
     }
 
     private static void serve(Compose compose) {

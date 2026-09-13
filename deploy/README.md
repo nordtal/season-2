@@ -42,8 +42,8 @@ deploy/
 ## First deployment, in order
 
 The host needs a shell and nothing else — no JDK, no Gradle, no checkout of anything but this
-repository. All three of our images — `minecraft`, `steward-worker` and `discord-bot` — are pushed
-to `ghcr.io/nordtal` by
+repository. All five of our images — `minecraft`, `steward-worker`, `discord-bot`, `steward-ui` and
+`steward-deployer` — are pushed to `ghcr.io/nordtal` by
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) when a release is published, and
 compose pulls every one of them. The `build:` blocks in `compose.yml` are for developing on your own
 machine: **a deploy pulls and never builds**, so an image that only exists in one host's
@@ -52,14 +52,26 @@ Docker fails the deploy with `error from registry: denied`.
 ### Once, before the first deployment
 
 1. **Publish the release.** Tag it, publish it on GitHub, and let `release.yml` finish. It attaches
-   eight assets and pushes four images, each tagged with the version and with `latest`.
-2. **Set all four packages to Public**, in their GitHub package settings. A package under an
+   eight assets and pushes **five** images — `discord-bot`, `steward-worker`, `minecraft`,
+   `steward-ui`, `steward-deployer` — each tagged with the version and with `latest`.
+2. **Set all five packages to Public**, in their GitHub package settings. A package under an
    organisation is **private on its first push**, and a private package answers a pull with the same
    `denied` as one that does not exist. The alternative is a registry credential on the host.
 
-   They were measured public on 2026-09-13: `ghcr.io/nordtal/{discord-bot,minecraft,postgres-backup}`
-   all resolve against the registry with no authentication, which is what lets steward-worker check
-   image drift for itself.
+   **Three of the five have never been pushed, and one of them is a surprise.** Measured against
+   the registry on 2026-09-13, anonymously: `discord-bot`, `minecraft`, `updater` and
+   `postgres-backup` answer `200`; `steward-worker`, `steward-ui` and `steward-deployer` answer
+   `403`. The first two new ones are expected — they are new modules. `steward-worker` is not: it
+   is the *renamed* `updater`, and a rename of the image is a **new package** under a new name. The
+   public one is the old name nothing pushes to any more, so the next release creates
+   `steward-worker` from scratch, private, exactly like the other two.
+
+   That matters beyond a failed pull. steward-worker asks the daemon's `/distribution` endpoint for
+   a registry digest, with no credentials, so a private package answers nothing and the image lands
+   in `unverifiable` — `UNKNOWN`, never "up to date". That is the honest answer rather than a wrong
+   one, but three of five services reporting `UNKNOWN` is a drift report that says very little.
+   `updater` and `postgres-backup` stay behind as public packages nothing pushes to any more; they
+   can be deleted once the cutover holds (`todo.md` A30).
 
 ### On the host
 

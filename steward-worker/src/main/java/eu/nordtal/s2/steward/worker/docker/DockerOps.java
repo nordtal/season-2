@@ -106,9 +106,14 @@ public final class DockerOps implements ContainerOps {
      *       {@code unverifiable}. An image built here and pushed nowhere carries no registry digest
      *       to compare, and a registry that is down or unreachable answers nothing. Neither is
      *       "current", and reporting them as current is exactly the failure this check exists to
-     *       end. Credentials are not among the reasons here: every image this stack runs is a
-     *       public {@code ghcr.io/nordtal} package, measured answering {@code /distribution} with
-     *       no authentication on 2026-09-13.</li>
+     *       end. Credentials <b>are</b> among the reasons, and that is new: measured against the
+     *       registry on 2026-09-13, {@code discord-bot} and {@code minecraft} answer without
+     *       authentication, but {@code steward-worker}, {@code steward-ui} and
+     *       {@code steward-deployer} answer {@code 403} - the latter two because they are new
+     *       modules, {@code steward-worker} because renaming {@code updater} created a new package
+     *       under a new name. A package under an organisation is private on its first push, so
+     *       until those three are set public they land here as {@code unverifiable}, which is the
+     *       honest answer and not a wrong one. {@code todo.md} A30 is where they get set.</li>
      * </ul>
      */
     @Override

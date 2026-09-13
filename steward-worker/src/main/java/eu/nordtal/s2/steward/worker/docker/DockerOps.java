@@ -72,14 +72,43 @@ public final class DockerOps implements ContainerOps {
         }
     }
 
+    /**
+     * Stops a container, and refuses if Docker had to kill it.
+     *
+     * <h2>A stop that ran out of time is not a stop</h2>
+     * Docker sends SIGTERM, waits {@value #STOP_GRACE_SECONDS} seconds and then sends SIGKILL - and
+     * the API call succeeds either way. Paper was measured shutting down in three seconds
+     * ({@code deploy/README.md}), so there is room; but a server that ever needed longer would be
+     * killed halfway through saving, and the next thing this sequence does is tar the world volume.
+     * A backup taken over a half-written region file is worse than no backup: it is a file that
+     * looks like a restore point.
+     *
+     * <p>So the container is inspected afterwards and exit code 137 - SIGKILL - is reported as a
+     * refusal. The line is then {@code FAILED}, a run is settled {@code FAILED} the moment any line
+     * is, and a failed run authorises no farm reset. Nothing here tries to be cleverer than that:
+     * the world is already saved or it is not, and the only useful thing left is to stop calling it
+     * a success.</p>
+     */
     @Override
     public @NotNull RedeployResult stop(final @NotNull String containerId) {
         try {
             docker.stop(containerId, STOP_GRACE_SECONDS);
-            return RedeployResult.triggered("stop asked for " + shortId(containerId));
         } catch (DockerException e) {
             return RedeployResult.refused("stopping " + shortId(containerId) + ": " + e.getMessage());
         }
+        try {
+            if (docker.inspect(containerId).wasKilled()) {
+                return RedeployResult.refused(shortId(containerId) + " did not shut down within "
+                        + STOP_GRACE_SECONDS + " seconds and was killed (exit 137). Whatever it was"
+                        + " writing was cut off, so nothing saved from its volumes now counts as a"
+                        + " backup");
+            }
+        } catch (DockerException e) {
+            // The stop itself succeeded. Not knowing how it ended is not the same as knowing it
+            // ended badly, and refusing here would take a network down over an unreadable inspect.
+            log.warn("could not read how {} exited", shortId(containerId), e);
+        }
+        return RedeployResult.triggered("stop asked for " + shortId(containerId));
     }
 
     @Override

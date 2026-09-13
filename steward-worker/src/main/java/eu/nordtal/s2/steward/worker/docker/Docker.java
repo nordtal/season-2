@@ -101,6 +101,8 @@ public final class Docker {
                 health,
                 state == null ? null : string(state, "StartedAt"),
                 config != null && config.has("Tty") && config.get("Tty").getAsBoolean(),
+                state != null && state.has("ExitCode") && !state.get("ExitCode").isJsonNull()
+                        ? state.get("ExitCode").getAsInt() : -1,
                 repoDigests(string(json, "Image")));
     }
 
@@ -363,10 +365,21 @@ public final class Docker {
     }
 
     /** One container in full. {@code repoDigests} is what the drift check compares. */
+    /**
+     * @param exitCode what the container's process exited with, or {@code -1} if it has not exited.
+     *                 {@code 137} is the one worth knowing: SIGKILL, which after a
+     *                 {@code docker stop} means the grace period ran out and Docker killed a
+     *                 process that was still working - for a Minecraft server, still saving.
+     */
     public record Inspection(@NotNull String id, @Nullable String name, @Nullable String image,
                              @Nullable String imageId, @Nullable String state,
                              @Nullable String health, @Nullable String startedAt, boolean tty,
-                             @NotNull List<String> repoDigests) {
+                             int exitCode, @NotNull List<String> repoDigests) {
+
+        /** Killed rather than asked: SIGKILL, which is what a stop that ran out of time looks like. */
+        public boolean wasKilled() {
+            return exitCode == 137;
+        }
 
         /** Running, and healthy if it says anything about its health at all. */
         public boolean isBack() {

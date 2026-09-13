@@ -63,6 +63,21 @@ export function summarise(input: {
   const now = input.now ?? Date.now()
   const triggers: Trigger[] = []
 
+  // 0 - an answered, EMPTY service list. Yellow, and Till's call on 2026-09-13.
+  //
+  // This used to be green, because no service is no failing service. But the list being answered
+  // and empty is not "nothing to report": compose.yml declares eight services here and none of
+  // them is optional enough to explain an empty table, so the reading is that the daemon has
+  // nothing left to show - which is the loudest thing this page could ever have to say. It is the
+  // same family as the green light on failed queries: no data must not read as fine.
+  if (input.table && input.table.services.length === 0) {
+    triggers.push({
+      level: "warn",
+      text: "Es ist kein Dienst da - Docker hat eine leere Liste geliefert.",
+      to: "/betrieb",
+    })
+  }
+
   // 1 - a service stopped or unhealthy. Red: without this it would not be a traffic light.
   for (const service of input.table?.services ?? []) {
     if (!isUp(service.state)) {
@@ -99,6 +114,13 @@ export function summarise(input: {
 
   // The comparison that could not be made is its own sentence, and a quiet one. It is not a fault
   // in the stack - but reporting "up to date" for an image nobody compared is the fault above.
+  //
+  // A SINGLE service whose own drift is UNKNOWN is deliberately NOT a trigger (Till, 2026-09-13).
+  // status.tsx argues the opposite for the badge, and A24 is this light's whole reason to exist -
+  // but several images here are built on this host and published nowhere, so UNKNOWN is their
+  // ordinary state and a yellow that never clears is a light nobody reads. The Betrieb page
+  // footnotes how many could not be compared. This trigger is the other case: the registry as a
+  // whole did not answer, which is temporary and therefore worth a sentence.
   if (input.table && input.table.drift.reached === false) {
     triggers.push({
       level: "warn",

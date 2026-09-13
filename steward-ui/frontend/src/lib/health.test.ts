@@ -87,10 +87,22 @@ describe("summarise - a stack with nothing wrong", () => {
     expect(triggers).toEqual([])
   })
 
-  it("is green for a service table that was answered and is empty", () => {
-    // Pinned rather than endorsed. An empty list is indistinguishable here from "compose owns no
-    // services", but on this host it would mean every container is gone. See the findings.
-    expect(summarise({ table: table([]), now: NOW }).level).toBe("ok")
+  it("is yellow for a service table that was answered and is empty", () => {
+    // Till's call, 2026-09-13. This used to be green on the grounds that no service is no failing
+    // service. But compose.yml declares eight services on this host and none of them is optional
+    // enough to explain an empty table, so an answered empty list means the daemon has nothing
+    // left to show - the same family as the green light on failed queries that was just removed.
+    const { level, triggers } = summarise({ table: table([]), now: NOW })
+
+    expect(level).toBe("warn")
+    expect(triggers[0].text).toBe("Es ist kein Dienst da - Docker hat eine leere Liste geliefert.")
+    expect(triggers[0].to).toBe("/betrieb")
+  })
+
+  it("says nothing about an empty list that was never asked for", () => {
+    // Undefined is "not answered yet", and a page that has not finished loading must not accuse
+    // the host of having lost every container.
+    expect(summarise({ host: host(), backups: [backup(1)], now: NOW }).level).toBe("ok")
   })
 })
 
@@ -206,8 +218,11 @@ describe("summarise - image drift", () => {
   })
 
   it("does not turn yellow for a single image that carries no registry digest", () => {
-    // Pinned rather than endorsed: an image built here and published nowhere is unverifiable in
-    // normal operation, and the page footnotes it separately. See the findings.
+    // Till's call, 2026-09-13, asked rather than assumed. status.tsx argues that UNKNOWN is
+    // "deliberately not silent and deliberately not green", and A24 is the story this whole light
+    // came from - but several images in this stack are built here and published nowhere, so
+    // UNKNOWN is their normal state. A yellow that never goes away is a light nobody reads any
+    // more, which costs more than the case it would catch. The page footnotes the count instead.
     const { level } = summarise({
       ...healthy(),
       table: table([service({ drift: "UNKNOWN" })], { unverifiable: ["smp"] }),

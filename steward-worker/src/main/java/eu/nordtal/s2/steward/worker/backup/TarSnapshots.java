@@ -15,11 +15,13 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -274,7 +276,7 @@ public final class TarSnapshots implements Snapshots {
                 continue;
             }
             final Matcher leftover = PARTIAL_ARCHIVE.matcher(name);
-            if (leftover.matches() && stampOf(leftover.group("stamp")).isBefore(debrisBefore)) {
+            if (leftover.matches() && isOlderThan(leftover.group("stamp"), debrisBefore, name)) {
                 if (delete(file)) {
                     log.info("pruning {} - a partial from a killed run, never a backup", name);
                     removed.add(name);
@@ -332,8 +334,59 @@ public final class TarSnapshots implements Snapshots {
         }
     }
 
+    /**
+     * Waits for every stage against <b>one</b> deadline, or kills the whole pipeline.
+     *
+     * <h2>The wall is the pipeline's, not each process's</h2>
+     * {@code wall} is the length of time the caller may keep the Minecraft servers stopped. Given
+     * to {@code waitFor} once per stage, a three-stage {@code tar | zstd | tee} could take three
+     * walls to finish and still be called on time - and it is the <i>later</i> stages that are slow,
+     * because tar is finished long before zstd has compressed what it produced. A config saying
+     * twenty minutes could stop the network for an hour, and every report would say it kept to the
+     * limit.
+     *
+     * <p>Everything goes when the deadline passes, not just the stage that was still running: a
+     * half-killed pipeline leaves tar writing into a backup volume with nobody waiting on it.</p>
+     *
+     * @return the exit codes in stage order, or empty if the wall was reached
+     */
+    static Optional<List<Integer>> awaitAll(final List<Process> running, final Duration wall)
+            throws InterruptedException {
+        final long deadline = System.nanoTime() + wall.toNanos();
+        final List<Integer> codes = new ArrayList<>();
+        for (final Process process : running) {
+            final long remaining = deadline - System.nanoTime();
+            if (remaining <= 0 || !process.waitFor(remaining, TimeUnit.NANOSECONDS)) {
+                running.forEach(Process::destroyForcibly);
+                return Optional.empty();
+            }
+            codes.add(process.exitValue());
+        }
+        return Optional.of(List.copyOf(codes));
+    }
+
     private static Instant stampOf(final String stamp) {
         return LocalDateTime.parse(stamp, STAMP).toInstant(ZoneOffset.UTC);
+    }
+
+    /**
+     * Whether a partial's stamp is older than {@code cut} - and {@code false} for one that is not a
+     * date at all.
+     *
+     * <p><b>Matching the pattern is not the same as being a date.</b> {@code \d{8}T\d{6}Z} accepts
+     * {@code 99999999T999999Z}, which {@code LocalDateTime.parse} then refuses. Thrown out of the
+     * loop, that one file ended the whole retention sweep: every volume after it kept every archive
+     * it had, the backup volume filled up over weeks, and the only sign was one stack trace in a log
+     * on a run that otherwise said it had succeeded. So the file is left where it is and named in
+     * the log - it is one unexplained file, and the sweep is the thing that has to keep going.</p>
+     */
+    private static boolean isOlderThan(final String stamp, final Instant cut, final String name) {
+        try {
+            return stampOf(stamp).isBefore(cut);
+        } catch (final DateTimeParseException notADate) {
+            log.warn("leaving {} alone: {} looks like a timestamp and is not one", name, stamp);
+            return false;
+        }
     }
 
     private static boolean delete(final Path file) {
@@ -402,16 +455,10 @@ public final class TarSnapshots implements Snapshots {
         List<Process> running = List.of();
         try {
             running = ProcessBuilder.startPipeline(builders);
-            final List<Integer> codes = new ArrayList<>();
-            for (final Process process : running) {
-                if (!process.waitFor(wall.toSeconds(), TimeUnit.SECONDS)) {
-                    // The wall. Everything in the pipeline goes, not just the stage that hung, so
-                    // the caller is never left holding a half-run pipeline while the servers wait.
-                    running.forEach(Process::destroyForcibly);
-                    return new Shell(List.of(-1), "gave up after " + wall.toMinutes()
-                            + " minutes - " + String.join(" ", stages.getFirst()) + " did not finish");
-                }
-                codes.add(process.exitValue());
+            final Optional<List<Integer>> codes = awaitAll(running, wall);
+            if (codes.isEmpty()) {
+                return new Shell(List.of(-1), "gave up after " + wall.toMinutes()
+                        + " minutes - " + String.join(" ", stages.getFirst()) + " did not finish");
             }
             final StringBuilder said = new StringBuilder();
             for (final Path error : errors) {
@@ -420,7 +467,7 @@ public final class TarSnapshots implements Snapshots {
                     said.append(said.isEmpty() ? "" : "; ").append(text);
                 }
             }
-            return new Shell(List.copyOf(codes), said.toString());
+            return new Shell(codes.get(), said.toString());
         } catch (final InterruptedException interrupted) {
             // A shutdown while tar is running must not leave tar and zstd behind writing into the
             // backup volume with nobody waiting on them. They go first, then the interrupt travels.

@@ -12,6 +12,7 @@ import {
   useRuns,
   useSeason,
   useServices,
+  useSettings,
 } from "@/lib/queries"
 import { PageHeader } from "@/components/steward/page-header"
 import { SeriesChart } from "@/components/steward/series-chart"
@@ -51,11 +52,16 @@ export function ZustandPage() {
   const services = useServices()
   const host = useHost()
   const backups = useBackups()
+  // The thresholds are configured, not compiled in. Without this the page would draw its Ampel
+  // against 85/90 while steward-ui.yml said something else - and the Discord channel, which reads
+  // the same numbers off the server, would disagree with the screen.
+  const settings = useSettings()
 
   const { level, triggers } = summarise({
     table: services.data,
     host: host.data,
     backups: backups.data,
+    thresholds: settings.data,
   })
 
   // Nothing has answered yet: the Ampel must not say "alles in Ordnung" about a stack it has not

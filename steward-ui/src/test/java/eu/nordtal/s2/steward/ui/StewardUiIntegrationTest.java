@@ -674,6 +674,43 @@ class StewardUiIntegrationTest {
         assertEquals(400, refused.statusCode(), refused.body());
     }
 
+    /**
+     * A grant of six million years is a slip of the keyboard, and it has to read like one.
+     *
+     * <p>The only check was {@code days > 0}, so {@code 2147483647} went to PostgreSQL, where
+     * {@code make_interval(hours => :days * 24)} overflows an integer and the driver reports it -
+     * a 500 blaming this program for a number the operator typed. The ceiling is a decade, which
+     * is nine seasons more than anybody will ever buy.</p>
+     */
+    @Test
+    @DisplayName("a grant longer than a decade is refused rather than handed to postgres")
+    void anAbsurdGrantIsRefused() throws Exception {
+        final HttpResponse<String> refused = post("/api/access/grant",
+                "{\"discordId\":\"1\",\"days\":2147483647}");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+    }
+
+    /**
+     * {@code which} decided between two dates with an {@code equals} and an {@code else}.
+     *
+     * <p>So {@code "smpstart"}, {@code "launchh"} and a missing field all meant "launch", and the
+     * interface answered 200 having overwritten the wrong one of the two dates a whole season
+     * hangs off. A value outside the pair is a question this endpoint cannot answer, and the only
+     * honest reply is a refusal.</p>
+     */
+    @Test
+    @DisplayName("a season date nobody named is refused, not silently taken for the launch")
+    void aSeasonDateNeedsAName() throws Exception {
+        final String at = "\"at\":\"2026-10-01T18:00:00Z\"";
+        assertEquals(400, post("/api/season/date", "{" + at + ",\"which\":\"smpstart\"}").statusCode());
+        assertEquals(400, post("/api/season/date", "{" + at + "}").statusCode());
+        assertEquals(400, post("/api/season/date", "{" + at + ",\"which\":\"\"}").statusCode());
+        // And the two it does know still work.
+        assertEquals(200, post("/api/season/date", "{" + at + ",\"which\":\"smpStart\"}").statusCode());
+        assertEquals(200, post("/api/season/date", "{" + at + ",\"which\":\"launch\"}").statusCode());
+    }
+
     @Test
     @DisplayName("the curves come out of postgres, and an empty window is an empty list")
     void theCurvesAreRead() throws Exception {

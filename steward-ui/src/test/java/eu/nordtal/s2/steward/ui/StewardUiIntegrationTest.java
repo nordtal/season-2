@@ -19,12 +19,16 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.io.IOException;
 import java.net.CookieManager;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,9 +68,35 @@ class StewardUiIntegrationTest {
     private static HttpClient http;
     private static PostgreSQLContainer<?> postgres;
     private static Data data;
+    private static Path configRoot;
 
     @BeforeAll
-    static void start() {
+    static void start() throws IOException {
+        // A stand-in for the config volumes the deployment mounts: one directory per service, and
+        // one of them with a file inside a server's data directory, because that is the shape the
+        // Paper plugins have and a route that cannot carry a slash would fail only on those.
+        configRoot = Files.createTempDirectory("steward-configs");
+        Files.createDirectories(configRoot.resolve("steward-worker"));
+        Files.writeString(configRoot.resolve("steward-worker/steward.yml"), """
+                # The worker.
+                port: 8082
+
+                # The shared secret.
+                token: hunter2
+
+                # What to stop before a backup.
+                stop-services:
+                - smp
+                - limbo
+                """);
+        Files.createDirectories(configRoot.resolve("smp/nordtal-smp"));
+        Files.writeString(configRoot.resolve("smp/nordtal-smp/config.yml"), """
+                # The greeting.
+                motd: |-
+                  Nordtal
+                  Season 2
+                """);
+
         fakeWorker = Javalin.create(cfg -> {
             cfg.jsonMapper(new JavalinGson(new Gson(), true));
             cfg.startup.showJavalinBanner = false;
@@ -118,6 +148,16 @@ class StewardUiIntegrationTest {
             @Override
             public DiscordSpec discord() {
                 return new DiscordSpec() {
+                };
+            }
+
+            @Override
+            public ConfigsSpec configs() {
+                return new ConfigsSpec() {
+                    @Override
+                    public String root() {
+                        return configRoot.toString();
+                    }
                 };
             }
         };
@@ -174,6 +214,19 @@ class StewardUiIntegrationTest {
         }
         if (postgres != null) {
             postgres.stop();
+        }
+        if (configRoot != null) {
+            try (var walk = Files.walk(configRoot)) {
+                walk.sorted(Comparator.reverseOrder()).forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (final IOException ignored) {
+                        // A leftover temp directory is not worth failing a test run over.
+                    }
+                });
+            } catch (final IOException ignored) {
+                // Same.
+            }
         }
     }
 
@@ -330,6 +383,119 @@ class StewardUiIntegrationTest {
     void theSeasonIsReadable() throws Exception {
         final JsonObject season = GSON.fromJson(get("/api/season").body(), JsonObject.class);
         assertFalse(season.get("phase").getAsString().isBlank());
+    }
+
+
+    // -------------------------------------------------------------------------------------------
+    // The configuration of the whole stack
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("every config file under the mount is listed, service directory and all")
+    void everyConfigInTheStackIsListed() throws Exception {
+        final JsonArray files = GSON.fromJson(get("/api/config").body(), JsonArray.class);
+
+        final List<String> paths = files.asList().stream()
+                .map(file -> file.getAsJsonObject().get("path").getAsString())
+                .toList();
+        assertEquals(List.of("smp/nordtal-smp/config.yml", "steward-worker/steward.yml"), paths);
+    }
+
+    @Test
+    @DisplayName("a file inside a server's data directory is reachable, slashes and all")
+    void aPathWithSlashesInItReachesTheFile() throws Exception {
+        // Javalin's `{name}` stops at a slash and `<name>` does not. A plugin's config always
+        // lives two directories down, so getting that wrong would 404 every Paper config and
+        // nothing else - which would look like a mounting problem for as long as it took to find.
+        final HttpResponse<String> response = get("/api/config/smp/nordtal-smp/config.yml");
+
+        assertEquals(200, response.statusCode(), response.body());
+        final JsonObject document = GSON.fromJson(response.body(), JsonObject.class);
+        assertEquals("smp", document.get("service").getAsString());
+        assertEquals("nordtal-smp/config.yml", document.get("name").getAsString());
+        final JsonObject motd = document.getAsJsonArray("entries").get(0).getAsJsonObject();
+        assertEquals("Motd", motd.get("label").getAsString());
+        assertEquals("Nordtal\nSeason 2", motd.get("value").getAsString());
+        assertTrue(motd.get("editable").getAsBoolean(), "a block scalar is editable");
+    }
+
+    @Test
+    @DisplayName("a secret is reported as set and its value never leaves the server")
+    void aSecretIsNotSentToTheBrowser() throws Exception {
+        final JsonObject document = GSON.fromJson(
+                get("/api/config/steward-worker/steward.yml").body(), JsonObject.class);
+
+        final JsonObject token = entry(document, "token");
+        assertTrue(token.get("secret").getAsBoolean());
+        assertTrue(token.get("filled").getAsBoolean(), "the page still has to be able to say it is set");
+        assertFalse(token.has("value"), "the value itself is not in the answer: " + token);
+        assertFalse(document.toString().contains("hunter2"), "the secret is nowhere in the body");
+    }
+
+    @Test
+    @DisplayName("a change is written to the file and the answer is the file as it now reads")
+    void aChangeIsWrittenThrough() throws Exception {
+        final HttpResponse<String> saved = put("/api/config/steward-worker/steward.yml",
+                "{\"changes\": {\"port\": \"9099\"}}");
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        assertEquals("9099", entry(GSON.fromJson(saved.body(), JsonObject.class), "port")
+                .get("value").getAsString());
+        assertTrue(Files.readString(configRoot.resolve("steward-worker/steward.yml"))
+                .contains("port: 9099"));
+        // And the comment above it is still there, which is the whole reason this reads the file
+        // instead of re-dumping it.
+        assertTrue(Files.readString(configRoot.resolve("steward-worker/steward.yml"))
+                .contains("# The worker."));
+    }
+
+    @Test
+    @DisplayName("a list arrives as a list and is written as one")
+    void aListIsSavedAsAList() throws Exception {
+        final HttpResponse<String> saved = put("/api/config/steward-worker/steward.yml",
+                "{\"changes\": {\"stop-services\": [\"smp\", \"limbo\", \"hunger-games\"]}}");
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        assertTrue(Files.readString(configRoot.resolve("steward-worker/steward.yml"))
+                .contains("- hunger-games"));
+    }
+
+    @Test
+    @DisplayName("one value sent to a list is refused with a sentence, not a stack trace")
+    void theWrongShapeIsRefused() throws Exception {
+        final HttpResponse<String> refused = put("/api/config/steward-worker/steward.yml",
+                "{\"changes\": {\"stop-services\": \"smp\"}}");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("stop-services"), refused.body());
+    }
+
+    @Test
+    @DisplayName("a file outside the mount cannot be asked for, however it is spelled")
+    void nothingOutsideTheMountCanBeReached() throws Exception {
+        assertEquals(404, get("/api/config/steward-worker/nope.yml").statusCode());
+        // The lookup is a comparison against what was found, not a path resolved against the root,
+        // so there is no number of decodings that turns this into a file on this host.
+        assertFalse(get("/api/config/..%2f..%2fetc%2fpasswd").statusCode() == 200);
+        assertFalse(get("/api/config/steward-worker/../../../etc/passwd").statusCode() == 200);
+    }
+
+    private static JsonObject entry(final JsonObject document, final String path) {
+        return document.getAsJsonArray("entries").asList().stream()
+                .map(com.google.gson.JsonElement::getAsJsonObject)
+                .filter(entry -> entry.get("path").getAsString().equals(path))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(path + " is not in " + document));
+    }
+
+    private static HttpResponse<String> put(final String path, final String body) throws Exception {
+        final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+        return http.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + path))
+                .header("Content-Type", "application/json")
+                .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                .PUT(HttpRequest.BodyPublishers.ofString(body))
+                .build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private static HttpResponse<String> get(final String path) throws Exception {

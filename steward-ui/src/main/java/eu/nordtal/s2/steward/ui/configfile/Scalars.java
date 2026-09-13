@@ -8,7 +8,10 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * What a scalar is, and how to write one back.
@@ -60,8 +63,28 @@ final class Scalars {
     static @NotNull String render(final @NotNull Type type,
                                   final @NotNull String value,
                                   final @NotNull String path) {
+        return render(type, value, path, Where.VALUE);
+    }
+
+    /**
+     * One entry of a sequence.
+     *
+     * @param type the type the list already holds - see {@link ConfigEntry#type()}
+     * @param flow whether the list is written {@code [a, b]} rather than as a block
+     */
+    static @NotNull String renderItem(final @NotNull Type type,
+                                      final @NotNull String value,
+                                      final @NotNull String path,
+                                      final boolean flow) {
+        return render(type, value, path, flow ? Where.FLOW_ITEM : Where.BLOCK_ITEM);
+    }
+
+    private static String render(final Type type,
+                                 final String value,
+                                 final String path,
+                                 final Where where) {
         if (type == Type.STRING) {
-            return quote(value, path);
+            return quote(value, path, where);
         }
 
         // Numbers and booleans are written exactly as they were typed, once YAML agrees that is
@@ -107,19 +130,19 @@ final class Scalars {
      * quotes next, which is what jcore's own writer uses. Double quotes last, for the values that
      * carry a newline or a control character and cannot be written any other way.</p>
      */
-    private static String quote(final String value, final String path) {
+    private static String quote(final String value, final String path, final Where where) {
         // A tab or a newline inside a plain scalar happens to read back correctly, and is still
         // never written that way: a raw tab in a YAML file is a trap for the next person to open
         // it by hand, because YAML forbids one in indentation and most editors show neither.
-        if (!hasControlCharacter(value) && readsBackAs(value, value)) {
+        if (!hasControlCharacter(value) && readsBackAs(value, value, where)) {
             return value;
         }
         final String single = "'" + value.replace("'", "''") + "'";
-        if (!hasControlCharacter(value) && readsBackAs(single, value)) {
+        if (!hasControlCharacter(value) && readsBackAs(single, value, where)) {
             return single;
         }
         final String doubled = doubleQuoted(value);
-        if (readsBackAs(doubled, value)) {
+        if (readsBackAs(doubled, value, where)) {
             return doubled;
         }
         // Unreachable for any string a browser can send; a bug here must not be a corrupt config.
@@ -141,11 +164,11 @@ final class Scalars {
         return value.length() > 40 ? value.substring(0, 40) + "… (" + value.length() + " chars)" : value;
     }
 
-    /** Whether {@code rendered}, put after a colon, reads back as exactly the string {@code expected}. */
-    private static boolean readsBackAs(final String rendered, final String expected) {
+    /** Whether {@code rendered}, put where it is going, reads back as exactly {@code expected}. */
+    private static boolean readsBackAs(final String rendered, final String expected, final Where where) {
         final Object parsed;
         try {
-            parsed = parse(rendered);
+            parsed = parse(rendered, where);
         } catch (final RuntimeException e) {
             // Not even valid YAML in that position - `a: b`, a lone `[`. Quote it.
             return false;
@@ -160,14 +183,28 @@ final class Scalars {
      * {@code : } here for the same reason it would end there in the file.</p>
      */
     private static Object parse(final String rendered) {
+        return parse(rendered, Where.VALUE);
+    }
+
+    private static Object parse(final String rendered, final Where where) {
         final Yaml yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
-        final Object root = yaml.load("k: " + rendered);
+        final Object root = yaml.load(where.document(rendered));
         if (!(root instanceof Map<?, ?> map) || map.size() != 1 || !map.containsKey("k")) {
             // `rendered` was something that did not stay inside the value position, e.g. a newline
             // followed by another key. Not a scalar, whatever else it is.
             throw new IllegalArgumentException("not a single scalar");
         }
-        return map.get("k");
+        final Object value = map.get("k");
+        if (where == Where.VALUE) {
+            return value;
+        }
+        // A list entry has to stay ONE entry. `a,b` reads back as the string "a,b" after a colon
+        // and as two entries inside brackets, and a renderer that only asked the first question
+        // turns one service name into two on the day somebody types a comma.
+        if (!(value instanceof List<?> list) || list.size() != 1) {
+            throw new IllegalArgumentException("not a single entry");
+        }
+        return list.getFirst();
     }
 
     private static String doubleQuoted(final String value) {
@@ -190,5 +227,102 @@ final class Scalars {
             }
         }
         return out.append('"').toString();
+    }
+
+    /**
+     * Where a rendered scalar is going, which decides what "reads back correctly" means.
+     *
+     * <p>The same characters mean different things in the three places a value can sit, and asking
+     * the parser the wrong one of these questions is how a correct-looking quote rule corrupts a
+     * list.</p>
+     */
+    private enum Where {
+        /** After a colon: {@code k: <it>}. */
+        VALUE,
+        /** One entry of a block sequence: {@code k:\n- <it>}. */
+        BLOCK_ITEM,
+        /** One entry of a flow sequence: {@code k: [<it>]}. */
+        FLOW_ITEM;
+
+        String document(final String rendered) {
+            return switch (this) {
+                case VALUE -> "k: " + rendered;
+                case BLOCK_ITEM -> "k:\n- " + rendered;
+                case FLOW_ITEM -> "k: [" + rendered + "]";
+            };
+        }
+    }
+
+    /**
+     * A value written as a literal block.
+     *
+     * @param header the {@code |}, {@code |-}, {@code |+} or {@code |2-} that follows the colon
+     * @param lines  the content, each line already indented two columns past the key. An empty
+     *               line is empty rather than two spaces, because trailing whitespace in a config
+     *               file is noise in every future diff
+     */
+    record Block(@NotNull String header, @NotNull List<String> lines) {
+    }
+
+    /**
+     * Writes {@code value} as a literal block, if it can be written as one.
+     *
+     * <p>The chomping indicator is chosen from how the value ends, which is the only way a block
+     * can carry that fact: {@code |-} for a value that ends mid-line, {@code |} for one that ends
+     * with a single newline. A value ending in more than one newline is not written as a block at
+     * all - {@code |+} is the indicator for that, and it swallows the blank lines that follow the
+     * block, which in a jcore-written file is the separator before the next key. A block written
+     * that way grows a newline every time somebody saves the page. A first line that begins with a
+     * space needs the indentation stated outright ({@code |2-}), because YAML would otherwise
+     * measure the indentation from that line and eat the space.</p>
+     *
+     * <p>Folded blocks ({@code >}) are never written, only read. Folding turns a newline into a
+     * space on the way back in, so a value that survives the round trip is a coincidence and one
+     * that does not is a config nobody can see the mistake in.</p>
+     *
+     * @return the block, or empty when the value cannot be one - an empty value, a value that is
+     *         nothing but newlines, one ending in several of them, or anything that did not read
+     *         back as itself. The caller then
+     *         writes a double-quoted single line, which is uglier and always correct
+     */
+    static @NotNull Optional<Block> block(final @NotNull String value) {
+        String core = value;
+        int trailing = 0;
+        while (core.endsWith("\n")) {
+            core = core.substring(0, core.length() - 1);
+            trailing++;
+        }
+        if (core.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (trailing > 1) {
+            // `|+` would be the indicator for this, and `|+` reads the blank lines AFTER the block
+            // as part of the value. jcore separates every key with a blank line, so a block written
+            // that way grows a newline every time the file is read. Quoting is the honest answer.
+            return Optional.empty();
+        }
+        final String chomp = trailing == 0 ? "-" : "";
+        final char first = core.charAt(0);
+        final String header = (first == ' ' || first == '\t' ? "|2" : "|") + chomp;
+
+        final List<String> lines = new ArrayList<>();
+        for (final String line : core.split("\n", -1)) {
+            lines.add(line.isEmpty() ? "" : "  " + line);
+        }
+
+        // The probe has the same geometry as the real thing - key at one column, content two
+        // deeper - so an answer here is an answer about the file.
+        final String probe = "k: " + header + "\n" + String.join("\n", lines) + "\n";
+        final Object parsed;
+        try {
+            parsed = new Yaml(new SafeConstructor(new LoaderOptions())).load(probe);
+        } catch (final RuntimeException e) {
+            return Optional.empty();
+        }
+        if (parsed instanceof Map<?, ?> map && value.equals(map.get("k"))) {
+            return Optional.of(new Block(header, List.copyOf(lines)));
+        }
+        return Optional.empty();
     }
 }

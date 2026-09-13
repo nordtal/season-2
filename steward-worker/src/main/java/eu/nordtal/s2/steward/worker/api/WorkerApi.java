@@ -32,8 +32,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * What steward-ui is allowed to ask this container.
@@ -66,6 +71,49 @@ public final class WorkerApi implements AutoCloseable {
 
     /** Log follows are long and blocking; each one gets a thread of its own, and they are cheap. */
     private final ExecutorService followers = Executors.newVirtualThreadPerTaskExecutor();
+
+    /**
+     * Every log follow that is still open, so that shutting down can end them <em>first</em>.
+     *
+     * <h2>Why a set, rather than letting Jetty tidy up</h2>
+     * A follow that was still open when Jetty stopped was not a tidy ending. Javalin then closes
+     * the emitter against a request Jetty has already recycled, the close throws a
+     * {@link NullPointerException}, and Javalin's own exception mapper throws a second one while
+     * trying to read a header off that same dead request - so the failure cannot be reported and
+     * is retried. Measured on this host on 2026-09-13: about sixty thousand of those a second,
+     * for as long as the process lived. In a test JVM that is an {@code OutOfMemoryError} in the
+     * build; on the host it is a container that will not go down and a disk filling with one
+     * repeated line.
+     *
+     * <p>Closing the docker stream is what ends the read, which runs the follow's own
+     * {@code finally} and closes the emitter while Jetty is still alive - the ordinary path,
+     * taken deliberately instead of being raced into.</p>
+     */
+    private final Set<DockerSocket.Stream> follows = ConcurrentHashMap.newKeySet();
+
+    /**
+     * How often an open log follow says something, even when the container has not.
+     *
+     * <p><b>A connection nothing is written on is dropped after thirty seconds</b> - Jetty's own
+     * idle timeout, measured on this host on 2026-09-13 - and Javalin's {@code keepAlive()} does
+     * not write anything; it only holds the request open. A healthy Minecraft server is quiet for
+     * minutes at a time, so the log view of one was closed under the watcher half a minute after
+     * they opened it, and looked exactly like a server that had stopped talking.</p>
+     *
+     * <p>It matters a second time at the other end: {@code steward-ui} proxies this stream, and
+     * when its browser goes away it cancels its side. The JDK's HTTP client only tears a
+     * connection down when something next happens on it, so on a silent stream that cancellation
+     * arrives nowhere and this process keeps a docker log stream open for a tab nobody has. A
+     * comment every ten seconds is what lets both ends notice each other.</p>
+     */
+    private static final Duration HEARTBEAT = Duration.ofSeconds(10);
+
+    private final ScheduledExecutorService heartbeats = Executors.newSingleThreadScheduledExecutor(
+            runnable -> {
+                final Thread thread = new Thread(runnable, "steward-worker-sse-heartbeat");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     /**
      * How long a registry answer is good for.
@@ -144,13 +192,34 @@ public final class WorkerApi implements AutoCloseable {
                 final String since = client.ctx().queryParam("since");
 
                 final DockerSocket.Stream stream = docker.logs(containerId, true, tail, since);
-                client.onClose(() -> closeQuietly(stream, name));
+                follows.add(stream);
+                final ScheduledFuture<?> heartbeat = heartbeats.scheduleWithFixedDelay(
+                        () -> client.sendComment("following " + name), HEARTBEAT.toSeconds(),
+                        HEARTBEAT.toSeconds(), TimeUnit.SECONDS);
+                client.onClose(() -> {
+                    heartbeat.cancel(false);
+                    closeQuietly(stream, name);
+                });
                 followers.submit(() -> {
                     try {
-                        LogFrames.read(stream.body(), multiplexed, line -> client.sendEvent("line", line));
+                        LogFrames.read(stream.body(), multiplexed, line -> {
+                            // Asking before writing, rather than letting the write fail. Javalin
+                            // does not throw on a terminated client - it logs "Cannot send data"
+                            // and returns - so a follow whose browser has gone reads the container's
+                            // whole backlog and reports every line of it to nobody, one warning per
+                            // line. Measured on this host on 2026-09-13: a `tail=200` follow closed
+                            // at its first line still wrote 69 of them.
+                            if (client.terminated()) {
+                                throw new Gone();
+                            }
+                            client.sendEvent("line", line);
+                        });
+                    } catch (Gone gone) {
+                        log.debug("the follow of {} ended with whoever was watching it", name);
                     } catch (IOException e) {
                         log.debug("the log follow for {} ended", name, e);
                     } finally {
+                        follows.remove(stream);
                         closeQuietly(stream, name);
                         client.close();
                     }
@@ -392,6 +461,19 @@ public final class WorkerApi implements AutoCloseable {
                 .findFirst();
     }
 
+    /**
+     * Nobody is reading this any more, thrown from inside the line consumer to get out of the read.
+     *
+     * <p>It carries no stack trace: it is not a failure, it is the ordinary end of a follow, and it
+     * happens once per closed tab.</p>
+     */
+    private static final class Gone extends RuntimeException {
+
+        Gone() {
+            super(null, null, false, false);
+        }
+    }
+
     private static void closeQuietly(final DockerSocket.Stream stream, final String name) {
         try {
             stream.close();
@@ -491,11 +573,31 @@ public final class WorkerApi implements AutoCloseable {
         }
     }
 
+    /**
+     * Stops, and the order of these five lines is the whole of it.
+     *
+     * <p>Every open follow is ended before Jetty is - see {@link #follows} for what happens when
+     * it is the other way round. Closing the stream is what unblocks the read; the follow's own
+     * {@code finally} then closes the emitter, which is why this waits for those threads rather
+     * than assuming they got there. Two seconds is far longer than an interrupted read needs and
+     * short enough that nobody watches a container refuse to stop.</p>
+     */
     @Override
     public void close() {
+        heartbeats.shutdownNow();
+        for (final DockerSocket.Stream stream : follows) {
+            closeQuietly(stream, "a follow still open at shutdown");
+        }
+        followers.shutdownNow();
+        try {
+            if (!followers.awaitTermination(2, TimeUnit.SECONDS)) {
+                log.warn("a log follow was still running two seconds into shutdown");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
         if (app != null) {
             app.stop();
         }
-        followers.shutdownNow();
     }
 }

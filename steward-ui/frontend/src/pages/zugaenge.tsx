@@ -1064,9 +1064,13 @@ export function KontenPage() {
           >
             {(list) => {
               const trimmed = needle.trim().toLowerCase()
+              // Truthiness rather than `!== null`, on purpose: Javalin's Gson mapper drops nulls,
+              // so `minecraftUuid` arrives ABSENT for an unlinked person even though `api.ts`
+              // types it `string | null`. `!== null` would let every unlinked account through the
+              // "nur verknüpfte" filter, and the filter would look broken rather than wrong.
               const rows = list.filter(
                 (person) =>
-                  (!onlyLinked || person.minecraftUuid !== null) &&
+                  (!onlyLinked || Boolean(person.minecraftUuid)) &&
                   (trimmed === "" ||
                     person.discordId.toLowerCase().includes(trimmed) ||
                     (person.minecraftUuid ?? "").toLowerCase().includes(trimmed)),

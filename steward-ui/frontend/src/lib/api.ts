@@ -263,6 +263,19 @@ export type Season = {
 
 export type LogSearch = { lines: string[]; limit: number; truncated: boolean }
 
+/**
+ * One person the bot knows.
+ *
+ * **The absent fields are optional, not nullable, and that is not a style choice.** Javalin is
+ * wired to `JavalinGson(new Gson(), true)` and Gson omits nulls, so a person with no linked
+ * Minecraft account arrives WITHOUT `minecraftUuid` rather than with `null`. Typing these
+ * `string | null` compiled fine and let `x !== null` through - which is true for every unlinked
+ * person and would have made a "nur verknüpfte" filter quietly show everybody.
+ *
+ * `accessUntil` is the latest `valid_until` over ALL grants, revoked ones included, while
+ * `accessActive` is the full login predicate. The pair is deliberate: a revoked person showing no
+ * date at all would look exactly like a stranger who never had access.
+ */
 export type Person = {
   discordId: string
   memberState: string
@@ -270,9 +283,9 @@ export type Person = {
   admin: boolean
   locale: string
   updated: string
-  minecraftUuid: string | null
-  linked: string | null
-  accessUntil: string | null
+  minecraftUuid?: string
+  linked?: string
+  accessUntil?: string
   accessActive: boolean
 }
 
@@ -284,11 +297,11 @@ export type Payment = {
   amountCents: number
   donationCents: number
   status: string
-  bunqTabId: number | null
-  shareUrl: string | null
+  bunqTabId?: number
+  shareUrl?: string
   created: string
   expires: string
-  settled: string | null
+  settled?: string
 }
 
 export type Grant = {
@@ -297,8 +310,8 @@ export type Grant = {
   validFrom: string
   validUntil: string
   source: string
-  paymentRequestId: string | null
-  revoked: string | null
+  paymentRequestId?: string
+  revoked?: string
   created: string
 }
 
@@ -306,10 +319,10 @@ export type JournalEntry = {
   id: string
   occurred: string
   action: string
-  actor: string | null
-  subject: string | null
-  mcUuid: string | null
-  detail: string | null
+  actor?: string
+  subject?: string
+  mcUuid?: string
+  detail?: string
 }
 
 export type ConfigLocation = {

@@ -180,11 +180,29 @@ class WorkerApiIntegrationTest {
 
         assertTrue(found.has("lines"), found.toString());
         assertTrue(found.get("limit").getAsInt() == 5);
-        // Either it found five and says it stopped, or it found fewer and says it did not. What it
-        // must never do is stop at the limit silently, which is a search that lies by omission.
+        // What it must never do is stop at the limit silently, which is a search that lies by
+        // omission - and equally never claim it stopped when it had already found everything, which
+        // sends the reader off narrowing a search that was complete. The log of whatever happens to
+        // be running is not a fixture, so the exact-limit case is LogSearchTest's; what holds here
+        // is the pair of shapes that are wrong either way.
         final int lines = found.getAsJsonArray("lines").size();
-        assertEquals(lines >= 5, found.get("truncated").getAsBoolean(),
-                "found " + lines + " lines and called truncated " + found.get("truncated"));
+        final boolean truncated = found.get("truncated").getAsBoolean();
+        assertTrue(lines <= 5, "asked for five lines and got " + lines);
+        assertTrue(!truncated || lines == 5,
+                "called itself truncated after returning " + lines + " of five");
+    }
+
+    @Test
+    @DisplayName("a limit of nothing is refused, rather than answered with an empty search")
+    void aLimitOfNothingIsNotASearch() throws Exception {
+        final JsonArray services = serviceRows();
+        assumeTrue(!services.isEmpty(), "nothing running - skipping");
+        final String name = services.get(0).getAsJsonObject().get("service").getAsString();
+
+        // Zero lines, always "found nothing", never truncated: an answer indistinguishable from a
+        // term that genuinely does not appear.
+        assertEquals(400, raw("/api/services/" + name + "/logs/search?q=e&limit=0", true).statusCode());
+        assertEquals(400, raw("/api/services/" + name + "/logs/search?q=e&limit=-1", true).statusCode());
     }
 
     @Test

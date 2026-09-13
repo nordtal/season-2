@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -170,16 +171,18 @@ public final class WorkerApi implements AutoCloseable {
                 final boolean multiplexed = !docker.inspect(containerId).tty();
                 final String since = ctx.queryParam("since");
                 final int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(500);
-
-                final List<String> found = new ArrayList<>();
-                try (DockerSocket.Stream stream = docker.logs(containerId, false, "all", since)) {
-                    LogFrames.read(stream.body(), multiplexed, line -> {
-                        if (found.size() < limit && line.toLowerCase().contains(pattern.toLowerCase())) {
-                            found.add(line);
-                        }
-                    });
+                if (limit <= 0) {
+                    throw new BadRequestResponse("limit is how many matching lines to return at"
+                            + " most, so it is at least 1; " + limit + " returns nothing and calls"
+                            + " it a search that found nothing");
                 }
-                ctx.json(Map.of("lines", found, "limit", limit, "truncated", found.size() >= limit));
+
+                final Search search = new Search(pattern, limit);
+                try (DockerSocket.Stream stream = docker.logs(containerId, false, "all", since)) {
+                    LogFrames.read(stream.body(), multiplexed, search);
+                }
+                ctx.json(Map.of("lines", search.lines(), "limit", limit,
+                        "truncated", search.truncated()));
             });
 
             // One line into one server's console. The answer is NOT in the response: `mc` hands the
@@ -372,18 +375,7 @@ public final class WorkerApi implements AutoCloseable {
         }
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(backups)) {
             for (final Path entry : entries) {
-                if (!Files.isRegularFile(entry)) {
-                    continue;
-                }
-                final Map<String, Object> row = new LinkedHashMap<>();
-                row.put("name", entry.getFileName().toString());
-                row.put("bytes", Files.size(entry));
-                row.put("human", SnapshotResult.human(Files.size(entry)));
-                row.put("modified", Files.getLastModifiedTime(entry).toInstant().toString());
-                // A .partial is a backup that is either running right now or died halfway. Showing
-                // it is the point: a directory that hides them looks tidy and is lying.
-                row.put("partial", entry.getFileName().toString().endsWith(".partial"));
-                all.add(row);
+                archiveRow(entry).ifPresent(all::add);
             }
         } catch (IOException e) {
             log.warn("could not list {}", backups, e);
@@ -408,9 +400,95 @@ public final class WorkerApi implements AutoCloseable {
         }
     }
 
+    /**
+     * One row of the archive list, or nothing if that entry is not a file any more.
+     *
+     * <h2>One stat, not four</h2>
+     * This used to ask the filesystem five separate questions about one path - {@code isRegularFile},
+     * {@code size} twice, {@code getLastModifiedTime} - and a backup directory is the one place
+     * where the answers genuinely change between them. The writer grows the {@code .partial} while
+     * this runs and renames it over the finished name when it is done, so the old code could report
+     * {@code bytes} from one moment and {@code human} from another: a row reading
+     * "8 294 001 bytes (7.6 MB)" where the two halves disagree. Read once, report that one moment.
+     *
+     * <h2>An entry that vanished loses its row, not the listing</h2>
+     * The same rename makes a path from the directory stream disappear before it can be read, and
+     * {@code Files.size} on it throws. Thrown out of the loop, that turned "one archive finished
+     * while you were looking" into an empty backup page - the screen an admin reads as "the backups
+     * are gone". It is the most ordinary moment there is in that directory, so it ends the entry and
+     * nothing more.
+     */
+    static Optional<Map<String, Object>> archiveRow(final Path entry) {
+        final BasicFileAttributes attributes;
+        try {
+            attributes = Files.readAttributes(entry, BasicFileAttributes.class);
+        } catch (IOException gone) {
+            return Optional.empty();
+        }
+        if (!attributes.isRegularFile()) {
+            return Optional.empty();
+        }
+        final Map<String, Object> row = new LinkedHashMap<>();
+        row.put("name", entry.getFileName().toString());
+        row.put("bytes", attributes.size());
+        row.put("human", SnapshotResult.human(attributes.size()));
+        row.put("modified", attributes.lastModifiedTime().toInstant().toString());
+        // A .partial is a backup that is either running right now or died halfway. Showing
+        // it is the point: a directory that hides them looks tidy and is lying.
+        row.put("partial", entry.getFileName().toString().endsWith(".partial"));
+        return Optional.of(row);
+    }
+
     /** The body of a console POST. */
     private static final class ConsoleLine {
         private String command;
+    }
+
+    /**
+     * One log search: the matching lines up to the limit, and whether the limit hid any.
+     *
+     * <p><b>Exactly the limit is not truncation, and saying it is costs the reader the search.</b>
+     * The rule used to be {@code found.size() >= limit}: a search for a word that appears five
+     * times, asked for five lines, answered all five and then said it had stopped early. The
+     * honest reading of that is "there is more, narrow it down" - so an admin looking for the
+     * stack trace that matters narrows a search that was already complete, and the line they were
+     * looking for is now excluded by the term they added. This counts every match and only calls
+     * the answer truncated when one of them was left out.</p>
+     *
+     * <p>Counting past the limit is free here: the stream is read to the end either way, because
+     * the frames come from one socket that has to be drained before it can be closed.</p>
+     */
+    static final class Search implements java.util.function.Consumer<String> {
+
+        private final String needle;
+        private final int limit;
+        private final List<String> lines = new ArrayList<>();
+        private int matched;
+
+        Search(final String pattern, final int limit) {
+            this.needle = pattern.toLowerCase(java.util.Locale.ROOT);
+            this.limit = limit;
+        }
+
+        @Override
+        public void accept(final String line) {
+            if (!line.toLowerCase(java.util.Locale.ROOT).contains(needle)) {
+                return;
+            }
+            matched++;
+            if (lines.size() < limit) {
+                lines.add(line);
+            }
+        }
+
+        List<String> lines() {
+            return List.copyOf(lines);
+        }
+
+        /** True only when a matching line was left out, never merely because the list is full. */
+        boolean truncated() {
+            return matched > limit;
+        }
     }
 
     @Override

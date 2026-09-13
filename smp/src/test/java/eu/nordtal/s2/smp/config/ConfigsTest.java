@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.config;
 
+import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,6 +20,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -115,6 +117,29 @@ class ConfigsTest {
         assertTrue(Files.readString(directory.resolve("config.yml"))
                         .contains("farm-reset-backup-window-hours:"),
                 "the key is not written into a fresh config.yml, so nobody would find it");
+    }
+
+    /**
+     * The default being under a day is not the same as a day being refused.
+     *
+     * <p>The key's own comment has always said the window must be "far enough under 24", and until
+     * 2026-09-13 nothing held an operator to it: {@code 24} loaded, and the gate then accepted a
+     * backup from the night before as proof for tonight's reset - by about ten minutes, which is
+     * the gap between the backup and the reset.</p>
+     */
+    @Test
+    void aWindowOfADayOrMoreIsRefused() throws Exception {
+        Configs.load(directory, LOGGER);
+        final Path file = directory.resolve("config.yml");
+        Files.writeString(file, Files.readString(file)
+                .replaceFirst("(?m)^farm-reset-backup-window-hours: .*$",
+                        "farm-reset-backup-window-hours: 24"));
+
+        // jcore wraps a rejected value; the sentence an operator reads is the one underneath.
+        final ConfigValidationException refused = assertThrows(ConfigValidationException.class,
+                () -> Configs.load(directory, LOGGER));
+
+        assertTrue(refused.getMessage().contains("the night before"), refused.getMessage());
     }
 
     /**

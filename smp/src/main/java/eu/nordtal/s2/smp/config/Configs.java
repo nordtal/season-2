@@ -96,6 +96,18 @@ public final class Configs {
                             + "; it is a number of hours, and 0 - not a negative number - is how"
                             + " the check is switched off");
         }
+        // A day or more is the one value that looks like a generous setting and is a switched-off
+        // guard. The reset follows the backup by about a quarter of an hour, so at 24 YESTERDAY's
+        // backup authorises tonight's reset by ten minutes - and twice a year the hour Europe
+        // /Berlin moves decides it either way. The comment on the key has said "far enough under
+        // 24" since the key existed; until 2026-09-13 nothing enforced it.
+        if (config.farmResetBackupWindowHours() >= 24) {
+            throw new IllegalArgumentException(
+                    "farm-reset-backup-window-hours is " + config.farmResetBackupWindowHours()
+                            + "; a window of a day or more lets the backup from the night before"
+                            + " authorise tonight's reset, which is the failure the check exists"
+                            + " to prevent. Use 1 to 23, or 0 to switch the check off on purpose");
+        }
         requirePositive("nether-border-diameter", config.netherBorderDiameter());
         requirePositive("end-border-diameter", config.endBorderDiameter());
         requirePositive("border-expansion-blocks-per-second", config.borderExpansionBlocksPerSecond());

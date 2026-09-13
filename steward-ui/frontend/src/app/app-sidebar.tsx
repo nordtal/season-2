@@ -29,6 +29,9 @@ import { StewardMark } from "@/app/steward-mark"
  */
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  // Decided once for the whole navigation rather than per entry: "is this one active" cannot be
+  // answered by looking at one entry, because two of them can match and only the longer is meant.
+  const active = activeEntryId(pathname, NAVIGATION)
 
   return (
     <Sidebar collapsible="none" className="h-svh border-r">
@@ -53,13 +56,11 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.entries.map((entry) => {
-                  const href = resolveHref(entry.to, entry.params)
-                  const active = isActive(pathname, href)
                   return (
                     <SidebarMenuItem key={entry.id}>
                       <SidebarMenuButton
                         asChild
-                        isActive={active}
+                        isActive={entry.id === active}
                         tooltip={entry.note}
                         className="relative min-h-control data-[active=true]:bg-transparent data-[active=true]:text-primary data-[active=true]:before:absolute data-[active=true]:before:inset-y-1 data-[active=true]:before:-left-2 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-primary data-[active=true]:before:content-['']"
                       >
@@ -108,9 +109,46 @@ export function resolveHref(to: string, params?: Record<string, string>) {
   )
 }
 
-function isActive(pathname: string, href: string) {
+/**
+ * Which single entry a path lights up.
+ *
+ * <p>Two entries can match one path - {@code /betrieb/plan} matches both "Übersicht"
+ * ({@code /betrieb}) and "Plan" - and the sidebar then showed two selected rows with no way to
+ * tell which page you were on. The rule is the longest match wins, decided across the whole
+ * navigation, which is why this cannot be a predicate on one entry.</p>
+ *
+ * <p>A parameterised route is matched by its fixed part, not by the link it happens to point at:
+ * "Lauf" links to {@code /betrieb/lauf/letzter} and must still be the selected row while you are
+ * reading run 27. A per-service entry carries a real name in its parameters, and that longer
+ * match is what keeps the right service selected rather than all of them.</p>
+ */
+export function activeEntryId(
+  pathname: string,
+  groups: readonly { entries: readonly { id: string; to: string; params?: Record<string, string> }[] }[],
+) {
+  let best: string | null = null
+  let longest = -1
+  for (const group of groups) {
+    for (const entry of group.entries) {
+      const candidates = [resolveHref(entry.to, entry.params), fixedPart(entry.to)]
+      for (const candidate of candidates) {
+        if (matches(pathname, candidate) && candidate.length > longest) {
+          best = entry.id
+          longest = candidate.length
+        }
+      }
+    }
+  }
+  return best
+}
+
+/** Everything before a route's first parameter: `/betrieb/lauf/$id` is `/betrieb/lauf`. */
+function fixedPart(to: string) {
+  const parameter = to.indexOf("/$")
+  return parameter === -1 ? to : to.slice(0, parameter)
+}
+
+function matches(pathname: string, href: string) {
   if (href === "/") return pathname === "/"
-  // A detail route below a section keeps the section marked: /betrieb/plan lights "Plan" and not
-  // "Übersicht", because the longer prefix is checked by the entry that owns it.
   return pathname === href || pathname.startsWith(`${href}/`)
 }

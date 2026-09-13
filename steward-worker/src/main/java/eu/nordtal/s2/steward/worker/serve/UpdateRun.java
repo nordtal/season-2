@@ -211,10 +211,35 @@ final class UpdateRun {
                         .withDetail("pulling its image and recreating the container"));
                 progress.accept(report);
                 final RedeployResult recreated = containers.recreate(service);
-                report = report.with(recreated.triggered()
-                        ? report.line(service).at(UpdateReport.State.STARTING)
-                        : report.line(service).failed("its image is out of date and the container"
-                                + " could not be recreated: " + recreated.message()));
+                if (recreated.triggered()) {
+                    report = report.with(report.line(service).at(UpdateReport.State.STARTING));
+                    progress.accept(report);
+                    continue;
+                }
+
+                // A RECREATE THIS PROCESS CANNOT DO IS NOT A REASON TO LEAVE A SERVER OFF. It used
+                // to be: the line was failed and the loop moved on, so the container that had just
+                // been stopped was never started again. With DockerOps#recreate refusing every
+                // time - compose belongs to steward-deployer - that was every outdated service, on
+                // every run, left down until somebody noticed. Keeping the network up is this
+                // service's first duty; the old image is the second-best outcome, not the worst
+                // one. The line stays FAILED, because the update genuinely did not happen and a run
+                // is settled FAILED the moment a line is.
+                final String why = "its image is out of date and the container could not be"
+                        + " recreated: " + recreated.message();
+                final ServiceRuntime outdated = state.runtime().service(service).orElse(null);
+                if (outdated == null || outdated.containerId() == null) {
+                    report = report.with(report.line(service).failed(why
+                            + " - and there is no container id to put the old one back with"));
+                    progress.accept(report);
+                    continue;
+                }
+                final RedeployResult back = containers.start(outdated.containerId());
+                report = report.with(report.line(service).failed(back.triggered()
+                        ? why + ". It was started again on the image it already had, so the service"
+                                + " is back - on the old version"
+                        : why + ", and starting it again on the old image failed too: "
+                                + back.message()));
                 progress.accept(report);
                 continue;
             }

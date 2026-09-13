@@ -3,12 +3,21 @@
  *
  * Nothing in this interface calls `fetch` itself. Three things have to be true of every request and
  * are true exactly once here: a write carries the CSRF token, a 401 means "the session is gone" and
- * not "the list is empty", and an error says **which half** is down - steward-ui or steward-worker.
- * That last one is the whole reason `ApiError.where` exists: an empty service table and a stopped
- * daemon look identical on screen, and only one of them is a reason to run to the server.
+ * not "the list is empty", and an error says **which of the three services** is down. That last one
+ * is the whole reason `ApiError.where` exists: an empty service table and a stopped daemon look
+ * identical on screen, and only one of them is a reason to run to the server.
  */
 
-export type Where = "steward-ui" | "steward-worker"
+/**
+ * Which service answered badly.
+ *
+ * Three, because the deployment is three (concept §3): the interface, the one process that holds
+ * the docker socket, and the one process allowed to create a container. They fail differently and
+ * mean different things - a stopped worker is a stack nobody can see, a stopped deployer is a
+ * stack nobody can change - so the sentence on screen must not collapse them into "etwas ist
+ * kaputt".
+ */
+export type Where = "steward-ui" | "steward-worker" | "steward-deployer"
 
 export class ApiError extends Error {
   readonly status: number
@@ -81,9 +90,13 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
   if (!response.ok) {
     const body: Record<string, unknown> | null =
       parsed !== null && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null
-    // The backend's WorkerException handler answers with `where: "steward-worker"`, which is the
-    // only way this end can tell "the daemon did not answer" from "this service threw".
-    const where: Where = body?.where === "steward-worker" ? "steward-worker" : "steward-ui"
+    // The backend's InternalClient.Failure handler answers with the name of whichever service
+    // did not answer, which is the only way this end can tell "the daemon did not answer" from
+    // "this service threw".
+    const where: Where =
+      body?.where === "steward-worker" || body?.where === "steward-deployer"
+        ? body.where
+        : "steward-ui"
     const message = (body && messageOf(body)) ?? `${response.status} ${response.statusText}`
     const detail = body ? String(body.detail ?? "") : text
     throw new ApiError(response.status, message, where, detail)
@@ -417,4 +430,34 @@ export type CommandRun = {
   name?: string
   status: "PENDING" | "RUNNING" | "DONE" | "FAILED" | "EXPIRED"
   result?: string
+}
+
+// ---------------------------------------------------------------------------------------------
+// steward-deployer: one question and one verb (§10a.4).
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Whether the recreate button may be drawn at all.
+ *
+ * Asked before anybody clicks, because a stack whose setup script has not run yet has no shared
+ * secret for the deployer - and "nicht eingerichtet" is a different sentence from "kaputt".
+ */
+export type DeployerState = {
+  available: boolean
+  /** Present only when `available` is false, and it is the whole explanation. */
+  reason?: string
+  reachable?: boolean
+}
+
+/** One compose operation, while it runs and after it has ended. */
+export type DeployerJob = {
+  id: string
+  kind: string
+  services: string[]
+  state: "RUNNING" | "DONE" | "FAILED"
+  started: string
+  finished?: string
+  exitCode?: number
+  /** compose's own output, in order. Only `GET /api/deployer/jobs/{id}` carries it. */
+  lines?: string[]
 }

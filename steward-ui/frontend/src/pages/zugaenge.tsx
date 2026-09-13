@@ -263,6 +263,9 @@ export function ZugaengePage() {
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
   const [selected, setSelected] = useState<Person | null>(null)
+  // The person whose access is being revoked. Separate from `selected` on purpose: opening this
+  // one closes the other, so there is never a dialog inside a dialog.
+  const [revoking, setRevoking] = useState<Person | null>(null)
   // One clock for the whole render, so that two badges in one row cannot disagree about "jetzt".
   const now = Date.now()
 
@@ -428,9 +431,27 @@ export function ZugaengePage() {
 
       <Dialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
         <DialogContent className="max-w-2xl">
-          {selected ? <PersonGrants person={selected} now={now} /> : null}
+          {selected ? (
+            <PersonGrants
+              person={selected}
+              now={now}
+              onRevoke={() => {
+                const person = selected
+                setSelected(null)
+                setRevoking(person)
+              }}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
+
+      {revoking ? (
+        <RevokeDialog
+          person={revoking}
+          open
+          onOpenChange={(open) => (open ? null : setRevoking(null))}
+        />
+      ) : null}
     </div>
   )
 }
@@ -585,17 +606,37 @@ function GrantDialog() {
  * does, and it is what lets the login path get away with one `max(valid_until)`. Saying "alle
  * laufenden Zeiträume" here is therefore accurate and not a simplification.
  */
-function RevokeDialog({ person }: { person: Person }) {
+/**
+ * Entziehen, from the table row or from the opened person.
+ *
+ * Till asked for both doors (2026-09-13). They are not nested: the button inside the person dialog
+ * CLOSES that dialog and opens this one at page level, because an AlertDialog inside an open
+ * Dialog is two focus traps on one screen, and which of them gets the keyboard back afterwards is
+ * not something anybody here can verify without a browser.
+ *
+ * @param open when given, the dialog is controlled from outside and draws no trigger of its own
+ */
+function RevokeDialog({
+  person,
+  open,
+  onOpenChange,
+}: {
+  person: Person
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
   const revoke = useRevokeAccess()
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="text-destructive">
-          <ShieldX aria-hidden />
-          Entziehen
-        </Button>
-      </AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      {open === undefined ? (
+        <AlertDialogTrigger asChild>
+          <Button type="button" variant="ghost" size="sm" className="text-destructive">
+            <ShieldX aria-hidden />
+            Entziehen
+          </Button>
+        </AlertDialogTrigger>
+      ) : null}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Zugang entziehen?</AlertDialogTitle>
@@ -659,13 +700,35 @@ function RevokeDialog({ person }: { person: Person }) {
 }
 
 /** One person's chain, period by period. Read-only: the two writes stand in the table row. */
-function PersonGrants({ person, now }: { person: Person; now: number }) {
+function PersonGrants({
+  person,
+  now,
+  onRevoke,
+}: {
+  person: Person
+  now: number
+  onRevoke: () => void
+}) {
   const grants = useGrants(person.discordId)
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="font-mono">{person.discordId}</DialogTitle>
+        <DialogTitle className="flex flex-wrap items-center justify-between gap-3 pr-6">
+          <span className="font-mono">{person.discordId}</span>
+          {person.accessActive ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-destructive"
+              onClick={onRevoke}
+            >
+              <ShieldX aria-hidden />
+              Entziehen
+            </Button>
+          ) : null}
+        </DialogTitle>
         <DialogDescription>
           Anfrage → Tab → gezahlt → Zugang → verknüpft. Hier steht das vierte Glied: jeder Zeitraum,
           seine Quelle und – beim Kauf – die Zahlungsanfrage, aus der er stammt.

@@ -2,6 +2,9 @@ import { Outlet, useRouterState } from "@tanstack/react-router"
 
 import { AppSidebar } from "@/app/app-sidebar"
 import { CommandPalette } from "@/app/command-palette"
+import { SignInPage } from "@/app/sign-in"
+import { ApiError } from "@/lib/api"
+import { useMe } from "@/lib/queries"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,6 +26,18 @@ import { TooltipProvider } from "@/components/ui/tooltip"
  * column moves.
  */
 export function Shell() {
+  const me = useMe()
+
+  // Nothing is drawn until this has answered. A shell rendered first and replaced a moment later
+  // would flash a sidebar full of pages that every answer 401 - which reads as a broken interface
+  // rather than as a missing session.
+  if (me.isPending) return <SignInPage loading />
+
+  // A 401 here IS the signed-out state; `useMe` is the one route that answers without a session,
+  // so anything else failing is a real fault and is left to the pages to report.
+  const signedOut = me.data ? !me.data.signedIn : me.error instanceof ApiError
+  if (signedOut) return <SignInPage me={me.data} />
+
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider

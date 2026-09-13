@@ -80,6 +80,33 @@ val viteBuild = tasks.register<NpmTask>("viteBuild") {
     outputs.cacheIf { true }
 }
 
+/**
+ * The frontend's own tests.
+ *
+ * Hung on `check` rather than on `build`, because this is the same promise :steward-ui's Java half
+ * makes: a `sh gradlew check` that passes is a claim about the whole module, and a module whose
+ * interesting logic - the Ampel's decision, the log window's buffer - is only ever verified by
+ * `tsc --noEmit` is a module where "it compiles" was quietly allowed to stand in for "it works".
+ * It runs after viteBuild so a type error is reported by the build that exists to report one.
+ */
+val viteTest = tasks.register<NpmTask>("viteTest") {
+    group = "verification"
+    description = "Runs the Steward frontend's vitest suite."
+    dependsOn(tasks.named("npmInstall"))
+    mustRunAfter(viteBuild)
+    npmCommand.set(listOf("run", "test"))
+
+    // NO DECLARED OUTPUT, so it runs on every `check`. Vitest produces nothing this build
+    // consumes - the outcome is a verdict, not a file - and the obvious way to cache a verdict is a
+    // marker file written from a `doLast`, which the configuration cache refuses: a closure in a
+    // Kotlin build script holds a reference to the script object. The whole suite is about four
+    // seconds, which is a smaller price than a cache that can report a pass nobody ran.
+}
+
+tasks.named("check") {
+    dependsOn(viteTest)
+}
+
 tasks.named<ProcessResources>("processResources") {
     from(viteBuild) {
         into("web")

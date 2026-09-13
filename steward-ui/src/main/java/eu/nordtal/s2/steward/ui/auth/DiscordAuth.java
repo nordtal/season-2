@@ -48,19 +48,51 @@ public final class DiscordAuth {
 
     private static final Logger log = LoggerFactory.getLogger(DiscordAuth.class);
 
-    private static final String API = "https://discord.com/api/v10";
+    /** Discord's API, and the one system boundary this class has. */
+    public static final String DISCORD_API = "https://discord.com/api/v10";
     private static final String AUTHORIZE = "https://discord.com/oauth2/authorize";
     private static final String SCOPES = "identify guilds.members.read";
     private static final Gson GSON = new Gson();
 
     private final UiSpec.DiscordSpec config;
     private final String redirectUri;
+    private final String api;
+    /** Connecting to Discord. */
+    private static final Duration CONNECT = Duration.ofSeconds(10);
+
+    /**
+     * And answering.
+     *
+     * <p><b>A connect timeout is not a deadline</b>, and the difference has a person in it: these
+     * two calls happen inside {@code /auth/callback}, with somebody's browser waiting on the
+     * response. Discord accepting the connection and then not finishing the answer - an incident on
+     * their side, a middlebox holding the socket - blocked that request thread with no way out and
+     * no page to show for it. Fifteen seconds is far more than the API takes and far less than a
+     * person will wait.</p>
+     */
+    private static final Duration ANSWER = Duration.ofSeconds(15);
+
     private final HttpClient http;
 
     public DiscordAuth(final @NotNull UiSpec.DiscordSpec config, final @NotNull String publicUrl) {
+        this(config, publicUrl, DISCORD_API);
+    }
+
+    /**
+     * The same sign-in against a different API base.
+     *
+     * <p>There is one reason this exists and it is worth naming: {@link #DISCORD_API} is the only
+     * thing in the whole sign-in that is not this repository's own code. A test that puts something
+     * else there gets to exercise the real state parameter, the real role check, the real session
+     * and the real cookie - which is the half that has actually had bugs in it. Stubbing anything
+     * further in would prove only that the stub agrees with itself.</p>
+     */
+    public DiscordAuth(final @NotNull UiSpec.DiscordSpec config, final @NotNull String publicUrl,
+                       final @NotNull String api) {
         this.config = config;
         this.redirectUri = publicUrl + "/auth/callback";
-        this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+        this.api = api;
+        this.http = HttpClient.newBuilder().connectTimeout(CONNECT).build();
     }
 
     /** What is missing before anybody can sign in, or empty when the configuration is complete. */
@@ -154,10 +186,9 @@ public final class DiscordAuth {
                 + "&grant_type=authorization_code"
                 + "&code=" + encode(code)
                 + "&redirect_uri=" + encode(redirectUri);
-        final HttpResponse<String> response = send(HttpRequest.newBuilder(URI.create(API + "/oauth2/token"))
+        final HttpResponse<String> response = send(HttpRequest.newBuilder(URI.create(api + "/oauth2/token"))
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(form))
-                .build());
+                .POST(HttpRequest.BodyPublishers.ofString(form)));
         if (response.statusCode() != 200) {
             throw new AuthException(response.statusCode(),
                     "Discord refused the sign-in (" + response.statusCode() + "). The usual cause "
@@ -172,10 +203,9 @@ public final class DiscordAuth {
     }
 
     private JsonObject getJson(final String path, final String accessToken) {
-        final HttpResponse<String> response = send(HttpRequest.newBuilder(URI.create(API + path))
+        final HttpResponse<String> response = send(HttpRequest.newBuilder(URI.create(api + path))
                 .header("Authorization", "Bearer " + accessToken)
-                .GET()
-                .build());
+                .GET());
         if (response.statusCode() != 200) {
             throw new AuthException(response.statusCode(),
                     "Discord answered " + response.statusCode() + " for " + path);
@@ -183,9 +213,10 @@ public final class DiscordAuth {
         return GSON.fromJson(response.body(), JsonObject.class);
     }
 
-    private HttpResponse<String> send(final HttpRequest request) {
+    /** Every call to Discord goes through here, and every one of them carries {@link #ANSWER}. */
+    private HttpResponse<String> send(final HttpRequest.Builder request) {
         try {
-            return http.send(request, HttpResponse.BodyHandlers.ofString());
+            return http.send(request.timeout(ANSWER).build(), HttpResponse.BodyHandlers.ofString());
         } catch (IOException e) {
             throw new AuthException(502, "Discord could not be reached: " + e.getMessage());
         } catch (InterruptedException e) {

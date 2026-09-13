@@ -37,22 +37,28 @@ import java.time.Duration;
 public final class InternalClient {
 
     private final HttpClient http;
+    /** What a log follow may take: it is supposed to sit there saying nothing for hours. */
+    public static final Duration FOLLOW_DEADLINE = Duration.ofHours(12);
+
     private final String name;
     private final String baseUrl;
     private final String token;
+    private final Duration timeout;
 
     /**
      * @param name    the compose service this talks to, as it will appear in a failure message
      * @param baseUrl its address on the internal network, with or without a trailing slash
      * @param token   the shared secret, sent as {@code X-Steward-Token}
-     * @param timeout how long to wait for the connection - not for the answer, which a log follow
-     *                is allowed to take hours over
+     * @param timeout how long to wait, both for the connection and for an ordinary answer. A
+     *                stream is the exception and carries {@link #FOLLOW_DEADLINE} instead, because
+     *                a log follow is allowed to take hours over saying nothing
      */
     public InternalClient(final @NotNull String name, final @NotNull String baseUrl,
                           final @NotNull String token, final @NotNull Duration timeout) {
         this.name = name;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.token = token;
+        this.timeout = timeout;
         this.http = HttpClient.newBuilder().connectTimeout(timeout).build();
     }
 
@@ -116,13 +122,31 @@ public final class InternalClient {
      * <p>Used for the log follow, which is an SSE stream on both sides: the worker sends events,
      * this reads them, and the browser is given the same events again. A proxy rather than a
      * redirect because the browser must never be given the worker's address or its token.</p>
+     *
+     * <h2>Closing the returned stream is not, on its own, closing the connection</h2>
+     * Measured on this host on 2026-09-13: closing the {@code InputStream} of a response cancels
+     * the subscription, and the JDK's client tears the connection down when something next happens
+     * on it - an arriving byte, an error. On a stream that says <em>nothing</em> that moment never
+     * comes, and the socket stays open with nobody reading it.
+     *
+     * <p>That is why {@code steward-worker} sends a comment every ten seconds on a follow, and it
+     * is not only politeness at the other end: it is what makes a cancellation here actually land,
+     * within one beat. The two are one mechanism and they ship in one version together.</p>
      */
     public @NotNull InputStream stream(final @NotNull String path) {
         try {
             final HttpResponse<InputStream> response = http.send(
-                    request(path).header("Accept", "text/event-stream").GET().build(),
+                    request(path, FOLLOW_DEADLINE).header("Accept", "text/event-stream").GET().build(),
                     HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() >= 400) {
+                // ofInputStream hands back an open body for a failure too, and this branch used to
+                // drop it on the floor: a connection to the worker held open by a request that was
+                // already refused, one per rejected follow.
+                try (InputStream refused = response.body()) {
+                    refused.readAllBytes();
+                } catch (IOException ignored) {
+                    // The status is the diagnosis; a body we could not drain does not change it.
+                }
                 throw new Failure(name, response.statusCode(),
                         name + " answered " + response.statusCode() + " for " + path, null);
             }
@@ -135,12 +159,23 @@ public final class InternalClient {
         }
     }
 
+    /**
+     * A request that has to be answered within the configured timeout.
+     *
+     * <p><b>connectTimeout is not a deadline.</b> It bounds the TCP handshake and nothing after it,
+     * so a worker that accepts a connection and then stops answering - a daemon mid-restart, a
+     * thread pool that has filled - left an ordinary page request hanging for the twelve hours that
+     * belong to the log follow. The comment here used to claim every non-stream call carried its
+     * own shorter deadline "through the server it talks to", and nothing did.</p>
+     */
     private HttpRequest.Builder request(final String path) {
+        return request(path, timeout);
+    }
+
+    private HttpRequest.Builder request(final String path, final Duration deadline) {
         return HttpRequest.newBuilder(URI.create(baseUrl + path))
                 .header("X-Steward-Token", token)
-                // Long, because a log follow is supposed to stay open for hours. Every call that is
-                // not a stream carries its own shorter deadline through the server it talks to.
-                .timeout(Duration.ofHours(12));
+                .timeout(deadline);
     }
 
     /** What the interface shows when one of the two will not answer. */

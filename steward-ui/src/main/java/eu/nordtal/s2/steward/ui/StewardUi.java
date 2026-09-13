@@ -63,6 +63,16 @@ public final class StewardUi {
     private static final String CSRF = "steward.csrf";
     private static final String STATE = "steward.oauth-state";
 
+    /**
+     * The longest access anybody may be granted from here, in days.
+     *
+     * <p>A decade is nine seasons more than a season lasts, so it refuses nothing real. What it
+     * does refuse is a slip of the keyboard reaching PostgreSQL, where the interval is built as
+     * {@code hours => days * 24} and overflows an integer long before {@code Integer.MAX_VALUE}.
+     * A ceiling here is a sentence the operator can read; the overflow there is a 500.</p>
+     */
+    private static final int MOST_DAYS = 3650;
+
     private final UiSpec config;
     private final DiscordAuth discord;
     private final InternalClient worker;
@@ -402,8 +412,11 @@ public final class StewardUi {
                 if (ask == null || ask.discordId == null || ask.discordId.isBlank()) {
                     throw new BadRequestResponse("discordId is whose access this is");
                 }
-                if (ask.days == null || ask.days <= 0) {
-                    throw new BadRequestResponse("days must be a positive number of days");
+                if (ask.days == null || ask.days <= 0 || ask.days > MOST_DAYS) {
+                    // The ceiling is not decoration. `make_interval(hours => :days * 24)` in
+                    // AccessDao overflows a PostgreSQL integer well before Integer.MAX_VALUE, and
+                    // what comes back is a 500 blaming this program for a number somebody typed.
+                    throw new BadRequestResponse("days is between 1 and " + MOST_DAYS);
                 }
                 final DiscordAuth.Account who = account(ctx).orElseThrow();
                 // ensureUser first: a grant against a Discord id the bot has never seen would fail
@@ -467,9 +480,14 @@ public final class StewardUi {
                 }
                 final DiscordAuth.Account who = account(ctx).orElseThrow();
                 final String actor = who.name() + " (" + who.id() + ")";
-                final var change = "smpStart".equals(ask.which)
-                        ? data.phase().setSmpStart(at, actor)
-                        : data.phase().setLaunch(at, actor);
+                // NOT A TERNARY. An `equals` and an `else` made "smpstart", "launchh" and a
+                // missing field all mean "launch", so a typo overwrote the wrong one of the two
+                // dates the whole season hangs off - and answered 200 while doing it.
+                final var change = switch (ask.which == null ? "" : ask.which.trim()) {
+                    case "smpStart" -> data.phase().setSmpStart(at, actor);
+                    case "launch" -> data.phase().setLaunch(at, actor);
+                    default -> throw new BadRequestResponse("which is smpStart or launch");
+                };
                 ctx.json(change);
             });
 

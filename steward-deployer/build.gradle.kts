@@ -4,6 +4,13 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.steward.deployer.StewardDeployer")
 
+// ComposeRefusesItselfTest reads the real compose file to check that the service this process
+// refuses to recreate is a service that exists. Without the declaration Gradle cannot see the file,
+// an edit to it does not re-run the test, and the check silently stops running.
+repositoryRootTestInputs {
+    reads("compose.yml")
+}
+
 dependencies {
     // A small internal API on the steward network: steward-ui owns no docker socket and no compose
     // binary, so "recreate this service now" has to be a request to the one service that does.

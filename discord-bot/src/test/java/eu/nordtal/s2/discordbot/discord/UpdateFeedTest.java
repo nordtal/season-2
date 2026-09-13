@@ -78,6 +78,14 @@ class UpdateFeedTest {
     /** Only the four reads the feed makes; everything else is somebody else's business. */
     private static final class Rows implements UpdateDirectory {
 
+        @Override
+        public java.util.List<UpdateRequest> recent(final int limit) {
+            // The feed follows rows by id, one at a time; a page of recent ones is the web
+            // interface's question and nothing here asks it.
+            return java.util.List.of();
+        }
+
+
         final Map<Long, UpdateRequest> byId = new LinkedHashMap<>();
 
         @Override

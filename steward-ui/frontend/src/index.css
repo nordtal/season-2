@@ -1,0 +1,225 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Nordtal Steward - the theme.
+ *
+ * DARK ONLY. There is no light block, no toggle and no `prefers-color-scheme` query: `index.html`
+ * carries `class="dark"` and nothing removes it. The custom-variant below exists because shadcn
+ * components ship `dark:` utilities; it resolves to "always" here, which is the point.
+ *
+ * THE ONE RULE: blue is action and nothing else. #4a63d8 is the brand (it is
+ * NetworkSpec.NORDTAL_BLUE, measured off the logo) and it appears on primary buttons, on the focus
+ * ring, on the active navigation item and on links. NO SURFACE CARRIES IT - every page, card,
+ * popover, sidebar and input background is neutral near-black. That is the whole discipline of
+ * this variant: if no panel is blue, every blue thing on screen means something.
+ *
+ * Foreground is #fffcf6, a warm off-white, never pure white - it is what keeps a near-black
+ * interface from reading as a colour-managed screenshot.
+ *
+ * Status colours are chosen, not inherited. Tailwind's green-500/amber-500/red-500 are louder and
+ * bluer than this palette wants, so success/warning/danger are spelled out below and are the only
+ * three values allowed to say "good", "careful" and "broken".
+ */
+@custom-variant dark (&:is(.dark *));
+
+:root,
+.dark {
+  color-scheme: dark;
+
+  /* Surfaces: neutral near-black, in four steps. None of them is tinted. */
+  --background: #0d0d0d;
+  --foreground: #fffcf6;
+  --card: #141414;
+  --card-foreground: #fffcf6;
+  --popover: #161616;
+  --popover-foreground: #fffcf6;
+
+  /* Action. The only blue in the file. */
+  --primary: #4a63d8;
+  --primary-foreground: #fffcf6;
+
+  /* Quiet surfaces that sit on top of --card. Warm-neutral, deliberately not blue-grey. */
+  --secondary: #1e1e1c;
+  --secondary-foreground: #fffcf6;
+  --muted: #1a1a19;
+  --muted-foreground: #a8a49c;
+  --accent: #232320;
+  --accent-foreground: #fffcf6;
+
+  /* Status. Three values, no more. `--destructive` is the name shadcn's components look for. */
+  --success: #3fb98a;
+  --success-foreground: #0d0d0d;
+  --warning: #d9a13b;
+  --warning-foreground: #0d0d0d;
+  --destructive: #d8534a;
+  --destructive-foreground: #fffcf6;
+
+  --border: #2a2a27;
+  --input: #333330;
+  /* The focus ring is blue because focus is the promise of an action. */
+  --ring: #4a63d8;
+
+  /*
+   * Charts stay off the brand. A series painted #4a63d8 would be the one blue on screen that is
+   * not clickable, which is exactly the confusion the rule above exists to prevent - so the ramp
+   * is the three status colours plus two neutrals.
+   */
+  --chart-1: #3fb98a;
+  --chart-2: #d9a13b;
+  --chart-3: #d8534a;
+  --chart-4: #8f8b82;
+  --chart-5: #cfc9be;
+
+  /* The sidebar is a surface, so it is neutral - one step darker than the page, not lighter. */
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #fffcf6;
+  --sidebar-primary: #4a63d8;
+  --sidebar-primary-foreground: #fffcf6;
+  --sidebar-accent: #1c1c1a;
+  --sidebar-accent-foreground: #fffcf6;
+  --sidebar-border: #232320;
+  --sidebar-ring: #4a63d8;
+
+  /*
+   * Radius, and the concentric rule that goes with it: an element nested inside another with
+   * padding p gets `outer - p`. --radius-inner is the one step down that covers almost every case
+   * here (6px outer, 12px cell padding, so anything inside a card is square-ish by design).
+   */
+  --radius: 0.375rem;
+
+  /* Density. Table rows are 34px and cells are padded 12px; a control inside a row still gets its
+   * own 36px minimum, because a hit area is not a layout decision. */
+  --row-height: 34px;
+  --cell-padding: 12px;
+  --control-min-height: 36px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  --spacing-row: var(--row-height);
+  --spacing-cell: var(--cell-padding);
+  --spacing-control: var(--control-min-height);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    /* Every scroll in this interface is a container's, not the document's: the shell is a fixed
+     * viewport with its own scroll areas. */
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    height: 100%;
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * A number that changes must not make the column dance. Every digit here is the same width, and
+   * the rule is applied to the elements that carry figures rather than left to each author to
+   * remember: tables, form controls, code and anything explicitly marked `.tnum`.
+   */
+  table,
+  input,
+  output,
+  code,
+  kbd,
+  samp,
+  pre,
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Focus is never removed, only replaced. Components below may set `outline-none`, and every one
+   * of them pairs it with a visible `focus-visible:ring-*`; this is the net for anything that
+   * forgets, and for elements the design system never touches.
+   */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbars, so a dark surface does not grow a light one down its right edge. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* Respect the setting. Nothing in this interface depends on an animation to be understood. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /*
+   * Density, in one place. A table cell is 12px of padding inside a 34px row - and a button that
+   * lands in that row keeps its own 36px, so it overhangs the row's text box slightly rather than
+   * shrinking to fit it. That is the intended look: rows are tight, targets are not.
+   */
+  .steward-table :where(th, td) {
+    padding-inline: var(--cell-padding);
+    padding-block: 0;
+    height: var(--row-height);
+  }
+
+  .steward-table :where(button, a[role="button"], [data-slot="button"]) {
+    min-height: var(--control-min-height);
+  }
+}

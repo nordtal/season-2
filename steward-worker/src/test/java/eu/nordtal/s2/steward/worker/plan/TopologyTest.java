@@ -432,6 +432,23 @@ class TopologyTest {
                     service.name() + ": the server and steward-worker are pointed at two different"
                             + " plugin sources");
 
+            // AND THE BACKUP READS THE SAME SOURCE. It used to name the default volume outright
+            // while the other two carried the variable, so a deployment that set one of them
+            // archived a volume nothing ran from - an archive that restores cleanly and restores
+            // the wrong thing, discovered on the day it is needed.
+            final String forTheBackup = workerMounts.stream()
+                    .filter(mount -> mount.endsWith(
+                            ":/backup-sources/nordtal-s2_mc-" + service.name() + "-plugins:ro"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("steward-worker does not mount "
+                            + service.name() + "'s plugins/ for the backup, so it is not saved"));
+
+            // `:ro` is a third field; sourceOf reads up to the destination, so drop it first.
+            assertEquals(sourceOf(onTheServer),
+                    sourceOf(forTheBackup.substring(0, forTheBackup.length() - ":ro".length())),
+                    service.name() + ": the backup reads a different plugin source than the server"
+                            + " runs from");
+
             // The default has to be a VOLUME NAME, never a path: a path under a directory a
             // deployment checks out is deleted the next time it is checked out, taking every
             // hand-edited config.yml, milestones.yml and pack.yml with it (finding 151). Docker

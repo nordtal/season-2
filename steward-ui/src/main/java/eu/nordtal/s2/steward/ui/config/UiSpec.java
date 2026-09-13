@@ -21,8 +21,8 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
         "attacker reaches first, and it can therefore do the least.",
         "",
         "Secrets are environment variables, not values in this file: NORDTAL_STEWARD_UI_DISCORD_",
-        "CLIENT_SECRET and NORDTAL_STEWARD_UI_WORKER_TOKEN. jcore lets an environment variable",
-        "win over any key here and never writes it back."
+        "CLIENT_SECRET, NORDTAL_STEWARD_UI_WORKER_TOKEN and NORDTAL_STEWARD_UI_DEPLOYER_TOKEN.",
+        "jcore lets an environment variable win over any key here and never writes it back."
 })
 public interface UiSpec {
 
@@ -110,6 +110,45 @@ public interface UiSpec {
             "page lists what it finds and says nothing about what it cannot see."
     })
     ConfigsSpec configs();
+
+    @Order(8)
+    @Key("deployer")
+    @Comment({
+            "Where steward-deployer's internal API is, and the secret it expects.",
+            "",
+            "IT IS A SECOND SERVICE AND A SECOND SECRET, not the worker's. The split is the whole",
+            "privilege boundary of this stack: the deployer may create containers and the worker",
+            "may not, so one stolen token must not be both. What this interface asks it for is one",
+            "thing - recreate a service whose image has drifted (10a.4) - and it asks it by name,",
+            "never with a command line.",
+            "",
+            "Empty means the button is not offered and the page says why, rather than offering a",
+            "button that fails."
+    })
+    DeployerSpec deployer();
+
+    /** Where steward-deployer's internal API is. */
+    @ConfigSpec
+    interface DeployerSpec {
+
+        @Order(1)
+        @Key("base-url")
+        @Comment("The compose service name and the API port - no TLS, it never leaves the network.")
+        default String baseUrl() {
+            return "http://steward-deployer:8081";
+        }
+
+        @Order(2)
+        @Key("token")
+        @Comment({
+                "The shared secret, the same one steward-deployer is given as",
+                "NORDTAL_STEWARD_DEPLOYER_TOKEN. From the environment in a deployment; this file",
+                "holds an empty string rather than a secret somebody might commit."
+        })
+        default String token() {
+            return "";
+        }
+    }
 
     /** Where the other services' config files are mounted. */
     @ConfigSpec

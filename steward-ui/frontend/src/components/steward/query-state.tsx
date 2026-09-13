@@ -12,9 +12,10 @@ import { Skeleton } from "@/components/ui/skeleton"
  * matters: a table that renders nothing while it loads and nothing when it is empty tells an
  * operator the same thing in two situations that could not be more different.
  *
- * **A failure names which half is down.** `ApiError.where` is either steward-ui or steward-worker,
- * and the difference is the difference between "this page is broken" and "the daemon is not
- * answering, and nothing on this host can be read right now". An empty table would say neither.
+ * **A failure names which service is down.** `ApiError.where` is one of the three the deployment
+ * has, and the difference matters: "this page is broken", "the daemon is not answering, so nothing
+ * on this host can be read", and "nothing can be deployed right now" are three different evenings.
+ * An empty table would say none of them.
  */
 
 export function Loading({ rows = 5, label }: { rows?: number; label?: string }) {
@@ -44,7 +45,8 @@ export function Empty({ title, note, action }: { title: string; note?: string; a
 export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const api = error instanceof ApiError ? error : null
   const worker = api?.where === "steward-worker"
-  const Icon = worker ? ServerCrash : AlertTriangle
+  const deployer = api?.where === "steward-deployer"
+  const Icon = worker || deployer ? ServerCrash : AlertTriangle
 
   return (
     <div
@@ -57,7 +59,9 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
           <p className="text-sm font-medium">
             {worker
               ? "steward-worker antwortet nicht."
-              : "Diese Angaben konnten nicht geladen werden."}
+              : deployer
+                ? "steward-deployer antwortet nicht."
+                : "Diese Angaben konnten nicht geladen werden."}
           </p>
           <p className="text-sm text-muted-foreground">
             {api ? api.message : String(error)}
@@ -67,6 +71,12 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
             <p className="max-w-prose text-sm text-muted-foreground">
               Alles über einen Container – Zustand, Log, Konsole – kommt von diesem Dienst. Die
               Oberfläche selbst läuft; leer ist diese Liste deshalb nicht.
+            </p>
+          ) : null}
+          {deployer ? (
+            <p className="max-w-prose text-sm text-muted-foreground">
+              Nur dieser Dienst darf Container erzeugen. Solange er schweigt, lässt sich nichts neu
+              erzeugen – laufen tut der Stack deswegen weiter.
             </p>
           ) : null}
           {api?.detail ? (

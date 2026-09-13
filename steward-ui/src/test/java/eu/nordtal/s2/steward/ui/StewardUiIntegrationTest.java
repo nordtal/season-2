@@ -7,7 +7,7 @@ import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import eu.nordtal.s2.steward.ui.data.Data;
-import eu.nordtal.s2.steward.ui.worker.WorkerClient;
+import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinGson;
 import org.flywaydb.core.Flyway;
@@ -57,6 +57,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class StewardUiIntegrationTest {
 
     private static final int WORKER_PORT = 18091;
+    private static final int DEPLOYER_PORT = 18092;
     private static final int UI_PORT = 18090;
     private static final Gson GSON = new Gson();
 
@@ -64,6 +65,11 @@ class StewardUiIntegrationTest {
     private static final AtomicBoolean workerBroken = new AtomicBoolean(false);
 
     private static Javalin fakeWorker;
+    private static Javalin fakeDeployer;
+
+    /** What the stand-in deployer was last asked to recreate, so a test can read it back. */
+    private static final java.util.List<String> recreated =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
     private static StewardUi ui;
     private static HttpClient http;
     private static PostgreSQLContainer<?> postgres;
@@ -113,6 +119,31 @@ class StewardUiIntegrationTest {
                     ctx.status(202).json(Map.of("sent", "list")));
         }).start(WORKER_PORT);
 
+        // A stand-in for steward-deployer. It is a second process in the deployment and a second
+        // secret, so it is a second stub here too: a single fake answering both would prove the
+        // interface works when the two are the same service, which is the thing 3 forbids.
+        fakeDeployer = Javalin.create(cfg -> {
+            cfg.jsonMapper(new JavalinGson(new Gson(), true));
+            cfg.startup.showJavalinBanner = false;
+            cfg.routes.before("/api/*", ctx -> {
+                if (!ctx.path().equals("/api/health")
+                        && !"deployer-token".equals(ctx.header("X-Steward-Token"))) {
+                    throw new io.javalin.http.UnauthorizedResponse("bad or missing token");
+                }
+            });
+            cfg.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
+            cfg.routes.get("/api/services", ctx ->
+                    ctx.json(Map.of("smp", "ghcr.io/nordtal/minecraft:latest")));
+            cfg.routes.post("/api/recreate/{service}", ctx -> {
+                recreated.add(ctx.pathParam("service"));
+                ctx.status(202).json(Map.of("id", "job-1", "kind", "recreate",
+                        "services", List.of(ctx.pathParam("service")), "state", "RUNNING"));
+            });
+            cfg.routes.get("/api/jobs/{id}", ctx -> ctx.json(Map.of(
+                    "id", ctx.pathParam("id"), "kind", "recreate", "state", "DONE",
+                    "exitCode", 0, "lines", List.of("Container nordtal-s2-smp-1  Recreated"))));
+        }).start(DEPLOYER_PORT);
+
         final UiSpec config = new UiSpec() {
             @Override
             public int port() {
@@ -148,6 +179,21 @@ class StewardUiIntegrationTest {
             @Override
             public DiscordSpec discord() {
                 return new DiscordSpec() {
+                };
+            }
+
+            @Override
+            public DeployerSpec deployer() {
+                return new DeployerSpec() {
+                    @Override
+                    public String baseUrl() {
+                        return "http://127.0.0.1:" + DEPLOYER_PORT;
+                    }
+
+                    @Override
+                    public String token() {
+                        return "deployer-token";
+                    }
                 };
             }
 
@@ -190,8 +236,10 @@ class StewardUiIntegrationTest {
         });
 
         ui = new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()),
-                new WorkerClient(config.worker().baseUrl(), config.worker().token(),
-                        Duration.ofSeconds(5)),
+                new InternalClient("steward-worker", config.worker().baseUrl(),
+                        config.worker().token(), Duration.ofSeconds(5)),
+                new InternalClient("steward-deployer", config.deployer().baseUrl(),
+                        config.deployer().token(), Duration.ofSeconds(5)),
                 data,
                 ctx -> signedIn.get()
                         ? Optional.of(new DiscordAuth.Account("1", "Till", List.of("admin")))
@@ -208,6 +256,9 @@ class StewardUiIntegrationTest {
         }
         if (fakeWorker != null) {
             fakeWorker.stop();
+        }
+        if (fakeDeployer != null) {
+            fakeDeployer.stop();
         }
         if (data != null) {
             data.close();
@@ -550,6 +601,69 @@ class StewardUiIntegrationTest {
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("key"), refused.body());
+    }
+
+    // --- steward-deployer: the one thing the interface asks it for (10a.4) --------------------
+
+    @Test
+    @DisplayName("recreating a service reaches the deployer, with the deployer's own secret")
+    void aRecreateReachesTheDeployer() throws Exception {
+        recreated.clear();
+
+        final HttpResponse<String> accepted = post("/api/deployer/recreate/smp", "");
+
+        assertEquals(202, accepted.statusCode(), accepted.body());
+        assertEquals(List.of("smp"), recreated,
+                "the stand-in deployer refuses any token but its own, so arriving at all is the "
+                        + "assertion: the interface sent the deployer's secret and not the worker's");
+        assertTrue(accepted.body().contains("job-1"), accepted.body());
+    }
+
+    @Test
+    @DisplayName("a recreate is in the journal before it happens, naming who asked")
+    void aRecreateIsWrittenDown() throws Exception {
+        post("/api/deployer/recreate/limbo", "");
+
+        final JsonArray journal = GSON.fromJson(
+                get("/api/journal?action=RECREATE").body(), JsonArray.class);
+        final JsonObject row = journal.get(0).getAsJsonObject();
+        assertEquals("RECREATE", row.get("action").getAsString());
+        assertEquals("Till (1)", row.get("actor").getAsString());
+        assertEquals("limbo", row.get("subject").getAsString());
+    }
+
+    @Test
+    @DisplayName("the deployer does not recreate itself, and this end says so rather than compose")
+    void theDeployerIsNotOnItsOwnList() throws Exception {
+        recreated.clear();
+
+        final HttpResponse<String> refused = post("/api/deployer/recreate/steward-deployer", "");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(recreated.isEmpty(), "the request must not have left this process");
+        assertTrue(refused.body().contains("setup script"), refused.body());
+    }
+
+    @Test
+    @DisplayName("a service name with a slash in it addresses nothing, and is refused as a name")
+    void aNameThatIsAPathIsRefused() throws Exception {
+        recreated.clear();
+
+        final HttpResponse<String> refused = post("/api/deployer/recreate/smp%2F..%2Fjobs", "");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(recreated.isEmpty(), "the request must not have left this process");
+    }
+
+    @Test
+    @DisplayName("the job the deployer started can be read back through the interface")
+    void aJobIsReadBack() throws Exception {
+        final JsonObject job = GSON.fromJson(
+                get("/api/deployer/jobs/job-1").body(), JsonObject.class);
+
+        assertEquals("DONE", job.get("state").getAsString());
+        assertEquals(0, job.get("exitCode").getAsInt());
+        assertTrue(job.getAsJsonArray("lines").toString().contains("Recreated"), job.toString());
     }
 
     private static HttpResponse<String> post(final String path, final String body) throws Exception {

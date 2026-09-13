@@ -6,12 +6,17 @@
 # THIS FILE LIVES AT THE REPOSITORY ROOT and is copied from here into steward-deployer's image
 # (§8b), which is the one thing in the stack allowed to create a container. "Which compose file is
 # live" therefore has a version number for an answer. Everything else that belongs to the deployment
-# is still in deploy/.
+# is still in deploy/ - including deploy/setup.sh, the only part of this that runs on the host.
+#
+# CADDY'S CONFIGURATION IS IN HERE TOO, as an inline `configs:` block at the foot of the file, for
+# the same reason: the deployer runs compose from inside its own image, so a Caddyfile on the host
+# would be a file it cannot see.
 #
 # EVERY IMAGE IS PULLED, NOTHING IS BUILT ON THE HOST. A deploy pulls and never builds, and
-# two of these images COPY a jar that Gradle produces and .gitignore excludes, so a host with only a
-# checkout could not build them. All four come from ghcr.io/nordtal, pushed by release.yml. The
-# `build:` blocks that remain are for developing on this machine.
+# four of these images COPY a jar that Gradle produces and .gitignore excludes, so a host with only
+# a checkout could not build them. Five come from ghcr.io/nordtal, pushed by release.yml - minecraft,
+# discord-bot, steward-worker, steward-ui, steward-deployer - and the two that are somebody else's
+# (postgres, caddy) come from Docker Hub. The `build:` blocks that remain are for developing here.
 #
 # EVERY IMAGE IS `latest`, AND THERE IS NO WAY TO PIN ONE. That is the decision, not an oversight,
 # and it is the same one this project already made about the Paper build: a rollback lever is a
@@ -143,6 +148,10 @@ services:
   # -------------------------------------------------------------------------------------------
   postgres:
     profiles: ["db"]
+    # THE ONE SERVICE ON BOTH SEGMENTS, and that is what makes the split work at all: everything
+    # here is a client of this database, and only the Steward services may reach each other. See
+    # the `networks:` block at the foot of this file.
+    networks: ["default", "steward"]
     # The version every integration test in this repository runs against.
     image: ${POSTGRES_IMAGE:-postgres:17-alpine}
     restart: unless-stopped
@@ -537,6 +546,11 @@ services:
       context: ./steward-worker
     image: ${STEWARD_WORKER_IMAGE:-ghcr.io/nordtal/steward-worker:latest}
     restart: unless-stopped
+    # ONLY THE STEWARD SEGMENT (§3). This container holds the docker socket and serves an API that
+    # can read any log and type on any console; a Minecraft server able to resolve the name
+    # `steward-worker` would make a compromised plugin into exactly that. It reaches PostgreSQL
+    # because PostgreSQL is on both segments, and GitHub because any bridge network has a way out.
+    networks: ["steward"]
     # `serve`. THIS LINE IS ALSO WHAT A `run` INHERITS: a `docker compose run` naming no subcommand
     # is handed this one and starts a SECOND daemon. Removing it does not help - a `run` against a
     # service with no `command` takes the image's CMD instead. The read-only run is
@@ -590,6 +604,11 @@ services:
       # Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP; a run makes
       # two GitHub calls, so it only matters on a host sharing its address with something busy.
       NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_WORKER_GITHUB_TOKEN:-}
+      # --- the internal API steward-ui reads this container through ------------------------
+      # THE SAME SECRET BOTH CONTAINERS ARE GIVEN, out of one variable, because two copies of a
+      # shared secret is one copy that is wrong. Empty would mean the API does not start at all and
+      # the interface says "could not look" on every page - so it is required rather than optional.
+      NORDTAL_STEWARD_API_TOKEN: ${STEWARD_API_TOKEN:?set STEWARD_API_TOKEN in .env - the secret steward-ui and steward-worker share, `openssl rand -hex 32`}
 
       # There is no restart endpoint and no panel here any more. Stopping, starting and recreating
       # go through the Docker socket mounted below and through steward-deployer; the whole
@@ -638,6 +657,7 @@ services:
       - mc-limbo-plugins:/backup-sources/nordtal-s2_mc-limbo-plugins:ro
       - mc-hunger-games-plugins:/backup-sources/nordtal-s2_mc-hunger-games-plugins:ro
       - bot-config:/backup-sources/nordtal-s2_bot-config:ro
+      - steward-ui-config:/backup-sources/nordtal-s2_steward-ui-config:ro
       # Where the archives and the database dump land. NOT one of the volumes above: a backup
       # directory inside a backed-up volume grows by its own contents every night.
       - steward-backups:/backups
@@ -658,6 +678,215 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     logging: *logging
 
+  # -------------------------------------------------------------------------------------------
+  # steward-ui - the web interface, and THE ONE SERVICE HERE THAT HOLDS NO DOCKER SOCKET (§3).
+  #
+  # That is the whole of its privilege: it can reach steward-worker and steward-deployer over the
+  # `steward` network with two different secrets, and it can reach PostgreSQL. Everything it knows
+  # about a container it asked the worker for; every container it creates, the deployer created.
+  #
+  # WHAT THE BOUNDARY ACTUALLY BUYS, so nobody relies on what it does not: it does not stop somebody
+  # who takes this container from calling the worker's API - it stops them from calling anything but
+  # its fixed-shape endpoints. There is no open `exec` anywhere in this stack, because `docker exec
+  # … mc list` and `docker exec … sh` are the same permission to the daemon and the restriction can
+  # therefore only live in our code.
+  steward-ui:
+    profiles: ["steward"]
+    # A DEPLOY NEVER RUNS THIS - it pulls. Kept because it is how the image is developed here, and
+    # because build.yml catches a Dockerfile that COPYs a file .dockerignore excludes.
+    build:
+      context: ./steward-ui
+    image: ${STEWARD_UI_IMAGE:-ghcr.io/nordtal/steward-ui:latest}
+    restart: unless-stopped
+    networks: ["steward"]
+    depends_on:
+      # The schema, like everything else here. This service reads `update_request`, `audit_log`
+      # and the metrics table directly, so it must not come up against an older one.
+      steward-worker:
+        condition: service_healthy
+    # No healthcheck block: the image carries one (curl against /api/health, which also says
+    # whether the worker answers). Repeating it here would replace the image's outright and be a
+    # second copy to keep equal.
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+
+      # --- database.yml ------------------------------------------------------------------
+      # The same database as everything else, under this service's own prefix.
+      NORDTAL_STEWARD_UI_DATABASE_JDBC_URL: *db-url
+      NORDTAL_STEWARD_UI_DATABASE_USERNAME: *db-username
+      NORDTAL_STEWARD_UI_DATABASE_PASSWORD: *db-password
+
+      # --- steward-ui.yml ----------------------------------------------------------------
+      # ONE NAME, TWO USES. This is the value Caddy answers on and the redirect URI Discord is
+      # given, derived from the same variable so the two cannot disagree - which they would, once,
+      # silently, on the day somebody changed one of them.
+      NORDTAL_STEWARD_UI_PUBLIC_URL: https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}
+      # The worker's secret and the deployer's, and they are NOT the same value. The deployer may
+      # create containers and the worker may not; one token for both would make that boundary a
+      # comment in a Java file.
+      NORDTAL_STEWARD_UI_WORKER_TOKEN: ${STEWARD_API_TOKEN:?set STEWARD_API_TOKEN in .env - the secret steward-ui and steward-worker share, `openssl rand -hex 32`}
+      NORDTAL_STEWARD_UI_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui and steward-deployer share, and a DIFFERENT one, `openssl rand -hex 32`}
+      # Discord sign-in. The BOT'S application, reused: one client id, a second secret. Empty
+      # values mean nobody can sign in, and the sign-in page names the one that is missing rather
+      # than failing at Discord - so these are not `:?`.
+      NORDTAL_STEWARD_UI_DISCORD_CLIENT_ID: ${STEWARD_UI_DISCORD_CLIENT_ID:-}
+      NORDTAL_STEWARD_UI_DISCORD_CLIENT_SECRET: ${STEWARD_UI_DISCORD_CLIENT_SECRET:-}
+      # A SECOND COPY of what the bot's access.yml says, deliberately: two processes, two volumes,
+      # no shared file. Written from the same .env variables so they start out agreeing.
+      NORDTAL_STEWARD_UI_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in .env}
+      NORDTAL_STEWARD_UI_DISCORD_ADMIN_ROLE: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in .env - the role mirrored into discord_user.admin}
+    volumes:
+      - steward-ui-config:/app/config
+      # THE CONFIGURATION OF EVERY SERVICE IN THE STACK, mounted a second time so the interface can
+      # draw a form for it (§10a.6). One directory per compose service, named after it, because
+      # that is exactly what the page shows as the service a file belongs to.
+      #
+      # THEY ARE WRITABLE, AND THAT IS THE DECISION (Till, 2026-09-13): saving is what makes the
+      # page worth having, and it is also the reload - a write publishes on `nordtal_config`, which
+      # is what made ReloadSmp, ReloadNetwork, ReloadHungerGames and ReloadBotMessages unnecessary.
+      # A volume left out here is simply not listed; the page says nothing about what it cannot see.
+      #
+      # THE FOUR PLUGIN VOLUMES USE THE SAME EXPRESSIONS THE SERVERS DO, character for character.
+      # Spelling one differently here would show an operator a file nothing reads - the same class
+      # of failure TopologyTest holds shut for steward-worker.
+      - steward-ui-config:/configs/steward-ui
+      - steward-worker-config:/configs/steward-worker
+      - bot-config:/configs/discord-bot
+      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/configs/network-control
+      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/configs/limbo
+      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/configs/hunger-games
+      - ${SMP_PLUGINS:-mc-smp-plugins}:/configs/smp
+    logging: *logging
+
+  # -------------------------------------------------------------------------------------------
+  # steward-deployer - the only process in this stack allowed to create a container (§8a, §8b).
+  #
+  # IT CARRIES THIS FILE INSIDE ITS OWN IMAGE. "Which compose.yml is live" is therefore answered by
+  # an image tag rather than by a commit hash, and there is no working tree on the host that
+  # somebody can edit and lose at the next sync - which is the failure mode Arcane's GitOps
+  # checkout had, and the reason this service exists.
+  #
+  # IT NEVER RECREATES ITSELF. `Compose.SELF` is refused wherever a service name is accepted: it is
+  # the container the request travels through, so the answer would never come back. Renewing this
+  # one is deploy/setup.sh's job on the host (§9c).
+  steward-deployer:
+    profiles: ["steward"]
+    build:
+      context: ./steward-deployer
+    image: ${STEWARD_DEPLOYER_IMAGE:-ghcr.io/nordtal/steward-deployer:latest}
+    restart: unless-stopped
+    networks: ["steward"]
+    healthcheck:
+      # busybox wget - this image is `25-jre-alpine`, not the Ubuntu-based `25-jre`, and the
+      # difference matters: measured 2026-09-13, the Alpine one carries wget and the Ubuntu one
+      # carries neither wget nor curl. A healthcheck against a binary that is not there is a
+      # service that answers every request and is reported unhealthy forever.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      # IT REFUSES TO SERVE WITHOUT THIS. A process that can recreate every container in the stack,
+      # unauthenticated on a shared network, is a remote root shell with extra steps - and a
+      # service that only logs a warning about that gets deployed anyway.
+      NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui and steward-deployer share, `openssl rand -hex 32`}
+      # WHAT `up` MEANS HAS TO BE THE SAME SELECTION ON BOTH SIDES. This service runs
+      # `docker compose up` with the mounted .env as its --env-file, so COMPOSE_PROFILES comes from
+      # there and not from here; the variable is repeated only so that a `docker compose` typed on
+      # the host and a deploy from the interface act on the same set of services.
+      COMPOSE_PROFILES: ${COMPOSE_PROFILES:-db,bot,mc,backup,steward}
+    volumes:
+      # THE SOCKET. It is not read-only and cannot be made read-only: `:ro` restricts the socket
+      # FILE and not the API behind it, and a container that can talk to this daemon can start a
+      # privileged one. The restraint is that this process runs `docker compose` with a file it
+      # cannot be given from outside, and that steward-ui - the part an attacker reaches first -
+      # has no socket at all.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The deployment's secrets, for compose to interpolate. READ-ONLY, and an ABSOLUTE host path:
+      # this is the one file in the deployment that is in no image and in no repository, and
+      # deploy/setup.sh is what puts it where this points.
+      - ${STEWARD_ENV_FILE:?set STEWARD_ENV_FILE in .env - the ABSOLUTE path of this .env on the host, which deploy/setup.sh writes}:/app/env/.env:ro
+    logging: *logging
+
+  # -------------------------------------------------------------------------------------------
+  # Caddy - HTTPS for the interface, and the only thing in this file that listens on the internet
+  # besides the Minecraft proxy (§9c: chosen over Traefik because automatic certificates without
+  # configuration is the entire requirement).
+  #
+  # THE CADDYFILE IS IN THIS FILE, as an inline `configs:` block. It could not usefully be a file on
+  # the host: steward-deployer runs compose with `--project-directory /app` inside its own image, so
+  # a relative bind would point into the image and an absolute one would be a second thing the setup
+  # script has to place and keep in step with this file. Verified on 2026-09-13 that both compose
+  # versions in play support inline content - the host's v5.5.1 and the v2.40.3 baked into the
+  # deployer image - and that ${...} inside it is interpolated exactly like anywhere else.
+  #
+  # WHICH IS ALSO THE TRAP: Caddy's own environment syntax is `{$VAR}`, and compose eats that too
+  # (measured, not assumed - it warns "variable is not set" and substitutes a blank). Caddy
+  # placeholders without a `$` - `{http.request.uri}` and the like - pass through untouched. So
+  # every value here is interpolated by compose, and none by Caddy.
+  #
+  # ONE CERTIFICATE, FOR ONE NAME. Ports 80 and 443 on this host were free when this was written
+  # (checked 2026-09-12); 80 is not decoration, it is how the HTTP-01 challenge is answered and how
+  # a browser typing the bare name is redirected.
+  caddy:
+    profiles: ["steward"]
+    image: ${CADDY_IMAGE:-caddy:2-alpine}
+    restart: unless-stopped
+    networks: ["steward"]
+    # NO depends_on, deliberately. A reverse proxy that will not start because its upstream is
+    # unhealthy is a host that answers nothing at all - not even the 502 that would say which half
+    # is broken. Caddy retries the upstream by itself on every request.
+    ports:
+      - "${CADDY_BIND:-0.0.0.0}:80:80"
+      - "${CADDY_BIND:-0.0.0.0}:443:443"
+      # HTTP/3. Caddy advertises it in Alt-Svc whether or not this is published, so leaving it out
+      # is a browser trying a port nothing listens on and falling back a moment later.
+      - "${CADDY_BIND:-0.0.0.0}:443:443/udp"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      # THE CERTIFICATES AND THE ACME ACCOUNT KEY. This volume is why a recreate of this container
+      # does not ask Let's Encrypt for a new certificate - and why losing it is a rate limit away
+      # from an outage rather than a free retry.
+      - caddy-data:/data
+      - caddy-config:/config
+    healthcheck:
+      # The admin API on 127.0.0.1:2019, which is Caddy's own answer to "is my configuration
+      # loaded". Measured 2026-09-13: caddy:2-alpine is v2.11.4 and carries busybox wget, no curl.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: *logging
+
+configs:
+  # The whole of Caddy's configuration. Short on purpose: one name, one upstream, and the
+  # certificate is Caddy's business.
+  caddyfile:
+    content: |
+      {
+      	email ${STEWARD_ACME_EMAIL:?set STEWARD_ACME_EMAIL in .env - where Let's Encrypt sends expiry warnings}
+      }
+
+      ${STEWARD_HOST} {
+      	encode zstd gzip
+
+      	# Everything behind this is steward-ui, which holds no docker socket. There is no second
+      	# route here and there must not be: steward-worker's internal API and steward-deployer's
+      	# are reachable from the `steward` network and from nowhere else, which is what keeps the
+      	# thing on the internet from being the thing that holds the socket.
+      	reverse_proxy steward-ui:8080 {
+      		# The log follow and the deploy output are Server-Sent Events. Caddy flushes
+      		# text/event-stream by itself, so this is only about the deadline: a stream that is
+      		# quiet for two minutes - a server nobody is typing on - must not be cut.
+      		flush_interval -1
+      	}
+      }
+
 volumes:
   # Every archive steward-worker writes: one tar.zst per volume per run, plus the database dump.
   # It is deliberately NOT in backup.volumes - saving the backups into the backups is how a disk
@@ -666,6 +895,16 @@ volumes:
   postgres-data:
   bot-config:
   steward-worker-config:
+  # The interface's own steward-ui.yml. It is in the backup list because the Ampel's thresholds
+  # live in it and are edited from the interface - the file is small and the alternative is
+  # "somebody will remember what those numbers were".
+  steward-ui-config:
+  # Caddy's certificates and its ACME account key. Losing this is not a free retry: the next start
+  # asks Let's Encrypt for a new certificate, and their rate limit is what turns that into an
+  # outage. It is deliberately NOT in the backup list - a certificate is reissued, and an archive
+  # of a private key is one more copy of a private key.
+  caddy-data:
+  caddy-config:
   # The two jars that are a whole container each. Written by steward-worker, read by the container
   # they belong to; neither is worth backing up - a lost one is refilled by
   # `steward-worker bootstrap`.
@@ -688,3 +927,24 @@ volumes:
   mc-limbo-plugins:
   mc-hunger-games-plugins:
   mc-smp-plugins:
+
+# ---------------------------------------------------------------------------------------------
+# TWO SEGMENTS, AND THE LINE BETWEEN THEM IS THE POINT (§3).
+#
+#   default   PostgreSQL and its ordinary clients: the four Minecraft services and the bot.
+#   steward   PostgreSQL again, plus steward-worker, steward-ui, steward-deployer and Caddy.
+#
+# Without the split, "the worker's API is only reachable internally" would also read "every plugin
+# can deploy", and a compromised third-party plugin would be a deploy button. A Minecraft container
+# on `default` cannot even resolve the name `steward-worker`, let alone ask it for a console.
+#
+# WHY POSTGRES IS ON BOTH rather than the worker being on `default`: the worker is the container
+# with the docker socket and the console endpoint, and the database is a database. Putting the
+# smaller privilege on both sides is the cheaper mistake.
+#
+# `default` IS NAMED EXPLICITLY so that nothing changes for the services that do not mention a
+# network - the four Minecraft ones, the bot, pack-host. Compose puts them here, under the name it
+# would have used anyway, and adding this block does not silently move them.
+networks:
+  default:
+  steward:

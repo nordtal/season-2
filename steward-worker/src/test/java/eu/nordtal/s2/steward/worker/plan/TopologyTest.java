@@ -450,6 +450,66 @@ class TopologyTest {
         }
     }
 
+    @Test
+    @DisplayName("the configs steward-ui shows are the configs the services actually read")
+    void theInterfaceShowsTheRealConfigs() {
+        // §10a.6: every configuration in the stack is a form in the interface, and saving one IS
+        // the reload. That only holds if the file steward-ui writes is the file the service reads.
+        // The failure this guards is the quiet one: a volume spelt differently on this side shows
+        // an operator a form, accepts a change, reports success, and changes nothing anywhere -
+        // the same shape as the plugins split above, one floor up.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> ui = (Map<String, Object>) services.get("steward-ui");
+        assertNotNull(ui, "compose.yml has no steward-ui service");
+        final List<String> uiMounts = mountsOf(ui);
+
+        // The four Paper servers, under the name the interface shows as the service a file belongs
+        // to - which is the compose service name, and has to be.
+        for (final Topology.Service service : Topology.SERVICES) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> definition = (Map<String, Object>) services.get(service.name());
+            final String onTheServer = mountsOf(definition).stream()
+                    .filter(mount -> mount.endsWith(":/data/plugins"))
+                    .findFirst()
+                    .orElseThrow();
+            final String onTheInterface = uiMounts.stream()
+                    .filter(mount -> mount.endsWith(":/configs/" + service.name()))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("steward-ui mounts nothing at /configs/"
+                            + service.name() + ", so that server's config.yml is in no form at all."
+                            + " A volume that is not mounted is not an error to the page - it lists"
+                            + " what it finds - so this is invisible from the browser."));
+
+            assertEquals(sourceOf(onTheServer), sourceOf(onTheInterface),
+                    service.name() + ": the interface edits one directory and the server reads"
+                            + " another. Saving would report success and change nothing.");
+
+            assertFalse(onTheInterface.endsWith(":ro"),
+                    service.name() + "'s config is mounted read-only into steward-ui, so the form"
+                            + " is drawn and the save fails. Till's decision on 2026-09-13 was that"
+                            + " every config in the stack is editable from the interface.");
+        }
+
+        // The three services whose config volume has no second owner. Their own service is the
+        // directory name, because that is what ConfigLocation#service reports to the browser.
+        for (final String each : List.of("steward-worker", "discord-bot", "steward-ui")) {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> owner = (Map<String, Object>) services.get(each);
+            assertNotNull(owner, "compose.yml has no " + each + " service");
+            final String onTheOwner = mountsOf(owner).stream()
+                    .filter(mount -> mount.endsWith(":/app/config"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError(each + " mounts nothing at /app/config"));
+            final String onTheInterface = uiMounts.stream()
+                    .filter(mount -> mount.endsWith(":/configs/" + each))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("steward-ui mounts nothing at /configs/"
+                            + each + ", so that service has no form in the interface"));
+            assertEquals(sourceOf(onTheOwner), sourceOf(onTheInterface),
+                    each + ": the interface edits one volume and the service reads another");
+        }
+    }
+
     /** The host side of a compose mount - everything before the last colon-separated field pair. */
     private static String sourceOf(final String mount) {
         final int split = mount.lastIndexOf(':');
@@ -631,10 +691,15 @@ class TopologyTest {
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
             final Map<String, Object> service = (Map<String, Object>) definition;
-            // postgres is the database itself, and
-            // pack-host serves one zip: none of the three can be out of step with a schema.
+            // postgres is the database itself, and pack-host serves one zip. steward-deployer
+            // and caddy read no rows at all - the deployer drives compose and the proxy forwards
+            // HTTP - and a depends_on for either would be worse than useless: caddy waiting for a
+            // healthy stack is a host that cannot even answer the 502 that says which half is
+            // broken, and the deployer waiting for the worker is the thing that would have to
+            // bring the worker back unable to start until the worker is back.
             if (name.equals("steward-worker") || name.equals("postgres")
-                    || name.equals("pack-host")) {
+                    || name.equals("pack-host") || name.equals("steward-deployer")
+                    || name.equals("caddy")) {
                 return;
             }
             @SuppressWarnings("unchecked")

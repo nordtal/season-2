@@ -21,6 +21,7 @@ import {
   type Payment,
   type Person,
   type Run,
+  type Schedule,
   type Season,
   type Service,
   type ServiceTable,
@@ -50,6 +51,7 @@ export const keys = {
   service: (name: string) => ["service", name] as const,
   host: ["host"] as const,
   backups: ["backups"] as const,
+  schedule: ["schedule"] as const,
   runs: (limit: number) => ["runs", limit] as const,
   run: (id: string) => ["run", id] as const,
   metrics: (subject: string, metric: string, hours: number) =>
@@ -111,6 +113,21 @@ export function useHost(enabled = true) {
     queryKey: keys.host,
     queryFn: () => api<Host>("/api/host"),
     refetchInterval: 10 * SECOND,
+    enabled,
+  })
+}
+
+/**
+ * The worker's nightly clock.
+ *
+ * An hour of cache and no polling: `backup.at` changes when somebody edits a config file and
+ * restarts the worker, not while a dialog is open.
+ */
+export function useSchedule(enabled = true) {
+  return useQuery({
+    queryKey: keys.schedule,
+    queryFn: () => api<Schedule>("/api/schedule"),
+    staleTime: 60 * 60 * SECOND,
     enabled,
   })
 }

@@ -16,6 +16,8 @@ import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.InternalServerErrorResponse;
 import io.javalin.http.NotFoundResponse;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -42,6 +44,8 @@ import java.util.Optional;
  * the Discord bot token is not in a browser cache, a screen recording or the next XSS.</p>
  */
 final class ConfigApi {
+
+    private static final Logger log = LoggerFactory.getLogger(ConfigApi.class);
 
     private final Path root;
 
@@ -82,6 +86,16 @@ final class ConfigApi {
             // value of the wrong type, a list sent to a single value. Their mistake, their sentence.
             throw new BadRequestResponse(e.getMessage());
         } catch (final IOException e) {
+            // Javalin does not log a handled HttpResponseException, so without this line the only
+            // trace of a full disk or a read-only mount is one sentence in somebody's browser.
+            log.error("{} could not be written", location.file(), e);
+            throw new InternalServerErrorResponse(location.name() + " could not be written: "
+                    + e.getMessage());
+        } catch (final IllegalStateException e) {
+            // ConfigFiles refused to write what it had rendered, because it would not read back as
+            // what was asked for. That is this program's bug and not the operator's, so it stays a
+            // 500 - but it is the one failure that most needs a stack trace on this side.
+            log.error("{} was not written: the rendered file would not read back", location.file(), e);
             throw new InternalServerErrorResponse(location.name() + " could not be written: "
                     + e.getMessage());
         }

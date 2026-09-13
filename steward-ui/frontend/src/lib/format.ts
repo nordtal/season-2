@@ -15,6 +15,9 @@
  */
 
 const NUMBER = new Intl.NumberFormat("de-DE")
+// Intl's own default is three fraction digits, so `NUMBER` is not the zero-decimal formatter it
+// looks like: it printed "87,457 %" where a whole number was asked for.
+const NO_DECIMAL = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 })
 const ONE_DECIMAL = new Intl.NumberFormat("de-DE", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
@@ -43,7 +46,7 @@ export function bytes(value: number | null | undefined): string {
 /** A percentage that is already 0-100. */
 export function percent(value: number | null | undefined, decimals = 1): string {
   if (value == null || !Number.isFinite(value)) return "–"
-  const formatter = decimals === 0 ? NUMBER : ONE_DECIMAL
+  const formatter = decimals === 0 ? NO_DECIMAL : ONE_DECIMAL
   return `${formatter.format(value)} %`
 }
 

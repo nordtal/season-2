@@ -54,6 +54,11 @@ dependencies {
     // module logs disappears.
     runtimeOnly(libs.logback.classic)
 
+    // Compiled against in tests only, and for one reason: WorkerShutdownTest counts warnings. The
+    // defect it holds does not fail anything - it logs, tens of thousands of times a second - so
+    // the backend is what the assertion is made of.
+    testImplementation(libs.logback.classic)
+
     // Compiled against, not just shipped: PostgresNotifications unwraps org.postgresql.PGConnection
     // to call getNotifications(int), the only way pgjdbc exposes LISTEN/NOTIFY. Declared here so the
     // version comes from this repo's catalog rather than from jcore's POM.

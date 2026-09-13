@@ -114,8 +114,77 @@ class WorkerApiIntegrationTest {
                 "two calls a moment apart must share one comparison, or nothing is being cached");
     }
 
+    @Test
+    @DisplayName("a follow says something of its own, or an idle connection is dropped at thirty seconds")
+    void aFollowKeepsItsConnectionAlive() throws Exception {
+        final String name = aRunningService();
+
+        final HttpResponse<java.io.InputStream> follow = http.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name
+                                + "/logs?tail=0"))
+                .header("X-Steward-Token", TOKEN)
+                .header("Accept", "text/event-stream")
+                .GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+        assertEquals(200, follow.statusCode());
+
+        // Jetty drops a connection nothing has been written on for thirty seconds - measured on
+        // this host, 2026-09-13 - and Javalin's keepAlive() writes nothing; it only holds the
+        // request open. A Minecraft server that is having a quiet minute therefore had its log
+        // view closed under whoever was watching it, which looks exactly like a server that has
+        // stopped. The same comment is what lets steward-ui's end notice a browser that left:
+        // the JDK's client only tears down a cancelled stream when something next arrives on it.
+        try (var lines = new java.io.BufferedReader(new java.io.InputStreamReader(
+                follow.body(), java.nio.charset.StandardCharsets.UTF_8))) {
+            // A DAEMON thread, and that is not a detail: closing the response body does not
+            // unblock a read already sitting in it - the very JDK behaviour this heartbeat exists
+            // to work around - so a plain executor thread would still be parked in readLine() when
+            // the suite ended and would hold the test JVM open for ever.
+            final var one = java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
+                final Thread thread = new Thread(runnable, "heartbeat-test-reader");
+                thread.setDaemon(true);
+                return thread;
+            });
+            try {
+                assertTrue(one.submit(() -> {
+                    String line;
+                    while ((line = lines.readLine()) != null) {
+                        if (line.startsWith(":") && line.contains(name)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }).get(25, java.util.concurrent.TimeUnit.SECONDS), "no heartbeat inside 25 seconds");
+            } catch (final java.util.concurrent.TimeoutException never) {
+                throw new AssertionError("the follow said nothing at all for 25 seconds");
+            } finally {
+                one.shutdownNow();
+            }
+        }
+    }
+
+    /**
+     * A service with a container actually running, or a skipped test.
+     *
+     * <h2>Why not the first row</h2>
+     * The table lists every service of the project, stopped ones included, so on a host where
+     * half the stack is down the first row is a service whose log has no container behind it. The
+     * follow then answers 200 and ends at once - which from this side is indistinguishable from
+     * the dropped connection the heartbeat exists to prevent. The test failed for a reason that
+     * had nothing to do with what it holds, which is the worst kind of red.
+     */
+    private static String aRunningService() throws Exception {
+        for (final var row : serviceRows()) {
+            final JsonObject service = row.getAsJsonObject();
+            if ("running".equals(service.get("state").getAsString())) {
+                return service.get("service").getAsString();
+            }
+        }
+        assumeTrue(false, "no container of the stack is running - skipping");
+        throw new AssertionError("unreachable");
+    }
+
     /** The rows out of the envelope. Three tests want them and none of them wants the envelope. */
-    private JsonArray serviceRows() throws Exception {
+    private static JsonArray serviceRows() throws Exception {
         return GSON.fromJson(get("/api/services"), JsonObject.class).getAsJsonArray("services");
     }
 
@@ -169,9 +238,7 @@ class WorkerApiIntegrationTest {
     @Test
     @DisplayName("the log search reads what docker still has, and says when it stopped early")
     void searchReadsWhatDockerStillHas() throws Exception {
-        final JsonArray services = serviceRows();
-        assumeTrue(!services.isEmpty(), "nothing running - skipping");
-        final String name = services.get(0).getAsJsonObject().get("service").getAsString();
+        final String name = aRunningService();
 
         // "e" is in every log line anybody has ever written, which is what makes it a fair probe:
         // the point here is the plumbing and the truncation flag, not the matching.
@@ -195,9 +262,7 @@ class WorkerApiIntegrationTest {
     @Test
     @DisplayName("a limit of nothing is refused, rather than answered with an empty search")
     void aLimitOfNothingIsNotASearch() throws Exception {
-        final JsonArray services = serviceRows();
-        assumeTrue(!services.isEmpty(), "nothing running - skipping");
-        final String name = services.get(0).getAsJsonObject().get("service").getAsString();
+        final String name = aRunningService();
 
         // Zero lines, always "found nothing", never truncated: an answer indistinguishable from a
         // term that genuinely does not appear.

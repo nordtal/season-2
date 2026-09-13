@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 /**
  * The live log of one service.
@@ -73,6 +73,23 @@ export function useLogStream(service: string, tail = 200): LogStream {
       return { lines: next.slice(cut), dropped: previous.dropped + cut }
     })
   }, [])
+
+  /**
+   * The window belongs to ONE service, and the page can change which one without remounting.
+   *
+   * `/dienste/$name` carries no `remountDeps`, and TanStack Router only keys a match when it has
+   * some - so walking from smp to the proxy re-renders this hook with a new name instead of giving
+   * it a new instance. Without this the new service's heading sat above the old one's lines, `seq`
+   * carried on from the old stream, and a pause held over the navigation flushed lines from a
+   * service nobody was looking at any more. A layout effect rather than a plain one, because the
+   * point is that the wrong lines are never painted; and separate from the connect effect below,
+   * because `reconnect` re-runs that one and must NOT throw away what is already on screen.
+   */
+  useLayoutEffect(() => {
+    held.current = []
+    sequence.current = 0
+    setBuffer({ lines: [], dropped: 0 })
+  }, [service])
 
   useEffect(() => {
     if (!service) return undefined

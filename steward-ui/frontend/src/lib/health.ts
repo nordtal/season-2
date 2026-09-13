@@ -183,4 +183,23 @@ function backupTriggers(
 }
 
 /** The sentence at the top of the start page when nothing is wrong. */
+/**
+ * The level the light actually shows, which is not always the level that was measured.
+ *
+ * A green light on no evidence is the one thing this page must not do. With every query failed
+ * there is nothing to summarise, so `summarise` returns no trigger and the level is "ok" - and the
+ * page drew the green tick and {@link ALL_CLEAR} above a grey footnote saying the opposite. Not
+ * knowing is yellow. It is this file's own argument: A24 went unnoticed for four releases because
+ * nothing said it did not know.
+ *
+ * A measured warning or a measured failure outranks the doubt and is shown as it is - "a service
+ * is down" is a more useful sentence than "something could not be read".
+ */
+export function shownLevel(level: Level, failed: boolean): Level {
+  return failed && level === "ok" ? "warn" : level
+}
+
+/** What the Ampel says when it found nothing wrong and also could not look. */
+export const UNKNOWN = "Ob alles in Ordnung ist, lässt sich gerade nicht sagen."
+
 export const ALL_CLEAR = "Alles in Ordnung."

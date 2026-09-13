@@ -31,6 +31,12 @@ repositories {
 }
 
 dependencies {
+    // The internal API steward-ui calls. It is here rather than in the interface because §3 keeps
+    // the docker socket away from the web layer: the part an attacker reaches must not be the part
+    // that can stop a container. Javalin brings jetty and slf4j and nothing else that matters -
+    // its jackson and gson support are both `optional`, so the mapper is a choice, not a surprise.
+    implementation(libs.javalin)
+
     // The config system and the Flyway migration. jcore exports gson and snakeyaml as api
     // dependencies, so nothing here declares a parser of its own: a second copy of gson on the
     // classpath is how you get two Gson types that are not each other.

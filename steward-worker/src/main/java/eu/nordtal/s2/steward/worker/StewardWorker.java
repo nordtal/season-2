@@ -7,6 +7,7 @@ import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.arcane.Arcane;
+import eu.nordtal.s2.steward.worker.api.WorkerApi;
 import eu.nordtal.s2.steward.worker.backup.Backups;
 import eu.nordtal.s2.steward.worker.backup.NightlyClock;
 import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
@@ -14,7 +15,9 @@ import eu.nordtal.s2.steward.worker.backup.TarSnapshots;
 import eu.nordtal.s2.steward.worker.config.Configs;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
+import eu.nordtal.s2.steward.worker.docker.Console;
 import eu.nordtal.s2.steward.worker.docker.Docker;
+import eu.nordtal.s2.steward.worker.docker.DockerOps;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
 import eu.nordtal.s2.steward.worker.metric.Sampler;
@@ -423,6 +426,25 @@ public final class StewardWorker {
                 // runner starts and commits the countdown on the row it is running. Two would be
                 // two pools for one table.
                 final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
+                // What steward-ui reads this container through (§3). It is started after the
+                // readiness marker for the same reason the sampler is: nothing in the stack waits
+                // for this API, and a container that would not come up because a web layer failed
+                // would take four Minecraft servers with it.
+                try (WorkerApi api = new WorkerApi(docker, new DockerOps(docker, config.docker().project()),
+                        new Console(docker, config.docker().project()), new HostMetrics(),
+                        config.docker().project(), Path.of(config.backup().outputRoot()),
+                        config.api().token())) {
+                    if (config.api().token().isBlank()) {
+                        log.warn("api.token is empty, so the internal API is not listening and"
+                                + " steward-ui cannot read this container. Updates and backups are"
+                                + " unaffected - they go through the database.");
+                    } else if (!docker.isReachable()) {
+                        log.warn("No docker socket, so the internal API would answer every question"
+                                + " with `could not look`. It is not listening.");
+                    } else {
+                        api.start(config.api().port());
+                    }
+
                 // §9a: the nightly backup is asked for here now, not by `smp`. It writes a row
                 // and nothing else - see NightlyClock for why that keeps the protection that
                 // mattered.
@@ -446,6 +468,7 @@ public final class StewardWorker {
                     // grace period instead of putting its pool down.
                     Runtime.getRuntime().addShutdownHook(new Thread(server::close, "steward-worker-shutdown"));
                     server.serve();
+                }
                 }
                 }
                 }

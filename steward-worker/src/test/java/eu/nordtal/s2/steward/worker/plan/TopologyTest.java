@@ -736,6 +736,13 @@ class TopologyTest {
     private static StewardSpec defaults() {
         return new StewardSpec() {
             @Override
+            public ApiSpec api() {
+                // Defaults: nothing here serves HTTP.
+                return new ApiSpec() {
+                };
+            }
+
+            @Override
             public DockerSpec docker() {
                 // Defaults: this test is not about the daemon, and nothing here reads it.
                 return new DockerSpec() {
@@ -768,6 +775,13 @@ class TopologyTest {
 
         // arcane() is the one member without a default, so it has to be supplied here.
         final StewardSpec spec = new StewardSpec() {
+            @Override
+            public ApiSpec api() {
+                // Defaults: nothing here serves HTTP.
+                return new ApiSpec() {
+                };
+            }
+
             @Override
             public DockerSpec docker() {
                 // Defaults: this test is not about the daemon, and nothing here reads it.

@@ -317,6 +317,23 @@ public interface StewardSpec {
     })
     BackupSpec backup();
 
+    @Order(16)
+    @Key("api")
+    @Comment({
+            "The internal API steward-ui reads this container through.",
+            "",
+            "WHY IT EXISTS: §3 keeps the docker socket away from the web interface, so everything",
+            "the interface knows about a container arrives over this. What it offers is a list, a",
+            "log, a search and one console line - stopping and starting are NOT here. Those are a",
+            "row in update_request, which is countable, cancellable and counted down in front of",
+            "every player online.",
+            "",
+            "IT DOES NOT SERVE WITHOUT A TOKEN. A console anybody on the network can type into is",
+            "a remote shell with a nicer font. The secret lives in the host's .env and compose",
+            "hands the same one to both containers."
+    })
+    ApiSpec api();
+
     /** Where the daemon is, and which compose project is ours. */
     @ConfigSpec
     interface DockerSpec {
@@ -360,6 +377,36 @@ public interface StewardSpec {
         })
         default boolean metrics() {
             return true;
+        }
+    }
+
+    /** The port and the shared secret of the internal API. */
+    @ConfigSpec
+    interface ApiSpec {
+
+        @Order(1)
+        @Key("port")
+        @Comment({
+                "The port inside the container. It is published to nothing: compose puts this",
+                "service and steward-ui on the same network, and the interface is the only thing",
+                "that ever calls it."
+        })
+        default int port() {
+            return 8082;
+        }
+
+        @Order(2)
+        @Key("token")
+        @Comment({
+                "The shared secret steward-ui sends as X-Steward-Token. Empty means the API does",
+                "not start at all - and the rest of this service carries on, because an update run",
+                "does not need it.",
+                "",
+                "It comes from the environment in a deployment (NORDTAL_STEWARD_API_TOKEN), so",
+                "this file holds an empty string rather than a secret somebody might commit."
+        })
+        default String token() {
+            return "";
         }
     }
 

@@ -460,6 +460,13 @@ class ApplierTest {
     private ApplyResult apply(final Fetcher fetcher, final UpdatePlan plan) {
         final StewardSpec config = new StewardSpec() {
             @Override
+            public ApiSpec api() {
+                // Defaults: nothing here serves HTTP.
+                return new ApiSpec() {
+                };
+            }
+
+            @Override
             public DockerSpec docker() {
                 // Defaults: this test is not about the daemon, and nothing here reads it.
                 return new DockerSpec() {

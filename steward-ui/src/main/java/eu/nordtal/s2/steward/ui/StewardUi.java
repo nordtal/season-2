@@ -252,6 +252,8 @@ public final class StewardUi {
             cfg.routes.get("/api/deployer/jobs/{id}", deployments::job);
 
             cfg.routes.get("/api/host", ctx -> passThrough(ctx, "/api/host"));
+            // What "tonight" means on the host, rather than in whatever zone the browser is in.
+            cfg.routes.get("/api/schedule", ctx -> passThrough(ctx, "/api/schedule"));
             cfg.routes.get("/api/backups", ctx -> passThrough(ctx, "/api/backups"));
 
             // The log follow, proxied line by line. A redirect would be simpler and would hand the

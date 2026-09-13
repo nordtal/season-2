@@ -84,13 +84,46 @@ public final class NightlyClock implements AutoCloseable {
         if (at == null || at.isBlank()) {
             return Optional.empty();
         }
+        final LocalTime parsed = hour(at);
+        return parsed == null ? Optional.empty()
+                : Optional.of(new NightlyClock(directory, parsed, zone));
+    }
+
+    /**
+     * When the next nightly backup would be asked for, or empty when there is none.
+     *
+     * <h2>Why anybody outside this class asks</h2>
+     * The interface offers "tonight" beside "now" for a run that stops servers, and tonight has to
+     * land <em>before</em> this clock rather than on top of it: both take the same lock, so two runs
+     * at the same minute are one run waiting for the other with the network already down. The
+     * interface used to work that out in the browser's time zone, which is not this container's -
+     * an admin one hour east of the host scheduled the thing it was avoiding.
+     */
+    public static Optional<ZonedDateTime> next(final String at, final @NotNull ZoneId zone,
+                                               final @NotNull ZonedDateTime now) {
+        final LocalTime parsed = hour(at);
+        return parsed == null ? Optional.empty()
+                : Optional.of(nextAt(parsed, now.withZoneSameInstant(zone)));
+    }
+
+    /** {@code HH:mm}, or null for blank and for anything that is not a time - both are logged. */
+    private static LocalTime hour(final String at) {
+        if (at == null || at.isBlank()) {
+            return null;
+        }
         try {
-            return Optional.of(new NightlyClock(directory, LocalTime.parse(at.strip(), HH_MM), zone));
+            return LocalTime.parse(at.strip(), HH_MM);
         } catch (DateTimeParseException e) {
             log.error("backup.at is \"{}\", which is not HH:mm. There will be no nightly backup"
                     + " until it is. Nothing else is affected.", at);
-            return Optional.empty();
+            return null;
         }
+    }
+
+    /** Always strictly in the future, so asking exactly on the second cannot answer with now. */
+    private static ZonedDateTime nextAt(final LocalTime at, final ZonedDateTime now) {
+        final ZonedDateTime next = now.with(at);
+        return next.isAfter(now) ? next : next.plusDays(1).with(at);
     }
 
     public void start() {
@@ -123,11 +156,7 @@ public final class NightlyClock implements AutoCloseable {
 
     /** Always strictly in the future, so firing exactly on the second cannot re-arm at zero. */
     Duration untilNext(final @NotNull ZonedDateTime now) {
-        ZonedDateTime next = now.with(at);
-        if (!next.isAfter(now)) {
-            next = next.plusDays(1).with(at);
-        }
-        return Duration.between(now, next);
+        return Duration.between(now, nextAt(at, now));
     }
 
     @Override

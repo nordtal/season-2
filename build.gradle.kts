@@ -111,4 +111,23 @@ val checkSetup = tasks.register<Exec>("checkSetup") {
     }
 }
 
-tasks.named("check") { dependsOn(checkEntrypoint, checkDev, checkSetup) }
+// And the fourth, for deploy/restore.sh - which is the same class of thing as `deploy/dev reset`
+// and needs no separate argument: it empties a volume before it fills it, and one of those volumes
+// is Nordtal.
+val restoreScript = layout.projectDirectory.file("deploy/restore.sh")
+val restoreTest = layout.projectDirectory.file("deploy/restore-test.sh")
+
+val checkRestore = tasks.register<Exec>("checkRestore") {
+    group = "verification"
+    description = "Runs deploy/restore-test.sh against deploy/restore.sh's guards."
+    commandLine("bash", restoreTest.asFile.absolutePath)
+    inputs.file(restoreScript).withPropertyName("restore")
+    inputs.file(restoreTest).withPropertyName("test")
+    val marker = layout.buildDirectory.file("checkRestore/passed")
+    outputs.file(marker).withPropertyName("marker")
+    doLast {
+        marker.get().asFile.apply { parentFile.mkdirs() }.writeText("passed\n")
+    }
+}
+
+tasks.named("check") { dependsOn(checkEntrypoint, checkDev, checkSetup, checkRestore) }

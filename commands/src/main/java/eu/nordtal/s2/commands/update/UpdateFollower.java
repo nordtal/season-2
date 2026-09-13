@@ -38,7 +38,7 @@ import java.util.function.LongFunction;
  * deciding moved: every version, every state and every outcome below is read straight off the
  * steward-worker's report. What is chosen here is which message key names it.
  *
- * <p>The values that go into those keys - version strings, filenames, an Arcane failure - are
+ * <p>The values that go into those keys - version strings, filenames, a daemon failure - are
  * substituted as placeholders and are therefore escaped by {@code MessageRenderer}. That is what
  * makes it safe to stop printing them as literals: a version containing {@code <} arrives as text
  * rather than as a MiniMessage tag, which is the property the old rule was protecting.</p>

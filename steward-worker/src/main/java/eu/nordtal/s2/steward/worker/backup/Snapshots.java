@@ -8,8 +8,8 @@ import java.util.List;
  * Saving one volume, as a seam.
  *
  * <h2>Synchronous, unlike what it replaces</h2>
- * Arcane's backup was two calls and a poll: ask for a snapshot, then ask again until it settled.
- * That shape is gone with it. A local {@code tar} either finishes or fails, in this thread, and the
+ * The panel's backup was two calls and a poll: ask for a snapshot, then ask again until it settled.
+ * That shape went with it. A local {@code tar} either finishes or fails, in this thread, and the
  * caller knows which before the next line runs - so the servers are started again because the
  * saving is over, not because a status endpoint said something hopeful.
  *

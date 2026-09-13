@@ -39,7 +39,7 @@ public enum UpdateKind {
      * The same sequence with nothing installed: count down, stop, start, wait.
      *
      * <p>Kept as its own kind because "that server is wedged, take it round once" is a thing to
-     * want independently of whether there is a new version, and doing it through Arcane by hand
+     * want independently of whether there is a new version, and doing it with a shell on the host
      * skips the countdown that is the only warning players get.</p>
      */
     RESTART,
@@ -47,14 +47,14 @@ public enum UpdateKind {
     /**
      * The same sequence again, with a volume backup in the gap: count down, stop, save, start.
      *
-     * <h2>Why steward-worker carries this and Arcane's own schedule does not</h2>
-     * Arcane can run a backup policy on a timer of its own, and it can be told to stop the
-     * containers using a volume first. Both halves of that are wrong here. A stop nobody announced
-     * takes the world out from under whoever is standing in it with no countdown at all - and the
-     * countdown is the entire reason this network has a request row rather than a cron job. So
-     * Arcane's {@code StopContainers} stays <b>off</b>, its policy decides only <em>where</em> a
-     * snapshot goes, and the stopping is done here, by the sequence that already knows how to warn
-     * people and how to say whether everything came back.
+     * <h2>Why steward-worker carries this and no outside schedule does</h2>
+     * Anything else that could take a nightly snapshot - a cron job, a backup policy in a panel -
+     * would have to stop the containers using a volume first, because a file-level copy of a world
+     * Paper is writing to is torn and fails at <em>restore</em> rather than at backup. A stop
+     * nobody announced takes the world out from under whoever is standing in it with no countdown
+     * at all, and the countdown is the entire reason this network has a request row rather than a
+     * cron job. So the stopping is done here, by the sequence that already knows how to warn people
+     * and how to say whether everything came back.
      *
      * <h2>Nobody types this at 04:45</h2>
      * {@code /backup now} exists and is what an admin uses. The nightly one is written by

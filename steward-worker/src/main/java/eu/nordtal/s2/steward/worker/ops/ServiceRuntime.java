@@ -4,11 +4,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * One service of the compose project, as Arcane sees it right now.
+ * One service of the compose project, as the Docker daemon sees it right now.
  *
- * <p>Read from {@code GET /api/environments/{id}/projects/{projectId}/runtime}, whose entries carry
- * the compose service name, the container id, the container status and Docker's health state
- * (source read 2026-09-07 from Arcane v2.10.0 and v2.10.2, {@code types/project/project.go}).</p>
+ * <p>Built by {@code DockerOps} from the daemon's own container list and one inspect each: the
+ * compose service name comes from the {@code com.docker.compose.service} label, the rest from the
+ * inspect's {@code State}. Inspected rather than parsed out of the list's {@code Status} string,
+ * because "Up 19 hours (healthy)" is a sentence written for a person.</p>
  *
  * @param service     the compose service name - {@code smp}, {@code limbo}, and so on
  * @param containerId what the stop and start calls are addressed to

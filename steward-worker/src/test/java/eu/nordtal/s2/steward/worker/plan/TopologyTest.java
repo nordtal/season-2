@@ -432,9 +432,10 @@ class TopologyTest {
                     service.name() + ": the server and steward-worker are pointed at two different"
                             + " plugin sources");
 
-            // The default has to be a VOLUME NAME, never a path: a path under the directory Arcane's
-            // GitOps sync pulls is deleted by that sync, taking every hand-edited config.yml,
-            // milestones.yml and pack.yml with it. Docker tells a bind mount from a volume by the
+            // The default has to be a VOLUME NAME, never a path: a path under a directory a
+            // deployment checks out is deleted the next time it is checked out, taking every
+            // hand-edited config.yml, milestones.yml and pack.yml with it (finding 151). Docker
+            // tells a bind mount from a volume by the
             // shape of the string alone - anything containing a `/` is a path, and a `.` is what a
             // stray `./` leaves behind.
             final String fallback = defaultOf(sourceOf(onTheServer));
@@ -442,9 +443,10 @@ class TopologyTest {
                     service.name() + "'s plugins/ defaults to '" + fallback + "', which Docker"
                             + " reads as a PATH and not as a volume name. Production sets none of"
                             + " these variables, so that default is what the host gets - and a"
-                            + " path inside this checkout is deleted by Arcane's GitOps sync with"
-                            + " every hand-edited plugin config in it. A local stack opts into the"
-                            + " bind by setting the variable; the default must not.");
+                            + " path inside this checkout is deleted the next time the deployment"
+                            + " is checked out, with every hand-edited plugin config in it. A local"
+                            + " stack opts into the bind by setting the variable; the default must"
+                            + " not.");
         }
     }
 
@@ -493,11 +495,11 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("every service name the worker sends to Arcane is a service compose.yml defines")
-    void everyNameTheWorkerAsksArcaneForExists() {
+    @DisplayName("every service name the worker looks up is a service compose.yml defines")
+    void everyNameTheWorkerLooksUpExists() {
         // THIS IS THE TEST THAT WAS MISSING ON 2026-09-11. Topology named the bot `discord-bot`
-        // and compose.yml called the service `bot`, so Arcane's runtime endpoint - which answers
-        // with compose's service names - never listed it. UpdateRun#stop cannot stop a service it
+        // and compose.yml called the service `bot`, so the container runtime - which is keyed by
+        // compose's service names - never listed it. UpdateRun#stop cannot stop a service it
         // cannot find, and refusing to install into something still running is correct, so every
         // /update ended FAILED with "NOTHING WAS INSTALLED" after taking the whole network down
         // and putting it back. Nothing in the build said a word: the two checks below this one
@@ -510,11 +512,11 @@ class TopologyTest {
         asked.addAll(Topology.STANDALONE_JARS);
 
         for (final String name : asked.stream().distinct().toList()) {
-            assertNotNull(services.get(name), "Topology sends the service name '" + name + "' to"
-                    + " Arcane, but compose.yml defines no service called that. Arcane answers with"
-                    + " compose's own service names, so this one can never be found - and a service"
-                    + " that cannot be found cannot be stopped, which fails the entire update run"
-                    + " rather than just that line.");
+            assertNotNull(services.get(name), "Topology looks the service name '" + name + "' up"
+                    + " in the container runtime, but compose.yml defines no service called that."
+                    + " The runtime is keyed by compose's own service names, so this one can never"
+                    + " be found - and a service that cannot be found cannot be stopped, which"
+                    + " fails the entire update run rather than just that line.");
         }
     }
 
@@ -646,34 +648,12 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("the two Arcane defaults repeated in compose.yml still match the spec's own")
-    void theArcaneDefaultsAgreeWithTheSpec() {
-        // An environment variable set to the empty string still wins over the file in jcore, so
-        // `${VAR:-}` would blank out the spec's default rather than fall back to it.
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> environment = (Map<String, Object>) worker.get("environment");
-
-        final StewardSpec.ArcaneSpec spec = new StewardSpec.ArcaneSpec() {
-        };
-        assertTrue(String.valueOf(environment.get("NORDTAL_STEWARD_ARCANE_ENVIRONMENT"))
-                        .endsWith(":-" + spec.environment() + "}"),
-                "compose.yml's ARCANE_ENVIRONMENT fallback is not '" + spec.environment()
-                        + "' any more");
-        assertTrue(String.valueOf(environment.get("NORDTAL_STEWARD_ARCANE_REDEPLOY_PATH"))
-                        .endsWith(":-" + spec.redeployPath() + "}"),
-                "compose.yml's ARCANE_REDEPLOY_PATH fallback is not '" + spec.redeployPath()
-                        + "' any more");
-    }
-
-    @Test
     @DisplayName("every volume a backup saves is a volume compose.yml declares, prefix included")
     void theBackupNamesRealVolumes() {
-        // Arcane addresses a volume by its real Docker name - compose's `name:` plus an underscore
-        // plus the key under `volumes:` - so a rename in one place and not the other is a 404 on the
-        // night it matters. Worse than a 404 is a typo naming a volume Docker CREATES on first use:
-        // Arcane then snapshots an empty directory and reports success for ever.
+        // A volume is addressed by its real Docker name - compose's `name:` plus an underscore
+        // plus the key under `volumes:` - so a rename in one place and not the other fails on the
+        // night it matters. Worse than a failure is a typo naming a volume Docker CREATES on first
+        // use: the run then tars an empty directory and reports success for ever.
         final String project = composeProject();
         final Set<String> declared = composeVolumes();
 
@@ -681,7 +661,7 @@ class TopologyTest {
             assertTrue(volume.startsWith(project + "_"),
                     "backup.volumes lists '" + volume + "', which does not start with compose's own"
                             + " project name '" + project + "_'. Docker prefixes every volume in a"
-                            + " compose project, and Arcane only knows the prefixed name.");
+                            + " compose project, and only the prefixed name exists.");
             final String key = volume.substring(project.length() + 1);
             assertTrue(declared.contains(key),
                     "backup.volumes lists '" + volume + "', but compose.yml declares no volume '"
@@ -693,8 +673,8 @@ class TopologyTest {
     @Test
     @DisplayName("every service a backup stops is a service compose.yml runs")
     void theBackupStopsRealServices() {
-        // A name Arcane does not list aborts the run before anything is saved - the right direction
-        // to fail in, and still an outage for nothing.
+        // A name no container carries aborts the run before anything is saved - the right
+        // direction to fail in, and still an outage for nothing.
         for (final String service : defaults().backup().stopServices()) {
             assertNotNull(services.get(service), "backup.stop-services names '" + service
                     + "', which is not a service in compose.yml. The run would stop nothing, save"
@@ -754,12 +734,6 @@ class TopologyTest {
                 return new BackupSpec() {
                 };
             }
-
-            @Override
-            public ArcaneSpec arcane() {
-                return new ArcaneSpec() {
-                };
-            }
         };
     }
 
@@ -773,7 +747,6 @@ class TopologyTest {
         @SuppressWarnings("unchecked")
         final Map<String, Object> environment = (Map<String, Object>) worker.get("environment");
 
-        // arcane() is the one member without a default, so it has to be supplied here.
         final StewardSpec spec = new StewardSpec() {
             @Override
             public ApiSpec api() {
@@ -795,12 +768,6 @@ class TopologyTest {
                 return new BackupSpec() {
                 };
             }
-
-            @Override
-            public ArcaneSpec arcane() {
-                return new ArcaneSpec() {
-                };
-            }
         };
         assertTrue(String.valueOf(environment.get("NORDTAL_STEWARD_BOOTSTRAP"))
                         .endsWith(":-" + spec.bootstrap() + "}"),
@@ -812,9 +779,9 @@ class TopologyTest {
     @Test
     @DisplayName("every image of ours defaults to one the release workflow actually pushes")
     void ourImagesArePulledAndNotInventedLocally() {
-        // Arcane deploys by PULLING and never builds, so a default tag nothing has pushed fails with
-        // a registry `denied` - which is also what a private package answers, and a `build:` block
-        // beside it makes the file look fine. If an image is ours, its default must be a
+        // A deployment that only pulls never builds, so a default tag nothing has pushed fails
+        // with a registry `denied` - which is also what a private package answers, and a `build:`
+        // block beside it makes the file look fine. If an image is ours, its default must be a
         // ghcr.io/nordtal reference at `latest`, which is what release.yml publishes.
         services.forEach((name, definition) -> {
             @SuppressWarnings("unchecked")
@@ -825,7 +792,7 @@ class TopologyTest {
             }
             assertTrue(image.contains(":-ghcr.io/nordtal/"),
                     "compose.yml's '" + name + "' defaults to the image " + image + ", which is not"
-                            + " a ghcr.io/nordtal reference. Arcane pulls and never builds, so an"
+                            + " a ghcr.io/nordtal reference. A deploy pulls and never builds, so an"
                             + " image only this host can produce fails the deploy with `denied`.");
             // The tag is the literal `latest` and there is no variable in it. IMAGE_TAG was
             // removed on 2026-09-09: a rollback lever is a version number kept outside

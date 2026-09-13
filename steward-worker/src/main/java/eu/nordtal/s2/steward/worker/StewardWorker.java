@@ -6,7 +6,6 @@ import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
-import eu.nordtal.s2.steward.worker.arcane.Arcane;
 import eu.nordtal.s2.steward.worker.api.WorkerApi;
 import eu.nordtal.s2.steward.worker.backup.Backups;
 import eu.nordtal.s2.steward.worker.backup.NightlyClock;
@@ -84,7 +83,7 @@ import java.util.Optional;
  * volume that already holds a jar keeps it however old it is - a restart of a live network finds
  * nothing missing and moves nothing. What the install is for is the other case: a brand new stack,
  * where every volume is empty and a Minecraft server refuses to start without plugins. That used to
- * need {@code updater apply} typed on the host, which is a thing Arcane cannot do.</p>
+ * need {@code updater apply} typed on the host by a person with a shell on it.</p>
  *
  * <p>Both are done here because steward-worker is the only process that migrates and the whole
  * stack starts at once after a redeploy; {@code compose.yml} makes every other service wait for
@@ -377,14 +376,6 @@ public final class StewardWorker {
                     bootstrap(config, database);
                 }
 
-                final Arcane arcane = new Arcane(config.arcane());
-                if (!arcane.configured()) {
-                    log.warn("arcane.base-url is empty, so nothing here can restart the network."
-                            + " Everything else works; a restart is a click in Arcane.");
-                } else {
-                    log.info("Restarts go to {}", arcane.endpoint());
-                }
-
                 markReady();
 
                 // The curves on the start page (§10c). Additive: it reads the daemon and writes
@@ -395,16 +386,25 @@ public final class StewardWorker {
                 // come up because a chart could not be drawn.
                 final Docker docker = new Docker(new DockerSocket(
                         Path.of(config.docker().socket()), Duration.ofSeconds(30)));
+                // One instance, shared by the internal API and by every update run: they ask the
+                // same daemon about the same compose project, and a second one would be a second
+                // answer to the same question.
+                final DockerOps containers = new DockerOps(docker, config.docker().project());
+                if (!docker.isReachable()) {
+                    // The one that matters: without the socket an update, a restart or a backup
+                    // refuses at its first step rather than half way through. Said once, here,
+                    // where the daemon is first opened.
+                    log.warn("No docker socket at {}, so nothing here can stop or start a"
+                            + " container: an update, a restart or a backup refuses before it"
+                            + " touches anything, and there is no image drift check and no start"
+                            + " page curve. Everything else works.", config.docker().socket());
+                }
                 try (Sampler sampler = new Sampler(docker, new HostMetrics(),
                         MetricDirectory.using(database.dataSource()), config.docker().project())) {
                     if (!config.docker().metrics()) {
                         log.info("Metric sampling is off in steward.yml, so the start page will"
                                 + " have no curves.");
-                    } else if (!docker.isReachable()) {
-                        log.warn("No docker socket at {}, so there are no container metrics and no"
-                                + " image drift check. Everything else works.",
-                                config.docker().socket());
-                    } else {
+                    } else if (docker.isReachable()) {
                         sampler.start();
                     }
 
@@ -430,7 +430,7 @@ public final class StewardWorker {
                 // readiness marker for the same reason the sampler is: nothing in the stack waits
                 // for this API, and a container that would not come up because a web layer failed
                 // would take four Minecraft servers with it.
-                try (WorkerApi api = new WorkerApi(docker, new DockerOps(docker, config.docker().project()),
+                try (WorkerApi api = new WorkerApi(docker, containers,
                         new Console(docker, config.docker().project()), new HostMetrics(),
                         config.docker().project(), Path.of(config.backup().outputRoot()),
                         config.api().token())) {
@@ -459,7 +459,7 @@ public final class StewardWorker {
 
                 try (UpdateServer server = new UpdateServer(
                         updates,
-                        new Runner(config, database, arcane, backups, updates),
+                        new Runner(config, database, containers, backups, updates),
                         PostgresNotifications.connector(databaseConfig),
                         Duration.ofSeconds(config.pollIntervalSeconds()),
                         Clock.systemUTC())) {
@@ -483,9 +483,9 @@ public final class StewardWorker {
      * <h2>What it is for</h2>
      * A Minecraft server in this deployment refuses to start on an empty {@code plugins} folder,
      * and filling it was {@code docker compose run --rm updater apply} - a command typed by a person
-     * with a shell on the host. Arcane deploys by pulling images and has no way to type it, so
-     * without this a stack managed from Arcane could never reach a running state on its own. This is
-     * the whole of "deployable from environment variables alone".
+     * with a shell on the host. A deployment that only pulls images has no way to type it, so
+     * without this a fresh stack could never reach a running state on its own. This is the whole of
+     * "deployable from environment variables alone".
      *
      * <h2>It cannot move a version</h2>
      * {@link UpdatePlan#onlyMissing()} drops everything but {@code MISSING}, so an artefact that

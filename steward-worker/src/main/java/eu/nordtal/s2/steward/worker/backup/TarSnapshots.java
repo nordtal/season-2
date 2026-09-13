@@ -29,7 +29,7 @@ import java.util.stream.Stream;
  * §9a's half of the saving: one volume, {@code tar} + {@code zstd}, into a file on this host.
  *
  * <h2>Why this exists at all</h2>
- * It replaces asking Arcane to snapshot a volume over its REST API. On 2026-09-12 run 23 stopped
+ * It replaces asking a management panel to snapshot a volume over its REST API. On 2026-09-12 run 23 stopped
  * {@code smp}, {@code network-control} and {@code discord-bot}, lost <em>every</em> volume snapshot
  * to {@code HTTP 403}, started them again and reported success - 66 seconds of network down and
  * zero backups ({@code todo.md} A23). Nothing in that report made the zero visible, because nothing
@@ -140,8 +140,8 @@ public final class TarSnapshots implements Snapshots {
     /**
      * The same, with the wall set from {@code steward.yml#backup.patience-minutes}.
      *
-     * <p>That key is older than this class - it used to be how long the run waited for Arcane to
-     * finish a snapshot it had started elsewhere. The waiting is local now, but the question the
+     * <p>That key is older than this class - it used to be how long the run waited for a snapshot
+     * it had asked somebody else to take. The waiting is local now, but the question the
      * number answers is the same one and there is no reason to ask it twice: how long may a
      * backup hold the network down before it is given up on.</p>
      */

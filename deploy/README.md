@@ -1,12 +1,17 @@
 # deploy
 
-Season 2's production deployment: one `docker compose` stack on one host, driven through
-[Arcane](https://github.com/ofkm/arcane). This file is the operator's runbook; the project overview
-is [`../README.md`](../README.md).
+Season 2's production deployment: one `docker compose` stack on one host. This file is the
+operator's runbook; the project overview is [`../README.md`](../README.md).
 
-**`compose.yml` and `.env.example` are at the repository root, not in here**, because Arcane's
-GitOps sync pulls the entire directory the compose file lives in. **Every command in this file
-therefore runs from the repository root**, not from `deploy/`.
+**`compose.yml` and `.env.example` are at the repository root, not in here.** `compose.yml` is
+copied from there into `steward-deployer`'s image, which is the one service allowed to create a
+container — see [`../steward-deployer/README.md`](../steward-deployer/README.md). **Every command in
+this file therefore runs from the repository root**, not from `deploy/`.
+
+**A management panel used to sit in front of all of this and was removed on 2026-09-13.** Its five
+jobs are now steward-worker's (container state, health, stop, start, image drift — over the Docker
+socket) and steward-deployer's (recreate and pull). Anything on a host still carrying `ARCANE_*`
+variables in its `.env` can delete those lines; nothing reads them.
 
 **`steward-worker` was called `updater` until 2026-09-12**, and Steward is the name of the whole
 system it belongs to.
@@ -32,11 +37,12 @@ deploy/
 
 ## First deployment, in order
 
-The host needs no shell, no JDK and no Gradle. All three of our images — `minecraft`,
-`steward-worker` and `discord-bot` — are pushed to `ghcr.io/nordtal` by
+The host needs a shell and nothing else — no JDK, no Gradle, no checkout of anything but this
+repository. All three of our images — `minecraft`, `steward-worker` and `discord-bot` — are pushed
+to `ghcr.io/nordtal` by
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) when a release is published, and
 compose pulls every one of them. The `build:` blocks in `compose.yml` are for developing on your own
-machine: **Arcane deploys by pulling and never builds**, so an image that only exists in one host's
+machine: **a deploy pulls and never builds**, so an image that only exists in one host's
 Docker fails the deploy with `error from registry: denied`.
 
 ### Once, before the first deployment
@@ -45,19 +51,22 @@ Docker fails the deploy with `error from registry: denied`.
    eight assets and pushes four images, each tagged with the version and with `latest`.
 2. **Set all four packages to Public**, in their GitHub package settings. A package under an
    organisation is **private on its first push**, and a private package answers a pull with the same
-   `denied` as one that does not exist. The alternative is a registry credential in Arcane.
+   `denied` as one that does not exist. The alternative is a registry credential on the host.
 
-### From Arcane, with no shell on the host
+   They were measured public on 2026-09-13: `ghcr.io/nordtal/{discord-bot,minecraft,postgres-backup}`
+   all resolve against the registry with no authentication, which is what lets steward-worker check
+   image drift for itself.
 
-3. **Point the project at the repository root**, not at `deploy/`.
-4. **Type the environment into Arcane.** [`../.env.example`](../.env.example) is the reference —
-   every `REPLACE_ME` in it is something only you know, and one is the forwarding secret
-   (`openssl rand -hex 24`). `.env` is gitignored here, so Arcane's `.env.git` is empty and
-   everything comes from what you type; a sync never overwrites those values.
-5. **Set Auto Sync on and Redeploy After Sync off**, with the pull policy on *always pull latest*. A
-   redeploy takes the four Minecraft servers down for minutes, and a commit must not do that to
-   people who are playing — steward-worker's restart button gives them a countdown first.
-6. **Deploy.** On its first start `steward-worker` applies the schema and **fills every empty
+### On the host
+
+3. **Check the repository out and write `.env`.** [`../.env.example`](../.env.example) is the
+   reference — every `REPLACE_ME` in it is something only you know, and one is the forwarding secret
+   (`openssl rand -hex 24`). `.env` is gitignored, so it exists only on the host and is never in a
+   commit.
+4. **Run `docker compose up -d` from the repository root.** It builds nothing; every image is
+   pulled.
+
+   On its first start `steward-worker` applies the schema and **fills every empty
    volume** — the four `plugins/` folders, both jar volumes, each server's `.server/` cache and the
    proxy's `pack.yml` — and only then writes the readiness marker every other service waits for. It
    **cannot move a version**: only artefacts with nothing installed are fetched.
@@ -65,17 +74,10 @@ Docker fails the deploy with `error from registry: denied`.
    `steward-worker bootstrap` has run, and say so by name. A first deployment downloads four server
    jars and every plugin before it goes healthy, which is why the worker's healthcheck allows
    fifteen minutes.
-7. **Upload the hand-built worlds** — see [Getting a world into a
-   volume](#getting-a-world-into-a-volume). **This is the one step that still needs a shell.**
-8. **Run the login-path rehearsal.** Nothing above proves a client can join.
-
-### From a shell instead
-
-Steps 3 to 6 collapse into one command from the repository root, and it still builds nothing:
-
-```bash
-docker compose up -d
-```
+5. **Upload the hand-built worlds** — see [Getting a world into a
+   volume](#getting-a-world-into-a-volume).
+6. **Run the login-path rehearsal.** Nothing above proves a client can join, and it is the one step
+   no log on this host can answer.
 
 **A release cannot be pinned, and there is no rollback.** `IMAGE_TAG` and `UPDATER_SEASON_RELEASE`
 were removed on 2026-09-09: every image is `latest` and the worker follows the newest published
@@ -195,13 +197,13 @@ world; it disables itself when `config.yml#world-name` — default `hunger_games
 the service's `LEVEL_NAME` is what brings that folder up as the primary world. The two have to be
 the same string; `ComposeWorldTest` asserts they are.
 
-In Arcane the same thing is a file upload into the volume. Either way: **stop the server first.**
-Copying into a world a running server has open produces corruption that surfaces days later.
+**Stop the server first**, whichever way the files get there. Copying into a world a running server
+has open produces corruption that surfaces days later.
 
 ## The console
 
-Arcane's per-container shell is a `docker exec`, which cannot reach PID 1's stdin — so the server
-runs inside a tmux session, and the image ships two commands:
+A shell opened into the container is a `docker exec`, which cannot reach PID 1's stdin — so the
+server runs inside a tmux session, and the image ships two commands:
 
 ```bash
 console            # attach to the real console, read and write. Detach with Ctrl-b then d.
@@ -213,7 +215,7 @@ mc <command>       # send one command, no TTY needed. Output goes to the contain
 `docker compose stop` to shut a server down.
 
 Reading is unaffected: the entrypoint tails the server's own `logs/latest.log` onto the container's
-stdout, so `docker logs` and Arcane's log view show everything.
+stdout, so `docker logs` and steward-ui's log view show everything.
 
 ## Updating
 
@@ -282,7 +284,7 @@ next start.
 
 The restart is **the same sequence an update runs, with nothing installed** — stop each service,
 start it again, wait until it reports healthy — asked for by the button in Discord or by
-`/update restart` in game. It is not a project-wide Arcane redeploy, which would take steward-worker
+`/update restart` in game. It is not a project-wide redeploy, which would take steward-worker
 down with everything else and leave nothing to report whether the network came back.
 
 **The confirmation comes first, and the countdown only after it.** `/update now` and
@@ -315,57 +317,39 @@ pulled at the last deploy. Since 2026-09-09 a run closes that itself: it reads w
 image the registry has moved past, and **recreates** those instead of starting them, pulling the
 image on the way. The volumes are not touched, so a world is never at risk from it.
 
-**Arcane's image update check has to be on.** It answers the worker from results its own check has
-persisted rather than asking a registry when asked, so with the check off every run prints *"Arcane
-holds no image-update result for any service"* and nothing is ever recreated. That sentence in a
-report is the symptom.
+**The check asks the registry, and that is the fix rather than a detail.** The worker resolves each
+running container's image reference against its registry (`GET /distribution/{ref}/json` over the
+Docker socket, ~250 ms) and compares the answer with the digest the container actually carries.
+Three outcomes, and the third is the point: newer in the registry, the same, or **could not be
+asked** — which is a named note in the report and never counted as current. Until 2026-09-12 this
+went through a panel whose image check never asked a registry at all; it answered from what it had
+already persisted, and four releases ran behind while every report said the network was current
+(`todo.md` A24).
+
+An image that **cannot** be checked is one built on this host and pushed nowhere, or a registry that
+did not answer. Credentials are not among the reasons: all three `ghcr.io/nordtal` packages are
+public.
 
 Two things a run will not renew, and both are named in the report rather than done quietly: **its own
 image**, because the recreate would end the run from inside it, and **anything it does not own** —
-`postgres` and the backup sidecar, which it never stops. Both need **Redeploy** in Arcane, by hand,
-which is now the only thing in this deployment that does.
+`postgres` and the backup sidecar, which it never stops. Both need a redeploy of the project from
+the host, which is now the only thing in this deployment that does.
 
-**It is not the Docker socket, deliberately** — a container holding `/var/run/docker.sock` can do
-anything on the host, and the worker's whole job is downloading files from the internet and putting
-them where servers will execute them. The socket is not mounted anywhere in `compose.yml` and must
-not be. It drives Arcane's API instead; four variables turn that on, all optional together:
+**It is the Docker socket, and that is a stated cost rather than a hidden one.** `compose.yml` mounts
+`/var/run/docker.sock` into `steward-worker`, which is how it reads every container's state, health,
+log and image digest and how it stops and starts them. A container that can talk to that socket can
+do anything the daemon can — `:ro` restricts the socket *file*, not the API behind it — and this is
+also the container whose job is downloading files from the internet and putting them where servers
+execute them. The restraint is in the code: `DockerOps` reads, stops and starts, and **refuses to
+create a container**. Creating one needs the compose file, which `steward-deployer` owns. The
+boundary that matters is that `steward-ui`, the part an attacker reaches first, gets no socket at
+all.
 
-```
-ARCANE_URL=https://arcane.example.com       # origin, no trailing slash
-ARCANE_API_KEY=...                          # Settings -> API Keys, permission projects:deploy
-ARCANE_ENVIRONMENT=0                        # the environment's ID; 0 is Arcane's own host
-ARCANE_PROJECT=51b523fe-21aa-…              # the project's ID. A UUID, NOT 'nordtal-s2'
-```
-
-**Leave `ARCANE_URL` empty and updating stops working.** An update stops each affected server before
-its jars move, so a run that cannot reach Arcane **refuses before resolving a version or touching a
-file**, and says so by name. What still works is
-`docker compose run --rm steward-worker bootstrap` on the host — enough to bring a fresh deployment up, not
-enough to move a version. Clicking **Redeploy** in Arcane by hand is an out-of-band fallback: it
-recreates diverged containers, does not stop anything for a jar swap, and nothing then checks that
-the servers came back — and
-[getarcaneapp/arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943) reports a redeploy of
-an *already running* project doing nothing while answering success, so watch the containers actually
-cycle.
-
-**`ARCANE_PROJECT` is an ID, and that is the trap.** The compose project is called `nordtal-s2` in
-every other file here, and putting that name in answers 404. Read the UUID out of the browser URL
-with the project open, or ask for it:
-
-```bash
-curl -H "X-Api-Key: $ARCANE_API_KEY" "$ARCANE_URL/api/environments/0/projects"
-```
-
-It has no default and steward-worker refuses to start without it once `ARCANE_URL` is set.
-`ARCANE_ENVIRONMENT` defaults to `0` and only changes if Arcane reaches this host through an agent,
-in which case it is a UUID too.
-
-`ARCANE_RUNTIME_PATH` and `ARCANE_CONTAINER_PATH` are the two API paths a run uses: one read of the
-project's services and one `stop`/`start` per container. Container-level is not a detail — Arcane's
-project-wide calls stop *and* start in a single request, and an update needs the **gap** between
-them, which is also why the worker survives its own update. `ARCANE_REDEPLOY_PATH` is no longer on
-any production path. All three stay settings because Arcane does not publish them, so a version that
-moves a path is a line in `.env` and not a release of ours.
+**Without the socket, updating stops working** — and says so rather than half-running. An update
+stops each affected server before its jars move, so a run that cannot read the container runtime
+refuses before resolving a version or touching a file. What still works is
+`docker compose run --rm steward-worker bootstrap` on the host: enough to bring a fresh deployment
+up, not enough to move a version.
 
 ## Locally
 
@@ -434,19 +418,14 @@ the client is almost always the hash and not the network — rerun after any cha
 ### Rehearsing the restart path locally
 
 `deploy/dev deploy` restarts one container and is what you want ninety-nine times out of a hundred.
-The hundredth is the restart path itself — the button, the countdown, the Arcane calls — and that
-cannot be rehearsed anywhere but against a real Arcane. Run Arcane as its own compose project on
-this machine, point it at this project, and fill in `ARCANE_URL`, `ARCANE_API_KEY` and
-`ARCANE_PROJECT` in `deploy/dev.env`.
+The hundredth is the restart path itself — the button, the countdown, the stop and start of each
+container — and **that needs nothing extra installed any more.** It used to need a management panel
+running beside the stack and four variables pointing at it, which is why it went unrehearsed for so
+long. The worker now uses the Docker socket `compose.yml` already mounts, so `/update restart`
+against a local stack exercises the real sequence.
 
-`ARCANE_URL` is `http://host.docker.internal:<port>` — **not** `http://localhost:...`, which inside
-the steward-worker container is the steward-worker container. Both wrong values are named by the
-worker at startup and again in `update_request.result`. `http://` is right here and wrong in
-production: the API key travels as a header on every call, so **in production `ARCANE_URL` must be
-an `https://` origin**. The worker only warns about a key on `http://`, because it is the only
-process that migrates and refusing to start would trade a working schema for an optional button.
-
-Leaving `ARCANE_URL` empty breaks nothing locally: every surface answers "Arcane is not configured".
+What a local rehearsal still cannot show you is the Discord half — the countdown message, the
+confirmation button and the report in the admin channel — which needs a real guild.
 
 ### What the local stack still cannot tell you
 
@@ -578,7 +557,8 @@ docker compose up -d
 
 Check `docker compose logs` for the four servers before deleting anything. **Keep a copy of
 `deploy/servers/` outside the checkout until you have seen a server come up with its own config** —
-that directory is inside the tree Arcane's GitOps sync pulls, and the sync deletes ignored files.
+that directory is inside the checkout, and a deployment that checks this repository out over itself
+deletes ignored files from it (finding 151).
 
 To roll back, set the four `<SERVICE>_PLUGINS` variables to the old paths in `.env`; the volumes are
 left untouched and can be removed later with `docker volume rm`.

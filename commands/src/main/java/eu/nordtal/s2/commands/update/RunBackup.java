@@ -41,7 +41,7 @@ public final class RunBackup implements NordtalCommand<UpdateEffects> {
                 final long id = effects.submit(UpdateKind.BACKUP, user).id();
                 effects.watch(id, user);
                 // Accepted, not started. submit() writes a row and nothing more: steward-worker can
-                // still refuse this run before any countdown - Arcane unreachable, an empty
+                // still refuse this run before any countdown - the daemon unreachable, an empty
                 // backup.volumes, another run holding the lock - and a line that says "backing up"
                 // would then be the last thing anybody was told. The watcher reports the countdown
                 // once the worker has actually recorded it, which is where that news belongs.

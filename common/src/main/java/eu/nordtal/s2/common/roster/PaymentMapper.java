@@ -1,0 +1,35 @@
+package eu.nordtal.s2.common.roster;
+
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.StatementContext;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.UUID;
+
+/** Maps a {@code payment_request} row; see {@link PersonMapper} for why it is written out. */
+public final class PaymentMapper implements RowMapper<Payment> {
+
+    @Override
+    public Payment map(final ResultSet rs, final StatementContext ctx) throws SQLException {
+        // bunq_tab_id is a nullable bigint, and getLong answers 0 for NULL - which is a valid tab
+        // id as far as this type is concerned. wasNull is the only thing that tells them apart.
+        final long bunqTabId = rs.getLong("bunq_tab_id");
+        // Read immediately: wasNull() describes the most recent getter call, so any column read
+        // between the two would silently answer for itself instead.
+        final boolean noTab = rs.wasNull();
+        return new Payment(
+                rs.getObject("id", UUID.class),
+                rs.getString("reference"),
+                rs.getString("discord_id"),
+                rs.getInt("days"),
+                rs.getInt("amount_cents"),
+                rs.getInt("donation_cents"),
+                rs.getString("status"),
+                noTab ? null : bunqTabId,
+                rs.getString("share_url"),
+                PersonMapper.instant(rs, "created"),
+                PersonMapper.instant(rs, "expires"),
+                PersonMapper.instant(rs, "settled"));
+    }
+}

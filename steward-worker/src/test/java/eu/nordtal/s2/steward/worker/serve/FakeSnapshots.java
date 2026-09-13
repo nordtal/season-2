@@ -13,7 +13,7 @@ import java.util.Set;
 /**
  * Saving volumes, without a disk.
  *
- * <p>It shares its call list with {@link FakeArcane} on purpose: what a backup run has to get right
+ * <p>It shares its call list with {@link FakeContainers} on purpose: what a backup run has to get right
  * is the <b>order</b> of stopping, saving and starting, and an ordering split across two recorders
  * is an ordering nothing asserts.</p>
  */

@@ -434,8 +434,8 @@ class UpdateDirectoryIntegrationTest {
     @DisplayName("an orphaned restart is a failure like every other kind, since 2026-09-08")
     void anOrphanedRestartIsAFailureToo() {
         // It was read as SUCCESS until this change, and the inference was right at the time: a
-        // RESTART was one Arcane redeploy of the whole project, which took the container running it
-        // down every time by design. A restart now cycles the four Minecraft services one at a time
+        // RESTART was one redeploy of the whole project asked for over HTTP, which took the
+        // container running it down every time by design. A restart now cycles the four Minecraft services one at a time
         // and never stops the worker, so an orphaned one means what every other kind means - the
         // worker died in the middle of it. Reporting that as "the redeploy happened" is the one
         // reading nobody can act on.

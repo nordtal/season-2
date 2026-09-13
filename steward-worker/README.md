@@ -112,23 +112,21 @@ its whole length.
 
 The restart itself is **one stop and one start per container**, and **not** a project-wide redeploy:
 that does both in a single request and would take this container down with everything else, leaving
-nothing to report whether the network came back. Until the cutover it goes over Arcane's REST API:
+nothing to report whether the network came back.
 
-```
-GET  /api/environments/{environment}/projects/{project}/runtime
-POST /api/environments/{environment}/containers/{container}/{start|stop}
-```
-
-Both path segments are IDs: the environment is `0` for Arcane's own host, and the project is a UUID,
-not the compose project name. They stay settings because Arcane does not publish them. An empty
-`arcane.base-url` refuses an update **before** a version is resolved or a file is touched, and says
+It goes over the Docker socket: one `GET /containers/json` filtered to the compose project, one
+inspect per container for its state and health, then `POST /containers/{id}/stop` and `/start`. It
+used to go over the REST API of a management panel and needed a URL, a token and two IDs to do it;
+that panel was removed on 2026-09-13 and the `arcane:` config block with it. A run that **cannot
+read the container runtime** refuses **before** a version is resolved or a file is touched, and says
 so by name.
 
 ## The docker socket
 
 **It is mounted here since 2026-09-12, and it was not before.** The sentence this file used to carry
 — *not the Docker socket, which is mounted nowhere in this deployment* — was true of the arrangement
-where Arcane did the container work. The concept's §3 draws the line in a different place: the part
+where a management panel did the container work. The concept's §3 draws the line in a different
+place: the part
 that must not hold the socket is the **web interface**, because that is what an attacker reaches
 first. This container already downloads files from the internet and puts them where servers execute
 them; the socket does not widen that, and it removes a whole service from the path.
@@ -138,7 +136,7 @@ What it does with it:
 | | |
 |---|---|
 | reads | state, health, image, uptime, CPU and memory per container, the log stream, `/system/df` |
-| asks a registry | `GET /distribution/{ref}/json` against the image's own digests — the drift check Arcane never performed (`todo.md` A24) |
+| asks a registry | `GET /distribution/{ref}/json` against the image's own digests — the drift check the old panel never performed (`todo.md` A24) |
 | writes | one stop, one start, and `mc <command>` into the four Minecraft consoles |
 | **refuses** | creating a container. That needs the compose file, which `steward-deployer` owns, and a container rebuilt from an inspect would drift from it silently |
 
@@ -196,32 +194,32 @@ against nothing else. There is deliberately no untested S3 path in this code —
 
 A `start` hands a container back to Docker on exactly the image it was created from. So the jars move
 and `entrypoint.sh`, the JRE under it and every change to `compose.yml` stay on whatever was pulled
-at the last deploy — for ever, because nothing on the automatic path ever pulls. Two more calls close
-that:
+at the last deploy — for ever, because nothing on the automatic path ever pulls. Two steps close
+that: the drift check reads which services have moved past their image, and a recreate pulls one
+service's image and brings its container back from it.
 
-```
-GET  /api/environments/{environment}/projects/{project}/updates
-POST /api/environments/{environment}/projects/{project}/update-services   {"services":["smp"]}
-```
-
-The first is read **before anything is stopped**, so a stale image is a row in the plan a person
+The drift read happens **before anything is stopped**, so a stale image is a row in the plan a person
 confirms rather than a step discovered after they said yes to something else. A service it names is
-then **recreated** instead of started, one service per call, and the report says which. Volumes are
+then **recreated** instead of started, one service at a time, and the report says which. Volumes are
 not touched on that path.
 
-- **Arcane answers from its own persisted checks.** It does not ask a registry when asked, so a
-  project whose image update check is off reports *"nobody has looked"* — a note in the report, never
-  a quiet "up to date", and then nothing is recreated. Turn the check on.
+- **Three answers, never two.** Newer in the registry, the same, or *could not be asked* — the last
+  is a named note and never a quiet "up to date". Arcane, the management panel this replaced,
+  answered from checks it had persisted itself and never queried a registry at all, so four releases
+  ran behind while every report said the network was current (`todo.md` A24). An image that cannot be checked now is one
+  built on this host and pushed nowhere, or a registry that did not answer; credentials are not
+  among the reasons, because all three `ghcr.io/nordtal` packages are public (measured 2026-09-13).
 - **The worker never recreates itself**, for the reason it never stops itself: the call would end
-  the run from inside. Its own stale image is a note naming the Redeploy button.
+  the run from inside. Its own stale image is a note saying the project has to be redeployed from
+  the host.
 - **Nor anything it does not own.** `postgres` and the backup sidecar are named in a note and left
   alone — a sequence that recreates a container it never stopped is one nobody can predict from the
   report they confirmed.
-- **One hazard, upstream's:** Arcane recreates with `RecreateDependencies: RecreateDiverged`, and
-  every backend depends on this container. A `compose.yml` that has changed the worker's own
-  definition can therefore have it recreated as a diverged dependency, mid-run. Each recreate is
-  reported *before* it is asked for, so the last line written names where a run stopped. See
-  `nordtal/todo.md`, A19.
+- **The recreate is not this container's to perform.** `DockerOps.recreate` refuses: creating a
+  container needs the compose file, which `steward-deployer` owns (§8b). It is also why each
+  recreate is reported *before* it is asked for — a `compose up` that considers this container a
+  diverged dependency can end the run from the outside, and the last line written is then the whole
+  diagnosis. See `nordtal/todo.md`, A19.
 
 ## Tests
 
@@ -230,10 +228,10 @@ recorded from the live GitHub, Modrinth and PaperMC APIs. `TopologyTest` reads t
 so a backend added there and not to `Topology` fails the build. The migration is covered from the
 other side by `:discord-bot`'s `SchemaCheckTest` against a real PostgreSQL.
 
-**A 2xx from a real Arcane has never been observed.** Every Arcane path here was read out of its own
-Go source — v2.10.2, dates in `StewardSpec.ArcaneSpec` — and the update-payload shapes in
-`ArcaneImagesTest` are written from those type definitions rather than recorded from a live instance.
-Capturing a real one is an item in `nordtal/todo.md` (A19).
+`ImageResultTest` holds the two sentences a person reads when an image could not be compared. They
+are not log lines — they go into a Discord embed and into `/smp update`'s output, and they are the
+only thing between *"nobody could look at this"* and *"this is current"*, which is A24 in one
+sentence.
 
 ## Output
 

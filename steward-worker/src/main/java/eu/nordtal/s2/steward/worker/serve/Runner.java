@@ -27,6 +27,7 @@ import org.jetbrains.annotations.NotNull;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -427,6 +428,31 @@ public final class Runner implements RequestRunner {
      * {@link Outcome}, and because the one path that would keep it is a row settled by something
      * other than a cancel, where "stopped before anything moved" is still the true sentence.</p>
      */
+    /**
+     * Which of the services this run asked to stop are not among the ones that did.
+     *
+     * <p><b>Only the {@code PLANNED} lines count, and that is the whole of it.</b> The report also
+     * carries the database dump - {@link DatabaseDump#NAME}, written before anything is stopped -
+     * and that line is not a container. Comparing every line against {@code stopped} therefore
+     * found "database" missing on every single run, and every backup aborted before saving a
+     * volume with "NOTHING WAS SAVED. database could not be stopped". The nightly backup did not
+     * fail loudly; it failed politely, every night.</p>
+     *
+     * <p>Steward-worker is never stopped and must never be counted as refusing to: it is the
+     * process running this. {@code UpdateRun#stop} leaves it out of {@code stopped}, so an operator
+     * who put "steward-worker" into {@code backup.stop-services} would otherwise get a run that
+     * saves nothing and blames a service for not doing something nobody asked it to do.</p>
+     */
+    static List<String> servicesThatRefused(final UpdateReport planned,
+                                            final Collection<String> stopped) {
+        return planned.services().stream()
+                .filter(line -> line.state() == UpdateReport.State.PLANNED)
+                .map(UpdateReport.ServiceLine::service)
+                .filter(service -> !Topology.STEWARD_WORKER.equals(service))
+                .filter(service -> !stopped.contains(service))
+                .toList();
+    }
+
     private static Outcome cancelled() {
         return Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.CANCELLED)
                 .withNote("Stopped during the countdown. Nothing was stopped and nothing was"
@@ -557,16 +583,7 @@ public final class Runner implements RequestRunner {
         // A service that refused to stop is still writing to a volume this run is about to
         // snapshot, and a torn snapshot fails at RESTORE rather than here - the one place a
         // failure is useless. So nothing is saved, and whatever did stop is started again.
-        final List<String> notStopped = planned.services().stream()
-                .map(UpdateReport.ServiceLine::service)
-                // Steward-worker is never stopped and must never be counted as refusing to: it is
-                // the process running this. UpdateRun#stop leaves it out of stopped.services(), so
-                // an operator who put "steward-worker" into backup.stop-services would otherwise
-                // get a run that saves nothing, every night, and blames a service for not doing
-                // something nobody asked it to do.
-                .filter(service -> !Topology.STEWARD_WORKER.equals(service))
-                .filter(service -> !stopped.services().contains(service))
-                .toList();
+        final List<String> notStopped = servicesThatRefused(planned, stopped.services());
         if (!notStopped.isEmpty()) {
             final UpdateReport back = run.start(new UpdateRun.Stopped(
                     stopped.report().withNote("NOTHING WAS SAVED. " + String.join(", ", notStopped)

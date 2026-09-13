@@ -16,11 +16,15 @@ import java.util.List;
  *
  * <p>It is in {@code :common} because {@code :common} owns the schema.
  *
- * <h2>Read-only, and only read-only</h2>
- * Neither method writes. An entry is written by whatever performed the action it records, in the
- * same transaction where that is possible, which is the only way the journal stays honest.
+ * <h2>Two readers and one writer</h2>
+ * {@link #recent(int)} and {@link #search(String, String, int)} only read. {@link #record} writes
+ * one line - as its own statement, deliberately <em>not</em> inside the transaction of the action
+ * it describes, for the reason given on that method. This block used to say that neither method
+ * wrote and that an entry shared its action's transaction, which was two sentences contradicting
+ * the method three screens below them; a caller who believed it would expect a rolled-back grant
+ * to take its journal line with it, and it does not.
  *
- * <p><b>Blocking.</b> Both methods are a database round trip.
+ * <p><b>Blocking.</b> Every method is a database round trip.
  *
  * <p>Holds no resource of its own: it borrows the pool it is given, so there is nothing to close.
  */

@@ -480,6 +480,88 @@ class StewardUiIntegrationTest {
         assertFalse(get("/api/config/steward-worker/../../../etc/passwd").statusCode() == 200);
     }
 
+    // -------------------------------------------------------------------------------------------
+    // The five admin commands that stayed in the game
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("only the commands declared for the web are offered")
+    void theCatalogueIsFiltered() throws Exception {
+        final JsonArray offered = GSON.fromJson(get("/api/commands").body(), JsonArray.class);
+
+        assertEquals(
+                List.of("/announce", "/hg start", "/smp farmreset now", "/smp milestone unlock",
+                        "/smp objective complete"),
+                offered.asList().stream()
+                        .map(command -> command.getAsJsonObject().get("name").getAsString())
+                        .toList());
+    }
+
+    @Test
+    @DisplayName("a command becomes a row that says who asked for it")
+    void aCommandIsARowWithANameOnIt() throws Exception {
+        final HttpResponse<String> asked = post("/api/commands",
+                "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": \"aufbruch\"}}");
+
+        assertEquals(202, asked.statusCode(), asked.body());
+        final long id = Long.parseLong(
+                GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsString());
+
+        // The row is real and addressed to the process that owns the command. Reading it back
+        // through the same endpoint the browser polls is what proves the round trip, not the 202.
+        final JsonObject outcome = GSON.fromJson(get("/api/commands/" + id).body(), JsonObject.class);
+        assertEquals("PENDING", outcome.get("status").getAsString());
+
+        // source = WEB is the whole reason V18 exists. A CONSOLE row would have been refused by
+        // V11's console-is-anonymous CHECK the moment it carried a Discord id - or, worse, written
+        // without one and left the journal unable to say who unlocked a milestone.
+        try (var connection = java.sql.DriverManager.getConnection(
+                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             var statement = connection.prepareStatement(
+                     "SELECT source, discord_id, requested_by, command, arguments"
+                             + " FROM command_request WHERE id = ?")) {
+            statement.setLong(1, id);
+            try (var rows = statement.executeQuery()) {
+                assertTrue(rows.next(), "the row is not there");
+                assertEquals("WEB", rows.getString("source"));
+                assertEquals("1", rows.getString("discord_id"));
+                assertTrue(rows.getString("requested_by").contains("Till"),
+                        rows.getString("requested_by"));
+                assertEquals("smp milestone unlock", rows.getString("command"));
+                assertEquals("aufbruch", rows.getString("arguments"));
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("a command this interface may not ask for is refused, not written")
+    void anUndeclaredCommandIsRefused() throws Exception {
+        final HttpResponse<String> refused = post("/api/commands", "{\"name\": \"/smp aura\"}");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("/smp aura"), refused.body());
+    }
+
+    @Test
+    @DisplayName("a missing required argument is refused by the declaration, not by the database")
+    void aMissingArgumentIsRefused() throws Exception {
+        final HttpResponse<String> refused = post("/api/commands",
+                "{\"name\": \"/smp objective complete\", \"arguments\": {}}");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("key"), refused.body());
+    }
+
+    private static HttpResponse<String> post(final String path, final String body) throws Exception {
+        final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+        return http.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + path))
+                .header("Content-Type", "application/json")
+                .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build(), HttpResponse.BodyHandlers.ofString());
+    }
+
     private static JsonObject entry(final JsonObject document, final String path) {
         return document.getAsJsonArray("entries").asList().stream()
                 .map(com.google.gson.JsonElement::getAsJsonObject)

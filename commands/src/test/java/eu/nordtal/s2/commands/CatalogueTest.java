@@ -181,13 +181,25 @@ class CatalogueTest {
     }
 
     @Test
-    @DisplayName("a SYSTEM command is typed on no surface a person has")
+    @DisplayName("a SYSTEM command is registered by no command tree")
     void systemIsAloneOnItsSurface() {
         // The adapters filter by GAME, DISCORD and CONSOLE; a declaration that carried SYSTEM next
         // to one of those would be registered as a real command with a name a server also sends.
+        //
+        // WEB is deliberately not in that list (2026-09-13). No tree is built from it: steward-ui
+        // registers nothing and writes a command_request row for the handful of commands it names
+        // itself, so SYSTEM beside WEB cannot produce the collision this test exists to prevent.
+        // /announce is both - the SMP writes one at a milestone, an admin can write one by hand.
+        final java.util.Set<Surface> registered =
+                java.util.Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
         for (final Declaration declaration : Catalogue.all()) {
             if (declaration.surfaces().contains(Surface.SYSTEM)) {
-                assertEquals(java.util.Set.of(Surface.SYSTEM), declaration.surfaces(), declaration.name());
+                assertEquals(java.util.Set.of(), declaration.surfaces().stream()
+                                .filter(registered::contains)
+                                .collect(java.util.stream.Collectors.toSet()),
+                        declaration.name() + " is a SYSTEM command and is also on a surface some"
+                                + " adapter builds a command tree from, which would register a real"
+                                + " command with a name a server also sends.");
             }
         }
     }

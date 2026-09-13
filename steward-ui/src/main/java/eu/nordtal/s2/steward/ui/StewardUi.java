@@ -80,6 +80,9 @@ public final class StewardUi {
 
     /** The other services' config files, mounted into this container. */
     private final ConfigApi configs;
+
+    /** The admin commands that also exist in the game, over `command_request`. */
+    private final CommandApi commands;
     private final ExecutorService streams = Executors.newVirtualThreadPerTaskExecutor();
 
     private Javalin app;
@@ -97,6 +100,7 @@ public final class StewardUi {
         this.data = data;
         this.accounts = accounts;
         this.configs = new ConfigApi(Path.of(config.configs().root()));
+        this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
     }
 
     /**
@@ -280,6 +284,16 @@ public final class StewardUi {
             // Read from this service's own config rather than kept in the browser, because the
             // Ampel has to be able to fire into Discord as well, and a number in somebody's
             // localStorage cannot be read by anything that is not that browser.
+            // --- the five admin commands that stayed in the game (§10b) ------------------------
+            //
+            // A row in `command_request`, not a connection to a server: the interface holds none.
+            // `source = WEB` rather than CONSOLE, because V11 pins a CONSOLE row to having no
+            // identity at all - every admin command from here would otherwise be anonymous, which
+            // is the question the journal exists to answer. V18 adds the value and the CHECK.
+            cfg.routes.get("/api/commands", commands::list);
+            cfg.routes.post("/api/commands", commands::ask);
+            cfg.routes.get("/api/commands/{id}", commands::outcome);
+
             // --- the configuration of every service in the stack ------------------------------
             //
             // Till's decision, 2026-09-13: every config in the stack is editable from here, with

@@ -39,6 +39,17 @@ public final class SmpCommands {
     private static final Set<Surface> EVERYWHERE =
             Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
 
+    /**
+     * The three that Till decided (2026-09-12) stay in the game AND get a button in Steward.
+     *
+     * <p>Not every admin command does: {@code /smp aura} and {@code /smp access} take a player who
+     * is standing in front of you, and a web form asking for a name somebody has to type correctly
+     * is worse than the chat command that completes it. These three are the ones that are decided
+     * at a desk.</p>
+     */
+    private static final Set<Surface> EVERYWHERE_AND_WEB =
+            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE, Surface.WEB);
+
     /** {@code /smp reload} - the sounds, the milestone track and the message bundles. */
     public static final Declaration RELOAD = new Declaration(
             List.of("smp", "reload"), Target.SMP, EVERYWHERE, true, false, List.of());
@@ -58,16 +69,16 @@ public final class SmpCommands {
      * dropping it would also silently invalidate every pending confirmation.</p>
      */
     public static final Declaration FARM_RESET = new Declaration(
-            List.of("smp", "farmreset", "now"), Target.SMP, EVERYWHERE, true, true, List.of());
+            List.of("smp", "farmreset", "now"), Target.SMP, EVERYWHERE_AND_WEB, true, true, List.of());
 
     /** {@code /smp objective complete <key>} - closes one objective, paying out what was collected. */
     public static final Declaration COMPLETE_OBJECTIVE = new Declaration(
-            List.of("smp", "objective", "complete"), Target.SMP, EVERYWHERE, true, true,
+            List.of("smp", "objective", "complete"), Target.SMP, EVERYWHERE_AND_WEB, true, true,
             List.of(Argument.word("key")));
 
     /** {@code /smp milestone unlock <key>} - unlocks a whole milestone by hand. */
     public static final Declaration UNLOCK_MILESTONE = new Declaration(
-            List.of("smp", "milestone", "unlock"), Target.SMP, EVERYWHERE, true, true,
+            List.of("smp", "milestone", "unlock"), Target.SMP, EVERYWHERE_AND_WEB, true, true,
             List.of(Argument.word("key")));
 
     /**

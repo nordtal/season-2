@@ -87,6 +87,64 @@ public interface UiSpec {
         return 12;
     }
 
+    @Order(6)
+    @Key("alerts")
+    @Comment({
+            "When the Ampel on the start page turns yellow or red (concept 10c).",
+            "",
+            "These are the two thresholds that are a matter of taste; the other two triggers - a",
+            "service that is down, and a missing backup - are not adjustable and are not meant to",
+            "be. A stopped SMP is not a preference."
+    })
+    AlertSpec alerts();
+
+    /**
+     * The thresholds of the traffic light.
+     *
+     * <p>They live here rather than in the browser because the Ampel also has to fire outside the
+     * interface - into the Discord admin channel - and a threshold kept in somebody's localStorage
+     * cannot be read by anything that is not that browser.</p>
+     */
+    @ConfigSpec
+    interface AlertSpec {
+
+        @Order(1)
+        @Key("disk-percent")
+        @Comment({
+                "How full the disk may get before the start page says so. Measured on this host on",
+                "2026-09-12: 12.1 G of 193.6 G, i.e. 6 percent - so the margin here is wide, and it",
+                "is meant to fire long before anything actually stops."
+        })
+        default int diskPercent() {
+            return 85;
+        }
+
+        @Order(2)
+        @Key("memory-percent")
+        @Comment({
+                "The same for memory. No container in this stack sets a limit, so this is the share",
+                "of the whole machine and not of anybody's budget - four Minecraft servers shared",
+                "6.2 of 15.6 GiB when this was measured."
+        })
+        default int memoryPercent() {
+            return 90;
+        }
+
+        @Order(3)
+        @Key("backup-age-hours")
+        @Comment({
+                "How old the newest finished backup may be before the Ampel turns RED. The nightly",
+                "clock runs once a day, so anything under 24 would fire on a normal morning; 36",
+                "leaves one missed night visible and two nights impossible to miss.",
+                "",
+                "This one counts files on the disk, not runs that reported success. Run 23 reported",
+                "success having saved nothing at all (todo.md A23), which is why."
+        })
+        default int backupAgeHours() {
+            return 36;
+        }
+    }
+
     /** Where steward-worker's internal API is. */
     @ConfigSpec
     interface WorkerSpec {

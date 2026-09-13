@@ -2,7 +2,10 @@ package eu.nordtal.s2.steward.ui.data;
 
 import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
+import eu.nordtal.s2.common.access.AccessDirectory;
+import eu.nordtal.s2.common.audit.AuditDirectory;
 import eu.nordtal.s2.common.metric.MetricDirectory;
+import eu.nordtal.s2.common.roster.RosterDirectory;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
 import eu.nordtal.s2.common.update.UpdateDirectory;
 import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
@@ -34,6 +37,9 @@ public final class Data implements AutoCloseable {
     private final UpdateDirectory updates;
     private final MetricDirectory metrics;
     private final PhaseDirectory phase;
+    private final RosterDirectory roster;
+    private final AuditDirectory audit;
+    private final AccessDirectory access;
 
     public Data(final @NotNull DatabaseSpec config) {
         this.database = Database.create(DatabaseConfig.builder(config.jdbcUrl())
@@ -45,6 +51,11 @@ public final class Data implements AutoCloseable {
         this.updates = UpdateDirectory.using(database.dataSource());
         this.metrics = MetricDirectory.using(database.dataSource());
         this.phase = PhaseDirectory.using(database.dataSource());
+        this.roster = RosterDirectory.using(database.dataSource());
+        this.audit = AuditDirectory.using(database.dataSource());
+        // Borrowing, not owning: `using` hands back a directory over this pool, so closing the pool
+        // below is the only close there is. `AccessDirectory.open` would build a second pool.
+        this.access = AccessDirectory.using(database.dataSource());
     }
 
     public @NotNull UpdateDirectory updates() {
@@ -57,6 +68,27 @@ public final class Data implements AutoCloseable {
 
     public @NotNull PhaseDirectory phase() {
         return phase;
+    }
+
+    public @NotNull RosterDirectory roster() {
+        return roster;
+    }
+
+    public @NotNull AuditDirectory audit() {
+        return audit;
+    }
+
+    /**
+     * Granting and revoking access.
+     *
+     * <p>The only writing this interface does that is not a row in {@code update_request}. Till
+     * decided on 2026-09-13 that the interface may grant and revoke, so there are now two ways to
+     * the same state - here and {@code /access} in Discord. The trade is accepted and its cost is
+     * paid in the journal: every grant and every revocation from here writes an {@code audit_log}
+     * row naming the admin who clicked, because two doors into one room need a visitors' book.</p>
+     */
+    public @NotNull AccessDirectory access() {
+        return access;
     }
 
     @Override

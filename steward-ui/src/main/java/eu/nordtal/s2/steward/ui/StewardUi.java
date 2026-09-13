@@ -1,6 +1,8 @@
 package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.Gson;
+import eu.nordtal.s2.common.SeasonPhase;
+import eu.nordtal.s2.common.access.AccessSource;
 import eu.nordtal.s2.common.update.UpdateKind;
 import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
@@ -269,6 +271,112 @@ public final class StewardUi {
                 ctx.status(202).json(describe(written));
             });
 
+            // --- the thresholds the start page judges by ---------------------------------------
+            //
+            // Read from this service's own config rather than kept in the browser, because the
+            // Ampel has to be able to fire into Discord as well, and a number in somebody's
+            // localStorage cannot be read by anything that is not that browser.
+            cfg.routes.get("/api/settings", ctx -> ctx.json(Map.of(
+                    "disk", config.alerts().diskPercent(),
+                    "memory", config.alerts().memoryPercent(),
+                    "backupAgeHours", config.alerts().backupAgeHours())));
+
+            // --- who is in the guild, what they paid, what they may ----------------------------
+            cfg.routes.get("/api/people", ctx -> ctx.json(
+                    data.roster().people(limit(ctx, 500, 2000))));
+
+            cfg.routes.get("/api/people/{id}/grants", ctx -> ctx.json(
+                    data.roster().grantsOf(ctx.pathParam("id"))));
+
+            cfg.routes.get("/api/payments", ctx -> ctx.json(
+                    data.roster().payments(limit(ctx, 200, 1000))));
+
+            cfg.routes.get("/api/journal", ctx -> ctx.json(data.audit().search(
+                    ctx.queryParam("action"), ctx.queryParam("subject"),
+                    limit(ctx, 200, 1000))));
+
+            // Granting and revoking - the only writing here that is not an update_request row.
+            //
+            // Till decided on 2026-09-13 that the interface may do both, so there are now two doors
+            // into one room: this and /access in Discord. The price of the second door is paid in
+            // the journal, one row per click, naming the admin - because "who let this person in"
+            // has to stay answerable when the answer is no longer "the only person who could".
+            cfg.routes.post("/api/access/grant", ctx -> {
+                final Grant ask = ctx.bodyAsClass(Grant.class);
+                if (ask == null || ask.discordId == null || ask.discordId.isBlank()) {
+                    throw new BadRequestResponse("discordId is whose access this is");
+                }
+                if (ask.days == null || ask.days <= 0) {
+                    throw new BadRequestResponse("days must be a positive number of days");
+                }
+                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                // ensureUser first: a grant against a Discord id the bot has never seen would fail
+                // on the foreign key, and "this person has not spoken to the bot yet" is a worse
+                // error message than simply making the row.
+                data.access().ensureUser(ask.discordId);
+                final var granted = data.access().grantAccess(
+                        ask.discordId, ask.days, AccessSource.ADMIN, null);
+                data.audit().record("GRANT_ACCESS", who.name() + " (" + who.id() + ")",
+                        ask.discordId, null,
+                        ask.days + " days from the web interface, until " + granted.validUntil());
+                log.info("{} granted {} {} days of access", who.name(), ask.discordId, ask.days);
+                ctx.status(201).json(granted);
+            });
+
+            cfg.routes.post("/api/access/revoke", ctx -> {
+                final Grant ask = ctx.bodyAsClass(Grant.class);
+                if (ask == null || ask.discordId == null || ask.discordId.isBlank()) {
+                    throw new BadRequestResponse("discordId is whose access this is");
+                }
+                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                final int revoked = data.access().revokeAccess(ask.discordId);
+                data.audit().record("REVOKE_ACCESS", who.name() + " (" + who.id() + ")",
+                        ask.discordId, null, revoked + " grant(s) revoked from the web interface");
+                log.info("{} revoked {} grants of {}", who.name(), revoked, ask.discordId);
+                ctx.json(Map.of("revoked", revoked));
+            });
+
+            // --- the season ------------------------------------------------------------------
+            //
+            // PhaseDirectory writes its own audit_log row inside the statement that performs the
+            // change, so nothing is recorded twice here. That is also why the actor has to be
+            // passed in rather than recorded afterwards.
+            cfg.routes.post("/api/season/phase", ctx -> {
+                final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
+                if (ask == null || ask.phase == null) {
+                    throw new BadRequestResponse("phase is which phase to switch to");
+                }
+                final SeasonPhase phase;
+                try {
+                    phase = SeasonPhase.valueOf(ask.phase.trim().toUpperCase(java.util.Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    throw new BadRequestResponse(ask.phase + " is not a phase");
+                }
+                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                final var change = data.phase().switchPhase(phase, who.name() + " (" + who.id() + ")",
+                        ask.reason == null ? "" : ask.reason);
+                ctx.json(change);
+            });
+
+            cfg.routes.post("/api/season/date", ctx -> {
+                final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
+                if (ask == null || ask.at == null || ask.at.isBlank()) {
+                    throw new BadRequestResponse("at is the instant, as ISO-8601");
+                }
+                final Instant at;
+                try {
+                    at = Instant.parse(ask.at.trim());
+                } catch (java.time.format.DateTimeParseException e) {
+                    throw new BadRequestResponse(ask.at + " is not an ISO-8601 instant");
+                }
+                final DiscordAuth.Account who = account(ctx).orElseThrow();
+                final String actor = who.name() + " (" + who.id() + ")";
+                final var change = "smpStart".equals(ask.which)
+                        ? data.phase().setSmpStart(at, actor)
+                        : data.phase().setLaunch(at, actor);
+                ctx.json(change);
+            });
+
             cfg.routes.get("/api/season", ctx -> {
                 final Map<String, Object> season = new LinkedHashMap<>();
                 season.put("phase", data.phase().currentPhase().name());
@@ -395,6 +503,32 @@ public final class StewardUi {
     private static final class Ask {
         private String kind;
         private Long delaySeconds;
+    }
+
+    /** The body of both access endpoints. {@code days} is unused by the revoke. */
+    private static final class Grant {
+        private String discordId;
+        private Integer days;
+    }
+
+    /** The body of both season endpoints. Each uses the fields it needs. */
+    private static final class SeasonChange {
+        private String phase;
+        private String reason;
+        private String which;
+        private String at;
+    }
+
+    /**
+     * A {@code limit} query parameter, with a default and a ceiling.
+     *
+     * <p>The ceiling is not politeness. Every one of these endpoints reads rows into memory and
+     * serialises them into one response, so a caller asking for a million of them is asking this
+     * container to hold a million of them; the number is capped here rather than trusted.</p>
+     */
+    private static int limit(final Context ctx, final int fallback, final int ceiling) {
+        return Math.min(ceiling, Math.max(1,
+                ctx.queryParamAsClass("limit", Integer.class).getOrDefault(fallback)));
     }
 
     private static Optional<DiscordAuth.Account> fromSession(final Context ctx) {

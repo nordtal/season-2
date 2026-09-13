@@ -335,6 +335,26 @@ class MetricDirectoryIntegrationTest {
     }
 
     @Test
+    @DisplayName("and they win even when no sample happens to sit on the hour")
+    void theOverlapIsNotDrawnTwiceOffTheBoundary() {
+        // The same state as above, with the one accident removed: nothing was recorded at exactly
+        // 10:00. The seam used to be the oldest raw instant itself, so ten o'clock's mean passed
+        // "at < 10:10" and came back beside the two samples it was the average of.
+        metrics.record(List.of(
+                new MetricSample("host", "cpu", TEN.plusSeconds(600), 12.0),
+                new MetricSample("host", "cpu", TEN.plusSeconds(1800), 18.0),
+                new MetricSample("host", "cpu", ELEVEN.plusSeconds(60), 40.0)));
+        metrics.compact(ELEVEN);
+
+        final List<MetricPoint> curve = metrics.range("host", "cpu", TEN, TWELVE);
+
+        assertEquals(3, curve.size(), "three raw samples, and the mean of two of them is not a fourth point");
+        assertTrue(curve.stream().allMatch(p -> p.resolution() == Resolution.RAW),
+                "the seam is the hour of the oldest raw sample, not the sample's own minute");
+        assertEquals(List.of(12.0, 18.0, 40.0), curve.stream().map(MetricPoint::value).toList());
+    }
+
+    @Test
     void aSeriesWithNothingButMeansIsStillACurve() {
         // coalesce(min(raw), 'infinity') is what this is about: with no raw rows at all the seam
         // would otherwise be null, and a comparison against null returns no hourly points either -

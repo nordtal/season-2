@@ -28,6 +28,8 @@ deploy/
     scripts/console    attach to the real server console (read + write)
     scripts/mc         send one command, no TTY needed
                        (named scripts/ and not bin/ - .gitignore has a repo-wide bin/ rule)
+  setup.sh             the host's own script: the .env, the two secrets, the name, the deployer
+  setup-test.sh        its checks, without Docker or a resolver (runs on `check`)
   dev                  the local stack: init · up · deploy · pack · reset - see Locally below
   dev-test.sh          the guard on `dev reset`, without Docker (runs on `check`)
   dev.env.example      every setting the local stack needs; copy to dev.env
@@ -62,9 +64,42 @@ Docker fails the deploy with `error from registry: denied`.
 3. **Check the repository out and write `.env`.** [`../.env.example`](../.env.example) is the
    reference — every `REPLACE_ME` in it is something only you know, and one is the forwarding secret
    (`openssl rand -hex 24`). `.env` is gitignored, so it exists only on the host and is never in a
-   commit.
-4. **Run `docker compose up -d` from the repository root.** It builds nothing; every image is
-   pulled.
+   commit. **Leave `STEWARD_API_TOKEN` and `STEWARD_DEPLOYER_TOKEN` empty** — the setup script
+   generates those, because a secret a machine can invent is one nobody should have to type.
+4. **Run `deploy/setup.sh`.** It builds nothing; every image is pulled.
+
+   ```bash
+   deploy/setup.sh --check     # every check, and stop before anything is changed
+   deploy/setup.sh             # the deployment itself
+   ```
+
+   It copies `.env` to the absolute path `STEWARD_ENV_FILE` names (`/etc/nordtal/season-2.env` by
+   default) at mode 600, generates the two Steward secrets, **resolves `STEWARD_HOST` and waits
+   until it points at this host**, renews `steward-deployer`, and then runs that image once with
+   `up` — which pulls every image before it stops anything and creates the rest of the stack,
+   including the long-running deployer.
+
+   **The wait is the point** (concept §10): Caddy asks Let's Encrypt for a certificate the moment it
+   starts, and the challenge is answered by whatever the name points at. A setup that ran to the end
+   therefore means a working deployment, not a deployment with a certificate still to come. The
+   script says which name, what it resolved to and what this host is, and checks again every 15 s —
+   so the waiting is not guesswork. `--address` supplies this host's public address on a host behind
+   NAT; it does not skip the comparison.
+
+   **Run it again after every release.** `compose.yml` reaches this host only inside a new
+   `steward-deployer` image, so shipping a changed deployment *is* this script. Everything else —
+   a new bot, a new worker, a new server jar — the deployer and the worker do from inside.
+
+   **Every `docker compose` typed by hand needs `--env-file` after this**, and so does every one
+   further down this file — the environment file is no longer beside `compose.yml`:
+
+   ```bash
+   docker compose --env-file /etc/nordtal/season-2.env ps
+   ```
+
+   Compose looks for `.env` in the project directory and nowhere else, and it does not fail when
+   there isn't one: it interpolates empty strings, which turns `${X:?}` into an error naming a
+   variable you did set, and everything without a `:?` into a silently different deployment.
 
    On its first start `steward-worker` applies the schema and **fills every empty
    volume** — the four `plugins/` folders, both jar volumes, each server's `.server/` cache and the

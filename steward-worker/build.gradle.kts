@@ -20,6 +20,14 @@ repositoryRootTestInputs {
     // two statements inside one method and Gradle's own input is the compiled class.
     reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/Runner.java")
 
+    // TopologyTest asks the release workflow whether it pushes every ghcr.io/nordtal image
+    // compose.yml defaults to. It is a text read of the workflow, so Gradle has to be told.
+    reads(".github/workflows/release.yml")
+
+    // And StewardDeployer as text, for the one default that has to be the same on both sides of
+    // the socket: the compose project name.
+    reads("steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/StewardDeployer.java")
+
     // TopologyTest holds deploy/dev.env.example against every required variable in compose.yml:
     // compose interpolates the whole file before filtering by profile, so one unset `${X:?}` stops
     // the local stack even for a service it never starts.

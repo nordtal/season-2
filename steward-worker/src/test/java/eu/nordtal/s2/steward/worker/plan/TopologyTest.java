@@ -873,6 +873,63 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("the release workflow pushes every image compose.yml expects to pull")
+    void ourImagesAreActuallyPublished() throws IOException {
+        // The test above says the default is a ghcr.io/nordtal reference. That is not the same
+        // question as whether anything ever pushes it, and the difference is invisible until a
+        // host that has never built anything runs a deploy and gets `denied` from the registry -
+        // which looks exactly like a private package. It was true of steward-ui and
+        // steward-deployer for a day: both defaulted correctly to ghcr.io/nordtal and neither was
+        // in release.yml, because the images were only ever built on the one host that has the
+        // repository. `build:` blocks beside them make the file look finished.
+        final String workflow =
+                Files.readString(findUpwards(".github/workflows/release.yml"), StandardCharsets.UTF_8);
+        services.forEach((name, definition) -> {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> service = (Map<String, Object>) definition;
+            final String image = String.valueOf(service.get("image"));
+            if (!image.contains(":-ghcr.io/nordtal/")) {
+                return;
+            }
+            // The repository, not the service: one image serves all four Minecraft services.
+            final String repository = image.substring(image.indexOf(":-ghcr.io/nordtal/") + 2,
+                    image.lastIndexOf(':'));
+            assertTrue(workflow.contains(repository + ":latest"),
+                    "compose.yml's '" + name + "' pulls " + repository + ":latest, and"
+                            + " .github/workflows/release.yml pushes no such tag. A deploy pulls and"
+                            + " never builds, so that image exists only where somebody built it by"
+                            + " hand and the deploy fails with `denied` everywhere else.");
+        });
+    }
+
+    @Test
+    @DisplayName("the deployer deploys the project it was started in, not one of its own")
+    void theDeployerAgreesWithComposeAboutTheProjectName() throws IOException {
+        // The failure this pins is not an error message. steward-deployer puts `--project-name` on
+        // every command line it builds, and if that name disagreed with the project compose uses
+        // out here, nothing would fail: a SECOND stack would come up beside the running one, with
+        // its own volumes and its own empty database, and the first sign of it would be a fresh
+        // world. So the fallback has to be the same on both sides, and both sides are read here.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> deployer = (Map<String, Object>) services.get("steward-deployer");
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> environment = (Map<String, Object>) deployer.get("environment");
+        final String declared = String.valueOf(environment.get("COMPOSE_PROJECT_NAME"));
+        assertEquals("${COMPOSE_PROJECT_NAME:-nordtal-s2}", declared,
+                "compose.yml no longer hands steward-deployer the project name. Without it the"
+                        + " service falls back to its own default, which is only the same value"
+                        + " until somebody sets COMPOSE_PROJECT_NAME in .env.");
+
+        final String source = Files.readString(findUpwards(
+                        "steward-deployer/src/main/java/eu/nordtal/s2/steward/deployer/StewardDeployer.java"),
+                StandardCharsets.UTF_8);
+        assertTrue(source.contains("env(\"COMPOSE_PROJECT_NAME\", \"nordtal-s2\")"),
+                "StewardDeployer's fallback project name is not `nordtal-s2` any more, and"
+                        + " compose.yml's is. Two different defaults for the project name are two"
+                        + " deployments of the same stack.");
+    }
+
+    @Test
     @DisplayName("DisplayTags really is required by smp, which is why the topology lists it")
     void theRequiredPluginsAreRequiredBySmpsOwnManifest() throws IOException {
         // Checked against the manifest that enforces it rather than against a comment about it.

@@ -378,3 +378,43 @@ export type ConfigDocument = ConfigLocation & {
 
 /** What a PUT sends: a string is a scalar, an array is a list, and they are not interchangeable. */
 export type ConfigChanges = Record<string, string | string[]>
+
+/**
+ * One admin command the interface may ask for (concept §10b).
+ *
+ * The list comes from the backend rather than being written here, because it IS the set of
+ * declarations carrying `Surface.WEB` - a copy in this file would be a second list to keep
+ * truthful, and the failure mode is a button for a command nothing will run.
+ */
+export type AdminCommand = {
+  name: string
+  path: string[]
+  target: string
+  adminOnly: boolean
+  /** The adapters owe a confirmation on these. Here that means an AlertDialog. */
+  irreversible: boolean
+  arguments: CommandArgument[]
+}
+
+export type CommandArgument = {
+  name: string
+  kind: "WORD" | "GREEDY_STRING" | "INTEGER" | "PLAYER" | "CHOICE" | "ACCOUNT"
+  required: boolean
+  min?: number
+  max?: number
+  choices?: string[]
+}
+
+/**
+ * What became of a request.
+ *
+ * PENDING and RUNNING both mean keep waiting and mean different things when the wait runs out: a
+ * row nobody ever claimed is a target that is down, one claimed and never settled is a target that
+ * is up and stuck. EXPIRED is therefore a diagnosis, not a failure.
+ */
+export type CommandRun = {
+  id: string
+  name?: string
+  status: "PENDING" | "RUNNING" | "DONE" | "FAILED" | "EXPIRED"
+  result?: string
+}

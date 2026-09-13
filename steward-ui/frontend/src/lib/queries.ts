@@ -5,6 +5,8 @@ import {
   api,
   rememberCsrf,
   type Backup,
+  type AdminCommand,
+  type CommandRun,
   type ConfigChanges,
   type ConfigDocument,
   type ConfigLocation,
@@ -56,6 +58,8 @@ export const keys = {
   grants: (discordId: string) => ["grants", discordId] as const,
   journal: (action: string, subject: string) => ["journal", action, subject] as const,
   settings: ["settings"] as const,
+  commands: ["commands"] as const,
+  commandRun: (id: string) => ["command-run", id] as const,
   configs: ["configs"] as const,
   config: (file: string) => ["config", file] as const,
 }
@@ -215,6 +219,35 @@ export function useJournal(action: string, subject: string, enabled = true) {
  * Discord admin channel, and a threshold kept in somebody's localStorage cannot be read by
  * anything that is not that browser.
  */
+/** Which admin commands this interface may ask for - the declarations carrying Surface.WEB. */
+export function useCommands(enabled = true) {
+  return useQuery({
+    queryKey: keys.commands,
+    queryFn: () => api<AdminCommand[]>("/api/commands"),
+    staleTime: 60 * 60 * SECOND,
+    enabled,
+  })
+}
+
+/**
+ * What became of one request.
+ *
+ * Polled every second while it is unsettled and not at all afterwards. A command travels to another
+ * process and back through one row, so there is nothing to subscribe to - and a second a spinner
+ * sits still is a second an operator spends wondering whether the click registered.
+ */
+export function useCommandRun(id: string | null) {
+  return useQuery({
+    queryKey: keys.commandRun(id ?? ""),
+    queryFn: () => api<CommandRun>(`/api/commands/${id}`),
+    enabled: Boolean(id),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      return status === undefined || status === "PENDING" || status === "RUNNING" ? SECOND : false
+    },
+  })
+}
+
 export function useSettings(enabled = true) {
   return useQuery({
     queryKey: keys.settings,
@@ -360,11 +393,9 @@ export function useAdminCommand() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (command: { name: string; arguments?: Record<string, string> }) =>
-      api<{ id: string; status: string; message?: string }>("/api/commands", {
-        method: "POST",
-        body: command,
-      }),
+      api<CommandRun>("/api/commands", { method: "POST", body: command }),
     onSuccess: () => {
+      // The row names who asked, so it is a journal entry whether or not the command succeeds.
       client.invalidateQueries({ queryKey: ["journal"] })
     },
   })

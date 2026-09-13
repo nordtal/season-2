@@ -4,6 +4,7 @@ import eu.nordtal.jcore.persistence.sql.Database;
 import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.audit.AuditDirectory;
+import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.metric.MetricDirectory;
 import eu.nordtal.s2.common.roster.RosterDirectory;
 import eu.nordtal.s2.common.phase.PhaseDirectory;
@@ -40,6 +41,7 @@ public final class Data implements AutoCloseable {
     private final RosterDirectory roster;
     private final AuditDirectory audit;
     private final AccessDirectory access;
+    private final CommandRequests commands;
 
     public Data(final @NotNull DatabaseSpec config) {
         this.database = Database.create(DatabaseConfig.builder(config.jdbcUrl())
@@ -56,6 +58,7 @@ public final class Data implements AutoCloseable {
         // Borrowing, not owning: `using` hands back a directory over this pool, so closing the pool
         // below is the only close there is. `AccessDirectory.open` would build a second pool.
         this.access = AccessDirectory.using(database.dataSource());
+        this.commands = CommandRequests.borrowing(database.dataSource());
     }
 
     public @NotNull UpdateDirectory updates() {
@@ -89,6 +92,18 @@ public final class Data implements AutoCloseable {
      */
     public @NotNull AccessDirectory access() {
         return access;
+    }
+
+    /**
+     * The command transport - the same table {@code /access grant} in Discord travels on.
+     *
+     * <p>This is how the five admin commands that stayed in the game are asked for from a browser:
+     * a row addressed to the process that owns the command, claimed by that process's inbox, with
+     * the answer written back into the same row. There is no RCON here and no tmux; the interface
+     * holds no connection to any server.</p>
+     */
+    public @NotNull CommandRequests commands() {
+        return commands;
     }
 
     @Override

@@ -62,8 +62,8 @@ class UpdateReportsTest {
     @Test
     @DisplayName("a failure message carrying quotes and newlines comes back as it went in")
     void textIsEscaped() {
-        final String nasty = "Arcane answered 404 for \"/api/…/redeploy\".\nBoth path segments\tare"
-                + " ids, not names.";
+        final String nasty = "the daemon answered 404 for \"/containers/abc123/stop\".\nIts id\tis"
+                + " twelve hex characters, not a service name.";
         final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED).withNote(nasty);
 
         assertEquals(nasty, UpdateReports.parse(UpdateReports.toJson(report))

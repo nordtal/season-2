@@ -60,7 +60,7 @@ COMPOSE_PROFILES=db,bot docker compose up -d
 
 **No Gradle step and no `--build`.** The image is pulled from `ghcr.io/nordtal/discord-bot:latest`,
 pushed by `release.yml` when a release is published. There is no tag to choose: `IMAGE_TAG` was
-removed on 2026-09-09. That is not a convenience — Arcane deploys by pulling and never builds, so an
+removed on 2026-09-09. That is not a convenience — a deploy pulls and never builds, so an
 image existing only on one host fails a deploy.
 
 To build it here instead, which is what the `build:` block is for:

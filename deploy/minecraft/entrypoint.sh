@@ -669,7 +669,7 @@ fi
 JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch}"
 
 # --- start it inside tmux --------------------------------------------------------------------
-# Arcane's per-container shell is a `docker exec` and therefore cannot reach PID 1's stdin. tmux
+# A shell opened into this container is a `docker exec` and cannot reach PID 1's stdin. tmux
 # is what makes the console writable from there; `console` attaches, `mc <cmd>` sends one command.
 log "starting ${SERVER_KIND} ${SERVER_VERSION_RUNNING} build ${SERVER_BUILD_RUNNING}"
 log "console: run 'console' in this container to attach, or 'mc <command>' to send one command"
@@ -701,7 +701,7 @@ tmux -S "$SOCK" new-session -d -s "$SESSION" -c "$DATA" -x 200 -y 50 \
     "exec java ${JVM_OPTS} -jar '${JAR_PATH}' ${JAVA_ARGS[*]:-}" \
   \; pipe-pane -o -t "$SESSION" "cat >> '$BOOT_LOG'"
 piping=1
-# Mirror the server log to this process's stdout, so `docker logs` and Arcane's log view keep
+# Mirror the server log to this process's stdout, so `docker logs` and any log viewer reading it keep
 # showing everything they would have shown without tmux.
 #
 # THIS IS DELIBERATELY `tail -F` AND NOT `tmux pipe-pane ... > /proc/1/fd/1`, which is the obvious
@@ -778,7 +778,7 @@ kill "$TAIL_PID" 2>/dev/null || true
 # creating latest.log, so `tail -F` had nothing to follow and the container log is about to say
 # "server exited with status 1" and not one word about why. The pane held the answer and is about
 # to be destroyed with the tmux server, so it goes to stdout now - which is where a person, and
-# Arcane's log view, will actually look.
+# anything reading `docker logs`, will actually look.
 if [[ ! -s "$LOG_FILE" && -s "$BOOT_LOG" ]]; then
     warn "the server produced no ${LOG_FILE##*/}, so it died before Paper started logging. Its console output follows - this is the only copy, and it is also in ${BOOT_LOG} until the next start:"
     cat "$BOOT_LOG" >&2

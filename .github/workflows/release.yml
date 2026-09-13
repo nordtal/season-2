@@ -112,11 +112,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # ALL FOUR IMAGES ARE PUSHED, and until 2026-09-02 only this first one was. The reason it
-      # changed is not a preference: ARCANE DEPLOYS BY PULLING. Its Redeploy pulls images and never
-      # builds - building is a separate action in its interface - so an image that exists nowhere
-      # but a host's local daemon makes a deploy fail with `denied` from the registry, which is what
-      # happened with ghcr.io/nordtal/minecraft:local. Two of these cannot be built from a checkout
-      # at all: they COPY a jar Gradle produces into a directory .gitignore excludes.
+      # changed is not a preference: THE DEPLOYMENT PULLS, IT DOES NOT BUILD. steward-deployer runs
+      # `compose pull` and then `up --no-detach --no-deps`, so an image that exists nowhere but a
+      # host's local daemon makes a deploy fail with `denied` from the registry - which is what
+      # happened with ghcr.io/nordtal/minecraft:local, back when a panel did the pulling and the
+      # same rule applied. Two of these cannot be built from a checkout at all: they COPY a jar
+      # Gradle produces into a directory .gitignore excludes.
       #
       # THE IMAGES ARE A FLOOR, NOT THE VERSION. The bot and steward-worker run whatever jar is in
       # their volume, which the worker fills from the release assets above; the jar baked in is
@@ -137,8 +138,8 @@ jobs:
             ghcr.io/nordtal/discord-bot:latest
 
       # The bootstrap. It used to be deliberately unpublished, on the reasoning that a host with
-      # nothing yet builds it from this repository - which stopped being true the moment the host
-      # was Arcane rather than a shell.
+      # nothing yet builds it from this repository - which stopped being true the moment the
+      # deployment became a pull rather than a build.
       - name: Build and push the steward-worker image
         uses: docker/build-push-action@v7
         with:

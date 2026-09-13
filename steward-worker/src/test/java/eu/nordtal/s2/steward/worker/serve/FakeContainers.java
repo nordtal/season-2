@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * An Arcane that answers from a map instead of over HTTP.
+ * A {@link ContainerOps} that answers from a map instead of from a Docker daemon.
  *
  * <p>Everything the update sequence does is an ordering decision, and the only way to see one is to
  * record the calls. {@link #calls} is that record, in order: {@code stop:smp}, {@code backup:mc-smp},
@@ -22,7 +22,7 @@ import java.util.Map;
  * other two - a snapshot taken of a server that is still running fails at RESTORE and nowhere
  * else.</p>
  */
-final class FakeArcane implements ContainerOps {
+final class FakeContainers implements ContainerOps {
 
     /** Every stop and start, in the order they were asked for. */
     final List<String> calls = new ArrayList<>();
@@ -33,7 +33,7 @@ final class FakeArcane implements ContainerOps {
     private boolean reachable = true;
     private boolean stopFails;
 
-    /** service -> what Arcane says about its image. Absent means UNKNOWN, which is never work. */
+    /** service -> what the drift check found. Absent means UNKNOWN, which is never work. */
     private final Map<String, ImageResult.State> images = new LinkedHashMap<>();
 
     /** Services whose recreate is refused - a 404 on the project id, a pull that failed. */
@@ -45,28 +45,28 @@ final class FakeArcane implements ContainerOps {
     /** volume -> what it settles as. Absent means "succeeds". */
     private final Map<String, Boolean> backupSucceeds = new LinkedHashMap<>();
 
-    /** Volumes whose POST is refused outright - Arcane unreachable, a 404, a 409. */
+    /** Volumes whose snapshot is refused outright before anything is written. */
     private final java.util.Set<String> backupRefused = new java.util.LinkedHashSet<>();
 
     private final Map<String, Integer> polls = new LinkedHashMap<>();
 
-    FakeArcane running(final String... names) {
+    FakeContainers running(final String... names) {
         for (final String name : names) {
             services.put(name, new ServiceRuntime(name, name + "-container", "running", "healthy"));
         }
         return this;
     }
 
-    /** Arcane reports a newer image for these services. */
-    FakeArcane imageOutdated(final String... names) {
+    /** The registry has a newer image for these services. */
+    FakeContainers imageOutdated(final String... names) {
         for (final String name : names) {
             images.put(name, ImageResult.State.OUTDATED);
         }
         return this;
     }
 
-    /** Arcane has checked these and they are current - which is not the same as never checked. */
-    FakeArcane imageCurrent(final String... names) {
+    /** These were checked and are current - which is not the same as never checked. */
+    FakeContainers imageCurrent(final String... names) {
         for (final String name : names) {
             images.put(name, ImageResult.State.UP_TO_DATE);
         }
@@ -74,7 +74,7 @@ final class FakeArcane implements ContainerOps {
     }
 
     /** The recreate of these services is refused, so they keep running their old image. */
-    FakeArcane recreateRefused(final String... names) {
+    FakeContainers recreateRefused(final String... names) {
         recreateRefused.addAll(List.of(names));
         return this;
     }
@@ -82,7 +82,7 @@ final class FakeArcane implements ContainerOps {
     @Override
     public @NotNull ImageResult images() {
         if (!reachable) {
-            return ImageResult.unreachable("no Arcane");
+            return ImageResult.unreachable("no docker socket");
         }
         return ImageResult.of(images);
     }
@@ -91,7 +91,7 @@ final class FakeArcane implements ContainerOps {
     public @NotNull RedeployResult recreate(final @NotNull String service) {
         calls.add("recreate:" + service);
         if (!reachable) {
-            return RedeployResult.refused("no Arcane");
+            return RedeployResult.refused("no docker socket");
         }
         if (recreateRefused.contains(service)) {
             return RedeployResult.refused("refused");
@@ -103,14 +103,14 @@ final class FakeArcane implements ContainerOps {
         return RedeployResult.triggered("HTTP 200");
     }
 
-    /** Arcane is not answering at all - the case the whole run must refuse to start on. */
-    FakeArcane unreachable() {
+    /** The daemon is not answering at all - the case the whole run must refuse to start on. */
+    FakeContainers unreachable() {
         reachable = false;
         return this;
     }
 
     /** Every stop is refused, so nothing may be installed and nothing may be started. */
-    FakeArcane stopFails() {
+    FakeContainers stopFails() {
         stopFails = true;
         return this;
     }
@@ -127,13 +127,13 @@ final class FakeArcane implements ContainerOps {
     }
 
     /** This volume's snapshot never starts. */
-    FakeArcane backupRefused(final String volume) {
+    FakeContainers backupRefused(final String volume) {
         backupRefused.add(volume);
         return this;
     }
 
     /** This volume's snapshot starts and then reports failed. */
-    FakeArcane backupFails(final String volume) {
+    FakeContainers backupFails(final String volume) {
         backupSucceeds.put(volume, false);
         return this;
     }
@@ -142,7 +142,7 @@ final class FakeArcane implements ContainerOps {
     @Override
     public @NotNull RuntimeResult runtime() {
         return reachable ? RuntimeResult.of(List.copyOf(services.values()))
-                : RuntimeResult.unreachable("Arcane is not answering");
+                : RuntimeResult.unreachable("the docker daemon is not answering");
     }
 
     @Override

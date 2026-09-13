@@ -3,11 +3,12 @@
 #   cp .env.example .env        # fill it in; .env is gitignored and must never be committed
 #   docker compose up -d
 #
-# THIS FILE LIVES AT THE REPOSITORY ROOT because Arcane's GitOps sync pulls the entire directory the
-# compose file lives in, so a compose file under deploy/ would put deploy/ on the host and nothing
-# else. Everything else that belongs to the deployment is still in deploy/.
+# THIS FILE LIVES AT THE REPOSITORY ROOT and is copied from here into steward-deployer's image
+# (§8b), which is the one thing in the stack allowed to create a container. "Which compose file is
+# live" therefore has a version number for an answer. Everything else that belongs to the deployment
+# is still in deploy/.
 #
-# EVERY IMAGE IS PULLED, NOTHING IS BUILT ON THE HOST. Arcane's Redeploy pulls and never builds, and
+# EVERY IMAGE IS PULLED, NOTHING IS BUILT ON THE HOST. A deploy pulls and never builds, and
 # two of these images COPY a jar that Gradle produces and .gitignore excludes, so a host with only a
 # checkout could not build them. All four come from ghcr.io/nordtal, pushed by release.yml. The
 # `build:` blocks that remain are for developing on this machine.
@@ -61,7 +62,7 @@ name: nordtal-s2
 # ---------------------------------------------------------------------------------------------
 x-minecraft: &minecraft
   profiles: ["mc"]
-  # ARCANE NEVER RUNS THIS: its Redeploy pulls and does not build. The block is kept because it is
+  # A DEPLOY NEVER RUNS THIS: it pulls and does not build. The block is kept because it is
   # how this image is developed locally, and because build.yml runs the same build on every push,
   # which catches a Dockerfile that COPYs a file .dockerignore excludes.
   build:
@@ -171,7 +172,7 @@ services:
   # THE SERVICE NAME IS `discord-bot` AND IT IS THE SAME STRING AS EVERYTHING ELSE ABOUT THIS JAR:
   # the module directory, the artefact id in :steward-worker's Topology, the volume path the worker
   # writes to (/volumes/discord-bot) and the image. It was `bot` until 2026-09-11, and that one
-  # shorter name was a whole class of failure: the worker asks Arcane's runtime endpoint for the
+  # shorter name was a whole class of failure: the worker looks the container runtime up for the
   # service called `discord-bot`, got nothing back, and refused the entire run - "NOTHING WAS
   # INSTALLED", every server stopped and started again for no reason. TopologyTest now holds the two
   # equal.
@@ -189,7 +190,7 @@ services:
       # why a production host pulls this image. There are no build args at all any more - the
       # Dockerfile finds its jar in build/libs by glob - which also settles the older trap that a
       # `:?` in a build arg is interpolated even by a deploy that only pulls, and would have stopped
-      # Arcane before it reached a single image.
+      # the deploy before it reached a single image.
       context: ./discord-bot
     restart: unless-stopped
     depends_on:
@@ -355,9 +356,10 @@ services:
       # milestones.yml, sounds.yml and pack.yml are hand-edited and worth backing up on their own
       # schedule, while a world is 4 GB.
       #
-      # THE DEFAULT MUST BE A VOLUME NAME AND THE BIND IS THE EXCEPTION. A path under the directory
-      # Arcane's GitOps sync pulls is deleted by that sync, taking every hand-edited config with it.
-      # Production sets none of these variables and therefore gets a named volume.
+      # THE DEFAULT MUST BE A VOLUME NAME AND THE BIND IS THE EXCEPTION. A path under a directory a
+      # deployment checks out is deleted the next time it is checked out, taking every hand-edited
+      # config with it (finding 151). Production sets none of these variables and therefore gets a
+      # named volume.
       #
       # Setting one to a path is what the local stack does, so that reading plugins/smp/config.yml is
       # opening a file rather than two `docker compose cp`s. A value with a `/` in it is a bind mount
@@ -540,9 +542,9 @@ services:
     # service with no `command` takes the image's CMD instead. The read-only run is
     # `steward-worker report`, by name, and that is why the name exists.
     command: ["serve"]
-    # ARCANE IS ON THE HOST AND THIS IS A CONTAINER, so `localhost` in arcane.base-url is this
-    # container and nothing is listening on it. This mapping is what makes the answer -
-    # http://host.docker.internal:<port> - work on Linux as well as on Docker Desktop.
+    # THIS IS A CONTAINER, so `localhost` in any URL given to it is this container and not the
+    # host. This mapping is what makes http://host.docker.internal:<port> work on Linux as well as
+    # on Docker Desktop; it costs nothing and is what any future host-side address needs.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -578,7 +580,8 @@ services:
       # installation, and the newest STABLE build is what all five processes install and run.
       # Whether `serve` fills EMPTY volumes before it reports ready. This is what lets a stack come up
       # with nobody typing anything on the host: a Minecraft server refuses to start on an empty
-      # plugins folder, and Arcane cannot run `docker compose run --rm steward-worker bootstrap`.
+      # plugins folder, and a deploy that only pulls images cannot run
+      # `docker compose run --rm steward-worker bootstrap`.
       #
       # It cannot move a version - only artefacts with nothing installed at all are fetched - so a
       # restart of a live network finds nothing missing and does nothing. Repeated from
@@ -588,45 +591,11 @@ services:
       # two GitHub calls, so it only matters on a host sharing its address with something busy.
       NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_WORKER_GITHUB_TOKEN:-}
 
-      # The restart, through Arcane's REST API - NOT through the Docker socket, which is not mounted
-      # anywhere in this file and must not be: a container with it can do anything on the host, and
-      # this is the container whose job is downloading files from the internet.
-      #
-      # LEAVING ARCANE_URL EMPTY STOPS UPDATES, deliberately. An update stops each affected server
-      # before its jars move, so a run that cannot reach Arcane refuses before resolving a version or
-      # touching a file rather than installing into servers that are still running. What still works
-      # is `docker compose run --rm steward-worker bootstrap`, which fills EMPTY slots and stops nothing.
-      #
-      # THE TWO IDS ARE IDS AND NOT NAMES. ARCANE_ENVIRONMENT is 0 for Arcane's own host and a UUID
-      # for a remote agent; ARCANE_PROJECT is a UUID Arcane generated and is NOT the compose project
-      # name - putting `nordtal-s2` there answers 404. Read them from
-      # GET $ARCANE_URL/api/environments/0/projects with the same token.
-      NORDTAL_STEWARD_ARCANE_BASE_URL: ${ARCANE_URL:-}
-      NORDTAL_STEWARD_ARCANE_API_KEY: ${ARCANE_API_KEY:-}
-      NORDTAL_STEWARD_ARCANE_PROJECT: ${ARCANE_PROJECT:-}
-      # Repeated from StewardSpec.ArcaneSpec, and they have to be: an environment variable set to the
-      # empty string still WINS over the file in jcore, so `${VAR:-}` would blank out the spec's own
-      # default. TopologyTest asserts the two copies still say the same thing.
-      NORDTAL_STEWARD_ARCANE_ENVIRONMENT: ${ARCANE_ENVIRONMENT:-0}
-      NORDTAL_STEWARD_ARCANE_REDEPLOY_PATH: ${ARCANE_REDEPLOY_PATH:-/api/environments/{environment}/projects/{project}/redeploy}
-      # The two paths a run actually uses: one read of the project's services, and one stop/start per
-      # container. redeploy above is not on any production path - it took steward-worker down with
-      # everything else, leaving nothing to report whether the network came back. Settings for the
-      # same reason redeploy-path is: Arcane's documentation does not publish them, so a version that
-      # moves a path is a line here and not a release of ours.
-      NORDTAL_STEWARD_ARCANE_RUNTIME_PATH: ${ARCANE_RUNTIME_PATH:-/api/environments/{environment}/projects/{project}/runtime}
-      NORDTAL_STEWARD_ARCANE_CONTAINER_PATH: ${ARCANE_CONTAINER_PATH:-/api/environments/{environment}/containers/{container}/{action}}
-      # And the two the IMAGE path uses. A run replaces jars inside the volumes and hands each
-      # container back with `start`, which recreates nothing - so entrypoint.sh, the JRE under it and
-      # every change to this file stay on whatever image was pulled at the last deploy. The first
-      # reads which services have moved past their image; the second pulls one service's image and
-      # recreates its container from it, and touches no volume doing so.
-      #
-      # ARCANE ANSWERS THE FIRST FROM ITS OWN PERSISTED CHECKS. With its image update check switched
-      # off, every run reports "nobody has looked" and nothing is ever recreated - which is a line in
-      # the report and not a silence.
-      NORDTAL_STEWARD_ARCANE_UPDATES_PATH: ${ARCANE_UPDATES_PATH:-/api/environments/{environment}/projects/{project}/updates}
-      NORDTAL_STEWARD_ARCANE_UPDATE_SERVICES_PATH: ${ARCANE_UPDATE_SERVICES_PATH:-/api/environments/{environment}/projects/{project}/update-services}
+      # There is no restart endpoint and no panel here any more. Stopping, starting and recreating
+      # go through the Docker socket mounted below and through steward-deployer; the whole
+      # `arcane:` block of steward.yml was removed on 2026-09-13, along with the ARCANE_* variables
+      # that used to be repeated here. A deployed steward.yml still carrying that block loses it
+      # with a WARN and a .bak rather than refusing to start - ConfigsTest holds that.
     volumes:
       - steward-worker-config:/app/config
       # Everything this module owns, under the names Topology expects beneath volumes-root. Writable,
@@ -677,8 +646,8 @@ services:
       # With this, steward-worker can read every container's state, health, image digest, log and
       # resource use, and can stop and start them - which is how the interface answers "what is
       # running", "is anything behind its registry" and "what did it just print". Before 2026-09-12
-      # all of that went through Arcane, whose image check never asked a registry at all: four
-      # releases ran behind while it reported everything current (todo.md A24).
+      # all of that went through a management panel whose image check never asked a registry at all:
+      # four releases ran behind while it reported everything current (todo.md A24).
       #
       # IT IS NOT READ-ONLY AND CANNOT BE MADE READ-ONLY. Appending `:ro` restricts the socket FILE,
       # not the API behind it; a container that can talk to this socket can do anything the daemon
@@ -709,7 +678,7 @@ volumes:
   mc-smp:
   # The four plugins/ folders, one volume each and separate from the server volume beside them. THEY
   # HOLD THE ONLY HAND-EDITED FILES IN THE DEPLOYMENT - every plugin's config.yml, smp's
-  # milestones.yml and sounds.yml, the proxy's pack.yml - so they are worth Arcane's backup policy,
+  # milestones.yml and sounds.yml, the proxy's pack.yml - so they are worth a nightly snapshot,
   # and they are separate from the worlds so that saving them is not saving four gigabytes of
   # terrain. The jars in them are steward-worker's and are not worth saving.
   #

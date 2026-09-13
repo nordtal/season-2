@@ -245,8 +245,8 @@ public interface StewardSpec {
             "",
             "This is what makes a deployment possible with no shell on the host. A Minecraft",
             "server refuses to start on an empty plugins folder, so without this a brand new",
-            "stack needs `docker compose run --rm steward-worker apply` typed by a person - and Arcane",
-            "has no way to type it. With it, the first start of this container fills every empty",
+            "stack needs `docker compose run --rm steward-worker apply` typed by a person with a",
+            "shell on the host. With it, the first start of this container fills every empty",
             "volume and only then touches the readiness marker everything else waits for.",
             "",
             "IT CANNOT MOVE A VERSION, and that is the point rather than a limitation. Only",
@@ -263,28 +263,6 @@ public interface StewardSpec {
     default boolean bootstrap() {
         return true;
     }
-
-    @Order(13)
-    @Key("arcane")
-    @Comment({
-            "How the restart is actually performed: one redeploy of the whole compose project",
-            "through Arcane's REST API.",
-            "",
-            "THIS BLOCK IS ON ITS WAY OUT. It said `NOT the Docker socket, deliberately`, and that",
-            "reasoning was overturned on 2026-09-12: the socket moved here on purpose. What must",
-            "not hold it is the WEB INTERFACE, which is the part an attacker reaches, and that is",
-            "the line §3 of the concept draws - between steward-ui and this service, not between",
-            "this service and the daemon. The price is named rather than hidden: this container",
-            "downloads files from the internet and puts them where servers execute them, and it now",
-            "also holds the socket. What it may do with it is a read, a stop and a start; creating",
-            "containers is steward-deployer's and is refused here.",
-            "",
-            "Until the cutover, Arcane still performs the restart and takes the volume snapshots.",
-            "",
-            "LEAVE base-url EMPTY AND NOTHING BREAKS. Every other part of this module still works;",
-            "the restart button says so and the redeploy is a click in Arcane."
-    })
-    ArcaneSpec arcane();
 
     @Order(15)
     @Key("docker")
@@ -463,18 +441,19 @@ public interface StewardSpec {
         @Order(2)
         @Key("stop-services")
         @Comment({
-                "Which compose services are stopped while the snapshot is taken, by the names",
-                "Arcane's runtime endpoint reports - which are compose's service names.",
+                "Which compose services are stopped while the snapshot is taken, by their compose",
+                "service names - which is what the Docker daemon labels each container with.",
                 "",
                 "A SNAPSHOT OF A RUNNING PAPER SERVER IS A TORN ONE, and the way that surfaces is",
                 "a region file that will not load, months later, on the one day somebody needs the",
                 "backup. So the servers holding a saved volume go down first.",
                 "",
-                "ARCANE CAN DO THIS ITSELF AND IT IS TURNED OFF ON PURPOSE. A backup policy has a",
-                "`Stop Containers` flag; leaving it on means Arcane stops the containers with no",
-                "countdown and no warning to anybody standing in the world. The stopping is done",
-                "here so that the thirty-second countdown every player sees runs first, and so",
-                "that something is left running afterwards to say whether everything came back.",
+                "THE STOPPING BELONGS TO THIS RUN AND TO NOTHING ELSE. Anything that stops these",
+                "containers on a schedule of its own - a panel's backup policy, a cron job - takes",
+                "the world away from whoever is standing in it with no countdown and no warning.",
+                "The stopping is done here so that the thirty-second countdown every player sees",
+                "runs first, and so that something is left running afterwards to say whether",
+                "everything came back.",
                 "",
                 "limbo and hunger-games are absent: neither holds a world worth saving, and an",
                 "outage with nothing to show for it is worse than no backup. Their plugins/",
@@ -483,7 +462,7 @@ public interface StewardSpec {
                 "",
                 "THESE ARE COMPOSE SERVICE NAMES AND ARE THEREFORE TAKEN FROM Topology RATHER THAN",
                 "TYPED. A literal here was `bot` while compose.yml's service became `discord-bot`,",
-                "and a name Arcane does not know is a service that is never stopped - which is a",
+                "and a name no container carries is a service that is never stopped - which is a",
                 "snapshot of a running server, i.e. the exact thing this list exists to prevent."
         })
         default List<String> stopServices() {
@@ -600,237 +579,6 @@ public interface StewardSpec {
         })
         default int patienceMinutes() {
             return 30;
-        }
-    }
-
-    /** Where Arcane is and how to ask it for a redeploy. */
-    @ConfigSpec
-    interface ArcaneSpec {
-
-        @Order(1)
-        @Key("base-url")
-        @Comment({
-                "Arcane's origin, with no trailing slash - https://arcane.example.com.",
-                "",
-                "NOT localhost. STEWARD-WORKER IS A CONTAINER, and localhost inside it is the",
-                "container, not the host Arcane runs on - so every restart fails with a connection",
-                "error within milliseconds while Arcane sits there working perfectly. It is the",
-                "value the browser bar shows, which is exactly why it gets copied here; it cost the",
-                "first restart of the first deployment (finding 40). Use",
-                "http://host.docker.internal:<port>, which compose.yml maps for this service,",
-                "Arcane's container name if it shares a Docker network with this one, or the host's",
-                "address on the network. A loopback value is warned about at startup and named",
-                "again in the failure.",
-                "",
-                "Empty means 'no restart button anywhere'. That is a supported state, not a broken",
-                "one: steward-worker reports what it would have done and an admin clicks Redeploy in",
-                "Arcane themselves."
-        })
-        default String baseUrl() {
-            return "";
-        }
-
-        @Order(2)
-        @Key("api-key")
-        @Comment({
-                "A token from Arcane's Settings -> API Keys, sent as the X-Api-Key header.",
-                "",
-                "Belongs in the environment and not in this file:",
-                "NORDTAL_STEWARD_ARCANE_API_KEY. An overridden value is never written back here."
-        })
-        default String apiKey() {
-            return "";
-        }
-
-        @Order(3)
-        @Key("environment")
-        @Comment({
-                "Which Docker environment in Arcane, as its ID. The local one - Arcane's own host,",
-                "which is what this deployment is - is '0'; a remote agent is a UUID.",
-                "",
-                "Substituted into redeploy-path below. It is an ID and never a name."
-        })
-        default String environment() {
-            return "0";
-        }
-
-        @Order(4)
-        @Key("project")
-        @Comment({
-                "Which project, as its ID - and this is a UUID Arcane generated, NOT the compose",
-                "project name. 'nordtal-s2' is not a value this setting accepts; a name here",
-                "answers 404.",
-                "",
-                "Read it out of the browser URL with the project open, or from",
-                "GET /api/environments/0/projects with the same token.",
-                "",
-                "No default on purpose: there is nothing to guess, and an empty one with a",
-                "base-url set is refused at startup rather than at the moment somebody presses",
-                "the button. Substituted into redeploy-path below."
-        })
-        default String project() {
-            return "";
-        }
-
-        @Order(5)
-        @Key("redeploy-path")
-        @Comment({
-                "The endpoint, with {environment} and {project} replaced by the two settings above.",
-                "",
-                "THIS DEFAULT IS NO LONGER A GUESS. It was read from Arcane's own source on",
-                "2026-09-01 - backend/internal/project/handler.go, release v2.10.0 - where the",
-                "operation is registered as POST /environments/{id}/projects/{projectId}/redeploy",
-                "under the /api group. Arcane's public documentation still does not publish it,",
-                "which is why it stays a setting: a version that moves the path is then one line",
-                "in this file and not a release of ours.",
-                "",
-                "A 404 from here names both IDs, because a name in either of them is the likely",
-                "cause and it is not visible in the URL."
-        })
-        default String redeployPath() {
-            return "/api/environments/{environment}/projects/{project}/redeploy";
-        }
-
-        @Order(6)
-        @Key("runtime-path")
-        @Comment({
-                "Where steward-worker reads the state of the project's services: one entry per",
-                "service with its container id, its status and its Docker health. This is what",
-                "turns \"and then everything came back\" from a hope into a check, and it is the",
-                "only reason an update can report which server did not.",
-                "",
-                "Read from Arcane's own source on 2026-09-07, v2.10.0 and v2.10.2 alike -",
-                "backend/internal/project/handler.go registers GET",
-                "/environments/{id}/projects/{projectId}/runtime, and each service comes back",
-                "carrying name, containerId, status and health. A setting for the same reason",
-                "redeploy-path is one: the documentation does not publish it."
-        })
-        default String runtimePath() {
-            return "/api/environments/{environment}/projects/{project}/runtime";
-        }
-
-        @Order(7)
-        @Key("container-path")
-        @Comment({
-                "Where steward-worker stops and starts ONE container, with {container} replaced by",
-                "the id runtime-path gave it and {action} by start or stop.",
-                "",
-                "This is the endpoint the whole update sequence rests on, and it is",
-                "container-level rather than project-level for one reason: Arcane's project-level",
-                "calls do stop AND start in a single request, and an update needs the gap between",
-                "them - that gap is where the jars are replaced. Swapping them any other way is",
-                "finding 147, which is what this design exists to end.",
-                "",
-                "It is also why the worker survives its own update: it never stops itself, so it",
-                "is still running to start the others again and to say whether they came back.",
-                "",
-                "One caveat, measured from Arcane's source on 2026-09-07: its container stop",
-                "hardcodes a 30-second timeout and does NOT honour compose.yml's",
-                "stop_grace_period of 180s. Paper was measured shutting down in 3 seconds",
-                "(deploy/README.md), so there is room - but a server that ever needs longer than",
-                "thirty seconds to save will be killed, and that would show up as a corrupt",
-                "region file rather than as an error here."
-        })
-        default String containerPath() {
-            return "/api/environments/{environment}/containers/{container}/{action}";
-        }
-
-        @Order(8)
-        @Key("backup-path")
-        @Comment({
-                "Where steward-worker starts a volume backup and reads its state, with {volume}",
-                "replaced by the Docker volume name. POST starts one, GET lists them.",
-                "",
-                "Read from Arcane's own source on 2026-09-08, v2.10.2 -",
-                "backend/internal/volume/handler.go registers both under",
-                "/environments/{id}/volumes/{volumeName}/backups: the POST answers 202 with the",
-                "new backup's entry (its id and a status of `running`), the GET answers a",
-                "paginated list of entries each carrying id and status. A setting for the same",
-                "reason redeploy-path is one: the documentation does not publish either.",
-                "",
-                "The POST body is empty on purpose. Arcane then loads the volume's OWN backup",
-                "policy and uses its destination - local, S3 or both - so where a snapshot goes",
-                "stays a decision taken once in Arcane's interface rather than a second copy of it",
-                "in this file. A volume with no policy is backed up locally.",
-                "",
-                "A 409 means a backup of that volume is already running, which is not a failure of",
-                "this run: it is reported as such and the servers still come back."
-        })
-        default String backupPath() {
-            return "/api/environments/{environment}/volumes/{volume}/backups";
-        }
-
-        @Order(9)
-        @Key("updates-path")
-        @Comment({
-                "Where steward-worker reads which services are running an image the registry has",
-                "moved past. One GET, before anything is stopped.",
-                "",
-                "THIS IS WHAT A JAR UPDATE CANNOT DO. An update replaces jars inside the volumes",
-                "and hands each container back to Docker with `start`, which recreates nothing -",
-                "so entrypoint.sh, the JRE under it and every change to compose.yml stay on",
-                "whatever image was pulled at the last deploy, for ever. Reading this is how a",
-                "run finds out, and update-services-path below is how it acts on it.",
-                "",
-                "Read from Arcane's own source on 2026-09-09, v2.10.2 -",
-                "backend/internal/project/handler.go registers GET",
-                "/environments/{id}/projects/{projectId}/updates, which is the project details",
-                "with IncludeServiceConfigs and IncludeUpdateInfo. The answer carries services[]",
-                "(name and image) and updateInfo keyed by IMAGE reference, and the two are joined",
-                "here: all four Minecraft services share one image, so one stale reference is four",
-                "containers to recreate.",
-                "",
-                "ARCANE ANSWERS FROM ITS OWN PERSISTED CHECKS and does not ask a registry when it",
-                "is asked. A project it has never checked comes back with no results, which this",
-                "run reports as 'nobody has looked' rather than as 'up to date' - and then nothing",
-                "is ever recreated. Turn the image update check on in Arcane."
-        })
-        default String updatesPath() {
-            return "/api/environments/{environment}/projects/{project}/updates";
-        }
-
-        @Order(10)
-        @Key("update-services-path")
-        @Comment({
-                "Where steward-worker pulls one service's image and recreates its container from it.",
-                "The body names the service: {\"services\":[\"smp\"]}.",
-                "",
-                "Read from Arcane's own source on 2026-09-09, v2.10.2 - POST",
-                "/environments/{id}/projects/{projectId}/update-services, which reaches",
-                "UpdateProjectServices in backend/internal/project/project_lifecycle.go: it pulls",
-                "the images of the services named, stops THOSE services, and brings THOSE services",
-                "back up with a forced recreate. Volumes are not touched (recreateVolumes is",
-                "false), which is what makes it safe to point at a server carrying a world.",
-                "",
-                "ONE KNOWN HAZARD, and it is upstream's rather than ours: that call goes to compose",
-                "with RecreateDependencies = RecreateDiverged. Every backend depends on steward-worker",
-                "through depends_on, so if the synced compose.yml has changed the worker's own",
-                "definition, recreating a backend can recreate the worker as a diverged dependency",
-                "- which ends the run from the outside, with the servers already stopped. The run",
-                "reports each recreate before it asks for it, so the report names where it stopped.",
-                "See nordtal/todo.md, A19.",
-                "",
-                "A service is addressed by its NAME here, not by a container id: the id is what",
-                "container-path takes, and putting one here answers 400."
-        })
-        default String updateServicesPath() {
-            return "/api/environments/{environment}/projects/{project}/update-services";
-        }
-
-        @Order(11)
-        @Key("timeout-seconds")
-        @Comment({
-                "How long to wait for the redeploy call.",
-                "",
-                "Short on purpose. Arcane answers a long-running operation as a stream of",
-                "newline-delimited JSON, and this container is one of the things the redeploy",
-                "takes down - it will be killed part way through reading that stream. So the call",
-                "only ever waits for the response to BEGIN. Being killed here is the expected",
-                "outcome and the next start reads it as success: the request row it left behind",
-                "says so."
-        })
-        default int timeoutSeconds() {
-            return 20;
         }
     }
 }

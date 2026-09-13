@@ -375,8 +375,9 @@ interface UpdateDao {
      * and every surface reading it would show a spinner that never stops.</p>
      *
      * <h2>A restart used to be closed as {@code DONE} here, and that inference is gone</h2>
-     * It was right when a restart <em>was</em> one Arcane redeploy of the whole project, which took
-     * this container down mid-call: finding a {@code RESTART} left {@code RUNNING} on the next boot
+     * It was right when a restart <em>was</em> one redeploy of the whole project asked for over
+     * HTTP, which took this container down mid-call: finding a {@code RESTART} left
+     * {@code RUNNING} on the next boot
      * was how the worker learned the restart it asked for had happened. Since 2026-09-07 a restart
      * cycles the four Minecraft services one at a time and never stops the worker, so a
      * {@code RESTART} row left {@code RUNNING} means the same thing every other kind does - the

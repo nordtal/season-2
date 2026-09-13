@@ -119,6 +119,11 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
+    public Optional<UpdateRequest> lastSuccessfulBackup(final java.time.Duration within) {
+        throw new UnsupportedOperationException("only smp's farm reset asks whether a backup exists");
+    }
+
+    @Override
     public Optional<UpdateRequest> startCountdown(final long id, final java.time.Duration seconds) {
         final UpdateRequest row = rows.get(id);
         if (row == null || row.status() != UpdateStatus.RUNNING) {

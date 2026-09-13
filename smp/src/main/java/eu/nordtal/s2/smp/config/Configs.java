@@ -87,6 +87,15 @@ public final class Configs {
         // one second - so it would quietly become a query per second for the life of the season.
         requirePositive("admin-poll-interval-seconds", config.adminPollIntervalSeconds());
         requirePositive("farm-world-border-diameter", config.farmWorldBorderDiameter());
+        // Not requirePositive: zero is the documented way to turn the backup check off, for a
+        // stack with no steward-worker. Negative is rejected because it is not that - it is a
+        // typo that would read as "off" and take the guard down without anybody choosing to.
+        if (config.farmResetBackupWindowHours() < 0) {
+            throw new IllegalArgumentException(
+                    "farm-reset-backup-window-hours is " + config.farmResetBackupWindowHours()
+                            + "; it is a number of hours, and 0 - not a negative number - is how"
+                            + " the check is switched off");
+        }
         requirePositive("nether-border-diameter", config.netherBorderDiameter());
         requirePositive("end-border-diameter", config.endBorderDiameter());
         requirePositive("border-expansion-blocks-per-second", config.borderExpansionBlocksPerSecond());

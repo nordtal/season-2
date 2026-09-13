@@ -42,12 +42,21 @@ class DailyScheduleTest {
         assertEquals(Duration.ofDays(1), DailySchedule.parse("04:00").until(LocalTime.of(4, 0)));
     }
 
+    /**
+     * Nothing unreadable becomes "never"; every one of these stops the load.
+     *
+     * <p>The last two arrived here on 2026-09-13 from {@code NightlyBackupScheduleTest}, which went
+     * with the clock it tested. They are the two shapes a person actually types - a phrase and a
+     * twelve-hour time - and they were the half of that test which still proves something.</p>
+     */
     @Test
     void aScheduleNobodyCanParseStopsTheLoad() {
         assertThrows(IllegalArgumentException.class, () -> DailySchedule.parse("4am"));
         assertThrows(IllegalArgumentException.class, () -> DailySchedule.parse("25:00"));
         assertThrows(IllegalArgumentException.class, () -> DailySchedule.parse(""));
         assertThrows(IllegalArgumentException.class, () -> DailySchedule.parse(null));
+        assertThrows(IllegalArgumentException.class, () -> DailySchedule.parse("quarter to five"));
+        assertThrows(IllegalArgumentException.class, () -> DailySchedule.parse("4:45pm"));
     }
 
     @Test

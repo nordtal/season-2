@@ -172,6 +172,37 @@ interface UpdateDao {
     java.util.List<UpdateRequest> finishedWithin(@Bind("seconds") long seconds);
 
     /**
+     * Every {@code BACKUP} that reached {@code DONE} inside the window, newest first.
+     *
+     * <h2>Why the list and not a {@code LIMIT 1}</h2>
+     * {@code status = 'DONE'} is only half the question - the other half is whether the report in
+     * {@code result} shows anything saved, and that is JSON this module parses in Java rather than
+     * in SQL. A single row would therefore have to be believed: a run that settled {@code DONE}
+     * having saved nothing would come back as "there is a backup", which is A23 exactly. So the
+     * caller walks them newest first and stops at the first one it can prove.
+     *
+     * <h2>Why the window is a parameter and not a constant</h2>
+     * It bounds both the scan and the parsing, and every caller has one anyway - "there was a good
+     * backup in July" is never the answer anybody wants. Without it this is an unbounded scan of a
+     * table that grows for a whole season.
+     *
+     * <p>No index is declared for this. The table takes a handful of rows a day and the window is
+     * hours, so the planner reads a few dozen of them; an index on {@code (kind, status, finished)}
+     * would be maintained on every write for a query that runs once a night.</p>
+     *
+     * @param seconds how far back to look, from the database's clock
+     */
+    @SqlQuery("""
+            SELECT * FROM update_request
+            WHERE kind = 'BACKUP'
+              AND status = 'DONE'
+              AND finished IS NOT NULL
+              AND finished > now() - make_interval(secs => cast(:seconds AS double precision))
+            ORDER BY finished DESC, id DESC
+            """)
+    java.util.List<UpdateRequest> backupsDoneWithin(@Bind("seconds") long seconds);
+
+    /**
      * Starts the countdown on a request this steward-worker has already claimed.
      *
      * <h2>Why the countdown begins here and not when the row was written</h2>

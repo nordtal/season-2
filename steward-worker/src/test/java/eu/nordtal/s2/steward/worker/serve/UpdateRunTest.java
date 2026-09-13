@@ -41,7 +41,7 @@ class UpdateRunTest {
     void anUnreachableArcaneStopsEverything() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP).unreachable();
 
-        assertFalse(new UpdateRun(arcane, progress::add).check().reached(),
+        assertFalse(new UpdateRun(arcane, new FakeSnapshots(), progress::add).check().reached(),
                 "the runtime read is the first thing a run does, before a version is resolved or a"
                         + " byte is downloaded - because a run that cannot STOP a server must not"
                         + " move a jar. Continuing anyway is finding 147 performed as a fallback");
@@ -54,7 +54,7 @@ class UpdateRunTest {
     @DisplayName("only services with work are stopped")
     void aServiceWithNothingToInstallKeepsRunning() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP, Topology.LIMBO);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP, Topology.LIMBO),
                 arcane.runtime());
@@ -71,7 +71,7 @@ class UpdateRunTest {
     @DisplayName("a service is not stopped for an artefact that has no build to install")
     void anUnsupportedArtefactIsNotAnOutage() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         // smp's only line is CoreProtect, which has no build for this Minecraft version. It has
         // something to SAY and nothing to do - and the difference is measured in whether people
@@ -92,7 +92,7 @@ class UpdateRunTest {
     @DisplayName("steward-worker never stops itself")
     void theWorkerIsNotInItsOwnSequence() {
         final FakeArcane arcane = new FakeArcane().running(Topology.STEWARD_WORKER, Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.STEWARD_WORKER, Topology.SMP)
                 .with(work(Topology.STEWARD_WORKER)), arcane.runtime());
@@ -110,7 +110,7 @@ class UpdateRunTest {
     @DisplayName("a service that could not be stopped is not installed to and not started")
     void aRefusedStopTakesItsServiceOutOfTheRun() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP).stopFails();
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), arcane.runtime());
 
@@ -125,7 +125,7 @@ class UpdateRunTest {
     @DisplayName("a service Arcane does not list fails by name rather than silently")
     void anUnknownServiceIsNamed() {
         final FakeArcane arcane = new FakeArcane().running(Topology.LIMBO);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), arcane.runtime());
 
@@ -140,7 +140,7 @@ class UpdateRunTest {
     @DisplayName("stop comes before start, and both are recorded in order")
     void theOrderIsTheWholePoint() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), arcane.runtime()));
 
@@ -153,7 +153,7 @@ class UpdateRunTest {
     @DisplayName("a service that is running but not healthy has not come back")
     void runningIsNotBack() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), arcane.runtime());
         final UpdateReport started = run.start(stopped);
         arcane.sick(Topology.SMP);
@@ -172,7 +172,7 @@ class UpdateRunTest {
     @DisplayName("a service that reports healthy inside the window is the success case")
     void healthyEndsTheWait() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), arcane.runtime());
         final UpdateReport started = run.start(stopped);
 
@@ -202,7 +202,7 @@ class UpdateRunTest {
     @DisplayName("one service failing does not lose the ones that came back")
     void aPartialFailureStillReportsTheRest() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP, Topology.LIMBO);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
         final UpdateRun.Stopped stopped = run.stop(
                 planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO)), arcane.runtime());
         final UpdateReport started = run.start(stopped);
@@ -224,7 +224,7 @@ class UpdateRunTest {
         // stopped.services() is still RUNNING, and installing into it is finding 147 reached
         // through the sequence that exists to prevent it. Found by review, 2026-09-08.
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP, Topology.LIMBO).stopFails();
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         final UpdateReport planned = planned(Topology.SMP, Topology.LIMBO).with(work(Topology.LIMBO));
         final UpdateRun.Stopped stopped = run.stop(planned, arcane.runtime());
@@ -241,88 +241,87 @@ class UpdateRunTest {
     // ---------------------------------------------------------------- the backup
 
     @Test
-    @DisplayName("a volume is snapshotted with the servers already stopped, and started after")
+    @DisplayName("a volume is saved with the servers already stopped, and started after")
     void theSnapshotSitsInTheGap() {
         // The whole correctness of a backup run is this ordering, and it is the one thing no
         // amount of watching a successful run can confirm: a snapshot taken of a server that is
         // still writing to the volume produces an archive that fails at RESTORE, months later,
         // on the day somebody needs it. Nothing at backup time complains.
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final FakeSnapshots snapshots = new FakeSnapshots(arcane.calls);
+        final UpdateRun run = new UpdateRun(arcane, snapshots, progress::add);
 
         final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), arcane.runtime());
-        final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp"),
-                Duration.ofMinutes(60), patient());
+        final UpdateReport saved = run.save(stopped.report(), List.of("mc-smp"));
         run.start(new UpdateRun.Stopped(saved, stopped.services(), arcane.runtime()));
 
-        assertEquals(List.of("stop:smp-container", "backup:mc-smp", "poll:mc-smp",
-                        "start:smp-container"),
+        assertEquals(List.of("stop:smp-container", "backup:mc-smp", "start:smp-container"),
                 arcane.calls,
                 "stopped, then saved, then started - a snapshot outside that gap is a torn one");
         assertEquals(UpdateReport.State.SAVED, saved.line("mc-smp").state());
     }
 
     @Test
-    @DisplayName("every volume is asked for before any of them is waited on")
-    void theSnapshotsRunTogether() {
-        // Start-and-wait per volume would hold the network down for the SUM of the uploads rather
-        // than the longest of them, and Nordtal's first S3 upload is measured in gigabytes.
+    @DisplayName("the volumes are saved one after another, in the order they are configured")
+    void theSnapshotsRunInOrder() {
+        // This reverses what the Arcane version did, and the reason is worth keeping: over an API
+        // you start every snapshot at once because somebody else's machine does the work. A local
+        // tar is this container's CPU and this host's one disk, and eight of them at once would
+        // lengthen the outage by making them fight over it rather than shorten it.
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final FakeSnapshots snapshots = new FakeSnapshots(arcane.calls);
+        final UpdateRun run = new UpdateRun(arcane, snapshots, progress::add);
 
-        run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
-                List.of("mc-smp", "bot-config"), Duration.ofMinutes(60), patient());
+        run.save(UpdateReport.at(UpdateReport.Stage.STOPPING), List.of("mc-smp", "bot-config"));
 
-        assertEquals(List.of("backup:mc-smp", "backup:bot-config"), arcane.calls.subList(0, 2),
-                "both POSTs go out before the first poll");
-        assertTrue(arcane.calls.stream().anyMatch(call -> call.startsWith("poll:")),
-                "nothing was polled at all, so the assertion above proves nothing: " + arcane.calls);
+        assertEquals(List.of("backup:mc-smp", "backup:bot-config"), arcane.calls);
     }
 
     @Test
-    @DisplayName("a refused snapshot fails its own line and leaves the others alone")
-    void oneRefusedVolumeIsNotAllOfThem() {
-        final FakeArcane arcane = new FakeArcane().running(Topology.SMP).backupRefused("mc-smp");
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+    @DisplayName("one volume that fails does not cost the run the volumes that would have worked")
+    void oneFailedVolumeIsNotAllOfThem() {
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
+        final FakeSnapshots snapshots = new FakeSnapshots(arcane.calls).fails("mc-smp");
+        final UpdateRun run = new UpdateRun(arcane, snapshots, progress::add);
 
         final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
-                List.of("mc-smp", "bot-config"), Duration.ofMinutes(60), patient());
+                List.of("mc-smp", "bot-config"));
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
-        assertEquals(UpdateReport.State.SAVED, saved.line("bot-config").state(),
-                "one volume Arcane will not touch must not cost the run the volumes it will");
+        assertEquals(UpdateReport.State.SAVED, saved.line("bot-config").state());
     }
 
     @Test
-    @DisplayName("a snapshot Arcane reports as failed is a failed line, not a saved one")
-    void arcaneSayingNoIsBelieved() {
-        final FakeArcane arcane = new FakeArcane().running(Topology.SMP).backupFails("mc-smp");
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+    @DisplayName("a failure carries its own reason into the report, not a generic sentence")
+    void theReasonSurvives() {
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
+        final FakeSnapshots snapshots = new FakeSnapshots(arcane.calls).fails("mc-smp");
+        final UpdateRun run = new UpdateRun(arcane, snapshots, progress::add);
 
         final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
-                List.of("mc-smp"), Duration.ofMinutes(60), patient());
+                List.of("mc-smp"));
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
-        assertTrue(saved.line("mc-smp").detail().contains("archive"),
-                "and the reason Arcane gave is what a person reads, not a generic sentence");
+        assertTrue(saved.line("mc-smp").detail().contains("not a readable archive"),
+                "what the tar said is what a person reads at 04:45: "
+                        + saved.line("mc-smp").detail());
     }
 
     @Test
-    @DisplayName("a snapshot that never finishes ends the wait rather than the network")
-    void thePatienceIsWhatEndsAWait() {
-        // The alternative is worse than a failed backup: the servers are already stopped, so a
-        // snapshot that hangs would hold the whole network down until somebody noticed.
-        final FakeArcane arcane = new FakeArcane().running(Topology.SMP)
-                .backupNeverFinishes("mc-smp");
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+    @DisplayName("a volume that saved nothing is FAILED, not a successful line with no bytes")
+    void savingNothingIsNotSuccess() {
+        // todo.md A23: run 23 reported success having snapshotted zero volumes, and nothing in the
+        // report made that visible. This is the assertion that stops it happening twice.
+        final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
+        final FakeSnapshots snapshots = new FakeSnapshots(arcane.calls).savesNothing("mc-smp");
+        final UpdateRun run = new UpdateRun(arcane, snapshots, progress::add);
 
         final UpdateReport saved = run.save(UpdateReport.at(UpdateReport.Stage.STOPPING),
-                List.of("mc-smp"), Duration.ofMinutes(60), impatient());
+                List.of("mc-smp"));
 
         assertEquals(UpdateReport.State.FAILED, saved.line("mc-smp").state());
-        assertTrue(saved.line("mc-smp").detail().contains("gave up waiting"),
-                "the snapshot may still be being written, and the sentence has to say that rather"
-                        + " than claim Arcane failed");
+        assertTrue(saved.line("mc-smp").detail().contains("nothing was saved"),
+                saved.line("mc-smp").detail());
     }
 
     // ---------------------------------------------------------------- the live report
@@ -331,7 +330,7 @@ class UpdateRunTest {
     @DisplayName("every step reports its progress, because the row is the progress bar")
     void theRunSaysWhereItIs() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), arcane.runtime()));
 
@@ -404,7 +403,7 @@ class UpdateRunTest {
         // the image it was created from, so the jars would be new and entrypoint.sh, the JRE and
         // every change to compose.yml would still be whatever was pulled at the last deploy.
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP).imageOutdated(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), arcane.runtime()), arcane.images());
 
@@ -418,7 +417,7 @@ class UpdateRunTest {
     void aCurrentImageIsStarted() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP, Topology.LIMBO)
                 .imageCurrent(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP, Topology.LIMBO), arcane.runtime()), arcane.images());
 
@@ -434,7 +433,7 @@ class UpdateRunTest {
         // calls the one-argument start(). All three promise to change no version, and pulling an
         // image there would change the biggest one there is.
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP).imageOutdated(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), arcane.runtime()));
 
@@ -448,7 +447,7 @@ class UpdateRunTest {
     void aRefusedRecreateIsNamed() {
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP)
                 .imageOutdated(Topology.SMP).recreateRefused(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         final UpdateReport report =
                 run.start(run.stop(planned(Topology.SMP), arcane.runtime()), arcane.images());
@@ -466,7 +465,7 @@ class UpdateRunTest {
         // backend depends on the worker - so this call can take the process making it down. When
         // that happens the last report written is the whole diagnosis. See nordtal/todo.md, A19.
         final FakeArcane arcane = new FakeArcane().running(Topology.SMP).imageOutdated(Topology.SMP);
-        final UpdateRun run = new UpdateRun(arcane, progress::add);
+        final UpdateRun run = new UpdateRun(arcane, new FakeSnapshots(), progress::add);
 
         run.start(run.stop(planned(Topology.SMP), arcane.runtime()), arcane.images());
 

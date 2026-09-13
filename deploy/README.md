@@ -32,8 +32,8 @@ deploy/
 
 ## First deployment, in order
 
-The host needs no shell, no JDK and no Gradle. All four of our images — `minecraft`,
-`steward-worker`, `discord-bot`, `postgres-backup` — are pushed to `ghcr.io/nordtal` by
+The host needs no shell, no JDK and no Gradle. All three of our images — `minecraft`,
+`steward-worker` and `discord-bot` — are pushed to `ghcr.io/nordtal` by
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) when a release is published, and
 compose pulls every one of them. The `build:` blocks in `compose.yml` are for developing on your own
 machine: **Arcane deploys by pulling and never builds**, so an image that only exists in one host's
@@ -406,9 +406,10 @@ that does not work.
   existing `deploy/dev.env` needs those four lines added by hand — the file is gitignored, so
   nothing migrated it. `deploy/dev` refuses a value with no `/` in it rather than writing jars into
   a directory no container mounts.
-- **`SMP_BACKUP_TIME=` (empty), which turns the nightly volume backup off.** The interpolation is
-  `${SMP_BACKUP_TIME-04:45}` — a **single** dash, the only one in `compose.yml`, and what makes an
-  empty value mean "off" rather than falling back to the default.
+- **`SMP_FARM_RESET_BACKUP_WINDOW_HOURS=0`, which lets the farm world reset without a backup
+  behind it.** On a laptop there is no steward-worker taking one, so the gate would refuse the
+  reset every night. It is logged at WARN on every start, which is the point: on production that
+  line would mean the farm world is being deleted with nothing saved.
 - **`SMP_PREGENERATION_ON_START=false`**, or every `up` spends its first minutes with Chunky on
   every core. The cost is one postponed reset: the first daily reset finds no finished world, says
   so, and builds it then. The production default is `true`.
@@ -477,56 +478,71 @@ in use"*), and a backup job is left pointed at a database that no longer exists.
 Access periods, payment records, aura, milestone progress and graves are all in one PostgreSQL, and
 it is the only thing in this stack that cannot be rebuilt from the repository and a world folder.
 
-**The `backup` profile dumps it.** `postgres-backup` runs `pg_dump --format=custom` into the
-`postgres-dumps` volume once a day at `BACKUP_AT` (04:00 by default) and again at start-up, keeps
-`BACKUP_KEEP` of them (14), and writes the outcome of the last run to `postgres-dumps/LAST_RESULT`
-and to the container log. A dump is written under a `.partial` name, checked by reading its own
-table of contents back with `pg_restore --list`, and only then renamed.
+**steward-worker takes both halves since 2026-09-13** (`konzept-eigenstaendiger-stack.md` §9a). The
+`postgres-backup` sidecar is gone — one clock, one retention, one directory, one report.
 
-### Point Arcane at `postgres-dumps`, never at `postgres-data`
+### The database is dumped, the volumes are tarred
 
-Arcane can snapshot a named volume to S3, and stops the containers using it **only when the backup
-policy's `Stop Containers` flag is set**. For a live PostgreSQL data directory both settings are
-wrong: **off**, it tars a running PGDATA, which raises no error at backup time and is a broken
-cluster at restore time; **on**, PostgreSQL goes down for the length of the tar every night, and
-every process in this stack fails fast on an unreachable database.
+`pg_dump --format=custom` runs **inside the postgres container**, which is what makes it impossible
+for the client to be older than the server it dumps — an older `pg_dump` refuses a newer server
+outright, and this makes the versions match by construction instead of by somebody keeping two
+images in step. It takes an MVCC snapshot, so it is consistent as of the moment it starts and
+**nothing is stopped for it**: it runs before the servers go down.
 
-`postgres-dumps` has neither problem — nothing holds it open between runs, so a policy with `Stop
-Containers` **off** is correct there, and what travels to S3 is megabytes rather than a whole data
-directory.
+The volumes are `tar` piped through `zstd -1`, read from the read-only mounts under
+`/backup-sources`, written to `/backups`. Measured on this host against the real SMP world: 657 MiB
+in, 512.9 MiB out, **4.0 s**, about 1.6 s of which is reading the archive back to verify it. `-3`
+took 5.3 s for 0.6 % less — region files are already deflated.
 
-### The volume backup is a run, not a schedule
+Both write a `.partial` file and rename only after it has been read back (`tar --zstd -tf`, and
+`pg_restore --list` for the dump). A truncated archive still decompresses perfectly; only walking
+its members finds the truncation. A half-written file that looks like every other one is worse than
+none — it is the one the retention sweep keeps and the one a restore picks.
 
-**Arcane's own scheduler is not what takes the nightly snapshot, and its `Stop Containers` flag must
-stay off** — a stop nobody announced lands on whoever is online at a quarter to five. The worker
-drives it: `/backup now` on any surface, and a nightly row `smp` writes at `config.yml#backup-time`
-(default `04:45`, fifteen minutes before the farm reset). The run is a thirty-second countdown every
-player sees, then `smp`, `network-control` and the bot are stopped, then every volume is
-snapshotted, then everything comes back and is checked. Update and backup take the same lock and
-never overlap.
+### A backup is a run, not a schedule
 
-What Arcane's backup policy still decides is the **destination** — the worker posts with an empty
-body on purpose, so `local` / `s3` / `local_s3` is configured once, in Arcane, per volume.
+`/backup now` on any surface writes a row, and so does the worker's own clock at
+`steward.yml#backup.at` (04:45). **That clock moved out of `smp`**, where it lived because `serve`
+was not allowed to schedule anything — with the consequence that a season with `smp` down had no
+backup and nothing said so. The protection that mattered is kept: the clock writes a request row
+and nothing else, and everything after that row is the path `/backup now` already took.
 
-The eight volumes, with the compose project prefix Arcane addresses them by: `nordtal-s2_mc-smp`,
-`nordtal-s2_mc-network-control`, `nordtal-s2_bot-config`, `nordtal-s2_postgres-dumps` and the four
-`*-plugins` volumes, which is where every hand edit to `config.yml`, `milestones.yml`, `sounds.yml`
-and `pack.yml` lives. `postgres-data` is **never** in that list and is refused by name when the
-worker loads its config. A volume that has not finished after thirty minutes is given up on, the
-servers come back, and the run ends `FAILED`, mentioning the admin role in the admin channel.
+What replaced the fifteen-minute coupling between that clock and the farm reset is a query: `smp`
+will not reset the farm world unless a `BACKUP` run finished, succeeded **and saved something**
+inside `config.yml#farm-reset-backup-window-hours` (12). A `DONE` row is not enough — run 23
+reported success having saved zero volumes (`todo.md` A23), so the check reads the report.
+
+The run is a thirty-second countdown every player sees, then `smp`, `network-control` and the bot
+are stopped, then every volume is tarred in order, then retention runs, then everything comes back
+and is checked. Update and backup take the same lock and never overlap.
+
+**The report names the size and the duration of every line.** A volume that produced nothing is
+`FAILED` even when every call succeeded.
+
+### What is saved, and what is deliberately not
+
+`nordtal-s2_mc-smp` and the four `*-plugins` volumes — the hand-built world and every hand-edited
+`config.yml`, `milestones.yml`, `sounds.yml` and `pack.yml` — plus `mc-network-control` (velocity.toml
+and the forwarding secret) and `bot-config`. `postgres-data` is **never** in that list: a snapshot of
+a live PGDATA is torn and fails at restore. `mc-limbo` and `mc-hunger-games` are rebuilt rather than
+restored; `bot-jar` and `steward-worker-jar` are refilled by `steward-worker bootstrap`.
+
+**There is no offsite copy yet.** §9a's Hetzner Storage Box does not exist, so every archive sits on
+the same disk as the thing it is a copy of, and `backup.keep` (14) protects against a mistake and
+against nothing else. There is deliberately no untested S3 path in the code — `todo.md` A29.
 
 ### Restoring
 
 ```bash
 docker compose exec postgres psql -U "$POSTGRES_USER" -d postgres -c 'CREATE DATABASE restored;'
-docker compose exec postgres-backup sh -c 'pg_restore --dbname=restored --no-owner /dumps/<file>'
+docker compose exec postgres sh -c 'pg_restore --dbname=restored --no-owner /backups/<file>'
+tar --zstd -xf /backups/<volume>-<stamp>.tar.zst -C /where/it/goes
 ```
 
 Restore into a *new* database and look at it before you point anything at it. `--no-owner` is what
 lets a dump taken as one role restore under another.
 
-A restore of the real season database from a dump pulled back out of S3 has not been rehearsed; it
-needs the host.
+A restore of the real season database has not been rehearsed; it needs the host.
 
 ### The world volumes are a different problem
 

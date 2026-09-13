@@ -1,6 +1,5 @@
 package eu.nordtal.s2.steward.worker.arcane;
 
-import eu.nordtal.s2.steward.worker.ops.BackupResult;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.ops.RedeployResult;
@@ -577,126 +576,7 @@ public final class Arcane implements ContainerOps {
         }
     }
 
-    /**
-     * Asks Arcane to snapshot one volume.
-     *
-     * <p>The body is empty on purpose, so Arcane uses the volume's own backup policy: sending a
-     * destination from here would be a second copy of a decision taken in Arcane's interface.</p>
-     *
-     * <p>A 409 ("a backup of this volume is already running") is reported as a refusal rather than
-     * retried: the servers are already down, and waiting on somebody else's snapshot of unknown age
-     * is a longer outage for a volume this run did not save.</p>
-     */
-    @Override
-    public @NotNull BackupResult backup(final @NotNull String volume) {
-        final java.util.Optional<String> refused = refusedForCleartext();
-        if (refused.isPresent()) {
-            return BackupResult.refused(refused.get());
-        }
-        if (!configured()) {
-            return BackupResult.refused("Arcane is not configured, so nothing could be backed up."
-                    + " Set arcane.base-url, arcane.environment, arcane.project and"
-                    + " arcane.api-key.");
-        }
-        final URI uri = backupUri(volume);
-        if (uri == null) {
-            return BackupResult.refused("arcane.base-url and arcane.backup-path do not form a valid"
-                    + " URL for volume " + volume);
-        }
 
-        log.info("Asking Arcane to back up volume {}", volume);
-        try {
-            final HttpResponse<String> response = client.send(
-                    HttpRequest.newBuilder(uri)
-                            .POST(HttpRequest.BodyPublishers.noBody())
-                            .header(API_KEY_HEADER, config.apiKey())
-                            .header("Accept", "application/json")
-                            .header("User-Agent", "nordtal-season-2/steward-worker")
-                            .timeout(Duration.ofSeconds(config.timeoutSeconds()))
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == 409) {
-                return BackupResult.refused("Arcane says a backup of " + volume + " is already"
-                        + " running, so this run did not start a second one.");
-            }
-            if (response.statusCode() / 100 != 2) {
-                final String redirected =
-                        redirect(response.statusCode(), response.headers(), uri.toString());
-                return BackupResult.refused(redirected != null ? redirected
-                        : "Arcane answered HTTP " + response.statusCode() + " to back up " + volume
-                        + " (" + uri + "). A 404 here is usually the volume name: it is the name"
-                        + " `docker volume ls` prints, project prefix included.");
-            }
-            final String id = ArcaneBackups.startedId(response.body());
-            if (id == null) {
-                // Worse than refused: the snapshot is probably happening with no way to ask about
-                // it, so the run cannot tell saved from failed.
-                return BackupResult.refused("Arcane accepted the backup of " + volume + " but its"
-                        + " answer carried no backup id, so this run cannot tell whether it"
-                        + " finished. Its shape has changed - see arcane.backup-path.");
-            }
-            return BackupResult.running(id, "started");
-        } catch (final InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            return BackupResult.refused("Interrupted while asking Arcane to back up " + volume);
-        } catch (final IOException failure) {
-            return BackupResult.refused(unreachable(uri, failure, config.baseUrl()));
-        }
-    }
-
-    /**
-     * Reads one started snapshot back out of the volume's backup list.
-     *
-     * <p>Every unreadable answer here is {@code RUNNING}, never {@code FAILED}: a poll that times
-     * out says nothing about a snapshot happening inside Arcane, and treating it as a failure would
-     * start the servers again on top of a half-written volume.</p>
-     */
-    @Override
-    public @NotNull BackupResult backupState(final @NotNull String volume,
-                                             final @NotNull String backupId) {
-        if (!configured()) {
-            return BackupResult.refused("Arcane is not configured.");
-        }
-        // Before get(uri), which puts X-Api-Key on the wire. backup() already refuses a cleartext
-        // origin, but that is a property of one caller and the next would not know.
-        final java.util.Optional<String> refused = refusedForCleartext();
-        if (refused.isPresent()) {
-            return BackupResult.refused(refused.get());
-        }
-        final URI uri = backupUri(volume);
-        if (uri == null) {
-            return BackupResult.running(backupId, "the backup URL for " + volume + " is not valid");
-        }
-        try {
-            final HttpResponse<String> response = client.send(get(uri),
-                    HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() / 100 != 2) {
-                return BackupResult.running(backupId, "Arcane answered HTTP "
-                        + response.statusCode() + " while this backup was being watched");
-            }
-            final ArcaneBackups.Entry entry = ArcaneBackups.find(response.body(), backupId);
-            if (entry == null) {
-                // Arcane lists newest first and this run started the newest one, so a miss is a
-                // shape change or a very busy volume - either way, keep waiting.
-                return BackupResult.running(backupId,
-                        "Arcane's backup list does not carry this backup yet");
-            }
-            if (entry.succeeded()) {
-                return BackupResult.succeeded(backupId, "saved");
-            }
-            if (entry.failed()) {
-                return BackupResult.failed(backupId, entry.error() == null
-                        ? "Arcane reported the backup as failed" : entry.error());
-            }
-            return BackupResult.running(backupId, entry.status());
-        } catch (final InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            return BackupResult.running(backupId, "interrupted while watching this backup");
-        } catch (final IOException failure) {
-            return BackupResult.running(backupId, "Arcane could not be read: " + failure);
-        }
-    }
 
     /** The backup endpoint for one volume, or {@code null} when the two settings do not form one. */
     private URI backupUri(final String volume) {

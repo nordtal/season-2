@@ -113,6 +113,11 @@ class UpdateFeedTest {
         }
 
         @Override
+        public Optional<UpdateRequest> lastSuccessfulBackup(final Duration within) {
+            throw new UnsupportedOperationException("the feed never asks about backups");
+        }
+
+        @Override
         public UpdateRequest submit(final UpdateKind kind, final UpdateSource source,
                                     final String requestedBy, final Duration delay) {
             throw new UnsupportedOperationException();

@@ -373,26 +373,35 @@ public interface StewardSpec {
                 "The Docker volumes to snapshot, by their REAL names - what `docker volume ls`",
                 "prints, not the keys in compose.yml. Compose prefixes every volume with the",
                 "project name, which compose.yml pins as `nordtal-s2`, so the two differ by that",
-                "prefix and Arcane only knows the real one.",
+                "prefix. Each one is read from <backup.sources-root>/<name>, where compose mounts",
+                "it READ-ONLY; a name here with no mount there is a FAILED line naming the path.",
                 "",
                 "WHY THESE AND NOT THE OTHERS. mc-smp is Nordtal - a hand-built world in no",
                 "repository and in no release, and the only thing here that cannot be rebuilt.",
                 "mc-network-control carries velocity.toml and the forwarding secret. bot-config",
-                "and postgres-dumps are the bot's and the database's. The four *-plugins volumes",
+                "is the bot's. The four *-plugins volumes",
                 "are new on 2026-09-08 and hold the only hand-edited files in the deployment:",
                 "every plugin's config.yml, smp's milestones.yml and sounds.yml, and the proxy's",
                 "pack.yml with the resource pack's SHA-1 in it.",
                 "",
                 "WHAT IS DELIBERATELY ABSENT. postgres-data is never here: a snapshot of a live",
                 "PGDATA is torn, and it fails at RESTORE rather than at backup, which is the worst",
-                "place for it to fail. The pg_dump sidecar writes postgres-dumps instead and that",
-                "is what is saved. mc-limbo and mc-hunger-games are absent too - limbo builds its",
+                "place for it to fail. The database is DUMPED instead, by this service, straight",
+                "into backup.output-root - so it needs no entry here and the postgres-dumps volume",
+                "it used to need is gone with the sidecar that wrote it (§9a).",
+                "",
+                "The output directory itself is never in this list either: a backup of the backups",
+                "doubles every night until the disk is gone.",
+                "",
+                "mc-limbo and mc-hunger-games are absent too - limbo builds its",
                 "world at every enable and the hunger games arena is a folder that is copied in,",
                 "so both are rebuilt rather than restored. bot-jar and steward-worker-jar are refilled by",
                 "`steward-worker bootstrap`.",
                 "",
-                "WHERE a snapshot goes is Arcane's decision and not this file's: its backup policy",
-                "on each volume says local, S3 or both. Set that up once - see deploy/README.md."
+                "WHERE a snapshot goes is backup.output-root, on this host. There is no offsite",
+                "copy yet: §9a's Storage Box does not exist, so every archive is on the same disk",
+                "as the thing it is a copy of, and backup.keep of them protect against a mistake",
+                "and against nothing else. todo.md A29 is where that is being chased."
         })
         default List<String> volumes() {
             return List.of("nordtal-s2_mc-smp",
@@ -401,8 +410,7 @@ public interface StewardSpec {
                     "nordtal-s2_mc-network-control-plugins",
                     "nordtal-s2_mc-limbo-plugins",
                     "nordtal-s2_mc-hunger-games-plugins",
-                    "nordtal-s2_bot-config",
-                    "nordtal-s2_postgres-dumps");
+                    "nordtal-s2_bot-config");
         }
 
         @Order(2)
@@ -436,6 +444,97 @@ public interface StewardSpec {
         }
 
         @Order(3)
+        @Key("sources-root")
+        @Comment({
+                "Where the volumes being saved are mounted, read-only, one directory per volume",
+                "name - so nordtal-s2_mc-smp is read from <sources-root>/nordtal-s2_mc-smp.",
+                "",
+                "READ-ONLY IS THE POINT AND IT IS A COMPOSE LINE, not a setting here: this service",
+                "already writes the plugin and jar volumes, and world data is the one thing in this",
+                "stack that cannot be rebuilt from the repository. A backup that can write to what",
+                "it is saving is one bug away from being the thing that destroyed it.",
+                "",
+                "A volume named in `volumes` but not mounted here is a FAILED line in the report",
+                "naming the path, never a small archive that looks like a success."
+        })
+        default String sourcesRoot() {
+            return "/backup-sources";
+        }
+
+        @Order(4)
+        @Key("output-root")
+        @Comment({
+                "Where the archives and the database dump are written. Its own volume, and NOT one",
+                "of the volumes being saved - a backup directory inside a backed-up volume grows by",
+                "its own contents every night until the disk is gone.",
+                "",
+                "This is also what the Storage Box upload reads, so everything worth shipping",
+                "offsite is in one directory by construction."
+        })
+        default String outputRoot() {
+            return "/backups";
+        }
+
+        @Order(5)
+        @Key("keep")
+        @Comment({
+                "How many archives of each volume, and how many database dumps, are kept here.",
+                "Fourteen is what the postgres-backup sidecar kept and there is no reason to",
+                "disagree with it.",
+                "",
+                "LOCAL RETENTION IS NOT THE OFFSITE ONE. This number governs the disk in this host",
+                "only. Until a Storage Box exists, it is the ONLY retention there is - and then",
+                "fourteen copies on the same disk as the original protect against a mistake and",
+                "against nothing else."
+        })
+        default int keep() {
+            return 14;
+        }
+
+        @Order(6)
+        @Key("database-service")
+        @Comment({
+                "The compose service running PostgreSQL. pg_dump is executed INSIDE it, which is",
+                "how the dump can never be taken by an older client than the server - an older",
+                "pg_dump refuses a newer server outright, and this makes the version match by",
+                "construction rather than by somebody keeping two images in step.",
+                "",
+                "Empty turns the database dump off. The volume archives are unaffected, and the",
+                "report says the database was not dumped rather than implying it was."
+        })
+        default String databaseService() {
+            return "postgres";
+        }
+
+        @Order(7)
+        @Key("at")
+        @Comment({
+                "Local time of day the nightly backup is asked for, HH:mm. Empty means none.",
+                "",
+                "THE CLOCK MOVED HERE ON 2026-09-13, and it is a rule being rewritten rather than",
+                "broken. `serve` used to have exactly one protection - it did nothing at all until",
+                "a row appeared in update_request - so the nightly row was written by `smp`, which",
+                "already ran a daily clock. The hole in that is what moved it: a season with `smp`",
+                "down had no backup and nothing said so.",
+                "",
+                "What is kept is the part that mattered: this writes a request row and nothing",
+                "else. It never claims one, never runs one, never touches a jar. Everything after",
+                "the row is the same path /backup now takes, lock and countdown included.",
+                "",
+                "04:45 is what the SMP used. The farm world is reset shortly after, and since the",
+                "same day `smp` refuses to reset a world that has no recent successful backup",
+                "behind it - so this time and that one are no longer a promise two config files",
+                "make to each other.",
+                "",
+                "THE TIMEZONE IS THIS CONTAINER'S (compose sets TZ). The resolved zone and the next",
+                "firing are logged on every start, because a backup that runs an hour off is a",
+                "thing nobody notices until the clocks change."
+        })
+        default String at() {
+            return "04:45";
+        }
+
+        @Order(8)
         @Key("patience-minutes")
         @Comment({
                 "How long one volume's snapshot may take before the run gives up on it and starts",

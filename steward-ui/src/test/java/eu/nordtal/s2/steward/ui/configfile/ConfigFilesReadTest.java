@@ -157,9 +157,15 @@ class ConfigFilesReadTest {
         assertEquals(Kind.LIST, entry(document, "empty-list").kind());
         assertEquals(Kind.SCALAR, entry(document, "worker.limits.max-retries").kind());
 
+        // A section has no value of its own; a list of scalars does, and it is rewritten whole.
         assertFalse(entry(document, "worker").editable());
-        assertFalse(entry(document, "stop-services").editable());
+        assertTrue(entry(document, "stop-services").editable());
+        assertTrue(entry(document, "empty-list").editable());
         assertTrue(entry(document, "worker.limits.max-retries").editable());
+
+        assertEquals(List.of("discord-bot", "smp"), entry(document, "stop-services").items());
+        assertEquals(List.of(), entry(document, "empty-list").items());
+        assertEquals(List.of(), entry(document, "worker").items());
     }
 
     @Test
@@ -294,7 +300,7 @@ class ConfigFilesReadTest {
     }
 
     @Test
-    void aBlockScalarIsReadAndIsNotEditable() throws IOException {
+    void aBlockScalarIsReadAsTheTextItHolds() throws IOException {
         final Path file = directory.resolve("block.yml");
         Files.writeString(file, """
                 motd: |-
@@ -307,8 +313,8 @@ class ConfigFilesReadTest {
 
         assertEquals("line one\nline two", entry(document, "motd").value());
         assertEquals(Kind.SCALAR, entry(document, "motd").kind());
-        assertFalse(entry(document, "motd").editable(),
-                "a value written across several lines cannot be edited by replacing one line");
+        assertTrue(entry(document, "motd").editable(),
+                "a block scalar is rewritten as a block, so it is editable");
         assertTrue(entry(document, "port").editable());
     }
 

@@ -77,6 +77,9 @@ public final class StewardUi {
 
     /** The database. Null only in tests that are about the proxy and never touch a row. */
     private final Data data;
+
+    /** The other services' config files, mounted into this container. */
+    private final ConfigApi configs;
     private final ExecutorService streams = Executors.newVirtualThreadPerTaskExecutor();
 
     private Javalin app;
@@ -93,6 +96,7 @@ public final class StewardUi {
         this.worker = worker;
         this.data = data;
         this.accounts = accounts;
+        this.configs = new ConfigApi(Path.of(config.configs().root()));
     }
 
     /**
@@ -276,6 +280,16 @@ public final class StewardUi {
             // Read from this service's own config rather than kept in the browser, because the
             // Ampel has to be able to fire into Discord as well, and a number in somebody's
             // localStorage cannot be read by anything that is not that browser.
+            // --- the configuration of every service in the stack ------------------------------
+            //
+            // Till's decision, 2026-09-13: every config in the stack is editable from here, with
+            // labels a person can read. What makes that possible without steward-ui depending on
+            // six other modules - one of which would drag a Paper API onto a web server's
+            // classpath - is that jcore writes its comments into the YAML. The file is the model.
+            cfg.routes.get("/api/config", configs::list);
+            cfg.routes.get("/api/config/<file>", configs::one);
+            cfg.routes.put("/api/config/<file>", configs::save);
+
             cfg.routes.get("/api/settings", ctx -> ctx.json(Map.of(
                     "disk", config.alerts().diskPercent(),
                     "memory", config.alerts().memoryPercent(),

@@ -20,16 +20,25 @@ import java.util.List;
  * @param comments the block of {@code #} comment directly above the key, in order, with the
  *                 leading {@code # } removed. Empty when there is none
  * @param value    the scalar as it stands in the file, unquoted and unescaped - so a
- *                 {@code token: ''} arrives here as the empty string. Empty for a
+ *                 {@code token: ''} arrives here as the empty string, and a block scalar
+ *                 ({@code motd: |-}) arrives with the newlines it holds. Empty for a
  *                 {@link Kind#LIST} or a {@link Kind#MAP}, which have no scalar of their own
+ * @param items    the entries of a {@link Kind#LIST}, in file order, each unquoted the same way
+ *                 {@link #value()} is. Empty for every other kind - and an empty list is also
+ *                 empty here, which is the same thing a form needs to draw either way
  * @param kind     what sits under the key: a scalar, a sequence or a nested mapping
- * @param type     what the scalar looks like to YAML - see {@link Type}. Always
- *                 {@link Type#STRING} for a LIST or a MAP, which is meaningless there and is
- *                 never used, because neither is editable
+ * @param type     for a SCALAR, what it looks like to YAML - see {@link Type}. <b>For a LIST, the
+ *                 type its entries share</b>, or {@link Type#STRING} when they are mixed or there
+ *                 are none; that is what decides how a new entry is written back, so that a list
+ *                 of ports stays a list of numbers instead of quietly becoming strings. Always
+ *                 {@link Type#STRING} for a MAP, which has no value of its own
  * @param line     the 1-based line the key sits on, for an error message that can be acted on
- * @param editable whether {@link ConfigFiles#write} will accept a change to this key: true for a
- *                 scalar that occupies a single line, false for a list, a nested section and a
- *                 block scalar spanning several lines
+ * @param editable whether {@link ConfigFiles#write} will accept a change to this key: true for any
+ *                 scalar, single-line or block, and for a list whose entries are all scalars.
+ *                 False for a nested section, which has no value to change, and for a list of
+ *                 sections - rewriting one of those would move comments and keys around, and a
+ *                 config editor that reformats a file nobody asked it to touch is one nobody will
+ *                 trust twice
  * @param secret   whether the leaf key names a credential - see {@link #isSecretKey(String)}. The
  *                 value is still carried: hiding it here would mean the form could not round-trip
  *                 it, and the browser would blank a token by saving a page. It is the interface's
@@ -41,6 +50,7 @@ public record ConfigEntry(
         @NotNull String label,
         @NotNull List<String> comments,
         @NotNull String value,
+        @NotNull List<String> items,
         @NotNull Kind kind,
         @NotNull Type type,
         int line,
@@ -49,7 +59,7 @@ public record ConfigEntry(
 
     /** What sits under a key. */
     public enum Kind {
-        /** A single value. The only kind this alpha can write. */
+        /** A single value, on one line or written as a block ({@code |}, {@code >}). */
         SCALAR,
         /** A YAML sequence, block ({@code - item}) or flow ({@code []}). */
         LIST,
@@ -69,9 +79,10 @@ public record ConfigEntry(
         BOOLEAN
     }
 
-    /** Defensive copy of the comment block, so a document cannot be edited through an entry. */
+    /** Defensive copies, so a document cannot be edited through an entry. */
     public ConfigEntry {
         comments = List.copyOf(comments);
+        items = List.copyOf(items);
     }
 
     /**

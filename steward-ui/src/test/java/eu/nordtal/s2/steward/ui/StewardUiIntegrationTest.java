@@ -19,23 +19,33 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.CookieManager;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -49,23 +59,78 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * on purpose, which is the case the interface most needs to get right and the hardest to arrange
  * with a healthy one.
  *
- * <h2>The sign-in is stood in for, and that is a gap this says out loud</h2>
- * The Discord flow needs a client secret and a registered redirect URI, which only Till can create
- * ({@code todo.md} A29). Everything behind the sign-in is exercised here; the sign-in itself is
- * not, and nothing in these tests should be read as evidence that it works.
+ * <h2>The sign-in is the real one, against a stand-in Discord</h2>
+ * These tests used to hand the interface a function that answered "Till" without reading a cookie,
+ * which meant the session - creating it, finding it by cookie, ending it - was the one part of the
+ * authentication nothing exercised. Now the only thing stood in for is {@code discord.com}, which
+ * is the one system boundary in the flow: the state parameter, the role check, the session, the
+ * cookie and the CSRF token are all the production code, driven through {@code /auth/login} and
+ * {@code /auth/callback} exactly as a browser drives them.
+ *
+ * <p>What is still Till's ({@code todo.md} A29) is the real Discord application: a client secret
+ * and a registered redirect URI. So this proves the flow, not the registration - a redirect URI
+ * Discord has not been told about fails at Discord and nowhere in here.</p>
  */
 class StewardUiIntegrationTest {
 
     private static final int WORKER_PORT = 18091;
     private static final int DEPLOYER_PORT = 18092;
     private static final int UI_PORT = 18090;
+    private static final int DISCORD_PORT = 18093;
     private static final Gson GSON = new Gson();
 
-    private static final AtomicBoolean signedIn = new AtomicBoolean(true);
+    /** The one role that may sign in, as an id, because that is what Discord sends back. */
+    private static final String ADMIN_ROLE = "4711";
+    private static final String GUILD = "1234";
+    private static final String WORKER_TOKEN = "worker-token";
+
     private static final AtomicBoolean workerBroken = new AtomicBoolean(false);
+
+    /** What the stand-in Discord says this person's roles are. A test turns the admin one off. */
+    private static final java.util.concurrent.atomic.AtomicReference<List<String>> memberRoles =
+            new java.util.concurrent.atomic.AtomicReference<>(List.of(ADMIN_ROLE, "9999"));
+
+    /** The client secret as it arrived at the stand-in Discord, or null if it never did. */
+    private static final java.util.concurrent.atomic.AtomicReference<String> secretDiscordSaw =
+            new java.util.concurrent.atomic.AtomicReference<>();
+
+    /**
+     * Whether the stand-in worker's log keeps producing <em>lines</em> after its first one.
+     *
+     * <p>A quiet log is not an edge case, it is the normal one: a healthy Minecraft server says
+     * nothing for minutes at a time. It is also the only way to tell two mechanisms apart - a
+     * follow that ends because the next line found the session gone, and one that ends because
+     * somebody closed the tab. With a chatty log the first hides the second.</p>
+     *
+     * <p>Quiet means no {@code data:} lines - no log output. The connection still carries a
+     * comment now and then, because that is what {@code steward-worker} does: it has the same
+     * heartbeat, for the same two reasons, and a stand-in that went completely silent would be
+     * testing the interface against a worker that does not exist.</p>
+     */
+    private static final AtomicBoolean chattyLog = new AtomicBoolean(true);
+
+    /** Whoever is following a log through the stand-in worker right now. */
+    private static final List<io.javalin.http.sse.SseClient> workerFollowers =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * How many connections are open to the stand-in worker, counted by Jetty itself.
+     *
+     * <p>Counting SSE clients instead was the obvious thing and it is wrong: a Javalin SSE client
+     * is removed when a <em>write to it fails</em>, so a stand-in worker with nothing to say never
+     * notices the interface hanging up - it has the same blindness the interface has, and a blind
+     * instrument cannot measure whether somebody else can see. The socket is not blind.</p>
+     */
+    private static final java.util.concurrent.atomic.AtomicInteger workerConnections =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /** The query string the stand-in worker last saw on a log search - {@code null} for none. */
+    private static final java.util.concurrent.atomic.AtomicReference<String> searchQuery =
+            new java.util.concurrent.atomic.AtomicReference<>("not called");
 
     private static Javalin fakeWorker;
     private static Javalin fakeDeployer;
+    private static Javalin fakeDiscord;
 
     /** What the stand-in deployer was last asked to recreate, so a test can read it back. */
     private static final java.util.List<String> recreated =
@@ -77,7 +142,7 @@ class StewardUiIntegrationTest {
     private static Path configRoot;
 
     @BeforeAll
-    static void start() throws IOException {
+    static void start() throws Exception {
         // A stand-in for the config volumes the deployment mounts: one directory per service, and
         // one of them with a file inside a server's data directory, because that is the shape the
         // Paper plugins have and a route that cannot carry a slash would fail only on those.
@@ -106,7 +171,66 @@ class StewardUiIntegrationTest {
         fakeWorker = Javalin.create(cfg -> {
             cfg.jsonMapper(new JavalinGson(new Gson(), true));
             cfg.startup.showJavalinBanner = false;
+            cfg.jetty.addConnector((server, httpConfiguration) -> {
+                final org.eclipse.jetty.server.ServerConnector counted =
+                        new org.eclipse.jetty.server.ServerConnector(server,
+                                new org.eclipse.jetty.server.HttpConnectionFactory(
+                                        httpConfiguration));
+                counted.setPort(WORKER_PORT);
+                counted.addBean(new org.eclipse.jetty.io.Connection.Listener() {
+                    @Override
+                    public void onOpened(final org.eclipse.jetty.io.Connection connection) {
+                        workerConnections.incrementAndGet();
+                    }
+
+                    @Override
+                    public void onClosed(final org.eclipse.jetty.io.Connection connection) {
+                        workerConnections.decrementAndGet();
+                    }
+                });
+                return counted;
+            });
+            // THE SAME DOOR THE REAL WORKER HAS, health open and everything else behind the shared
+            // secret. A stand-in that lets everybody in passes every test here whether the
+            // interface sends its token, sends the deployer's, or sends none at all - which is
+            // exactly the mix-up the two-secret split exists to prevent.
+            cfg.routes.before("/api/*", ctx -> {
+                if (!ctx.path().equals("/api/health")
+                        && !WORKER_TOKEN.equals(ctx.header("X-Steward-Token"))) {
+                    throw new io.javalin.http.UnauthorizedResponse("bad or missing token");
+                }
+            });
             cfg.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
+            cfg.routes.get("/api/services/{name}/logs/search", ctx -> {
+                searchQuery.set(ctx.queryString());
+                ctx.json(List.of());
+            });
+            // A log that never ends, which is what a running container's is. Everything about the
+            // follow that matters happens in the middle of one: a session ending, a tab closing.
+            cfg.routes.sse("/api/services/{name}/logs", client -> {
+                client.keepAlive();
+                workerFollowers.add(client);
+                client.onClose(() -> workerFollowers.remove(client));
+                Thread.ofVirtual().start(() -> {
+                    client.sendEvent("line", "[12:00:00 INFO]: still running");
+                    while (workerFollowers.contains(client)) {
+                        try {
+                            Thread.sleep(120);
+                        } catch (final InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                        if (chattyLog.get()) {
+                            client.sendEvent("line", "[12:00:00 INFO]: still running");
+                        } else {
+                            // The real worker's heartbeat, only faster - it beats every ten
+                            // seconds and this test is not going to wait that long to find out
+                            // whether the interface has hung up.
+                            client.sendComment("following " + client.ctx().pathParam("name"));
+                        }
+                    }
+                });
+            });
             cfg.routes.get("/api/services", ctx -> {
                 if (workerBroken.get()) {
                     ctx.status(502).result("the daemon is not answering");
@@ -117,7 +241,7 @@ class StewardUiIntegrationTest {
             });
             cfg.routes.post("/api/services/{name}/console", ctx ->
                     ctx.status(202).json(Map.of("sent", "list")));
-        }).start(WORKER_PORT);
+        }).start(WORKER_PORT + 100);
 
         // A stand-in for steward-deployer. It is a second process in the deployment and a second
         // secret, so it is a second stub here too: a single fake answering both would prove the
@@ -143,6 +267,35 @@ class StewardUiIntegrationTest {
                     "id", ctx.pathParam("id"), "kind", "recreate", "state", "DONE",
                     "exitCode", 0, "lines", List.of("Container nordtal-s2-smp-1  Recreated"))));
         }).start(DEPLOYER_PORT);
+
+        // The one system boundary in the sign-in. Everything else in the flow below - the state,
+        // the session, the cookie, the role check - is the interface's own code.
+        fakeDiscord = Javalin.create(cfg -> {
+            cfg.jsonMapper(new JavalinGson(new Gson(), true));
+            cfg.startup.showJavalinBanner = false;
+            cfg.routes.post("/oauth2/token", ctx -> {
+                final Map<String, String> form = new java.util.LinkedHashMap<>();
+                for (final String pair : ctx.body().split("&")) {
+                    final int equals = pair.indexOf('=');
+                    form.put(pair.substring(0, equals), java.net.URLDecoder.decode(
+                            pair.substring(equals + 1), java.nio.charset.StandardCharsets.UTF_8));
+                }
+                secretDiscordSaw.set(form.get("client_secret"));
+                if (!"the-code".equals(form.get("code"))) {
+                    ctx.status(400).json(Map.of("error", "invalid_grant"));
+                    return;
+                }
+                ctx.json(Map.of("access_token", "an-access-token", "token_type", "Bearer"));
+            });
+            cfg.routes.get("/users/@me", ctx -> ctx.json(Map.of("id", "1", "username", "till")));
+            cfg.routes.get("/users/@me/guilds/{guild}/member", ctx -> {
+                if (!GUILD.equals(ctx.pathParam("guild"))) {
+                    ctx.status(404).json(Map.of("message", "Unknown Guild"));
+                    return;
+                }
+                ctx.json(Map.of("nick", "Till", "roles", memberRoles.get()));
+            });
+        }).start(DISCORD_PORT);
 
         final UiSpec config = new UiSpec() {
             @Override
@@ -171,7 +324,7 @@ class StewardUiIntegrationTest {
 
                     @Override
                     public String token() {
-                        return "test-token";
+                        return WORKER_TOKEN;
                     }
                 };
             }
@@ -179,6 +332,25 @@ class StewardUiIntegrationTest {
             @Override
             public DiscordSpec discord() {
                 return new DiscordSpec() {
+                    @Override
+                    public String clientId() {
+                        return "an-application";
+                    }
+
+                    @Override
+                    public String clientSecret() {
+                        return "a-client-secret";
+                    }
+
+                    @Override
+                    public String guildId() {
+                        return GUILD;
+                    }
+
+                    @Override
+                    public String adminRole() {
+                        return ADMIN_ROLE;
+                    }
                 };
             }
 
@@ -235,18 +407,20 @@ class StewardUiIntegrationTest {
             }
         });
 
-        ui = new StewardUi(config, new DiscordAuth(config.discord(), config.publicUrl()),
+        // The production constructor: who is signed in is read out of the session, by the same
+        // code the deployment runs. The only substitution is the address of Discord.
+        ui = new StewardUi(config,
+                new DiscordAuth(config.discord(), config.publicUrl(),
+                        "http://127.0.0.1:" + DISCORD_PORT),
                 new InternalClient("steward-worker", config.worker().baseUrl(),
                         config.worker().token(), Duration.ofSeconds(5)),
                 new InternalClient("steward-deployer", config.deployer().baseUrl(),
                         config.deployer().token(), Duration.ofSeconds(5)),
-                data,
-                ctx -> signedIn.get()
-                        ? Optional.of(new DiscordAuth.Account("1", "Till", List.of("admin")))
-                        : Optional.empty());
+                data);
         ui.start(UI_PORT);
 
-        http = HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
+        http = browser();
+        signIn(http);
     }
 
     @AfterAll
@@ -259,6 +433,9 @@ class StewardUiIntegrationTest {
         }
         if (fakeDeployer != null) {
             fakeDeployer.stop();
+        }
+        if (fakeDiscord != null) {
+            fakeDiscord.stop();
         }
         if (data != null) {
             data.close();
@@ -284,20 +461,94 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("signed out, the API says no and the sign-in state is readable anyway")
     void signedOutIsNotHalfway() throws Exception {
-        signedIn.set(false);
-        try {
-            assertEquals(401, get("/api/services").statusCode());
+        // A browser with its own empty cookie jar, which is what "signed out" actually is. It used
+        // to be a boolean in this class, and a boolean cannot tell a missing cookie from a wrong
+        // one.
+        final HttpClient stranger = browser();
 
-            final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
-            assertFalse(me.get("signedIn").getAsBoolean());
-            // The page has to be able to say WHY nobody can sign in, or an unconfigured deployment
-            // looks exactly like a wrong password.
-            assertTrue(me.has("signInUnavailable"), me.toString());
-            assertTrue(me.get("webauthn").getAsString().contains("not built"),
-                    "the missing security key is said out loud, not left to a footnote");
+        assertEquals(401, get(stranger, "/api/services").statusCode());
+
+        final JsonObject me = GSON.fromJson(get(stranger, "/api/me").body(), JsonObject.class);
+        assertFalse(me.get("signedIn").getAsBoolean());
+        // Configured here, so nothing is missing - the sentence for a deployment where something
+        // IS missing is DiscordAuthTest's, because it is a property of the configuration and not
+        // of a request.
+        assertFalse(me.has("signInUnavailable"), me.toString());
+        assertTrue(me.get("webauthn").getAsString().contains("not built"),
+                "the missing security key is said out loud, not left to a footnote");
+    }
+
+    @Test
+    @DisplayName("the session is a cookie: the same interface, another browser, is nobody")
+    void theSessionIsTheCookieAndNothingElse() throws Exception {
+        final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
+        assertTrue(me.get("signedIn").getAsBoolean(), me.toString());
+        assertEquals("1", me.get("id").getAsString());
+        // The nickname from the guild, not the username - somebody's guild nickname is the name
+        // the other admins know them by.
+        assertEquals("Till", me.get("name").getAsString());
+        assertEquals("a-client-secret", secretDiscordSaw.get(),
+                "the code was exchanged with the application's secret, not without one");
+
+        assertFalse(GSON.fromJson(get(browser(), "/api/me").body(), JsonObject.class)
+                .get("signedIn").getAsBoolean());
+    }
+
+    @Test
+    @DisplayName("a callback that did not start in this browser is refused before Discord is asked")
+    void aCallbackWithoutItsOwnStateIsRefused() throws Exception {
+        final HttpClient browser = browser();
+        get(browser, "/auth/login");
+
+        final HttpResponse<String> refused =
+                get(browser, "/auth/callback?code=the-code&state=somebody-elses");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                .get("signedIn").getAsBoolean(), "a refused callback must not leave a session");
+    }
+
+    @Test
+    @DisplayName("in the guild but without the role is a refusal that names the person")
+    void withoutTheAdminRoleNobodyGetsIn() throws Exception {
+        memberRoles.set(List.of("9999"));
+        try {
+            final HttpClient browser = browser();
+            final String state = stateFrom(get(browser, "/auth/login"));
+
+            final HttpResponse<String> refused =
+                    get(browser, "/auth/callback?code=the-code&state=" + state);
+
+            assertEquals(403, refused.statusCode(), refused.body());
+            assertTrue(refused.body().contains("Till"), refused.body());
+            assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                    .get("signedIn").getAsBoolean());
         } finally {
-            signedIn.set(true);
+            memberRoles.set(List.of(ADMIN_ROLE, "9999"));
         }
+    }
+
+    @Test
+    @DisplayName("signing out needs the CSRF token too, and then really ends the session")
+    void signingOutIsNotSomethingAnotherSiteCanDo() throws Exception {
+        // /auth/logout is not under /api/*, so the filter that guards every write does not see it.
+        // A form on any other site can post here carrying the cookie - Javalin leaves SameSite
+        // unset - and sign somebody out of the deployment they are watching.
+        final HttpClient browser = browser();
+        signIn(browser);
+
+        final HttpResponse<String> withoutToken = browser.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + "/auth/logout"))
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build(), HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(403, withoutToken.statusCode(), withoutToken.body());
+        assertTrue(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                .get("signedIn").getAsBoolean(), "the session survived the forged request");
+
+        assertEquals(204, logout(browser).statusCode());
+        assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                .get("signedIn").getAsBoolean());
     }
 
     @Test
@@ -360,14 +611,27 @@ class StewardUiIntegrationTest {
     @Test
     @DisplayName("health answers without a session, because a healthcheck has none")
     void healthIsOpen() throws Exception {
-        signedIn.set(false);
-        try {
-            final JsonObject health = GSON.fromJson(get("/api/health").body(), JsonObject.class);
-            assertEquals("ok", health.get("status").getAsString());
-            assertTrue(health.get("worker").getAsBoolean(), "the fake worker is up");
-        } finally {
-            signedIn.set(true);
-        }
+        final JsonObject health =
+                GSON.fromJson(get(browser(), "/api/health").body(), JsonObject.class);
+
+        assertEquals("ok", health.get("status").getAsString());
+        assertTrue(health.get("worker").getAsBoolean(), "the fake worker is up");
+    }
+
+    @Test
+    @DisplayName("a search with no parameters is forwarded as no parameters, not as `?null`")
+    void anEmptyQueryIsNotForwardedAsTheWordNull() throws Exception {
+        searchQuery.set("not called");
+
+        assertEquals(200, get("/api/services/smp/logs/search").statusCode());
+
+        // "?null" reaches the worker as a parameter named null with no value, which its own
+        // parameter parsing then has to survive - and a search for nothing arrives looking like a
+        // search for something.
+        assertNull(searchQuery.get(), "the worker saw a query string where there was none");
+
+        get("/api/services/smp/logs/search?q=timeout&limit=5");
+        assertEquals("q=timeout&limit=5", searchQuery.get());
     }
 
     @Test
@@ -666,6 +930,206 @@ class StewardUiIntegrationTest {
         assertTrue(job.getAsJsonArray("lines").toString().contains("Recreated"), job.toString());
     }
 
+    // -------------------------------------------------------------------------------------------
+    // The log follow, which is the one thing in this interface that outlives its own request
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("a follow ends when the session does, instead of running on in a signed-out tab")
+    void loggingOutEndsTheFollow() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        final HttpResponse<InputStream> follow = openTheLog(browser);
+        final int whileFollowing;
+        try (BufferedReader lines = reader(follow)) {
+            assertTrue(waitForALineSaying(lines, "still running"), "nothing was ever followed");
+            whileFollowing = workerConnections.get();
+
+            assertEquals(204, logout(browser).statusCode());
+
+            // The check at the top of the route is made once, when the connection opens. A follow
+            // outlives it by hours: without a second look, a signed-out - or expired, or revoked -
+            // session went on being served this container's logs until the container stopped.
+            assertTrue(waitForALineSaying(lines, "this session ended"),
+                    "the logs kept arriving after the session had been thrown away");
+        }
+        assertTrue(theFollowsConnectionClosed(whileFollowing), "the worker's end was left open");
+    }
+
+    @Test
+    @DisplayName("a quiet log is watched for minutes, and its connection goes when the tab does")
+    void aQuietFollowSurvivesAndThenIsCleanedUp() throws Exception {
+        // THE SLOWEST TEST IN THIS MODULE, AND BOTH HALVES ARE THE POINT. A container that says
+        // one thing and then goes quiet is what a healthy Minecraft server is between events, and
+        // both defects only exist in that case: a chatty log hides them behind its own traffic.
+        chattyLog.set(false);
+        try {
+            final HttpClient browser = browser();
+            signIn(browser);
+            // A REAL SOCKET, not an HttpClient. Closing the body of a JDK response leaves the
+            // connection open - that is the defect one layer down in this very test's subject -
+            // so a "closed tab" made of one would tell the interface nothing and prove nothing.
+            // A socket that is closed is closed, which is what a browser does with a tab.
+            final java.net.Socket tab = openTheLogOverASocket(browser);
+            final BufferedReader lines = new BufferedReader(
+                    new InputStreamReader(tab.getInputStream(), StandardCharsets.UTF_8));
+            assertTrue(waitForALineSaying(lines, "still running"), "nothing was ever followed");
+            final int whileFollowing = workerConnections.get();
+            assertTrue(whileFollowing >= 1, "the follow is not open at the worker at all");
+
+            // Jetty drops a connection nothing has written on for thirty seconds - measured here
+            // on 2026-09-13. So the interface has to say something of its own, or the log view of
+            // a healthy server goes dead half a minute after it was opened and looks, to whoever
+            // is watching, exactly like a server that has stopped. Three of them is past the
+            // timeout twice over.
+            for (int beat = 1; beat <= 3; beat++) {
+                assertTrue(waitForALineSaying(lines, "open"),
+                        "the follow went quiet and died after beat " + (beat - 1));
+            }
+
+            // AND NOW THE TAB IS CLOSED - which means the socket goes, not just the reader. The
+            // JDK's own client does not close a connection when the body stream it handed out is
+            // closed (measured, 2026-09-13, and it is the same trap the interface itself fell into
+            // one layer down), so a test that only closed the reader would be telling the
+            // interface nothing at all and would then prove nothing about what it does next.
+            tab.close();
+
+            // Every reload used to leave a connection behind here - and behind that one, at the
+            // worker, an open docker log stream nobody was reading.
+            assertTrue(theFollowsConnectionClosed(whileFollowing),
+                    "the worker's end outlived the browser's: " + workerConnections.get()
+                            + " connections open, " + whileFollowing + " during the follow");
+        } finally {
+            chattyLog.set(true);
+        }
+    }
+
+    /**
+     * The same follow, opened by hand over a socket this test can really close.
+     *
+     * <p>It borrows the session cookie out of the browser's own jar, so it is the same signed-in
+     * person - only the transport is one whose closing means something.</p>
+     */
+    private static java.net.Socket openTheLogOverASocket(final HttpClient browser) throws Exception {
+        final java.net.CookieHandler jar = browser.cookieHandler().orElseThrow();
+        final String cookies = ((CookieManager) jar).getCookieStore().getCookies().stream()
+                .map(cookie -> cookie.getName() + "=" + cookie.getValue())
+                .reduce((left, right) -> left + "; " + right)
+                .orElseThrow(() -> new AssertionError("this browser has no session cookie"));
+        final java.net.Socket tab = new java.net.Socket("127.0.0.1", UI_PORT);
+        tab.getOutputStream().write(("GET /api/services/smp/logs HTTP/1.1\r\n"
+                + "Host: 127.0.0.1:" + UI_PORT + "\r\n"
+                + "Accept: text/event-stream\r\n"
+                + "Cookie: " + cookies + "\r\n"
+                + "\r\n").getBytes(StandardCharsets.UTF_8));
+        tab.getOutputStream().flush();
+        return tab;
+    }
+
+    private static HttpResponse<InputStream> openTheLog(final HttpClient browser) throws Exception {
+        final HttpResponse<InputStream> follow = browser.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/services/smp/logs"))
+                .header("Accept", "text/event-stream")
+                .GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+        assertEquals(200, follow.statusCode());
+        return follow;
+    }
+
+    private static BufferedReader reader(final HttpResponse<InputStream> follow) {
+        return new BufferedReader(new InputStreamReader(follow.body(), StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Reads the stream until it says that, it ends, or twenty seconds pass.
+     *
+     * <p>On its own thread, because a socket read that never returns would otherwise hang the whole
+     * test run rather than failing it - and "the stream never ended" is precisely the defect these
+     * two tests are about.</p>
+     */
+    private static boolean waitForALineSaying(final BufferedReader lines, final String text)
+            throws Exception {
+        // A DAEMON thread. Closing a response body does not unblock a read already sitting in it -
+        // the JDK behaviour this whole pair of tests is about - so an ordinary executor thread
+        // would still be parked in readLine() when the suite ended, and would keep the test JVM
+        // alive with nothing to report.
+        final ExecutorService one = Executors.newSingleThreadExecutor(runnable -> {
+            final Thread thread = new Thread(runnable, "follow-test-reader");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            return one.submit(() -> {
+                String line;
+                while ((line = lines.readLine()) != null) {
+                    if (line.contains(text)) {
+                        return true;
+                    }
+                }
+                return false;
+            }).get(20, TimeUnit.SECONDS);
+        } catch (final TimeoutException never) {
+            return false;
+        } finally {
+            one.shutdownNow();
+        }
+    }
+
+    /**
+     * Waits up to three quarters of a minute for the worker's end to close.
+     *
+     * <p>Long on purpose. On a quiet log nothing discovers a closed tab until the heartbeat writes
+     * into it, and the first write after a close often still succeeds - the failure comes on the
+     * one after. Two beats plus room is the honest bound, and a test that allowed less would fail
+     * on a slow machine while the behaviour was correct.</p>
+     */
+    private static boolean theFollowsConnectionClosed(final int whileFollowing)
+            throws InterruptedException {
+        // Strictly fewer than during the follow. Not "back to what it was before", because the
+        // client pools connections and may well have followed the log down one it had already
+        // opened - in which case the honest evidence is that one MORE connection is gone, not that
+        // the count returned to a number it never left.
+        for (int attempt = 0; attempt < 450 && workerConnections.get() >= whileFollowing; attempt++) {
+            Thread.sleep(100);
+        }
+        return workerConnections.get() < whileFollowing;
+    }
+
+    // --- a browser, and what one does to sign in ----------------------------------------------
+
+    /** One browser: its own cookie jar, and no following of redirects - a test reads them. */
+    private static HttpClient browser() {
+        return HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
+    }
+
+    /** The whole sign-in, driven the way a browser drives it. Nothing here is stood in for. */
+    private static void signIn(final HttpClient browser) throws Exception {
+        final String state = stateFrom(get(browser, "/auth/login"));
+
+        final HttpResponse<String> callback =
+                get(browser, "/auth/callback?code=the-code&state=" + state);
+
+        assertEquals(302, callback.statusCode(), callback.body());
+        assertEquals("/", callback.headers().firstValue("Location").orElseThrow());
+    }
+
+    /** The one-time value the interface minted into the URL it sent the browser to. */
+    private static String stateFrom(final HttpResponse<String> redirect) {
+        assertEquals(302, redirect.statusCode(), redirect.body());
+        final String location = redirect.headers().firstValue("Location").orElseThrow();
+        final Matcher state = Pattern.compile("[?&]state=([^&]+)").matcher(location);
+        assertTrue(state.find(), location);
+        return state.group(1);
+    }
+
+    private static HttpResponse<String> logout(final HttpClient browser) throws Exception {
+        final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
+        return browser.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + "/auth/logout"))
+                .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build(), HttpResponse.BodyHandlers.ofString());
+    }
+
     private static HttpResponse<String> post(final String path, final String body) throws Exception {
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
         return http.send(HttpRequest.newBuilder(
@@ -695,7 +1159,12 @@ class StewardUiIntegrationTest {
     }
 
     private static HttpResponse<String> get(final String path) throws Exception {
-        return http.send(HttpRequest.newBuilder(
+        return get(http, path);
+    }
+
+    private static HttpResponse<String> get(final HttpClient browser, final String path)
+            throws Exception {
+        return browser.send(HttpRequest.newBuilder(
                         URI.create("http://127.0.0.1:" + UI_PORT + path)).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
     }

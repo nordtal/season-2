@@ -325,6 +325,17 @@ export type JournalEntry = {
   detail?: string
 }
 
+/**
+ * One config file under the mount.
+ *
+ * `path` is the identity - `steward-worker/steward.yml`, or `smp/nordtal-smp/config.yml` for a
+ * plugin's file inside a server's data directory. It is what goes in a URL, and it is compared
+ * against the list the backend found rather than resolved, which is why a `..` in it is a 404 and
+ * not a question about decoding.
+ *
+ * `writable` is measured, not assumed: another service's volume may well be mounted read-only, and
+ * a form that only finds that out when Save is pressed is a form that wasted somebody's typing.
+ */
 export type ConfigLocation = {
   service: string
   name: string
@@ -332,24 +343,38 @@ export type ConfigLocation = {
   writable: boolean
 }
 
+/**
+ * One key of a config file, as the form draws it.
+ *
+ * **`value` and `items` are absent for a secret and that is the point.** A key whose name says
+ * credential - token, password, secret, key - is sent with `filled` alone, so the page can say
+ * "gesetzt" without the bot token ever being in this browser. Typing a new one still works; it is
+ * only reading the old one that does not.
+ *
+ * `filled` is sent for every key, secret or not, so there is one rule to draw rather than two.
+ */
 export type ConfigEntry = {
   path: string
   key: string
   label: string
   comments: string[]
-  value: string | null
+  filled: boolean
+  /** Absent when `secret`. A scalar's text; for a block scalar, with the newlines it holds. */
+  value?: string
+  /** Absent when `secret`. The entries of a LIST; empty for every other kind. */
+  items?: string[]
   kind: "SCALAR" | "LIST" | "MAP"
   type: "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN"
   line: number
+  /** False for a nested section, which has no value, and for a list of sections. */
   editable: boolean
   secret: boolean
 }
 
-export type ConfigDocument = {
-  service: string
-  name: string
-  path: string
-  writable: boolean
+export type ConfigDocument = ConfigLocation & {
   header: string[]
   entries: ConfigEntry[]
 }
+
+/** What a PUT sends: a string is a scalar, an array is a list, and they are not interchangeable. */
+export type ConfigChanges = Record<string, string | string[]>

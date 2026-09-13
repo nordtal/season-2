@@ -5,6 +5,7 @@ import {
   api,
   rememberCsrf,
   type Backup,
+  type ConfigChanges,
   type ConfigDocument,
   type ConfigLocation,
   type Grant,
@@ -20,6 +21,7 @@ import {
   type Service,
   type ServiceTable,
 } from "@/lib/api"
+import type { Thresholds } from "@/lib/health"
 
 /**
  * One hook per endpoint, and the refresh interval of each decided here rather than at the call
@@ -53,8 +55,9 @@ export const keys = {
   payments: ["payments"] as const,
   grants: (discordId: string) => ["grants", discordId] as const,
   journal: (action: string, subject: string) => ["journal", action, subject] as const,
+  settings: ["settings"] as const,
   configs: ["configs"] as const,
-  config: (service: string, name: string) => ["config", service, name] as const,
+  config: (file: string) => ["config", file] as const,
 }
 
 /**
@@ -205,6 +208,22 @@ export function useJournal(action: string, subject: string, enabled = true) {
   })
 }
 
+/**
+ * The Ampel's two adjustable thresholds, out of steward-ui.yml.
+ *
+ * They live on the server rather than in this browser because the same Ampel has to fire into the
+ * Discord admin channel, and a threshold kept in somebody's localStorage cannot be read by
+ * anything that is not that browser.
+ */
+export function useSettings(enabled = true) {
+  return useQuery({
+    queryKey: keys.settings,
+    queryFn: () => api<Thresholds>("/api/settings"),
+    staleTime: 5 * 60 * SECOND,
+    enabled,
+  })
+}
+
 export function useConfigs(enabled = true) {
   return useQuery({
     queryKey: keys.configs,
@@ -214,15 +233,23 @@ export function useConfigs(enabled = true) {
   })
 }
 
-export function useConfig(service: string, name: string, enabled = true) {
+/**
+ * One config file.
+ *
+ * `file` is the `path` out of the listing, slashes and all. Each segment is encoded on its own -
+ * `encodeURIComponent` on the whole string would turn the separators into `%2F` and the route
+ * would stop matching.
+ */
+export function useConfig(file: string, enabled = true) {
   return useQuery({
-    queryKey: keys.config(service, name),
-    queryFn: () =>
-      api<ConfigDocument>(
-        `/api/config/${encodeURIComponent(service)}/${name.split("/").map(encodeURIComponent).join("/")}`,
-      ),
-    enabled: enabled && Boolean(service) && Boolean(name),
+    queryKey: keys.config(file),
+    queryFn: () => api<ConfigDocument>(`/api/config/${encodePath(file)}`),
+    enabled: enabled && Boolean(file),
   })
+}
+
+function encodePath(file: string): string {
+  return file.split("/").map(encodeURIComponent).join("/")
 }
 
 // --- the writes ------------------------------------------------------------------------------
@@ -264,16 +291,16 @@ export function useLogSearch(service: string) {
   })
 }
 
-export function useSaveConfig(service: string, name: string) {
+export function useSaveConfig(file: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (changes: Record<string, string>) =>
-      api<ConfigDocument>(
-        `/api/config/${encodeURIComponent(service)}/${name.split("/").map(encodeURIComponent).join("/")}`,
-        { method: "PUT", body: { changes } },
-      ),
+    mutationFn: (changes: ConfigChanges) =>
+      api<ConfigDocument>(`/api/config/${encodePath(file)}`, { method: "PUT", body: { changes } }),
     onSuccess: (document) => {
-      client.setQueryData(keys.config(service, name), document)
+      // The answer IS the file as it now reads, so the form redraws from what was written rather
+      // than from what it hoped was written. A value the backend quoted or refused to canonicalise
+      // is then visible immediately instead of on the next reload.
+      client.setQueryData(keys.config(file), document)
     },
   })
 }

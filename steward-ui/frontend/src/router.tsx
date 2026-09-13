@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 
+import { NotFoundPage } from "@/app/not-found"
 import { Shell } from "@/app/shell"
 import {
   BetriebLaufPage,
@@ -7,24 +8,20 @@ import {
   BetriebPlanPage,
   BetriebSicherungPage,
   BetriebWiederherstellenPage,
-  DienstPage,
-  EinstellungenPage,
-  JournalPage,
-  KonfigurationPage,
-  KontenPage,
-  NotFoundPage,
-  SaisonPage,
-  ZahlungenPage,
-  ZugaengePage,
-  ZustandPage,
-} from "@/pages/pages"
+} from "@/pages/betrieb"
+import { DienstPage } from "@/pages/dienst"
+import { EinstellungenPage } from "@/pages/einstellungen"
+import { KonfigurationDateiPage, KonfigurationPage } from "@/pages/konfiguration"
+import { SaisonPage } from "@/pages/saison"
+import { JournalPage, KontenPage, ZahlungenPage, ZugaengePage } from "@/pages/zugaenge"
+import { ZustandPage } from "@/pages/zustand"
 
 /**
  * The route tree, written out rather than generated.
  *
  * TanStack's file-based plugin would write `routeTree.gen.ts` into src/ on every build - which is
  * a generated file inside the directory Gradle declares as an input to `viteBuild`, i.e. a build
- * that is never up to date and a file somebody has to remember to commit. Fourteen routes do not
+ * that is never up to date and a file somebody has to remember to commit. Fifteen routes do not
  * need a code generator, so this is the tree.
  */
 
@@ -55,8 +52,16 @@ const routes = [
   }),
   createRoute({
     getParentRoute: () => rootRoute,
-    path: "/konfiguration/$datei",
+    path: "/konfiguration",
     component: KonfigurationPage,
+  }),
+  // A splat, not a `$datei`. A config file is identified by its path under the mount, and a
+  // Paper plugin's always has slashes in it (`smp/nordtal-smp/config.yml`); a single named
+  // parameter stops at the first one and would 404 exactly those files and no others.
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/konfiguration/$",
+    component: KonfigurationDateiPage,
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/saison", component: SaisonPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/zugaenge", component: ZugaengePage }),

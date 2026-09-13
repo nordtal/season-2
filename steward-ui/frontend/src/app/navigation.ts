@@ -148,8 +148,7 @@ export const NAVIGATION: NavGroup[] = [
       {
         id: "konfiguration",
         label: "Dateien",
-        to: "/konfiguration/$datei",
-        params: { datei: "steward.yml" },
+        to: "/konfiguration",
         note: "Kommentiertes YAML als Formular, aus dem @ConfigSpec gelesen.",
         icon: SlidersHorizontal,
         keywords: ["yaml", "config", "einstellungen", "spec"],

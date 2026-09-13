@@ -659,12 +659,19 @@ services:
       # A volume named in the config but missing here is a FAILED line naming the path - not a
       # small archive that looks like a success. That distinction is todo.md A23, which was a run
       # reporting success having saved nothing.
+      #
+      # THE PLUGIN LINES CARRY THE SAME ${*_PLUGINS} EXPRESSION as the server's and the worker's
+      # above, and that is not decoration. These used to name the default volume outright, so a
+      # deployment that set one of those variables backed up a volume nothing ran from while the
+      # live configuration was saved nowhere - an archive that restores cleanly and restores the
+      # wrong thing. TopologyTest holds all three sides against each other now, expression for
+      # expression.
       - mc-smp:/backup-sources/nordtal-s2_mc-smp:ro
-      - mc-smp-plugins:/backup-sources/nordtal-s2_mc-smp-plugins:ro
+      - ${SMP_PLUGINS:-mc-smp-plugins}:/backup-sources/nordtal-s2_mc-smp-plugins:ro
       - mc-network-control:/backup-sources/nordtal-s2_mc-network-control:ro
-      - mc-network-control-plugins:/backup-sources/nordtal-s2_mc-network-control-plugins:ro
-      - mc-limbo-plugins:/backup-sources/nordtal-s2_mc-limbo-plugins:ro
-      - mc-hunger-games-plugins:/backup-sources/nordtal-s2_mc-hunger-games-plugins:ro
+      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/backup-sources/nordtal-s2_mc-network-control-plugins:ro
+      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/backup-sources/nordtal-s2_mc-limbo-plugins:ro
+      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/backup-sources/nordtal-s2_mc-hunger-games-plugins:ro
       - bot-config:/backup-sources/nordtal-s2_bot-config:ro
       - steward-ui-config:/backup-sources/nordtal-s2_steward-ui-config:ro
       # Where the archives and the database dump land. NOT one of the volumes above: a backup

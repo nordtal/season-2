@@ -110,10 +110,9 @@ A restart is written with an instant sixty seconds out and the proxy counts ever
 The worker refuses to claim the row before that instant, so the countdown is real and cancellable for
 its whole length.
 
-The restart itself is **one stop and one start per container** over Arcane's REST API — not the
-Docker socket, which is mounted nowhere in this deployment, and **not** a project-wide redeploy,
-which does both in a single request and would take this container down with everything else, leaving
-nothing to report whether the network came back:
+The restart itself is **one stop and one start per container**, and **not** a project-wide redeploy:
+that does both in a single request and would take this container down with everything else, leaving
+nothing to report whether the network came back. Until the cutover it goes over Arcane's REST API:
 
 ```
 GET  /api/environments/{environment}/projects/{project}/runtime
@@ -124,6 +123,42 @@ Both path segments are IDs: the environment is `0` for Arcane's own host, and th
 not the compose project name. They stay settings because Arcane does not publish them. An empty
 `arcane.base-url` refuses an update **before** a version is resolved or a file is touched, and says
 so by name.
+
+## The docker socket
+
+**It is mounted here since 2026-09-12, and it was not before.** The sentence this file used to carry
+— *not the Docker socket, which is mounted nowhere in this deployment* — was true of the arrangement
+where Arcane did the container work. The concept's §3 draws the line in a different place: the part
+that must not hold the socket is the **web interface**, because that is what an attacker reaches
+first. This container already downloads files from the internet and puts them where servers execute
+them; the socket does not widen that, and it removes a whole service from the path.
+
+What it does with it:
+
+| | |
+|---|---|
+| reads | state, health, image, uptime, CPU and memory per container, the log stream, `/system/df` |
+| asks a registry | `GET /distribution/{ref}/json` against the image's own digests — the drift check Arcane never performed (`todo.md` A24) |
+| writes | one stop, one start, and `mc <command>` into the four Minecraft consoles |
+| **refuses** | creating a container. That needs the compose file, which `steward-deployer` owns, and a container rebuilt from an inspect would drift from it silently |
+
+`:ro` on the mount would be theatre: it restricts the socket *file*, not the API behind it. The
+restraint is in the code — `DockerOps` — and in the fact that `steward-ui` has no socket at all.
+
+Without the socket nothing here fails. The drift check and the metrics report that they **could not
+look**, which is a different answer from *everything is current* — and confusing those two is
+precisely what let four releases run behind unnoticed.
+
+## The curves
+
+Every 30 seconds `serve` writes one row per series into `metric_sample`: the host's load, CPU,
+memory and disk, and CPU and memory per container. Eleven series, about 32 000 rows a day, some
+60 MB after 30 days — after which raw samples become hourly means, a thirtieth of the size with the
+year still in them.
+
+That table is dumped with the rest of the database, so **the retention is also a decision about how
+big every backup is**. It is `docker.metrics` in `steward.yml`, and turning it off costs the start
+page its curves and nothing else.
 
 ## The images
 

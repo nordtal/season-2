@@ -1,4 +1,4 @@
-package eu.nordtal.s2.steward.worker.arcane;
+package eu.nordtal.s2.steward.worker.ops;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -8,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
  * @param triggered whether Arcane accepted the request. <b>Not</b> whether the service came back -
  *                  that is a different question with a different answer, and since 2026-09-07 it
  *                  has one: {@link ServiceRuntime#isBack()}, read back from
- *                  {@link ArcaneOps#runtime()} until it says yes. Before that steward-worker took
+ *                  {@link ContainerOps#runtime()} until it says yes. Before that steward-worker took
  *                  itself down with the redeploy and could never ask
  * @param message   one sentence for the request row, and from there for a Discord embed or a chat
  *                  line. Says what to do next when {@code triggered} is false

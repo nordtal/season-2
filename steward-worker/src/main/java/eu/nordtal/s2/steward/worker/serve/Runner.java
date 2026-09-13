@@ -8,10 +8,10 @@ import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateStatus;
 import eu.nordtal.s2.steward.worker.apply.ApplyResult;
 import eu.nordtal.s2.steward.worker.arcane.Arcane;
-import eu.nordtal.s2.steward.worker.arcane.ArcaneOps;
-import eu.nordtal.s2.steward.worker.arcane.ImageResult;
+import eu.nordtal.s2.steward.worker.ops.ContainerOps;
+import eu.nordtal.s2.steward.worker.ops.ImageResult;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
-import eu.nordtal.s2.steward.worker.arcane.RuntimeResult;
+import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
 import eu.nordtal.s2.steward.worker.plan.PlanReport;
 import eu.nordtal.s2.steward.worker.plan.Report;
 import eu.nordtal.s2.steward.worker.plan.Topology;
@@ -211,7 +211,7 @@ public final class Runner implements RequestRunner {
      * The services a run may pull an image for and recreate: everything it already stops, and
      * nothing else.
      *
-     * <p>Steward-worker is absent for the reason {@link ArcaneOps#recreate} gives, and so is
+     * <p>Steward-worker is absent for the reason {@link ContainerOps#recreate} gives, and so is
      * anything outside {@link Topology} - a sequence that recreates a container it never stopped
      * and never mentioned is one nobody can predict from the report they confirmed.</p>
      */

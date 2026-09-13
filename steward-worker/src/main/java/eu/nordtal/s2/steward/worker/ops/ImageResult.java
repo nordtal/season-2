@@ -1,4 +1,4 @@
-package eu.nordtal.s2.steward.worker.arcane;
+package eu.nordtal.s2.steward.worker.ops;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

@@ -270,16 +270,37 @@ public interface StewardSpec {
             "How the restart is actually performed: one redeploy of the whole compose project",
             "through Arcane's REST API.",
             "",
-            "NOT the Docker socket, deliberately. A container holding /var/run/docker.sock can do",
-            "anything on the host, and this is a container whose entire job is to download files",
-            "from the internet and put them where servers will execute them. One API token is the",
-            "cheaper half of that trade, and the redeploy then shows up in Arcane's own history",
-            "instead of happening behind its back.",
+            "THIS BLOCK IS ON ITS WAY OUT. It said `NOT the Docker socket, deliberately`, and that",
+            "reasoning was overturned on 2026-09-12: the socket moved here on purpose. What must",
+            "not hold it is the WEB INTERFACE, which is the part an attacker reaches, and that is",
+            "the line §3 of the concept draws - between steward-ui and this service, not between",
+            "this service and the daemon. The price is named rather than hidden: this container",
+            "downloads files from the internet and puts them where servers execute them, and it now",
+            "also holds the socket. What it may do with it is a read, a stop and a start; creating",
+            "containers is steward-deployer's and is refused here.",
+            "",
+            "Until the cutover, Arcane still performs the restart and takes the volume snapshots.",
             "",
             "LEAVE base-url EMPTY AND NOTHING BREAKS. Every other part of this module still works;",
             "the restart button says so and the redeploy is a click in Arcane."
     })
     ArcaneSpec arcane();
+
+    @Order(15)
+    @Key("docker")
+    @Comment({
+            "The daemon this service reads: container state, health, image drift, logs, the",
+            "console, and the numbers behind the curves on the start page.",
+            "",
+            "READ, STOP AND START - AND NOTHING ELSE. Creating a container needs the compose file,",
+            "which steward-deployer owns (§8b), and a container rebuilt from an inspect would drift",
+            "from that file silently. DockerOps refuses it rather than improvising one.",
+            "",
+            "WITHOUT THE SOCKET MOUNTED NOTHING HERE FAILS: the drift check and the metrics say",
+            "they could not look, which is a different answer from `everything is current` - and",
+            "confusing those two is what let four releases run behind unnoticed (todo.md A24)."
+    })
+    DockerSpec docker();
 
     @Order(14)
     @Key("backup")
@@ -295,6 +316,52 @@ public interface StewardSpec {
             "season with `smp` down has no nightly backup and nothing else notices."
     })
     BackupSpec backup();
+
+    /** Where the daemon is, and which compose project is ours. */
+    @ConfigSpec
+    interface DockerSpec {
+
+        @Order(1)
+        @Key("socket")
+        @Comment({
+                "The unix socket of the Docker daemon, as this container sees it.",
+                "",
+                "The default is where it is on every Linux host and where compose.yml mounts it.",
+                "A path that is not there is not an error at startup: it is reported once, and",
+                "everything that needs the daemon then answers `could not look`."
+        })
+        default String socket() {
+            return "/var/run/docker.sock";
+        }
+
+        @Order(2)
+        @Key("project")
+        @Comment({
+                "The compose project name. Containers are <project>-<service>-1, and this is what",
+                "separates ours from anything else running on the same daemon.",
+                "",
+                "It is written down rather than guessed from this container's own labels: guessing",
+                "works until somebody runs a second copy of the stack under another name, and then",
+                "it works differently instead of failing."
+        })
+        default String project() {
+            return "nordtal-s2";
+        }
+
+        @Order(3)
+        @Key("metrics")
+        @Comment({
+                "Whether the 30-second sampler runs (§10c). Eleven series, ~32 000 rows a day,",
+                "about 60 MB after 30 days, then compacted to hourly means - a thirtieth of that,",
+                "with the year still in it.",
+                "",
+                "THE TABLE IS IN THE BACKUP. Turning this off is therefore also a way to make every",
+                "night's snapshot smaller, and the cost is that the start page has no curves."
+        })
+        default boolean metrics() {
+            return true;
+        }
+    }
 
     /** What a {@code BACKUP} run saves and what it stops while it does. */
     @ConfigSpec

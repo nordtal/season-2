@@ -1,5 +1,11 @@
 package eu.nordtal.s2.steward.worker.arcane;
 
+import eu.nordtal.s2.steward.worker.ops.BackupResult;
+import eu.nordtal.s2.steward.worker.ops.ContainerOps;
+import eu.nordtal.s2.steward.worker.ops.ImageResult;
+import eu.nordtal.s2.steward.worker.ops.RedeployResult;
+import eu.nordtal.s2.steward.worker.ops.RuntimeResult;
+
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +55,7 @@ import java.util.Set;
  * the stream that would say so is the one this container is killed while reading.</p>
  */
 @Slf4j
-public final class Arcane implements ArcaneOps {
+public final class Arcane implements ContainerOps {
 
     /** The header Arcane's documentation names for token authentication. */
     private static final String API_KEY_HEADER = "X-Api-Key";

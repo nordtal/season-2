@@ -460,6 +460,13 @@ class ApplierTest {
     private ApplyResult apply(final Fetcher fetcher, final UpdatePlan plan) {
         final StewardSpec config = new StewardSpec() {
             @Override
+            public DockerSpec docker() {
+                // Defaults: this test is not about the daemon, and nothing here reads it.
+                return new DockerSpec() {
+                };
+            }
+
+            @Override
             public String volumesRoot() {
                 return volumes.toString();
             }

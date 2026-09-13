@@ -62,16 +62,27 @@ interface MetricDao {
      * way: {@code resolution} sits between the equalities and the range, so the range on {@code at}
      * stops being an index condition and every row of the series gets read and filtered instead.
      *
-     * <h2>The seam is the oldest raw sample there is</h2>
+     * <h2>The seam is the <i>hour</i> of the oldest raw sample</h2>
      * The scalar subquery is a {@code min()} over the same three equality columns, so it is one
      * index probe. {@code coalesce(..., 'infinity')} is the case that reads oddly and matters most:
      * a series with no raw rows at all - everything already compacted - must return every hourly
      * point rather than none.
      *
-     * <p>An hour that has both a mean and its raw rows is therefore answered from the raw rows: its
-     * hourly {@code at} is at or after the oldest raw sample, so the second half of the union does
-     * not return it. That is the overlap between a compaction and the delete behind it, and it is
-     * the state this query exists to get right.
+     * <p><b>The bucket around that {@code min()} is not decoration.</b> An hourly {@code at} is
+     * always an exact hour start; a raw sample almost never is. Compared against the raw instant,
+     * the mean for ten o'clock passes {@code at < 10:00:07} and comes back <i>next to the very
+     * samples it was averaged from</i> - one hour drawn twice, once flattened and once not. The
+     * only arrangement that escaped it was a series whose oldest raw sample sat exactly on the
+     * boundary, which is what the first test of this happened to build. Truncated to its hour, the
+     * comparison is {@code 10:00 < 10:00}, which is false, and the raw rows answer alone.</p>
+     *
+     * <p>The bucket expression is {@link #compactInto}'s, character for character, and for the
+     * reason given there: on a {@code timestamptz}, {@code date_trunc('hour', ...)} is neither
+     * immutable nor UTC.</p>
+     *
+     * <p>An hour that has both a mean and its raw rows is therefore answered from the raw rows.
+     * That is the overlap between a compaction and the delete behind it, and it is the state this
+     * query exists to get right.</p>
      *
      * @param from inclusive
      * @param to   exclusive
@@ -92,7 +103,7 @@ interface MetricDao {
               AND resolution = 'HOUR'
               AND at >= :from
               AND at < :to
-              AND at < coalesce((SELECT min(at)
+              AND at < coalesce((SELECT to_timestamp(floor(extract(epoch FROM min(at)) / 3600) * 3600)
                                  FROM metric_sample
                                  WHERE subject = :subject
                                    AND metric = :metric

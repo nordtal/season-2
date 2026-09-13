@@ -105,4 +105,11 @@ final class FakeUpdateDirectory implements UpdateDirectory {
     public java.util.Optional<eu.nordtal.s2.common.update.UpdateRequest> running() {
         return java.util.Optional.empty();
     }
+    @Override
+    public java.util.List<UpdateRequest> recent(final int limit) {
+        // Nothing in this fake ever lists: the list is a page in the interface, not a decision
+        // anything here makes.
+        return java.util.List.of();
+    }
+
 }

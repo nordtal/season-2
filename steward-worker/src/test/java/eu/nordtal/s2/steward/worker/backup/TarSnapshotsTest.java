@@ -10,8 +10,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -206,6 +208,68 @@ class TarSnapshotsTest {
         assertEquals(List.of(stale.getFileName().toString()), removed);
         assertFalse(Files.exists(stale));
         assertTrue(Files.exists(fresh), "a partial from five minutes ago may be a running save");
+    }
+
+    @Test
+    @DisplayName("a stamp that is not a date stops that one file, not the whole sweep")
+    void animpossibleStampIsLeftAlone() throws IOException {
+        // \d{8}T\d{6}Z accepts this and LocalDateTime.parse refuses it. Thrown, it ended prune
+        // before a single archive was deleted: the backup volume then fills up over weeks with one
+        // stack trace to show for it, on runs that otherwise report success.
+        archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260913T044500Z");
+        final Path impossible = outputRoot().resolve(VOLUME + "-99999999T999999Z.tar.zst.partial");
+        Files.writeString(impossible, "whatever this is");
+
+        final List<String> removed = snapshots(NIGHT).prune(1);
+
+        assertEquals(List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst",
+                        "nordtal-s2_mc-smp-20260911T044500Z.tar.zst"),
+                sorted(removed), "the sweep has to finish the job it was there to do");
+        assertTrue(Files.exists(impossible),
+                "and leave the file it cannot date where it is, for a person to look at");
+    }
+
+    @Test
+    @DisplayName("the wall belongs to the pipeline, not to each stage of it")
+    void oneWallForTheWholePipeline() throws Exception {
+        // Three stages ending 0.8 s, 1.6 s and 2.4 s from now, against a wall of one second. Each of
+        // them fits in a fresh second measured from the end of the one before, so a per-stage wall
+        // waits the whole 2.4 s and reports a pipeline that kept to its one-second limit. That is
+        // 2.4 s of Minecraft servers held down by a config that said one, and it grows with the
+        // number of stages.
+        final List<Process> sleeping = sleepers(0.8, 1.6, 2.4);
+        try {
+            assertTrue(TarSnapshots.awaitAll(sleeping, Duration.ofSeconds(1)).isEmpty(),
+                    "one second is the pipeline's whole allowance, not each stage's");
+            // destroyForcibly is a signal, not a funeral, so this waits for the process to be gone
+            // rather than asking a microsecond after asking for it.
+            assertTrue(sleeping.getLast().waitFor(10, java.util.concurrent.TimeUnit.SECONDS),
+                    "everything goes, not just the stage that was still running");
+        } finally {
+            sleeping.forEach(Process::destroyForcibly);
+        }
+    }
+
+    @Test
+    @DisplayName("and a pipeline that finishes inside it comes back with every exit code")
+    void insideTheWallEveryStageIsReported() throws Exception {
+        final List<Process> sleeping = sleepers(0.2, 0.4, 0.6);
+        try {
+            assertEquals(List.of(0, 0, 0),
+                    TarSnapshots.awaitAll(sleeping, Duration.ofSeconds(20)).orElseThrow());
+        } finally {
+            sleeping.forEach(Process::destroyForcibly);
+        }
+    }
+
+    /** Stages that do nothing but end at a known moment, started together as one pipeline. */
+    private static List<Process> sleepers(final double... seconds) throws IOException {
+        final List<ProcessBuilder> builders = new ArrayList<>();
+        for (final double duration : seconds) {
+            builders.add(new ProcessBuilder("sleep", String.valueOf(duration))
+                    .redirectError(ProcessBuilder.Redirect.DISCARD));
+        }
+        return ProcessBuilder.startPipeline(builders);
     }
 
     @Test

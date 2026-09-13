@@ -736,6 +736,34 @@ class TopologyTest {
     }
 
     @Test
+    @DisplayName("every volume mounted for the backup is a volume the backup actually saves")
+    void theBackupSavesEverythingItWasGivenToSave() {
+        // The other direction, and the quiet one. The test above catches a name in the list that
+        // no volume answers to, which fails loudly. This catches a volume compose went to the
+        // trouble of mounting READ-ONLY under /backup-sources and that the list never names - so
+        // nothing fails, nothing is reported, and the archive simply never exists. It was true of
+        // steward-ui-config for a day.
+        final Set<String> saved = Set.copyOf(defaults().backup().volumes());
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
+        final String root = new StewardSpec.BackupSpec() {
+        }.sourcesRoot() + "/";
+
+        for (final String mount : mountsOf(worker)) {
+            final String[] fields = mount.split(":");
+            if (!fields[1].startsWith(root)) {
+                continue;
+            }
+            final String volume = fields[1].substring(root.length());
+            assertTrue(saved.contains(volume),
+                    "compose.yml mounts " + volume + " at " + fields[1] + " for the backup to read,"
+                            + " and backup.volumes does not list it. Nothing fails: the volume is"
+                            + " simply never saved, and the report says nothing about a volume it"
+                            + " was never asked for.");
+        }
+    }
+
+    @Test
     @DisplayName("every service a backup stops is a service compose.yml runs")
     void theBackupStopsRealServices() {
         // A name no container carries aborts the run before anything is saved - the right

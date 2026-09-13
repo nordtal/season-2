@@ -407,7 +407,9 @@ public interface StewardSpec {
                 "is the bot's. The four *-plugins volumes",
                 "are new on 2026-09-08 and hold the only hand-edited files in the deployment:",
                 "every plugin's config.yml, smp's milestones.yml and sounds.yml, and the proxy's",
-                "pack.yml with the resource pack's SHA-1 in it.",
+                "pack.yml with the resource pack's SHA-1 in it. steward-ui-config joined them on",
+                "2026-09-13 - it is where the interface's own settings live, and the one config",
+                "volume the interface cannot rebuild for you.",
                 "",
                 "WHAT IS DELIBERATELY ABSENT. postgres-data is never here: a snapshot of a live",
                 "PGDATA is torn, and it fails at RESTORE rather than at backup, which is the worst",
@@ -435,7 +437,8 @@ public interface StewardSpec {
                     "nordtal-s2_mc-network-control-plugins",
                     "nordtal-s2_mc-limbo-plugins",
                     "nordtal-s2_mc-hunger-games-plugins",
-                    "nordtal-s2_bot-config");
+                    "nordtal-s2_bot-config",
+                    "nordtal-s2_steward-ui-config");
         }
 
         @Order(2)

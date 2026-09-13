@@ -10,11 +10,12 @@
 # therefore a version number that goes stale: .env.example still said 0.2.3 when gradle.properties
 # said 0.8.1, and the only thing that produced was a build looking for a jar nobody had built.
 #
-# release.yml PUSHES THIS IMAGE, and has since 2026-09-02: ghcr.io/nordtal/steward-worker, tagged with the
-# version and with `latest`, alongside the bot, the minecraft image and the backup sidecar. The
-# comment here said the opposite until 2026-09-09 and was simply out of date - the reason it changed
-# is that Arcane deploys by PULLING and never builds, so an image existing only in a host's local
-# daemon fails the deploy with `denied` from the registry.
+# release.yml PUSHES THIS IMAGE, and has since 2026-09-02: ghcr.io/nordtal/steward-worker, tagged
+# with the version and with `latest`, as one of five. The comment here said the opposite until
+# 2026-09-09 and was simply out of date - the reason it changed is that A DEPLOY PULLS AND NEVER
+# BUILDS, so an image existing only in a host's local daemon fails with `denied` from the registry.
+# That was true of the management panel that used to deploy this stack and it is true of
+# steward-deployer, which replaced it on 2026-09-13.
 FROM eclipse-temurin:25-jre
 
 WORKDIR /app
@@ -53,8 +54,10 @@ RUN apt-get update \
 # WHAT THIS CONTAINER IS FOR, and what it is not:
 #
 # It resolves the newest version of every jar the network runs, compares that against the jars in
-# the mounted volumes, installs what is asked for, owns the database schema, and restarts the
-# stack through Arcane when somebody presses the button.
+# the mounted volumes, installs what is asked for, owns the database schema, and stops and starts
+# the servers around a run - over the Docker socket, itself, since 2026-09-12. What it does NOT do
+# is create a container: a new image or a changed compose.yml is steward-deployer's, and this
+# service has no compose file and no way to ask for one.
 #
 # IT IS A SERVICE AND IT IS ALSO A COMMAND. `serve` is the long-running mode compose starts:
 #

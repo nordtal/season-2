@@ -29,6 +29,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -80,6 +82,34 @@ public final class ConfigFiles {
      */
     public static @NotNull ConfigDocument read(final @NotNull Path file) throws IOException {
         return parse(file).document();
+    }
+
+    /**
+     * What a file said, as a short string - the revision a save has to still be about.
+     *
+     * <h2>Why the whole content and not the timestamp or the size</h2>
+     * {@code mtime} on a container filesystem has a resolution a second write can land inside, and
+     * two edits of the same key are very often the same length. The content is the only thing that
+     * is certainly different when the file is different, and these files are kilobytes.
+     *
+     * <p>SHA-256, truncated to 16 hex characters. It is not a security boundary - anybody who can
+     * call the save route can read the file through the route above it - it is a way of noticing
+     * that two people had the same form open.</p>
+     */
+    public static @NotNull String revisionOf(final @NotNull String content) {
+        final MessageDigest sha256;
+        try {
+            sha256 = MessageDigest.getInstance("SHA-256");
+        } catch (final NoSuchAlgorithmException e) {
+            // Every JDK has it; the checked exception is older than that being true.
+            throw new IllegalStateException("this JVM has no SHA-256", e);
+        }
+        final byte[] digest = sha256.digest(content.getBytes(StandardCharsets.UTF_8));
+        final StringBuilder hex = new StringBuilder(16);
+        for (int index = 0; index < 8; index++) {
+            hex.append("%02x".formatted(digest[index]));
+        }
+        return hex.toString();
     }
 
     /**
@@ -143,8 +173,8 @@ public final class ConfigFiles {
 
         if (root == null) {
             // An empty file, or one that is nothing but comments. Everything in it is the header.
-            return new Parsed(new ConfigDocument(file, headerOf(lines, Integer.MAX_VALUE), List.of()),
-                    lines, Map.of());
+            return new Parsed(new ConfigDocument(file, revisionOf(content),
+                    headerOf(lines, Integer.MAX_VALUE), List.of()), lines, Map.of());
         }
         if (!(root instanceof MappingNode mapping)) {
             throw new IOException(file + " is not a config file: line "
@@ -158,7 +188,8 @@ public final class ConfigFiles {
         collect(file, mapping, "", lines, entries, spans);
 
         final int firstKeyLine = entries.isEmpty() ? Integer.MAX_VALUE : entries.getFirst().line() - 1;
-        return new Parsed(new ConfigDocument(file, headerOf(lines, firstKeyLine), entries), lines, spans);
+        return new Parsed(new ConfigDocument(file, revisionOf(content),
+                headerOf(lines, firstKeyLine), entries), lines, spans);
     }
 
     private static void collect(final Path file,
@@ -359,10 +390,41 @@ public final class ConfigFiles {
      *                                  value that is not of the type that key already has
      * @throws IOException              if the file cannot be read or written
      */
+    static @NotNull ConfigDocument write(final @NotNull Path file,
+                                         final @NotNull Map<String, ConfigChange> changes)
+            throws IOException {
+        return write(file, changes, null);
+    }
+
+    /**
+     * The same write, but only if the file still says what the caller last read.
+     *
+     * <p><b>This is the one the API uses, and the plain {@link #write(Path, Map)} beside it is
+     * package-private so that it can only be reached from the tests in here.</b> A config form
+     * stands open in a browser for as long as somebody is reading the comments in it, and two
+     * admins on the same file is not an exotic case - it is a Sunday evening. Without this, the
+     * second save reads the file, applies its own list of changes to what it finds and writes the
+     * result: the first admin's change is not conflicting, it is simply gone, and nothing anywhere
+     * says so.</p>
+     *
+     * <p>The revision is checked against the read that this very write then edits, so the window
+     * between the two is a few microseconds of one thread rather than the minutes a form is open.
+     * It is not a lock: two saves that truly arrive at the same instant can still interleave, and a
+     * file edited over SSH while a form is open is not seen at all until the save. What it removes
+     * is the case that actually happens.</p>
+     *
+     * @param expectedRevision the {@link ConfigDocument#revision()} the caller was last shown, or
+     *                          {@code null} not to check at all
+     * @throws StaleConfigException if the file has been written since
+     */
     public static @NotNull ConfigDocument write(final @NotNull Path file,
-                                                final @NotNull Map<String, ConfigChange> changes)
+                                                final @NotNull Map<String, ConfigChange> changes,
+                                                final String expectedRevision)
             throws IOException {
         final Parsed parsed = parse(file);
+        if (expectedRevision != null && !expectedRevision.equals(parsed.document().revision())) {
+            throw new StaleConfigException(file, expectedRevision, parsed.document().revision());
+        }
         if (changes.isEmpty()) {
             return parsed.document();
         }
@@ -714,7 +776,7 @@ public final class ConfigFiles {
             throw new IllegalStateException("Refusing to write " + file
                     + ": the edited content cannot be read back. This is a bug in ConfigFiles.", e);
         }
-        final ConfigDocument document = new ConfigDocument(file, List.of(), entries);
+        final ConfigDocument document = new ConfigDocument(file, revisionOf(content), List.of(), entries);
         expected.forEach((path, value) -> {
             final ConfigEntry entry = document.find(path)
                     .orElseThrow(() -> new IllegalStateException("Refusing to write " + file

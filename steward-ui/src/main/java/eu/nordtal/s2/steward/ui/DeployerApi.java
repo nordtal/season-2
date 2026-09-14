@@ -97,8 +97,16 @@ public final class DeployerApi {
         // Written BEFORE the call, not after. A recreate that takes the interface's own container
         // down - steward-ui is in this file like anything else - would otherwise be the one action
         // that never reached the journal, and it is exactly the one somebody will ask about.
-        data.audit().record("RECREATE", who.name() + " (" + who.id() + ")", service, null,
-                "container recreated from the current image, asked from the web interface");
+        // The id, not "name (id)": `audit_log.actor` is varchar(32) and means the Discord id, and
+        // the composed form overflowed it for any display name of 11 characters or more - which
+        // made the whole recreate a 500 that never said why. The name goes in the detail.
+        data.audit().record("RECREATE", who.id(), service, null,
+                // "requested", not "recreated". This row is written before the call by design,
+                // so it cannot report what the call did - and the deployer can refuse, redirect or
+                // stall. A journal that says a container was recreated when it was not is worse
+                // than one that says nothing, because it is the sentence somebody trusts later.
+                "recreation from the current image requested by " + who.name()
+                        + " from the web interface");
         log.info("{} asked steward-deployer to recreate {}", who.name(), service);
 
         final String answer = deployer.post("/api/recreate/" + service, "");

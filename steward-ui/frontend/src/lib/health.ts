@@ -40,6 +40,15 @@ export type Thresholds = {
   backupAgeHours: number
 }
 
+/**
+ * What steward-ui.yml ships with - a copy for tests, and deliberately not a fallback.
+ *
+ * {@link summarise} used to reach for this whenever `/api/settings` had not answered, which meant
+ * the light could judge the disk against 85 % while the deployment said 70, and say nothing about
+ * having guessed. The thresholds are configured on the server precisely so that the screen and the
+ * Discord channel agree; a browser-side default is the one way they can disagree silently. Without
+ * them, the checks that need them do not run.
+ */
 export const DEFAULT_THRESHOLDS: Thresholds = { disk: 85, memory: 90, backupAgeHours: 36 }
 
 /**
@@ -59,7 +68,9 @@ export function summarise(input: {
   thresholds?: Thresholds
   now?: number
 }): { level: Level; triggers: Trigger[] } {
-  const thresholds = input.thresholds ?? DEFAULT_THRESHOLDS
+  // Undefined until `/api/settings` has answered. Everything that needs a number to compare
+  // against is skipped while it is, and the page says so instead of quietly using its own.
+  const thresholds = input.thresholds
   const now = input.now ?? Date.now()
   const triggers: Trigger[] = []
 
@@ -135,7 +146,7 @@ export function summarise(input: {
 
   // 4 - disk and memory over the configured thresholds. Yellow.
   const host = input.host
-  if (host?.diskTotalBytes && host.diskUsedBytes != null) {
+  if (thresholds && host?.diskTotalBytes && host.diskUsedBytes != null) {
     const used = (host.diskUsedBytes / host.diskTotalBytes) * 100
     if (used >= thresholds.disk) {
       triggers.push({
@@ -144,7 +155,7 @@ export function summarise(input: {
       })
     }
   }
-  if (host?.memoryTotalBytes && host.memoryAvailableBytes != null) {
+  if (thresholds && host?.memoryTotalBytes && host.memoryAvailableBytes != null) {
     const used = ((host.memoryTotalBytes - host.memoryAvailableBytes) / host.memoryTotalBytes) * 100
     if (used >= thresholds.memory) {
       triggers.push({
@@ -167,7 +178,7 @@ export function summarise(input: {
 
 function backupTriggers(
   backups: Backup[] | undefined,
-  thresholds: Thresholds,
+  thresholds: Thresholds | undefined,
   now: number,
 ): Trigger[] {
   // Undefined means "not asked yet" and must not read as "there is no backup". Only an answered,
@@ -188,6 +199,10 @@ function backupTriggers(
     ]
   }
 
+  // That there is no archive at all needs no threshold and is reported either way. How old one is
+  // allowed to be is a configured number, so until it has arrived this says nothing about age.
+  if (!thresholds) return []
+
   const newest = finished.reduce((latest, backup) =>
     backup.modified > latest.modified ? backup : latest,
   )
@@ -204,7 +219,6 @@ function backupTriggers(
   return []
 }
 
-/** The sentence at the top of the start page when nothing is wrong. */
 /**
  * The level the light actually shows, which is not always the level that was measured.
  *
@@ -224,4 +238,5 @@ export function shownLevel(level: Level, failed: boolean): Level {
 /** What the Ampel says when it found nothing wrong and also could not look. */
 export const UNKNOWN = "Ob alles in Ordnung ist, lässt sich gerade nicht sagen."
 
+/** The sentence at the top of the start page when nothing is wrong. */
 export const ALL_CLEAR = "Alles in Ordnung."

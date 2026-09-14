@@ -425,9 +425,13 @@ public final class StewardUi {
                 data.access().ensureUser(ask.discordId);
                 final var granted = data.access().grantAccess(
                         ask.discordId, ask.days, AccessSource.ADMIN, null);
-                data.audit().record("GRANT_ACCESS", who.name() + " (" + who.id() + ")",
-                        ask.discordId, null,
-                        ask.days + " days from the web interface, until " + granted.validUntil());
+                // The id. `audit_log.actor` is varchar(32) and holds a Discord id - the composed
+                // "name (id)" overflowed it for any display name of 11 characters or more, and
+                // this insert then took the grant's own answer down with a 500. The name is in
+                // the detail, which is `text`.
+                data.audit().record("GRANT_ACCESS", who.id(), ask.discordId, null,
+                        ask.days + " days granted by " + who.name() + " from the web interface,"
+                                + " until " + granted.validUntil());
                 log.info("{} granted {} {} days of access", who.name(), ask.discordId, ask.days);
                 ctx.status(201).json(granted);
             });
@@ -439,8 +443,9 @@ public final class StewardUi {
                 }
                 final DiscordAuth.Account who = account(ctx).orElseThrow();
                 final int revoked = data.access().revokeAccess(ask.discordId);
-                data.audit().record("REVOKE_ACCESS", who.name() + " (" + who.id() + ")",
-                        ask.discordId, null, revoked + " grant(s) revoked from the web interface");
+                data.audit().record("REVOKE_ACCESS", who.id(), ask.discordId, null,
+                        revoked + " grant(s) revoked by " + who.name()
+                                + " from the web interface");
                 log.info("{} revoked {} grants of {}", who.name(), revoked, ask.discordId);
                 ctx.json(Map.of("revoked", revoked));
             });
@@ -449,7 +454,9 @@ public final class StewardUi {
             //
             // PhaseDirectory writes its own audit_log row inside the statement that performs the
             // change, so nothing is recorded twice here. That is also why the actor has to be
-            // passed in rather than recorded afterwards.
+            // passed in rather than recorded afterwards - and why it is the Discord id: the
+            // parameter is documented as one, and the SQL casts it to varchar(32), which
+            // truncates silently.
             cfg.routes.post("/api/season/phase", ctx -> {
                 final SeasonChange ask = ctx.bodyAsClass(SeasonChange.class);
                 if (ask == null || ask.phase == null) {
@@ -462,7 +469,7 @@ public final class StewardUi {
                     throw new BadRequestResponse(ask.phase + " is not a phase");
                 }
                 final DiscordAuth.Account who = account(ctx).orElseThrow();
-                final var change = data.phase().switchPhase(phase, who.name() + " (" + who.id() + ")",
+                final var change = data.phase().switchPhase(phase, who.id(),
                         ask.reason == null ? "" : ask.reason);
                 ctx.json(change);
             });
@@ -479,7 +486,11 @@ public final class StewardUi {
                     throw new BadRequestResponse(ask.at + " is not an ISO-8601 instant");
                 }
                 final DiscordAuth.Account who = account(ctx).orElseThrow();
-                final String actor = who.name() + " (" + who.id() + ")";
+                // PhaseDirectory documents this parameter as the admin's Discord id, and its SQL
+                // casts it to varchar(32) - an explicit cast, which PostgreSQL TRUNCATES rather
+                // than refusing. The composed "name (id)" therefore did not fail here; it wrote a
+                // half-name into the journal and said nothing. The id is what the column means.
+                final String actor = who.id();
                 // NOT A TERNARY. An `equals` and an `else` made "smpstart", "launchh" and a
                 // missing field all mean "launch", so a typo overwrote the wrong one of the two
                 // dates the whole season hangs off - and answered 200 while doing it.

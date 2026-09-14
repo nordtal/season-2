@@ -20,5 +20,10 @@
     "noUncheckedSideEffectImports": true,
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src"]
+  // The tests are checked by tsconfig.test.json instead, which is the same project plus node's
+  // types. They are excluded HERE rather than the types being added there, because adding them
+  // here would make `process` and `Buffer` legal in every file under src/ - and everything under
+  // src/ except the tests is a browser program that must not be able to reach for them.
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/vitest.setup.ts"]
 }

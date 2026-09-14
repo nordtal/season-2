@@ -151,7 +151,7 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
   const count = Object.keys(changes).length
 
   function submit() {
-    save.mutate(changes, {
+    save.mutate({ revision: document.revision, changes }, {
       onSuccess: () =>
         toast.success(
           count === 1 ? "Eine Einstellung gespeichert." : `${count} Einstellungen gespeichert.`,
@@ -454,9 +454,10 @@ function Control({
 /**
  * A list, one row per entry.
  *
- * The whole list is sent on save rather than a single added entry, which is what makes a
- * concurrent edit impossible to lose silently: two browsers sending whole lists disagree
- * visibly, two browsers sending "add one" both succeed and neither is what anybody meant.
+ * The whole list is sent on save rather than a single added entry: two browsers sending "add one"
+ * both succeed and the result is neither of the two lists anybody was looking at. Sending the list
+ * is only half of it - the two saves would still have overwritten each other, one silently - and
+ * the other half is the `revision` every save carries, which makes the second one a 409.
  */
 function ListControl({
   id,

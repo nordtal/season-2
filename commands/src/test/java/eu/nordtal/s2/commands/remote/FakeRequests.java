@@ -1,5 +1,6 @@
 package eu.nordtal.s2.commands.remote;
 
+import eu.nordtal.s2.common.audit.AuditLine;
 import eu.nordtal.s2.common.command.CommandOutcome;
 import eu.nordtal.s2.common.command.CommandRequest;
 import eu.nordtal.s2.common.command.CommandRequests;
@@ -29,6 +30,7 @@ final class FakeRequests implements CommandRequests {
 
     private final Map<Long, Row> rows = new LinkedHashMap<>();
     private final List<NewCommandRequest> submitted = new ArrayList<>();
+    private final Map<Long, AuditLine> journalled = new LinkedHashMap<>();
     private long next = 1;
 
     /** Set to make the next call of anything throw, for the "database stopped answering" branches. */
@@ -46,6 +48,27 @@ final class FakeRequests implements CommandRequests {
         rows.put(id, new Row(request, CommandOutcome.Status.PENDING, null));
         submitted.add(request);
         return id;
+    }
+
+    /**
+     * The journalled insert, as one indivisible step - which is the whole property it exists for.
+     *
+     * <p>Nothing in {@code :commands} calls it; {@code steward-ui} does. It is implemented rather
+     * than left throwing so that a fake which claims to be the request table does not quietly have
+     * a hole where an operation of that table should be, and so the line is here to assert on if
+     * something in this module ever starts writing one.</p>
+     */
+    @Override
+    public long submit(final NewCommandRequest request, final AuditLine journal) {
+        throwIfAsked();
+        final long id = submit(request);
+        journalled.put(id, journal);
+        return id;
+    }
+
+    /** The journal line written beside each request, by row id. */
+    Map<Long, AuditLine> journalled() {
+        return Map.copyOf(journalled);
     }
 
     @Override

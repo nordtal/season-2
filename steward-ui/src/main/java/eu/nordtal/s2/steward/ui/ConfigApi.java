@@ -10,7 +10,9 @@ import eu.nordtal.s2.steward.ui.configfile.ConfigDocument;
 import eu.nordtal.s2.steward.ui.configfile.ConfigEntry;
 import eu.nordtal.s2.steward.ui.configfile.ConfigFiles;
 import eu.nordtal.s2.steward.ui.configfile.ConfigLocation;
+import eu.nordtal.s2.steward.ui.configfile.StaleConfigException;
 import io.javalin.http.BadRequestResponse;
+import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
 import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.InternalServerErrorResponse;
@@ -67,10 +69,17 @@ final class ConfigApi {
     /**
      * {@code PUT /api/config/<file>} - apply changes and answer with the file as it now reads.
      *
-     * <p>The body is {@code {"changes": {"path": "value", "other.path": ["a", "b"]}}}. A string is
-     * a scalar and an array is a list, and the two are not interchangeable: {@link ConfigFiles}
-     * refuses a shape that does not match the key, which is what stops a list of three services
-     * being replaced by the word "smp".</p>
+     * <p>The body is {@code {"revision": "…", "changes": {"path": "value", "other.path": ["a"]}}}.
+     * A string is a scalar and an array is a list, and the two are not interchangeable:
+     * {@link ConfigFiles} refuses a shape that does not match the key, which is what stops a list
+     * of three services being replaced by the word "smp".</p>
+     *
+     * <p><b>{@code revision} is what the GET above handed out</b>, and it is required. A form is
+     * open for as long as somebody is reading the comments in the file, and two admins on one file
+     * is an ordinary evening rather than a rare race. Without it the later save would apply its
+     * changes to whatever it found and write the result - the earlier admin's change would not
+     * conflict, it would simply be gone, with nothing anywhere saying so. A stale one is a 409 and
+     * the page shows the file as it now stands.</p>
      */
     void save(final @NotNull Context ctx) {
         final ConfigLocation location = locate(ctx);
@@ -78,9 +87,23 @@ final class ConfigApi {
             throw new ForbiddenResponse(location.name() + " is mounted read-only in this container,"
                     + " so this interface cannot save a change to it.");
         }
-        final Map<String, ConfigChange> changes = changesOf(ctx.body());
+        final JsonObject body = bodyOf(ctx.body());
+        final Map<String, ConfigChange> changes = changesOf(body);
+        final String revision = revisionOf(body);
         try {
-            ctx.json(document(location, ConfigFiles.write(location.file(), changes)));
+            ctx.json(document(location, ConfigFiles.write(location.file(), changes, revision)));
+        } catch (final StaleConfigException e) {
+            // Nobody made a mistake and the change needs no correcting: somebody was faster. The
+            // page redraws from the file as it now stands and the operator decides again.
+            log.info("{} was not saved: it was written since it was read ({} -> {})",
+                    location.file(), e.expected(), e.actual());
+            // The sentence says what this answer is, and not what it carries: a ConflictResponse is
+            // a message, not a document. The page re-reads the file when it sees the 409 (queries
+            // .ts invalidates on that status alone); promising the current file in the body of the
+            // refusal would be a promise a client could believe and then draw a stale form from.
+            throw new ConflictResponse(location.name() + " was changed by somebody else while this"
+                    + " form was open, so nothing was saved. Read it again and make the change"
+                    + " once more if it is still the one you want.");
         } catch (final IllegalArgumentException e) {
             // The operator asked for something the file cannot be given: a key that is not there, a
             // value of the wrong type, a list sent to a single value. Their mistake, their sentence.
@@ -163,6 +186,7 @@ final class ConfigApi {
     private static Map<String, Object> document(final ConfigLocation location,
                                                 final ConfigDocument read) {
         final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
+        answer.put("revision", read.revision());
         answer.put("header", read.header());
         final List<Map<String, Object>> entries = new ArrayList<>(read.entries().size());
         for (final ConfigEntry entry : read.entries()) {
@@ -197,13 +221,34 @@ final class ConfigApi {
     // What comes in
     // ---------------------------------------------------------------------------------------
 
-    private static Map<String, ConfigChange> changesOf(final String body) {
-        final JsonObject asked;
+    private static JsonObject bodyOf(final String body) {
         try {
-            asked = JsonParser.parseString(body == null ? "" : body).getAsJsonObject();
+            return JsonParser.parseString(body == null ? "" : body).getAsJsonObject();
         } catch (final JsonSyntaxException | IllegalStateException | IllegalArgumentException e) {
-            throw new BadRequestResponse("The body has to be a JSON object with a `changes` field.");
+            throw new BadRequestResponse("The body has to be a JSON object with `revision` and"
+                    + " `changes` fields.");
         }
+    }
+
+    /**
+     * The revision the browser was last shown.
+     *
+     * <p>Required, and deliberately not optional-with-a-default: a save that may omit it is a save
+     * every client can accidentally make unconditional, and the one that forgets is the one that
+     * quietly overwrites somebody. A caller that genuinely wants to write over whatever is there
+     * reads the file first - which takes one request and means they have seen it.</p>
+     */
+    private static String revisionOf(final JsonObject body) {
+        final JsonElement revision = body.get("revision");
+        if (revision == null || !revision.isJsonPrimitive() || revision.getAsString().isBlank()) {
+            throw new BadRequestResponse("`revision` has to be the value this file was last read"
+                    + " with, so that a change somebody else made in the meantime is not"
+                    + " overwritten.");
+        }
+        return revision.getAsString();
+    }
+
+    private static Map<String, ConfigChange> changesOf(final JsonObject asked) {
         final JsonElement changes = asked.get("changes");
         if (changes == null || !changes.isJsonObject()) {
             throw new BadRequestResponse("`changes` has to be an object of setting to new value.");

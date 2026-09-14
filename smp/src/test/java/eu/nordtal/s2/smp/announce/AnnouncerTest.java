@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.announce;
 
 import eu.nordtal.s2.commands.announce.AnnounceCommands;
 import eu.nordtal.s2.commands.remote.RequestArguments;
+import eu.nordtal.s2.common.audit.AuditLine;
 import eu.nordtal.s2.common.command.CommandOutcome;
 import eu.nordtal.s2.common.command.CommandRequests;
 import eu.nordtal.s2.common.command.NewCommandRequest;
@@ -41,6 +42,18 @@ class AnnouncerTest {
             }
             submitted.add(request);
             return submitted.size();
+        }
+
+        /**
+         * Not this surface's. The SMP writes announcements, and an announcement is not an admin
+         * action anybody audits - there is no journal line to write beside it. Refusing loudly
+         * rather than delegating keeps that true: if something here ever starts journalling, this
+         * fake must be told what to do with the line rather than silently dropping it.
+         */
+        @Override
+        public long submit(final NewCommandRequest request, final AuditLine journal) {
+            throw new UnsupportedOperationException("the SMP never writes a journal line with a"
+                    + " request; only steward-ui does");
         }
 
         @Override

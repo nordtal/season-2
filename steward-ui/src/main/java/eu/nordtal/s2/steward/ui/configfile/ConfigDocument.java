@@ -13,7 +13,11 @@ import java.util.Optional;
  * beneath it, which is the order a page should draw them in: jcore writes them in {@code @Order},
  * and that order is somebody's decision about what an operator reads first.</p>
  *
- * @param file    where it was read from
+ * @param file     where it was read from
+ * @param revision what the file said when it was read - see {@link ConfigFiles#revisionOf}. It is
+ *                 handed to the browser and comes back with the next save, so a form somebody left
+ *                 open while another window wrote the same file is refused instead of quietly
+ *                 undoing that write
  * @param header  the comment block at the top of the file - jcore's {@code @ConfigSpec(header=…)},
  *                with the leading {@code # } removed and the blank line that ends it dropped.
  *                Empty when the file starts with a key or with a comment that belongs to one
@@ -21,6 +25,7 @@ import java.util.Optional;
  */
 public record ConfigDocument(
         @NotNull Path file,
+        @NotNull String revision,
         @NotNull List<String> header,
         @NotNull List<ConfigEntry> entries) {
 

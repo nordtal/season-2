@@ -397,6 +397,15 @@ export type ConfigEntry = {
 }
 
 export type ConfigDocument = ConfigLocation & {
+  /**
+   * What the file said when it was read, and what the next save has to still be about.
+   *
+   * It goes back out with the PUT. If somebody else wrote the file in between - a second admin, an
+   * hour of somebody reading the comments in a long form - the save is refused with a 409 rather
+   * than applying this browser's changes to a file it has not seen. Without it the later save wins
+   * silently and the earlier change is simply gone.
+   */
+  revision: string
   header: string[]
   entries: ConfigEntry[]
 }

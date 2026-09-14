@@ -1,5 +1,7 @@
 package eu.nordtal.s2.common.command;
 
+import eu.nordtal.s2.common.audit.AuditLine;
+
 import javax.sql.DataSource;
 
 import java.util.Optional;
@@ -28,6 +30,22 @@ public interface CommandRequests extends AutoCloseable {
      * @return the row's id, to read the outcome back with
      */
     long submit(NewCommandRequest request);
+
+    /**
+     * Write a request, its journal line and the wake-up as one statement.
+     *
+     * <p>For a surface that has to record who asked: the row and the line commit together or
+     * neither does. Writing the row first and the journal second is the ordinary rule everywhere
+     * else in this schema (see {@code AuditDirectory#record}), and it is the wrong rule here -
+     * this table is not a record of something that happened, it is work somebody is about to do.
+     * A committed row whose journal line failed is a command that runs while its asker is being
+     * told it did not, and what an operator does when told that is press the button again.
+     *
+     * @param request the request, exactly as {@link #submit(NewCommandRequest)} takes it
+     * @param journal the line to write beside it
+     * @return the row's id, to read the outcome back with
+     */
+    long submit(NewCommandRequest request, AuditLine journal);
 
     /**
      * Take the oldest request addressed to {@code target} that has not expired, and mark it running.

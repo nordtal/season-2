@@ -112,7 +112,11 @@ public final class DiscordAuth {
         }
         final String host = uri.getHost();
         if ("http".equalsIgnoreCase(uri.getScheme())
-                && ("127.0.0.1".equals(host) || "::1".equals(host) || "localhost".equals(host))) {
+                && ("127.0.0.1".equals(host) || "localhost".equals(host)
+                        // With the brackets: URI.getHost() answers "[::1]", never "::1", so the
+                        // bare form this line used to carry matched nothing and IPv6 loopback was
+                        // refused despite being listed.
+                        || "[::1]".equals(host) || "[0:0:0:0:0:0:0:1]".equalsIgnoreCase(host))) {
             return api;
         }
         throw new IllegalArgumentException(api + " is not an address this sign-in will send a client"

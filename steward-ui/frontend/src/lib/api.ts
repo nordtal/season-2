@@ -26,9 +26,9 @@ export class ApiError extends Error {
   /**
    * The backend's machine-readable name for this refusal, when it has one.
    *
-   * Exactly one value uses it today - `SECOND_FACTOR_MISSING` - and it is a code rather than a
-   * matched sentence because the sentence is English prose that somebody will improve, and a
-   * `startsWith("This account has no")` would break the interface when they did.
+   * Two values use it - `SECOND_FACTOR_MISSING` and `SECOND_FACTOR_REQUIRED` - and they are codes
+   * rather than matched sentences because the sentences are English prose that somebody will
+   * improve, and a `startsWith("This account has no")` would break the interface when they did.
    */
   readonly code: string
 
@@ -55,6 +55,48 @@ export class ApiError extends Error {
   get needsASecurityKey(): boolean {
     return this.status === 403 && this.code === "SECOND_FACTOR_MISSING"
   }
+
+  /**
+   * Signed in, HAS a key, and has not held it recently enough for this.
+   *
+   * Told apart from {@link needsASecurityKey} because the two need different screens: one account
+   * has no key and must register one, the other has a key and must hold it. Answering both the
+   * same way would send somebody with a key to a setup page that refuses them.
+   */
+  get needsTheKeyAgain(): boolean {
+    return this.status === 403 && this.code === "SECOND_FACTOR_REQUIRED"
+  }
+}
+
+/**
+ * The one place a refused request is turned back into a working one.
+ *
+ * **Why a registered function rather than a call.** The ceremony needs a dialog on screen and a
+ * fresh tap from the person in front of it - Safari will not open the key dialog without one - and
+ * this file knows nothing about React and should not start. So the shell installs its handler once
+ * and this file calls it: one place that retries, one place that draws.
+ *
+ * A handler resolves when the key has been held and rejects when it has not. Nothing is installed
+ * in a test, which is the honest default: without a way to hold a key, a 403 is a 403.
+ */
+type StepUp = () => Promise<unknown>
+
+let stepUp: StepUp | null = null
+
+export function onSecondFactorRequired(handler: StepUp | null): void {
+  stepUp = handler
+}
+
+/**
+ * Whether a refusal of this request may be recovered from by holding the key.
+ *
+ * The ceremony itself is made of two `POST`s, and they are the two requests that must never be
+ * retried this way: a recursion here would be a dialog that reopens itself forever, and the
+ * routes are `SIGNED_IN` anyway, so they cannot produce this refusal. Written out rather than
+ * relied upon.
+ */
+function mayStepUp(path: string): boolean {
+  return stepUp !== null && !path.startsWith("/auth/")
 }
 
 /**
@@ -81,6 +123,24 @@ type Options = {
 }
 
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
+  try {
+    return await send<T>(path, options)
+  } catch (refusal) {
+    // THE WHOLE OF "ONE TAP, NOT TWO". The request is sent, refused because the key has not been
+    // held recently enough, the key is held, and the SAME request goes again - so somebody who
+    // taps Update taps Update, rather than tapping Update, then a dialog, then Update again.
+    //
+    // Exactly once. A second refusal after a successful ceremony is not a stale window, it is
+    // something else entirely, and retrying it again would hide whatever that is behind a loop.
+    if (refusal instanceof ApiError && refusal.needsTheKeyAgain && mayStepUp(path)) {
+      await stepUp!()
+      return await send<T>(path, options)
+    }
+    throw refusal
+  }
+}
+
+async function send<T>(path: string, options: Options = {}): Promise<T> {
   const method = options.method ?? "GET"
   const headers: Record<string, string> = {}
   if (options.body !== undefined) headers["Content-Type"] = "application/json"
@@ -152,6 +212,13 @@ function messageOf(body: Record<string, unknown>): string | null {
 
 /** One registered security key, as `/api/me` lists it. */
 export type SecurityKey = {
+  /**
+   * The credential id, base64url - what names this key when it is renamed or removed.
+   *
+   * Not a secret: it is handed to any browser that starts a sign-in, because it is what tells the
+   * authenticator which credential to use. The routes that act on it check the account as well.
+   */
+  id: string
   label: string
   registeredAt: string
   lastUsedAt?: string
@@ -187,6 +254,13 @@ export type Me = {
   verifiedAt?: string
   /** The domain keys are registered against, for the page to name rather than guess. */
   relyingPartyId?: string
+  /**
+   * How many minutes one touch of the key covers.
+   *
+   * From the server so that the dialog says the number this service actually enforces, rather than
+   * a literal here that would disagree with it the day somebody changes one of the two.
+   */
+  stepUpMinutes?: number
 }
 
 /** Docker's own words, passed through. `state` is the container state, `status` its sentence. */
@@ -408,13 +482,16 @@ export type JournalEntry = {
  * against the list the backend found rather than resolved, which is why a `..` in it is a 404 and
  * not a question about decoding.
  *
- * `writable` is measured, not assumed: another service's volume may well be mounted read-only, and
- * a form that only finds that out when Save is pressed is a form that wasted somebody's typing.
+ * `readable` and `writable` are both measured, not assumed, and they are two different failures.
+ * A form that only finds out at Save that the file is read-only has wasted somebody's typing; a
+ * row that opens into an error alert because the service may not read the file at all has wasted
+ * their time and told them nothing. The listing asks before it draws.
  */
 export type ConfigLocation = {
   service: string
   name: string
   path: string
+  readable: boolean
   writable: boolean
 }
 
@@ -509,7 +586,19 @@ export type AdminCommand = {
 
 export type CommandArgument = {
   name: string
-  kind: "WORD" | "GREEDY_STRING" | "INTEGER" | "PLAYER" | "CHOICE" | "ACCOUNT"
+  /**
+   * ACCOUNT and REFERENCE are the two this interface fills from a list rather than a field -
+   * `/api/people` and `/api/payments/open`. Both are declared kinds and not names, so a command
+   * added later gets the picker without anybody remembering to wire it.
+   */
+  kind:
+    | "WORD"
+    | "GREEDY_STRING"
+    | "INTEGER"
+    | "PLAYER"
+    | "CHOICE"
+    | "ACCOUNT"
+    | "REFERENCE"
   required: boolean
   min?: number
   max?: number

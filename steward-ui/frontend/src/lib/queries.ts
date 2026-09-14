@@ -29,6 +29,7 @@ import {
   type ServiceTable,
 } from "@/lib/api"
 import { browserHasSecurityKeys, createSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
+import { holdTheKey } from "@/lib/hold-key"
 import type { CreationOptionsJson } from "@/lib/webauthn"
 import type { Thresholds } from "@/lib/health"
 
@@ -63,6 +64,7 @@ export const keys = {
   season: ["season"] as const,
   people: ["people"] as const,
   payments: ["payments"] as const,
+  openPayments: ["payments", "open"] as const,
   grants: (discordId: string) => ["grants", discordId] as const,
   journal: (action: string, subject: string) => ["journal", action, subject] as const,
   settings: ["settings"] as const,
@@ -131,6 +133,50 @@ export function useRegisterKey() {
       )
       await client.invalidateQueries({ queryKey: keys.me })
       return registered
+    },
+  })
+}
+
+/**
+ * Holds the key: the ceremony, and then `/api/me` again.
+ *
+ * The refetch is not housekeeping. `verified` and `verifiedAt` are what the shell decides what to
+ * draw from and what the step-up dialog closes on, so a successful ceremony that left `/api/me`
+ * stale would be a person holding their key and watching nothing happen.
+ */
+export function useHoldKey() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const held = await holdTheKey()
+      await client.invalidateQueries({ queryKey: keys.me })
+      return held
+    },
+  })
+}
+
+/** Renames one registered key. The list lives in `/api/me`, so that is what is invalidated. */
+export function useRenameKey() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, label }: { id: string; label: string }) => {
+      const renamed = await api<{ label: string }>(`/api/keys/${encodeURIComponent(id)}`,
+        { method: "PUT", body: { label } })
+      await client.invalidateQueries({ queryKey: keys.me })
+      return renamed
+    },
+  })
+}
+
+/** Removes one registered key. Removing the last one is allowed - the server says why. */
+export function useRemoveKey() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const removed = await api<{ removed: string; left: number }>(
+        `/api/keys/${encodeURIComponent(id)}`, { method: "DELETE" })
+      await client.invalidateQueries({ queryKey: keys.me })
+      return removed
     },
   })
 }
@@ -252,6 +298,23 @@ export function usePayments(enabled = true) {
     queryKey: keys.payments,
     queryFn: () => api<Payment[]>("/api/payments"),
     staleTime: 30 * SECOND,
+    enabled,
+  })
+}
+
+/**
+ * The payment requests still waiting to be paid.
+ *
+ * Separate from `usePayments` and not a filter over it: that one is a page with a limit, and this
+ * is the list somebody picks a reference out of before settling one by hand. A short stale time
+ * because a request can be paid while the dropdown is open, and a settled one in the list is a
+ * click that will come back "not open".
+ */
+export function useOpenPayments(enabled = true) {
+  return useQuery({
+    queryKey: keys.openPayments,
+    queryFn: () => api<Payment[]>("/api/payments/open"),
+    staleTime: 15 * SECOND,
     enabled,
   })
 }

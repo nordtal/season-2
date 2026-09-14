@@ -175,6 +175,15 @@ public final class Sessions {
      *
      * @return how many rows went
      */
+    /**
+     * Signs every browser of one account out. See {@link SessionDao#endAllOf}.
+     *
+     * @return how many sessions were ended
+     */
+    public int endAllOf(final @NotNull String discordId) {
+        return dao.endAllOf(Objects.requireNonNull(discordId, "discordId"));
+    }
+
     public int sweep() {
         final int gone = dao.sweep();
         if (gone > 0) {

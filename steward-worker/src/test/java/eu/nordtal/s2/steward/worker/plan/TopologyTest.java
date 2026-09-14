@@ -469,17 +469,33 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("the configs steward-ui shows are the configs the services actually read")
+    @DisplayName("the configs the interface shows are the configs the services actually read")
     void theInterfaceShowsTheRealConfigs() {
         // §10a.6: every configuration in the stack is a form in the interface, and saving one IS
-        // the reload. That only holds if the file steward-ui writes is the file the service reads.
+        // the reload. That only holds if the file that is written is the file the service reads.
         // The failure this guards is the quiet one: a volume spelt differently on this side shows
         // an operator a form, accepts a change, reports success, and changes nothing anywhere -
         // the same shape as the plugins split above, one floor up.
+        //
+        // THE MOUNTS ARE ON steward-worker SINCE 2026-09-14, not on steward-ui. Every config jcore
+        // writes is 0600 root:root and steward-ui is the one service that is not root, so it could
+        // read none of them; the interface now proxies to the worker. What this test asserts is
+        // unchanged - only which service has to carry the line.
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> editor = (Map<String, Object>) services.get("steward-worker");
+        assertNotNull(editor, "compose.yml has no steward-worker service");
+        final List<String> uiMounts = mountsOf(editor);
+
+        // And steward-ui must NOT have them back. A second copy of these seven lines would put the
+        // stack's whole configuration - the Postgres password, the Discord token - back inside the
+        // container that faces the internet, and nothing else would notice.
         @SuppressWarnings("unchecked")
         final Map<String, Object> ui = (Map<String, Object>) services.get("steward-ui");
         assertNotNull(ui, "compose.yml has no steward-ui service");
-        final List<String> uiMounts = mountsOf(ui);
+        assertTrue(mountsOf(ui).stream().noneMatch(mount -> mount.contains(":/configs/")),
+                "steward-ui mounts the stack's configuration again. It runs as uid 10001 and every"
+                        + " one of those files is 0600 root:root, so it can read none of them - and"
+                        + " database.yml holds the Postgres password.");
 
         // The four Paper servers, under the name the interface shows as the service a file belongs
         // to - which is the compose service name, and has to be.
@@ -493,8 +509,9 @@ class TopologyTest {
             final String onTheInterface = uiMounts.stream()
                     .filter(mount -> mount.endsWith(":/configs/" + service.name()))
                     .findFirst()
-                    .orElseThrow(() -> new AssertionError("steward-ui mounts nothing at /configs/"
-                            + service.name() + ", so that server's config.yml is in no form at all."
+                    .orElseThrow(() -> new AssertionError("steward-worker mounts nothing at"
+                            + " /configs/" + service.name() + ", so that server's config.yml is in"
+                            + " no form at all."
                             + " A volume that is not mounted is not an error to the page - it lists"
                             + " what it finds - so this is invisible from the browser."));
 
@@ -503,7 +520,7 @@ class TopologyTest {
                             + " another. Saving would report success and change nothing.");
 
             assertFalse(onTheInterface.endsWith(":ro"),
-                    service.name() + "'s config is mounted read-only into steward-ui, so the form"
+                    service.name() + "'s config is mounted read-only into steward-worker, so the form"
                             + " is drawn and the save fails. Till's decision on 2026-09-13 was that"
                             + " every config in the stack is editable from the interface.");
         }
@@ -521,8 +538,9 @@ class TopologyTest {
             final String onTheInterface = uiMounts.stream()
                     .filter(mount -> mount.endsWith(":/configs/" + each))
                     .findFirst()
-                    .orElseThrow(() -> new AssertionError("steward-ui mounts nothing at /configs/"
-                            + each + ", so that service has no form in the interface"));
+                    .orElseThrow(() -> new AssertionError("steward-worker mounts nothing at"
+                            + " /configs/" + each + ", so that service has no form in the"
+                            + " interface"));
             assertEquals(sourceOf(onTheOwner), sourceOf(onTheInterface),
                     each + ": the interface edits one volume and the service reads another");
         }

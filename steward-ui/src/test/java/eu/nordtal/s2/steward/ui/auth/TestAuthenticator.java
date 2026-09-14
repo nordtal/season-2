@@ -12,6 +12,7 @@ import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.security.Signature;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.util.Base64;
@@ -32,12 +33,15 @@ import java.util.Base64;
  * and every self-attesting key uses, and the one this service accepts.</p>
  *
  * <h2>What it deliberately does not do</h2>
- * It signs nothing. An {@code fmt: "none"} attestation carries no signature at all - the public key
- * is asserted, not attested - so registration needs no private key. The pair is generated anyway
- * and kept, because an <em>assertion</em> does need it, and that is the next package.
+ * <b>Registration signs nothing.</b> An {@code fmt: "none"} attestation carries no signature at all -
+ * the public key is asserted, not attested - so it needs no private key. An assertion does, and
+ * {@link #assertion(String, String)} is where the pair generated in the constructor is finally
+ * used.
  *
- * <p>It is also happy to lie. {@link #register(String, String, String)} takes the origin and the
- * challenge as parameters precisely so a test can hand over ones that are wrong.</p>
+ * <p>It is also happy to lie. Every one of the four methods takes the origin and the challenge as
+ * parameters precisely so a test can hand over ones that are wrong, and
+ * {@link #assertion(String, String, String, long)} takes the signature counter too - a counter
+ * that has gone backwards is what a cloned authenticator looks like.</p>
  */
 public final class TestAuthenticator {
 
@@ -100,6 +104,73 @@ public final class TestAuthenticator {
         final com.google.gson.JsonArray transports = new com.google.gson.JsonArray();
         transports.add("usb");
         response.add("transports", transports);
+
+        final JsonObject credential = new JsonObject();
+        credential.addProperty("type", "public-key");
+        credential.addProperty("id", credentialId());
+        credential.addProperty("rawId", credentialId());
+        credential.add("response", response);
+        credential.add("clientExtensionResults", new JsonObject());
+        return GSON.toJson(credential);
+    }
+
+    /**
+     * An assertion answer to the challenge the server just issued.
+     *
+     * @param requestOptions what {@code /auth/webauthn/authenticate/start} returned, verbatim
+     * @param origin         the page the browser claims to have been on
+     */
+    public String assertion(final String requestOptions, final String origin) {
+        final JsonObject publicKey = GSON.fromJson(requestOptions, JsonObject.class)
+                .getAsJsonObject("publicKey");
+        return assertion(requestOptions, origin, publicKey.get("challenge").getAsString(), 0);
+    }
+
+    /**
+     * The same, with the challenge and the signature counter chosen by the caller.
+     *
+     * <p>Both are here so a test can lie about them: a challenge nobody issued, and a counter that
+     * has gone backwards - which is what a cloned authenticator looks like and the one thing the
+     * counter exists to catch.</p>
+     */
+    public String assertion(final String requestOptions, final String origin,
+                            final String challenge, final long signCount) {
+        final JsonObject publicKey = GSON.fromJson(requestOptions, JsonObject.class)
+                .getAsJsonObject("publicKey");
+        final String relyingPartyId = publicKey.get("rpId").getAsString();
+
+        final String clientData = "{\"type\":\"webauthn.get\",\"challenge\":\"" + challenge
+                + "\",\"origin\":\"" + origin + "\",\"crossOrigin\":false}";
+        final byte[] clientDataBytes = clientData.getBytes(StandardCharsets.UTF_8);
+        // NO ATTESTED CREDENTIAL DATA, so no AT flag: an assertion carries rpIdHash, flags and the
+        // counter and nothing else. Sending the registration's authenticator data here is the
+        // mistake that looks like it works right up to the signature check.
+        final ByteBuffer authData = ByteBuffer.allocate(32 + 1 + 4);
+        authData.put(sha256(relyingPartyId.getBytes(StandardCharsets.UTF_8)));
+        authData.put((byte) (0x01 | 0x04));
+        authData.putInt((int) signCount);
+        final byte[] authenticatorData = authData.array();
+
+        // The signature is over authenticatorData ‖ SHA-256(clientDataJSON), in that order. The
+        // whole of what a security key does, and the only part of this class that needs the
+        // private half of the pair.
+        final byte[] signed = new byte[authenticatorData.length + 32];
+        System.arraycopy(authenticatorData, 0, signed, 0, authenticatorData.length);
+        System.arraycopy(sha256(clientDataBytes), 0, signed, authenticatorData.length, 32);
+        final byte[] signature;
+        try {
+            final Signature ecdsa = Signature.getInstance("SHA256withECDSA");
+            ecdsa.initSign(keyPair.getPrivate());
+            ecdsa.update(signed);
+            signature = ecdsa.sign();
+        } catch (Exception impossible) {
+            throw new IllegalStateException("this JVM cannot sign with P-256", impossible);
+        }
+
+        final JsonObject response = new JsonObject();
+        response.addProperty("clientDataJSON", URL.encodeToString(clientDataBytes));
+        response.addProperty("authenticatorData", URL.encodeToString(authenticatorData));
+        response.addProperty("signature", URL.encodeToString(signature));
 
         final JsonObject credential = new JsonObject();
         credential.addProperty("type", "public-key");

@@ -49,7 +49,7 @@ class WorkerApiIntegrationTest {
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
         api = new WorkerApi(docker, new DockerOps(docker, PROJECT), new Console(docker, PROJECT),
-                new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN,
+                new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN, Path.of("/tmp"),
                 new WorkerApi.Nightly("04:45", ZoneId.of("Europe/Berlin")));
         api.start(PORT);
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();

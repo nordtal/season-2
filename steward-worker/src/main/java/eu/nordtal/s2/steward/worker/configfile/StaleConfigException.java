@@ -1,4 +1,4 @@
-package eu.nordtal.s2.steward.ui.configfile;
+package eu.nordtal.s2.steward.worker.configfile;
 
 import org.jetbrains.annotations.NotNull;
 

@@ -67,6 +67,43 @@ interface CredentialDao {
     boolean exists(@Bind("credentialId") byte[] credentialId);
 
     /**
+     * Every key of one account, gone.
+     *
+     * <p>The way back when somebody has lost their only authenticator, and the only route to this
+     * table that destroys anything. It is deliberately not exposed over HTTP at any privilege:
+     * being able to clear somebody's second factor from a browser would make the second factor
+     * worth exactly as much as the first. {@code forget-factors} on the host is the one caller,
+     * and it is a person standing at the machine.</p>
+     *
+     * @return how many keys were removed, so the command can say a number rather than "done"
+     */
+    @SqlUpdate("DELETE FROM steward_credential WHERE discord_id = :discordId")
+    int forget(@Bind("discordId") String discordId);
+
+    /**
+     * One key, gone - and only if it belongs to the account asking.
+     *
+     * <p>The {@code discord_id} in the WHERE clause is not belt and braces: a credential id is
+     * handed to any browser that starts a sign-in, so it is a value somebody else can hold. Without
+     * that second column this would be "delete anybody's key if you know its id".</p>
+     *
+     * @return 1 when a key was removed, 0 when there was none of that id on that account
+     */
+    @SqlUpdate("""
+            DELETE FROM steward_credential
+            WHERE credential_id = :credentialId AND discord_id = :discordId
+            """)
+    int remove(@Bind("credentialId") byte[] credentialId, @Bind("discordId") String discordId);
+
+    /** Renames one key of one account. Same argument about the second column as {@link #remove}. */
+    @SqlUpdate("""
+            UPDATE steward_credential SET label = :label
+            WHERE credential_id = :credentialId AND discord_id = :discordId
+            """)
+    int rename(@Bind("credentialId") byte[] credentialId, @Bind("discordId") String discordId,
+               @Bind("label") String label);
+
+    /**
      * The counter and the time, written after a successful assertion.
      *
      * <p>Only ever forward: the {@code >} keeps a replayed assertion from moving the counter

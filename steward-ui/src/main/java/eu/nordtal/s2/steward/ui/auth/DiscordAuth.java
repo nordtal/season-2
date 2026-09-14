@@ -147,14 +147,31 @@ public final class DiscordAuth {
         return redirectUri;
     }
 
-    /** Where the browser is sent. {@code state} is this session's one-time value. */
+    /**
+     * Where the browser is sent. {@code state} is this session's one-time value.
+     *
+     * <h2>{@code prompt=consent}, and it used to be {@code prompt=none}</h2>
+     * Measured by Till on an iPhone, 2026-09-14: after signing out, signing back in asked
+     * <em>nothing</em> - no Discord dialog, no anything - and the interface was simply open again.
+     * Half of that was the missing security key and is package C; this is the other half.
+     * {@code prompt=none} tells Discord to send an already-consented user straight back without
+     * showing them anything, which is exactly what it did.
+     *
+     * <p>The price is Till's, chosen on the same day with this description: {@code consent} shows
+     * the permission list on every single sign-in, which is one more screen than most people want
+     * to see. It is what makes signing out mean something - and on a screen where the next button
+     * can stop a Minecraft server, being asked is the feature.</p>
+     *
+     * <p><b>It is not the second factor and must never be mistaken for one.</b> Discord consenting
+     * proves the browser has a Discord session, which is the thing a stolen laptop already has.</p>
+     */
     public @NotNull URI authorizeUrl(final @NotNull String state) {
         return URI.create(AUTHORIZE
                 + "?response_type=code"
                 + "&client_id=" + encode(config.clientId())
                 + "&scope=" + encode(SCOPES)
                 + "&redirect_uri=" + encode(redirectUri)
-                + "&prompt=none"
+                + "&prompt=consent"
                 + "&state=" + encode(state));
     }
 

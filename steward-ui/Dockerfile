@@ -75,6 +75,17 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=6 \
 
 VOLUME ["/app/config"]
 
+# `steward-ui` as a word on the command line, so that the documented way back is the command that
+# actually works:
+#
+#   docker exec nordtal-s2-steward-ui-1 steward-ui forget-factors <discord-id>
+#
+# Three lines rather than telling an operator to type `java -jar /app/app.jar`. A procedure that
+# needs a path and a flag is one that gets mistyped on the evening it is needed, and this one is
+# only ever needed on that evening.
+RUN printf '#!/bin/sh\nexec java -jar /app/app.jar "$@"\n' > /usr/local/bin/steward-ui \
+    && chmod 0755 /usr/local/bin/steward-ui
+
 USER 10001:10001
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

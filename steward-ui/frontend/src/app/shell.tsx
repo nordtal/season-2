@@ -3,7 +3,9 @@ import { Search as SearchIcon } from "lucide-react"
 
 import { AppSidebar } from "@/app/app-sidebar"
 import { CommandPalette } from "@/app/command-palette"
+import { HoldKeyPage } from "@/app/hold-key"
 import { SecurityKeyPage } from "@/app/security-key"
+import { StepUp } from "@/app/step-up"
 import { SignInPage } from "@/app/sign-in"
 import { StewardMark } from "@/app/steward-mark"
 import { ApiError } from "@/lib/api"
@@ -72,6 +74,12 @@ export function Shell() {
   // `signedOut` above already returned. An account that HAS keys always sends an array.
   if ((me.data.keys?.length ?? 0) === 0) return <SecurityKeyPage me={me.data} />
 
+  // SIGNED IN, HAS A KEY, AND HAS NOT HELD IT HERE. Package C, and the sentence "Discord alone is
+  // not enough" in one line: a session that has completed the Discord redirect and nothing else
+  // reaches /api/me and is refused everywhere else, so this is again the only page that answers.
+  // `verified` is per SESSION and not per account - signing out and back in lands here.
+  if (!me.data.verified) return <HoldKeyPage me={me.data} />
+
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider
@@ -100,6 +108,12 @@ export function Shell() {
         */}
         <Toaster position={isMobile ? "bottom-center" : "bottom-right"} richColors closeButton />
         <CommandPalette />
+        {/*
+          Mounted once, here, and drawn only when something asks for it. It is inside the shell
+          rather than above it because the two pages above - the setup and the key - are the two
+          screens on which nothing can ask: everything they call is SIGNED_IN.
+        */}
+        <StepUp />
       </SidebarProvider>
     </TooltipProvider>
   )

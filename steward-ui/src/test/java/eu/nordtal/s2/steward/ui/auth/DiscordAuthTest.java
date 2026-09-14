@@ -4,7 +4,9 @@ import eu.nordtal.s2.steward.ui.config.UiSpec;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -102,5 +104,22 @@ class DiscordAuthTest {
         public String adminRole() {
             return adminRole;
         }
+    }
+
+    @Test
+    @DisplayName("a plaintext API base that is not this machine is refused")
+    void cleartextGoesNowhereButHere() {
+        final Values config = new Values();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new DiscordAuth(config, "https://steward.example", "http://discord.example"));
+        assertThrows(IllegalArgumentException.class,
+                () -> new DiscordAuth(config, "https://steward.example", "http://10.0.0.5:8080"));
+
+        // And the two that are allowed: the real one, and the stand-in every test here uses.
+        assertDoesNotThrow(() ->
+                new DiscordAuth(config, "https://steward.example", DiscordAuth.DISCORD_API));
+        assertDoesNotThrow(() ->
+                new DiscordAuth(config, "https://steward.example", "http://127.0.0.1:18093"));
     }
 }

@@ -112,7 +112,7 @@ public final class LogFrames {
      * {@code new String(bytes, UTF_8)} decodes one chunk in isolation, and a chunk is whatever
      * Docker flushed or whatever {@code read} happened to return - neither of which respects a
      * character. Every multi-byte character that straddles the boundary became <b>two</b> U+FFFD,
-     * one at the end of one chunk and one at the start of the next: an ä in a German death message
+     * one at the end of one chunk and one at the start of the next: an ä in a death message
      * or a player's name, turned into question marks by nothing more than where the buffer ended.
      * It is also unreproducible on demand, which is what makes it the kind of bug that stays.
      *

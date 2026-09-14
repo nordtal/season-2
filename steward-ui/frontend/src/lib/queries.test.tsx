@@ -147,7 +147,7 @@ describe("useCommandRun - when the polling stops", () => {
     await waitFor(() => expect(stateOf(queryClient, keys.commandRun("7")).data).toBeDefined())
 
     fetched.mockImplementation(async () =>
-      answer(502, { error: "steward-worker antwortet nicht.", where: "steward-worker" }),
+      answer(502, { error: "steward-worker is not answering.", where: "steward-worker" }),
     )
     await result.current.refetch()
     await waitFor(() => expect(stateOf(queryClient, keys.commandRun("7")).error).toBeInstanceOf(ApiError))
@@ -168,9 +168,9 @@ describe("useCommandRun - when the polling stops", () => {
   })
 
   it("starts asking again once a retry gets through", async () => {
-    // The other direction, which is what makes the stop bearable: `Failure` offers „Erneut
-    // versuchen", and a poll that never came back after a successful retry would turn one bad
-    // second into a dialog that has to be closed and reopened.
+    // The other direction, which is what makes the stop bearable: `Failure` offers "Try again",
+    // and a poll that never came back after a successful retry would turn one bad second into a
+    // dialog that has to be closed and reopened.
     const queryClient = client()
     fetched.mockRejectedValueOnce(new TypeError("Failed to fetch"))
     const { result } = renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
@@ -215,7 +215,7 @@ describe("useDeployerJob - when the polling stops", () => {
     await waitFor(() => expect(stateOf(queryClient, keys.deployerJob("j1")).data).toBeDefined())
 
     fetched.mockImplementation(async () =>
-      answer(502, { error: "steward-deployer antwortet nicht.", where: "steward-deployer" }),
+      answer(502, { error: "steward-deployer is not answering.", where: "steward-deployer" }),
     )
     await result.current.refetch()
     await waitFor(() => expect(stateOf(queryClient, keys.deployerJob("j1")).error).toBeInstanceOf(ApiError))
@@ -301,7 +301,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
     queryClient.setQueryData(keys.config(FILE), { ...SAVED, revision: "rev-1" })
     const invalidated = vi.spyOn(queryClient, "invalidateQueries")
 
-    const result = await save(queryClient, answer(409, { error: "Die Datei wurde inzwischen geändert." }))
+    const result = await save(queryClient, answer(409, { error: "The file has changed in the meantime." }))
 
     expect((result.current.error as ApiError).status).toBe(409)
     expect(invalidated).toHaveBeenCalledExactlyOnceWith({ queryKey: keys.config(FILE) })
@@ -312,9 +312,9 @@ describe("useSaveConfig - the revision travels with the change", () => {
     // in this cache is still what it says. Throwing it away would make the form redraw and lose
     // what the operator typed, for a save that can simply be pressed again.
     for (const failure of [
-      answer(500, { error: "Kaputt." }),
-      answer(422, { error: "alerts.disk-percent ist keine Zahl." }),
-      answer(403, { error: "Nein." }),
+      answer(500, { error: "Broken." }),
+      answer(422, { error: "alerts.disk-percent is not a number." }),
+      answer(403, { error: "No." }),
     ]) {
       const queryClient = client()
       const invalidated = vi.spyOn(queryClient, "invalidateQueries")

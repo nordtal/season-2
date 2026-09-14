@@ -78,10 +78,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  * The four pages of the access half (concept §10a.7): who may join, what they paid, which accounts
  * are one person, and what an admin did about it.
  *
- * They are one file because they are one chain, read left to right: **Anfrage → Tab → gezahlt →
- * Zugang → verknüpft**. Zahlungen is the first three links, Zugänge the fourth, Konten the fifth,
+ * They are one file because they are one chain, read left to right: **request → tab → paid →
+ * access → linked**. Payments is the first three links, Access the fourth, Accounts the fifth,
  * and Journal is the record of every hand that reached into any of them. Splitting them into four
- * files would put the vocabulary that has to agree - what "aktiv" means, what a revoked period
+ * files would put the vocabulary that has to agree - what "active" means, what a revoked period
  * looks like - in four places.
  *
  * **Nothing here is computed that the database does not answer.** Where a number would be a guess
@@ -101,18 +101,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  * stop a paid period running down, it only refuses the login right now.
  */
 const MEMBER_STATES: Record<string, { label: string; tone: Tone; title: string }> = {
-  MEMBER: { label: "Mitglied", tone: "idle", title: "In der Gilde, wie der Bot sie zuletzt sah." },
+  MEMBER: { label: "Member", tone: "idle", title: "In the guild, as the bot last saw it." },
   LEFT: {
-    label: "ausgetreten",
+    label: "left",
     tone: "warn",
     title:
-      "Nicht mehr in der Gilde. Ein gekaufter Zeitraum läuft trotzdem weiter – er wird nicht angehalten.",
+      "No longer in the guild. A purchased period keeps running regardless - it is not paused.",
   },
   BANNED: {
-    label: "gebannt",
+    label: "banned",
     tone: "down",
     title:
-      "In Discord gebannt. Der Login wird abgelehnt, solange das gilt; der bezahlte Zeitraum läuft dabei weiter ab.",
+      "Banned in Discord. The login is refused while that holds; the paid period keeps expiring meanwhile.",
   },
 }
 
@@ -122,7 +122,7 @@ function MemberBadge({ state }: { state: string }) {
   // page that printed nothing for a value added tomorrow would look empty rather than new.
   if (!known) {
     return (
-      <StatusBadge tone="idle" title="Diesen Mitgliedszustand kennt diese Oberfläche nicht.">
+      <StatusBadge tone="idle" title="This interface does not know this membership state.">
         {state}
       </StatusBadge>
     )
@@ -139,7 +139,7 @@ function MemberBadge({ state }: { state: string }) {
  *
  * `accessActive` is the login decision - a revoked grant never counts, not even inside its own
  * window. `accessUntil` is the end of the latest period *on record*, revoked ones included. Keeping
- * both is what makes "dem wurde der Zugang genommen" visible at all: without the date, somebody
+ * both is what makes "their access was taken away" visible at all: without the date, somebody
  * whose access was taken away would look exactly like somebody who never bought any.
  *
  * The third case - inactive, but the latest period still lies in the future - has two possible
@@ -152,15 +152,15 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
 
   if (person.accessActive) {
     return (
-      <StatusBadge tone="ok" title={`Ein nicht entzogener Zeitraum deckt gerade jetzt ab.`}>
-        aktiv bis {dateTime(person.accessUntil)}
+      <StatusBadge tone="ok" title={`An unrevoked period covers right now.`}>
+        active until {dateTime(person.accessUntil)}
       </StatusBadge>
     )
   }
   if (until === null) {
     return (
-      <StatusBadge tone="idle" title="Für dieses Konto ist noch nie ein Zeitraum geschrieben worden.">
-        nie
+      <StatusBadge tone="idle" title="No period has ever been written for this account.">
+        never
       </StatusBadge>
     )
   }
@@ -169,18 +169,18 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
       <StatusBadge
         tone="down"
         title={
-          "Kein gültiger Zeitraum deckt jetzt ab, obwohl der letzte auf dem Papier noch bis " +
+          "No valid period covers now, although the latest one runs on paper until " +
           dateTime(person.accessUntil) +
-          " läuft. Das heißt entweder entzogen – oder gekauft, bevor der SMP geöffnet hat, und damit noch nicht begonnen. Welches von beidem, steht in den Zeiträumen dieser Person."
+          ". That means either revoked - or bought before the SMP opened, and therefore not yet begun. Which of the two is shown in this person's periods."
         }
       >
-        kein Zugang · Zeitraum bis {dateTime(person.accessUntil)}
+        no access · period until {dateTime(person.accessUntil)}
       </StatusBadge>
     )
   }
   return (
-    <StatusBadge tone="idle" title="Der letzte Zeitraum ist abgelaufen.">
-      abgelaufen {relative(person.accessUntil, now)}
+    <StatusBadge tone="idle" title="The latest period has expired.">
+      expired {relative(person.accessUntil, now)}
     </StatusBadge>
   )
 }
@@ -194,8 +194,8 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
 function LinkBadge({ person }: { person: Person }) {
   if (person.minecraftUuid) {
     return (
-      <StatusBadge tone="idle" title={`Verknüpft ${dateTime(person.linked)}.`}>
-        verknüpft
+      <StatusBadge tone="idle" title={`Linked ${dateTime(person.linked)}.`}>
+        linked
       </StatusBadge>
     )
   }
@@ -204,42 +204,42 @@ function LinkBadge({ person }: { person: Person }) {
       tone={person.accessActive ? "warn" : "idle"}
       title={
         person.accessActive
-          ? "Zugang bezahlt, aber kein Minecraft-Konto verknüpft – diese Person kommt nicht auf den Server, bis sie den Code aus dem Loginbildschirm in Discord eintippt."
-          : "Kein Minecraft-Konto verknüpft."
+          ? "Access paid for, but no Minecraft account linked - this person cannot reach the server until they type the code from the login screen into Discord."
+          : "No Minecraft account linked."
       }
     >
-      nicht verknüpft
+      not linked
     </StatusBadge>
   )
 }
 
 const GRANT_SOURCES: Record<string, string> = {
-  PURCHASE: "Kauf",
-  ADMIN: "von Hand",
+  PURCHASE: "Purchase",
+  ADMIN: "by hand",
 }
 
 /** Where a period stands right now, judged from the row itself rather than from the roster. */
 function grantTone(grant: Grant, now: number): { label: string; tone: Tone; title: string } {
   if (grant.revoked) {
     return {
-      label: `entzogen ${dateTime(grant.revoked)}`,
+      label: `revoked ${dateTime(grant.revoked)}`,
       tone: "down",
-      title: "Ein entzogener Zeitraum zählt nie, auch nicht innerhalb seines eigenen Fensters.",
+      title: "A revoked period never counts, not even inside its own window.",
     }
   }
   const from = new Date(grant.validFrom).getTime()
   const until = new Date(grant.validUntil).getTime()
   if (from > now) {
     return {
-      label: `beginnt ${relative(grant.validFrom, now)}`,
+      label: `begins ${relative(grant.validFrom, now)}`,
       tone: "idle",
-      title: "Gekauft, aber noch nicht begonnen – ein Zeitraum wird hinten angehängt, nie überschrieben.",
+      title: "Bought but not yet begun - a period is appended, never overwritten.",
     }
   }
   if (until > now) {
-    return { label: "läuft", tone: "ok", title: "Dieser Zeitraum deckt gerade jetzt ab." }
+    return { label: "running", tone: "ok", title: "This period covers right now." }
   }
-  return { label: "abgelaufen", tone: "idle", title: "Dieser Zeitraum liegt vollständig hinter uns." }
+  return { label: "expired", tone: "idle", title: "This period lies entirely behind us." }
 }
 
 /** A uuid or a request id, short enough for a cell and complete in the title attribute. */
@@ -247,18 +247,18 @@ function shortId(value: string): string {
   return value.length > 8 ? `${value.slice(0, 8)}…` : value
 }
 
-// --- 1. /zugaenge ---------------------------------------------------------------------------------
+// --- 1. /access ---------------------------------------------------------------------------------
 
 /**
  * The roster: everyone the bot knows, and what they may.
  *
  * The two writes on this page are the reason it needs a paragraph of its own. Granting and revoking
  * used to be `/access` in Discord and nothing else; since 2026-09-13 this is a second door into the
- * same room, and the price of a second door is that "wer hat den reingelassen" has to stay
+ * same room, and the price of a second door is that "who let them in" has to stay
  * answerable. It does, because every click here writes an `audit_log` row naming the admin - which
  * is exactly what the Journal page shows.
  */
-export function ZugaengePage() {
+export function AccessPage() {
   const people = usePeople()
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
@@ -266,14 +266,14 @@ export function ZugaengePage() {
   // The person whose access is being revoked. Separate from `selected` on purpose: opening this
   // one closes the other, so there is never a dialog inside a dialog.
   const [revoking, setRevoking] = useState<Person | null>(null)
-  // One clock for the whole render, so that two badges in one row cannot disagree about "jetzt".
+  // One clock for the whole render, so that two badges in one row cannot disagree about "now".
   const now = Date.now()
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Zugänge"
-        note="Wer auf den Server darf, und warum er das darf – Anfrage, Zahlung, Zeitraum, Verknüpfung."
+        title="Access"
+        note="Who may join the server, and why they may - request, payment, period, link."
         actions={<GrantDialog />}
       />
 
@@ -281,11 +281,11 @@ export function ZugaengePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Personen</CardTitle>
+          <CardTitle className="text-sm font-medium">People</CardTitle>
           <CardDescription>
-            Aus <code className="text-xs">discord_user</code>, mit Verknüpfung und Zugang daneben.
-            Geladen werden die zuletzt geänderten 500 Konten; gefiltert wird in dieser Liste, nicht
-            in der Datenbank.
+            From <code className="text-xs">discord_user</code>, with link and access beside it. The
+            500 most recently changed accounts are loaded; filtering happens in this list, not in
+            the database.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -295,8 +295,8 @@ export function ZugaengePage() {
               <Input
                 value={needle}
                 onChange={(event) => setNeedle(event.target.value)}
-                placeholder="Discord-ID filtern…"
-                aria-label="Discord-ID filtern"
+                placeholder="Filter by Discord id…"
+                aria-label="Filter by Discord id"
                 autoComplete="off"
               />
             </div>
@@ -306,7 +306,7 @@ export function ZugaengePage() {
                 checked={onlyWithAccess}
                 onCheckedChange={setOnlyWithAccess}
               />
-              <Label htmlFor="only-with-access">nur mit Zugang</Label>
+              <Label htmlFor="only-with-access">with access only</Label>
             </div>
           </div>
 
@@ -314,8 +314,8 @@ export function ZugaengePage() {
             query={people}
             rows={8}
             empty={{
-              title: "Noch niemand",
-              note: "Der Bot hat noch kein Discord-Konto gesehen – oder er läuft nicht.",
+              title: "Nobody yet",
+              note: "The bot has not seen a single Discord account yet - or it is not running.",
             }}
             isEmpty={(list: Person[]) => list.length === 0}
           >
@@ -328,11 +328,11 @@ export function ZugaengePage() {
               if (rows.length === 0) {
                 return (
                   <Empty
-                    title="Keine Person passt"
+                    title="Nobody matches"
                     note={
                       onlyWithAccess
-                        ? "Mit diesem Filter und „nur mit Zugang“ bleibt niemand übrig."
-                        : "Kein geladenes Konto enthält diese Zeichenfolge in seiner Discord-ID."
+                        ? "With this filter and \"with access only\" nobody is left."
+                        : "No loaded account contains this string in its Discord id."
                     }
                   />
                 )
@@ -343,12 +343,12 @@ export function ZugaengePage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[14rem]">Discord-ID</TableHead>
-                        <TableHead className="w-[8rem]">Gilde</TableHead>
+                        <TableHead className="w-[8rem]">Guild</TableHead>
                         <TableHead className="w-[20rem]">
                           <AccessColumnHead />
                         </TableHead>
                         <TableHead className="w-[9rem]">Minecraft</TableHead>
-                        <TableHead className="w-[9rem]">Rollen</TableHead>
+                        <TableHead className="w-[9rem]">Roles</TableHead>
                         <TableHead className="w-[11rem]" />
                       </TableRow>
                     </TableHeader>
@@ -357,7 +357,7 @@ export function ZugaengePage() {
                         <TableRow key={person.discordId}>
                           <TableCell className="font-medium">
                             {/* A button rather than a clickable row: the row also carries a
-                             * destructive action, and „ich wollte nur nachsehen" must not be one
+                             * destructive action, and "I only wanted to look" must not be one
                              * misplaced click away from it. */}
                             <button
                               type="button"
@@ -381,15 +381,15 @@ export function ZugaengePage() {
                               {person.donor ? (
                                 <StatusBadge
                                   tone="idle"
-                                  title="Einmal vergeben, nie wieder entzogen – deshalb ist das Handvergeben der Rolle in Discord gefahrlos."
+                                  title="Given once, never taken away - which is why handing the role out in Discord is harmless."
                                 >
-                                  Unterstützer
+                                  Supporter
                                 </StatusBadge>
                               ) : null}
                               {person.admin ? (
                                 <StatusBadge
                                   tone="idle"
-                                  title="Spiegelt die Discord-Adminrolle. Verschwindet die Rolle, verschwindet dieses Kennzeichen wieder."
+                                  title="Mirrors the Discord admin role. If the role goes, this mark goes with it."
                                 >
                                   Admin
                                 </StatusBadge>
@@ -407,7 +407,7 @@ export function ZugaengePage() {
                                 size="sm"
                                 onClick={() => setSelected(person)}
                               >
-                                Zeiträume
+                                Periods
                               </Button>
                               {/* No greyed-out button for somebody without access: there is
                                * nothing to take away, and a disabled destructive control reads as
@@ -420,7 +420,7 @@ export function ZugaengePage() {
                     </TableBody>
                   </Table>
                   <p className="text-xs text-muted-foreground">
-                    {count(rows.length)} von {count(list.length)} geladenen Konten.
+                    {count(rows.length)} of {count(list.length)} loaded accounts.
                   </p>
                 </>
               )
@@ -462,14 +462,14 @@ function SecondDoorNote() {
     <div className="flex items-start gap-3 rounded-md border border-border bg-card px-4 py-3">
       <KeyRound className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
       <p className="max-w-prose text-sm text-muted-foreground">
-        Dies ist die <span className="text-foreground">zweite Tür in denselben Raum</span>:{" "}
-        <code className="text-xs">/access</code> in Discord ist die erste, und beide schreiben in
-        dieselben Tabellen. Bezahlt wird diese zweite Tür im Protokoll – jedes Erteilen und jedes
-        Entziehen von hier schreibt eine Zeile ins{" "}
+        This is the <span className="text-foreground">second door into the same room</span>:{" "}
+        <code className="text-xs">/access</code> in Discord is the first, and both write into the
+        same tables. The price of that second door is paid in the record - every grant and every
+        revocation from here writes a row into the{" "}
         <Link to="/journal" className="text-primary underline-offset-4 hover:underline">
           Journal
         </Link>
-        , die den Admin nennt, der geklickt hat.
+        naming the admin who clicked.
       </p>
     </div>
   )
@@ -481,13 +481,13 @@ function AccessColumnHead() {
     <Tooltip>
       <TooltipTrigger asChild>
         <span tabIndex={0} className="underline decoration-dotted underline-offset-4">
-          Zugang
+          Access
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs">
-        Zwei Angaben, absichtlich nicht eine: ob gerade jetzt ein nicht entzogener Zeitraum abdeckt –
-        und wann der letzte Zeitraum endet, entzogene eingerechnet. Ohne das zweite sähe jemand, dem
-        der Zugang genommen wurde, genauso aus wie jemand, der nie einen hatte.
+        Two readings, deliberately not one: whether an unrevoked period covers right now - and when
+        the latest period ends, revoked ones included. Without the second, somebody whose access was
+        taken away would look exactly like somebody who never had any.
       </TooltipContent>
     </Tooltip>
   )
@@ -513,16 +513,16 @@ function GrantDialog() {
       <AlertDialogTrigger asChild>
         <Button type="button">
           <UserPlus aria-hidden />
-          Zugang erteilen
+          Grant access
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Zugang von Hand erteilen</AlertDialogTitle>
+          <AlertDialogTitle>Grant access by hand</AlertDialogTitle>
           <AlertDialogDescription>
-            Schreibt einen Zeitraum mit der Quelle <code className="text-xs">ADMIN</code> – ohne
-            Zahlung, ohne bunq-Tab. Die Person darf danach auf den Server, sobald ihr
-            Minecraft-Konto verknüpft ist.
+            Writes a period with the source <code className="text-xs">ADMIN</code> - no payment, no
+            bunq tab. The person may then join the server as soon as their Minecraft account is
+            linked.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -533,7 +533,7 @@ function GrantDialog() {
               id="grant-discord-id"
               value={discordId}
               onChange={(event) => setDiscordId(event.target.value)}
-              placeholder="z. B. 214906139328839681"
+              placeholder="e.g. 214906139328839681"
               className="font-mono"
               autoComplete="off"
               spellCheck={false}
@@ -541,7 +541,7 @@ function GrantDialog() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="grant-days">Tage</Label>
+            <Label htmlFor="grant-days">Days</Label>
             <Input
               id="grant-days"
               value={days}
@@ -552,24 +552,24 @@ function GrantDialog() {
             />
           </div>
           <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-muted-foreground">
-            <li>Ein Tag sind genau 24 Stunden, nicht ein Kalendertag.</li>
+            <li>A day is exactly 24 hours, not a calendar day.</li>
             <li>
-              Läuft schon ein Zeitraum, wird der neue hinten angehängt – bezahlte Zeit geht nie
-              verloren, und Zeiträume werden nie summiert, wenn dazwischen eine Lücke lag.
+              If a period is already running, the new one is appended - paid time is never lost,
+              and periods are never summed across a gap.
             </li>
             <li>
-              Ist der SMP-Start noch nicht erreicht, beginnt der Zeitraum an diesem Termin und nicht
-              heute.
+              If the SMP launch has not been reached, the period starts at that date and not
+              today.
             </li>
             <li>
-              Kennt der Bot diese Discord-ID noch nicht, wird das Konto dafür angelegt. Eine
-              vertippte ID erzeugt also eine Person, die es nicht gibt – und keinen Fehler.
+              If the bot does not know this Discord id yet, the account is created for it. A
+              mistyped id therefore produces a person who does not exist - and no error.
             </li>
           </ul>
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             disabled={!usable || grant.isPending}
             onClick={() => {
@@ -577,21 +577,21 @@ function GrantDialog() {
                 { discordId: discordId.trim(), days: parsedDays },
                 {
                   onSuccess: (written: Grant) => {
-                    toast.success(`Zugang für ${written.discordId} erteilt`, {
-                      description: `Gültig ${dateTime(written.validFrom)} bis ${dateTime(
+                    toast.success(`Access granted for ${written.discordId}`, {
+                      description: `Valid ${dateTime(written.validFrom)} until ${dateTime(
                         written.validUntil,
-                      )}. Eine Journalzeile nennt dich.`,
+                      )}. A journal line names you.`,
                     })
                     setDiscordId("")
                   },
                   onError: (error) => {
-                    toast.error("Es wurde kein Zugang erteilt", { description: String(error) })
+                    toast.error("No access was granted", { description: String(error) })
                   },
                 },
               )
             }}
           >
-            Erteilen
+            Grant
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -603,11 +603,11 @@ function GrantDialog() {
  * Revoking - the destructive half.
  *
  * It takes the whole remaining run and not one period: that is what the backend's single statement
- * does, and it is what lets the login path get away with one `max(valid_until)`. Saying "alle
- * laufenden Zeiträume" here is therefore accurate and not a simplification.
+ * does, and it is what lets the login path get away with one `max(valid_until)`. Saying "every
+ * running period" here is therefore accurate and not a simplification.
  */
 /**
- * Entziehen, from the table row or from the opened person.
+ * Revoking, from the table row or from the opened person.
  *
  * Till asked for both doors (2026-09-13). They are not nested: the button inside the person dialog
  * CLOSES that dialog and opens this one at page level, because an AlertDialog inside an open
@@ -633,39 +633,39 @@ function RevokeDialog({
         <AlertDialogTrigger asChild>
           <Button type="button" variant="ghost" size="sm" className="text-destructive">
             <ShieldX aria-hidden />
-            Entziehen
+            Revoke
           </Button>
         </AlertDialogTrigger>
       ) : null}
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Zugang entziehen?</AlertDialogTitle>
+          <AlertDialogTitle>Revoke access?</AlertDialogTitle>
           <AlertDialogDescription>
-            Entzogen wird der <span className="text-foreground">gesamte verbleibende Lauf</span> von{" "}
-            <span className="font-mono text-foreground">{person.discordId}</span> – jeder noch nicht
-            abgelaufene Zeitraum auf einmal, nicht ein einzelner.
+            What is revoked is the <span className="text-foreground">whole remaining run</span> of{" "}
+            <span className="font-mono text-foreground">{person.discordId}</span> - every period not
+            yet expired at once, not a single one.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="flex flex-col gap-3 text-sm">
           <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-            Wer gerade spielt, fliegt heraus: der Proxy prüft den Zugang jedes verbundenen Spielers
-            regelmäßig nach und trennt, sobald er nicht mehr gilt – nicht erst beim nächsten Login.
+            Anyone playing right now is thrown out: the proxy re-checks every connected player's
+            access regularly and disconnects as soon as it no longer holds - not only at the next
+            login.
           </p>
           <p className="text-muted-foreground">
-            Bezahlte Zeit kommt dadurch nicht zurück. Ein späteres Erteilen beginnt neu und rechnet
-            den entzogenen Rest nicht an.
+            Paid time does not come back this way. A later grant starts fresh and does not credit
+            the revoked remainder.
           </p>
           <p className="text-muted-foreground">
-            Der Eintrag bleibt stehen und wird nur als entzogen markiert – deshalb steht in der
-            Liste weiter ein Datum neben „kein Zugang“, statt dass die Person wie eine Fremde
-            aussieht.
+            The entry stays and is only marked revoked - which is why a date still stands beside
+            "no access" in the list, instead of the person looking like a stranger.
           </p>
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             disabled={revoke.isPending}
@@ -675,23 +675,23 @@ function RevokeDialog({
                   // Zero is a real answer and not a success: between opening this dialog and
                   // clicking, the run may have ended or somebody else may have revoked it.
                   if (result.revoked === 0) {
-                    toast.warning("Es gab nichts zu entziehen", {
-                      description: `Für ${person.discordId} lief kein Zeitraum mehr.`,
+                    toast.warning("There was nothing to revoke", {
+                      description: `No period was still running for ${person.discordId}.`,
                     })
                     return
                   }
                   toast.success(
-                    `${count(result.revoked)} Zeitraum/Zeiträume von ${person.discordId} entzogen`,
-                    { description: "Eine Journalzeile nennt dich." },
+                    `${count(result.revoked)} period(s) of ${person.discordId} revoked`,
+                    { description: "A journal line names you." },
                   )
                 },
                 onError: (error) => {
-                  toast.error("Es wurde nichts entzogen", { description: String(error) })
+                  toast.error("Nothing was revoked", { description: String(error) })
                 },
               })
             }}
           >
-            Entziehen
+            Revoke
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -725,18 +725,18 @@ function PersonGrants({
               onClick={onRevoke}
             >
               <ShieldX aria-hidden />
-              Entziehen
+              Revoke
             </Button>
           ) : null}
         </DialogTitle>
         <DialogDescription>
-          Anfrage → Tab → gezahlt → Zugang → verknüpft. Hier steht das vierte Glied: jeder Zeitraum,
-          seine Quelle und – beim Kauf – die Zahlungsanfrage, aus der er stammt.
+          Request → tab → paid → access → linked. This is the fourth link: every period, its source
+          and - for a purchase - the payment request it came from.
         </DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-wrap gap-6">
-        <Stat label="Gilde" value={<MemberBadge state={person.memberState} />} />
+        <Stat label="Guild" value={<MemberBadge state={person.memberState} />} />
         <Stat
           label="Minecraft"
           value={
@@ -748,12 +748,12 @@ function PersonGrants({
               "–"
             )
           }
-          hint={person.linked ? `verknüpft ${dateTime(person.linked)}` : "nicht verknüpft"}
+          hint={person.linked ? `linked ${dateTime(person.linked)}` : "not linked"}
         />
         <Stat
-          label="Sprache"
+          label="Language"
           value={person.locale}
-          hint={`zuletzt geändert ${relative(person.updated, now)}`}
+          hint={`last changed ${relative(person.updated, now)}`}
         />
       </div>
 
@@ -765,17 +765,17 @@ function PersonGrants({
         <Failure error={grants.error} onRetry={grants.refetch} />
       ) : (grants.data ?? []).length === 0 ? (
         <Empty
-          title="Kein Zeitraum"
-          note="Für dieses Konto ist nie einer geschrieben worden – weder gekauft noch von Hand."
+          title="No period"
+          note="None has ever been written for this account - neither bought nor by hand."
         />
       ) : (
         <Table className="steward-table">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[7rem]">Quelle</TableHead>
-              <TableHead>Fenster</TableHead>
-              <TableHead className="w-[13rem]">Stand</TableHead>
-              <TableHead className="w-[8rem]">Anfrage</TableHead>
+              <TableHead className="w-[7rem]">Source</TableHead>
+              <TableHead>Window</TableHead>
+              <TableHead className="w-[13rem]">State</TableHead>
+              <TableHead className="w-[8rem]">Request</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -802,8 +802,8 @@ function PersonGrants({
                         className="text-xs text-muted-foreground"
                         title={
                           row.source === "PURCHASE"
-                            ? "Gekauft, aber die Zahlungsanfrage steht nicht mehr in der Datenbank – sie wird beim Löschen der Anfrage auf NULL gesetzt."
-                            : "Von Hand erteilt, also gibt es keine Zahlungsanfrage."
+                            ? "Bought, but the payment request is no longer in the database - it is set to NULL when the request is deleted."
+                            : "Granted by hand, so there is no payment request."
                         }
                       >
                         –
@@ -818,32 +818,32 @@ function PersonGrants({
       )}
 
       <p className="text-sm text-muted-foreground">
-        Entzogen wird in der Zeile dieser Person in der Tabelle – nicht hier, damit eine
-        Sicherheitsabfrage nie in einem schon offenen Fenster steckt.
+        Revoking happens in this person's row in the table - not here, so that a confirmation never
+        sits inside a window that is already open.
       </p>
     </>
   )
 }
 
-// --- 2. /zahlungen --------------------------------------------------------------------------------
+// --- 2. /payments --------------------------------------------------------------------------------
 
 const PAYMENT_STATES: Record<string, { label: string; tone: Tone; title: string }> = {
   OPEN: {
-    label: "offen",
+    label: "open",
     tone: "idle",
-    title: "Der Tab steht, bezahlt wurde noch nicht. Je Person kann nur eine Anfrage offen sein.",
+    title: "The tab is up, nothing has been paid yet. Only one request per person can be open.",
   },
-  PAID: { label: "bezahlt", tone: "ok", title: "Das Geld ist eingegangen und der Zeitraum steht." },
+  PAID: { label: "paid", tone: "ok", title: "The money has arrived and the period stands." },
   EXPIRED: {
-    label: "verfallen",
+    label: "lapsed",
     tone: "idle",
-    title: "Die Frist ist abgelaufen, ohne dass gezahlt wurde.",
+    title: "The deadline passed without payment.",
   },
-  CANCELLED: { label: "abgebrochen", tone: "idle", title: "Abgebrochen, bevor gezahlt wurde." },
+  CANCELLED: { label: "cancelled", tone: "idle", title: "Cancelled before anything was paid." },
   SUPERSEDED: {
-    label: "ersetzt",
+    label: "superseded",
     tone: "idle",
-    title: "Dieselbe Person hat eine neue Anfrage gestartet; diese wurde dabei geschlossen.",
+    title: "The same person started a new request, which closed this one.",
   },
 }
 
@@ -859,7 +859,7 @@ function isOverdue(payment: Payment, now: number): boolean {
  * rather than printed bare: `amount_cents` is what the tab **asked for**, and the payer can edit the
  * amount on the bunq.me page. What actually arrived is not in this table at all.
  */
-export function ZahlungenPage() {
+export function PaymentsPage() {
   const payments = usePayments()
   const [status, setStatus] = useState("")
   const now = Date.now()
@@ -867,16 +867,16 @@ export function ZahlungenPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Zahlungen"
-        note="Anfrage, bunq-Tab und Ausgang – die drei Glieder, aus denen ein gekaufter Zugang entsteht."
+        title="Payments"
+        note="Request, bunq tab and outcome - the three links a purchased access is made of."
       />
 
       <QueryState
         query={payments}
         rows={8}
         empty={{
-          title: "Keine Zahlungsanfrage",
-          note: "Es hat noch niemand Zugang angefragt – oder der Bot läuft nicht.",
+          title: "No payment request",
+          note: "Nobody has requested access yet - or the bot is not running.",
         }}
         isEmpty={(list: Payment[]) => list.length === 0}
       >
@@ -898,33 +898,32 @@ export function ZahlungenPage() {
               <Card>
                 <CardContent className="flex flex-wrap items-start gap-8 pt-6">
                   <Stat
-                    label="Offen"
+                    label="Open"
                     value={count(open.length)}
-                    hint={`davon ${count(overdue.length)} über die Frist hinaus`}
+                    hint={`${count(overdue.length)} of them past the deadline`}
                     tone={overdue.length > 0 ? "warn" : undefined}
                   />
-                  <Stat label="Bezahlt" value={count(paid.length)} />
+                  <Stat label="Paid" value={count(paid.length)} />
                   <Separator orientation="vertical" className="h-14" />
                   <Stat
-                    label="Angefragt (bezahlte Anfragen)"
+                    label="Asked for (paid requests)"
                     value={euros(requested)}
-                    hint="Betrag plus Spende, wie der Tab sie verlangt hat"
+                    hint="Amount plus donation, as the tab asked for it"
                   />
                   <p className="max-w-prose text-xs text-muted-foreground">
-                    Das ist <span className="text-foreground">nicht der Kontostand</span>: auf der
-                    bunq.me-Seite kann der zahlende Mensch den Betrag ändern, und was tatsächlich
-                    ankam, steht in keiner dieser Spalten. Diese Oberfläche fragt bunq nicht – das
-                    tut der Bot.
+                    This is <span className="text-foreground">not the balance</span>: on the
+                    bunq.me page the paying person can change the amount, and what actually arrived
+                    is in none of these columns. This interface does not ask bunq - the bot does.
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm font-medium">Anfragen</CardTitle>
+                  <CardTitle className="text-sm font-medium">Requests</CardTitle>
                   <CardDescription>
-                    Aus <code className="text-xs">payment_request</code>, neueste zuerst. Geladen
-                    werden die letzten 200.
+                    From <code className="text-xs">payment_request</code>, newest first. The last
+                    200 are loaded.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
@@ -933,14 +932,14 @@ export function ZahlungenPage() {
                       Status
                     </Label>
                     <Select
-                      value={status === "" ? "ALLE" : status}
-                      onValueChange={(value) => setStatus(value === "ALLE" ? "" : value)}
+                      value={status === "" ? "ALL" : status}
+                      onValueChange={(value) => setStatus(value === "ALL" ? "" : value)}
                     >
                       <SelectTrigger id="payment-status" className="w-56">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ALLE">alle</SelectItem>
+                        <SelectItem value="ALL">all</SelectItem>
                         {present.map((value) => (
                           <SelectItem key={value} value={value}>
                             {PAYMENT_STATES[value]?.label ?? value}
@@ -951,30 +950,30 @@ export function ZahlungenPage() {
                     {overdue.length > 0 ? (
                       <span className="flex items-center gap-2 text-xs text-warning">
                         <CircleAlert className="size-4 shrink-0" aria-hidden />
-                        {count(overdue.length)} offene Anfrage(n) sind über ihre Frist hinaus – die
-                        zahlt niemand mehr, sie warten nur auf den Aufräumlauf des Bots.
+                        {count(overdue.length)} open request(s) are past their deadline - nobody is
+                        going to pay those, they are only waiting for the bot's cleanup run.
                       </span>
                     ) : null}
                   </div>
 
                   {shown.length === 0 ? (
                     <Empty
-                      title="Keine Anfrage mit diesem Status"
-                      note="Unter den geladenen Anfragen trägt keine diesen Status."
+                      title="No request with this status"
+                      note="None of the loaded requests carries this status."
                     />
                   ) : (
                     <Table className="steward-table">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[9rem]">Referenz</TableHead>
+                          <TableHead className="w-[9rem]">Reference</TableHead>
                           <TableHead className="w-[13rem]">Person</TableHead>
-                          <TableHead className="w-[5rem] text-right">Tage</TableHead>
-                          <TableHead className="w-[7rem] text-right">Betrag</TableHead>
-                          <TableHead className="w-[7rem] text-right">Spende</TableHead>
+                          <TableHead className="w-[5rem] text-right">Days</TableHead>
+                          <TableHead className="w-[7rem] text-right">Amount</TableHead>
+                          <TableHead className="w-[7rem] text-right">Donation</TableHead>
                           <TableHead className="w-[9rem]">Status</TableHead>
-                          <TableHead className="w-[11rem]">Erstellt</TableHead>
-                          <TableHead className="w-[11rem]">Frist</TableHead>
-                          <TableHead className="w-[11rem]">Bezahlt</TableHead>
+                          <TableHead className="w-[11rem]">Created</TableHead>
+                          <TableHead className="w-[11rem]">Deadline</TableHead>
+                          <TableHead className="w-[11rem]">Paid</TableHead>
                           <TableHead className="w-[6rem]" />
                         </TableRow>
                       </TableHeader>
@@ -1003,7 +1002,7 @@ export function ZahlungenPage() {
                                     tone={late ? "warn" : (state?.tone ?? "idle")}
                                     title={
                                       state?.title ??
-                                      "Diesen Status kennt diese Oberfläche nicht."
+                                      "This interface does not know this status."
                                     }
                                   >
                                     {state?.label ?? payment.status}
@@ -1011,9 +1010,9 @@ export function ZahlungenPage() {
                                   {late ? (
                                     <StatusBadge
                                       tone="warn"
-                                      title="Die Frist ist vorbei, der Status steht aber noch auf OPEN – der Aufräumlauf des Bots hat sie noch nicht angefasst."
+                                      title="The deadline has passed but the status still reads OPEN - the bot's cleanup run has not touched it yet."
                                     >
-                                      überfällig
+                                      overdue
                                     </StatusBadge>
                                   ) : null}
                                 </div>
@@ -1043,7 +1042,7 @@ export function ZahlungenPage() {
                                 ) : (
                                   <span
                                     className="text-xs text-muted-foreground"
-                                    title="Für diese Anfrage steht keine bunq.me-Adresse in der Zeile."
+                                    title="No bunq.me address stands in the row for this request."
                                   >
                                     –
                                   </span>
@@ -1065,7 +1064,7 @@ export function ZahlungenPage() {
   )
 }
 
-// --- 3. /konten -----------------------------------------------------------------------------------
+// --- 3. /accounts -----------------------------------------------------------------------------------
 
 /**
  * The identities: one Discord account, at most one Minecraft account, and the session you are
@@ -1075,7 +1074,7 @@ export function ZahlungenPage() {
  * the reader to assume one exists. §10a wants a security key after Discord; this alpha does not
  * have one, `/api/me` says so in its own words, and those words are printed here verbatim.
  */
-export function KontenPage() {
+export function AccountsPage() {
   const people = usePeople()
   const [needle, setNeedle] = useState("")
   const [onlyLinked, setOnlyLinked] = useState(false)
@@ -1084,18 +1083,18 @@ export function KontenPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Konten"
-        note="Welches Minecraft-Konto zu welchem Discord-Konto gehört – und womit sich diese Oberfläche selbst ausweist."
+        title="Accounts"
+        note="Which Minecraft account belongs to which Discord account - and what this interface identifies itself with."
       />
 
       <AuthenticationCard />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Verknüpfungen</CardTitle>
+          <CardTitle className="text-sm font-medium">Links</CardTitle>
           <CardDescription>
-            Aus <code className="text-xs">account_link</code>. Die Datenbank erzwingt 1:1 – eine
-            Discord-ID kommt einmal vor, eine Minecraft-UUID auch.
+            From <code className="text-xs">account_link</code>. The database enforces 1:1 - a
+            Discord id appears once, and so does a Minecraft UUID.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -1105,14 +1104,14 @@ export function KontenPage() {
               <Input
                 value={needle}
                 onChange={(event) => setNeedle(event.target.value)}
-                placeholder="Discord-ID oder UUID filtern…"
-                aria-label="Discord-ID oder UUID filtern"
+                placeholder="Filter by Discord id or UUID…"
+                aria-label="Filter by Discord id or UUID"
                 autoComplete="off"
               />
             </div>
             <div className="flex items-center gap-2">
               <Switch id="only-linked" checked={onlyLinked} onCheckedChange={setOnlyLinked} />
-              <Label htmlFor="only-linked">nur verknüpfte</Label>
+              <Label htmlFor="only-linked">linked only</Label>
             </div>
           </div>
 
@@ -1120,8 +1119,8 @@ export function KontenPage() {
             query={people}
             rows={8}
             empty={{
-              title: "Noch niemand",
-              note: "Der Bot hat noch kein Discord-Konto gesehen – oder er läuft nicht.",
+              title: "Nobody yet",
+              note: "The bot has not seen a single Discord account yet - or it is not running.",
             }}
             isEmpty={(list: Person[]) => list.length === 0}
           >
@@ -1130,7 +1129,7 @@ export function KontenPage() {
               // Truthiness rather than `!== null`, on purpose: Javalin's Gson mapper drops nulls,
               // so `minecraftUuid` arrives ABSENT for an unlinked person even though `api.ts`
               // types it `string | null`. `!== null` would let every unlinked account through the
-              // "nur verknüpfte" filter, and the filter would look broken rather than wrong.
+              // "linked only" filter, and the filter would look broken rather than wrong.
               const rows = list.filter(
                 (person) =>
                   (!onlyLinked || Boolean(person.minecraftUuid)) &&
@@ -1141,8 +1140,8 @@ export function KontenPage() {
               if (rows.length === 0) {
                 return (
                   <Empty
-                    title="Kein Konto passt"
-                    note="Unter den geladenen Konten enthält keines diese Zeichenfolge."
+                    title="No account matches"
+                    note="None of the loaded accounts contains this string."
                   />
                 )
               }
@@ -1153,9 +1152,9 @@ export function KontenPage() {
                       <TableRow>
                         <TableHead className="w-[14rem]">Discord-ID</TableHead>
                         <TableHead className="w-[22rem]">Minecraft-UUID</TableHead>
-                        <TableHead className="w-[13rem]">Verknüpft</TableHead>
-                        <TableHead className="w-[8rem]">Gilde</TableHead>
-                        <TableHead>Zugang</TableHead>
+                        <TableHead className="w-[13rem]">Linked</TableHead>
+                        <TableHead className="w-[8rem]">Guild</TableHead>
+                        <TableHead>Access</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1166,7 +1165,7 @@ export function KontenPage() {
                           </TableCell>
                           <TableCell className="font-mono text-muted-foreground">
                             {person.minecraftUuid ?? (
-                              <span className="font-sans text-xs">nicht verknüpft</span>
+                              <span className="font-sans text-xs">not linked</span>
                             )}
                           </TableCell>
                           <TableCell className="text-muted-foreground tnum">
@@ -1183,9 +1182,9 @@ export function KontenPage() {
                     </TableBody>
                   </Table>
                   <p className="text-xs text-muted-foreground">
-                    {count(rows.length)} von {count(list.length)} geladenen Konten. Ein Konto ohne
-                    Verknüpfung kommt nicht auf den Server, auch mit bezahltem Zugang nicht: der
-                    Proxy kennt nur Minecraft-UUIDs.
+                    {count(rows.length)} of {count(list.length)} loaded accounts. An account with
+                    no link cannot reach the server, not even with paid access: the proxy knows only
+                    Minecraft UUIDs.
                   </p>
                 </>
               )
@@ -1209,33 +1208,33 @@ function AuthenticationCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
           <ShieldCheck className="size-4 text-muted-foreground" aria-hidden />
-          Anmeldung an dieser Oberfläche
+          Signing in to this interface
         </CardTitle>
         <CardDescription>
-          Eine Discord-Sitzung ist zurzeit die <span className="text-foreground">ganze</span>{" "}
-          Authentifizierung dieser Oberfläche.
+          A Discord session is currently the <span className="text-foreground">whole</span>{" "}
+          authentication of this interface.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <StatusBadge tone="warn" title="§10a sieht einen Sicherheitsschlüssel nach Discord vor.">
-            Sicherheitsschlüssel: noch nicht gebaut
+          <StatusBadge tone="warn" title="§10a foresees a security key after Discord.">
+            Security key: not built yet
           </StatusBadge>
           {me.data?.name ? (
             <span className="text-sm text-muted-foreground">
-              angemeldet als <span className="text-foreground">{me.data.name}</span>
+              signed in as <span className="text-foreground">{me.data.name}</span>
             </span>
           ) : null}
         </div>
         <p className="max-w-prose text-sm text-muted-foreground">
-          Es gibt keine dritte, Steward-eigene Identität – kein eigenes Passwort, kein zweiter
-          Faktor. Wer die Discord-Sitzung eines Admins hat, hat diese Oberfläche, und damit auch die
-          beiden Schreibvorgänge auf der Seite{" "}
-          <Link to="/zugaenge" className="text-primary underline-offset-4 hover:underline">
-            Zugänge
+          There is no third, Steward-owned identity - no password of its own, no second factor.
+          Whoever holds an admin's Discord session holds this interface, and with it the two writes
+          on the{" "}
+          <Link to="/access" className="text-primary underline-offset-4 hover:underline">
+            Access
           </Link>
-          . Das ist bewusst so, solange der Schlüssel fehlt, und es ist der Grund, warum jede
-          Änderung im Journal landet.
+          {" "}page. That is deliberate while the key is missing, and it is the reason every change
+          lands in the Journal.
         </p>
         {me.error ? (
           <Failure error={me.error} onRetry={me.refetch} />
@@ -1246,7 +1245,7 @@ function AuthenticationCard() {
             /api/me · webauthn: {me.data.webauthn}
           </pre>
         ) : (
-          <Loading rows={1} label="Anmeldung wird gelesen…" />
+          <Loading rows={1} label="Reading the session…" />
         )}
       </CardContent>
     </Card>
@@ -1282,31 +1281,31 @@ export function JournalPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Journal"
-        note="Jede Änderung, wer sie ausgelöst hat und wen sie betraf – die letzten 200 Einträge."
+        note="Every change, who triggered it and whom it concerned - the last 200 entries."
       />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Einträge</CardTitle>
+          <CardTitle className="text-sm font-medium">Entries</CardTitle>
           <CardDescription>
-            Aus <code className="text-xs">audit_log</code>, neueste zuerst. Beide Filter vergleichen
-            <span className="text-foreground"> die ganze Zeichenfolge</span> – Teiltreffer kann diese
-            Abfrage nicht.
+            From <code className="text-xs">audit_log</code>, newest first. Both filters compare
+            <span className="text-foreground"> the whole string</span> - a partial match is not
+            something this query can do.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="journal-action">Aktion</Label>
+              <Label htmlFor="journal-action">Action</Label>
               <Select
-                value={action === "" ? "ALLE" : action}
-                onValueChange={(value) => setAction(value === "ALLE" ? "" : value)}
+                value={action === "" ? "ALL" : action}
+                onValueChange={(value) => setAction(value === "ALL" ? "" : value)}
               >
                 <SelectTrigger id="journal-action" className="w-64">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALLE">alle</SelectItem>
+                  <SelectItem value="ALL">all</SelectItem>
                   {actions.map((value) => (
                     <SelectItem key={value} value={value}>
                       {value}
@@ -1324,12 +1323,12 @@ export function JournalPage() {
               }}
             >
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="journal-subject">Betroffene Discord-ID</Label>
+                <Label htmlFor="journal-subject">Discord id concerned</Label>
                 <Input
                   id="journal-subject"
                   value={typed}
                   onChange={(event) => setTyped(event.target.value)}
-                  placeholder="genaue ID…"
+                  placeholder="exact id…"
                   className="w-64 font-mono"
                   autoComplete="off"
                   spellCheck={false}
@@ -1337,7 +1336,7 @@ export function JournalPage() {
               </div>
               <Button type="submit" variant="outline">
                 <Search aria-hidden />
-                Filtern
+                Filter
               </Button>
               {subject ? (
                 <Button
@@ -1348,7 +1347,7 @@ export function JournalPage() {
                     setTyped("")
                   }}
                 >
-                  Zurücksetzen
+                  Reset
                 </Button>
               ) : null}
             </form>
@@ -1356,8 +1355,8 @@ export function JournalPage() {
 
           {actions.length === 0 && !all.isPending && !all.error ? (
             <p className="text-xs text-muted-foreground">
-              Die Auswahl oben listet nur Aktionen, die in den geladenen Einträgen vorkommen – noch
-              kommt keine vor.
+              The selector above lists only actions that occur in the loaded entries - none occurs
+              yet.
             </p>
           ) : null}
 
@@ -1365,8 +1364,8 @@ export function JournalPage() {
             query={entries}
             rows={10}
             empty={{
-              title: "Kein Eintrag",
-              note: "Mit diesen Filtern steht nichts im Protokoll. Beide vergleichen genau, nicht teilweise – ein Tippfehler in der ID sieht genauso aus wie „nichts passiert“.",
+              title: "No entry",
+              note: "Nothing in the record matches these filters. Both compare exactly, not partially - a typo in the id looks exactly like \"nothing happened\".",
             }}
             isEmpty={(list: JournalEntry[]) => list.length === 0}
           >
@@ -1375,10 +1374,10 @@ export function JournalPage() {
                 <Table className="steward-table">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[13rem]">Zeitpunkt</TableHead>
-                      <TableHead className="w-[12rem]">Aktion</TableHead>
-                      <TableHead className="w-[16rem]">Ausgelöst von</TableHead>
-                      <TableHead className="w-[14rem]">Betrifft</TableHead>
+                      <TableHead className="w-[13rem]">When</TableHead>
+                      <TableHead className="w-[12rem]">Action</TableHead>
+                      <TableHead className="w-[16rem]">Triggered by</TableHead>
+                      <TableHead className="w-[14rem]">Concerns</TableHead>
                       <TableHead>Detail</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1388,13 +1387,13 @@ export function JournalPage() {
                         <TableCell className="text-muted-foreground tnum" title={entry.occurred}>
                           {dateTime(entry.occurred)}
                         </TableCell>
-                        {/* The action is printed raw. Translating it would mean a table of German
-                         * words that silently falls back to the enum name for anything new - and
-                         * this column is also what somebody greps the bot's log for. */}
+                        {/* The action is printed raw, exactly as the row carries it: any prettier
+                         * wording would be a table that silently falls back to the enum name for
+                         * anything new - and this column is what somebody greps the bot's log for. */}
                         <TableCell className="font-medium">{entry.action}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {entry.actor ?? (
-                            <span title="Kein Admin – der Bot hat von sich aus gehandelt.">
+                            <span title="No admin - the bot acted on its own.">
                               Bot
                             </span>
                           )}
@@ -1413,8 +1412,8 @@ export function JournalPage() {
                   </TableBody>
                 </Table>
                 <p className="text-xs text-muted-foreground">
-                  {count(list.length)} Einträge. Mehr als 200 gibt diese Abfrage nicht heraus – ein
-                  Blättern durch das ganze Protokoll kennt die API noch nicht.
+                  {count(list.length)} entries. This query hands out no more than 200 - paging
+                  through the whole record is not something the API knows yet.
                 </p>
               </>
             )}

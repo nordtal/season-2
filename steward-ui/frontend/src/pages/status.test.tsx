@@ -9,14 +9,14 @@ import {
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ZustandPage } from "@/pages/zustand"
+import { StatusPage } from "@/pages/status"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The Ampel on the page, which is not the same thing as {@link summarise}.
+ * The traffic light on the page, which is not the same thing as {@link summarise}.
  *
  * `health.test.ts` proves what the function decides. This file proves what the page *says* about
- * how complete that decision is - the half that lives in `zustand.tsx` and that no unit test can
+ * how complete that decision is - the half that lives in `status.tsx` and that no unit test can
  * see, because the sentence under the light is drawn from `waiting` and `failed` rather than from
  * the level.
  *
@@ -68,7 +68,7 @@ function backup(hoursAgo: number) {
   return {
     name: "nordtal.tar.zst",
     bytes: 1_500_000_000,
-    human: "1,5 GB",
+    human: "1.5 GB",
     modified: new Date(Date.now() - hoursAgo * HOUR).toISOString(),
     partial: false,
   }
@@ -107,16 +107,16 @@ function backend(over: { services?: unknown[]; backups?: unknown[]; settings?: (
  * The page under a router whose tree is only what it links into.
  *
  * `/` carries the page itself, so `useRouterState` and every `Link` resolve against a real router
- * - including `/dienste/$name`, which a trigger builds with `params`.
+ * - including `/services/$name`, which a trigger builds with `params`.
  */
 function draw() {
   const root = createRootRoute()
   const nothing = () => null
   const routeTree = root.addChildren([
-    createRoute({ getParentRoute: () => root, path: "/", component: ZustandPage }),
-    createRoute({ getParentRoute: () => root, path: "/betrieb", component: nothing }),
-    createRoute({ getParentRoute: () => root, path: "/dienste/$name", component: nothing }),
-    createRoute({ getParentRoute: () => root, path: "/saison", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/", component: StatusPage }),
+    createRoute({ getParentRoute: () => root, path: "/operations", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
+    createRoute({ getParentRoute: () => root, path: "/season", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/journal", component: nothing }),
   ])
   const router = createRouter({
@@ -147,22 +147,22 @@ function draw() {
  */
 function light(): HTMLElement | null {
   const lights = screen.queryAllByRole("status").filter((one) => !one.hasAttribute("aria-busy"))
-  if (lights.length > 1) throw new Error(`${lights.length} Ampeln on one page`)
+  if (lights.length > 1) throw new Error(`${lights.length} traffic lights on one page`)
   return lights[0] ?? null
 }
 
 /** What the light says, or "" while it is not drawn at all. */
 const said = () => light()?.textContent ?? ""
 
-const STILL_READING = /Es wird noch gelesen/
-const COULD_NOT_READ = /konnte nicht gelesen werden/
+const STILL_READING = /Still reading/
+const COULD_NOT_READ = /could not be fetched/
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
 
-describe("ZustandPage - the Ampel while /api/settings is still on its way", () => {
+describe("StatusPage - the traffic light while /api/settings is still on its way", () => {
   it("says so under a light that already has something to report", async () => {
     // The defect, in one render: an image is behind, so the loading state above the light does not
     // fire, and the light is drawn. What was missing is the second sentence - without it the page
@@ -176,7 +176,7 @@ describe("ZustandPage - the Ampel while /api/settings is still on its way", () =
     )
     draw()
 
-    await waitFor(() => expect(said()).toContain("älteren Image"))
+    await waitFor(() => expect(said()).toContain("older image"))
     expect(said()).toMatch(STILL_READING)
     // And not the other sentence: nothing failed, it is simply not finished.
     expect(said()).not.toMatch(COULD_NOT_READ)
@@ -188,7 +188,7 @@ describe("ZustandPage - the Ampel while /api/settings is still on its way", () =
     vi.stubGlobal("fetch", backend({ settings: () => new Promise(() => {}) }))
     draw()
 
-    expect(await screen.findByText(/Zustand wird gelesen…/)).toBeTruthy()
+    expect(await screen.findByText(/Reading status…/)).toBeTruthy()
     expect(light()).toBeNull()
   })
 
@@ -196,7 +196,7 @@ describe("ZustandPage - the Ampel while /api/settings is still on its way", () =
     vi.stubGlobal("fetch", backend({ services: [service({ service: "bot", drift: "OUTDATED" })] }))
     draw()
 
-    await waitFor(() => expect(said()).toContain("älteren Image"))
+    await waitFor(() => expect(said()).toContain("older image"))
     expect(said()).not.toMatch(STILL_READING)
   })
 
@@ -226,7 +226,7 @@ describe("ZustandPage - the Ampel while /api/settings is still on its way", () =
     })
 
     await waitFor(() => expect(within(light()!).getAllByRole("listitem")).toHaveLength(2))
-    expect(said()).toContain("älter als die erlaubten")
+    expect(said()).toContain("older than the permitted")
     expect(said()).not.toMatch(STILL_READING)
   })
 
@@ -234,7 +234,7 @@ describe("ZustandPage - the Ampel while /api/settings is still on its way", () =
     // `failed` and `waiting` are different sentences and the page must not collapse them: one is
     // "not finished", the other is "will not be finished".
     vi.stubGlobal("fetch", async (url: string) => {
-      if (url === "/api/settings") return json(503, { error: "Kaputt." })
+      if (url === "/api/settings") return json(503, { error: "Broken." })
       return backend({ services: [service({ service: "bot", drift: "OUTDATED" })] })(url)
     })
     draw()

@@ -54,43 +54,43 @@ export function StatusBadge({
   )
 }
 
-/** Docker's container state, in German, with health folded in where there is one. */
+/** Docker's container state, with health folded in where there is one. */
 export function ServiceState({ state, health }: { state: string; health?: string }) {
   if (state !== "running") {
     return (
-      <StatusBadge tone="down" title={`Docker meldet den Zustand „${state}".`}>
+      <StatusBadge tone="down" title={`Docker reports the state "${state}".`}>
         {STATES[state] ?? state}
       </StatusBadge>
     )
   }
   if (health === "unhealthy") {
     return (
-      <StatusBadge tone="down" title="Der Container läuft, aber sein Healthcheck schlägt fehl.">
+      <StatusBadge tone="down" title="The container is running, but its healthcheck is failing.">
         unhealthy
       </StatusBadge>
     )
   }
   if (health === "starting") {
     return (
-      <StatusBadge tone="warn" title="Der Healthcheck hat noch kein Urteil gefällt.">
-        startet
+      <StatusBadge tone="warn" title="The healthcheck has not reached a verdict yet.">
+        starting
       </StatusBadge>
     )
   }
   return (
-    <StatusBadge tone="ok" title={health ? `Healthcheck: ${health}.` : "Läuft. Kein Healthcheck."}>
-      läuft
+    <StatusBadge tone="ok" title={health ? `Healthcheck: ${health}.` : "Running. No healthcheck."}>
+      running
     </StatusBadge>
   )
 }
 
 const STATES: Record<string, string> = {
-  created: "erstellt",
-  restarting: "startet neu",
-  removing: "wird entfernt",
-  paused: "angehalten",
-  exited: "beendet",
-  dead: "tot",
+  created: "created",
+  restarting: "restarting",
+  removing: "removing",
+  paused: "paused",
+  exited: "exited",
+  dead: "dead",
 }
 
 /**
@@ -103,23 +103,26 @@ export function DriftBadge({ drift }: { drift: string }) {
   switch (drift) {
     case "UP_TO_DATE":
       return (
-        <StatusBadge tone="ok" title="Das laufende Image trägt den Digest, den die Registry nennt.">
-          aktuell
+        <StatusBadge tone="ok" title="The running image carries the digest the registry names.">
+          up to date
         </StatusBadge>
       )
     case "OUTDATED":
       return (
-        <StatusBadge tone="warn" title="Die Registry hat ein neueres Image als dieser Container.">
-          veraltet
+        <StatusBadge tone="warn" title="The registry has a newer image than this container.">
+          outdated
         </StatusBadge>
       )
     default:
       return (
         <StatusBadge
           tone="idle"
-          title="Nicht verglichen – entweder trägt das Image keinen Registry-Digest (hier gebaut, nirgends veröffentlicht), oder die Registry hat nicht geantwortet. Das ist nicht „aktuell“."
+          title={
+            'Not compared - either the image carries no registry digest (built here, published' +
+            ' nowhere), or the registry did not answer. That is not "up to date".'
+          }
         >
-          ungeprüft
+          unchecked
         </StatusBadge>
       )
   }
@@ -139,20 +142,20 @@ export function RunStatus({ status }: { status: string }) {
 }
 
 const RUN_STATUS: Record<string, string> = {
-  PENDING: "wartet",
-  RUNNING: "läuft",
-  DONE: "fertig",
-  FAILED: "fehlgeschlagen",
-  CANCELLED: "abgebrochen",
+  PENDING: "waiting",
+  RUNNING: "running",
+  DONE: "done",
+  FAILED: "failed",
+  CANCELLED: "cancelled",
 }
 
 /** What kind of run it was. Not a status - a noun. */
 export const RUN_KIND: Record<string, string> = {
   UPDATE: "Update",
-  BACKUP: "Sicherung",
-  RESTART: "Neustart",
+  BACKUP: "Backup",
+  RESTART: "Restart",
   // Two kinds nothing in this interface asks for, but old rows carry them and a table that printed
   // the enum name for them would look broken rather than historical.
-  REPORT: "Bericht",
-  APPLY: "Anwenden",
+  REPORT: "Report",
+  APPLY: "Apply",
 }

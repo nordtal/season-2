@@ -11,7 +11,7 @@ import {
 } from "@/lib/health"
 
 /**
- * The Ampel, held against the four triggers §10c says it has.
+ * The traffic light, held against the four triggers §10c says it has.
  *
  * Two rules are worth more than the rest and both are here twice, once at the boundary and once a
  * step past it: a green light is only ever the result of having looked, and a red trigger never
@@ -50,7 +50,7 @@ function backup(hoursAgo: number, over: Partial<Backup> = {}): Backup {
   return {
     name: "nordtal-2026-09-12.tar.zst",
     bytes: 1_500_000_000,
-    human: "1,5 GB",
+    human: "1.5 GB",
     modified: new Date(NOW - hoursAgo * HOUR).toISOString(),
     partial: false,
     ...over,
@@ -101,8 +101,8 @@ describe("summarise - a stack with nothing wrong", () => {
     const { level, triggers } = summarise({ table: table([]), now: NOW })
 
     expect(level).toBe("warn")
-    expect(triggers[0].text).toBe("Es ist kein Dienst da - Docker hat eine leere Liste geliefert.")
-    expect(triggers[0].to).toBe("/betrieb")
+    expect(triggers[0].text).toBe("There is no service at all - Docker returned an empty list.")
+    expect(triggers[0].to).toBe("/operations")
   })
 
   it("says nothing about an empty list that was never asked for", () => {
@@ -121,7 +121,7 @@ describe("summarise - a service that is not running", () => {
 
     expect(level).toBe("down")
     expect(triggers).toHaveLength(1)
-    expect(triggers[0].text).toBe("smp läuft nicht (Exited (1) 2 minutes ago).")
+    expect(triggers[0].text).toBe("smp is not running (Exited (1) 2 minutes ago).")
   })
 
   it("points at the page where something can be done about it", () => {
@@ -130,8 +130,8 @@ describe("summarise - a service that is not running", () => {
       table: table([service({ service: "postgres", state: "exited", status: "" })]),
     })
 
-    // The route is /dienste/$name in router.tsx; a trigger that points nowhere is a dead end.
-    expect(triggers[0].to).toBe("/dienste/$name")
+    // The route is /services/$name in router.tsx; a trigger that points nowhere is a dead end.
+    expect(triggers[0].to).toBe("/services/$name")
     expect(triggers[0].params).toEqual({ name: "postgres" })
   })
 
@@ -141,7 +141,7 @@ describe("summarise - a service that is not running", () => {
       table: table([service({ state: "dead", status: "" })]),
     })
 
-    expect(triggers[0].text).toBe("smp läuft nicht (dead).")
+    expect(triggers[0].text).toBe("smp is not running (dead).")
   })
 
   it("counts a container that keeps restarting as down, because a crash loop looks busy", () => {
@@ -152,7 +152,7 @@ describe("summarise - a service that is not running", () => {
     })
 
     expect(level).toBe("down")
-    expect(triggers[0].text).toContain("läuft nicht")
+    expect(triggers[0].text).toContain("is not running")
   })
 
   it("is red for a container that runs but reports itself unhealthy", () => {
@@ -162,7 +162,7 @@ describe("summarise - a service that is not running", () => {
     })
 
     expect(level).toBe("down")
-    expect(triggers[0].text).toBe("smp läuft, meldet sich aber als unhealthy.")
+    expect(triggers[0].text).toBe("smp is running, but reports itself unhealthy.")
   })
 
   it("is quiet for a container with no healthcheck and for one still starting", () => {
@@ -182,8 +182,8 @@ describe("summarise - image drift", () => {
 
     expect(level).toBe("warn")
     expect(triggers).toHaveLength(1)
-    expect(triggers[0].text).toBe("smp läuft auf einem älteren Image als die Registry hat.")
-    expect(triggers[0].to).toBe("/betrieb")
+    expect(triggers[0].text).toBe("smp is running an older image than the registry has.")
+    expect(triggers[0].to).toBe("/operations")
   })
 
   it("counts them and lists them when more than one is behind", () => {
@@ -197,7 +197,7 @@ describe("summarise - image drift", () => {
     })
 
     expect(triggers).toHaveLength(1)
-    expect(triggers[0].text).toContain("2 Dienste")
+    expect(triggers[0].text).toContain("2 services")
     expect(triggers[0].text).toContain("smp, bot")
     expect(triggers[0].text.endsWith(".")).toBe(true)
   })
@@ -210,7 +210,7 @@ describe("summarise - image drift", () => {
     })
 
     expect(level).toBe("warn")
-    expect(triggers[0].text).toContain("nicht verglichen")
+    expect(triggers[0].text).toContain("were not compared")
     expect(triggers[0].text).toContain("504 vom Proxy")
   })
 
@@ -220,7 +220,7 @@ describe("summarise - image drift", () => {
       table: table([service()], { reached: false, message: undefined }),
     })
 
-    expect(triggers[0].text).toContain("die Registry antwortete nicht")
+    expect(triggers[0].text).toContain("the registry did not answer")
   })
 
   it("does not turn yellow for a single image that carries no registry digest", () => {
@@ -249,8 +249,8 @@ describe("summarise - the backup", () => {
     const { level, triggers } = summarise({ ...healthy(), backups: [] })
 
     expect(level).toBe("down")
-    expect(triggers[0].text).toBe("Es liegt keine einzige Sicherung vor.")
-    expect(triggers[0].to).toBe("/betrieb")
+    expect(triggers[0].text).toBe("There is not a single backup.")
+    expect(triggers[0].to).toBe("/operations")
   })
 
   it("distinguishes no backup at all from one that was only ever started", () => {
@@ -259,7 +259,7 @@ describe("summarise - the backup", () => {
     const { level, triggers } = summarise({ ...healthy(), backups: [backup(1, { partial: true })] })
 
     expect(level).toBe("down")
-    expect(triggers[0].text).toBe("Es liegt keine fertige Sicherung vor - nur angefangene (.partial).")
+    expect(triggers[0].text).toBe("There is no finished backup - only started ones (.partial).")
   })
 
   it("is quiet for a backup exactly at the age the thresholds still allow", () => {
@@ -277,10 +277,10 @@ describe("summarise - the backup", () => {
     })
 
     expect(level).toBe("down")
-    expect(triggers[0].text).toContain("36 Stunden")
+    expect(triggers[0].text).toContain("36 hours")
     // The age is spelled by `relative`, which at day distance uses the calendar words. Pinned so
-    // that a sentence saying only "älter als erlaubt" without saying how old would break here.
-    expect(triggers[0].text).toContain("vorgestern")
+    // that a sentence saying only "older than allowed" without saying how old would break here.
+    expect(triggers[0].text).toContain("2 days ago")
   })
 
   it("judges the newest finished archive, not the first row in the list", () => {
@@ -301,7 +301,7 @@ describe("summarise - the backup", () => {
     })
 
     expect(level).toBe("down")
-    expect(triggers[0].text).toContain("älter als die erlaubten")
+    expect(triggers[0].text).toContain("older than the permitted")
   })
 
   it("is red rather than quietly fine when the newest archive has no readable timestamp", () => {
@@ -328,8 +328,8 @@ describe("summarise - disk and memory", () => {
     })
 
     expect(level).toBe("warn")
-    expect(triggers[0].text).toContain("zu 85 % belegt")
-    expect(triggers[0].text).toContain("Schwelle 85 %")
+    expect(triggers[0].text).toContain("85 % full")
+    expect(triggers[0].text).toContain("threshold 85 %")
   })
 
   it("says nothing a hair below the threshold", () => {
@@ -342,17 +342,17 @@ describe("summarise - disk and memory", () => {
   })
 
   it("prints the disk figure as a whole percent, not to three decimals", () => {
-    // This sentence is where the Intl default showed up: "zu 87,457 % belegt" in a line an
+    // This sentence is where the Intl default showed up: "87.457 % full" in a line an
     // operator is meant to read at a glance.
     const { triggers } = summarise({
       ...healthy(),
       host: host({ diskTotalBytes: 100_000_000_000, diskUsedBytes: 87_456_700_000 }),
     })
 
-    expect(triggers[0].text).toContain("zu 87 % belegt")
+    expect(triggers[0].text).toContain("87 % full")
     // The byte counts in the same sentence do carry a decimal, so only the percentage is pinned:
-    // what must not come back is "zu 87,457 % belegt".
-    expect(triggers[0].text).toMatch(/ist zu \d+ % belegt/)
+    // what must not come back is "87.457 % full".
+    expect(triggers[0].text).toMatch(/is \d+ % full/)
   })
 
   it("puts both byte counts in the sentence, so the percentage can be checked", () => {
@@ -361,7 +361,7 @@ describe("summarise - disk and memory", () => {
       host: host({ diskTotalBytes: 100_000_000_000, diskUsedBytes: 90_000_000_000 }),
     })
 
-    expect(triggers[0].text).toContain("90,0 GB von 100,0 GB")
+    expect(triggers[0].text).toContain("90.0 GB of 100.0 GB")
   })
 
   it("measures memory as total minus available, which is not total minus used", () => {
@@ -373,8 +373,8 @@ describe("summarise - disk and memory", () => {
     })
 
     expect(level).toBe("warn")
-    expect(triggers[0].text).toContain("zu 95 % belegt")
-    expect(triggers[0].text).toContain("Schwelle 90 %")
+    expect(triggers[0].text).toContain("95 % used")
+    expect(triggers[0].text).toContain("threshold 90 %")
   })
 
   it("turns yellow at the memory threshold itself", () => {
@@ -387,7 +387,7 @@ describe("summarise - disk and memory", () => {
   })
 
   it("does not divide by a size it does not have", () => {
-    // A host whose df could not be read arrives with the fields missing, and "NaN % belegt" is
+    // A host whose df could not be read arrives with the fields missing, and "NaN % full" is
     // worse than silence.
     for (const broken of [
       { diskTotalBytes: undefined, diskUsedBytes: 40_000_000_000 },
@@ -436,8 +436,8 @@ describe("summarise - several things at once", () => {
     })
 
     expect(triggers.map((trigger) => trigger.text)).toEqual([
-      "smp läuft nicht (Exited (0)).",
-      "postgres läuft nicht (Exited (0)).",
+      "smp is not running (Exited (0)).",
+      "postgres is not running (Exited (0)).",
     ])
   })
 
@@ -494,7 +494,7 @@ describe("shownLevel", () => {
     expect(triggers).toEqual([])
     expect(shownLevel(level, true)).toBe("warn")
     expect(UNKNOWN).not.toBe(ALL_CLEAR)
-    expect(UNKNOWN).toContain("nicht sagen")
+    expect(UNKNOWN).toContain("cannot be said")
   })
 })
 
@@ -544,9 +544,9 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
   })
 
   it("says nothing about the age of the newest backup, however old it is", () => {
-    // Three weeks, and green. The page is what has to catch this: zustand.tsx puts `settings` in
+    // Three weeks, and green. The page is what has to catch this: status.tsx puts `settings` in
     // `waiting` and in `failed` alongside the other three queries, so an unanswered /api/settings
-    // draws either "Zustand wird gelesen…" or the yellow "konnte nicht gelesen werden". Take that
+    // draws either "Reading status…" or the yellow "could not be fetched". Take that
     // away and this green is what the operator sees over a backup from the 23rd.
     const { level, triggers } = summarise({ ...blind(), backups: [backup(500)] })
 
@@ -598,14 +598,14 @@ describe("summarise - with no thresholds, the checks that need no number", () =>
     const { level, triggers } = summarise({ ...blind(), backups: [] })
 
     expect(level).toBe("down")
-    expect(triggers[0].text).toBe("Es liegt keine einzige Sicherung vor.")
+    expect(triggers[0].text).toBe("There is not a single backup.")
   })
 
   it("still distinguishes no backup from one that was only ever started", () => {
     const { level, triggers } = summarise({ ...blind(), backups: [backup(1, { partial: true })] })
 
     expect(level).toBe("down")
-    expect(triggers[0].text).toBe("Es liegt keine fertige Sicherung vor - nur angefangene (.partial).")
+    expect(triggers[0].text).toBe("There is no finished backup - only started ones (.partial).")
   })
 
   it("still turns red for a service that is not running", () => {
@@ -615,7 +615,7 @@ describe("summarise - with no thresholds, the checks that need no number", () =>
     })
 
     expect(level).toBe("down")
-    expect(triggers[0].text).toBe("smp läuft nicht (Exited (1)).")
+    expect(triggers[0].text).toBe("smp is not running (Exited (1)).")
   })
 
   it("still turns red for a container that runs and calls itself unhealthy", () => {
@@ -645,7 +645,7 @@ describe("summarise - with no thresholds, the checks that need no number", () =>
     const { level, triggers } = summarise({ ...blind(), table: table([]) })
 
     expect(level).toBe("warn")
-    expect(triggers[0].text).toContain("kein Dienst")
+    expect(triggers[0].text).toContain("no service at all")
   })
 
   it("keeps sorting red before yellow when the thresholds are missing", () => {

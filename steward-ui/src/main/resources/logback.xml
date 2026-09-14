@@ -5,7 +5,7 @@
       it is a defect. Measured on 2026-09-13 by running the built image: Jetty wrote six lines per
       request about selector endpoints and thread pool eviction, so an idle interface with a
       polling browser filled the log faster than anything a person could read. Docker keeps 10 MB
-      in five files per container, and that buffer is what the log search on the Dienst page reads,
+      in five files per container, and that buffer is what the log search on the service page reads,
       so a debug flood is also how a container's whole searchable history becomes twenty minutes.
     -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">

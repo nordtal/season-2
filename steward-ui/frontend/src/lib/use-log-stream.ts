@@ -77,7 +77,7 @@ export function useLogStream(service: string, tail = 200): LogStream {
   /**
    * The window belongs to ONE service, and the page can change which one without remounting.
    *
-   * `/dienste/$name` carries no `remountDeps`, and TanStack Router only keys a match when it has
+   * `/services/$name` carries no `remountDeps`, and TanStack Router only keys a match when it has
    * some - so walking from smp to the proxy re-renders this hook with a new name instead of giving
    * it a new instance. Without this the new service's heading sat above the old one's lines, `seq`
    * carried on from the old stream, and a pause held over the navigation flushed lines from a
@@ -129,7 +129,7 @@ export function useLogStream(service: string, tail = 200): LogStream {
       // given up on reports CLOSED, and that is the only case worth telling the reader about.
       if (source.readyState === EventSource.CLOSED) {
         setState("closed")
-        setError((current) => current ?? "Die Verbindung zum Logstrom ist abgerissen.")
+        setError((current) => current ?? "The connection to the log stream was lost.")
       }
     }
 

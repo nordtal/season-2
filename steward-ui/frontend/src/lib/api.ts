@@ -14,7 +14,7 @@
  * Three, because the deployment is three (concept §3): the interface, the one process that holds
  * the docker socket, and the one process allowed to create a container. They fail differently and
  * mean different things - a stopped worker is a stack nobody can see, a stopped deployer is a
- * stack nobody can change - so the sentence on screen must not collapse them into "etwas ist
+ * stack nobody can change - so the sentence on screen must not collapse them into "something is
  * kaputt".
  */
 export type Where = "steward-ui" | "steward-worker" | "steward-deployer"
@@ -79,7 +79,7 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
   } catch (cause) {
     // The request never arrived anywhere. That is this interface being unreachable - a stopped
     // steward-ui, a proxy in the way, or a browser that is offline - and never the worker.
-    throw new ApiError(0, "Die Oberfläche ist nicht erreichbar.", "steward-ui", String(cause))
+    throw new ApiError(0, "The interface cannot be reached.", "steward-ui", String(cause))
   }
 
   if (response.status === 204) return undefined as T
@@ -295,7 +295,7 @@ export type LogSearch = { lines: string[]; limit: number; truncated: boolean }
  * wired to `JavalinGson(new Gson(), true)` and Gson omits nulls, so a person with no linked
  * Minecraft account arrives WITHOUT `minecraftUuid` rather than with `null`. Typing these
  * `string | null` compiled fine and let `x !== null` through - which is true for every unlinked
- * person and would have made a "nur verknüpfte" filter quietly show everybody.
+ * person and would have made a "linked only" filter quietly show everybody.
  *
  * `accessUntil` is the latest `valid_until` over ALL grants, revoked ones included, while
  * `accessActive` is the full login predicate. The pair is deliberate: a revoked person showing no
@@ -461,7 +461,7 @@ export type CommandRun = {
  * Whether the recreate button may be drawn at all.
  *
  * Asked before anybody clicks, because a stack whose setup script has not run yet has no shared
- * secret for the deployer - and "nicht eingerichtet" is a different sentence from "kaputt".
+ * secret for the deployer - and "not configured" is a different sentence from "broken".
  */
 export type DeployerState = {
   available: boolean

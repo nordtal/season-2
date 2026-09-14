@@ -18,7 +18,16 @@ import {
 import { toast } from "sonner"
 
 import type { Backup, ReportChange, ReportLine, Run, ServiceTable } from "@/lib/api"
-import { bytes, count, dateTime, duration, parseInstant, relative, since } from "@/lib/format"
+import {
+  LOCALE,
+  bytes,
+  count,
+  dateTime,
+  duration,
+  parseInstant,
+  relative,
+  since,
+} from "@/lib/format"
 import {
   useAskForRun,
   useBackups,
@@ -77,7 +86,7 @@ import {
 } from "@/components/ui/table"
 
 /**
- * Betrieb - the five pages about runs, images, backups and the way back (concept §10a).
+ * Operations - the five pages about runs, images, backups and the way back (concept §10a).
  *
  * **A run is a row in `update_request`, never a call to a container.** Every button here writes one
  * and stops; the worker claims it once `not_before` has passed. That is what makes a run
@@ -107,21 +116,21 @@ const TRAIL = [
 ] as const
 
 const STAGE_LABEL: Record<string, string> = {
-  RESOLVING: "Ermittelt",
-  PLANNED: "Geplant",
+  RESOLVING: "Resolving",
+  PLANNED: "Planned",
   COUNTDOWN: "Countdown",
-  STOPPING: "Stoppt",
-  BACKING_UP: "Sichert",
-  INSTALLING: "Installiert",
-  STARTING: "Startet",
-  VERIFYING: "Prüft",
-  DONE: "Fertig",
-  NOTHING_TO_DO: "Nichts zu tun",
-  FAILED: "Fehlgeschlagen",
-  CANCELLED: "Abgebrochen",
+  STOPPING: "Stopping",
+  BACKING_UP: "Backing up",
+  INSTALLING: "Installing",
+  STARTING: "Starting",
+  VERIFYING: "Verifying",
+  DONE: "Done",
+  NOTHING_TO_DO: "Nothing to do",
+  FAILED: "Failed",
+  CANCELLED: "Cancelled",
 }
 
-/** The four stages a run stops at. `NOTHING_TO_DO` is one of them and is not a kind of „fertig". */
+/** The four stages a run stops at. `NOTHING_TO_DO` is one of them and is not a kind of "done". */
 const ENDINGS = new Set(["DONE", "NOTHING_TO_DO", "FAILED", "CANCELLED"])
 
 /**
@@ -129,8 +138,8 @@ const ENDINGS = new Set(["DONE", "NOTHING_TO_DO", "FAILED", "CANCELLED"])
  *
  * A run that found nothing to do stopped no server and installed nothing. Painting it in the same
  * colour as a finished update makes the two indistinguishable in a list - and the difference
- * between „es wurde aktualisiert" and „es gab nichts zu aktualisieren" is exactly what somebody
- * scanning this table is looking for.
+ * between "it was updated" and "there was nothing to update" is exactly what somebody scanning
+ * this table is looking for.
  */
 function stageTone(stage: string): Tone {
   if (stage === "DONE") return "ok"
@@ -144,14 +153,14 @@ function StageBadge({ stage }: { stage: string }) {
 }
 
 const LINE_STATE: Record<string, { label: string; tone: Tone }> = {
-  UNCHANGED: { label: "unverändert", tone: "idle" },
-  PLANNED: { label: "wartet", tone: "idle" },
-  STOPPED: { label: "gestoppt", tone: "warn" },
-  INSTALLED: { label: "installiert", tone: "warn" },
-  SAVED: { label: "gesichert", tone: "ok" },
-  STARTING: { label: "startet", tone: "warn" },
-  HEALTHY: { label: "gesund", tone: "ok" },
-  FAILED: { label: "fehlgeschlagen", tone: "down" },
+  UNCHANGED: { label: "unchanged", tone: "idle" },
+  PLANNED: { label: "waiting", tone: "idle" },
+  STOPPED: { label: "stopped", tone: "warn" },
+  INSTALLED: { label: "installed", tone: "warn" },
+  SAVED: { label: "saved", tone: "ok" },
+  STARTING: { label: "starting", tone: "warn" },
+  HEALTHY: { label: "healthy", tone: "ok" },
+  FAILED: { label: "failed", tone: "down" },
 }
 
 function LineState({ state }: { state: string }) {
@@ -173,7 +182,7 @@ function Change({ change }: { change: ReportChange }) {
   if (change.state === "UNSUPPORTED") {
     return (
       <span className="text-muted-foreground">
-        <code className="text-xs">{change.artefact}</code> – kein Build für diese
+        <code className="text-xs">{change.artefact}</code> - no build for this
         Minecraft-Version
       </span>
     )
@@ -187,7 +196,7 @@ function Change({ change }: { change: ReportChange }) {
           <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
         </>
       ) : (
-        <span className="text-muted-foreground">neu:</span>
+        <span className="text-muted-foreground">new:</span>
       )}
       <span className="tnum">{change.to}</span>
     </span>
@@ -200,7 +209,7 @@ function Change({ change }: { change: ReportChange }) {
  * Deliberately not `state === "MOVING"`. `UpdateReports` omits the field entirely when it is MOVING
  * and writes it only for UNSUPPORTED - measured against runs 22 and 24 in this host's database on
  * 2026-09-13 - while steward-ui parses that JSON into the record and re-writes it through Gson,
- * which puts the field back. „Anything that is not UNSUPPORTED" is true of both shapes; a literal
+ * which puts the field back. "Anything that is not UNSUPPORTED" is true of both shapes; a literal
  * comparison is true of one of them, and silently counts nothing on the other.
  */
 function isMoving(change: ReportChange): boolean {
@@ -223,14 +232,14 @@ function runSeconds(run: Run): number | null {
  * says so).
  */
 function summaryOf(run: Run): string {
-  if (run.resultText) return "Bericht nicht lesbar"
+  if (run.resultText) return "report unreadable"
   const report = run.report
-  if (!report) return run.status === "PENDING" ? "noch nichts geschrieben" : "–"
-  if (report.stage === "NOTHING_TO_DO") return "nichts zu tun"
+  if (!report) return run.status === "PENDING" ? "nothing written yet" : "–"
+  if (report.stage === "NOTHING_TO_DO") return "nothing to do"
 
   const parts: string[] = []
   const saved = report.services.filter((line) => line.state === "SAVED")
-  if (saved.length > 0) parts.push(`${count(saved.length)} gesichert`)
+  if (saved.length > 0) parts.push(`${count(saved.length)} saved`)
 
   const moving = report.services.filter((line) => line.changes.some(isMoving))
   if (moving.length > 0) {
@@ -239,22 +248,22 @@ function summaryOf(run: Run): string {
       0,
     )
     parts.push(
-      `${count(moving.length)} ${moving.length === 1 ? "Dienst" : "Dienste"}, ` +
-        `${count(artefacts)} ${artefacts === 1 ? "Artefakt" : "Artefakte"}`,
+      `${count(moving.length)} ${moving.length === 1 ? "service" : "services"}, ` +
+        `${count(artefacts)} ${artefacts === 1 ? "artefact" : "artefacts"}`,
     )
   }
 
   const failed = report.services.filter((line) => line.state === "FAILED")
-  if (failed.length > 0) parts.push(`${count(failed.length)} fehlgeschlagen`)
+  if (failed.length > 0) parts.push(`${count(failed.length)} failed`)
 
   if (parts.length > 0) return parts.join(" · ")
-  return report.services.length === 0 ? "keine Zeile im Bericht" : "keine Änderung"
+  return report.services.length === 0 ? "no line in the report" : "no change"
 }
 
 const SOURCE_LABEL: Record<string, string> = {
   DISCORD: "Discord",
-  GAME: "im Spiel",
-  CONSOLE: "Oberfläche/Konsole",
+  GAME: "in game",
+  CONSOLE: "Interface/console",
 }
 
 // --- asking for a run ----------------------------------------------------------------------------
@@ -262,7 +271,7 @@ const SOURCE_LABEL: Record<string, string> = {
 type Kind = "UPDATE" | "BACKUP" | "RESTART"
 
 /**
- * How long before the worker's own backup „heute Nacht" lands.
+ * How long before the worker's own backup "tonight" lands.
  *
  * Before that clock rather than on top of it: update and backup take the same lock, so two runs at
  * the same minute are one run waiting for the other with the network already down. Forty-five
@@ -271,14 +280,14 @@ type Kind = "UPDATE" | "BACKUP" | "RESTART"
  */
 export const MINUTES_BEFORE_BACKUP = 45
 
-/** The hour „heute Nacht" means when there is no nightly backup to stay out of the way of. */
+/** The hour "tonight" means when there is no nightly backup to stay out of the way of. */
 const NIGHT_HOUR = 4
 
 /**
- * When „heute Nacht" is.
+ * When "tonight" is.
  *
- * THIS USED TO BE 04:00 IN THE BROWSER'S TIME ZONE, and the dialog said it was „kurz vor der
- * eigenen Sicherungsuhr des Workers" - a promise it could not keep. The worker's clock runs in the
+ * THIS USED TO BE 04:00 IN THE BROWSER'S TIME ZONE, and the dialog said it was "shortly before the
+ * worker's own backup clock" - a promise it could not keep. The worker's clock runs in the
  * container's zone (compose sets `TZ`), so an admin an hour east of the host scheduled 03:00 there,
  * and one two hours west scheduled 06:00: after the backup, which is exactly the collision the
  * offer exists to avoid. So the moment is derived from what the worker says its next backup is.
@@ -319,20 +328,20 @@ const ASKS: Record<
   UPDATE: {
     title: "Update eintragen",
     what:
-      "Fragt jede Quelle nach der neuesten Version, stoppt die Dienste, bei denen sich etwas ändert, tauscht deren Jars und startet sie wieder. Ist nichts neu, wird nichts gestoppt – der Lauf endet dann bei „Nichts zu tun\".",
+      "Asks every source for the newest version, stops the services where something changes, swaps their jars and starts them again. If nothing is new, nothing is stopped - the run then ends at \"Nothing to do\".",
     icon: RefreshCw,
   },
   BACKUP: {
-    title: "Sicherung eintragen",
+    title: "Enter a backup",
     what:
-      "Zieht zuerst den Datenbankabzug (dafür wird nichts gestoppt), stoppt dann smp, network-control und den Bot, packt jedes Volume und startet alles wieder.",
-    warning: "Solange gepackt wird, ist das Netzwerk nicht erreichbar.",
+      "Takes the database dump first (nothing is stopped for that), then stops smp, network-control and the bot, packs every volume and starts everything again.",
+    warning: "While the packing runs, the network cannot be reached.",
     icon: Archive,
   },
   RESTART: {
-    title: "Neustart eintragen",
-    what: "Stoppt die Dienste des Netzwerks und startet sie wieder. Es wird nichts getauscht.",
-    warning: "Ein Neustart wirft jeden Spieler vom SMP.",
+    title: "Enter a restart",
+    what: "Stops the services of the network and starts them again. Nothing is swapped.",
+    warning: "A restart throws every player off the SMP.",
     icon: RotateCcw,
   },
 }
@@ -342,7 +351,7 @@ const ASKS: Record<
  *
  * The dialog is not a formality: all three of these stop servers, and the middle one is the only
  * page in this interface that can empty the SMP. So it names what will happen before it happens,
- * and it offers „heute Nacht" beside „sofort" - which costs one number in the request body and is
+ * and it offers "tonight" beside "now" - which costs one number in the request body and is
  * the difference between an operator waiting up and an operator going to bed.
  */
 function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "default" | "outline" }) {
@@ -369,14 +378,14 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
       { kind, delaySeconds },
       {
         onSuccess: (run) => {
-          toast.success(`${RUN_KIND[kind]} als Lauf #${run.id} eingetragen`, {
+          toast.success(`${RUN_KIND[kind]} entered as run #${run.id}`, {
             description: delaySeconds
-              ? `steward-worker holt die Zeile frühestens ${dateTime(run.notBefore)} ab.`
-              : "steward-worker holt die Zeile beim nächsten Durchgang ab.",
+              ? `steward-worker picks the row up no earlier than ${dateTime(run.notBefore)}.`
+              : "steward-worker picks the row up on its next pass.",
           })
         },
         onError: (error) => {
-          toast.error(`${RUN_KIND[kind]} wurde nicht eingetragen`, { description: String(error) })
+          toast.error(`${RUN_KIND[kind]} was not entered`, { description: String(error) })
         },
       },
     )
@@ -404,50 +413,50 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
             </p>
           ) : null}
           <p className="text-muted-foreground">
-            Dieser Knopf schreibt nur eine Zeile in <code className="text-xs">update_request</code>.
-            steward-worker holt sie ab, sobald ihr Zeitpunkt erreicht ist, und lässt vor jedem Stopp
-            einen Countdown laufen, den jeder Spieler sieht.
+            This button only writes a row into <code className="text-xs">update_request</code>.
+            steward-worker picks it up once its moment has come, and runs a countdown every player
+            sees before each stop.
           </p>
           <p className="text-muted-foreground">
-            Einen Abbruch-Knopf hat diese Oberfläche noch nicht – die API kennt bisher nur das
-            Eintragen und das Lesen eines Laufs.
+            This interface has no cancel button yet - the API so far knows only entering a run and
+            reading one.
           </p>
           <p className="text-muted-foreground">
-            „Heute Nacht" heißt <span className="text-foreground tnum">{dateTime(night)}</span>
+            "Tonight" means <span className="text-foreground tnum">{dateTime(night)}</span>
             {schedule.data?.nextBackupAt ? (
               <>
                 {" "}
-                – {MINUTES_BEFORE_BACKUP} Minuten vor der eigenen Sicherungsuhr des Workers (
-                {schedule.data.backupAt} {schedule.data.zone}), damit sich beide nicht um dieselbe
+                - {MINUTES_BEFORE_BACKUP} minutes before the worker's own backup clock (
+                {schedule.data.backupAt} {schedule.data.zone}), so the two do not fight over the same
                 Sperre streiten.
               </>
             ) : schedule.isPending ? (
-              <> – die Sicherungsuhr des Workers wird gerade gelesen.</>
+              <> - the worker's backup clock is being read right now.</>
             ) : (
               <>
                 {" "}
-                – {NIGHT_HOUR} Uhr in der Zeitzone dieses Browsers. Der Worker hat keine nächtliche
-                Sicherung eingetragen (<code className="text-xs">backup.at</code> ist leer), es gibt
-                also keine zweite Uhr, der auszuweichen wäre.
+                - {NIGHT_HOUR}:00 in this browser's time zone. The worker has no nightly backup
+                entered (<code className="text-xs">backup.at</code> is empty), so there is no second
+                clock to avoid.
               </>
             )}
           </p>
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             variant="outline"
             disabled={schedule.isPending}
             onClick={() => submit(delayNow())}
           >
-            Heute Nacht
+            Tonight
           </AlertDialogAction>
           <AlertDialogAction
             variant={kind === "RESTART" ? "destructive" : "default"}
             onClick={() => submit()}
           >
-            Sofort
+            Now
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -465,7 +474,7 @@ function AskBar() {
   )
 }
 
-// --- the drift table, shared by /betrieb and /betrieb/plan ---------------------------------------
+// --- the drift table, shared by /operations and /operations/plan ---------------------------------------
 
 /** Whatever wants attention first: OUTDATED, then UNKNOWN, then UP_TO_DATE, then by name. */
 const DRIFT_RANK: Record<string, number> = { OUTDATED: 0, UP_TO_DATE: 2 }
@@ -479,7 +488,7 @@ function DriftCard({ note }: { note?: string }) {
         <CardTitle className="text-sm font-medium">Images</CardTitle>
         <CardDescription>
           {note ??
-            "Was die Registry hat, verglichen mit dem, was läuft. Der Vergleich ist ein zwischengespeichertes Ergebnis, keine Live-Abfrage."}
+            "What the registry has, compared with what is running. The comparison is a cached result, not a live query."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -487,8 +496,8 @@ function DriftCard({ note }: { note?: string }) {
           query={services}
           rows={6}
           empty={{
-            title: "Kein Container im Projekt",
-            note: "steward-worker hat geantwortet, aber kein Container trägt das Compose-Projektlabel.",
+            title: "No container in the project",
+            note: "steward-worker answered, but no container carries the compose project label.",
           }}
           isEmpty={(table: ServiceTable) => table.services.length === 0}
         >
@@ -496,19 +505,19 @@ function DriftCard({ note }: { note?: string }) {
             const rows = [...table.services].sort(
               (left, right) =>
                 (DRIFT_RANK[left.drift] ?? 1) - (DRIFT_RANK[right.drift] ?? 1) ||
-                left.service.localeCompare(right.service, "de"),
+                left.service.localeCompare(right.service, LOCALE),
             )
             return (
               <>
                 <p className="text-xs text-muted-foreground">
                   {table.drift.checkedAt
-                    ? `Registry zuletzt gefragt ${relative(table.drift.checkedAt)} (${dateTime(table.drift.checkedAt)}) – so alt ist dieser Vergleich, nicht die Zeile daneben.`
-                    : "Die Registry wurde noch nicht gefragt; keine Zeile unten ist ein Vergleich."}
+                    ? `Registry last asked ${relative(table.drift.checkedAt)} (${dateTime(table.drift.checkedAt)}) - that is the age of this comparison, not of the row beside it.`
+                    : "The registry has not been asked yet; no row below is a comparison."}
                 </p>
                 {table.drift.reached === false ? (
                   <p className="flex items-start gap-2 text-xs text-warning">
                     <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                    Die Registry war nicht erreichbar
+                    The registry could not be reached
                     {table.drift.reason ? ` (${table.drift.reason})` : ""}.
                     {table.drift.message ? ` ${table.drift.message}` : ""}
                   </p>
@@ -517,7 +526,7 @@ function DriftCard({ note }: { note?: string }) {
                 <Table className="steward-table">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[14rem]">Dienst</TableHead>
+                      <TableHead className="w-[14rem]">Service</TableHead>
                       <TableHead>Image</TableHead>
                       <TableHead className="w-[8rem]">Vergleich</TableHead>
                       <TableHead className="w-[10rem] text-right">Container</TableHead>
@@ -528,7 +537,7 @@ function DriftCard({ note }: { note?: string }) {
                       <TableRow key={service.service}>
                         <TableCell className="font-medium">
                           <Link
-                            to="/dienste/$name"
+                            to="/services/$name"
                             params={{ name: service.service }}
                             className="underline-offset-4 hover:text-primary hover:underline"
                           >
@@ -551,11 +560,10 @@ function DriftCard({ note }: { note?: string }) {
 
                 {table.drift.unverifiable.length > 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    Ungeprüft: {table.drift.unverifiable.join(", ")} – entweder trägt das Image
-                    keinen Registry-Digest (hier gebaut und nirgends hingeschoben), oder die
-                    Registry hat für dieses Image nicht geantwortet. Der Worker unterscheidet beides
-                    intern; hier steht nur, dass verglichen nicht werden konnte. Das ist nicht
-                    „aktuell".
+                    Unchecked: {table.drift.unverifiable.join(", ")} - either the image carries no
+                    registry digest (built here and pushed nowhere), or the registry did not answer
+                    for it. The worker tells the two apart internally; here it only says that no
+                    comparison was possible. That is not "up to date".
                   </p>
                 ) : null}
               </>
@@ -567,7 +575,7 @@ function DriftCard({ note }: { note?: string }) {
   )
 }
 
-// --- 1. /betrieb ---------------------------------------------------------------------------------
+// --- 1. /operations ---------------------------------------------------------------------------------
 
 /**
  * The overview: runs, images and backups on one page.
@@ -576,12 +584,12 @@ function DriftCard({ note }: { note?: string }) {
  * could actually use. The third one comes last on screen and first in consequence - it is what
  * decides whether acting on the other two is safe.
  */
-export function BetriebPage() {
+export function OperationsPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Betrieb"
-        note="Läufe, der Vergleich der Images gegen die Registry und die Sicherungen, die auf der Platte liegen."
+        title="Operations"
+        note="Runs, the comparison of images against the registry, and the backups sitting on the disk."
         actions={<AskBar />}
       />
 
@@ -598,16 +606,16 @@ function RunsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Läufe</CardTitle>
+        <CardTitle className="text-sm font-medium">Runs</CardTitle>
         <CardDescription>
-          Die letzten 20 Zeilen aus <code className="text-xs">update_request</code> – jede von ihnen
-          ein Auftrag, kein Aufruf.
+          The last 20 rows from <code className="text-xs">update_request</code> - each of them an
+          order, not a call.
         </CardDescription>
         <CardAction>
           <Button asChild variant="outline" size="sm">
-            <Link to="/betrieb/plan">
+            <Link to="/operations/plan">
               <FileText aria-hidden />
-              Plan ansehen
+              View the plan
             </Link>
           </Button>
         </CardAction>
@@ -617,8 +625,8 @@ function RunsCard() {
           query={runs}
           rows={8}
           empty={{
-            title: "Noch kein Lauf",
-            note: "In update_request steht keine Zeile – weder von dieser Oberfläche, noch aus Discord, noch von der Uhr des Workers.",
+            title: "No run yet",
+            note: "There is no row in update_request - not from this interface, not from Discord, not from the worker's clock.",
           }}
           isEmpty={(rows: Run[]) => rows.length === 0}
         >
@@ -626,13 +634,13 @@ function RunsCard() {
             <Table className="steward-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[5rem]">Lauf</TableHead>
-                  <TableHead className="w-[7rem]">Art</TableHead>
+                  <TableHead className="w-[5rem]">Run</TableHead>
+                  <TableHead className="w-[7rem]">Kind</TableHead>
                   <TableHead className="w-[9rem]">Status</TableHead>
-                  <TableHead className="w-[14rem]">Angefordert von</TableHead>
-                  <TableHead className="w-[10rem]">Wann</TableHead>
-                  <TableHead className="w-[7rem] text-right">Dauer</TableHead>
-                  <TableHead>Ergebnis</TableHead>
+                  <TableHead className="w-[14rem]">Requested by</TableHead>
+                  <TableHead className="w-[10rem]">When</TableHead>
+                  <TableHead className="w-[7rem] text-right">Duration</TableHead>
+                  <TableHead>Result</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -640,7 +648,7 @@ function RunsCard() {
                   <TableRow key={run.id}>
                     <TableCell className="font-medium tnum">
                       <Link
-                        to="/betrieb/lauf/$id"
+                        to="/operations/runs/$id"
                         params={{ id: String(run.id) }}
                         className="underline-offset-4 hover:text-primary hover:underline"
                       >
@@ -675,7 +683,7 @@ function RunsCard() {
                       {run.report?.stage === "NOTHING_TO_DO" ? (
                         <span className="flex items-center gap-1.5 text-muted-foreground">
                           <CircleSlash className="size-3.5 shrink-0" aria-hidden />
-                          nichts zu tun
+                          nothing to do
                         </span>
                       ) : (
                         summaryOf(run)
@@ -698,11 +706,11 @@ function BackupsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Sicherungen</CardTitle>
+        <CardTitle className="text-sm font-medium">Backups</CardTitle>
         <CardDescription>
-          Was im Sicherungsverzeichnis liegt – gelesen von der Platte, nicht aus dem Bericht eines
-          Laufs. Angefangene Dateien (<code className="text-xs">.partial</code>) stehen mit dabei:
-          eine Liste, die sie verschweigt, sieht ordentlich aus und lügt.
+          What is in the backup directory - read from the disk, not from the report of a run.
+          Started files (<code className="text-xs">.partial</code>) are listed too: a list that
+          hides them looks tidy and lies.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -710,8 +718,8 @@ function BackupsCard() {
           query={backups}
           rows={6}
           empty={{
-            title: "Kein Archiv auf der Platte",
-            note: "Im Sicherungsverzeichnis liegt keine Datei. Ein Lauf der Art „Sicherung\" legt die erste an.",
+            title: "No archive on the disk",
+            note: "There is no file in the backup directory. A run of kind \"Backup\" creates the first one.",
           }}
           isEmpty={(rows: Backup[]) => rows.length === 0}
         >
@@ -720,12 +728,12 @@ function BackupsCard() {
               <Table className="steward-table">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Datei</TableHead>
-                    <TableHead className="w-[9rem]">Inhalt</TableHead>
-                    <TableHead className="w-[12rem]">Zeitpunkt</TableHead>
-                    <TableHead className="w-[8rem]">Alter</TableHead>
-                    <TableHead className="w-[8rem] text-right">Größe</TableHead>
-                    <TableHead className="w-[9rem]">Zustand</TableHead>
+                    <TableHead>File</TableHead>
+                    <TableHead className="w-[9rem]">Contents</TableHead>
+                    <TableHead className="w-[12rem]">Taken</TableHead>
+                    <TableHead className="w-[8rem]">Age</TableHead>
+                    <TableHead className="w-[8rem] text-right">Size</TableHead>
+                    <TableHead className="w-[9rem]">State</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -733,7 +741,7 @@ function BackupsCard() {
                     <TableRow key={backup.name}>
                       <TableCell className="font-medium">
                         <Link
-                          to="/betrieb/sicherung/$id"
+                          to="/operations/backups/$id"
                           params={{ id: backup.name }}
                           className="underline-offset-4 hover:text-primary hover:underline"
                         >
@@ -754,12 +762,12 @@ function BackupsCard() {
                         {backup.partial ? (
                           <StatusBadge
                             tone="warn"
-                            title="Entweder läuft diese Sicherung gerade, oder sie ist abgebrochen. Zurückspielen lässt sich eine .partial-Datei nicht."
+                            title="Either this backup is running right now, or it was aborted. A .partial file cannot be restored."
                           >
-                            unvollständig
+                            incomplete
                           </StatusBadge>
                         ) : (
-                          <StatusBadge tone="ok">fertig</StatusBadge>
+                          <StatusBadge tone="ok">complete</StatusBadge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -769,9 +777,9 @@ function BackupsCard() {
 
               <div className="flex flex-wrap items-center gap-4">
                 <Stat
-                  label="Fertige Archive"
+                  label="Finished archives"
                   value={count(rows.filter((backup) => !backup.partial).length)}
-                  hint={`zusammen ${bytes(
+                  hint={`together ${bytes(
                     rows
                       .filter((backup) => !backup.partial)
                       .reduce((sum, backup) => sum + backup.bytes, 0),
@@ -779,13 +787,13 @@ function BackupsCard() {
                 />
                 <Separator orientation="vertical" className="h-10" />
                 <p className="max-w-prose text-xs text-muted-foreground">
-                  Alle Archive liegen auf derselben Platte wie das, wovon sie eine Kopie sind. Eine
-                  Kopie außer Haus gibt es nicht.
+                  Every archive sits on the same disk as the thing it is a copy of. There is no
+                  off-site copy.
                 </p>
                 <Button asChild variant="outline" size="sm" className="ml-auto">
-                  <Link to="/betrieb/wiederherstellen">
+                  <Link to="/operations/restore">
                     <Download aria-hidden />
-                    Zurückspielen
+                    Restore
                   </Link>
                 </Button>
               </div>
@@ -797,7 +805,7 @@ function BackupsCard() {
   )
 }
 
-// --- 2. /betrieb/plan ----------------------------------------------------------------------------
+// --- 2. /operations/plan ----------------------------------------------------------------------------
 
 /**
  * What a run would change - out of the two sources that actually exist for it.
@@ -808,7 +816,7 @@ function BackupsCard() {
  * image comparison. Both are here, and the page says next to every figure where it came from. An invented
  * preview would be more convenient and would be a lie.
  */
-export function BetriebPlanPage() {
+export function OperationsPlanPage() {
   const runs = useRuns(20)
   const planned = (runs.data ?? []).find(
     (run) => run.report?.stage === "PLANNED" || run.report?.stage === "RESOLVING",
@@ -818,31 +826,30 @@ export function BetriebPlanPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Plan"
-        note="Was ein Lauf ändern würde, bevor er startet – zusammengesetzt aus dem, was es wirklich gibt."
+        note="What a run would change before it starts - assembled from what actually exists."
         actions={<AskButton kind="UPDATE" variant="default" />}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Woher die Zahlen kommen</CardTitle>
+          <CardTitle className="text-sm font-medium">Where the numbers come from</CardTitle>
           <CardDescription>
-            Damit auf dieser Seite nichts steht, was der Server nicht gesagt hat.
+            So that nothing on this page is something the server did not say.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
           <p className="max-w-prose">
-            <strong className="text-foreground">Einen Probelauf gibt es nicht.</strong>{" "}
-            steward-worker kennt keinen Endpunkt, der ausrechnet, was ein Update täte, ohne es zu
-            tun. Diese Seite zeigt deshalb zwei echte Dinge: den Bericht eines Laufs, der die
-            Versionen gerade ermittelt hat und noch nichts angefasst hat, und den Vergleich der
-            Images gegen die Registry.
+            <strong className="text-foreground">There is no dry run.</strong> steward-worker has no
+            endpoint that works out what an update would do without doing it. So this page shows two
+            real things: the report of a run that has just resolved the versions and touched nothing
+            yet, and the comparison of the images against the registry.
           </p>
           <p className="max-w-prose">
-            Ein Lauf steht nur für Sekunden in <code className="text-xs">RESOLVING</code> oder{" "}
-            <code className="text-xs">PLANNED</code>. Findet sich unten keiner, heißt das nicht,
-            dass es nichts zu tun gäbe – es heißt, dass gerade kein Lauf in diesem Zustand steht.
-            Ein reiner Berichtslauf (die alte Art <code className="text-xs">REPORT</code>) lässt
-            sich aus dieser Oberfläche bisher nicht anfordern.
+            A run stands in <code className="text-xs">RESOLVING</code> or{" "}
+            <code className="text-xs">PLANNED</code> for seconds only. If none is found below, that
+            does not mean there is nothing to do - it means no run is in that state right now. A
+            pure report run (the old kind <code className="text-xs">REPORT</code>) cannot be asked
+            for from this interface yet.
           </p>
         </CardContent>
       </Card>
@@ -851,8 +858,8 @@ export function BetriebPlanPage() {
         <CardHeader>
           <CardTitle className="text-sm font-medium">Zuletzt ermittelt</CardTitle>
           <CardDescription>
-            Der jüngste Lauf, dessen Bericht noch in <code className="text-xs">RESOLVING</code>{" "}
-            oder <code className="text-xs">PLANNED</code> steht.
+            The most recent run whose report still stands in{" "}
+            <code className="text-xs">RESOLVING</code> or <code className="text-xs">PLANNED</code>.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -862,17 +869,17 @@ export function BetriebPlanPage() {
             <Failure error={runs.error} onRetry={runs.refetch} />
           ) : planned === undefined ? (
             <Empty
-              title="Kein Lauf steht gerade im Plan"
-              note={`Unter den letzten 20 Zeilen ist keine, deren Bericht noch bei „Ermittelt" oder „Geplant" steht. Was ein Update täte, lässt sich hier deshalb nur am Image-Vergleich unten ablesen.`}
+              title="No run is in the plan right now"
+              note={`Among the last 20 rows there is none whose report still stands at "Resolving" or "Planned". What an update would do can therefore only be read here from the image comparison below.`}
             />
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-4">
                 <Stat
-                  label="Lauf"
+                  label="Run"
                   value={
                     <Link
-                      to="/betrieb/lauf/$id"
+                      to="/operations/runs/$id"
                       params={{ id: String(planned.id) }}
                       className="underline-offset-4 hover:text-primary hover:underline"
                     >
@@ -894,12 +901,12 @@ export function BetriebPlanPage() {
         </CardContent>
       </Card>
 
-      <DriftCard note="Der zweite Teil des Plans: welches Image hinter der Registry zurückliegt. Das sagt, welcher Container neu erzeugt würde – nicht, welche Jars ein Update tauschen würde." />
+      <DriftCard note="The second half of the plan: which image lags behind the registry. That says which container would be recreated - not which jars an update would swap." />
     </div>
   )
 }
 
-// --- 3. /betrieb/lauf/$id ------------------------------------------------------------------------
+// --- 3. /operations/runs/$id ------------------------------------------------------------------------
 
 /**
  * One run, drawn rather than dumped.
@@ -907,13 +914,13 @@ export function BetriebPlanPage() {
  * `useRun` polls every two seconds while the run is unfinished and stops by itself, so the report
  * grows on screen without a socket or an interval of this page's own.
  *
- * `$id` may also be the word `letzter`, because the sidebar links there. It is resolved through
- * `useRuns(1)` before any run is asked for - without that, `GET /api/updates/letzter` would die on
+ * `$id` may also be the word `latest`, because the sidebar links there. It is resolved through
+ * `useRuns(1)` before any run is asked for - without that, `GET /api/updates/latest` would die on
  * the backend's `Long.parseLong`.
  */
-export function BetriebLaufPage() {
-  const { id } = useParams({ from: "/betrieb/lauf/$id" })
-  const wantsNewest = id === "letzter"
+export function OperationsRunPage() {
+  const { id } = useParams({ from: "/operations/runs/$id" })
+  const wantsNewest = id === "latest"
   const newest = useRuns(1, wantsNewest)
   const resolved = wantsNewest ? (newest.data?.[0]?.id?.toString() ?? "") : id
   const numeric = /^\d+$/.test(resolved)
@@ -922,13 +929,13 @@ export function BetriebLaufPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={numeric ? `Lauf #${resolved}` : "Lauf"}
-        note="Der Bericht, wie steward-worker ihn in die Zeile schreibt – Stufe für Stufe, Dienst für Dienst."
+        title={numeric ? `Run #${resolved}` : "Run"}
+        note="The report as steward-worker writes it into the row - stage by stage, service by service."
         actions={
           <Button asChild variant="outline">
-            <Link to="/betrieb">
+            <Link to="/operations">
               <ArrowRight aria-hidden />
-              Alle Läufe
+              All runs
             </Link>
           </Button>
         }
@@ -940,20 +947,20 @@ export function BetriebLaufPage() {
         <Failure error={newest.error} onRetry={newest.refetch} />
       ) : wantsNewest && !numeric ? (
         <Empty
-          title="Noch kein Lauf"
-          note={`In update_request steht keine Zeile, auf die „letzter" zeigen könnte.`}
+          title="No run yet"
+          note={`There is no row in update_request for "latest" to point at.`}
         />
       ) : !numeric ? (
         <Empty
-          title="Keine Laufnummer"
-          note={`„${id}" ist weder eine Zahl noch das Wort „letzter". Ein Lauf wird über die Nummer seiner Zeile adressiert.`}
+          title="Not a run number"
+          note={`"${id}" is neither a number nor the word "latest". A run is addressed by the number of its row.`}
         />
       ) : run.isPending ? (
         <Loading rows={4} />
       ) : run.error ? (
         <Failure error={run.error} onRetry={run.refetch} />
       ) : run.data === undefined ? (
-        <Empty title="Unbekannter Lauf" note={`Zu #${resolved} gibt es keine Zeile.`} />
+        <Empty title="Unknown run" note={`There is no row for #${resolved}.`} />
       ) : (
         <RunDetail run={run.data} />
       )}
@@ -986,17 +993,17 @@ function RunDetail({ run }: { run: Run }) {
 
           <Separator orientation="vertical" className="h-14" />
 
-          <Stat label="Angefordert von" value={run.requestedBy} hint={dateTime(run.requested)} />
+          <Stat label="Requested by" value={run.requestedBy} hint={dateTime(run.requested)} />
           <Stat
-            label="Frühestens"
+            label="No earlier than"
             value={dateTime(run.notBefore)}
-            hint="vorher holt der Worker die Zeile nicht"
+            hint="the worker does not pick the row up before this"
           />
           <Stat label="Gestartet" value={dateTime(run.started)} hint={relative(run.started)} />
           <Stat
-            label="Dauer"
+            label="Duration"
             value={duration(runSeconds(run))}
-            hint={finished ? dateTime(run.finished) : "läuft noch"}
+            hint={finished ? dateTime(run.finished) : "still running"}
           />
         </CardContent>
       </Card>
@@ -1008,11 +1015,11 @@ function RunDetail({ run }: { run: Run }) {
         >
           <CircleSlash className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">Nichts zu tun.</p>
+            <p className="text-sm font-medium">Nothing to do.</p>
             <p className="max-w-prose text-sm text-muted-foreground">
-              Das ist die dritte Antwort, nicht eine leise Art von „fertig": es wurde nichts
-              gestoppt, nichts getauscht und nichts gesichert. Ein Lauf, der dafür das Netzwerk
-              angehalten hätte, wäre ein Fehler.
+              This is the third answer, not a quiet kind of "done": nothing was stopped, nothing
+              swapped and nothing backed up. A run that had taken the network down to establish that
+              would be a defect.
             </p>
           </div>
         </div>
@@ -1025,11 +1032,10 @@ function RunDetail({ run }: { run: Run }) {
         >
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">Dieser Lauf hat nichts gesichert.</p>
+            <p className="text-sm font-medium">This run saved nothing.</p>
             <p className="max-w-prose text-sm text-muted-foreground">
-              Keine Zeile des Berichts steht auf „gesichert". Der Status eines Laufs beantwortet, ob
-              ein Schritt einen Fehler gemeldet hat – ob eine Datei entstanden ist, beantwortet nur
-              diese Zeile.
+              No line of the report stands at "saved". A run's status answers whether a step
+              reported an error - whether a file came into being is answered only by this row.
             </p>
           </div>
         </div>
@@ -1040,8 +1046,8 @@ function RunDetail({ run }: { run: Run }) {
           <CardHeader>
             <CardTitle className="text-sm font-medium">Stufen</CardTitle>
             <CardDescription>
-              Nicht jeder Lauf durchläuft jede Stufe – ein Update sichert nichts, eine Sicherung
-              installiert nichts. Grau heißt „hier war dieser Lauf nicht", nicht „übersprungen".
+              Not every run walks every stage - an update saves nothing, a backup installs nothing.
+              Grey means "this run was never here", not "skipped".
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -1049,7 +1055,7 @@ function RunDetail({ run }: { run: Run }) {
             {!finished ? (
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="size-2 animate-pulse rounded-full bg-warning" aria-hidden />
-                Der Bericht wird alle zwei Sekunden neu gelesen und wächst währenddessen.
+                The report is re-read every two seconds and grows while you watch.
               </p>
             ) : null}
           </CardContent>
@@ -1058,9 +1064,9 @@ function RunDetail({ run }: { run: Run }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Bericht</CardTitle>
+          <CardTitle className="text-sm font-medium">Report</CardTitle>
           <CardDescription>
-            Eine Zeile je Dienst – bei einer Sicherung je Volume – mit dem, was an ihr bewegt wurde.
+            One row per service - per volume for a backup - with what was moved on it.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -1068,9 +1074,9 @@ function RunDetail({ run }: { run: Run }) {
             <>
               <p className="flex items-start gap-2 text-sm text-warning">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-                Der Inhalt der Spalte <code className="text-xs">result</code> ließ sich nicht als
-                Bericht lesen – eine alte Zeile, oder eine aus einer neueren Fassung als dieser. Der
-                rohe Text steht darum hier.
+                The contents of the <code className="text-xs">result</code> column could not be
+                read as a report - an old row, or one from a newer version than this. The raw text
+                is therefore shown here.
               </p>
               <pre className="max-h-96 overflow-auto rounded-md border border-border bg-[#0a0a0a] p-3 font-mono text-xs leading-5 whitespace-pre-wrap">
                 {run.resultText}
@@ -1078,8 +1084,8 @@ function RunDetail({ run }: { run: Run }) {
             </>
           ) : !report ? (
             <Empty
-              title="Noch kein Bericht"
-              note="In der Spalte result steht nichts. Solange der Worker die Zeile nicht geholt hat, schreibt auch niemand hinein."
+              title="No report yet"
+              note="The result column is empty. Until the worker has picked the row up, nobody writes into it."
             />
           ) : (
             <>
@@ -1097,14 +1103,14 @@ function RunDetail({ run }: { run: Run }) {
  * Which stations a finished run of each kind really walked.
  *
  * A finished run's report keeps only its last stage, so the trail behind it has to be derived -
- * and it used to be derived as „alle", which drew a completed backup as having passed through
- * „Ermittelt" and „Eingespielt". Neither is something a backup does: `RESOLVING` and `INSTALLING`
+ * and it used to be derived as "all", which drew a completed backup as having passed through
+ * "Resolving" and "Installing". Neither is something a backup does: `RESOLVING` and `INSTALLING`
  * belong to an update (`Runner#update`), `BACKING_UP` to a backup (`Runner#backup`, the one caller
  * of `UpdateRun#save`), and a restart walks none of the three.
  *
  * A run that ended any other way than DONE gets no ticks at all. `NOTHING_TO_DO` stopped nothing
  * and installed nothing, and a `FAILED` or `CANCELLED` run stopped somewhere this report no longer
- * says - and a grey trail is the honest shape of „nicht bekannt".
+ * says - and a grey trail is the honest shape of "not known".
  */
 const WALKED: Record<string, ReadonlySet<string>> = {
   UPDATE: new Set(TRAIL),
@@ -1160,8 +1166,8 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
   if (lines.length === 0) {
     return (
       <Empty
-        title="Keine Zeile im Bericht"
-        note="Der Bericht steht, nennt aber keinen Dienst – der Lauf hat noch keinen angefasst."
+        title="No line in the report"
+        note="The report is there but names no service - the run has touched none yet."
       />
     )
   }
@@ -1169,9 +1175,9 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
     <Table className="steward-table">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[14rem]">Dienst</TableHead>
-          <TableHead className="w-[10rem]">Zustand</TableHead>
-          <TableHead>Änderungen</TableHead>
+          <TableHead className="w-[14rem]">Service</TableHead>
+          <TableHead className="w-[10rem]">State</TableHead>
+          <TableHead>Changes</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -1229,7 +1235,7 @@ function Notes({ notes }: { notes: string[] }) {
   )
 }
 
-// --- 4. /betrieb/sicherung/$id -------------------------------------------------------------------
+// --- 4. /operations/backups/$id -------------------------------------------------------------------
 
 /**
  * How the worker names what it writes into the backup directory.
@@ -1260,7 +1266,7 @@ function ArchiveKind({ name }: { name: string }) {
     return (
       <span className="flex items-center gap-1.5">
         <Database className="size-3.5 shrink-0" aria-hidden />
-        Datenbank
+        Database
       </span>
     )
   }
@@ -1272,7 +1278,7 @@ function ArchiveKind({ name }: { name: string }) {
       </span>
     )
   }
-  return <span className="text-muted-foreground">unbekannt</span>
+  return <span className="text-muted-foreground">unknown</span>
 }
 
 /**
@@ -1284,19 +1290,19 @@ function ArchiveKind({ name }: { name: string }) {
  * volume - and says on screen that this is what it did. A confident "belongs to run #23" would be
  * wrong on the day two runs sit close together.
  */
-export function BetriebSicherungPage() {
-  const { id } = useParams({ from: "/betrieb/sicherung/$id" })
+export function OperationsBackupPage() {
+  const { id } = useParams({ from: "/operations/backups/$id" })
   const backups = useBackups()
-  const wantsNewest = id === "letzte"
+  const wantsNewest = id === "latest"
 
   const backup = useMemo(() => {
     const all = backups.data ?? []
     if (!wantsNewest) return all.find((entry) => entry.name === id)
-    // "letzte" means the newest FINISHED one: a .partial is not a backup, and sending the sidebar's
+    // "latest" means the newest FINISHED one: a .partial is not a backup, and sending the sidebar's
     // link to a half-written file would be the one case where the word is actively misleading.
     // NO FALLBACK TO all[0]. It used to be there, and it undid the line above it: a directory
-    // holding nothing but a backup that is still being written answered "letzte" with that file,
-    // labelled "unvollständig", on a page whose whole job is to say which backup there is.
+    // holding nothing but a backup that is still being written answered "latest" with that file,
+    // labelled "incomplete", on a page whose whole job is to say which backup there is.
     return all.find((entry) => !entry.partial)
   }, [backups.data, id, wantsNewest])
 
@@ -1306,13 +1312,13 @@ export function BetriebSicherungPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={backup ? backup.name : "Sicherung"}
-        note="Eine einzelne Datei aus dem Sicherungsverzeichnis: wann sie entstand, wie groß sie ist und ob sie vollständig ist."
+        title={backup ? backup.name : "Backup"}
+        note="A single file from the backup directory: when it was made, how big it is and whether it is complete."
         actions={
           <Button asChild variant="outline">
-            <Link to="/betrieb/wiederherstellen">
+            <Link to="/operations/restore">
               <Download aria-hidden />
-              Zurückspielen
+              Restore
             </Link>
           </Button>
         }
@@ -1324,13 +1330,13 @@ export function BetriebSicherungPage() {
         <Failure error={backups.error} onRetry={backups.refetch} />
       ) : backup === undefined ? (
         <Empty
-          title={wantsNewest ? "Keine Sicherung vorhanden" : "Unbekannte Datei"}
+          title={wantsNewest ? "No backup present" : "Unknown file"}
           note={
             wantsNewest
               ? backups.data && backups.data.length > 0
-                ? "Im Sicherungsverzeichnis liegt noch keine fertige Datei – was dort liegt, wird gerade geschrieben oder ist abgebrochen (.partial)."
-                : "Im Sicherungsverzeichnis liegt keine Datei."
-              : `„${id}" liegt nicht im Sicherungsverzeichnis. Möglicherweise hat der Aufräumlauf sie inzwischen weggeräumt.`
+                ? "There is no finished file in the backup directory yet - what is there is being written or was aborted (.partial)."
+                : "There is no file in the backup directory."
+              : `"${id}" is not in the backup directory. The cleanup run may have taken it away by now.`
           }
         />
       ) : (
@@ -1339,44 +1345,44 @@ export function BetriebSicherungPage() {
             <CardContent className="flex flex-wrap items-start gap-6 pt-6">
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  Zustand
+                  State
                 </span>
                 {backup.partial ? (
-                  <StatusBadge tone="warn">unvollständig</StatusBadge>
+                  <StatusBadge tone="warn">incomplete</StatusBadge>
                 ) : (
-                  <StatusBadge tone="ok">fertig</StatusBadge>
+                  <StatusBadge tone="ok">complete</StatusBadge>
                 )}
                 <span className="max-w-xs text-xs text-muted-foreground">
                   {backup.partial
-                    ? "Die Datei trägt noch die Endung .partial. Entweder wird sie gerade geschrieben, oder der Lauf ist dabei gestorben – zurückspielen lässt sie sich nicht."
-                    : "Die Datei wurde nach dem Schreiben einmal zurückgelesen und erst danach umbenannt."}
+                    ? "The file still carries the .partial suffix. Either it is being written, or the run died doing it - it cannot be restored."
+                    : "The file was read back once after writing, and only then renamed."}
                 </span>
               </div>
 
               <Separator orientation="vertical" className="h-14" />
 
               <Stat
-                label="Zeitpunkt"
+                label="Taken"
                 value={dateTime(backup.modified)}
                 hint={relative(backup.modified)}
               />
-              <Stat label="Alter" value={since(backup.modified)} />
+              <Stat label="Age" value={since(backup.modified)} />
               <Stat
-                label="Größe"
+                label="Size"
                 value={bytes(backup.bytes)}
-                hint={`der Worker nennt sie ${backup.human}`}
+                hint={`the worker calls it ${backup.human}`}
               />
               <div className="flex min-w-48 flex-col gap-1">
                 <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  Inhalt
+                  Contents
                 </span>
                 <span className="text-sm">
                   <ArchiveKind name={backup.name} />
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {archived(backup.name).kind === "unknown"
-                    ? "Der Name folgt keinem der beiden Muster, die der Worker schreibt."
-                    : "Aus dem Dateinamen gelesen – im Archiv nachgesehen hat hier niemand."}
+                    ? "The name follows neither of the two patterns the worker writes."
+                    : "Read from the file name - nobody looked inside the archive."}
                 </span>
               </div>
             </CardContent>
@@ -1384,15 +1390,15 @@ export function BetriebSicherungPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">Der Lauf dazu</CardTitle>
+              <CardTitle className="text-sm font-medium">The run behind it</CardTitle>
               <CardDescription>
-                Erschlossen, nicht vermerkt: kein Bericht enthält einen Dateinamen. Gesucht wird ein
-                Lauf, der zur Entstehungszeit dieser Datei lief und eine Berichtszeile für
+                Inferred, not recorded: no report contains a file name. What is looked for is a run
+                that was running when this file was made and carries a report line for
                 {" "}
                 <code className="text-xs">
-                  {archived(backup.name).subject ?? "dieses Archiv"}
+                  {archived(backup.name).subject ?? "this archive"}
                 </code>{" "}
-                trägt.
+                .
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1402,16 +1408,16 @@ export function BetriebSicherungPage() {
                 <Failure error={runs.error} onRetry={runs.refetch} />
               ) : match === undefined ? (
                 <Empty
-                  title="Kein passender Lauf gefunden"
-                  note="Unter den letzten 50 Zeilen ist keine, die zeitlich und namentlich passt. Das heißt nicht, dass es keinen gab – es heißt, dass er nicht mehr unter den letzten 50 steht."
+                  title="No matching run found"
+                  note="Among the last 50 rows there is none that matches in time and name. That does not mean there was none - it means it is no longer among the last 50."
                 />
               ) : (
                 <div className="flex flex-wrap items-center gap-4">
                   <Stat
-                    label="Lauf"
+                    label="Run"
                     value={
                       <Link
-                        to="/betrieb/lauf/$id"
+                        to="/operations/runs/$id"
                         params={{ id: String(match.id) }}
                         className="underline-offset-4 hover:text-primary hover:underline"
                       >
@@ -1427,9 +1433,9 @@ export function BetriebSicherungPage() {
                     hint={duration(runSeconds(match))}
                   />
                   <Button asChild variant="outline" size="sm" className="ml-auto">
-                    <Link to="/betrieb/lauf/$id" params={{ id: String(match.id) }}>
+                    <Link to="/operations/runs/$id" params={{ id: String(match.id) }}>
                       <Play aria-hidden />
-                      Bericht ansehen
+                      View the report
                     </Link>
                   </Button>
                 </div>
@@ -1461,7 +1467,7 @@ function matchingRun(backup: Backup | undefined, runs: Run[]): Run | undefined {
   })
 }
 
-// --- 5. /betrieb/wiederherstellen ----------------------------------------------------------------
+// --- 5. /operations/restore ----------------------------------------------------------------
 
 /**
  * This page restores nothing - and that is the decision, not a gap in it (concept §10a,
@@ -1472,7 +1478,7 @@ function matchingRun(backup: Backup | undefined, runs: Run[]): Run | undefined {
  * that fails in the emergency is not a path. So the page builds the finished command and a person
  * runs it on the host - which is where they would have to run it in the emergency anyway.
  */
-export function BetriebWiederherstellenPage() {
+export function OperationsRestorePage() {
   const backups = useBackups()
   const [chosen, setChosen] = useState<string>("")
   // What can actually be restored. A .partial is a file being written or a run that died in the
@@ -1481,40 +1487,40 @@ export function BetriebWiederherstellenPage() {
     () => (backups.data ?? []).filter((backup) => !backup.partial),
     [backups.data],
   )
-  const command = `sudo bash deploy/restore.sh ${chosen || "<archiv>"}`
+  const command = `sudo bash deploy/restore.sh ${chosen || "<archive>"}`
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Wiederherstellen"
-        note="Der fertige Befehl zum Kopieren. Diese Oberfläche führt ihn nicht aus."
+        title="Restore"
+        note="The finished command, to copy. This interface does not run it."
       />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Warum hier kein Knopf steht</CardTitle>
+          <CardTitle className="text-sm font-medium">Why there is no button here</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
           <p className="max-w-prose">
-            Eine Sicherung braucht man an dem Tag, an dem etwas kaputt ist. Diese Oberfläche läuft
-            als Container in genau dem Stack, den sie zurückspielen würde – ein Knopf hier
-            funktionierte also in jeder Lage außer der einen, für die es ihn gäbe. Deshalb baut die
-            Seite den Befehl und führt ihn nicht aus.
+            A backup is needed on the day something is broken. This interface runs as a container
+            in the very stack it would be restoring - so a button here would work in every situation
+            except the one it exists for. That is why the page builds the command and does not run
+            it.
           </p>
           <p className="max-w-prose">
-            Ausgeführt wird er auf dem Host, im Verzeichnis des Repositorys, mit Root-Rechten – die
-            Volumes gehören Docker.
+            It is run on the host, in the repository's directory, with root rights - the volumes
+            belong to Docker.
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Archiv wählen</CardTitle>
+          <CardTitle className="text-sm font-medium">Choose an archive</CardTitle>
           <CardDescription>
-            Nur fertige Archive stehen hier: aus einer{" "}
-            <code className="text-xs">.partial</code>-Datei lässt sich nichts zurückspielen. Was
-            sonst noch im Verzeichnis liegt, zeigt die Sicherungsliste auf der Betrieb-Seite.
+            Only finished archives are listed here: nothing can be restored from a{" "}
+            <code className="text-xs">.partial</code> file. Whatever else sits in the directory is
+            shown by the backup list on the Operations page.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -1527,19 +1533,19 @@ export function BetriebWiederherstellenPage() {
             // directory holding three .partial files used to draw a selector with three entries,
             // every one of them disabled - a control that cannot be used and does not say why.
             <Empty
-              title="Kein Archiv auf der Platte"
+              title="No archive on the disk"
               note={
                 (backups.data ?? []).length > 0
-                  ? "Jede Datei im Sicherungsverzeichnis trägt noch die Endung .partial: sie wird gerade geschrieben oder der Lauf ist dabei gestorben. Zurückspielen lässt sich keine davon."
-                  : "Es liegt keine Datei im Sicherungsverzeichnis, die sich zurückspielen ließe."
+                  ? "Every file in the backup directory still carries the .partial suffix: it is being written, or the run died doing it. None of them can be restored."
+                  : "There is no file in the backup directory that could be restored."
               }
             />
           ) : (
             <div className="flex max-w-xl flex-col gap-1.5">
-              <Label htmlFor="restore-archive">Sicherung</Label>
+              <Label htmlFor="restore-archive">Backup</Label>
               <Select value={chosen} onValueChange={setChosen}>
                 <SelectTrigger id="restore-archive" className="w-full">
-                  <SelectValue placeholder="Archiv auswählen…" />
+                  <SelectValue placeholder="Choose an archive…" />
                 </SelectTrigger>
                 <SelectContent>
                   {restorable.map((backup) => (
@@ -1554,7 +1560,7 @@ export function BetriebWiederherstellenPage() {
 
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Befehl
+              Command
             </span>
             <div className="flex items-center gap-2">
               <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-[#0a0a0a] px-3 py-2 font-mono text-xs whitespace-pre">
@@ -1563,8 +1569,8 @@ export function BetriebWiederherstellenPage() {
               <CopyButton text={command} disabled={!chosen} />
             </div>
             <p className="max-w-prose text-xs text-muted-foreground">
-              Das Skript fragt vor dem Überschreiben den Volume-Namen ab – getippt, nicht bestätigt.
-              <code className="text-xs"> --list</code> zeigt, was auf der Platte liegt.
+              Before overwriting, the script asks for the volume's name - typed, not confirmed.
+              <code className="text-xs"> --list</code> shows what is on the disk.
             </p>
           </div>
         </CardContent>
@@ -1577,25 +1583,25 @@ export function BetriebWiederherstellenPage() {
         <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
           <p className="max-w-prose">
             <strong className="text-foreground">
-              Ein Volume wird überschrieben, nicht ergänzt.
+              A volume is overwritten, not added to.
             </strong>{" "}
-            Der Inhalt des Archivs tritt an die Stelle dessen, was jetzt im Volume liegt. Alles, was
-            seit dem Zeitpunkt der Sicherung entstanden ist – gebaute Häuser, geänderte Configs –
-            ist danach weg.
+            The contents of the archive take the place of what is in the volume now. Everything
+            that came into being since the backup was taken - houses built, configs changed - is
+            gone afterwards.
           </p>
           <p className="max-w-prose">
-            Vorher wird gestoppt, was auf das Volume schreibt. Ein Archiv in ein Volume zu
-            entpacken, in das ein laufender Server gerade schreibt, erzeugt eine Mischung aus
-            beidem, die keinen der beiden Zustände darstellt.
+            Whatever writes to the volume is stopped first. Unpacking an archive into a volume a
+            running server is writing to produces a mixture of the two that represents neither
+            state.
           </p>
           <p className="max-w-prose">
-            Ein Datenbankabzug (<code className="text-xs">.dump</code>) ist ein anderer Fall als ein
-            Volume-Archiv (<code className="text-xs">.tar.zst</code>): er gehört zuerst in eine
-            frische Datenbank, damit man hineinsehen kann, bevor etwas darauf zeigt.
+            A database dump (<code className="text-xs">.dump</code>) is a different case from a
+            volume archive (<code className="text-xs">.tar.zst</code>): it goes into a fresh database
+            first, so it can be looked into before anything points at it.
           </p>
           <p className="max-w-prose">
-            Alle Archive liegen auf derselben Platte wie die Originale. Gegen einen Fehlgriff hilft
-            das; gegen den Ausfall dieser Platte hilft es nicht.
+            Every archive sits on the same disk as the original. That helps against a wrong move;
+            it does not help against that disk failing.
           </p>
         </CardContent>
       </Card>
@@ -1623,17 +1629,17 @@ function CopyButton({ text, disabled }: { text: string; disabled?: boolean }) {
           await navigator.clipboard.writeText(text)
           setCopied(true)
           window.setTimeout(() => setCopied(false), 2000)
-          toast.success("Befehl kopiert")
+          toast.success("Command copied")
         } catch {
-          toast.error("Kopieren nicht möglich", {
+          toast.error("Cannot copy", {
             description:
-              "Die Zwischenablage steht dieser Seite nicht zur Verfügung. Der Befehl lässt sich daneben markieren.",
+              "The clipboard is not available to this page. The command can be selected beside it.",
           })
         }
       }}
     >
       {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-      {copied ? "Kopiert" : "Kopieren"}
+      {copied ? "Copied" : "Copy"}
     </Button>
   )
 }

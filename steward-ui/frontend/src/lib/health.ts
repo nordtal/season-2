@@ -2,7 +2,7 @@ import type { Backup, Host, ServiceTable } from "@/lib/api"
 import { bytes, percent, relative } from "@/lib/format"
 
 /**
- * The Ampel of concept §10c.
+ * The traffic light of concept §10c.
  *
  * Four triggers, and the point is which four. Two of them are the two failures measured on this
  * host on 2026-09-12:
@@ -32,7 +32,7 @@ export type Trigger = {
 }
 
 export type Thresholds = {
-  /** Percent of the disk in use above which the Ampel turns yellow. */
+  /** Percent of the disk in use above which the traffic light turns yellow. */
   disk: number
   /** Percent of host memory in use above which it turns yellow. */
   memory: number
@@ -84,8 +84,8 @@ export function summarise(input: {
   if (input.table && input.table.services.length === 0) {
     triggers.push({
       level: "warn",
-      text: "Es ist kein Dienst da - Docker hat eine leere Liste geliefert.",
-      to: "/betrieb",
+      text: "There is no service at all - Docker returned an empty list.",
+      to: "/operations",
     })
   }
 
@@ -94,15 +94,15 @@ export function summarise(input: {
     if (!isUp(service.state)) {
       triggers.push({
         level: "down",
-        text: `${service.service} läuft nicht (${service.status || service.state}).`,
-        to: "/dienste/$name",
+        text: `${service.service} is not running (${service.status || service.state}).`,
+        to: "/services/$name",
         params: { name: service.service },
       })
     } else if (service.health === "unhealthy") {
       triggers.push({
         level: "down",
-        text: `${service.service} läuft, meldet sich aber als unhealthy.`,
-        to: "/dienste/$name",
+        text: `${service.service} is running, but reports itself unhealthy.`,
+        to: "/services/$name",
         params: { name: service.service },
       })
     }
@@ -116,10 +116,10 @@ export function summarise(input: {
       level: "warn",
       text:
         outdated.length === 1
-          ? `${outdated[0].service} läuft auf einem älteren Image als die Registry hat.`
-          : `${outdated.length} Dienste laufen auf einem älteren Image als die Registry hat: ` +
+          ? `${outdated[0].service} is running an older image than the registry has.`
+          : `${outdated.length} services are running an older image than the registry has: ` +
             outdated.map((service) => service.service).join(", ") + ".",
-      to: "/betrieb",
+      to: "/operations",
     })
   }
 
@@ -129,14 +129,14 @@ export function summarise(input: {
   // A SINGLE service whose own drift is UNKNOWN is deliberately NOT a trigger (Till, 2026-09-13).
   // status.tsx argues the opposite for the badge, and A24 is this light's whole reason to exist -
   // but several images here are built on this host and published nowhere, so UNKNOWN is their
-  // ordinary state and a yellow that never clears is a light nobody reads. The Betrieb page
+  // ordinary state and a yellow that never clears is a light nobody reads. The Operations page
   // footnotes how many could not be compared. This trigger is the other case: the registry as a
   // whole did not answer, which is temporary and therefore worth a sentence.
   if (input.table && input.table.drift.reached === false) {
     triggers.push({
       level: "warn",
-      text: `Die Images wurden nicht verglichen: ${input.table.drift.message ?? "die Registry antwortete nicht"}.`,
-      to: "/betrieb",
+      text: `The images were not compared: ${input.table.drift.message ?? "the registry did not answer"}.`,
+      to: "/operations",
     })
   }
 
@@ -151,7 +151,7 @@ export function summarise(input: {
     if (used >= thresholds.disk) {
       triggers.push({
         level: "warn",
-        text: `Die Platte ist zu ${percent(used, 0)} belegt (${bytes(host.diskUsedBytes)} von ${bytes(host.diskTotalBytes)}), Schwelle ${thresholds.disk} %.`,
+        text: `The disk is ${percent(used, 0)} full (${bytes(host.diskUsedBytes)} of ${bytes(host.diskTotalBytes)}), threshold ${thresholds.disk} %.`,
       })
     }
   }
@@ -160,7 +160,7 @@ export function summarise(input: {
     if (used >= thresholds.memory) {
       triggers.push({
         level: "warn",
-        text: `Der Speicher ist zu ${percent(used, 0)} belegt, Schwelle ${thresholds.memory} %. Kein Container hat ein Limit, das ist also der ganze Host.`,
+        text: `Memory is ${percent(used, 0)} used, threshold ${thresholds.memory} %. No container has a limit, so this is the whole host.`,
       })
     }
   }
@@ -192,9 +192,9 @@ function backupTriggers(
         level: "down",
         text:
           backups.length > 0
-            ? "Es liegt keine fertige Sicherung vor - nur angefangene (.partial)."
-            : "Es liegt keine einzige Sicherung vor.",
-        to: "/betrieb",
+            ? "There is no finished backup - only started ones (.partial)."
+            : "There is not a single backup.",
+        to: "/operations",
       },
     ]
   }
@@ -211,8 +211,8 @@ function backupTriggers(
     return [
       {
         level: "down",
-        text: `Die neueste Sicherung ist von ${relative(newest.modified, now)} - älter als die erlaubten ${thresholds.backupAgeHours} Stunden.`,
-        to: "/betrieb",
+        text: `The newest backup is from ${relative(newest.modified, now)} - older than the permitted ${thresholds.backupAgeHours} hours.`,
+        to: "/operations",
       },
     ]
   }
@@ -235,8 +235,8 @@ export function shownLevel(level: Level, failed: boolean): Level {
   return failed && level === "ok" ? "warn" : level
 }
 
-/** What the Ampel says when it found nothing wrong and also could not look. */
-export const UNKNOWN = "Ob alles in Ordnung ist, lässt sich gerade nicht sagen."
+/** What the traffic light says when it found nothing wrong and also could not look. */
+export const UNKNOWN = "Whether everything is in order cannot be said right now."
 
 /** The sentence at the top of the start page when nothing is wrong. */
 export const ALL_CLEAR = "Alles in Ordnung."

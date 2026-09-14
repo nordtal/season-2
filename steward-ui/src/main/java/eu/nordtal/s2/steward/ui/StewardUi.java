@@ -9,6 +9,7 @@ import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.steward.ui.data.Data;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
+import eu.nordtal.s2.steward.ui.auth.Sessions;
 import eu.nordtal.s2.steward.ui.discord.DiscordApi;
 import eu.nordtal.s2.steward.ui.discord.DiscordDirectory;
 import eu.nordtal.jcore.config.exception.ConfigException;
@@ -17,15 +18,14 @@ import eu.nordtal.s2.steward.ui.config.UiSpec;
 import eu.nordtal.s2.steward.ui.internal.InternalClient;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
+import io.javalin.http.Cookie;
+import io.javalin.http.SameSite;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ForbiddenResponse;
 import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JavalinGson;
-import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
-import org.eclipse.jetty.ee10.servlet.SessionHandler;
-import org.eclipse.jetty.http.HttpCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +35,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.function.Function;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -63,10 +62,19 @@ public final class StewardUi {
     private static final Logger log = LoggerFactory.getLogger(StewardUi.class);
     private static final Gson GSON = new Gson();
 
-    /** Session keys. Short names, one place. */
-    private static final String ACCOUNT = "steward.account";
-    private static final String CSRF = "steward.csrf";
-    private static final String STATE = "steward.oauth-state";
+    /**
+     * Where this request's session is parked once it has been read.
+     *
+     * <p>{@code account(ctx)} is asked at least twice on every call - once by the filter in front
+     * of {@code /api/*} and again by whatever handler needs a name for the journal - and a session
+     * now costs a round trip to PostgreSQL rather than a map lookup in the heap. Parked on the
+     * request it is one query per request, and it also makes the two answers the same answer,
+     * which they were not obliged to be when each went to the database on its own.</p>
+     */
+    private static final String PARKED = "steward.session";
+
+    /** How often expired rows are swept out of {@code steward_session}. */
+    private static final Duration SWEEP = Duration.ofHours(1);
 
     /**
      * The longest access anybody may be granted from here, in days.
@@ -83,15 +91,17 @@ public final class StewardUi {
     private final InternalClient worker;
 
     /**
-     * Where "who is this" is answered.
+     * Signed-in browsers, in PostgreSQL.
      *
-     * <p>A seam with one production implementation - the session - and one reason to exist: a test
-     * can stand in front of it and exercise everything behind the sign-in without a Discord
-     * application, which is a thing only Till can create. It is a function of the request rather
-     * than a flag, so there is no mode this service can be started in that skips authentication.
-     * </p>
+     * <p>There used to be a seam here - a {@code Function<Context, Account>} a test could stand in
+     * front of - and it is gone: the integration tests drive the real {@code /auth/login} and
+     * {@code /auth/callback} against a stand-in Discord, so the only thing the seam still bought
+     * was a way to start this service with the authentication replaced. That is not a thing worth
+     * keeping available.</p>
+     *
+     * <p>Null only in a test that is about the proxy and never signs anybody in.</p>
      */
-    private final Function<Context, Optional<DiscordAuth.Account>> accounts;
+    private final Sessions sessions;
 
     /** The database. Null only in tests that are about the proxy and never touch a row. */
     private final Data data;
@@ -133,17 +143,13 @@ public final class StewardUi {
 
     public StewardUi(final UiSpec config, final DiscordAuth discord, final InternalClient worker,
                      final InternalClient deployer, final Data data) {
-        this(config, discord, worker, deployer, data, StewardUi::fromSession);
-    }
-
-    StewardUi(final UiSpec config, final DiscordAuth discord, final InternalClient worker,
-              final InternalClient deployer, final Data data,
-              final Function<Context, Optional<DiscordAuth.Account>> accounts) {
         this.config = config;
         this.discord = discord;
         this.worker = worker;
         this.data = data;
-        this.accounts = accounts;
+        this.sessions = data == null
+                ? null
+                : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
         this.configs = new ConfigApi(Path.of(config.configs().root()));
         this.guild = new DiscordApi(
                 new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
@@ -200,16 +206,6 @@ public final class StewardUi {
             cfg.jsonMapper(new JavalinGson(new Gson(), true));
             cfg.startup.showJavalinBanner = false;
 
-            cfg.jetty.modifyServletContextHandler(handler -> {
-                theSessionCookie(handler);
-                final SessionHandler sessions = handler.getSessionHandler();
-                if (sessions != null) {
-                    final int seconds = config.sessionHours() * 3600;
-                    sessions.setMaxInactiveInterval(seconds);
-                    sessions.setMaxCookieAge(seconds);
-                }
-            });
-
             // The built frontend, out of the jar. `/web` is where Gradle's vite build lands.
             cfg.staticFiles.add(staticFiles -> {
                 staticFiles.hostedPath = "/";
@@ -247,13 +243,14 @@ public final class StewardUi {
             cfg.routes.get("/auth/callback", this::callback);
             cfg.routes.post("/auth/logout", ctx -> {
                 // THE SAME CHECK THE API IS BEHIND, and it has to be repeated here because this
-                // route is not under /api/* and the filter above therefore never sees it. Javalin
-                // 7.2.3 leaves SameSite unset on JSESSIONID - that is Jetty's default and the
-                // framework does not override it - so a form on any other site can post here
-                // carrying the cookie. Signing somebody out in the middle of a deployment they are
-                // watching is not a disaster, but it is a thing a stranger should not be able to do.
+                // route is not under /api/* and the filter above therefore never sees it. The
+                // cookie is SameSite=Lax, which allows exactly the kind of top-level POST a form
+                // on another site performs, so without this a stranger's page could sign an admin
+                // out in the middle of a deployment they are watching. Not a disaster - and not a
+                // thing a stranger gets to do.
                 requireCsrfToken(ctx);
-                ctx.req().getSession().invalidate();
+                sessions.end(ctx.cookie(Sessions.COOKIE));
+                ctx.removeCookie(Sessions.COOKIE, "/");
                 ctx.status(204);
             });
 
@@ -548,6 +545,34 @@ public final class StewardUi {
             });
         }).start(port);
 
+        if (sessions != null) {
+            // Once at startup and then hourly, on the scheduler that is already here. Not a
+            // second thread pool for one DELETE an hour - and not a cron either, because a sweep
+            // that only runs at 04:00 is a sweep that never runs on a service restarted daily.
+            //
+            // It is housekeeping and nothing depends on it: an expired session is refused by the
+            // lookup itself, whether this has ever run or not. See Sessions#sweep.
+            heartbeats.scheduleWithFixedDelay(this::sweepSessions, 0,
+                    SWEEP.toSeconds(), TimeUnit.SECONDS);
+        }
+        // THE HALF OF A TRADE THAT IS NOT PAID FOR YET, said out loud on every start.
+        //
+        // session-days went from 12 hours to 30 days when sessions became rows, and thirty days is
+        // only defensible once a security key stands in front of everything dangerous - that is
+        // Till's decision of 2026-09-14 in his own words: "30 days, PROVIDED the key comes before
+        // dangerous actions". The key is not built yet. Until it is, this is a cookie that can
+        // stop a Minecraft server for a month, and a deployment running in that state should not
+        // have to be told so by somebody reading a plan.
+        //
+        // DELETE THIS WHOLE BLOCK in the commit that makes the second factor mandatory. A warning
+        // that outlives what it warns about is how a log gets read past.
+        if (config.sessionDays() > 1) {
+            log.warn("A session lasts {} days and there is still no second factor, so a stolen"
+                    + " cookie is a month of being able to stop a server. That length was agreed"
+                    + " ON CONDITION that a security key comes before dangerous actions - until"
+                    + " that is built, set session-days to 1 in steward-ui.yml if this deployment"
+                    + " is reachable from the internet.", config.sessionDays());
+        }
         discord.whatIsMissing().ifPresent(missing -> log.warn(
                 "Nobody can sign in yet: {} is empty. Everything else is running.", missing));
         log.info("Nordtal Steward is on {} - public address {}", port, config.publicUrl());
@@ -555,43 +580,77 @@ public final class StewardUi {
     }
 
     /**
-     * The session cookie, spelled out - because every one of Jetty's defaults for it is wrong here.
+     * The session cookie, spelled out - because every default anybody might rely on is wrong here.
      *
      * <h2>It has to survive the app being closed</h2>
-     * {@code JSESSIONID} is written without a {@code Max-Age}, which makes it a <em>browser
-     * session</em> cookie: it lives as long as the browser does. On a desktop that is a day. Added
-     * to an iPhone's home screen, Steward is its own app with its own cookie jar, and iOS ends that
-     * app whenever it wants the memory - so every second or third opening began at the Discord
-     * sign-in, which is four seconds of redirects to read one number. The cookie now carries the
-     * same lifetime the session does, so closing the app is not signing out.
+     * A cookie written without a {@code Max-Age} is a <em>browser session</em> cookie: it lives as
+     * long as the browser does. On a desktop that is a day. Added to an iPhone's home screen,
+     * Steward is its own app with its own cookie jar, and iOS ends that app whenever it wants the
+     * memory - so every second or third opening began at the Discord sign-in, which is four seconds
+     * of redirects to read one number. The cookie carries the same lifetime the row does, and since
+     * {@code V19} the row outlives a restart of this container too. Closing the app is not signing
+     * out and neither is a deployment.
      *
-     * <p>What it still does not survive is a restart of this container: the sessions themselves are
-     * in memory. That is deliberate for now and it is written down in {@code UiSpec} - a cookie
-     * that outlives its session is not a leak, it is one wasted request that is answered with the
-     * sign-in page.</p>
+     * <h2>SameSite=Lax, said out loud</h2>
+     * The sign-in is a top-level redirect back from discord.com, which Lax allows, and every write
+     * is a {@code POST} from this origin, which Lax also allows. {@code Strict} would break the
+     * first of those - the callback would arrive without the cookie and so without the state, and
+     * every sign-in would fail with "this sign-in did not start in this browser".
      *
-     * <h2>SameSite, because Jetty does not set it</h2>
-     * Javalin 7.2.3 leaves it unset and so the browser's own default applies, which is Lax in
-     * every current browser and nothing at all in some older ones. Said out loud here: the sign-in
-     * is a top-level redirect back from discord.com, which Lax allows, and every write is a
-     * {@code POST} from this origin, which Lax also allows. Strict would break the first of those.
+     * <h2>Secure follows the browser's connection, which Caddy has to tell us about</h2>
+     * Jetty's {@code setSecureRequestOnly} asked the socket, and the socket behind a reverse proxy
+     * is plain HTTP on an internal network - so in this deployment the flag never appeared at all.
+     * {@code X-Forwarded-Proto} is what Caddy's {@code reverse_proxy} sets by default and is the
+     * only thing in the request that knows how the browser actually connected.
      *
-     * <h2>Secure, but only where there is TLS</h2>
-     * {@code setSecureRequestOnly} marks the cookie {@code Secure} when the request that created it
-     * was itself secure. Behind Caddy that is always; on {@code http://127.0.0.1:8080} in front of
-     * a developer it is never, and a hard {@code setSecureCookies(true)} there would hand out a
-     * cookie the browser then refuses to send back - a sign-in that silently never completes.
+     * <p><b>Trusting a header sounds worse than it is, in this one direction.</b> The header can
+     * only ever turn the flag <em>on</em>, and a cookie marked {@code Secure} is a cookie the
+     * browser is more careful with, never less. A forged one costs its forger their own session and
+     * nothing else. Leaving it out gives exactly the old behaviour.
+     *
+     * <p>The alternative that was tried and rejected: deriving it from {@link UiSpec#publicUrl()},
+     * which cannot be spoofed at all. It marks the cookie {@code Secure} on a deployment whose
+     * public address is https - including for anybody reaching port 8080 directly over plain HTTP,
+     * who then gets a cookie the browser will not send back and a sign-in that never finishes and
+     * never says why. That is the test fixture, a developer on 127.0.0.1, and anybody debugging
+     * this container from inside the network.
      */
-    private static void theSessionCookie(final ServletContextHandler handler) {
-        final SessionHandler sessions = handler.getSessionHandler();
-        if (sessions == null) {
-            log.warn("Jetty gave this context no session handler, so the sign-in cookie keeps its"
-                    + " defaults: it ends when the browser does.");
-            return;
+    private void setSessionCookie(final Context ctx, final String id) {
+        final Cookie cookie = new Cookie(Sessions.COOKIE, id, "/", (int) lifetime().toSeconds(),
+                overTls(ctx), true, null, SameSite.LAX);
+        ctx.cookie(cookie);
+    }
+
+    private static boolean overTls(final Context ctx) {
+        // The header may carry a list when there is more than one proxy; the first entry is the
+        // browser's own hop, which is the one this is about.
+        final String forwarded = ctx.header("X-Forwarded-Proto");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim().equalsIgnoreCase("https");
         }
-        sessions.setSameSite(HttpCookie.SameSite.LAX);
-        sessions.setHttpOnly(true);
-        sessions.setSecureRequestOnly(true);
+        return "https".equalsIgnoreCase(ctx.scheme());
+    }
+
+    private Duration lifetime() {
+        return Duration.ofDays(config.sessionDays());
+    }
+
+    /**
+     * The hourly sweep, with its failure swallowed on purpose.
+     *
+     * <p>{@code scheduleWithFixedDelay} cancels the schedule for good the first time the task
+     * throws - silently, because nothing reads the future. A database that is briefly away during
+     * a deployment would therefore stop the sweep for the lifetime of the process, and the only
+     * symptom would be a table quietly growing. Catching here keeps the schedule alive and says
+     * what happened once per hour rather than never.</p>
+     */
+    private void sweepSessions() {
+        try {
+            sessions.sweep();
+        } catch (RuntimeException e) {
+            log.warn("could not sweep expired sessions - trying again in {}: {}",
+                    SWEEP, e.toString());
+        }
     }
 
     // --- sign-in ---------------------------------------------------------------------------
@@ -605,14 +664,16 @@ public final class StewardUi {
         // A one-time value tied to this browser's session. Discord hands it back, and a callback
         // that carries anything else is somebody else's callback.
         final String state = random();
-        ctx.sessionAttribute(STATE, state);
+        setSessionCookie(ctx, sessions.begin(state));
         ctx.redirect(discord.authorizeUrl(state).toString());
     }
 
     private void callback(final Context ctx) {
-        final String expected = ctx.consumeSessionAttribute(STATE);
+        final String started = ctx.cookie(Sessions.COOKIE);
+        // Read once and cleared in the same statement, so a replayed callback matches nothing.
+        final Optional<String> expected = sessions.consumeState(started);
         final String state = ctx.queryParam("state");
-        if (expected == null || !expected.equals(state)) {
+        if (expected.isEmpty() || !expected.get().equals(state)) {
             ctx.status(400).json(Map.of("error",
                     "this sign-in did not start in this browser - try again from the start"));
             return;
@@ -627,27 +688,30 @@ public final class StewardUi {
             ctx.status(403).json(Map.of("error", outcome.refusal()));
             return;
         }
-        ctx.sessionAttribute(ACCOUNT, outcome.account());
-        ctx.sessionAttribute(CSRF, random());
-        ctx.req().getSession().setMaxInactiveInterval(config.sessionHours() * 3600);
+        // A NEW ROW WITH A NEW ID, and the one the sign-in started in is dropped. The row that
+        // held the OAuth state is not promoted into a signed-in session, because its id was in
+        // this browser before anybody proved who they were - which is session fixation, and the
+        // cheapest place to make it impossible is here. See Sessions' class note.
+        final DiscordAuth.Account who = outcome.account();
+        final String id = sessions.signIn(who.id(), who.name(), who.roles());
+        sessions.end(started);
+        setSessionCookie(ctx, id);
         ctx.redirect("/");
     }
 
     private void whoAmI(final Context ctx) {
-        final Optional<DiscordAuth.Account> account = account(ctx);
+        final Optional<Sessions.Session> session = session(ctx);
         final Map<String, Object> answer = new LinkedHashMap<>();
-        answer.put("signedIn", account.isPresent());
-        account.ifPresent(who -> {
-            answer.put("id", who.id());
-            answer.put("name", who.name());
-            // Minted here if the session does not have one yet. The browser cannot send a token it
-            // was never given, and this is the one route it is allowed to read before it has one.
-            String csrf = ctx.sessionAttribute(CSRF);
-            if (csrf == null) {
-                csrf = random();
-                ctx.sessionAttribute(CSRF, csrf);
-            }
-            answer.put("csrf", csrf);
+        answer.put("signedIn", session.isPresent());
+        session.ifPresent(who -> {
+            answer.put("id", who.discordId());
+            answer.put("name", who.displayName());
+            // Written with the row, never minted here: the column is NOT NULL from the moment a
+            // session exists, so there is no longer a state in which a browser is signed in and
+            // has no token to send back. This route is the one place it may be read.
+            answer.put("csrf", who.csrf());
+            answer.put("signedInAt", who.createdAt().toString());
+            answer.put("expiresAt", who.expiresAt().toString());
         });
         discord.whatIsMissing().ifPresent(missing -> answer.put("signInUnavailable", missing));
         // Said out loud rather than in a footnote: §10a wants a security key after Discord, and
@@ -659,7 +723,27 @@ public final class StewardUi {
     }
 
     private Optional<DiscordAuth.Account> account(final Context ctx) {
-        return accounts.apply(ctx);
+        return session(ctx).map(Sessions.Session::account);
+    }
+
+    /**
+     * This request's session, read once and then parked on the request.
+     *
+     * <p>The park is a plain attribute rather than a cache with a lifetime, and that matters: it
+     * lasts exactly one request, so signing out in one tab is visible to the next request from the
+     * other. Anything longer would be a copy of the session outliving the row it copies.</p>
+     */
+    private Optional<Sessions.Session> session(final Context ctx) {
+        if (sessions == null) {
+            return Optional.empty();
+        }
+        final Optional<Sessions.Session> parked = Optional.ofNullable(ctx.attribute(PARKED));
+        if (parked.isPresent()) {
+            return parked;
+        }
+        final Optional<Sessions.Session> found = sessions.find(ctx.cookie(Sessions.COOKIE));
+        found.ifPresent(session -> ctx.attribute(PARKED, session));
+        return found;
     }
 
     /**
@@ -724,10 +808,6 @@ public final class StewardUi {
                 ctx.queryParamAsClass("limit", Integer.class).getOrDefault(fallback)));
     }
 
-    private static Optional<DiscordAuth.Account> fromSession(final Context ctx) {
-        return Optional.ofNullable(ctx.sessionAttribute(ACCOUNT));
-    }
-
     /**
      * Double submit: the browser reads the token out of its own session through {@code /api/me}
      * and sends it back in a header. A form posted from another site can carry the cookie but
@@ -735,7 +815,7 @@ public final class StewardUi {
      */
     private void requireCsrfToken(final Context ctx) {
         final String sent = ctx.header("X-Steward-CSRF");
-        final String expected = ctx.sessionAttribute(CSRF);
+        final String expected = session(ctx).map(Sessions.Session::csrf).orElse(null);
         if (expected == null || !expected.equals(sent)) {
             throw new ForbiddenResponse("missing or wrong CSRF token");
         }
@@ -800,15 +880,25 @@ public final class StewardUi {
     /**
      * Whoever is watching, still allowed to.
      *
-     * <p>An invalidated session is not a {@code false} from the servlet container - it is an
-     * {@link IllegalStateException} on the next read of it, thrown from a thread that is not
-     * serving a request and has nowhere to report it. That case is exactly the one this method
-     * exists for, so it is the answer <em>no</em> rather than a failure.</p>
+     * <p><b>It deliberately does not use the parked session.</b> Everywhere else one lookup per
+     * request is the right trade; here the "request" is a log follow that stays open for hours, and
+     * a parked copy would answer <em>yes</em> for as long as the tab was open however long ago the
+     * session had ended. So this goes to the row, per line, which is as often as there is anything
+     * to withhold.</p>
+     *
+     * <p>A failure is the answer <em>no</em> rather than an exception: this runs on a streaming
+     * thread that is not serving a request and has nowhere to report one, and a database that has
+     * stopped answering is not a reason to keep sending somebody logs.</p>
      */
     private boolean stillSignedIn(final io.javalin.http.sse.SseClient client) {
+        if (sessions == null) {
+            return false;
+        }
         try {
-            return account(client.ctx()).isPresent();
+            return sessions.find(client.ctx().cookie(Sessions.COOKIE)).isPresent();
         } catch (RuntimeException gone) {
+            log.warn("could not re-check a log follower's session, so it is being ended: {}",
+                    gone.getMessage());
             return false;
         }
     }

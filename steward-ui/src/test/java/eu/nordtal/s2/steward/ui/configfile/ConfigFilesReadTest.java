@@ -210,7 +210,7 @@ class ConfigFilesReadTest {
         assertEquals("Base url", entry(document, "worker.base-url").label());
         assertEquals("Max retries", entry(document, "worker.limits.max-retries").label());
         assertEquals("Stop services", Labels.of("stop_services"));
-        assertEquals("Session hours", Labels.of("session-hours"));
+        assertEquals("Session days", Labels.of("session-days"));
     }
 
     @Test
@@ -253,7 +253,7 @@ class ConfigFilesReadTest {
         assertTrue(entry(document, "discord.client-secret").secret());
         assertEquals(List.of("The compose service name and the API port - no TLS, it never leaves"
                 + " the network."), entry(document, "worker.base-url").comments());
-        assertEquals(Type.INTEGER, entry(document, "session-hours").type());
+        assertEquals(Type.INTEGER, entry(document, "session-days").type());
     }
 
     /**

@@ -45,8 +45,11 @@ public interface UiSpec {
             "follows the Host header is a redirect URI an attacker can choose. Discord is given",
             "this + /auth/callback and refuses anything else.",
             "",
-            "THE NAME IS CHOSEN ONCE. WebAuthn - which this alpha does not have yet - binds every",
-            "registered key to it, so changing it later invalidates all of them."
+            "IT IS NOT WHAT A SECURITY KEY WILL BE BOUND TO, although an earlier version of this",
+            "comment said so. Till decided on 2026-09-14 that WebAuthn binds to the parent domain",
+            "nordtal.eu, so that a key registered against this address still works on the",
+            "production one. That will be its own key here when the second factor is built; until",
+            "then there is nothing to configure and this is the only address in this file."
     })
     default String publicUrl() {
         return "https://steward.dev.nordtal.eu";
@@ -75,16 +78,30 @@ public interface UiSpec {
     DiscordSpec discord();
 
     @Order(5)
-    @Key("session-hours")
+    @Key("session-days")
     @Comment({
             "How long a signed-in session lives before the browser has to sign in again.",
             "",
-            "Sessions are in memory, so a restart of this container ends all of them. That is a",
-            "property rather than a plan: the alternative is a session store to back up and keep",
-            "consistent, for three admins who can sign in again in four seconds."
+            "Sessions are rows in PostgreSQL (migration V19), so a restart of this container no",
+            "longer ends them - which is what makes a number this large sane. It is absolute and",
+            "does not slide: thirty days from the sign-in, used daily or not at all.",
+            "",
+            "THIRTY DAYS IS HALF OF A TRADE AND MUST NOT BE KEPT WITHOUT THE OTHER HALF. It is",
+            "only defensible because a security key stands in front of everything dangerous - an",
+            "update, a backup, a restart, a line into a server console, granting access. A long",
+            "session that could do those things on the strength of a cookie alone would be a back",
+            "door with a month's lease. Whoever shortens the list of protected actions is also",
+            "deciding about this number.",
+            "",
+            "Replaced `session-hours` on 2026-09-14. MEASURED, not assumed (RenamedKeyTest): a",
+            "file written before the rename gains `session-days: 30` on the next load, because",
+            "jcore preserves what is in a file but still adds a key that is missing from it. So",
+            "this is a commit and not a deployment step - unlike a changed DEFAULT, which really",
+            "does never reach a file that already has the key. The old `session-hours: 12` line",
+            "is left behind as a dead key and can be deleted whenever somebody is in there."
     })
-    default int sessionHours() {
-        return 12;
+    default int sessionDays() {
+        return 30;
     }
 
     @Order(6)

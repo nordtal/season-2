@@ -47,8 +47,10 @@ public final class Tiers {
     /**
      * Reads the price list out of the configuration.
      * <p>
-     * The list is not empty, its day counts are unique and its prices rise with its day counts -
-     * all validated when the config loads, so nothing here has to cope with a broken price list.
+     * Its day counts are unique and its prices rise with its day counts - both validated when the
+     * config loads, so nothing here has to cope with a <em>broken</em> price list. It may be
+     * <b>empty</b>, which is not broken: a deployment that has not decided its prices offers the
+     * donation and nothing else, and {@code Configured} says so at startup.
      * </p>
      *
      * @param config the loaded and validated access configuration

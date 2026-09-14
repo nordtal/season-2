@@ -6,6 +6,7 @@ import eu.nordtal.jcore.persistence.sql.DatabaseConfig;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.BotSpec;
 import eu.nordtal.s2.discordbot.config.Configs;
 import eu.nordtal.s2.discordbot.config.DatabaseSpec;
@@ -140,6 +141,11 @@ public class AccessBot implements AutoCloseable {
                     Configs.messagesDirectory(), languages.locales());
             final Tiers tiers = Tiers.of(accessConfig);
             final BunqGateway bunq = new BunqGateway(botConfig);
+
+            // What is NOT configured, once, by name. Every consumer below degrades quietly when an
+            // id is empty - which is right at the call site and wrong as the only record of it, so
+            // this is the line that answers "why is nothing appearing in that channel".
+            Configured.report(accessConfig, bunq.configured());
             final PaymentRequests requests = new PaymentRequests(database.jdbi());
             final Purchases purchases = new Purchases(requests, bunq, tiers, accessConfig);
 
@@ -267,7 +273,7 @@ public class AccessBot implements AutoCloseable {
                     new UpdateFeed(updates, UpdateFeed.Board.of(admin), messages);
             updateFeed.start();
 
-            schedule(accessConfig, processor, roles, status, updateFeed);
+            schedule(accessConfig, processor, bunq.configured(), roles, status, updateFeed);
 
             // The readiness marker sits last on purpose: nothing above writes one, so a marker on
             // disk means this bot got all the way through its constructor. It shares the timer
@@ -291,10 +297,18 @@ public class AccessBot implements AutoCloseable {
      * and the failure mode of that is a bot that looks healthy and stops booking payments.
      */
     private void schedule(final AccessSpec config, final PaymentProcessor processor,
-                          final AccessRoles roles, final StatusChannels status,
-                          final UpdateFeed updateFeed) {
-        final int poll = config.payment().pollIntervalSeconds();
-        timers.scheduleWithFixedDelay(guarded("payment poll", processor::poll), poll, poll, TimeUnit.SECONDS);
+                          final boolean payments, final AccessRoles roles,
+                          final StatusChannels status, final UpdateFeed updateFeed) {
+        // No bunq, no poll. Scheduling it anyway would turn "there is no bank account configured"
+        // into a RuntimeException every few seconds, and `guarded` would keep it running - a log
+        // full of the same failure is how a real one gets missed.
+        if (payments) {
+            final int poll = config.payment().pollIntervalSeconds();
+            timers.scheduleWithFixedDelay(guarded("payment poll", processor::poll), poll, poll, TimeUnit.SECONDS);
+        } else {
+            log.warn("bunq is not configured, so no payment is ever polled for and nothing can be "
+                    + "bought. Everything else the bot does is unaffected.");
+        }
 
         final int reconcile = config.roleReconcileIntervalMinutes();
         timers.scheduleWithFixedDelay(guarded("role reconcile", roles::reconcile),

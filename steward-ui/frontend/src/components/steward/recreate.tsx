@@ -19,7 +19,7 @@ import { Failure } from "@/components/steward/query-state"
 import { StatusBadge } from "@/components/steward/status"
 
 /**
- * "Neu erzeugen" - the one thing the interface asks steward-deployer for (concept §10a.4).
+ * "Recreate" - the one thing the interface asks steward-deployer for (concept §10a.4).
  *
  * **It is not an update, and the dialog says so before anything happens.** An update is a row in
  * `update_request`: steward-worker claims it, warns every player in the game, counts down and
@@ -53,8 +53,8 @@ export function RecreateButton({
 
   // `job.data` survives a failed poll, so without the error guard this stayed true forever once one
   // answer had said RUNNING - and `running` is what disables the close button AND what makes
-  // onOpenChange swallow Escape and the overlay. The body would say "steward-deployer antwortet
-  // nicht" while the footer said "Läuft…" and the dialog refused to close: shut in a window that
+  // onOpenChange swallow Escape and the overlay. The body would say "steward-deployer is not
+  // answering" while the footer said "Running…" and the dialog refused to close: shut in a window that
   // has just announced nothing more is coming. Same guard `refetchInterval` uses in queries.ts.
   const running = recreate.isPending || (!job.error && job.data?.state === "RUNNING")
 
@@ -80,38 +80,38 @@ export function RecreateButton({
           title={
             unavailable
               ? deployer.data?.reason
-              : `Den Container von ${service} aus dem vorhandenen Image neu erzeugen.`
+              : `Recreate the container for ${service} from the image already on this host.`
           }
         >
           <RefreshCw className="size-3.5" aria-hidden />
-          Neu erzeugen
+          Recreate
         </Button>
       </DialogTrigger>
 
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{service} neu erzeugen?</DialogTitle>
+          <DialogTitle>Recreate {service}?</DialogTitle>
           <DialogDescription asChild>
             <div className="flex flex-col gap-2 text-left">
               <p>
-                Der Container wird gestoppt und aus dem Image neu angelegt, das schon auf diesem
-                Host liegt. Es wird dabei <strong>nichts geladen und keine Version bewegt</strong> –
-                dafür ist ein Update da.
+                The container is stopped and created again from the image already on this host.
+                <strong>Nothing is downloaded and no version is moved</strong> - that is what an
+                update is for.
               </p>
               <p>
-                Die Volumes bleiben: Welt, Konfiguration und Jars stehen danach unverändert da.
-                Weg ist der Log-Vorrat dieses Containers – Docker beginnt für den neuen bei null.
+                The volumes stay: world, configuration and jars are unchanged afterwards. What is
+                gone is this container's log history - Docker starts the new one at zero.
               </p>
               <p>
-                <strong>Es gibt keinen Countdown und keine Ansage im Spiel.</strong> Wer gerade auf
-                diesem Dienst ist, fliegt heraus. Ein Update tut das nicht; es warnt vorher.
+                <strong>There is no countdown and no announcement in game.</strong> Anyone on this
+                service right now is thrown out. An update does not do that; it warns first.
               </p>
             </div>
           </DialogDescription>
         </DialogHeader>
 
         {/*
-          A job that cannot be read is not a job that is running. Defaulting to "Läuft" and three
+          A job that cannot be read is not a job that is running. Defaulting to "Running" and three
           dots said exactly the same thing as a compose run in progress, which is the one situation
           where an operator most needs to know the difference: the container may already be down.
         */}
@@ -126,12 +126,12 @@ export function RecreateButton({
         <DialogFooter>
           {jobId ? (
             <Button variant="outline" onClick={() => setOpen(false)} disabled={running}>
-              {running ? "Läuft…" : "Schliessen"}
+              {running ? "Running…" : "Close"}
             </Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setOpen(false)}>
-                Abbrechen
+                Cancel
               </Button>
               <Button
                 disabled={recreate.isPending}
@@ -144,13 +144,13 @@ export function RecreateButton({
                     onError: (failure) =>
                       toast.error(
                         failure instanceof ApiError
-                          ? `${failure.where} hat abgelehnt: ${failure.message}`
+                          ? `${failure.where} refused: ${failure.message}`
                           : String(failure),
                       ),
                   })
                 }}
               >
-                Neu erzeugen
+                Recreate
               </Button>
             </>
           )}
@@ -169,16 +169,16 @@ function Output({ job }: { job: ReturnType<typeof useDeployerJob>["data"] }) {
           tone={state === "DONE" ? "ok" : state === "FAILED" ? "down" : "idle"}
           title={
             state === "DONE"
-              ? "compose ist mit 0 zurückgekommen."
+              ? "compose came back with 0."
               : state === "FAILED"
-                ? `compose ist mit ${job?.exitCode ?? "?"} zurückgekommen.`
-                : "compose arbeitet noch."
+                ? `compose came back with ${job?.exitCode ?? "?"}.`
+                : "compose is still working."
           }
         >
-          {state === "DONE" ? "Fertig" : state === "FAILED" ? "Fehlgeschlagen" : "Läuft"}
+          {state === "DONE" ? "Done" : state === "FAILED" ? "Failed" : "Running"}
         </StatusBadge>
         {job?.exitCode !== undefined ? (
-          <span className="text-xs text-muted-foreground">Exit-Code {job.exitCode}</span>
+          <span className="text-xs text-muted-foreground">Exit code {job.exitCode}</span>
         ) : null}
       </div>
       <ScrollArea className="h-48 rounded-md border border-border bg-muted/40">

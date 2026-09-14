@@ -4,7 +4,7 @@
 #
 # WHY IT IS A SCRIPT ON THE HOST AND NOT A PAGE IN THE INTERFACE: a backup is needed on the day
 # something is broken, and steward-ui runs as a container in the very stack it would be restoring.
-# A button there would work in every situation except the one it exists for. So /betrieb/wiederherstellen
+# A button there would work in every situation except the one it exists for. So /operations/restore
 # builds the command and a person runs it here - which is where they would have to be anyway.
 #
 #   sudo bash deploy/restore.sh --list                                  what is on the disk
@@ -147,7 +147,7 @@ if $LIST_ONLY; then
 fi
 
 [[ -n "$ARCHIVE" ]] || die "name an archive. \`--list\` shows what is there, and
-       /betrieb/wiederherstellen in the interface builds this whole command for you."
+       /operations/restore in the interface builds this whole command for you."
 [[ "$ARCHIVE" != */* ]] || die "an archive is a file name, not a path: '$ARCHIVE'. Everything is
        read out of the $BACKUPS_VOLUME volume, which is not a directory on this host."
 

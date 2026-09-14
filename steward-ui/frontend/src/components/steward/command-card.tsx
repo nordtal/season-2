@@ -57,9 +57,9 @@ export function CommandCard() {
           Befehle
         </CardTitle>
         <CardDescription>
-          Dieselben Befehle wie im Spiel und in Discord, dieselbe Umsetzung. Ausgeführt werden sie
-          von dem Dienst, dem sie gehören – die Oberfläche schreibt nur die Zeile und wartet auf die
-          Antwort.
+          The same commands as in game and in Discord, the same implementation. They are carried
+          out by the service that owns them - the interface only writes the row and waits for the
+          answer.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -67,7 +67,7 @@ export function CommandCard() {
           query={commands}
           rows={4}
           isEmpty={(list) => list.length === 0}
-          empty={{ title: "Kein Befehl ist für die Oberfläche freigegeben." }}
+          empty={{ title: "No command is released to the interface." }}
         >
           {(list) => list.map((command) => <CommandRow key={command.name} command={command} />)}
         </QueryState>
@@ -105,10 +105,10 @@ function CommandRow({ command }: { command: AdminCommand }) {
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm">{command.name}</span>
-            {command.irreversible ? <Badge variant="destructive">nicht umkehrbar</Badge> : null}
+            {command.irreversible ? <Badge variant="destructive">irreversible</Badge> : null}
           </div>
           <span className="text-sm text-muted-foreground">
-            Läuft auf <span className="font-mono">{command.target.toLowerCase()}</span>.
+            Runs on <span className="font-mono">{command.target.toLowerCase()}</span>.
           </span>
         </div>
         <Button
@@ -119,7 +119,7 @@ function CommandRow({ command }: { command: AdminCommand }) {
           onClick={() => (command.irreversible ? setConfirming(true) : send())}
         >
           <Play aria-hidden />
-          Ausführen
+          Run
         </Button>
       </div>
 
@@ -184,16 +184,16 @@ function CommandRow({ command }: { command: AdminCommand }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              <span className="font-mono">{command.name}</span> ausführen?
+              Run <span className="font-mono">{command.name}</span>?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Dieser Befehl ist als nicht umkehrbar deklariert – dieselbe Bestätigung verlangen auch
-              Chat und Discord. Was er tut, tut er sofort und ohne Rückweg.
+              This command is declared irreversible - chat and Discord ask for the same
+              confirmation. What it does, it does at once and with no way back.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {ask.error ? <Failure error={ask.error} /> : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={ask.isPending}>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel disabled={ask.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={ask.isPending}
@@ -202,7 +202,7 @@ function CommandRow({ command }: { command: AdminCommand }) {
                 send()
               }}
             >
-              Ausführen
+              Run
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -214,12 +214,12 @@ function CommandRow({ command }: { command: AdminCommand }) {
 /** The four states a request can be in, each said in words rather than coloured. */
 function Outcome({ run }: { run: CommandRun }) {
   const text: Record<CommandRun["status"], string> = {
-    PENDING: "Geschrieben. Der zuständige Dienst hat sie noch nicht abgeholt.",
-    RUNNING: "Wird ausgeführt.",
-    DONE: "Ausgeführt.",
-    FAILED: "Der Dienst hat sie abgeholt und ist daran gescheitert.",
+    PENDING: "Written. The service responsible has not picked it up yet.",
+    RUNNING: "Being carried out.",
+    DONE: "Carried out.",
+    FAILED: "The service picked it up and failed at it.",
     EXPIRED:
-      "Niemand hat die Zeile abgeholt. Das heißt: der Dienst, dem der Befehl gehört, hört nicht zu – nicht, dass der Befehl fehlgeschlagen ist.",
+      "Nobody picked the row up. That means the service owning the command is not listening - not that the command failed.",
   }
   const tone =
     run.status === "DONE"

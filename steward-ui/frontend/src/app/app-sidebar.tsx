@@ -21,7 +21,7 @@ import { StewardMark } from "@/app/steward-mark"
  *
  * `collapsible="none"` is deliberate and is not a placeholder for a collapse button: this is an
  * operator's tool on a desktop, the labels are the point, and an icon rail that hides the word
- * "Wiederherstellen" behind a play glyph is a worse interface, not a denser one.
+ * "Restore" behind a play glyph is a worse interface, not a denser one.
  *
  * The active item is marked with a blue rule down its left edge and blue text - never a blue
  * background. Blue is action in this interface; a selected row is a place, not an action, so it
@@ -85,7 +85,7 @@ export function AppSidebar() {
       <SidebarSeparator className="mx-0" />
       <SidebarFooter className="px-cell py-3">
         <p className="text-xs text-muted-foreground">
-          Alpha - noch ohne Daten.{" "}
+          Alpha - no data yet.{" "}
           <kbd className="rounded-sm border border-border bg-secondary px-1 py-0.5 font-mono text-[0.6875rem] text-foreground">
             Strg
           </kbd>
@@ -93,7 +93,7 @@ export function AppSidebar() {
           <kbd className="rounded-sm border border-border bg-secondary px-1 py-0.5 font-mono text-[0.6875rem] text-foreground">
             K
           </kbd>{" "}
-          öffnet die Suche.
+          opens the search.
         </p>
       </SidebarFooter>
     </Sidebar>
@@ -112,13 +112,13 @@ export function resolveHref(to: string, params?: Record<string, string>) {
 /**
  * Which single entry a path lights up.
  *
- * <p>Two entries can match one path - {@code /betrieb/plan} matches both "Übersicht"
- * ({@code /betrieb}) and "Plan" - and the sidebar then showed two selected rows with no way to
+ * <p>Two entries can match one path - {@code /operations/plan} matches both "Overview"
+ * ({@code /operations}) and "Plan" - and the sidebar then showed two selected rows with no way to
  * tell which page you were on. The rule is the longest match wins, decided across the whole
  * navigation, which is why this cannot be a predicate on one entry.</p>
  *
  * <p>A parameterised route is matched by its fixed part, not by the link it happens to point at:
- * "Lauf" links to {@code /betrieb/lauf/letzter} and must still be the selected row while you are
+ * "Run" links to {@code /operations/runs/latest} and must still be the selected row while you are
  * reading run 27. A per-service entry carries a real name in its parameters, and that longer
  * match is what keeps the right service selected rather than all of them.</p>
  */
@@ -142,7 +142,7 @@ export function activeEntryId(
   return best
 }
 
-/** Everything before a route's first parameter: `/betrieb/lauf/$id` is `/betrieb/lauf`. */
+/** Everything before a route's first parameter: `/operations/runs/$id` is `/operations/runs`. */
 function fixedPart(to: string) {
   const parameter = to.indexOf("/$")
   return parameter === -1 ? to : to.slice(0, parameter)

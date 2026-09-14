@@ -3,9 +3,10 @@
  *
  * Two reasons it is one file. Formatting a byte count in six places is six chances to disagree
  * about whether a gigabyte has 1000 or 1024 megabytes - and an operator comparing a card against a
- * table has to be able to trust that "1,4 GB" in one place is the same quantity as "1,4 GB" in the
- * other. And the locale is German everywhere: a decimal point where a comma belongs is the kind of
- * detail that makes a page read as translated rather than written.
+ * table has to be able to trust that "1.4 GB" in one place is the same quantity as "1.4 GB" in the
+ * other. And the locale is one constant, {@link LOCALE}, rather than fourteen string literals: the
+ * interface used to carry LOCALE in fourteen places, and a page that formats a date differently
+ * from the table beside it reads as translated rather than written.
  *
  * Base 1000, not 1024, and the unit says so. Docker reports memory in bytes and the disk numbers
  * come from `statvfs`; both are counts of bytes, and the host's own `df` prints base-1000 for the
@@ -14,16 +15,26 @@
  * fuller than it is.
  */
 
-const NUMBER = new Intl.NumberFormat("de-DE")
-const ONE_DECIMAL = new Intl.NumberFormat("de-DE", {
+/**
+ * The one locale this interface formats in.
+ *
+ * `en-GB` rather than `en-US`: the operators are European, and a 24-hour clock and a day-first date
+ * are what every other surface of this deployment prints - the worker's logs, `docker ps`, the
+ * archive names. A page that says 09/14 beside a log line that says 14/09 makes somebody check
+ * twice.
+ */
+export const LOCALE = "en-GB"
+
+const NUMBER = new Intl.NumberFormat(LOCALE)
+const ONE_DECIMAL = new Intl.NumberFormat(LOCALE, {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
-const DATE_TIME = new Intl.DateTimeFormat("de-DE", {
+const DATE_TIME = new Intl.DateTimeFormat(LOCALE, {
   dateStyle: "medium",
   timeStyle: "short",
 })
-const TIME = new Intl.DateTimeFormat("de-DE", { timeStyle: "medium" })
+const TIME = new Intl.DateTimeFormat(LOCALE, { timeStyle: "medium" })
 
 const UNITS = ["B", "kB", "MB", "GB", "TB", "PB"] as const
 
@@ -51,8 +62,8 @@ export function bytes(value: number | null | undefined): string {
  * A percentage that is already 0-100.
  *
  * `decimals` is honoured, all of it. It used to pick between two formatters - "no decimals" and
- * "one" - and the first of those was `Intl.NumberFormat("de-DE")` with nothing set, whose own
- * default is THREE. So `percent(87.4567, 0)` printed "87,457 %" in the Ampel's own sentence about
+ * "one" - and the first of those was `Intl.NumberFormat(LOCALE)` with nothing set, whose own
+ * default is THREE. So `percent(87.4567, 0)` printed "87,457 %" in the traffic light's own sentence about
  * a full disk. And because the choice was `decimals === 0 ? … : …`, every other number the
  * signature accepts quietly meant one - `percent(x, 2)` type-checked and gave one decimal, which
  * is the kind of wrong nobody can see at the call site.
@@ -71,7 +82,7 @@ function percentFormat(decimals: number): Intl.NumberFormat {
   const wanted = Math.min(Math.max(Math.trunc(decimals) || 0, 0), 20)
   let format = PERCENT_FORMATS.get(wanted)
   if (!format) {
-    format = new Intl.NumberFormat("de-DE", {
+    format = new Intl.NumberFormat(LOCALE, {
       minimumFractionDigits: wanted,
       maximumFractionDigits: wanted,
     })
@@ -88,7 +99,7 @@ export function count(value: number | null | undefined): string {
 /** Two decimals, for a load average - the one number where the third digit is noise. */
 export function load(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "–"
-  return new Intl.NumberFormat("de-DE", {
+  return new Intl.NumberFormat(LOCALE, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
@@ -97,7 +108,7 @@ export function load(value: number | null | undefined): string {
 /** Cents, as the bunq rows carry them. */
 export function euros(cents: number | null | undefined): string {
   if (cents == null || !Number.isFinite(cents)) return "–"
-  return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100)
+  return new Intl.NumberFormat(LOCALE, { style: "currency", currency: "EUR" }).format(cents / 100)
 }
 
 /**
@@ -126,12 +137,12 @@ export function clock(value: string | Date | null | undefined): string {
 }
 
 /**
- * "vor 3 Minuten", "in 2 Stunden".
+ * "3 minutes ago", "in 2 hours".
  *
- * Intl.RelativeTimeFormat does the grammar, which is the part that is easy to get wrong in German
+ * Intl.RelativeTimeFormat does the grammar, which is the part that is easy to get wrong by hand
  * and impossible to get wrong with the platform's own table.
  */
-const RELATIVE = new Intl.RelativeTimeFormat("de-DE", { numeric: "auto" })
+const RELATIVE = new Intl.RelativeTimeFormat(LOCALE, { numeric: "auto" })
 
 const STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
   ["second", 60],
@@ -157,28 +168,28 @@ export function relative(value: string | Date | null | undefined, now = Date.now
 }
 
 /**
- * A span, spelled out: "3 T 4 Std", "12 Min".
+ * A span, spelled out: "3 d 4 h", "12 min".
  *
- * Used for uptime and for how long a run took. Deliberately two units at most - "3 Tage, 4 Stunden,
- * 11 Minuten und 6 Sekunden" is a sentence nobody reads to the end.
+ * Used for uptime and for how long a run took. Deliberately two units at most - "3 days, 4 hours,
+ * 11 minutes and 6 seconds" is a sentence nobody reads to the end.
  */
 export function duration(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "–"
   const whole = Math.floor(seconds)
   if (whole < 60) return `${whole} s`
   const minutes = Math.floor(whole / 60)
-  if (minutes < 60) return `${minutes} Min`
+  if (minutes < 60) return `${minutes} min`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) {
     const rest = minutes % 60
-    return rest === 0 ? `${hours} Std` : `${hours} Std ${rest} Min`
+    return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`
   }
   const days = Math.floor(hours / 24)
   const rest = hours % 24
-  return rest === 0 ? `${days} T` : `${days} T ${rest} Std`
+  return rest === 0 ? `${days} d` : `${days} d ${rest} h`
 }
 
-/** How long ago an instant was, as a span rather than as "vor …". */
+/** How long ago an instant was, as a span rather than as "… ago". */
 export function since(value: string | Date | null | undefined, now = Date.now()): string {
   const date = value instanceof Date ? value : parseInstant(value)
   return date == null ? "–" : duration((now - date.getTime()) / 1000)

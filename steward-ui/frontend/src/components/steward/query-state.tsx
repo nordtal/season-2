@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 export function Loading({ rows = 5, label }: { rows?: number; label?: string }) {
   return (
     <div className="flex flex-col gap-2" role="status" aria-busy="true">
-      <span className="sr-only">{label ?? "Wird geladen…"}</span>
+      <span className="sr-only">{label ?? "Loading…"}</span>
       {Array.from({ length: rows }, (_, index) => (
         <Skeleton key={index} className="h-row w-full" />
       ))}
@@ -58,10 +58,10 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-sm font-medium">
             {worker
-              ? "steward-worker antwortet nicht."
+              ? "steward-worker is not answering."
               : deployer
-                ? "steward-deployer antwortet nicht."
-                : "Diese Angaben konnten nicht geladen werden."}
+                ? "steward-deployer is not answering."
+                : "This information could not be loaded."}
           </p>
           <p className="text-sm text-muted-foreground">
             {api ? api.message : String(error)}
@@ -69,14 +69,14 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
           </p>
           {worker ? (
             <p className="max-w-prose text-sm text-muted-foreground">
-              Alles über einen Container – Zustand, Log, Konsole – kommt von diesem Dienst. Die
-              Oberfläche selbst läuft; leer ist diese Liste deshalb nicht.
+              Everything about a container - status, log, console - comes from this service. The
+              interface itself is running; this list is not empty because of that.
             </p>
           ) : null}
           {deployer ? (
             <p className="max-w-prose text-sm text-muted-foreground">
-              Nur dieser Dienst darf Container erzeugen. Solange er schweigt, lässt sich nichts neu
-              erzeugen – laufen tut der Stack deswegen weiter.
+              Only this service may create containers. While it stays silent nothing can be
+              recreated - the stack keeps running regardless.
             </p>
           ) : null}
           {api?.detail ? (
@@ -89,7 +89,7 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
       {onRetry ? (
         <div>
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            Erneut versuchen
+            Try again
           </Button>
         </div>
       ) : null}

@@ -3,7 +3,7 @@ import { useParams } from "@tanstack/react-router"
 import { ArrowDownToLine, Pause, Play, RotateCw, Search, Send, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
-import { bytes, clock, percent, since } from "@/lib/format"
+import { LOCALE, bytes, clock, percent, since } from "@/lib/format"
 import { useConsole, useLogSearch, useService } from "@/lib/queries"
 import { useLogStream, LIMIT } from "@/lib/use-log-stream"
 import { PageHeader } from "@/components/steward/page-header"
@@ -22,20 +22,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
  * One service: what it is doing, what it is saying, and - for the four Minecraft servers - a way to
  * say something back.
  *
- * **The console's answer is not in the response.** `mc <befehl>` hands the line to the server's own
+ * **The console's answer is not in the response.** `mc <command>` hands the line to the server's own
  * tmux session and the server prints its reply on its own console, which is this log. That is not a
  * limitation to apologise for: it is what makes a second admin's command visible to the first
  * instead of private.
  */
-export function DienstPage() {
-  const { name } = useParams({ from: "/dienste/$name" })
+export function ServicePage() {
+  const { name } = useParams({ from: "/services/$name" })
   const service = useService(name)
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title={name}
-        note="Zustand, Logfenster und – wo es eine gibt – die Konsole."
+        note="Status, log window and - where there is one - the console."
         actions={<RecreateButton service={name} />}
       />
 
@@ -44,7 +44,7 @@ export function DienstPage() {
       ) : service.error ? (
         <Failure error={service.error} onRetry={service.refetch} />
       ) : service.data === undefined ? (
-        <Empty title="Unbekannter Dienst" note={`„${name}" gehört zu keinem Container des Stacks.`} />
+        <Empty title="Unknown service" note={`"${name}" belongs to no container of the stack.`} />
       ) : (
         <ServiceHead service={service.data} />
       )}
@@ -62,14 +62,14 @@ function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useSe
       <CardContent className="flex flex-wrap items-start gap-6 pt-6">
         <div className="flex flex-col gap-2">
           <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Zustand
+            State
           </span>
           <div className="flex items-center gap-2">
             <ServiceState state={service.state} health={service.health} />
             <DriftBadge drift={service.drift} />
             {service.hasConsole ? (
-              <StatusBadge tone="idle" title="Dieser Dienst hat eine Serverkonsole.">
-                Konsole
+              <StatusBadge tone="idle" title="This service has a server console.">
+                Console
               </StatusBadge>
             ) : null}
           </div>
@@ -78,8 +78,8 @@ function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useSe
 
         <Separator orientation="vertical" className="h-14" />
 
-        <Stat label="Laufzeit" value={service.startedAt ? since(service.startedAt) : "–"} />
-        <Stat label="RAM" value={bytes(service.memoryBytes)} hint="Anteil am Host – kein Limit" />
+        <Stat label="Uptime" value={service.startedAt ? since(service.startedAt) : "–"} />
+        <Stat label="RAM" value={bytes(service.memoryBytes)} hint="share of the host - no limit" />
         <Stat label="CPU" value={percent(service.cpuPercent)} />
 
         <div className="flex min-w-64 flex-col gap-1">
@@ -93,7 +93,7 @@ function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useSe
             </code>
           ) : (
             <span className="text-xs text-muted-foreground">
-              Kein Registry-Digest – hier gebaut, nirgends veröffentlicht.
+              No registry digest - built here, published nowhere.
             </span>
           )}
         </div>
@@ -107,8 +107,8 @@ function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useSe
 /**
  * Two searches, and the difference between them is the whole point of the switch.
  *
- * *Fenster* filters what this browser already holds - instant, and blind to anything that scrolled
- * past before the page was opened. *Historie* asks steward-worker to grep what Docker still has on
+ * *Window* filters what this browser already holds - instant, and blind to anything that scrolled
+ * past before the page was opened. *History* asks steward-worker to grep what Docker still has on
  * disk: up to 50 MB per container, measured on this host, and **nothing older**, because nothing
  * older exists anywhere. Recreating the container starts that buffer again.
  */
@@ -135,16 +135,16 @@ function LogPanel({ name }: { name: string }) {
       <CardHeader>
         <CardTitle className="text-sm font-medium">Log</CardTitle>
         <CardDescription>
-          Live aus dem Container. Docker hält je Container bis zu 50 MB (5 × 10 MB) vor und nichts
-          Älteres; eine Neuerzeugung des Containers setzt diesen Vorrat zurück.
+          Live from the container. Docker keeps up to 50 MB per container (5 × 10 MB) and nothing
+          older; recreating the container resets that store.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <Tabs defaultValue="fenster">
+        <Tabs defaultValue="window">
           <div className="flex flex-wrap items-center gap-2">
             <TabsList>
-              <TabsTrigger value="fenster">Fenster</TabsTrigger>
-              <TabsTrigger value="historie">Historie</TabsTrigger>
+              <TabsTrigger value="window">Window</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
             <div className="ml-auto flex items-center gap-2">
@@ -156,7 +156,7 @@ function LogPanel({ name }: { name: string }) {
                 onClick={() => stream.setPaused(!stream.paused)}
               >
                 {stream.paused ? <Play aria-hidden /> : <Pause aria-hidden />}
-                {stream.paused ? "Fortsetzen" : "Anhalten"}
+                {stream.paused ? "Resume" : "Pause"}
               </Button>
               <Button
                 type="button"
@@ -166,23 +166,23 @@ function LogPanel({ name }: { name: string }) {
                 aria-pressed={follow}
               >
                 <ArrowDownToLine aria-hidden />
-                {follow ? "Folgt" : "Frei"}
+                {follow ? "Following" : "Free"}
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={stream.clear}>
                 <Trash2 aria-hidden />
-                Leeren
+                Clear
               </Button>
             </div>
           </div>
 
-          <TabsContent value="fenster" className="flex flex-col gap-3">
+          <TabsContent value="window" className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
-                placeholder="Im Fenster filtern…"
-                aria-label="Im Fenster filtern"
+                placeholder="Filter the window…"
+                aria-label="Filter the window"
               />
               <span className="shrink-0 text-xs text-muted-foreground tnum">
                 {shown.length} / {stream.lines.length}
@@ -190,14 +190,14 @@ function LogPanel({ name }: { name: string }) {
             </div>
             <LogWindow lines={shown} bottom={bottom} />
             <p className="text-xs text-muted-foreground">
-              Das Fenster hält {LIMIT.toLocaleString("de-DE")} Zeilen.
+              The window holds {LIMIT.toLocaleString(LOCALE)} lines.
               {stream.dropped > 0
-                ? ` ${stream.dropped.toLocaleString("de-DE")} ältere sind herausgefallen.`
+                ? ` ${stream.dropped.toLocaleString(LOCALE)} older ones have dropped out.`
                 : ""}
             </p>
           </TabsContent>
 
-          <TabsContent value="historie" className="flex flex-col gap-3">
+          <TabsContent value="history" className="flex flex-col gap-3">
             <form
               className="flex items-center gap-2"
               onSubmit={(event) => {
@@ -209,11 +209,11 @@ function LogPanel({ name }: { name: string }) {
               <Input
                 value={pattern}
                 onChange={(event) => setPattern(event.target.value)}
-                placeholder="Im Vorrat von Docker suchen…"
-                aria-label="In der Historie suchen"
+                placeholder="Search what Docker has in stock…"
+                aria-label="Search the history"
               />
               <Button type="submit" size="sm" disabled={!pattern.trim() || search.isPending}>
-                {search.isPending ? "Sucht…" : "Suchen"}
+                {search.isPending ? "Searching…" : "Search"}
               </Button>
             </form>
 
@@ -221,17 +221,17 @@ function LogPanel({ name }: { name: string }) {
               <Failure error={search.error} />
             ) : search.data === undefined ? (
               <Empty
-                title="Noch nicht gesucht"
-                note="Diese Suche liest, was Docker auf der Platte hat – das dauert einen Moment und belastet den Daemon, deshalb läuft sie nur auf Knopfdruck."
+                title="Not searched yet"
+                note="This search reads what Docker has on the disk - it takes a moment and loads the daemon, which is why it only runs on a button press."
               />
             ) : search.data.lines.length === 0 ? (
-              <Empty title="Nichts gefunden" note={`„${pattern}" kommt im Vorrat nicht vor.`} />
+              <Empty title="Nothing found" note={`"${pattern}" does not appear in the store.`} />
             ) : (
               <>
                 <LogWindow lines={search.data.lines.map((text, index) => ({ seq: index, text, at: 0 }))} />
                 {search.data.truncated ? (
                   <p className="text-xs text-warning">
-                    Abgeschnitten bei {search.data.limit} Treffern – es gibt mehr.
+                    Cut off at {search.data.limit} hits - there are more.
                   </p>
                 ) : null}
               </>
@@ -246,22 +246,22 @@ function LogPanel({ name }: { name: string }) {
 function StreamState({ stream }: { stream: ReturnType<typeof useLogStream> }) {
   if (stream.state === "open") {
     return (
-      <StatusBadge tone="ok" title="Der Logstrom steht.">
-        verbunden
+      <StatusBadge tone="ok" title="The log stream is up.">
+        connected
       </StatusBadge>
     )
   }
   if (stream.state === "connecting") {
-    return <StatusBadge tone="idle">verbindet…</StatusBadge>
+    return <StatusBadge tone="idle">connecting…</StatusBadge>
   }
   return (
     <span className="flex items-center gap-2">
       <StatusBadge tone="down" title={stream.error ?? undefined}>
-        getrennt
+        disconnected
       </StatusBadge>
       <Button type="button" variant="outline" size="sm" onClick={stream.reconnect}>
         <RotateCw aria-hidden />
-        Neu verbinden
+        Reconnect
       </Button>
     </span>
   )
@@ -284,7 +284,7 @@ function LogWindow({
   if (lines.length === 0) {
     return (
       <div className="flex h-96 items-center justify-center rounded-md border border-border bg-[#0a0a0a] text-sm text-muted-foreground">
-        Noch keine Zeilen.
+        No lines yet.
       </div>
     )
   }
@@ -314,12 +314,12 @@ function ConsolePanel({ name }: { name: string }) {
   const [cursor, setCursor] = useState(-1)
 
   return (
-    <Card id="konsole">
+    <Card id="console">
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Konsole</CardTitle>
+        <CardTitle className="text-sm font-medium">Console</CardTitle>
         <CardDescription>
-          Eine Zeile in die Serverkonsole. Die Antwort steht oben im Log – nicht hier: der Server
-          schreibt sie auf seine eigene Konsole, und damit sehen alle Admins sie.
+          One line into the server console. The answer appears in the log above - not here: the
+          server writes it to its own console, and so every admin sees it.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -331,21 +331,21 @@ function ConsolePanel({ name }: { name: string }) {
             if (!line) return
             console_.mutate(line, {
               onSuccess: () => {
-                toast.success(`„${line}" abgeschickt`, {
-                  description: "Die Antwort erscheint im Logfenster.",
+                toast.success(`"${line}" sent`, {
+                  description: "The answer appears in the log window.",
                 })
                 setHistory((previous) => [line, ...previous].slice(0, 20))
                 setCursor(-1)
                 setCommand("")
               },
               onError: (error) => {
-                toast.error("Die Zeile wurde nicht abgeschickt", { description: String(error) })
+                toast.error("The line was not sent", { description: String(error) })
               },
             })
           }}
         >
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Label htmlFor="console-command">Befehl</Label>
+            <Label htmlFor="console-command">Command</Label>
             <Input
               id="console-command"
               value={command}

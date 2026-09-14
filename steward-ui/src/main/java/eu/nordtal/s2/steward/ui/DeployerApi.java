@@ -16,7 +16,7 @@ import java.util.function.Function;
 
 /**
  * The one thing the interface asks steward-deployer for: make this service's container again
- * (§10a.4, "Einzelne Dienste bei Image-Drift neu erzeugen lassen").
+ * (§10a.4, "recreate individual services on image drift").
  *
  * <h2>Why this is not the same door as an update</h2>
  * An update is a row in {@code update_request}: countable, cancellable, counted down in front of

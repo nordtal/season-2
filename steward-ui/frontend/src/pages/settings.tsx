@@ -18,34 +18,34 @@ import {
 import { Separator } from "@/components/ui/separator"
 
 /**
- * Steward itself: who is signed in, how, and on what numbers the Ampel fires.
+ * Steward itself: who is signed in, how, and on what numbers the traffic light fires.
  *
  * **Nothing here is edited in place.** The thresholds are keys in `steward-ui.yml`, and that file
- * already has a form on the Konfiguration page - a second form over the same three values would be
+ * already has a form on the Configuration page - a second form over the same three values would be
  * two places to change one number, which is one place too many. This page shows them and links
  * there.
  */
-export function EinstellungenPage() {
+export function SettingsPage() {
   const me = useMe()
   const settings = useSettings()
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Einstellungen"
-        note="Wer angemeldet ist, womit – und die beiden Schwellen, ab denen die Ampel gelb wird."
+        title="Settings"
+        note="Who is signed in, with what - and the two thresholds at which the light turns yellow."
       />
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserRound className="size-4 text-muted-foreground" aria-hidden />
-            Angemeldet
+            Signed in
           </CardTitle>
           <CardDescription>
-            Die Sitzung liegt im Arbeitsspeicher dieses Containers. Ein Neustart von steward-ui
-            beendet sie – das ist kein Fehler, sondern die Kehrseite davon, keinen Sitzungsspeicher
-            sichern zu müssen.
+            The session lives in this container's memory. A restart of steward-ui
+            ends it - that is not a fault but the flip side of having no session store to keep
+            safe.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -53,7 +53,7 @@ export function EinstellungenPage() {
             {(who) => (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-sm font-medium">{who.name ?? "unbekannt"}</span>
+                  <span className="text-sm font-medium">{who.name ?? "unknown"}</span>
                   <span className="font-mono text-xs text-muted-foreground">
                     Discord {who.id ?? "—"}
                   </span>
@@ -68,7 +68,7 @@ export function EinstellungenPage() {
                   }}
                 >
                   <LogOut aria-hidden />
-                  Abmelden
+                  Sign out
                 </Button>
               </div>
             )}
@@ -78,11 +78,11 @@ export function EinstellungenPage() {
 
           <Alert>
             <Fingerprint aria-hidden />
-            <AlertTitle>Diese Alpha kennt keinen zweiten Faktor.</AlertTitle>
+            <AlertTitle>This alpha knows no second factor.</AlertTitle>
             <AlertDescription>
               {me.data?.webauthn ??
-                "Es gibt kein Passwort, keinen Sicherheitsschlüssel und keine zweite Identität: wer die Discord-Sitzung eines Admins hat, hat diese Oberfläche."}{" "}
-              Deshalb landet jede Änderung, die hier gemacht wird, im{" "}
+                "There is no password, no security key and no second identity: whoever holds an admin's Discord session holds this interface."}{" "}
+              That is why every change made here lands in the{" "}
               <Link to="/journal" className="underline underline-offset-4">
                 Journal
               </Link>
@@ -96,12 +96,12 @@ export function EinstellungenPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <SlidersHorizontal className="size-4 text-muted-foreground" aria-hidden />
-            Schwellen der Ampel
+            Thresholds of the light
           </CardTitle>
           <CardDescription>
-            Zwei davon sind Geschmackssache und stehen hier. Die anderen beiden Auslöser – ein
-            Dienst, der nicht läuft, und eine fehlende Sicherung – sind nicht einstellbar und sollen
-            es nicht sein. Eine stehende SMP ist keine Vorliebe.
+            Two of them are a matter of taste and live here. The other two triggers - a service
+            that is not running, and a missing backup - are not configurable and should not be. An
+            SMP that is down is not a preference.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -109,34 +109,34 @@ export function EinstellungenPage() {
             {(thresholds) => (
               <>
                 <Threshold
-                  label="Platte belegt"
-                  value={`ab ${thresholds.disk} %`}
-                  note="Gelb, sobald die Platte voller ist als das."
+                  label="Disk in use"
+                  value={`from ${thresholds.disk} %`}
+                  note="Yellow as soon as the disk is fuller than this."
                 />
                 <Threshold
-                  label="Arbeitsspeicher belegt"
-                  value={`ab ${thresholds.memory} %`}
-                  note="Kein Container im Stack setzt ein Limit, also ist das der Anteil an der ganzen Maschine."
+                  label="Memory in use"
+                  value={`from ${thresholds.memory} %`}
+                  note="No container in the stack sets a limit, so this is the share of the whole machine."
                 />
                 <Threshold
-                  label="Alter der neuesten Sicherung"
-                  value={`ab ${thresholds.backupAgeHours} Stunden`}
-                  note="Rot. Gezählt werden Dateien auf der Platte, nicht Läufe, die Erfolg gemeldet haben."
+                  label="Age of the newest backup"
+                  value={`from ${thresholds.backupAgeHours} hours`}
+                  note="Red. It counts files on the disk, not runs that reported success."
                 />
               </>
             )}
           </QueryState>
 
           <p className="text-sm text-muted-foreground">
-            Geändert werden sie in{" "}
+            They are changed in{" "}
             <Link
-              to="/konfiguration/$"
+              to="/configuration/$"
               params={{ _splat: "steward-ui/steward-ui.yml" }}
               className="font-mono underline underline-offset-4"
             >
               steward-ui.yml
             </Link>
-            , Abschnitt „Alerts“. Eine Änderung greift beim nächsten Start von steward-ui.
+            , section "Alerts". A change takes effect at the next start of steward-ui.
           </p>
         </CardContent>
       </Card>

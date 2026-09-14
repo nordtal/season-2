@@ -95,15 +95,15 @@ describe("CommandCard - a command that refuses to be written", () => {
   it("shows the refusal inside the confirmation, where the operator is looking", async () => {
     // The defect: the dialog covers the card, so the `Failure` in the row behind it was a sentence
     // nobody could read, under a button that looked as though nothing had happened.
-    vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "Die Datenbank antwortet nicht." } }) }))
+    vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
-    fireEvent.click(within(await row("farmworld reset")).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(await row("farmworld reset")).getByRole("button", { name: /Run/ }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(dialog).getByRole("button", { name: /Run/ }))
 
     await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull())
-    expect(within(dialog).getByRole("alert").textContent).toContain("Die Datenbank antwortet nicht.")
+    expect(within(dialog).getByRole("alert").textContent).toContain("The database is not answering.")
     // And in exactly one place. `hidden: true` is not padding: Radix marks everything outside the
     // open dialog `aria-hidden`, so a second copy left in the row behind the overlay is invisible
     // to a default `getAllByRole` and this assertion would pass over the very thing it is for.
@@ -113,55 +113,55 @@ describe("CommandCard - a command that refuses to be written", () => {
   it("leaves the confirmation open, because the command has not been written", async () => {
     // Closing it on failure would look like success. `setConfirming(false)` is deliberately in
     // `onSuccess` and nowhere else.
-    vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "Die Datenbank antwortet nicht." } }) }))
+    vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
-    fireEvent.click(within(await row("farmworld reset")).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(await row("farmworld reset")).getByRole("button", { name: /Run/ }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(dialog).getByRole("button", { name: /Run/ }))
 
     await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull())
     expect(screen.queryByRole("alertdialog")).not.toBeNull()
-    expect(within(dialog).getByRole("button", { name: /Ausführen/ })).toBeTruthy()
+    expect(within(dialog).getByRole("button", { name: /Run/ })).toBeTruthy()
   })
 
   it("moves the refusal into the row once the confirmation is gone", async () => {
     // The other half of the `!confirming` condition: with nothing covering the card the sentence
     // belongs where the button is.
-    vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "Die Datenbank antwortet nicht." } }) }))
+    vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
     const irreversible = await row("farmworld reset")
-    fireEvent.click(within(irreversible).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(irreversible).getByRole("button", { name: /Run/ }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(dialog).getByRole("button", { name: /Run/ }))
     await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull())
 
-    fireEvent.click(within(dialog).getByRole("button", { name: /Abbrechen/ }))
+    fireEvent.click(within(dialog).getByRole("button", { name: /Cancel/ }))
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    expect(within(irreversible).getByRole("alert").textContent).toContain("Die Datenbank antwortet nicht.")
+    expect(within(irreversible).getByRole("alert").textContent).toContain("The database is not answering.")
     expect(screen.getAllByRole("alert")).toHaveLength(1)
   })
 
   it("shows it in the row straight away for a command that asks nothing first", async () => {
-    vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "Die Datenbank antwortet nicht." } }) }))
+    vi.stubGlobal("fetch", backend({ ask: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
     draw(<CommandCard />)
 
     const safe = await row("season phase")
-    fireEvent.click(within(safe).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(safe).getByRole("button", { name: /Run/ }))
 
     await waitFor(() => expect(within(safe).queryByRole("alert")).not.toBeNull())
     expect(screen.queryByRole("alertdialog")).toBeNull()
-    expect(within(safe).getByRole("alert").textContent).toContain("Die Datenbank antwortet nicht.")
+    expect(within(safe).getByRole("alert").textContent).toContain("The database is not answering.")
   })
 })
 
 describe("CommandCard - what became of a row that was written", () => {
   it("says that nothing claimed the row, which is not the same as having failed", async () => {
     // EXPIRED means the service that owns the command is not listening. That is a different
-    // errand from FAILED, and collapsing the two into "ging nicht" sends somebody to the wrong
-    // log.
+    // errand from FAILED, and collapsing the two into "it did not work" sends somebody to the
+    // wrong log.
     vi.stubGlobal(
       "fetch",
       backend({
@@ -172,31 +172,31 @@ describe("CommandCard - what became of a row that was written", () => {
     draw(<CommandCard />)
 
     const safe = await row("season phase")
-    fireEvent.click(within(safe).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(safe).getByRole("button", { name: /Run/ }))
 
-    await waitFor(() => expect(safe.textContent).toContain("Niemand hat die Zeile abgeholt"))
-    expect(safe.textContent).toContain("hört nicht zu")
+    await waitFor(() => expect(safe.textContent).toContain("Nobody picked the row up"))
+    expect(safe.textContent).toContain("is not listening")
   })
 
   it("shows the failure and a way back when the poll itself cannot be answered", async () => {
     // The row exists and the command may well be running; what is broken is the asking. Drawing
-    // "Wird ausgeführt." here would be an assertion nothing supports.
+    // "Being carried out." here would be an assertion nothing supports.
     vi.stubGlobal(
       "fetch",
       backend({
         ask: () => ({ status: 202, body: { id: "r1", status: "PENDING" } }),
-        run: () => ({ status: 502, body: { error: "steward-worker antwortet nicht.", where: "steward-worker" } }),
+        run: () => ({ status: 502, body: { error: "steward-worker is not answering.", where: "steward-worker" } }),
       }),
     )
     draw(<CommandCard />)
 
     const safe = await row("season phase")
-    fireEvent.click(within(safe).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(safe).getByRole("button", { name: /Run/ }))
 
     await waitFor(() => expect(within(safe).queryByRole("alert")).not.toBeNull())
-    expect(within(safe).getByRole("alert").textContent).toContain("steward-worker antwortet nicht.")
-    expect(within(safe).queryByText("Wird ausgeführt.")).toBeNull()
-    expect(within(safe).getByRole("button", { name: /Erneut versuchen/ })).toBeTruthy()
+    expect(within(safe).getByRole("alert").textContent).toContain("steward-worker is not answering.")
+    expect(within(safe).queryByText("Being carried out.")).toBeNull()
+    expect(within(safe).getByRole("button", { name: /Try again/ })).toBeTruthy()
   })
 
   it("carries the command's own result text through rather than paraphrasing it", async () => {
@@ -210,7 +210,7 @@ describe("CommandCard - what became of a row that was written", () => {
     draw(<CommandCard />)
 
     const safe = await row("season phase")
-    fireEvent.click(within(safe).getByRole("button", { name: /Ausführen/ }))
+    fireEvent.click(within(safe).getByRole("button", { name: /Run/ }))
 
     await waitFor(() => expect(safe.textContent).toContain("no such world: farm_2"))
   })
@@ -221,20 +221,20 @@ describe("CommandCard - what it will not let be pressed", () => {
     const withArgument: AdminCommand = {
       ...SAFE,
       name: "access grant",
-      arguments: [{ name: "spieler", kind: "PLAYER", required: true }],
+      arguments: [{ name: "player", kind: "PLAYER", required: true }],
     }
     vi.stubGlobal("fetch", backend({ commands: [withArgument] }))
     draw(<CommandCard />)
 
     const only = await row("access grant")
-    const button = within(only).getByRole("button", { name: /Ausführen/ }) as HTMLButtonElement
+    const button = within(only).getByRole("button", { name: /Run/ }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
 
     // Whitespace is not an argument - `.trim()` in `missing` is what makes that true.
-    fireEvent.change(within(only).getByLabelText("spieler"), { target: { value: "   " } })
+    fireEvent.change(within(only).getByLabelText("player"), { target: { value: "   " } })
     expect(button.disabled).toBe(true)
 
-    fireEvent.change(within(only).getByLabelText("spieler"), { target: { value: "till" } })
+    fireEvent.change(within(only).getByLabelText("player"), { target: { value: "till" } })
     expect(button.disabled).toBe(false)
   })
 
@@ -244,6 +244,6 @@ describe("CommandCard - what it will not let be pressed", () => {
     vi.stubGlobal("fetch", backend({ commands: [] }))
     draw(<CommandCard />)
 
-    expect(await screen.findByText(/Kein Befehl ist für die Oberfläche freigegeben/)).toBeTruthy()
+    expect(await screen.findByText(/No command is released to the interface/)).toBeTruthy()
   })
 })

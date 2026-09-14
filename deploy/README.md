@@ -344,7 +344,7 @@ the proxy announces, because it is the only process that sees everybody. Inside 
 the **Stop the countdown** button or `/update cancel` still stops it.
 
 **Players on a server that is about to stop are moved into `limbo`, eight seconds before it goes.**
-The waiting room shows *"Update läuft / Gleich geht es automatisch weiter"* rather than the
+The waiting room shows *"Update in progress / You will be moved back automatically"* rather than the
 "waiting for the server" screen it shows when a backend is merely down — the proxy reads that from
 the update row, because from outside the two are the same fact. Bringing them back needs nothing of
 its own: the pack station's five-second sweep already releases a held player the moment their

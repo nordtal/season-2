@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import type { MetricPoint } from "@/lib/api"
+import { LOCALE } from "@/lib/format"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 
@@ -42,7 +43,7 @@ export function SeriesChart({
         style={{ height }}
         className="flex items-center justify-center rounded-md border border-dashed border-border text-xs text-muted-foreground"
       >
-        Noch keine Messpunkte – steward-worker schreibt alle 30 Sekunden einen.
+        No data points yet - steward-worker writes one every 30 seconds.
       </div>
     )
   }
@@ -67,7 +68,7 @@ export function SeriesChart({
           minTickGap={48}
           tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
           tickFormatter={(value: number) =>
-            new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(value)
+            new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit" }).format(value)
           }
         />
         <YAxis
@@ -81,7 +82,7 @@ export function SeriesChart({
           content={
             <ChartTooltipContent
               labelFormatter={(_, payload) =>
-                new Intl.DateTimeFormat("de-DE", {
+                new Intl.DateTimeFormat(LOCALE, {
                   dateStyle: "short",
                   timeStyle: "short",
                 }).format(Number(payload?.[0]?.payload?.at ?? Date.now()))

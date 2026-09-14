@@ -38,16 +38,16 @@ export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
           <StewardMark className="size-8" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-            <span className="text-sm text-muted-foreground">nordtal.eu · Saison 2</span>
+            <span className="text-sm text-muted-foreground">nordtal.eu · Season 2</span>
           </div>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Anmelden</CardTitle>
+            <CardTitle>Sign in</CardTitle>
             <CardDescription>
-              Über Discord. Diese Oberfläche liest daraus nur, wer du bist und welche Rollen du in
-              der Gilde hast – niemals mit dem Token des Bots.
+              Through Discord. This interface reads only who you are and which roles you hold in
+              the guild - never with the bot's token.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -56,15 +56,15 @@ export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
             ) : missing ? (
               <Alert variant="destructive">
                 <ShieldAlert aria-hidden />
-                <AlertTitle>Hier kann sich gerade niemand anmelden.</AlertTitle>
+                <AlertTitle>Nobody can sign in here right now.</AlertTitle>
                 <AlertDescription>
-                  {missing} Das ist eine fehlende Konfiguration und kein falsches Konto – solange
-                  der Wert leer ist, führt der Weg über Discord ins Leere.
+                  {missing} That is missing configuration, not a wrong account - while the value
+                  is empty the path through Discord leads nowhere.
                 </AlertDescription>
               </Alert>
             ) : (
               <Button asChild size="lg" className="w-full">
-                <a href="/auth/login">Mit Discord anmelden</a>
+                <a href="/auth/login">Sign in with Discord</a>
               </Button>
             )}
 
@@ -73,15 +73,15 @@ export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
               <AlertTitle>Es gibt keinen zweiten Faktor.</AlertTitle>
               <AlertDescription>
                 {me?.webauthn ??
-                  "Ein Sicherheitsschlüssel ist in dieser Alpha nicht gebaut: wer die Discord-Sitzung eines Admins hat, hat diese Oberfläche – und die kann Dienste anhalten und in Konsolen tippen."}
+                  "A security key is not built in this alpha: whoever holds an admin's Discord session holds this interface - and it can stop services and type into consoles."}
               </AlertDescription>
             </Alert>
           </CardContent>
         </Card>
 
         <p className="text-center text-sm text-muted-foreground">
-          Ohne die Adminrolle der Gilde wird die Anmeldung abgelehnt – nachdem Discord bestätigt
-          hat, wer du bist, damit die Absage dich beim Namen nennen kann.
+          Without the guild's admin role the sign-in is refused - after Discord has confirmed who
+          you are, so that the refusal can name you.
         </p>
       </div>
     </div>

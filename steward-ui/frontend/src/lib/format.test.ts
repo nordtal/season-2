@@ -17,13 +17,11 @@ import {
 /**
  * The numbers this interface prints, held against what the file promises they look like.
  *
- * Two characters in here are not the ones a keyboard produces and are written as escapes on
- * purpose. The placeholder for "nothing to show" is an en dash, not a hyphen, and the space in
- * "1,50 €" is a non-breaking one that ICU puts there - an assertion typed with the ordinary
- * characters passes nowhere and fails for a reason nobody can see in the diff.
+ * One character in here is not the one a keyboard produces and is written as an escape on purpose:
+ * the placeholder for "nothing to show" is an en dash, not a hyphen - an assertion typed with the
+ * ordinary character passes nowhere and fails for a reason nobody can see in the diff.
  */
 const NOTHING = "\u2013"
-const NBSP = "\u00a0"
 
 /** Every formatter takes null, undefined, NaN and both infinities, because the API sends all four. */
 const NOT_A_NUMBER = [null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]
@@ -37,22 +35,22 @@ describe("bytes", () => {
 
   it("treats a kilobyte as a thousand bytes, because that is what df on this host says", () => {
     // The header of the file argues this explicitly: matching the machine's own tools beats the
-    // pedantically correct GiB, so 1024 B is 1,0 kB and not 1,0 KiB.
-    expect(bytes(1000)).toBe("1,0 kB")
-    expect(bytes(1024)).toBe("1,0 kB")
-    expect(bytes(1500)).toBe("1,5 kB")
+    // pedantically correct GiB, so 1024 B is 1.0 kB and not 1.0 KiB.
+    expect(bytes(1000)).toBe("1.0 kB")
+    expect(bytes(1024)).toBe("1.0 kB")
+    expect(bytes(1500)).toBe("1.5 kB")
   })
 
   it("climbs one unit per factor of a thousand and names the unit it stopped at", () => {
-    expect(bytes(2_500_000)).toBe("2,5 MB")
-    expect(bytes(3_400_000_000)).toBe("3,4 GB")
-    expect(bytes(1_000_000_000_000)).toBe("1,0 TB")
+    expect(bytes(2_500_000)).toBe("2.5 MB")
+    expect(bytes(3_400_000_000)).toBe("3.4 GB")
+    expect(bytes(1_000_000_000_000)).toBe("1.0 TB")
   })
 
   it("stops at petabytes rather than walking off the end of the unit list", () => {
     // A value larger than the largest unit must still be a sentence, not "undefined".
-    expect(bytes(1e15)).toBe("1,0 PB")
-    expect(bytes(1e18)).toBe("1.000,0 PB")
+    expect(bytes(1e15)).toBe("1.0 PB")
+    expect(bytes(1e18)).toBe("1,000.0 PB")
   })
 
   it("shows a dash for anything that is not a number, including both infinities", () => {
@@ -61,18 +59,18 @@ describe("bytes", () => {
 
   it("never prints a thousand of one unit, because that is the next unit", () => {
     // FINDING - fails today. The scaling loop looks at the raw value and the rounding happens
-    // afterwards, so 999 999 B is scaled to 999,999 kB and then printed as "1.000,0 kB". Every
+    // afterwards, so 999 999 B is scaled to 999.999 kB and then printed as "1,000.0 kB". Every
     // byte count in [999 950, 999 999] reads as a thousand kilobytes rather than as a megabyte,
     // and these are integers the host really reports.
-    expect(bytes(999_999)).toBe("1,0 MB")
-    expect(bytes(999_999_999)).toBe("1,0 GB")
+    expect(bytes(999_999)).toBe("1.0 MB")
+    expect(bytes(999_999_999)).toBe("1.0 GB")
   })
 })
 
 describe("percent", () => {
   it("prints a whole number when no decimals were asked for", () => {
     // The regression this test exists for: Intl's own default is three fraction digits, so the
-    // zero-decimal call printed "87,457 %" where the page had asked for "87 %".
+    // zero-decimal call printed "87.457 %" where the page had asked for "87 %".
     expect(percent(87.4567, 0)).toBe("87 %")
     expect(percent(0, 0)).toBe("0 %")
     expect(percent(100, 0)).toBe("100 %")
@@ -84,9 +82,9 @@ describe("percent", () => {
   })
 
   it("prints one decimal by default, padded when the value has none", () => {
-    expect(percent(87.4567)).toBe("87,5 %")
-    expect(percent(87)).toBe("87,0 %")
-    expect(percent(0)).toBe("0,0 %")
+    expect(percent(87.4567)).toBe("87.5 %")
+    expect(percent(87)).toBe("87.0 %")
+    expect(percent(0)).toBe("0.0 %")
   })
 
   it("honours a decimal count other than zero or one", () => {
@@ -94,7 +92,7 @@ describe("percent", () => {
     // the implementation is `decimals === 0 ? NO_DECIMAL : ONE_DECIMAL` and every value that is not
     // 0 silently means 1. Either the formatter is chosen by the argument or the type says `0 | 1`;
     // accepting a number and ignoring it is the one option that cannot be seen at the call site.
-    expect(percent(12.3456, 2)).toBe("12,35 %")
+    expect(percent(12.3456, 2)).toBe("12.35 %")
   })
 
   it("shows a dash for anything that is not a number", () => {
@@ -104,10 +102,10 @@ describe("percent", () => {
 })
 
 describe("count", () => {
-  it("groups with the German thousands dot", () => {
+  it("groups with the thousands separator of the locale", () => {
     expect(count(0)).toBe("0")
     expect(count(999)).toBe("999")
-    expect(count(1_234_567)).toBe("1.234.567")
+    expect(count(1_234_567)).toBe("1,234,567")
   })
 
   it("keeps the sign of a negative count", () => {
@@ -121,13 +119,13 @@ describe("count", () => {
 
 describe("load", () => {
   it("always prints two decimals, because a load average of 1 is 1,00", () => {
-    expect(load(0)).toBe("0,00")
-    expect(load(1.5)).toBe("1,50")
-    expect(load(12)).toBe("12,00")
+    expect(load(0)).toBe("0.00")
+    expect(load(1.5)).toBe("1.50")
+    expect(load(12)).toBe("12.00")
   })
 
   it("drops the third digit rather than showing it as noise", () => {
-    expect(load(0.1234)).toBe("0,12")
+    expect(load(0.1234)).toBe("0.12")
   })
 
   it("shows a dash for anything that is not a number", () => {
@@ -137,13 +135,13 @@ describe("load", () => {
 
 describe("euros", () => {
   it("reads cents as the bunq rows carry them and prints euros", () => {
-    expect(euros(0)).toBe(`0,00${NBSP}€`)
-    expect(euros(150)).toBe(`1,50${NBSP}€`)
-    expect(euros(123_456)).toBe(`1.234,56${NBSP}€`)
+    expect(euros(0)).toBe("€0.00")
+    expect(euros(150)).toBe("€1.50")
+    expect(euros(123_456)).toBe("€1,234.56")
   })
 
   it("keeps the sign of a refund", () => {
-    expect(euros(-150)).toBe(`-1,50${NBSP}€`)
+    expect(euros(-150)).toBe("-€1.50")
   })
 
   it("shows a dash for anything that is not a number", () => {
@@ -163,7 +161,7 @@ describe("parseInstant", () => {
 
   it("returns null for a string that is not a date, never an Invalid Date", () => {
     // An Invalid Date would survive a null check and then throw inside Intl at the call site.
-    expect(parseInstant("keine Zeit")).toBeNull()
+    expect(parseInstant("not a time")).toBeNull()
     expect(parseInstant("2026-13-45T99:99:99Z")).toBeNull()
   })
 
@@ -180,26 +178,26 @@ describe("parseInstant", () => {
 
 describe("dateTime and clock", () => {
   // These two are the only assertions in this file that must not name a time zone: the tests run
-  // wherever they run, so what is pinned is the German shape - day first, dots, 24-hour clock -
-  // rather than the digits, which depend on the machine.
-  const GERMAN_DATE_TIME = /^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/
-  const GERMAN_CLOCK = /^\d{2}:\d{2}:\d{2}$/
+  // wherever they run, so what is pinned is the en-GB shape - day first, a named month, and a
+  // 24-hour clock - rather than the digits, which depend on the machine.
+  const LOCALE_DATE_TIME = /^\d{1,2} \w+ \d{4}, \d{2}:\d{2}$/
+  const LOCALE_CLOCK = /^\d{2}:\d{2}:\d{2}$/
 
-  it("prints a date German: day first, dots between, and a 24-hour clock", () => {
-    expect(dateTime("2026-09-12T04:45:00Z")).toMatch(GERMAN_DATE_TIME)
+  it("prints a date day first, with a named month and a 24-hour clock", () => {
+    expect(dateTime("2026-09-12T04:45:00Z")).toMatch(LOCALE_DATE_TIME)
   })
 
   it("prints only the clock for a log line, down to the second", () => {
-    expect(clock("2026-09-12T04:45:09Z")).toMatch(GERMAN_CLOCK)
+    expect(clock("2026-09-12T04:45:09Z")).toMatch(LOCALE_CLOCK)
   })
 
   it("takes a Date as it is and a string through parseInstant", () => {
-    expect(dateTime(new Date("2026-09-12T04:45:00Z"))).toMatch(GERMAN_DATE_TIME)
-    expect(clock(new Date("2026-09-12T04:45:09Z"))).toMatch(GERMAN_CLOCK)
+    expect(dateTime(new Date("2026-09-12T04:45:00Z"))).toMatch(LOCALE_DATE_TIME)
+    expect(clock(new Date("2026-09-12T04:45:09Z"))).toMatch(LOCALE_CLOCK)
   })
 
   it("shows a dash for nothing, for SQL NULL and for an unparseable string", () => {
-    for (const value of [null, undefined, "null", "", "keine Zeit"]) {
+    for (const value of [null, undefined, "null", "", "not a time"]) {
       expect(dateTime(value)).toBe(NOTHING)
       expect(clock(value)).toBe(NOTHING)
     }
@@ -210,29 +208,29 @@ describe("relative", () => {
   const NOW = Date.UTC(2026, 8, 12, 12, 0, 0)
   const away = (ms: number) => new Date(NOW + ms)
 
-  it("says jetzt rather than in 0 Sekunden", () => {
-    expect(relative(away(0), NOW)).toBe("jetzt")
+  it("says now rather than in 0 seconds", () => {
+    expect(relative(away(0), NOW)).toBe("now")
   })
 
-  it("puts the past before the number and the future after it, in German", () => {
-    expect(relative(away(-3 * 60_000), NOW)).toBe("vor 3 Minuten")
-    expect(relative(away(2 * 3_600_000), NOW)).toBe("in 2 Stunden")
+  it("puts the past after the number and the future before it", () => {
+    expect(relative(away(-3 * 60_000), NOW)).toBe("3 minutes ago")
+    expect(relative(away(2 * 3_600_000), NOW)).toBe("in 2 hours")
   })
 
   it("uses the word for a day rather than the number, which is what numeric auto is for", () => {
-    expect(relative(away(-24 * 3_600_000), NOW)).toBe("gestern")
-    expect(relative(away(24 * 3_600_000), NOW)).toBe("morgen")
+    expect(relative(away(-24 * 3_600_000), NOW)).toBe("yesterday")
+    expect(relative(away(24 * 3_600_000), NOW)).toBe("tomorrow")
   })
 
   it("steps up to the next unit exactly at sixty seconds", () => {
-    expect(relative(away(-59_000), NOW)).toBe("vor 59 Sekunden")
-    expect(relative(away(-60_000), NOW)).toBe("vor 1 Minute")
+    expect(relative(away(-59_000), NOW)).toBe("59 seconds ago")
+    expect(relative(away(-60_000), NOW)).toBe("1 minute ago")
   })
 
   it("keeps climbing units for a distance the page rarely shows", () => {
-    expect(relative(away(-14 * 24 * 3_600_000), NOW)).toBe("vor 2 Wochen")
-    expect(relative(away(-90 * 24 * 3_600_000), NOW)).toBe("vor 3 Monaten")
-    expect(relative(away(-400 * 24 * 3_600_000), NOW)).toBe("letztes Jahr")
+    expect(relative(away(-14 * 24 * 3_600_000), NOW)).toBe("2 weeks ago")
+    expect(relative(away(-90 * 24 * 3_600_000), NOW)).toBe("3 months ago")
+    expect(relative(away(-400 * 24 * 3_600_000), NOW)).toBe("last year")
   })
 
   it("shows a dash for nothing and for SQL NULL", () => {
@@ -248,19 +246,19 @@ describe("duration", () => {
   })
 
   it("switches unit exactly at sixty seconds and again at sixty minutes", () => {
-    expect(duration(60)).toBe("1 Min")
-    expect(duration(3_599)).toBe("59 Min")
-    expect(duration(3_600)).toBe("1 Std")
+    expect(duration(60)).toBe("1 min")
+    expect(duration(3_599)).toBe("59 min")
+    expect(duration(3_600)).toBe("1 h")
   })
 
   it("leaves out the smaller unit when it is zero", () => {
-    expect(duration(3_600)).toBe("1 Std")
-    expect(duration(86_400)).toBe("1 T")
+    expect(duration(3_600)).toBe("1 h")
+    expect(duration(86_400)).toBe("1 d")
   })
 
   it("says at most two units, because nobody reads the fourth one", () => {
-    expect(duration(3 * 86_400 + 4 * 3_600 + 11 * 60 + 6)).toBe("3 T 4 Std")
-    expect(duration(2 * 3_600 + 3 * 60 + 9)).toBe("2 Std 3 Min")
+    expect(duration(3 * 86_400 + 4 * 3_600 + 11 * 60 + 6)).toBe("3 d 4 h")
+    expect(duration(2 * 3_600 + 3 * 60 + 9)).toBe("2 h 3 min")
   })
 
   it("shows a dash for a negative span, which is not a span", () => {
@@ -276,7 +274,7 @@ describe("since", () => {
   const NOW = Date.UTC(2026, 8, 12, 12, 0, 0)
 
   it("says how long ago an instant was as a span rather than as a sentence", () => {
-    expect(since(new Date(NOW - (3 * 3_600_000 + 5 * 60_000)), NOW)).toBe("3 Std 5 Min")
+    expect(since(new Date(NOW - (3 * 3_600_000 + 5 * 60_000)), NOW)).toBe("3 h 5 min")
     expect(since(new Date(NOW - 30_000), NOW)).toBe("30 s")
   })
 

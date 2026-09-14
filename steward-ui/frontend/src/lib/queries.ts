@@ -325,9 +325,9 @@ export function useDeployerJob(id: string | null) {
 }
 
 /**
- * The Ampel's two adjustable thresholds, out of steward-ui.yml.
+ * The traffic light's two adjustable thresholds, out of steward-ui.yml.
  *
- * They live on the server rather than in this browser because the same Ampel has to fire into the
+ * They live on the server rather than in this browser because the same traffic light has to fire into the
  * Discord admin channel, and a threshold kept in somebody's localStorage cannot be read by
  * anything that is not that browser.
  */

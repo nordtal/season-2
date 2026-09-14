@@ -7,9 +7,9 @@ import { RecreateButton } from "@/components/steward/recreate"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * "Neu erzeugen", and the one sentence it must never say by accident.
+ * "Recreate", and the one sentence it must never say by accident.
  *
- * A job that cannot be read is **not** a job that is running. Defaulting to "Läuft" and three dots
+ * A job that cannot be read is **not** a job that is running. Defaulting to "Running" and three dots
  * said exactly the same thing as a compose run in progress, in the one situation where the
  * difference matters most: the container may already be down and the only process allowed to bring
  * it back is the one that has stopped answering.
@@ -57,11 +57,11 @@ function draw(node: ReactNode) {
   )
 }
 
-/** Open the dialog and press the confirming "Neu erzeugen" inside it, not the trigger. */
+/** Open the dialog and press the confirming "Recreate" inside it, not the trigger. */
 async function start() {
-  fireEvent.click(screen.getByRole("button", { name: /Neu erzeugen/ }))
+  fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
   const dialog = await screen.findByRole("dialog")
-  fireEvent.click(within(dialog).getByRole("button", { name: "Neu erzeugen" }))
+  fireEvent.click(within(dialog).getByRole("button", { name: "Recreate" }))
   return dialog
 }
 
@@ -87,28 +87,28 @@ describe("RecreateButton - before anything is pressed", () => {
   })
 
   it("is disabled with the deployer's own reason on it when there is no shared secret", async () => {
-    // "nicht eingerichtet" is a different sentence from "kaputt", and only the deployer knows
-    // which it is.
-    fetched = backend({ available: false, reason: "Kein gemeinsames Geheimnis eingerichtet." })
+    // "not set up" is a different sentence from "broken", and only the deployer knows which it
+    // is.
+    fetched = backend({ available: false, reason: "No shared secret has been set up." })
     vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
 
     // `toBeDisabled` would need jest-dom, which this project does not install - the property is
     // the same assertion and one dependency fewer.
-    const button = screen.getByRole("button", { name: /Neu erzeugen/ }) as HTMLButtonElement
+    const button = screen.getByRole("button", { name: /Recreate/ }) as HTMLButtonElement
     await waitFor(() => expect(button.disabled).toBe(true))
-    expect(button.title).toBe("Kein gemeinsames Geheimnis eingerichtet.")
+    expect(button.title).toBe("No shared secret has been set up.")
   })
 
   it("says that nobody in the world is warned, before the button is pressed and not after", async () => {
     // The whole argument for the dialog: an update counts down in front of every player, this
     // does not. Putting that in front of the button is cheaper than explaining it afterwards.
     draw(<RecreateButton service="smp" />)
-    fireEvent.click(screen.getByRole("button", { name: /Neu erzeugen/ }))
+    fireEvent.click(screen.getByRole("button", { name: /Recreate/ }))
 
     const dialog = await screen.findByRole("dialog")
-    expect(dialog.textContent).toContain("keinen Countdown")
-    expect(dialog.textContent).toContain("fliegt heraus")
+    expect(dialog.textContent).toContain("no countdown")
+    expect(dialog.textContent).toContain("thrown out")
     // Nothing has been asked for yet - opening the dialog must not start a compose run.
     expect(fetched.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "POST")).toBe(false)
   })
@@ -131,12 +131,12 @@ describe("RecreateButton - while the job is read", () => {
     draw(<RecreateButton service="smp" />)
     const dialog = await start()
 
-    await waitFor(() => expect(dialog.textContent).toContain("Fertig"))
+    await waitFor(() => expect(dialog.textContent).toContain("Done"))
     expect(dialog.textContent).toContain("Container nordtal-s2-smp-1  Recreated")
-    expect(dialog.textContent).toContain("Exit-Code 0")
+    expect(dialog.textContent).toContain("Exit code 0")
   })
 
-  it("says Fehlgeschlagen and the code compose came back with", async () => {
+  it("says Failed and the code compose came back with", async () => {
     vi.stubGlobal(
       "fetch",
       backend({ job: () => ({ body: { id: "j1", state: "FAILED", exitCode: 1, lines: ["no such service: smp"] } }) }),
@@ -144,28 +144,28 @@ describe("RecreateButton - while the job is read", () => {
     draw(<RecreateButton service="smp" />)
     const dialog = await start()
 
-    await waitFor(() => expect(dialog.textContent).toContain("Fehlgeschlagen"))
-    expect(dialog.textContent).toContain("Exit-Code 1")
-    expect(within(dialog).queryByText("Läuft")).toBeNull()
+    await waitFor(() => expect(dialog.textContent).toContain("Failed"))
+    expect(dialog.textContent).toContain("Exit code 1")
+    expect(within(dialog).queryByText("Running")).toBeNull()
   })
 
-  it("shows the failure, and not Läuft, when the job cannot be read at all", async () => {
+  it("shows the failure, and not Running, when the job cannot be read at all", async () => {
     // The defect this replaced: `job.data?.state ?? "RUNNING"` drew the working badge for a job
     // nothing had ever answered about.
     vi.stubGlobal(
       "fetch",
       backend({
-        job: () => ({ status: 502, body: { error: "steward-deployer antwortet nicht.", where: "steward-deployer" } }),
+        job: () => ({ status: 502, body: { error: "steward-deployer is not answering.", where: "steward-deployer" } }),
       }),
     )
     draw(<RecreateButton service="smp" />)
     const dialog = await start()
 
     await waitFor(() => expect(within(dialog).getByRole("alert")).toBeTruthy())
-    expect(within(dialog).getByRole("alert").textContent).toContain("steward-deployer antwortet nicht.")
-    expect(within(dialog).queryByText("Läuft")).toBeNull()
+    expect(within(dialog).getByRole("alert").textContent).toContain("steward-deployer is not answering.")
+    expect(within(dialog).queryByText("Running")).toBeNull()
     // The sentence that tells an operator what a silent deployer costs them.
-    expect(within(dialog).getByRole("alert").textContent).toContain("lässt sich nichts neu erzeugen")
+    expect(within(dialog).getByRole("alert").textContent).toContain("nothing can be")
   })
 
   it("offers to ask again rather than leaving the failure as the last word", async () => {
@@ -175,7 +175,7 @@ describe("RecreateButton - while the job is read", () => {
       backend({
         job: () =>
           broken
-            ? { status: 502, body: { error: "steward-deployer antwortet nicht.", where: "steward-deployer" } }
+            ? { status: 502, body: { error: "steward-deployer is not answering.", where: "steward-deployer" } }
             : { body: { id: "j1", state: "DONE", exitCode: 0, lines: ["Container nordtal-s2-smp-1  Recreated"] } },
       }),
     )
@@ -184,9 +184,9 @@ describe("RecreateButton - while the job is read", () => {
 
     await waitFor(() => expect(within(dialog).getByRole("alert")).toBeTruthy())
     broken = false
-    fireEvent.click(within(dialog).getByRole("button", { name: /Erneut versuchen/ }))
+    fireEvent.click(within(dialog).getByRole("button", { name: /Try again/ }))
 
-    await waitFor(() => expect(dialog.textContent).toContain("Fertig"))
+    await waitFor(() => expect(dialog.textContent).toContain("Done"))
     expect(within(dialog).queryByRole("alert")).toBeNull()
   })
 })
@@ -200,7 +200,7 @@ describe("RecreateButton - the footer while the job is unreadable", () => {
        * `recreate.isPending || job.data?.state === "RUNNING"`, and `job.data` survives a failed
        * poll - which is exactly what the body of the dialog had just been corrected for. So once
        * one poll had answered RUNNING and the next one failed, the body correctly said the deployer
-       * is not answering while the footer said "Läuft…", the close button was disabled, and
+       * is not answering while the footer said "Running…", the close button was disabled, and
        * `onOpenChange` refused Escape and the overlay too: shut in a dialog that had just announced
        * nothing more is coming. `running` now carries the same `!job.error` guard that
        * `refetchInterval` uses in queries.ts.
@@ -211,7 +211,7 @@ describe("RecreateButton - the footer while the job is unreadable", () => {
         backend({
           job: () =>
             broken
-              ? { status: 502, body: { error: "steward-deployer antwortet nicht.", where: "steward-deployer" } }
+              ? { status: 502, body: { error: "steward-deployer is not answering.", where: "steward-deployer" } }
               : { body: { id: "j1", state: "RUNNING", lines: ["Container nordtal-s2-smp-1  Recreating"] } },
         }),
       )
@@ -222,9 +222,12 @@ describe("RecreateButton - the footer while the job is unreadable", () => {
       broken = true
       await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeNull(), { timeout: 3000 })
 
-      // The body is right and the footer is not.
-      const close = within(dialog).getByRole("button", { name: /Schliessen|Läuft/ }) as HTMLButtonElement
-      expect([close.textContent, close.disabled]).toEqual(["Schliessen", false])
+      // The body is right and the footer is not. Scoped to the footer on purpose: Radix's own
+      // dismiss icon carries the sr-only name "Close" too, so an unscoped query by that name finds
+      // two buttons and the one this assertion is about is the second.
+      const footer = dialog.querySelector('[data-slot="dialog-footer"]') as HTMLElement
+      const close = within(footer).getByRole("button", { name: /Close|Running/ }) as HTMLButtonElement
+      expect([close.textContent, close.disabled]).toEqual(["Close", false])
     },
   )
 })

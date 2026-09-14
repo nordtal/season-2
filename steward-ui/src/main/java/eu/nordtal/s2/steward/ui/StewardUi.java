@@ -198,7 +198,7 @@ public final class StewardUi {
             });
             // A client-side router owns every path that is not an API call or a file, so an
             // unknown path is index.html rather than a 404 - which is what makes a reload of
-            // /betrieb/lauf/27 land on the page it names instead of on nothing.
+            // /operations/runs/27 land on the page it names instead of on nothing.
             cfg.spaRoot.addFile("/", "/web/index.html", Location.CLASSPATH);
 
             cfg.routes.get("/api/health", ctx -> ctx.json(Map.of(

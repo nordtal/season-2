@@ -22,7 +22,7 @@ import { Shell } from "@/app/shell"
  * `/api/me` is the one route the backend serves without a session (StewardUi.java excludes it from
  * the `before("/api/*")` filter), so in this deployment a 401 from it can only come from something
  * in front of Javalin. The branch is kept and tested anyway: a proxy that answers 401 is exactly
- * the case where an operator needs to be told to sign in rather than to press "Erneut versuchen".
+ * the case where an operator needs to be told to sign in rather than to press "Try again".
  */
 
 function answer(status: number, body: unknown): Response {
@@ -45,10 +45,10 @@ function draw() {
 }
 
 /** The sign-in page, identified by the one thing only it has. */
-const signInButton = () => screen.queryByRole("link", { name: /Mit Discord anmelden/ })
+const signInButton = () => screen.queryByRole("link", { name: /Sign in with Discord/ })
 
 /** The stuck door, identified by the sentence that says it is not a session problem. */
-const stuckDoor = () => screen.queryByText(/keine abgelaufene Sitzung/)
+const stuckDoor = () => screen.queryByText(/not an expired session/)
 
 beforeEach(() => {
   fetched = vi.fn()
@@ -93,10 +93,10 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   // 500 is the service itself, 502 is something it depends on, 429 is a rate limit and 403 is an
   // account that will never be allowed in. Signing in again fixes none of the four.
   const faults: Array<[number, string]> = [
-    [500, "Interner Fehler."],
-    [502, "steward-worker antwortet nicht."],
-    [429, "Zu viele Anfragen."],
-    [403, "Ohne Adminrolle geht hier nichts."],
+    [500, "Internal error."],
+    [502, "steward-worker is not answering."],
+    [429, "Too many requests."],
+    [403, "Nothing happens here without the admin role."],
   ]
 
   for (const [status, message] of faults) {
@@ -120,7 +120,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
 
     await waitFor(() => expect(stuckDoor()).not.toBeNull())
     expect(signInButton()).toBeNull()
-    expect(screen.getByRole("alert").textContent).toContain("Die Oberfläche ist nicht erreichbar.")
+    expect(screen.getByRole("alert").textContent).toContain("The interface cannot be reached.")
   })
 
   it("shows it for a failure that is not an ApiError at all", async () => {
@@ -136,13 +136,13 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
 
   it("offers to ask again, and asking again is a second request", async () => {
     // The one action that can help. A sign-in page would have offered the one that cannot.
-    fetched.mockResolvedValue(answer(500, { error: "Interner Fehler." }))
+    fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 
     await waitFor(() => expect(stuckDoor()).not.toBeNull())
     expect(fetched).toHaveBeenCalledTimes(1)
 
-    fireEvent.click(screen.getByRole("button", { name: /Erneut versuchen/ }))
+    fireEvent.click(screen.getByRole("button", { name: /Try again/ }))
 
     await waitFor(() => expect(fetched).toHaveBeenCalledTimes(2))
     expect(stuckDoor()).not.toBeNull()
@@ -151,7 +151,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   it("keeps the shell out of the way even though the pages could report it themselves", async () => {
     // Not a matter of taste: the CSRF token arrives with this answer, so without it every write
     // in the interface is refused, one confusing page at a time.
-    fetched.mockResolvedValue(answer(500, { error: "Interner Fehler." }))
+    fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
     draw()
 
     await waitFor(() => expect(stuckDoor()).not.toBeNull())

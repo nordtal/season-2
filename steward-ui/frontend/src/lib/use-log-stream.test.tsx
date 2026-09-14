@@ -261,10 +261,10 @@ describe("useLogStream", () => {
     const { result } = mount()
     const source = live()
 
-    act(() => source.emit("gone", "Der Dienst existiert nicht mehr."))
+    act(() => source.emit("gone", "This service does not exist any more."))
 
     expect(now(result).state).toBe("closed")
-    expect(now(result).error).toBe("Der Dienst existiert nicht mehr.")
+    expect(now(result).error).toBe("This service does not exist any more.")
     // `gone` is final, so the hook must hang up rather than let EventSource retry forever.
     expect(source.closeCalls).toBe(1)
   })
@@ -281,17 +281,17 @@ describe("useLogStream", () => {
     act(() => live().fail(FakeEventSource.CLOSED))
 
     expect(now(result).state).toBe("closed")
-    expect(now(result).error).toBe("Die Verbindung zum Logstrom ist abgerissen.")
+    expect(now(result).error).toBe("The connection to the log stream was lost.")
   })
 
   it("keeps the server's sentence when the connection then dies underneath it", () => {
     const { result } = mount()
 
-    act(() => live().emit("gone", "Der Container wurde entfernt."))
+    act(() => live().emit("gone", "The container was removed."))
     act(() => live().fail(FakeEventSource.CLOSED))
 
     // The server's own reason is more use to a reader than the generic one.
-    expect(now(result).error).toBe("Der Container wurde entfernt.")
+    expect(now(result).error).toBe("The container was removed.")
   })
 
   it("opens a second source and goes back to connecting when reconnect is called", () => {
@@ -322,8 +322,8 @@ describe("useLogStream", () => {
   /**
    * FAILS ON PURPOSE, and is reported rather than adjusted.
    *
-   * The route is `/dienste/$name` with no `remountDeps`, so TanStack Router hands the same
-   * `DienstPage` a new name instead of remounting it. The hook opens a stream for the new service
+   * The route is `/services/$name` with no `remountDeps`, so TanStack Router hands the same
+   * `ServicePage` a new name instead of remounting it. The hook opens a stream for the new service
    * but keeps the old one's window, so paper-survival's lines sit above velocity's under
    * velocity's heading - and a line held over a pause on the old service is flushed into the new
    * one. Neither the lines, the held ref nor `sequence` is reset when `service` changes.

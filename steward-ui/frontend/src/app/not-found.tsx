@@ -10,8 +10,8 @@ export function NotFoundPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Seite nicht gefunden"
-        note="Diese Adresse gehört zu keiner Seite dieser Oberfläche."
+        title="Page not found"
+        note="This address does not belong to any page of this interface."
       />
       <Card className="max-w-2xl">
         <CardContent className="flex flex-col items-start gap-4">
@@ -19,11 +19,11 @@ export function NotFoundPage() {
             <Compass className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
             <p className="max-w-prose text-sm text-muted-foreground">
               Mit <kbd className="rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-xs">Strg+K</kbd>{" "}
-              lässt sich jede vorhandene Seite in der Suche finden.
+              finds every page this interface has.
             </p>
           </div>
           <Button asChild size="sm">
-            <Link to="/">Zurück zum Zustand</Link>
+            <Link to="/">Back to Status</Link>
           </Button>
         </CardContent>
       </Card>

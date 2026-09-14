@@ -46,13 +46,13 @@ export function CommandPalette() {
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
-      title="Suche"
-      description="Zu einer Seite springen"
+      title="Search"
+      description="Jump to a page"
       className="top-[20%] translate-y-0"
     >
-      <CommandInput placeholder="Seite suchen…" />
+      <CommandInput placeholder="Search pages…" />
       <CommandList className="max-h-[22rem]">
-        <CommandEmpty>Nichts gefunden.</CommandEmpty>
+        <CommandEmpty>Nothing found.</CommandEmpty>
         {NAVIGATION.map((group, index) => (
           <React.Fragment key={group.id}>
             {index > 0 ? <CommandSeparator /> : null}

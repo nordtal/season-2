@@ -28,6 +28,8 @@ import {
   type Service,
   type ServiceTable,
 } from "@/lib/api"
+import { browserHasSecurityKeys, createSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
+import type { CreationOptionsJson } from "@/lib/webauthn"
 import type { Thresholds } from "@/lib/health"
 
 /**
@@ -91,6 +93,45 @@ export function useMe() {
     },
     staleTime: 60 * 60 * SECOND,
     retry: false,
+  })
+}
+
+/**
+ * Registers a security key: two round trips and a dialog between them.
+ *
+ * **The three steps are one mutation on purpose.** A challenge is single-use and lives ten
+ * minutes; splitting this into "start" and "finish" hooks would let a component hold a half-done
+ * ceremony across a re-render, and the half that is already spent is the half nobody can see. One
+ * function, one outcome, and `/api/me` refetched at the end because the whole shell hangs off it -
+ * the key that was just registered is what opens every other page.
+ */
+export function useRegisterKey() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (label: string) => {
+      if (!browserHasSecurityKeys()) {
+        throw new Error("This browser cannot use security keys, so it cannot sign in to Steward."
+          + " Every current browser can; one in a private window or an old WebView may not.")
+      }
+      // The server's answer is handed to the browser untouched - it is the library's own JSON and
+      // this end does not get an opinion about its contents.
+      const started = await api<CreationOptionsJson>("/auth/webauthn/register/start",
+        { method: "POST" })
+      let credential: string
+      try {
+        credential = await createSecurityKey(started)
+      } catch (refused) {
+        // The browser's DOMException, turned into something a person can act on. Rethrown as a
+        // plain Error so the form prints one sentence rather than "NotAllowedError".
+        throw new Error(whyTheKeyFailed(refused))
+      }
+      const registered = await api<{ label: string; backedUp: boolean }>(
+        "/auth/webauthn/register/finish",
+        { method: "POST", body: { label, credential } },
+      )
+      await client.invalidateQueries({ queryKey: keys.me })
+      return registered
+    },
   })
 }
 

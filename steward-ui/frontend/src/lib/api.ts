@@ -23,18 +23,37 @@ export class ApiError extends Error {
   readonly status: number
   readonly where: Where
   readonly detail: string
+  /**
+   * The backend's machine-readable name for this refusal, when it has one.
+   *
+   * Exactly one value uses it today - `SECOND_FACTOR_MISSING` - and it is a code rather than a
+   * matched sentence because the sentence is English prose that somebody will improve, and a
+   * `startsWith("This account has no")` would break the interface when they did.
+   */
+  readonly code: string
 
-  constructor(status: number, message: string, where: Where, detail = "") {
+  constructor(status: number, message: string, where: Where, detail = "", code = "") {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.where = where
     this.detail = detail
+    this.code = code
   }
 
   /** The session ran out or was never there. The shell turns this into the sign-in page. */
   get isSignedOut(): boolean {
     return this.status === 401
+  }
+
+  /**
+   * Signed in, and one ceremony short of being allowed in.
+   *
+   * Deliberately NOT `isSignedOut`: sending this person back to Discord would send them round a
+   * loop they have already completed. The shell draws the key setup instead.
+   */
+  get needsASecurityKey(): boolean {
+    return this.status === 403 && this.code === "SECOND_FACTOR_MISSING"
   }
 }
 
@@ -99,7 +118,8 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
         : "steward-ui"
     const message = (body && messageOf(body)) ?? `${response.status} ${response.statusText}`
     const detail = body ? String(body.detail ?? "") : text
-    throw new ApiError(response.status, message, where, detail)
+    const code = typeof body?.code === "string" ? body.code : ""
+    throw new ApiError(response.status, message, where, detail, code)
   }
 
   return parsed as T
@@ -130,13 +150,43 @@ function messageOf(body: Record<string, unknown>): string | null {
 // on the one day a container is stopped.
 // ---------------------------------------------------------------------------------------------
 
+/** One registered security key, as `/api/me` lists it. */
+export type SecurityKey = {
+  label: string
+  registeredAt: string
+  lastUsedAt?: string
+  transports?: string[]
+  /**
+   * Whether this key is synced somewhere - an iCloud passkey is, a YubiKey is not.
+   *
+   * Absent when the authenticator did not say, which is NOT the same as "no": only a key that
+   * answered "no" is a key whose loss is final, and only that case is worth a second key.
+   */
+  backedUp?: boolean
+}
+
 export type Me = {
   signedIn: boolean
   id?: string
   name?: string
   csrf?: string
+  signedInAt?: string
+  expiresAt?: string
   signInUnavailable?: string
   webauthn: string
+  /**
+   * The security keys of this account, oldest first. **Empty is the whole of the setup page.**
+   *
+   * Absent rather than empty when nobody is signed in: `/api/me` answers the signed-out question
+   * without ever touching this table, and a `[]` there would be a claim about an account there
+   * is none of.
+   */
+  keys?: SecurityKey[]
+  /** Whether a key has been held in THIS session. */
+  verified?: boolean
+  verifiedAt?: string
+  /** The domain keys are registered against, for the page to name rather than guess. */
+  relyingPartyId?: string
 }
 
 /** Docker's own words, passed through. `state` is the container state, `status` its sentence. */

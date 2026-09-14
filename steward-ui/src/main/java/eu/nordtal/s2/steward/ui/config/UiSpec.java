@@ -45,11 +45,16 @@ public interface UiSpec {
             "follows the Host header is a redirect URI an attacker can choose. Discord is given",
             "this + /auth/callback and refuses anything else.",
             "",
-            "IT IS NOT WHAT A SECURITY KEY WILL BE BOUND TO, although an earlier version of this",
+            "IT IS NOT WHAT A SECURITY KEY IS BOUND TO, although an earlier version of this",
             "comment said so. Till decided on 2026-09-14 that WebAuthn binds to the parent domain",
             "nordtal.eu, so that a key registered against this address still works on the",
-            "production one. That will be its own key here when the second factor is built; until",
-            "then there is nothing to configure and this is the only address in this file."
+            "production one. That is `webauthn.relying-party-id` below, and the two are checked",
+            "against each other at startup: a key bound to a domain this address is not under is a",
+            "sign-in every browser refuses in silence.",
+            "",
+            "It IS what the browser is allowed to have been talking to when a key answers. The",
+            "origin in a WebAuthn response is compared against this address exactly, which is why",
+            "changing it is a change to the second factor as well as to the Discord redirect."
     })
     default String publicUrl() {
         return "https://steward.dev.nordtal.eu";
@@ -71,9 +76,11 @@ public interface UiSpec {
             "`guilds.members.read` - which is what lets this process read the roles of the person",
             "signing in WITHOUT ever holding the bot's token.",
             "",
-            "WHAT IS MISSING AND IS NOT PRETENDED OTHERWISE: §10a wants a security key after the",
-            "Discord login, always, because otherwise a stolen Discord session is the whole of the",
-            "authentication. WebAuthn is not built in this alpha; the sign-in page says so."
+            "DISCORD IS NO LONGER THE WHOLE OF THE AUTHENTICATION. §10a wants a security key",
+            "after the Discord login, and since V20 an account with no registered key reaches the",
+            "setup page and nothing else - see `webauthn` below. What Discord still decides on its",
+            "own is WHO may register one at all: the admin role below is the gate in front of the",
+            "gate."
     })
     DiscordSpec discord();
 
@@ -143,6 +150,55 @@ public interface UiSpec {
             "button that fails."
     })
     DeployerSpec deployer();
+
+    @Order(9)
+    @Key("webauthn")
+    @Comment({
+            "The second factor (§10a): which domain a registered security key belongs to.",
+            "",
+            "Added on 2026-09-14 with migration V20. A file written before that gains this section",
+            "at its default on the next load - the same measured behaviour RenamedKeyTest holds",
+            "for a scalar key, and AddedSectionTest holds for this whole block - so it is a commit",
+            "and not a deployment step."
+    })
+    WebAuthnSpec webauthn();
+
+    /**
+     * Which domain a security key is registered against.
+     *
+     * <p>One key, because the other half of the pair - what the browser's dialog calls this
+     * service - is a product name and not a property of a deployment. It is written in code as
+     * "Nordtal Steward" and a second copy of it in a YAML file would only ever be a way for two
+     * deployments to disagree about their own name.</p>
+     */
+    @ConfigSpec
+    interface WebAuthnSpec {
+
+        @Order(1)
+        @Key("relying-party-id")
+        @Comment({
+                "The domain a key is bound to. THE ONE DECISION HERE THAT CANNOT BE TAKEN BACK.",
+                "",
+                "WebAuthn calls this the Relying Party ID, and every key is registered against it.",
+                "`nordtal.eu` means a key works on steward.dev.nordtal.eu, on the production",
+                "address later, and on anything else that ever appears under nordtal.eu. Changing",
+                "it does not migrate keys - it invalidates every one of them, and the way back is",
+                "`steward-ui forget-factors` on the host, for every account, one at a time.",
+                "",
+                "THE PRICE, WRITTEN DOWN WHERE THE VALUE IS: every page under nordtal.eu may ask",
+                "the browser for this key. A subdomain that is taken over - a forgotten test",
+                "server, a status page, a BlueMap instance - is a working sign-in form for",
+                "Steward. Till chose this on 2026-09-14 with that description, in exchange for a",
+                "key surviving the move to production. The rule that follows is: no subdomain of",
+                "nordtal.eu gets an application that is not trusted as much as this one is.",
+                "",
+                "It must be `public-url`'s host or a parent of it. A browser silently refuses any",
+                "other combination, so it is refused loudly here instead."
+        })
+        default String relyingPartyId() {
+            return "nordtal.eu";
+        }
+    }
 
     /** Where steward-deployer's internal API is. */
     @ConfigSpec

@@ -8,8 +8,10 @@ import eu.nordtal.s2.common.update.UpdateReports;
 import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.steward.ui.data.Data;
+import eu.nordtal.s2.steward.ui.auth.Credentials;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
+import eu.nordtal.s2.steward.ui.auth.WebAuthn;
 import eu.nordtal.s2.steward.ui.discord.DiscordApi;
 import eu.nordtal.s2.steward.ui.discord.DiscordDirectory;
 import eu.nordtal.jcore.config.exception.ConfigException;
@@ -39,7 +41,9 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -103,6 +107,17 @@ public final class StewardUi {
      */
     private final Sessions sessions;
 
+    /**
+     * The registered security keys, and the ceremonies that create them.
+     *
+     * <p>Two objects rather than one because they are two different things: {@link Credentials} is
+     * rows and {@link WebAuthn} is the protocol, and the protocol half is the one that carries
+     * Jackson. Null exactly when {@link #sessions} is - a test about the proxy has no database and
+     * signs nobody in.</p>
+     */
+    private final Credentials credentials;
+    private final WebAuthn webauthn;
+
     /** The database. Null only in tests that are about the proxy and never touch a row. */
     private final Data data;
 
@@ -150,6 +165,9 @@ public final class StewardUi {
         this.sessions = data == null
                 ? null
                 : new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
+        this.credentials = data == null ? null : new Credentials(data.dataSource());
+        this.webauthn = data == null ? null : new WebAuthn(config.webauthn().relyingPartyId(),
+                config.publicUrl(), credentials);
         this.configs = new ConfigApi(Path.of(config.configs().root()));
         this.guild = new DiscordApi(
                 new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
@@ -231,12 +249,14 @@ public final class StewardUi {
                 if (path.equals("/api/health") || path.equals("/api/me")) {
                     return;
                 }
-                if (account(ctx).isEmpty()) {
+                final Optional<Sessions.Session> who = session(ctx);
+                if (who.isEmpty()) {
                     throw new UnauthorizedResponse("sign in first");
                 }
                 if (isWrite(ctx)) {
                     requireCsrfToken(ctx);
                 }
+                requireAKey(who.get());
             });
 
             cfg.routes.get("/auth/login", this::login);
@@ -253,6 +273,16 @@ public final class StewardUi {
                 ctx.removeCookie(Sessions.COOKIE, "/");
                 ctx.status(204);
             });
+
+            // --- the second factor (§10a) ------------------------------------------------------
+            //
+            // OUTSIDE /api/*, and that is the whole reason they are here rather than there: the
+            // filter above refuses every /api call from an account with no key, and the way to get
+            // a key cannot be behind the check for having one. The two things that filter does -
+            // a session, and a CSRF token on a write - are repeated by hand below, exactly as
+            // /auth/logout above repeats them.
+            cfg.routes.post("/auth/webauthn/register/start", this::beginRegistration);
+            cfg.routes.post("/auth/webauthn/register/finish", this::finishRegistration);
 
             // --- everything about a container comes from steward-worker -----------------------
             cfg.routes.get("/api/services", ctx -> passThrough(ctx, "/api/services"));
@@ -532,6 +562,11 @@ public final class StewardUi {
                 ctx.json(season);
             });
 
+            cfg.routes.exception(SecondFactorMissing.class, (missing, ctx) ->
+                    ctx.status(403).json(Map.of(
+                            "error", missing.getMessage(),
+                            "code", "SECOND_FACTOR_MISSING")));
+
             cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
                 // The interface has to say which half is down, BY NAME. "steward-worker is not
                 // answering" and "steward-deployer is not answering" are two different evenings -
@@ -560,18 +595,22 @@ public final class StewardUi {
         // session-days went from 12 hours to 30 days when sessions became rows, and thirty days is
         // only defensible once a security key stands in front of everything dangerous - that is
         // Till's decision of 2026-09-14 in his own words: "30 days, PROVIDED the key comes before
-        // dangerous actions". The key is not built yet. Until it is, this is a cookie that can
-        // stop a Minecraft server for a month, and a deployment running in that state should not
-        // have to be told so by somebody reading a plan.
+        // dangerous actions". HALF OF IT IS BUILT: since V20 an account without a key cannot use
+        // this interface at all. What is still missing is the other half - the key is not asked
+        // for again on a later sign-in (package C) or before an update, a restart or a console
+        // line (package D) - so a stolen cookie is still a month of being able to stop a server,
+        // and a deployment running in that state should not have to be told so by somebody
+        // reading a plan.
         //
-        // DELETE THIS WHOLE BLOCK in the commit that makes the second factor mandatory. A warning
-        // that outlives what it warns about is how a log gets read past.
+        // DELETE THIS WHOLE BLOCK in the commit that puts the key in front of dangerous actions.
+        // A warning that outlives what it warns about is how a log gets read past.
         if (config.sessionDays() > 1) {
-            log.warn("A session lasts {} days and there is still no second factor, so a stolen"
-                    + " cookie is a month of being able to stop a server. That length was agreed"
-                    + " ON CONDITION that a security key comes before dangerous actions - until"
-                    + " that is built, set session-days to 1 in steward-ui.yml if this deployment"
-                    + " is reachable from the internet.", config.sessionDays());
+            log.warn("A session lasts {} days and a security key is only asked for once, when it"
+                    + " is registered - so a stolen cookie is still a month of being able to stop"
+                    + " a server. That length was agreed ON CONDITION that the key comes before"
+                    + " every dangerous action - until that is built, set session-days to 1 in"
+                    + " steward-ui.yml if this deployment is reachable from the internet.",
+                    config.sessionDays());
         }
         discord.whatIsMissing().ifPresent(missing -> log.warn(
                 "Nobody can sign in yet: {} is empty. Everything else is running.", missing));
@@ -699,6 +738,148 @@ public final class StewardUi {
         ctx.redirect("/");
     }
 
+    // --- the second factor -------------------------------------------------------------------
+
+    /**
+     * The door in front of everything this interface can do.
+     *
+     * <p>An account with no registered key reaches {@code /api/me} and nothing else. That is what
+     * "the first sign-in forces the setup" means on this end: there is no page to fall back to and
+     * no call that quietly still works, so the interface has exactly one thing it can draw.</p>
+     *
+     * <p><b>It answers 403 with a code rather than 401.</b> 401 is what the shell turns into the
+     * sign-in page, and sending somebody back to Discord would be sending them round a loop they
+     * have already completed - they ARE signed in; they are one ceremony short of being allowed
+     * in. The code is machine-readable because the browser has to tell this apart from an ordinary
+     * refusal without reading a sentence.</p>
+     */
+    private void requireAKey(final Sessions.Session who) {
+        if (credentials == null || credentials.any(who.discordId())) {
+            return;
+        }
+        throw new SecondFactorMissing();
+    }
+
+    /**
+     * The one shape of 403 the interface recovers from rather than reports.
+     *
+     * <p>Its own type, so that it can be answered with this service's own body - {@code error} and
+     * {@code code}, the shape everything else here uses - instead of Javalin's {@code title} /
+     * {@code details} envelope. The browser has to tell this apart from an ordinary refusal without
+     * reading English.</p>
+     */
+    private static final class SecondFactorMissing extends RuntimeException {
+
+        private SecondFactorMissing() {
+            super("This account has no security key yet, and Steward cannot be used without one."
+                    + " Register a key and this request will work.");
+        }
+    }
+
+    /**
+     * Hands this browser a registration challenge.
+     *
+     * <h2>The first key is different from every one after it</h2>
+     * The first is reachable with a Discord session alone, because there is nothing else to reach
+     * it with - that is the bootstrap, and its window is exactly as long as the time between
+     * deploying this and signing in once (see the plan's open risks). Every further key requires
+     * that this session has already held one: adding a second authenticator is exactly as powerful
+     * as having the first, so a stolen cookie must not be able to do it.
+     */
+    private void beginRegistration(final Context ctx) {
+        requireCsrfToken(ctx);
+        final Sessions.Session who = session(ctx).orElseThrow(
+                () -> new UnauthorizedResponse("sign in first"));
+        if (credentials.any(who.discordId()) && !who.verified()) {
+            throw new ForbiddenResponse("This account already has a key, so adding another one"
+                    + " needs the key you already have. Sign in again and use it first.");
+        }
+        final WebAuthn.Ceremony ceremony = webauthn.startRegistration(
+                who.discordId(), who.displayName());
+        sessions.startCeremony(who.id(), ceremony.parked());
+        // The library's own JSON, straight through. Nothing on this side parses it and Gson never
+        // sees it - see WebAuthn's class note on why that boundary is one class wide.
+        ctx.contentType("application/json").result(ceremony.forBrowser());
+    }
+
+    /**
+     * Takes the browser's answer, verifies it and writes the key down.
+     *
+     * <h2>Why the credential arrives as a string inside the body</h2>
+     * The envelope is this service's own JSON and Gson parses it. The credential inside it is the
+     * library's JSON and only the library may parse it - so it travels as a {@code String} field
+     * rather than as a nested object. Handing the nested object to Gson and then re-serialising it
+     * for Jackson is the same data through two mappers, and the fields the two disagree about are
+     * precisely the optional ones that differ between brands of authenticator.
+     */
+    private void finishRegistration(final Context ctx) {
+        requireCsrfToken(ctx);
+        final Sessions.Session who = session(ctx).orElseThrow(
+                () -> new UnauthorizedResponse("sign in first"));
+        final Answer answer = ctx.bodyAsClass(Answer.class);
+        if (answer == null || answer.credential == null || answer.credential.isBlank()) {
+            throw new BadRequestResponse("no credential in that answer");
+        }
+        final String label = answer.label == null ? "" : answer.label.trim();
+        if (label.isEmpty() || label.length() > 64) {
+            throw new BadRequestResponse("a key needs a name of 1 to 64 characters, so that it can"
+                    + " be told apart from the next one");
+        }
+        final String parked = sessions.consumeCeremony(who.id()).orElseThrow(
+                () -> new BadRequestResponse("that registration was not started in this browser,"
+                        + " or it was already finished, or it sat unanswered for ten minutes -"
+                        + " start it again"));
+
+        final WebAuthn.Registered key;
+        try {
+            key = webauthn.finishRegistration(parked, answer.credential, label, who.discordId());
+        } catch (WebAuthn.Refused refused) {
+            ctx.status(400).json(Map.of("error", refused.getMessage()));
+            return;
+        }
+        // Registering a key IS holding it - the ceremony that just passed is the same proof an
+        // authentication would be. Marking the session verified here is what lets somebody set a
+        // key up and carry straight on, rather than being asked for it again one second later.
+        sessions.markVerified(who.id());
+        // The journal, in the same shape as GRANT_ACCESS beside it: the actor is the Discord id
+        // and never the composed "name (id)", because `audit_log.actor` is varchar(32) and the
+        // composed form silently truncated for any display name of eleven characters or more.
+        data.audit().record("REGISTER_KEY", who.discordId(), who.discordId(), null,
+                "registered the security key \"" + key.label() + "\"");
+        ctx.json(Map.of("label", key.label(), "userVerified", key.userVerified(),
+                "backedUp", key.backedUp()));
+    }
+
+    /** The body of {@code /auth/webauthn/register/finish}. See the method's note on the string. */
+    private static final class Answer {
+        private String label;
+        private String credential;
+    }
+
+    /** The keys of one account, as {@code /api/me} lists them. */
+    private List<Map<String, Object>> keysOf(final String discordId) {
+        final List<Map<String, Object>> listed = new ArrayList<>();
+        for (final Credentials.Key key : credentials.of(discordId)) {
+            final Map<String, Object> one = new LinkedHashMap<>();
+            one.put("label", key.label());
+            one.put("registeredAt", key.createdAt().toString());
+            if (key.lastUsedAt() != null) {
+                one.put("lastUsedAt", key.lastUsedAt().toString());
+            }
+            if (key.transports() != null && !key.transports().isBlank()) {
+                one.put("transports", List.of(key.transports().split(",")));
+            }
+            // Absent rather than false when the authenticator did not say. "Not backed up" and
+            // "did not answer the question" are different, and only one of them is a reason to
+            // suggest registering a second key.
+            if (key.backedUp() != null) {
+                one.put("backedUp", key.backedUp());
+            }
+            listed.add(one);
+        }
+        return listed;
+    }
+
     private void whoAmI(final Context ctx) {
         final Optional<Sessions.Session> session = session(ctx);
         final Map<String, Object> answer = new LinkedHashMap<>();
@@ -712,13 +893,24 @@ public final class StewardUi {
             answer.put("csrf", who.csrf());
             answer.put("signedInAt", who.createdAt().toString());
             answer.put("expiresAt", who.expiresAt().toString());
+            // THE THREE ANSWERS THE SHELL DECIDES WHAT TO DRAW FROM. `keys` empty is the forced
+            // setup page and nothing else; `verified` is whether a key has been held in THIS
+            // session, which is what the step-up will read (package D) and what makes registering
+            // a second key allowed.
+            answer.put("keys", keysOf(who.discordId()));
+            answer.put("verified", who.verified());
+            if (who.verifiedAt() != null) {
+                answer.put("verifiedAt", who.verifiedAt().toString());
+            }
+            answer.put("relyingPartyId", webauthn.relyingPartyId());
         });
         discord.whatIsMissing().ifPresent(missing -> answer.put("signInUnavailable", missing));
-        // Said out loud rather than in a footnote: §10a wants a security key after Discord, and
-        // this alpha does not have one. A whole sentence, because three places print it as one and
-        // a lower-case fragment ran into whatever each of them wrote next.
-        answer.put("webauthn", "A second factor is not built in this alpha: a Discord session is "
-                + "the whole of the authentication.");
+        // Said out loud rather than in a footnote, and it says exactly what is true today - which
+        // is not yet the whole of §10a. A key is required to REACH this interface; it is not yet
+        // asked for again on a later sign-in (package C) or in front of a dangerous action
+        // (package D). A whole sentence, because several places print it as one.
+        answer.put("webauthn", "A security key is required: an account without one cannot use "
+                + "Steward at all. It is not yet asked for again before a dangerous action.");
         ctx.json(answer);
     }
 

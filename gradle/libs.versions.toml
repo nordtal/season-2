@@ -65,6 +65,35 @@ javalin = "7.2.3"
 # host has no node and is not going to get one: the plugin unpacks a private copy under build/.
 # Checked in the Gradle Plugin Portal 2026-09-12.
 node = "7.1.0"
+# WebAuthn, server side. Checked on Maven Central 2026-09-14: <release>2.9.0.
+#
+# IT IS IN :steward-ui AND NOWHERE ELSE, and that is a decision rather than an accident. It pulls
+# jackson-databind, guava, cbor and httpclient5 - and jcore 3.0.0 dropped Jackson on purpose, and
+# :common takes nothing but JDBI, HikariCP, slf4j and the driver. Both rules are untouched: this is
+# a standalone JVM service with its own image, not a Paper plugin and not :common. There is no
+# maintained Jackson-free WebAuthn library for Java; webauthn4j has the same dependency and is at
+# 0.29. The alternative was writing the verification by hand - CBOR, COSE, ES256 - which is exactly
+# the kind of hand-written sign-in code where one missed step makes the whole factor worthless.
+# Till decided it that way on 2026-09-14, with those alternatives named.
+webauthn = "2.9.0"
+# Jackson, compileOnly and ONLY in :steward-ui, and only because of one exception type.
+#
+# webauthn-server-core declares Jackson at RUNTIME scope, so its classes are not on anybody's
+# compile classpath - which is a better boundary than the one this repository was going to draw by
+# hand, and it is left standing. The one thing that leaks through it is `JsonProcessingException`:
+# `PublicKeyCredentialCreationOptions.toJson()` declares it, and javac cannot compile a CALL to
+# that method without being able to resolve the type, catch-clause or not.
+#
+# So jackson-core - not databind - is declared compileOnly, purely so the throws clause resolves.
+# Nothing is compiled against a Jackson API; at runtime the version webauthn-server-core resolves
+# is the one that is used. Pinned to what it resolves today (checked 2026-09-14).
+jackson = "2.22.2"
+# CBOR, and ONLY in :steward-ui's tests. An authenticator's answer is CBOR inside base64url
+# inside JSON, so a test that plays one has to be able to write it. It is already on the runtime
+# classpath (webauthn-server-core brings it); this pins it so the TEST compiles against the same
+# version rather than against whatever a transitive range resolves to today. Resolved 4.5.6 on
+# 2026-09-14, which is what this names.
+cbor = "4.5.6"
 junit = "6.0.0"
 shadow = "9.6.1"
 runpaper = "3.1.0"
@@ -93,6 +122,9 @@ flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 javalin = { module = "io.javalin:javalin", version.ref = "javalin" }
+webauthn-server-core = { module = "com.yubico:webauthn-server-core", version.ref = "webauthn" }
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
+cbor = { module = "com.upokecenter:cbor", version.ref = "cbor" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }

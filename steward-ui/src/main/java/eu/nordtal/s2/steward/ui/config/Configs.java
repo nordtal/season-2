@@ -43,6 +43,8 @@ public final class Configs {
                                 + " - a session lasting longer than a season is not a session");
                     }
                     requirePublicUrl(config.publicUrl());
+                    requireRelyingParty(config.webauthn() == null
+                            ? null : config.webauthn().relyingPartyId(), config.publicUrl());
                     if (config.worker() == null || config.worker().baseUrl().isBlank()) {
                         throw new IllegalArgumentException("worker.base-url is empty");
                     }
@@ -135,6 +137,62 @@ public final class Configs {
             throw new IllegalArgumentException("public-url carries a query or a fragment: " + url
                     + ". The redirect URI is this plus /auth/callback, and Discord compares it as"
                     + " a string");
+        }
+    }
+
+    /**
+     * The domain a security key is bound to, held against the address the browser actually uses.
+     *
+     * <h2>Why this is checked at startup and not left to the browser</h2>
+     * A browser refuses a WebAuthn ceremony whose Relying Party ID is not the origin's domain or a
+     * parent of it - and it refuses it <em>in the browser</em>, as a {@code SecurityError} in a
+     * promise nobody sees, with no request ever reaching this service. So the symptom of one wrong
+     * line in a YAML file would be "the key dialog never opens", on someone else's phone, with
+     * nothing in any log on this host. Refused here it is a container that will not start and a
+     * sentence naming both values.
+     *
+     * <p>Neither is it a thing anybody should be relaxed about getting wrong in the other
+     * direction: if this were allowed to be <em>broader</em> than the public address's domain -
+     * {@code eu}, say - every site under it could ask for these keys. That combination is refused
+     * by browsers too, and it is refused here first.</p>
+     */
+    static void requireRelyingParty(final String relyingPartyId, final String publicUrl) {
+        if (relyingPartyId == null || relyingPartyId.isBlank()) {
+            throw new IllegalArgumentException("webauthn.relying-party-id is empty - it is the"
+                    + " domain every security key is registered against, e.g. nordtal.eu");
+        }
+        final String id = relyingPartyId.trim().toLowerCase(java.util.Locale.ROOT);
+        if (id.contains("/") || id.contains(":")) {
+            throw new IllegalArgumentException("webauthn.relying-party-id is a DOMAIN, not a URL"
+                    + " - no scheme, no port, no path. Was: " + relyingPartyId);
+        }
+        // AT LEAST TWO LABELS, which is as far as this check honestly goes. A browser refuses a
+        // relying party id that is a public suffix - `eu`, `co.uk`, `github.io` - because every
+        // site under one would otherwise share a set of keys. Knowing which strings those are
+        // needs the Public Suffix List: a dependency and a data file that goes stale monthly, for
+        // a value that is set once and is `nordtal.eu`. So this catches the shape of the mistake -
+        // a bare TLD - and leaves the rest to the browser, which refuses it anyway. What it must
+        // not do is accept `eu` silently, which is what a plain "is it a suffix of the host" test
+        // does: every domain ending in .eu passes that.
+        if (!id.contains(".") || id.startsWith(".") || id.endsWith(".")) {
+            throw new IllegalArgumentException("webauthn.relying-party-id is " + relyingPartyId
+                    + ", which is not a registrable domain. It needs at least a name and a suffix,"
+                    + " e.g. nordtal.eu - a browser refuses a bare TLD, in silence");
+        }
+        final String host;
+        try {
+            host = new URI(publicUrl).getHost();
+        } catch (URISyntaxException notAUrl) {
+            // requirePublicUrl runs first and says this better; reaching here means it did not.
+            throw new IllegalArgumentException("public-url is not a URL: " + notAUrl.getMessage());
+        }
+        final String lowered = host == null ? "" : host.toLowerCase(java.util.Locale.ROOT);
+        if (!lowered.equals(id) && !lowered.endsWith("." + id)) {
+            throw new IllegalArgumentException("webauthn.relying-party-id is " + relyingPartyId
+                    + ", which " + host + " is not under. A key can only be registered against the"
+                    + " domain the browser is on or a parent of it, so every sign-in would fail in"
+                    + " the browser with nothing arriving here. Either make it " + host
+                    + " or a parent of it, or correct public-url");
         }
     }
 

@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
+import eu.nordtal.s2.steward.ui.auth.TestAuthenticator;
 import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import eu.nordtal.s2.steward.ui.data.Data;
@@ -397,6 +398,17 @@ class StewardUiIntegrationTest {
             }
 
             @Override
+            public WebAuthnSpec webauthn() {
+                // The defaults, deliberately: relying-party-id `nordtal.eu` against a public-url
+                // of https://steward.dev.nordtal.eu is the production pair, and a test fixture
+                // that quietly used `localhost` would be testing a combination this deployment
+                // never has. The authenticator below claims that origin; nothing in the flow
+                // cares what port this JVM is listening on.
+                return new WebAuthnSpec() {
+                };
+            }
+
+            @Override
             public ConfigsSpec configs() {
                 return new ConfigsSpec() {
                     @Override
@@ -448,7 +460,18 @@ class StewardUiIntegrationTest {
 
         http = browser();
         signIn(http);
+        // THE FIRST KEY, and every other test in this class rides on it. Since V20 an account with
+        // no security key reaches /api/me and nothing else, which is the point of package B - so a
+        // fixture that only signed in would now be a fixture in which nothing else works. This is
+        // the real ceremony against the real routes; `authenticator` is the software key it uses.
+        registerAKey(http, authenticator, "The test key");
     }
+
+    /** The one key account "1" has. Registered once in {@link #start()} and used by everything. */
+    private static final TestAuthenticator authenticator = new TestAuthenticator();
+
+    /** The origin the interface expects, which is `public-url`'s and not this JVM's address. */
+    private static final String ORIGIN = "https://steward.dev.nordtal.eu";
 
     @AfterAll
     static void stop() {
@@ -501,8 +524,18 @@ class StewardUiIntegrationTest {
         // IS missing is DiscordAuthTest's, because it is a property of the configuration and not
         // of a request.
         assertFalse(me.has("signInUnavailable"), me.toString());
-        assertTrue(me.get("webauthn").getAsString().contains("not built"),
-                "the missing security key is said out loud, not left to a footnote");
+        // THIS SENTENCE IS PRINTED ON THE SIGN-IN PAGE, so it has to be true on the day it is
+        // read. It used to say the second factor was "not built"; since V20 a key is required to
+        // reach anything at all, and a door that still advertised itself as open would be the
+        // worst kind of stale text. Both halves are asserted: what IS true now, and that what is
+        // still missing - the key in front of a dangerous action, package D - is not glossed over.
+        final String said = me.get("webauthn").getAsString();
+        assertTrue(said.contains("required"), "the sign-in page no longer says a key is needed: "
+                + said);
+        assertFalse(said.contains("not built"), "the sign-in page still says the second factor"
+                + " does not exist, which stopped being true with V20: " + said);
+        assertTrue(said.contains("not yet"), "the sign-in page claims more than is built - the key"
+                + " is not asked for before a dangerous action yet: " + said);
     }
 
     @Test
@@ -1245,6 +1278,8 @@ class StewardUiIntegrationTest {
             signIn(browser);
             assertEquals(longName, GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
                     .get("name").getAsString(), "the stand-in did not take the long name");
+            // A different account, so a different key: every /api call below is behind the gate.
+            registerAKey(browser, new TestAuthenticator(), "Archibald's key");
 
             // 1. A command. The row and its journal line are one statement now, so an actor the
             //    column cannot hold does not lose the journal line - it loses the command.
@@ -1366,6 +1401,204 @@ class StewardUiIntegrationTest {
         assertEquals("DONE", job.get("state").getAsString());
         assertEquals(0, job.get("exitCode").getAsInt());
         assertTrue(job.getAsJsonArray("lines").toString().contains("Recreated"), job.toString());
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // The second factor (§10a, package B): a key is registered, and without one nothing works
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("an account with no key reaches /api/me and nothing else")
+    void withoutAKeyThereIsNowhereToGo() throws Exception {
+        memberId.set("770000000000000001");
+        memberNick.set("Newcomer");
+        try {
+            final HttpClient browser = browser();
+            signIn(browser);
+
+            // The sign-in worked. This is not a refused Discord login and must not look like one.
+            final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
+            assertTrue(me.get("signedIn").getAsBoolean(), me.toString());
+            assertEquals(0, me.getAsJsonArray("keys").size(), me.toString());
+            assertFalse(me.get("verified").getAsBoolean(), me.toString());
+
+            // And everything else is shut. 403 rather than 401, because 401 is what the shell
+            // turns into the sign-in page - sending this person back to Discord would be a loop
+            // they have already been round.
+            final HttpResponse<String> refused = get(browser, "/api/services");
+            assertEquals(403, refused.statusCode(), refused.body());
+            assertEquals("SECOND_FACTOR_MISSING",
+                    GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
+                    "the interface cannot tell this apart from an ordinary refusal: "
+                            + refused.body());
+
+            // Including the ones that write. A missing key is not a read-only mode.
+            assertEquals(403, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());
+        } finally {
+            memberId.set("1");
+            memberNick.set("Till");
+        }
+    }
+
+    @Test
+    @DisplayName("registering a key opens the interface, and the journal says who did it")
+    void aKeyIsRegisteredAndThenEverythingWorks() throws Exception {
+        memberId.set("770000000000000002");
+        memberNick.set("Registrant");
+        try {
+            final HttpClient browser = browser();
+            signIn(browser);
+            assertEquals(403, get(browser, "/api/services").statusCode(), "the gate was open");
+
+            registerAKey(browser, new TestAuthenticator(), "YubiKey blau");
+
+            assertEquals(200, get(browser, "/api/services").statusCode(),
+                    "the key was registered and the gate stayed shut");
+
+            final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
+            assertEquals(1, me.getAsJsonArray("keys").size(), me.toString());
+            assertEquals("YubiKey blau", me.getAsJsonArray("keys").get(0).getAsJsonObject()
+                    .get("label").getAsString());
+            // Registering a key IS holding it, so the session is verified without a second
+            // ceremony one second later.
+            assertTrue(me.get("verified").getAsBoolean(), me.toString());
+
+            journalledBy("770000000000000002", "REGISTER_KEY", "YubiKey blau");
+        } finally {
+            memberId.set("1");
+            memberNick.set("Till");
+        }
+    }
+
+    @Test
+    @DisplayName("a registration answer cannot be replayed")
+    void aChallengeIsAnsweredExactlyOnce() throws Exception {
+        memberId.set("770000000000000003");
+        memberNick.set("Replayer");
+        try {
+            final HttpClient browser = browser();
+            signIn(browser);
+            final TestAuthenticator key = new TestAuthenticator();
+
+            final HttpResponse<String> started =
+                    post(browser, "/auth/webauthn/register/start", "");
+            assertEquals(200, started.statusCode(), started.body());
+
+            assertEquals(200, finishRegistration(browser,
+                    key.register(started.body(), ORIGIN), "Once").statusCode());
+
+            // A DIFFERENT AUTHENTICATOR ANSWERING THE SAME CHALLENGE, and that detail is the whole
+            // test. Sending the identical bytes twice proves nothing: the library refuses the
+            // second one because that credential id is already registered, so the test passed with
+            // the read-and-clear replaced by a plain SELECT - measured, which is why it reads like
+            // this now. The attack is somebody who has SEEN the challenge registering THEIR key
+            // with it, and only clearing it in the statement that reads it stops that.
+            final HttpResponse<String> again = finishRegistration(browser,
+                    new TestAuthenticator().register(started.body(), ORIGIN), "Twice");
+            assertEquals(400, again.statusCode(), again.body());
+            assertEquals(1, GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                    .getAsJsonArray("keys").size(),
+                    "a second authenticator answered a challenge that had already been used");
+        } finally {
+            memberId.set("1");
+            memberNick.set("Till");
+        }
+    }
+
+    @Test
+    @DisplayName("a key that answers from another origin is refused")
+    void anotherOriginIsRefused() throws Exception {
+        memberId.set("770000000000000004");
+        memberNick.set("Elsewhere");
+        try {
+            final HttpClient browser = browser();
+            signIn(browser);
+
+            final HttpResponse<String> started =
+                    post(browser, "/auth/webauthn/register/start", "");
+            // A SUBDOMAIN OF THE RELYING PARTY, not a stranger's domain - because that is the case
+            // the relying party id actually creates. `nordtal.eu` means a key registered here works
+            // on every subdomain; it must NOT mean this service accepts a ceremony that happened on
+            // one. A browser on bluemap.nordtal.eu can ask for these keys; it cannot hand the
+            // answer to Steward.
+            final String answer = new TestAuthenticator()
+                    .register(started.body(), "https://bluemap.nordtal.eu");
+
+            final HttpResponse<String> refused = finishRegistration(browser, answer, "From next door");
+            assertEquals(400, refused.statusCode(), refused.body());
+            assertEquals(0, GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                    .getAsJsonArray("keys").size(), "a foreign origin registered a key");
+        } finally {
+            memberId.set("1");
+            memberNick.set("Till");
+        }
+    }
+
+    @Test
+    @DisplayName("an answer to a challenge nobody issued is refused")
+    void aChallengeNobodyIssuedIsRefused() throws Exception {
+        memberId.set("770000000000000005");
+        memberNick.set("Inventor");
+        try {
+            final HttpClient browser = browser();
+            signIn(browser);
+
+            final HttpResponse<String> started =
+                    post(browser, "/auth/webauthn/register/start", "");
+            final String answer = new TestAuthenticator().register(started.body(), ORIGIN,
+                    // 32 bytes of somebody else's choosing, base64url - the shape is right and the
+                    // value was never issued by this service.
+                    "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8");
+
+            final HttpResponse<String> refused = finishRegistration(browser, answer, "Invented");
+            assertEquals(400, refused.statusCode(), refused.body());
+        } finally {
+            memberId.set("1");
+            memberNick.set("Till");
+        }
+    }
+
+    @Test
+    @DisplayName("a second key needs the first one, so a stolen cookie cannot add its own")
+    void aSecondKeyNeedsTheFirst() throws Exception {
+        // A SECOND SESSION OF AN ACCOUNT THAT ALREADY HAS A KEY. It gets past the gate - package C
+        // is what will make every session prove a key - but it may not register another one, which
+        // would otherwise be the cheapest way for a stolen cookie to become a permanent key.
+        final HttpClient stolen = browser();
+        signIn(stolen);
+        assertFalse(GSON.fromJson(get(stolen, "/api/me").body(), JsonObject.class)
+                .get("verified").getAsBoolean(), "a fresh session started out verified");
+
+        final HttpResponse<String> refused = post(stolen, "/auth/webauthn/register/start", "");
+        assertEquals(403, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("already has a key"), refused.body());
+    }
+
+    /** The whole registration, driven the way the browser drives it. Nothing is stood in for. */
+    private static void registerAKey(final HttpClient browser, final TestAuthenticator key,
+                                     final String label) throws Exception {
+        final HttpResponse<String> started = post(browser, "/auth/webauthn/register/start", "");
+        assertEquals(200, started.statusCode(), started.body());
+        final HttpResponse<String> finished =
+                finishRegistration(browser, key.register(started.body(), ORIGIN), label);
+        assertEquals(200, finished.statusCode(), finished.body());
+    }
+
+    /**
+     * The finish, with the credential carried as a STRING inside the envelope.
+     *
+     * <p>That is the shape the route takes and it is not an accident: the envelope is this
+     * service's JSON and Gson parses it, the credential is the library's JSON and only the library
+     * may parse it. Written out here rather than hidden, because a test that quietly nested the
+     * object would be testing a route that does not exist.</p>
+     */
+    private static HttpResponse<String> finishRegistration(final HttpClient browser,
+                                                           final String credential,
+                                                           final String label) throws Exception {
+        final JsonObject envelope = new JsonObject();
+        envelope.addProperty("label", label);
+        envelope.addProperty("credential", credential);
+        return post(browser, "/auth/webauthn/register/finish", GSON.toJson(envelope));
     }
 
     // -------------------------------------------------------------------------------------------

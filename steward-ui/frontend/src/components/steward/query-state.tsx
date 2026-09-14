@@ -101,10 +101,18 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
 }
 
 /**
- * The three states around one query, in one place.
+ * The three states around one query, in one place - and the fourth, which is not a state of the
+ * query at all.
  *
  * `data` is handed to the child only once it exists, so a page never writes `data?.` chains for a
  * value it has already waited for.
+ *
+ * **A disabled query is `isPending` for ever**, and that is the trap this component fell into.
+ * Measured on 2026-09-14 on `/configuration`: skeletons, and nothing after them, because the page
+ * had mounted `useConfig("")` and `enabled: Boolean(file)` had switched it off. There is no data
+ * and none is coming, so "loading" was a lie the interface told indefinitely. `fetchStatus` tells
+ * the two apart - `"idle"` beside `isPending` is switched off, `"fetching"` is on its way - and it
+ * is optional here because some callers hand in a plain object rather than a query result.
  */
 export function QueryState<T>({
   query,
@@ -117,6 +125,7 @@ export function QueryState<T>({
     data: T | undefined
     error: unknown
     isPending: boolean
+    fetchStatus?: "fetching" | "paused" | "idle"
     refetch?: () => void
   }
   children: (data: T) => ReactNode
@@ -124,6 +133,14 @@ export function QueryState<T>({
   empty?: { title: string; note?: string }
   isEmpty?: (data: T) => boolean
 }) {
+  if (query.isPending && query.fetchStatus === "idle") {
+    return (
+      <Empty
+        title="Nothing was asked for here."
+        note="This query is switched off, so no answer is on its way. That is a fault in the page rather than in the service - the skeletons below it would otherwise never end."
+      />
+    )
+  }
   if (query.isPending) return <Loading rows={rows} />
   if (query.error) return <Failure error={query.error} onRetry={query.refetch} />
   if (query.data === undefined) return <Loading rows={rows} />

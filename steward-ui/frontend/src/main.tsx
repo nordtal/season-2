@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider } from "@tanstack/react-router"
 
+import { trackAppFrame } from "@/lib/app-frame"
 import { router } from "@/router"
 import "@/index.css"
 
@@ -22,6 +23,11 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+// How tall the window is and how deep iOS's blurred band reaches - two numbers CSS gets wrong on a
+// home screen and nowhere else. Started before the first render so nothing is drawn at a height
+// that is then corrected; never stopped, because the page outlives it.
+trackAppFrame()
 
 const container = document.getElementById("root")
 if (!container) throw new Error("#root is missing from index.html")

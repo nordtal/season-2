@@ -5,6 +5,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.http.HttpConnectTimeoutException;
+import java.net.http.HttpTimeoutException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -141,8 +143,10 @@ public final class InternalClient {
                         response.body());
             }
             return response.body();
+        } catch (HttpTimeoutException slow) {
+            throw new Failure(name, 504, tooSlow(path, timeout), null);
         } catch (IOException e) {
-            throw new Failure(name, 502, name + " could not be reached at " + baseUrl, null);
+            throw new Failure(name, 502, unreachable(path), null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new Failure(name, 503, "interrupted while asking " + name, null);
@@ -164,8 +168,10 @@ public final class InternalClient {
                         response.body());
             }
             return response.body();
+        } catch (HttpTimeoutException slow) {
+            throw new Failure(name, 504, tooSlow(path, timeout), null);
         } catch (IOException e) {
-            throw new Failure(name, 502, name + " could not be reached at " + baseUrl, null);
+            throw new Failure(name, 502, unreachable(path), null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new Failure(name, 503, "interrupted while asking " + name, null);
@@ -207,8 +213,17 @@ public final class InternalClient {
                         name + " answered " + response.statusCode() + " for " + path, null);
             }
             return response.body();
+        } catch (HttpConnectTimeoutException unanswered) {
+            // Connect is bounded by `timeout` even here: the twelve hours are the request's
+            // deadline, and the handshake never had them. Caught first because it is a subclass -
+            // without this line a refused handshake after ten seconds reported "within 43200s".
+            throw new Failure(name, 504, tooSlow(path, timeout), null);
+        } catch (HttpTimeoutException slow) {
+            // FOLLOW_DEADLINE, not `timeout` - a follow is allowed twelve hours and the sentence
+            // has to say the number that actually ran out.
+            throw new Failure(name, 504, tooSlow(path, FOLLOW_DEADLINE), null);
         } catch (IOException e) {
-            throw new Failure(name, 502, name + " could not be reached at " + baseUrl, null);
+            throw new Failure(name, 502, unreachable(path), null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new Failure(name, 503, "interrupted while streaming from " + name, null);
@@ -225,6 +240,31 @@ public final class InternalClient {
      */
     private static boolean isNotSuccess(final int status) {
         return status < 200 || status >= 300;
+    }
+
+    /**
+     * The two sentences a failed call can end in, and they are not the same evening.
+     *
+     * <p><b>They were one sentence until 2026-09-14, and it was the wrong one.</b>
+     * {@link HttpTimeoutException} extends {@link IOException}, so a service that accepted the
+     * connection and answered a second too late was reported as a service that could not be
+     * reached at all. Measured on the dev host that day: steward-ui logged
+     * {@code steward-worker could not be reached at http://steward-worker:8082} about once a
+     * minute, for hours, about a container that was healthy and answering - because
+     * {@code GET /api/services} takes 11.5 s whenever steward-worker's one-minute drift cache has
+     * expired, against the 10 s deadline here. An operator reading that goes looking at a network
+     * that is fine.</p>
+     *
+     * <p>Both name the path now. The log line is one line and used to name only the service, which
+     * is the half a reader already knows - what they cannot find out from anywhere else is
+     * <em>which</em> of a dozen calls is the slow one.</p>
+     */
+    private String tooSlow(final String path, final Duration deadline) {
+        return name + " did not answer " + path + " within " + deadline.toSeconds() + "s";
+    }
+
+    private String unreachable(final String path) {
+        return name + " could not be reached at " + baseUrl + " for " + path;
     }
 
     /**

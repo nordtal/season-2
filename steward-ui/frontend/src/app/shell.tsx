@@ -30,8 +30,13 @@ import { TooltipProvider } from "@/components/ui/tooltip"
  *
  * The document itself does not scroll. An operator watching a log window and a service table at
  * the same time should not lose the header to do it, so the header is pinned and only the content
- * column moves. That is also what makes this survive being added to a home screen: `h-svh` is the
- * *small* viewport height, so nothing is hidden behind a toolbar that has not retracted yet.
+ * column moves.
+ *
+ * **The height is measured, not asked for** (`lib/app-frame.ts`). Measured on 2026-09-14 on an
+ * iPhone home screen: at `h-svh` the page and the sidebar sheet were both cut off about a fifth
+ * above the bottom edge, so the viewport unit is not the window there. `--app-height` is the
+ * visible viewport and falls back to `100svh` before any script has run and anywhere without a
+ * `visualViewport`, which is every desktop browser this is used from.
  *
  * **The safe areas are given back here, at the edges.** `index.html` asks for `viewport-fit=cover`
  * and a translucent status bar, which means iOS draws this behind the notch and the home indicator
@@ -79,7 +84,7 @@ export function Shell() {
         style={{ "--sidebar-width": "13rem" } as React.CSSProperties}
       >
         <AppSidebar />
-        <SidebarInset className="flex h-svh min-w-0 flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)]">
+        <SidebarInset className="flex h-(--app-height) min-w-0 flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)]">
           <Header />
           <ScrollArea className="min-h-0 flex-1">
             <main className="mx-auto w-full max-w-[110rem] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:py-6">
@@ -109,7 +114,7 @@ export function Shell() {
  */
 function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-6 py-12">
+    <div className="flex min-h-(--app-height) items-center justify-center bg-background px-6 py-12">
       <div className="flex w-full max-w-md flex-col gap-6">
         <div className="flex items-center gap-3">
           <StewardMark className="size-8" />
@@ -132,7 +137,7 @@ function Header() {
   const crumbs = useRouterState({ select: (state) => breadcrumbsFor(state.location.pathname) })
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4 md:gap-4 md:px-6">
+    <header className="flex h-[calc(3.5rem+var(--blur-clearance))] shrink-0 items-center gap-2 border-b border-border px-4 pt-(--blur-clearance) md:gap-4 md:px-6">
       {/* The only way back to the navigation on a phone. Nothing renders it on a desktop, where
           the sidebar is always standing there. */}
       <SidebarTrigger className="-ml-1 size-control shrink-0 md:hidden" />
@@ -226,7 +231,6 @@ const SECTION_LABELS: Record<string, string> = {
   runs: "Run",
   backups: "Backup",
   restore: "Restore",
-  configuration: "Configuration",
   season: "Season",
   access: "Access",
   payments: "Payments",

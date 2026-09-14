@@ -55,6 +55,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * not words and have no boundary to match on. The frontend's guard reads that same file - one rule,
  * one place, two runners, because each sees files the other cannot.</p>
  *
+ * <h2>Two more things, because on 2026-09-14 the derivation alone walked past four words</h2>
+ * {@code Befehle}, {@code Konfiguration}, {@code Gelaufen} and {@code Sperre} were all on the
+ * screen with every test green. Three are answered without one word being added by hand:
+ *
+ * <ul>
+ *   <li><b>Stems, not whole words.</b> The bundle says {@code Befehl} and Steward said
+ *       {@code Befehle}; the bundle says {@code Konfigurationsdateien} and Steward said
+ *       {@code Konfiguration}. A derived list knows only the forms the bot happens to use, and
+ *       German inflects and compounds.</li>
+ *   <li><b>Shape, not vocabulary.</b> {@code Gelaufen} is in no bundle and no stem of it is
+ *       either. The {@code shapes} patterns find German by its endings.</li>
+ * </ul>
+ *
+ * <p>{@code Sperre} is the honest fourth and is in {@code extra} by hand: a German word with no
+ * German ending that the bot never says cannot be derived or recognised, and a guard that hides
+ * its blind spot is worse than one that has none.</p>
+ *
  * <h2>There is no umlaut rule here, unlike on the frontend</h2>
  * {@code LogFrames} explains chunked UTF-8 with the sentence "an ä in a death message", and
  * that character is the subject of the comment rather than a word of German: a rule that failed on
@@ -78,8 +95,21 @@ class NothingIsGermanTest {
     /** Three or more letters, German ones included. Two-letter words are noise in both languages. */
     private static final Pattern WORD = Pattern.compile("[A-Za-zÄÖÜäöüß]{3,}");
 
+    /**
+     * The same word, but only where a reader would see one - and an identifier is not one.
+     *
+     * {@code _} and a digit count as part of the word, exactly as {@code \b} treats them, because
+     * that is what kept {@code NORDTAL_STEWARD_UI_CONFIG_DIR} quiet while {@code dir} sat in the
+     * German bundle. Splitting on letters alone finds {@code DIR} in there and is wrong: nobody
+     * reads an environment variable as a sentence.
+     */
+    private static final Pattern SOURCE_WORD =
+            Pattern.compile("(?<![\\wÄÖÜäöüß])[A-Za-zÄÖÜäöüß]{3,}(?![\\wÄÖÜäöüß])");
+
     /** The hand-kept half of the rule. Everything else about the list is computed. */
-    private record Rules(List<String> alsoEnglish, List<String> extra, List<String> abbreviations) {
+    private record Rules(List<String> alsoEnglish, List<String> extra, List<String> abbreviations,
+                         int minStem, int minPrefix, int minRest, List<String> tails,
+                         List<String> shapes) {
     }
 
     @Test
@@ -99,9 +129,38 @@ class NothingIsGermanTest {
     @Test
     @DisplayName("no German word is in any of Steward's own files")
     void noGermanWord() {
-        assertEquals(List.of(), offences(wordPattern(forbidden())),
+        assertEquals(List.of(), offences(forbidden()),
                 "Steward is English - the interface, the logs, the comments and the files it"
                         + " writes. The bot is the bilingual half and has its own bundles.");
+    }
+
+    @Test
+    @DisplayName("a German word is known by its stem, not only by the form the bot happens to use")
+    void stemsAndNotOnlyWholeWords() {
+        final Set<String> german = forbidden();
+        assertTrue(isGerman("Befehle", german), "inflection: the bundle only says Befehl");
+        assertTrue(isGerman("Konfiguration", german),
+                "compounding: the bundle only says Konfigurationsdateien");
+        assertTrue(isGerman("Sperre", german), "Sperre is in language-rules.json by hand");
+
+        // `started` and `stopped` are the two a looser rule flagged: they extend the German
+        // `starte` and `stoppe` by an English `d`, which is not one of the tails.
+        for (final String word : List.of("Configuration", "Commands", "Status", "Backup",
+                "Service", "Restore", "started", "stopped", "argument", "Operations")) {
+            assertFalse(isGerman(word, german), word + " is English and was called German");
+        }
+    }
+
+    @Test
+    @DisplayName("nothing has a German ending either")
+    void noGermanShape() {
+        final List<String> found = new ArrayList<>();
+        for (final String shape : rules().shapes()) {
+            found.addAll(offences(Pattern.compile(shape, Pattern.CASE_INSENSITIVE)));
+        }
+        assertEquals(List.of(), found,
+                "these find German by its shape rather than by a list, which is the only thing"
+                        + " that reaches a word the bot has never said.");
     }
 
     @Test
@@ -154,6 +213,14 @@ class NothingIsGermanTest {
         return words;
     }
 
+    /**
+     * Parsed once. It is asked of every word of every line of every scanned file, and re-reading
+     * and re-parsing a JSON file that often is what made the frontend's half take 27 seconds.
+     */
+    private static final Rules RULES_FILE = rules();
+
+    private static final Set<String> ALSO_ENGLISH = lowercased(RULES_FILE.alsoEnglish());
+
     private static Rules rules() {
         final Path file = repository().resolve(RULES);
         assertTrue(Files.isRegularFile(file), file + " is not there, and it is half of this rule.");
@@ -168,14 +235,57 @@ class NothingIsGermanTest {
         return words.stream().map(word -> word.toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
     }
 
-    private static Pattern wordPattern(final Collection<String> words) {
-        return Pattern.compile("\\b(" + words.stream().map(Pattern::quote)
-                .collect(Collectors.joining("|")) + ")\\b", Pattern.CASE_INSENSITIVE);
+    /**
+     * Whether one word out of a source file is German - by stem, not only by equality.
+     *
+     * <p>Two cases, and they are different mistakes. <b>Inflection</b>: the word is a derived one
+     * plus a German ending, which is how {@code Befehle} got past a list holding {@code Befehl}.
+     * <b>Compounding</b>: a derived word continues it, which is how {@code Konfiguration} got past
+     * a list holding {@code Konfigurationsdateien}. The ending list is German-only on purpose -
+     * {@code stopped} is {@code stoppe} plus a {@code d}, and {@code d} is not one of them.</p>
+     */
+    private static boolean isGerman(final String word, final Set<String> german) {
+        final Rules rules = RULES_FILE;
+        final String lower = word.toLowerCase(Locale.ROOT);
+        if (ALSO_ENGLISH.contains(lower)) {
+            return false;
+        }
+        if (german.contains(lower)) {
+            return true;
+        }
+        for (final String known : german) {
+            if (known.length() >= rules.minStem() && lower.startsWith(known)
+                    && rules.tails().contains(lower.substring(known.length()))) {
+                return true;
+            }
+            if (lower.length() >= rules.minPrefix() && known.startsWith(lower)
+                    && known.length() - lower.length() >= rules.minRest()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // --- the scan ------------------------------------------------------------------------------
 
+    /** Every line holding a word this rule calls German. */
+    private static List<String> offences(final Set<String> german) {
+        return scan(line -> {
+            final Matcher matcher = SOURCE_WORD.matcher(line);
+            while (matcher.find()) {
+                if (isGerman(matcher.group(), german)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
     private static List<String> offences(final Pattern pattern) {
+        return scan(line -> pattern.matcher(line).find());
+    }
+
+    private static List<String> scan(final java.util.function.Predicate<String> guilty) {
         final Path root = repository();
         final List<Path> files = new ArrayList<>();
         for (final String tree : TREES) {
@@ -204,7 +314,7 @@ class NothingIsGermanTest {
         for (final Path file : files) {
             final List<String> lines = lines(file);
             for (int number = 0; number < lines.size(); number++) {
-                if (pattern.matcher(lines.get(number)).find()) {
+                if (guilty.test(lines.get(number))) {
                     found.add(root.relativize(file) + ":" + (number + 1) + ": "
                             + lines.get(number).strip());
                 }

@@ -49,7 +49,7 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="offcanvas" className="h-svh border-r">
+    <Sidebar collapsible="offcanvas" className="h-(--app-height) border-r">
       <SidebarHeader className="h-14 justify-center border-b px-cell">
         <Link
           to="/"
@@ -67,7 +67,7 @@ export function AppSidebar() {
         {NAVIGATION.map((group) => (
           <SidebarGroup key={group.id} className="py-1.5">
             {group.label ? (
-              <SidebarGroupLabel className="h-6 text-[0.6875rem] tracking-[0.08em] uppercase">
+              <SidebarGroupLabel className="h-6 text-[0.6875rem]">
                 {group.label}
               </SidebarGroupLabel>
             ) : null}

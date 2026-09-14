@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import type { CSSProperties } from "react"
-import { Link, useParams } from "@tanstack/react-router"
-import { FileWarning, Lock, Plus, RotateCcw, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronRight, FileWarning, Lock, Plus, RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
-import type { ConfigChanges, ConfigDocument, ConfigEntry, GuildList } from "@/lib/api"
+import type { ConfigChanges, ConfigDocument, ConfigEntry, ConfigLocation, GuildList } from "@/lib/api"
 import {
   useConfig,
   useConfigs,
@@ -12,19 +11,12 @@ import {
   useGuildRoles,
   useSaveConfig,
 } from "@/lib/queries"
-import { PageHeader } from "@/components/steward/page-header"
 import { Empty, Failure, QueryState } from "@/components/steward/query-state"
 import { SnowflakePicker } from "@/components/steward/snowflake-picker"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -32,7 +24,15 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 
 /**
- * Every configuration in the stack, as a form (concept §10a).
+ * A service's configuration files, on the service's own page (concept §10a).
+ *
+ * **There was a page of its own for this until 2026-09-14 and it is gone.** Every file the mount
+ * holds sits under exactly one service directory - twenty-five of them, counted in the running
+ * container that day, and not one loose - so a second place that listed them all was a second
+ * place to look for something that had a home already. The listing, the form and the service it
+ * belongs to are now one screen, which is also the screen with the restart button on it: a saved
+ * change reaches nothing until the service starts again, and that is now one card away rather
+ * than one page away.
  *
  * **The file is the model, not a `@ConfigSpec`.** Drawing this out of the Java interfaces would
  * mean steward-ui depending on every module in the repo, one of which would put a Paper API on a
@@ -43,100 +43,99 @@ import { Textarea } from "@/components/ui/textarea"
  * machine-readable path kept in monospace beside them, because the path is what an error message
  * and a log line will name.
  */
-
-// -----------------------------------------------------------------------------------------------
-// The list of files
-// -----------------------------------------------------------------------------------------------
-
-export function ConfigurationPage() {
+export function ServiceConfiguration({ service }: { service: string }) {
+  // Which file is open, not whether one is. Only the open file is fetched, which is also why the
+  // form is mounted rather than hidden: an unopened file is a request nobody made.
+  const [open, setOpen] = useState<string | null>(null)
   const files = useConfigs()
+  // A file with no service is one sitting directly in the mount point rather than in a service's
+  // directory, and there were none of those on 2026-09-14 - all twenty-five were under exactly one
+  // service. It is shown here anyway rather than filtered into nothing, because `/configs` is
+  // steward-ui's own mount: if a stray one ever appears, this is the page it arrived on, and a
+  // config file that no page lists is a config file nobody can find.
+  const mine = useMemo(
+    () =>
+      (files.data ?? []).filter(
+        (file) => file.service === service || (file.service === "" && service === "steward-ui"),
+      ),
+    [files.data, service],
+  )
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Konfiguration"
-        note="The config files of every service in the stack, exactly as they stand on the disk."
-      />
-
-      <QueryState
-        query={files}
-        rows={6}
-        isEmpty={(found) => found.length === 0}
-        empty={{
-          title: "No configuration file found.",
-          note: "Nothing under the mount point ends in .yml. Are the config volumes mounted into this image?",
-        }}
-      >
-        {(found) => (
-          <div className="flex flex-col gap-4">
-            {group(found).map(([service, entries]) => (
-              <Card key={service || "(root)"}>
-                <CardHeader>
-                  <CardTitle className="font-mono text-sm">{service || "No service"}</CardTitle>
-                  <CardDescription>
-                    {service
-                      ? `${entries.length} ${entries.length === 1 ? "file" : "files"} from the config volume of ${service}.`
-                      : "Files sitting directly in the mount point, belonging to no service directory."}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col">
-                  {entries.map((file) => (
-                    <Link
-                      key={file.path}
-                      to="/configuration/$"
-                      params={{ _splat: file.path }}
-                      className="flex h-row items-center justify-between gap-3 rounded-sm px-3 -mx-3 hover:bg-accent"
-                    >
-                      <span className="truncate font-mono text-sm">{file.name}</span>
-                      {file.writable ? null : (
-                        <Badge variant="outline" className="gap-1 shrink-0">
-                          <Lock className="size-3" aria-hidden />
-                          read only
-                        </Badge>
-                      )}
-                    </Link>
-                  ))}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </QueryState>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Configuration</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col">
+        <QueryState
+          query={files}
+          rows={3}
+          isEmpty={() => mine.length === 0}
+          empty={{
+            title: "This service has no configuration file here.",
+            note: `Nothing under ${service}/ in the mount point ends in .yml. Its settings are somewhere else, or it has none.`,
+          }}
+        >
+          {() =>
+            mine.map((file) => (
+              <Fragment key={file.path}>
+                <FileRow
+                  file={file}
+                  open={open === file.path}
+                  onToggle={() => setOpen((current) => (current === file.path ? null : file.path))}
+                />
+                {open === file.path ? <OneFile file={file.path} /> : null}
+              </Fragment>
+            ))
+          }
+        </QueryState>
+      </CardContent>
+    </Card>
   )
 }
 
-function group(files: { service: string; name: string; path: string; writable: boolean }[]) {
-  const byService = new Map<string, typeof files>()
-  for (const file of files) {
-    const bucket = byService.get(file.service)
-    if (bucket) bucket.push(file)
-    else byService.set(file.service, [file])
-  }
-  return [...byService.entries()]
+function FileRow({
+  file,
+  open,
+  onToggle,
+}: {
+  file: ConfigLocation
+  open: boolean
+  onToggle: () => void
+}) {
+  const Chevron = open ? ChevronDown : ChevronRight
+
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={onToggle}
+      className="-mx-3 flex h-row items-center justify-between gap-3 rounded-sm px-3 text-left hover:bg-accent"
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <Chevron className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="truncate font-mono text-sm">{file.name}</span>
+        {file.service === "" ? (
+          <Badge variant="outline" className="shrink-0">
+            no service
+          </Badge>
+        ) : null}
+      </span>
+      {file.writable ? null : (
+        <Badge variant="outline" className="shrink-0 gap-1">
+          <Lock className="size-3" aria-hidden />
+          read only
+        </Badge>
+      )}
+    </button>
+  )
 }
 
-// -----------------------------------------------------------------------------------------------
-// One file
-// -----------------------------------------------------------------------------------------------
-
-export function ConfigurationFilePage() {
-  const { _splat } = useParams({ from: "/configuration/$" })
-  const file = _splat ?? ""
+function OneFile({ file }: { file: string }) {
   const document = useConfig(file)
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={<span className="font-mono">{file.split("/").pop() ?? file}</span>}
-        note={file}
-        actions={
-          <Button asChild variant="outline" size="sm">
-            <Link to="/configuration">All files</Link>
-          </Button>
-        }
-      />
-
+    <div className="border-t border-border pt-4 pb-6">
       <QueryState query={document} rows={8}>
         {(read) => <ConfigForm key={file} file={file} document={read} />}
       </QueryState>
@@ -174,36 +173,22 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {document.header.length > 0 ? (
-        <Card>
-          <CardContent className="whitespace-pre-wrap text-sm text-muted-foreground">
-            {document.header.join("\n").trim()}
-          </CardContent>
-        </Card>
+        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+          {document.header.join("\n").trim()}
+        </p>
       ) : null}
 
       {document.writable ? (
         <Alert>
           <FileWarning aria-hidden />
           <AlertTitle>A saved change does not reach a running service.</AlertTitle>
-          {/* One <p>: AlertDescription is a grid and would give the link a row of its own. */}
           <AlertDescription>
-            <p>
-              It is in the file, and the service reads it at its next start.{" "}
-              {document.service ? (
-                <Link
-                  to="/services/$name"
-                  params={{ name: document.service }}
-                  className="underline underline-offset-4"
-                >
-                  Restart {document.service}
-                </Link>
-              ) : (
-                "The service concerned has to be restarted for it."
-              )}
-              .
-            </p>
+            {/* It used to link to the service page. This IS the service page now, so the sentence
+                points at the button rather than at the page the reader is standing on. */}
+            It is in the file, and {document.service || "the service"} reads it at its next start -
+            the Recreate button at the top of this page is what does that.
           </AlertDescription>
         </Alert>
       ) : (
@@ -219,36 +204,34 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
 
       {save.error ? <Failure error={save.error} /> : null}
 
-      <Card>
-        <CardContent className="flex flex-col gap-0">
-          {document.entries.length === 0 ? (
-            <Empty
-              title="This file has no keys."
-              note="It is empty, or consists only of comments."
+      <div className="flex flex-col gap-0">
+        {document.entries.length === 0 ? (
+          <Empty
+            title="This file has no keys."
+            note="It is empty, or consists only of comments."
+          />
+        ) : (
+          document.entries.map((entry, index) => (
+            <Field
+              key={entry.path}
+              entry={entry}
+              first={index === 0}
+              writable={document.writable}
+              draft={draft}
+              roles={roles.data}
+              channels={channels.data}
+              onChange={(value) => setDraft((old) => ({ ...old, [entry.path]: value }))}
+              onReset={() =>
+                setDraft((old) => {
+                  const next = { ...old }
+                  delete next[entry.path]
+                  return next
+                })
+              }
             />
-          ) : (
-            document.entries.map((entry, index) => (
-              <Field
-                key={entry.path}
-                entry={entry}
-                first={index === 0}
-                writable={document.writable}
-                draft={draft}
-                roles={roles.data}
-                channels={channels.data}
-                onChange={(value) => setDraft((old) => ({ ...old, [entry.path]: value }))}
-                onReset={() =>
-                  setDraft((old) => {
-                    const next = { ...old }
-                    delete next[entry.path]
-                    return next
-                  })
-                }
-              />
-            ))
-          )}
-        </CardContent>
-      </Card>
+          ))
+        )}
+      </div>
 
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 py-3 backdrop-blur">
         <p className="text-sm text-muted-foreground">
@@ -266,7 +249,7 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
             disabled={count === 0 || save.isPending}
             onClick={() => setDraft({})}
           >
-            Verwerfen
+            Discard
           </Button>
           <Button
             type="button"

@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { SnowflakePicker, withUnknown } from "@/components/steward/snowflake-picker"
-import { discordId } from "@/pages/configuration"
+import { discordId } from "@/components/steward/configuration"
 import type { ConfigEntry, GuildList } from "@/lib/api"
 
 /**

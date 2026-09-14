@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -26,10 +25,13 @@ import { Label } from "@/components/ui/label"
  * underneath would be a sidebar full of pages that cannot load - which reads as a broken interface
  * rather than as one step that has not been taken.
  *
- * **The sentences here are the only explanation anybody gets**, and this is the moment somebody is
- * most likely to be confused: they have just signed in successfully and are being asked for
- * something else. So it says what is being asked for, why, and - the part that is easy to leave
- * out - what happens if the key is later lost.
+ * **Two things are on the screen and nothing else** (2026-09-14): who is signed in, because that
+ * is the account the key is about to belong to, and the one sentence about losing it - a danger,
+ * not an explanation. The reasoning that used to stand here is in this comment.
+ *
+ * Why anything at all is asked for after a successful sign-in: Discord confirms who somebody is
+ * and this interface can stop servers and type into consoles, so it wants something nobody can
+ * steal by reading a message.
  */
 export function SecurityKeyPage({ me }: { me: Me }) {
   const [label, setLabel] = useState("")
@@ -43,24 +45,22 @@ export function SecurityKeyPage({ me }: { me: Me }) {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-6 py-12">
+    <div className="flex min-h-(--app-height) items-center justify-center bg-background px-6 py-12">
       <div className="flex w-full max-w-md flex-col gap-6">
         <div className="flex items-center gap-3">
           <StewardMark className="size-8" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-            <span className="text-sm text-muted-foreground">nordtal.eu · Season 2</span>
+            <span className="text-sm text-muted-foreground">
+              nordtal.eu · Season 2 · signed in as{" "}
+              <span className="text-foreground">{me.name ?? "an admin"}</span>
+            </span>
           </div>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>One more thing: your security key</CardTitle>
-            <CardDescription>
-              Signed in as {me.name ?? "an admin"}. Discord has confirmed who you are, and that is
-              not enough on its own - this interface can stop servers and type into consoles, so it
-              asks for something nobody can steal by reading a message.
-            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {supported ? null : (
@@ -88,12 +88,8 @@ export function SecurityKeyPage({ me }: { me: Me }) {
                 {/*
                   A name, not a formality. The one question this label has to answer later is
                   "which of these two do I still have", and an authenticator's own name for itself
-                  is either absent or a marketing string.
+                  is either absent or a marketing string. That used to be written on the screen.
                 */}
-                <p className="text-sm text-muted-foreground">
-                  A YubiKey in a drawer and a passkey on a phone are hard to tell apart in a list a
-                  month from now.
-                </p>
               </div>
 
               <Button type="submit" size="lg" disabled={!supported || register.isPending}>
@@ -114,12 +110,8 @@ export function SecurityKeyPage({ me }: { me: Me }) {
               <KeyRound aria-hidden />
               <AlertTitle>If you lose it, somebody has to go to the server.</AlertTitle>
               <AlertDescription>
-                <p>
-                  There is no email reset and no second route in. A lost key is undone with one
-                  command on the host, by whoever can reach it. A second key - your phone as well
-                  as the one on your keyring - makes that never necessary, and you can add it from
-                  Settings once you are in.
-                </p>
+                {/* A danger, not an explanation, which is why this one sentence stays. */}
+                <p>There is no email reset and no second route in.</p>
               </AlertDescription>
             </Alert>
 
@@ -139,10 +131,6 @@ export function SecurityKeyPage({ me }: { me: Me }) {
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground">
-          The key is registered to {me.relyingPartyId ?? "nordtal.eu"}, so it keeps working when
-          Steward moves to its production address.
-        </p>
       </div>
     </div>
   )

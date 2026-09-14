@@ -12,6 +12,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -42,6 +43,17 @@ class InternalClientTest {
     static void startAServerThatAnswersWhateverIsAskedOfIt() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         // The path is the status to answer with, so one handler covers every case below.
+        // One endpoint that takes longer than anybody's timeout. It is the drift refresh of
+        // 2026-09-14 in miniature: an answer that is coming, only not yet.
+        server.createContext("/api/slow", exchange -> {
+            try {
+                Thread.sleep(Duration.ofSeconds(5));
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
         server.createContext("/api/", exchange -> {
             final int status = Integer.parseInt(
                     exchange.getRequestURI().getPath().substring("/api/".length()));
@@ -59,6 +71,9 @@ class InternalClientTest {
                 out.write(body);
             }
         });
+        // A thread per exchange, because one handler here sleeps: the default executor runs every
+        // request on the dispatcher thread, so the slow one would stall the other seven tests.
+        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
         client = new InternalClient("steward-deployer",
                 "http://127.0.0.1:" + server.getAddress().getPort(), "a-secret",
@@ -210,5 +225,41 @@ class InternalClientTest {
         assertEquals(502, failure.status());
         assertEquals("steward-worker", failure.where());
         assertTrue(failure.getMessage().contains("steward-worker"), failure.getMessage());
+    }
+
+    @Test
+    @DisplayName("a service that answers too slowly is a 504 that says so, not 'could not be reached'")
+    void aSlowServiceIsNotAnAbsentOne() {
+        // MEASURED on the dev host, 2026-09-14. `GET /api/services` on steward-worker takes 11.5 s
+        // whenever its one-minute drift cache has expired, against a 10 s timeout here. Every
+        // IOException was one sentence, so the log said "steward-worker could not be reached at
+        // http://steward-worker:8082" about a service that was healthy, listening and answering -
+        // once a minute, for hours. An operator reading that goes looking at the network.
+        //
+        // HttpTimeoutException IS an IOException, which is why the two have to be caught in this
+        // order and why the wrong sentence was so easy to write.
+        final InternalClient patient = new InternalClient("steward-worker",
+                "http://127.0.0.1:" + server.getAddress().getPort(), "a-secret",
+                Duration.ofMillis(300));
+
+        final InternalClient.Failure failure =
+                assertThrows(InternalClient.Failure.class, () -> patient.get("/api/slow"));
+        assertEquals(504, failure.status());
+        assertEquals("steward-worker", failure.where());
+        assertTrue(failure.getMessage().contains("/api/slow"),
+                "the log line has to name the request, or the next session measures it again: "
+                        + failure.getMessage());
+        assertTrue(failure.getMessage().contains("did not answer"), failure.getMessage());
+    }
+
+    @Test
+    @DisplayName("an unreachable service names the request too")
+    void theSentenceNamesThePath() {
+        final InternalClient nobody = new InternalClient("steward-worker",
+                "http://127.0.0.1:1", "a-secret", Duration.ofMillis(500));
+
+        final InternalClient.Failure failure =
+                assertThrows(InternalClient.Failure.class, () -> nobody.get("/api/services"));
+        assertTrue(failure.getMessage().contains("/api/services"), failure.getMessage());
     }
 }

@@ -2,6 +2,7 @@ package eu.nordtal.s2.steward.ui;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
 import eu.nordtal.s2.steward.ui.auth.Sessions;
@@ -949,6 +950,29 @@ class StewardUiIntegrationTest {
                 .map(file -> file.getAsJsonObject().get("path").getAsString())
                 .toList();
         assertEquals(List.of("smp/nordtal-smp/config.yml", "steward-worker/steward.yml"), paths);
+    }
+
+    @Test
+    @DisplayName("the listing says whether a file can be read, before anybody taps it")
+    void theListingCarriesReadableAndWritable() throws Exception {
+        // Both, and both on every row. The page draws an unreadable file as a dead row with the
+        // reason in its title, and a read-only one as a form with no save button - two different
+        // drawings it cannot choose between if the listing only carries one of the two flags,
+        // which is what it used to carry.
+        final JsonArray files = GSON.fromJson(get("/api/config").body(), JsonArray.class);
+
+        assertFalse(files.isEmpty(), "nothing was listed, so nothing was asserted");
+        for (final JsonElement listed : files) {
+            final JsonObject file = listed.getAsJsonObject();
+            final String path = file.get("path").getAsString();
+            assertTrue(file.has("readable"), path + " does not say whether it can be read");
+            assertTrue(file.has("writable"), path + " does not say whether it can be written");
+            // These fixtures are ordinary files this process owns, so both are true here. The
+            // false side is asserted where it can be produced: ConfigFilesDiscoverTest, which
+            // takes the read bit off a file and skips when it is running as root.
+            assertTrue(file.get("readable").getAsBoolean(), path + " should be readable");
+            assertTrue(file.get("writable").getAsBoolean(), path + " should be writable");
+        }
     }
 
     @Test

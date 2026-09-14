@@ -88,6 +88,30 @@ class ConfigFilesDiscoverTest {
     }
 
     @Test
+    void anUnreadableFileIsStillFoundAndSaysSo() throws IOException {
+        // The listing has to carry this, not the click: a file this process may not open has
+        // nothing to show, and finding that out by tapping it and reading a red alert is one step
+        // too late. So discovery answers `readable` and the row is drawn dead before anybody tries.
+        final Path service = Files.createDirectories(root.resolve("locked"));
+        final Path file = Files.writeString(service.resolve("config.yml"), "port: 8080\n");
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("-w--w----"));
+        try {
+            // Same reason as the read-only directory below: root ignores the bits, and this
+            // project's containers run as root. A skip is worth more than a green test that
+            // asserted nothing.
+            Assumptions.assumeFalse(Files.isReadable(file),
+                    "running as a user that can read a file with no read bit");
+
+            final ConfigLocation found = ConfigFiles.discover(root).getFirst();
+            assertFalse(found.readable(), "the file has no read bit for this user");
+            assertEquals("config.yml", found.name());
+        } finally {
+            Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-r--r--"));
+            Files.deleteIfExists(file);
+        }
+    }
+
+    @Test
     void anEmptyRootIsAnEmptyList() {
         assertEquals(List.of(), ConfigFiles.discover(root));
     }

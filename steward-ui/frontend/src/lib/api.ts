@@ -373,7 +373,7 @@ export type ConfigLocation = {
  *
  * **`value` and `items` are absent for a secret and that is the point.** A key whose name says
  * credential - token, password, secret, key - is sent with `filled` alone, so the page can say
- * "gesetzt" without the bot token ever being in this browser. Typing a new one still works; it is
+ * "set" without the bot token ever being in this browser. Typing a new one still works; it is
  * only reading the old one that does not.
  *
  * `filled` is sent for every key, secret or not, so there is one rule to draw rather than two.
@@ -394,6 +394,33 @@ export type ConfigEntry = {
   /** False for a nested section, which has no value, and for a list of sections. */
   editable: boolean
   secret: boolean
+}
+
+/**
+ * One role or channel of the guild, as the pickers offer it.
+ *
+ * `type` is Discord's own channel type and is absent for a role. It is carried rather than
+ * interpreted here so the picker can group a category (type 4) apart from the channels under it -
+ * "general" under Info and "general" under Season are two channels with one name.
+ */
+export type GuildEntry = {
+  id: string
+  name: string
+  type: number | null
+}
+
+/**
+ * What the guild is made of, or why that could not be answered.
+ *
+ * **Never an error.** No bot token, an unreachable Discord and a rate limit all arrive here as
+ * `available: false` with a sentence, because a configuration page whose pickers cannot be filled
+ * is still a configuration page - the id can be typed. A 500 for this would be a bug report about
+ * something working as designed.
+ */
+export type GuildList = {
+  available: boolean
+  reason?: string
+  entries: GuildEntry[]
 }
 
 export type ConfigDocument = ConfigLocation & {

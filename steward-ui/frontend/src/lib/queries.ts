@@ -14,6 +14,7 @@ import {
   type DeployerJob,
   type DeployerState,
   type Grant,
+  type GuildList,
   type Host,
   type JournalEntry,
   type LogSearch,
@@ -69,6 +70,8 @@ export const keys = {
   deployer: ["deployer"] as const,
   deployerJob: (id: string) => ["deployer-job", id] as const,
   config: (file: string) => ["config", file] as const,
+  guildRoles: ["guild-roles"] as const,
+  guildChannels: ["guild-channels"] as const,
 }
 
 /**
@@ -276,6 +279,32 @@ export function useCommandRun(id: string | null) {
 // process allowed to create one. They look alike on screen and are not alike at all.
 
 /** Whether the deployer has a secret and answers - asked before the button is drawn. */
+/**
+ * The guild's roles and channels, for the pickers in the configuration editor.
+ *
+ * Five minutes, and no refetch on focus. The server already caches Discord's answer for a minute;
+ * this is the second half of the same argument - a role created while somebody is looking at the
+ * page is a reload away, and a page with eleven pickers on it must not be eleven requests every
+ * time the tab regains focus.
+ */
+export function useGuildRoles() {
+  return useQuery({
+    queryKey: keys.guildRoles,
+    queryFn: () => api<GuildList>("/api/discord/roles"),
+    staleTime: 5 * 60 * SECOND,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useGuildChannels() {
+  return useQuery({
+    queryKey: keys.guildChannels,
+    queryFn: () => api<GuildList>("/api/discord/channels"),
+    staleTime: 5 * 60 * SECOND,
+    refetchOnWindowFocus: false,
+  })
+}
+
 export function useDeployer(enabled = true) {
   return useQuery({
     queryKey: keys.deployer,

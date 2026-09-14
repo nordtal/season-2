@@ -237,6 +237,37 @@ command. That restart is *not* enough for `NETWORK_MAX_PLAYERS` — see
 
 When `network-control` cannot start at all, the fail-closed handler answers the ping saying so.
 
+## Picking the Discord ids instead of typing them
+
+Every id in the bot's `access.yml` is an eighteen-digit number that exists in exactly one place a
+person can read it: Discord's own right-click menu, behind a developer-mode switch most people have
+never turned on. Typing one into a field is a transcription with no feedback — the wrong id is still
+a valid snowflake, so nothing refuses it, and the first sign of the mistake is a message appearing
+in a channel nobody meant.
+
+So the configuration editor offers a **list of names**. `compose.yml` hands `steward-ui` the same
+`NORDTAL_BOT_TOKEN` the bot gets, as `NORDTAL_STEWARD_UI_DISCORD_BOT_TOKEN`, and it asks Discord
+what the guild's roles and channels are called. One answer is cached for a minute on the server and
+five in the browser, because a page with eleven pickers on it must not be eleven requests.
+
+**Steward only reads with that token.** It never sends a message, never changes a role, and never
+puts the token in an answer, in a log or in front of a browser; what leaves the process is a list of
+`{id, name}` that is public inside the guild anyway. **It is still a real widening and is worth
+knowing:** whoever reaches that container has the bot. The alternative was a second Discord
+application with its own token — a second thing to rotate and a second bot in the member list — for
+a token that is already on this host, in the service next door.
+
+**It never fails the page.** No token, an unreachable Discord and a rate limit all come back as
+`available: false` with a sentence, and the picker is the text field it replaced, with the reason
+underneath it and a reminder of where the id is in Discord. An id that is set but is not in the
+list — a channel the bot cannot see, one deleted since — is kept and marked, never silently
+replaced by "none".
+
+**Which keys get a picker** is decided on the key name, not on the value: anything called `role`,
+`*-role` or under `roles:`, and anything called `channel`, `*-channel` or under `channels:`. It has
+to be the key, because the whole point is to help with an id that is still empty. `guild-id` gets
+none — the list is read *from* the guild, so picking it out of itself is circular.
+
 ## The forwarding secret
 
 Modern forwarding needs the **same secret in all four containers**, and a mismatch does not say so:

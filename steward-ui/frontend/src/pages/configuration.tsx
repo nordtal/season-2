@@ -3,10 +3,17 @@ import { Link, useParams } from "@tanstack/react-router"
 import { FileWarning, Lock, Plus, RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
-import type { ConfigChanges, ConfigDocument, ConfigEntry } from "@/lib/api"
-import { useConfig, useConfigs, useSaveConfig } from "@/lib/queries"
+import type { ConfigChanges, ConfigDocument, ConfigEntry, GuildList } from "@/lib/api"
+import {
+  useConfig,
+  useConfigs,
+  useGuildChannels,
+  useGuildRoles,
+  useSaveConfig,
+} from "@/lib/queries"
 import { PageHeader } from "@/components/steward/page-header"
 import { Empty, Failure, QueryState } from "@/components/steward/query-state"
+import { SnowflakePicker } from "@/components/steward/snowflake-picker"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -141,6 +148,11 @@ type Draft = Record<string, string | string[]>
 function ConfigForm({ file, document }: { file: string; document: ConfigDocument }) {
   const [draft, setDraft] = useState<Draft>({})
   const save = useSaveConfig(file)
+  // Asked for on every config file, not only the bot's: both answers are cached for five minutes
+  // and come back `available: false` in one round trip when there is no token, which is cheaper
+  // than working out per file whether any key on it might turn out to be a snowflake.
+  const roles = useGuildRoles()
+  const channels = useGuildChannels()
 
   // The answer to a save IS the file as it now reads, so a successful write replaces the document
   // and empties the form's own state. Anything the backend quoted differently is then on screen,
@@ -218,6 +230,8 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
                 first={index === 0}
                 writable={document.writable}
                 draft={draft}
+                roles={roles.data}
+                channels={channels.data}
                 onChange={(value) => setDraft((old) => ({ ...old, [entry.path]: value }))}
                 onReset={() =>
                   setDraft((old) => {
@@ -299,6 +313,8 @@ function Field({
   first,
   writable,
   draft,
+  roles,
+  channels,
   onChange,
   onReset,
 }: {
@@ -306,6 +322,8 @@ function Field({
   first: boolean
   writable: boolean
   draft: Draft
+  roles: GuildList | undefined
+  channels: GuildList | undefined
   onChange: (value: string | string[]) => void
   onReset: () => void
 }) {
@@ -355,7 +373,14 @@ function Field({
         </p>
       ) : null}
 
-      <Control entry={entry} draft={draft} disabled={disabled} onChange={onChange} />
+      <Control
+        entry={entry}
+        draft={draft}
+        disabled={disabled}
+        roles={roles}
+        channels={channels}
+        onChange={onChange}
+      />
 
       {!entry.editable ? (
         <p className="text-sm text-muted-foreground">
@@ -366,15 +391,42 @@ function Field({
   )
 }
 
+/**
+ * Which keys hold a Discord id, and whether it is a role or a channel.
+ *
+ * It is decided on the KEY, not on the value, because the whole point is to help with a key that is
+ * still empty - a value-shaped test would offer the picker only once somebody had already typed the
+ * thing they needed help typing. The names are the ones jcore writes: `roles.admin`,
+ * `channels.admin`, and on each language entry `role`, `contribution-channel`, `link-channel`,
+ * `hunger-games-channel`, `status-channel`, `announcement-channel`.
+ *
+ * `guild-id` matches none of them, and that is the intended answer rather than an oversight: the
+ * guild is what the list is READ FROM, so offering to pick it out of itself is circular and would
+ * draw an empty select on the one field that always has to be typed. It is asserted in the tests
+ * so a later rule - anything keyed on `-id`, say - cannot quietly acquire it.
+ */
+export function discordId(entry: ConfigEntry): "role" | "channel" | null {
+  if (entry.kind !== "SCALAR" || !entry.editable || entry.secret) return null
+  const key = entry.key
+  const path = entry.path
+  if (key === "role" || key.endsWith("-role") || path.startsWith("roles.")) return "role"
+  if (key === "channel" || key.endsWith("-channel") || path.startsWith("channels.")) return "channel"
+  return null
+}
+
 function Control({
   entry,
   draft,
   disabled,
+  roles,
+  channels,
   onChange,
 }: {
   entry: ConfigEntry
   draft: Draft
   disabled: boolean
+  roles: GuildList | undefined
+  channels: GuildList | undefined
   onChange: (value: string | string[]) => void
 }) {
   if (entry.kind === "LIST") {
@@ -406,6 +458,20 @@ function Control({
   }
 
   const value = typed ?? entry.value ?? ""
+
+  const discord = discordId(entry)
+  if (discord) {
+    return (
+      <SnowflakePicker
+        id={entry.path}
+        value={value}
+        directory={discord === "role" ? roles : channels}
+        what={discord}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    )
+  }
 
   if (entry.type === "BOOLEAN") {
     return (

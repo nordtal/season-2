@@ -19,8 +19,13 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  *
  * <p>It dumps the live season database - which is a read, taken as an MVCC snapshot, and changes
  * nothing - into {@code /tmp} inside the postgres container rather than into the shared backup
- * directory, because that mount does not exist until the cutover. Everything else is the real
+ * directory, because a test has no business writing into the real one. Everything else is the real
  * path: the real {@code pg_dump}, the real verification, the real rename, the real file size.</p>
+ *
+ * <p><b>The directory is created root-owned on purpose.</b> {@code pg_dump} runs as
+ * {@code postgres}, so a root-owned directory is the whole of finding 39 - and the setup here used
+ * to hand the directory over itself, which is why the test stayed green for months while not one
+ * dump was ever written on the running stack.</p>
  */
 class DatabaseDumpIntegrationTest {
 
@@ -41,8 +46,13 @@ class DatabaseDumpIntegrationTest {
                 .findFirst()
                 .orElse(null);
         assumeTrue(postgres != null, "no postgres container here - skipping");
-        docker.exec(postgres, List.of("sh", "-c", "mkdir -p " + DIRECTORY
-                + " && chown postgres " + DIRECTORY), null);
+        // ROOT-OWNED AND 0755, which is what a fresh docker volume actually looks like - and is
+        // exactly the condition the live backup directory was in on 2026-09-14, when every
+        // database dump since the sidecar's removal had failed with "Permission denied" while the
+        // volume archives beside it succeeded. Handing it to `postgres` here would hide the bug
+        // this test is supposed to catch, so the setup does the opposite: it recreates it.
+        docker.exec(postgres, List.of("sh", "-c", "rm -rf " + DIRECTORY + " && mkdir -p " + DIRECTORY
+                + " && chown root " + DIRECTORY + " && chmod 755 " + DIRECTORY), null);
     }
 
     @Test
@@ -81,7 +91,7 @@ class DatabaseDumpIntegrationTest {
         // The A23 shape: this has to be a red line in the report, never a quiet success.
         assertFalse(result.ok());
         assertTrue(result.bytes() == 0, "a failed dump reported " + result.bytes() + " bytes");
-        assertTrue(result.message().toLowerCase().contains("pg_dump"), result.message());
+        assertTrue(result.message().contains("/proc/nowhere"), result.message());
     }
 
     @Test

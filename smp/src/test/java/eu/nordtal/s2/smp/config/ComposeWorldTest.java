@@ -67,33 +67,55 @@ class ComposeWorldTest {
     }
 
     /**
-     * The pre-generation switch reaches the container, and compose's fallback is the spec's own.
+     * The pre-generation switch reaches the container, and compose does <b>not</b> pin it.
      *
-     * <p><b>Both halves cost something to learn, on 2026-09-05.</b> The first is that a value in an
-     * env file does not reach a container at all - compose uses it for interpolation, and only what
-     * a service's {@code environment:} block lists is passed in. {@code dev.env} carried
+     * <p><b>The first half cost something to learn, on 2026-09-05.</b> A value in an env file does
+     * not reach a container at all - compose uses it for interpolation, and only what a service's
+     * {@code environment:} block lists is passed in. {@code dev.env} carried
      * {@code NORDTAL_SMP_PREGENERATION_ON_START=false}, the local stack came up, and Chunky started
      * pre-generating anyway; nothing said why, because from inside the plugin the setting simply
      * had its default.
      *
-     * <p>The second is that the fallback has to <em>repeat</em> the spec's default rather than be
-     * empty. An environment variable set to the empty string still wins over the file in jcore's
-     * config system, so a {@code ${VAR:-}} here would blank the default rather than fall back to
-     * it - the same trap every spec default that names a volume or a path carries, and the same
-     * test. steward-worker's own pair of that kind went out with the deployment panel on
-     * 2026-09-13; this one is now the example.
+     * <p><b>The second half was wrong until 2026-09-14, and this test said so out loud.</b> It used
+     * to demand that compose's fallback <em>repeat</em> the spec's default, on the belief that an
+     * environment variable set to the empty string still wins over the file. It does not: jcore's
+     * {@code EnvOverlay.applyTo} skips a variable that is null or blank, and
+     * {@code EnvOverlayTest.blankVariableIsUnset} asserts it - which is also the only reason the
+     * two dozen other {@code ${VAR:-}} lines in that file are not all blanking their own defaults.
+     * The repetition was not harmless: an environment variable that always carries a value wins
+     * over {@code smp.yml} for ever, so switching pre-generation off in Steward would have written
+     * the file and changed nothing.
      */
     @Test
-    void thePreGenerationSwitchIsPassedThroughAndDefaultsToTheSpec() throws Exception {
+    void thePreGenerationSwitchIsPassedThroughAndIsNotPinned() {
         final String composed = defaultOf(
                 environmentOf("smp").get("NORDTAL_SMP_PREGENERATION_ON_START"),
                 "smp.NORDTAL_SMP_PREGENERATION_ON_START");
 
-        assertEquals(String.valueOf(Configs.load(directory, LOGGER).get().pregenerationOnStart()),
-                composed,
-                "compose.yml's fallback for pregeneration-on-start is '" + composed + "' while"
-                        + " SmpSpec defaults to something else. An empty environment variable wins"
-                        + " over the file, so this fallback is the effective production value.");
+        assertEquals("", composed,
+                "compose.yml's fallback for pregeneration-on-start is '" + composed + "' rather"
+                        + " than empty. A blank variable is UNSET to jcore, so an empty fallback"
+                        + " leaves SmpSpec's default in force AND leaves smp.yml editable; a"
+                        + " repeated default wins over the file for ever and makes the setting"
+                        + " unchangeable from the interface.");
+    }
+
+    /**
+     * The same rule for the backup window, which had the same comment and the same mistake.
+     *
+     * <p>{@code 0} turns the check off, which is what a local stack with no steward-worker wants.
+     * That is a value somebody sets deliberately, in the file or in the environment - not one
+     * compose should be carrying on every start.</p>
+     */
+    @Test
+    void theBackupWindowIsNotPinnedEither() {
+        final String composed = defaultOf(
+                environmentOf("smp").get("NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS"),
+                "smp.NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS");
+
+        assertEquals("", composed,
+                "compose.yml's fallback for farm-reset-backup-window-hours is '" + composed
+                        + "' rather than empty, which pins it over smp.yml for ever.");
     }
 
     /** The datapacks have to land in the world Paper actually generates, not beside it. */

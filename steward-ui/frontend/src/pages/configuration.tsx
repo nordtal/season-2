@@ -416,7 +416,7 @@ function Control({
           checked={value === "true"}
           onCheckedChange={(on) => onChange(on ? "true" : "false")}
         />
-        <span className="text-sm text-muted-foreground">{value === "true" ? "an" : "aus"}</span>
+        <span className="text-sm text-muted-foreground">{value === "true" ? "on" : "off"}</span>
       </div>
     )
   }

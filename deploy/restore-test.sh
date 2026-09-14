@@ -66,6 +66,17 @@ kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst.partial" partial
 kind_is "nordtal-20260913T031500Z.dump.partial"              partial
 ok "both kinds of interrupted backup are refused as partial"
 
+case_begin "the mark beside an archive is not an archive"
+# steward-worker writes `<archive>.unverified` next to a backup taken after a stop it could not
+# confirm the end of. It sits in the same directory and ends in a name a glob would happily hand to
+# a restore, so it has to be told apart from the thing it describes - and told apart as `mark`
+# rather than as `unknown`, because the useful answer is "read this, then name the archive".
+kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst.unverified" mark
+kind_is "nordtal-20260913T031500Z.dump.unverified"              mark
+# And the archive it belongs to is still an ordinary archive. The mark must not spread.
+kind_is "nordtal-s2_mc-smp-20260913T031500Z.tar.zst" volume
+ok "a mark is a mark, and the archive beside it is still restorable"
+
 case_begin "anything else is refused rather than guessed at"
 for wrong in \
     "" \

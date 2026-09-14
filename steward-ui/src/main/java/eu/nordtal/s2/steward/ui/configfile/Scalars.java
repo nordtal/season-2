@@ -116,7 +116,7 @@ final class Scalars {
         if (!trimmed.equals(lexically(trimmed, where))) {
             throw new IllegalArgumentException(
                     path + " is " + type.name().toLowerCase(java.util.Locale.ROOT) + " in this file"
-                            + ", and \"" + value + "\" carries something after the number"
+                            + ", and \"" + value + "\" carries something after the value"
                             + " - a comment, or a second word" + expected(type));
         }
         return trimmed;

@@ -351,7 +351,18 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
   const spec = ASKS[kind]
   const Icon = spec.icon
   const night = tonight(schedule.data?.nextBackupAt)
-  const delay = Math.round((night.getTime() - Date.now()) / 1000)
+
+  /**
+   * The delay, read at the click and not at the render.
+   *
+   * `night` above is a label and may be minutes or hours old by the time anybody presses anything -
+   * a dialog opened at 03:50 for a 04:00 slot held about 600 seconds, and pressing it at 04:05 sent
+   * those same 600 seconds, which put the run at 04:15: after the backup it was supposed to stay
+   * out of the way of. The number that leaves this page is computed from the clock at the moment
+   * the operator commits to it.
+   */
+  const delayNow = () =>
+    Math.max(1, Math.round((tonight(schedule.data?.nextBackupAt).getTime() - Date.now()) / 1000))
 
   const submit = (delaySeconds?: number) => {
     ask.mutate(
@@ -428,7 +439,7 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
           <AlertDialogAction
             variant="outline"
             disabled={schedule.isPending}
-            onClick={() => submit(delay)}
+            onClick={() => submit(delayNow())}
           >
             Heute Nacht
           </AlertDialogAction>
@@ -1501,8 +1512,9 @@ export function BetriebWiederherstellenPage() {
         <CardHeader>
           <CardTitle className="text-sm font-medium">Archiv wählen</CardTitle>
           <CardDescription>
-            Unvollständige Dateien stehen mit in der Liste, sind aber nicht wählbar: aus einer{" "}
-            <code className="text-xs">.partial</code>-Datei lässt sich nichts zurückspielen.
+            Nur fertige Archive stehen hier: aus einer{" "}
+            <code className="text-xs">.partial</code>-Datei lässt sich nichts zurückspielen. Was
+            sonst noch im Verzeichnis liegt, zeigt die Sicherungsliste auf der Betrieb-Seite.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

@@ -91,8 +91,33 @@ public final class DiscordAuth {
                        final @NotNull String api) {
         this.config = config;
         this.redirectUri = publicUrl + "/auth/callback";
-        this.api = api;
+        this.api = plaintextOnlyToOurselves(api);
         this.http = HttpClient.newBuilder().connectTimeout(CONNECT).build();
+    }
+
+    /**
+     * Refuses a plaintext API base that is not on this machine.
+     *
+     * <p>The constructor above exists so a test can put a stand-in where {@code discord.com} goes,
+     * and a stand-in runs on {@code 127.0.0.1} over plain HTTP. Everything this class then sends to
+     * that address is the client secret and a bearer token - which is fine into a loopback socket
+     * and is a credential on the wire anywhere else. Production uses {@link #DISCORD_API} and never
+     * reaches this, so the check costs nothing and removes the way a configuration mistake or a
+     * future caller could quietly turn the sign-in into cleartext.</p>
+     */
+    private static String plaintextOnlyToOurselves(final String api) {
+        final URI uri = URI.create(api);
+        if ("https".equalsIgnoreCase(uri.getScheme())) {
+            return api;
+        }
+        final String host = uri.getHost();
+        if ("http".equalsIgnoreCase(uri.getScheme())
+                && ("127.0.0.1".equals(host) || "::1".equals(host) || "localhost".equals(host))) {
+            return api;
+        }
+        throw new IllegalArgumentException(api + " is not an address this sign-in will send a client"
+                + " secret to. It is https, or plain http to this machine for a test, and nothing"
+                + " else.");
     }
 
     /** What is missing before anybody can sign in, or empty when the configuration is complete. */

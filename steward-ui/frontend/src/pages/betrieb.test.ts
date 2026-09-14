@@ -115,11 +115,11 @@ describe("tonight - when tonight's slot has already gone", () => {
   })
 
   it("never hands back a moment that is already past, however stale the schedule is", () => {
-    // FINDING - fails today. The late branch adds exactly one day, so it only rescues a backup
-    // time that is less than a day old. The schedule query has a stale time of an hour and no
-    // refetch interval, and a dashboard left open on an unattended screen gets no focus event
-    // either, so a nextBackupAt from two days ago is reachable - and what comes back is a
-    // not_before in the past, which is a run that starts the moment the button is pressed.
+    // Two days and not one, deliberately: `useSchedule` has an hour of staleTime, no refetch
+    // interval, and main.tsx turns refetchOnWindowFocus off for every query, so a dashboard left
+    // open on an unattended screen still holds a nextBackupAt from days ago. A single `+ 1 day`
+    // answered with a moment in the PAST, which lands in not_before on the update_request row and
+    // is a run that starts the instant the button is pressed.
     const now = new Date(Date.UTC(2026, 8, 12, 12, 0, 0))
     const stale = new Date(now.getTime() - 2 * DAY)
 

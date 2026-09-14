@@ -24,7 +24,7 @@ export type Level = "ok" | "warn" | "down"
 
 export type Trigger = {
   level: Exclude<Level, "ok">
-  /** One sentence, already German, already complete. */
+  /** One sentence, already written out, already complete. */
   text: string
   /** Where to go and do something about it. */
   to?: string

@@ -8,6 +8,19 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.steward.ui.StewardUi")
 
+// Files outside this module that NothingIsGermanTest reads as text. Steward is three services and
+// one script, and the rule is about all of them - so the test walks the other two source trees and
+// the deploy script, and without these declarations an edit to one of them would leave
+// :steward-ui:test UP-TO-DATE and the guard would be the thing that did not run.
+repositoryRootTestInputs {
+    readsTree("steward-worker/src", "steward-deployer/src")
+
+    reads("deploy/setup.sh")
+    reads("deploy/README.md")
+    reads("steward-worker/README.md")
+    reads("steward-deployer/README.md")
+}
+
 repositories {
     maven("https://jitpack.io")
 }

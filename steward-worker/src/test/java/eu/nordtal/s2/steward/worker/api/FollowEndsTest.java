@@ -81,7 +81,7 @@ class FollowEndsTest {
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
         final WorkerApi api = new WorkerApi(docker, new DockerOps(docker, PROJECT),
-                new Console(docker, PROJECT), new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN,
+                new Console(docker, PROJECT), new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN, Path.of("/tmp"),
                 new WorkerApi.Nightly("04:45", ZoneId.of("Europe/Berlin")));
         boolean closedByTheTest = false;
         api.start(PORT);

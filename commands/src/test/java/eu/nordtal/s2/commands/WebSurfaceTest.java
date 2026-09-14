@@ -24,8 +24,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class WebSurfaceTest {
 
-    /** The five of concept §10a, by name. */
+    /**
+     * The five of concept §10a, and the two of 2FA package H.
+     *
+     * <p>{@code /access settle} and {@code /access unlink} joined on 2026-09-14, and they are the
+     * counter-example to {@code /smp aura} above rather than an exception to it: neither takes
+     * somebody standing in front of you, and neither is typed. The reference comes from
+     * {@code GET /api/payments/open} and the member from {@code /api/people} - both
+     * {@link Argument.Kind} values the interface draws as a list - so the form is strictly better
+     * than the chat command, not worse. They are here because steward/25 takes the writing
+     * {@code /access} commands off Discord, and these two have nowhere else to go: granting and
+     * revoking are routes of the interface's own, while settling needs the bot's JDA and unlinking
+     * its tables.</p>
+     */
     private static final List<String> ON_THE_WEB = List.of(
+            "/access settle",
+            "/access unlink",
             "/announce",
             "/hg start",
             "/smp farmreset now",

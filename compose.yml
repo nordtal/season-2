@@ -666,6 +666,33 @@ services:
       # new jar here and carries on running the old one: no process replaces the jar it is executing,
       # so the new one takes effect at the restart and never during a run.
       - steward-worker-jar:/volumes/steward-worker
+      # THE CONFIGURATION OF EVERY SERVICE IN THE STACK, mounted a second time so the interface can
+      # draw a form for it (§10a.6). One directory per compose service, named after it, because
+      # that is exactly what the page shows as the service a file belongs to.
+      #
+      # THEY LIVE HERE AND NOT ON steward-ui, since 2026-09-14: these files are 0600 root:root and
+      # this is a service that runs as root. See the block on steward-ui's volumes for what was
+      # measured and why loosening the files was the wrong repair.
+      #
+      # THEY ARE WRITABLE, AND THAT IS THE DECISION (Till, 2026-09-13): saving is what makes the
+      # page worth having, and it is also the reload - a write publishes on `nordtal_config`, which
+      # is what made ReloadSmp, ReloadNetwork, ReloadHungerGames and ReloadBotMessages unnecessary.
+      # A volume left out here is simply not listed; the page says nothing about what it cannot see.
+      #
+      # NOT THE SAME MOUNTS AS THE FOUR /volumes/* ONES ABOVE, even where they name the same volume.
+      # Those are where `apply` installs jars; these are what the editor lists, and the editor's
+      # names are compose service names because that is what the page shows. One path per purpose.
+      #
+      # THE FOUR PLUGIN VOLUMES USE THE SAME EXPRESSIONS THE SERVERS DO, character for character.
+      # Spelling one differently here would show an operator a file nothing reads - the same class
+      # of failure TopologyTest holds shut for the /volumes/* lines above.
+      - steward-ui-config:/configs/steward-ui
+      - steward-worker-config:/configs/steward-worker
+      - bot-config:/configs/discord-bot
+      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/configs/network-control
+      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/configs/limbo
+      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/configs/hunger-games
+      - ${SMP_PLUGINS:-mc-smp-plugins}:/configs/smp
       # THE VOLUMES THIS SERVICE SAVES, READ-ONLY (§9a).
       #
       # One line per volume in steward.yml#backup.volumes, mounted where TarSnapshots looks for it.
@@ -783,25 +810,20 @@ services:
       NORDTAL_STEWARD_UI_DISCORD_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:-}
     volumes:
       - steward-ui-config:/app/config
-      # THE CONFIGURATION OF EVERY SERVICE IN THE STACK, mounted a second time so the interface can
-      # draw a form for it (§10a.6). One directory per compose service, named after it, because
-      # that is exactly what the page shows as the service a file belongs to.
+      # THE STACK'S CONFIGURATION IS NOT MOUNTED HERE, AND THAT IS THE DECISION (Till, 2026-09-14).
+      # It was, from 2026-09-13 until then - seven volumes under /configs, so the interface could
+      # draw a form for every service's settings. It could not read one of them.
       #
-      # THEY ARE WRITABLE, AND THAT IS THE DECISION (Till, 2026-09-13): saving is what makes the
-      # page worth having, and it is also the reload - a write publishes on `nordtal_config`, which
-      # is what made ReloadSmp, ReloadNetwork, ReloadHungerGames and ReloadBotMessages unnecessary.
-      # A volume left out here is simply not listed; the page says nothing about what it cannot see.
+      # WHAT WAS MEASURED. Every config jcore writes is 0600 root:root - 22 files, counted - and
+      # this is the only service in the stack that does not run as root (uid 10001). So every file
+      # was unreadable and unwritable to it, the listing drew them all greyed out, and tapping one
+      # answered `HTTP 400 ... Permission denied` with the path in it. Making the files readable
+      # would have been the wrong repair: database.yml holds the Postgres password and bot.yml the
+      # Discord token, and this is the container an attacker reaches first.
       #
-      # THE FOUR PLUGIN VOLUMES USE THE SAME EXPRESSIONS THE SERVERS DO, character for character.
-      # Spelling one differently here would show an operator a file nothing reads - the same class
-      # of failure TopologyTest holds shut for steward-worker.
-      - steward-ui-config:/configs/steward-ui
-      - steward-worker-config:/configs/steward-worker
-      - bot-config:/configs/discord-bot
-      - ${NETWORK_CONTROL_PLUGINS:-mc-network-control-plugins}:/configs/network-control
-      - ${LIMBO_PLUGINS:-mc-limbo-plugins}:/configs/limbo
-      - ${HUNGER_GAMES_PLUGINS:-mc-hunger-games-plugins}:/configs/hunger-games
-      - ${SMP_PLUGINS:-mc-smp-plugins}:/configs/smp
+      # WHERE THEY WENT. steward-worker, which runs as root and already holds the docker socket for
+      # exactly this reason (§3). The interface proxies GET/PUT /api/config to it over the internal
+      # API and keeps what it is good at: the security key in front of the form.
     logging: *logging
 
   # -------------------------------------------------------------------------------------------

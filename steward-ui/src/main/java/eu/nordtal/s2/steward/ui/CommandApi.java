@@ -221,10 +221,26 @@ final class CommandApi {
                                 + argument.min() + " and " + argument.max() + ".");
                     }
                 }
-                case PLAYER, ACCOUNT -> throw new BadRequestResponse(declaration.name()
-                        + " takes a person, and this interface has no way to pick one yet."
-                        + " Use the command in Discord or in the game.");
-                case WORD, GREEDY_STRING, CHOICE -> sent.getAsString();
+                // A PLAYER is a Minecraft name on a chat surface and a UUID on the row, and
+                // this interface has no roster of online players to pick one from. An ACCOUNT is
+                // different and always was: the row carries a Discord id, /api/people lists them,
+                // and the browser sends the id it picked - so the only thing left to do here is
+                // refuse anything that is not one.
+                case PLAYER -> throw new BadRequestResponse(declaration.name()
+                        + " takes a Minecraft player, and this interface has no way to pick one."
+                        + " Use the command in the game.");
+                case ACCOUNT -> {
+                    final String id = sent.getAsString().strip();
+                    // ASCII digits, exactly as RequestArguments checks on the way out. Doing it
+                    // here as well is what turns a browser's typo into a sentence rather than an
+                    // IllegalArgumentException from two layers down.
+                    if (!id.chars().allMatch(digit -> digit >= '0' && digit <= '9')) {
+                        throw new BadRequestResponse(argument.name()
+                                + " is a Discord id - pick the person from the list.");
+                    }
+                    yield id;
+                }
+                case WORD, GREEDY_STRING, CHOICE, REFERENCE -> sent.getAsString();
             });
         }
         try {

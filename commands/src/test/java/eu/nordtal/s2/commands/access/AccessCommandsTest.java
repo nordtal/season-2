@@ -157,13 +157,30 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("all of them are reachable in game as well as in Discord")
+    @DisplayName("all of them are reachable in game and from the console")
     void bothDirections() {
         for (final Declaration declaration : AccessCommands.declarations()) {
-            assertTrue(declaration.surfaces().containsAll(
-                            List.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE)),
-                    declaration.name() + " is not on every surface");
+            assertTrue(declaration.surfaces().containsAll(List.of(Surface.GAME, Surface.CONSOLE)),
+                    declaration.name() + " is not reachable in game and from the console");
         }
+    }
+
+    @Test
+    @DisplayName("only the two that read are still in Discord")
+    void theWritingFourLeftDiscord() {
+        // steward/25, 2026-09-14. A slash command is guarded by `discord_user.admin` and nothing
+        // else; Steward now asks for a security key before each of these four and can do all four.
+        // The audit_log was read first, as the ticket insists: two rows in total, neither of them
+        // one of these, and command_request empty - so this took away a habit nobody had yet.
+        //
+        // This test is the line that decision costs. If one of the four comes back to Discord,
+        // that is a finding about Steward not replacing it, and it belongs written down here.
+        assertEquals(Set.of("/access status", "/access reload"),
+                AccessCommands.declarations().stream()
+                        .filter(declaration -> declaration.surfaces().contains(Surface.DISCORD))
+                        .map(Declaration::name)
+                        .collect(java.util.stream.Collectors.toSet()),
+                "the set of /access commands reachable in Discord changed");
     }
 
     // ------------------------------------------------------------------ the behaviour

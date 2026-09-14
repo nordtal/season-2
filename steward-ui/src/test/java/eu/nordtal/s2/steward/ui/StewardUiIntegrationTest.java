@@ -228,6 +228,16 @@ class StewardUiIntegrationTest {
                 }
             });
             cfg.routes.get("/api/health", ctx -> ctx.json(Map.of("status", "ok")));
+
+            // THE REAL ConfigApi, not a stand-in, against a real directory of real files. It is
+            // the one part of the worker these tests do not fake, because the whole of the
+            // configuration editor now lives on that side and what is left in steward-ui is three
+            // lines of proxy. Faking it here would test the proxy against a mirror.
+            final eu.nordtal.s2.steward.worker.api.ConfigApi configApi =
+                    new eu.nordtal.s2.steward.worker.api.ConfigApi(configRoot);
+            cfg.routes.get("/api/config", configApi::list);
+            cfg.routes.get("/api/config/<file>", configApi::one);
+            cfg.routes.put("/api/config/<file>", configApi::save);
             cfg.routes.get("/api/services/{name}/logs/search", ctx -> {
                 searchQuery.set(ctx.queryString());
                 ctx.json(List.of());
@@ -408,15 +418,6 @@ class StewardUiIntegrationTest {
                 };
             }
 
-            @Override
-            public ConfigsSpec configs() {
-                return new ConfigsSpec() {
-                    @Override
-                    public String root() {
-                        return configRoot.toString();
-                    }
-                };
-            }
         };
 
         // A real database with the real migrations: the rows these endpoints read are the rows
@@ -525,17 +526,21 @@ class StewardUiIntegrationTest {
         // of a request.
         assertFalse(me.has("signInUnavailable"), me.toString());
         // THIS SENTENCE IS PRINTED ON THE SIGN-IN PAGE, so it has to be true on the day it is
-        // read. It used to say the second factor was "not built"; since V20 a key is required to
-        // reach anything at all, and a door that still advertised itself as open would be the
-        // worst kind of stale text. Both halves are asserted: what IS true now, and that what is
-        // still missing - the key in front of a dangerous action, package D - is not glossed over.
+        // read - and it has been wrong twice already, both times by outliving what it described.
+        // It said the second factor was "not built" after V20 had made a key mandatory, and then
+        // it said the key was "not yet" asked for before a dangerous action after packages C and D
+        // had built exactly that. Both stale phrasings are asserted against by name, because the
+        // failure mode of this line is never a missing sentence - it is an old one.
         final String said = me.get("webauthn").getAsString();
         assertTrue(said.contains("required"), "the sign-in page no longer says a key is needed: "
                 + said);
         assertFalse(said.contains("not built"), "the sign-in page still says the second factor"
                 + " does not exist, which stopped being true with V20: " + said);
-        assertTrue(said.contains("not yet"), "the sign-in page claims more than is built - the key"
-                + " is not asked for before a dangerous action yet: " + said);
+        assertFalse(said.contains("not yet"), "the sign-in page still says the key is not yet"
+                + " asked for before a dangerous action, which stopped being true with packages C"
+                + " and D: " + said);
+        assertTrue(said.contains("every sign-in"), "the sign-in page does not say the key is asked"
+                + " for at every sign-in, which is the whole of package C: " + said);
     }
 
     @Test
@@ -1125,11 +1130,69 @@ class StewardUiIntegrationTest {
         final JsonArray offered = GSON.fromJson(get("/api/commands").body(), JsonArray.class);
 
         assertEquals(
-                List.of("/announce", "/hg start", "/smp farmreset now", "/smp milestone unlock",
-                        "/smp objective complete"),
+                List.of("/access settle", "/access unlink", "/announce", "/hg start",
+                        "/smp farmreset now", "/smp milestone unlock", "/smp objective complete"),
                 offered.asList().stream()
                         .map(command -> command.getAsJsonObject().get("name").getAsString())
                         .toList());
+
+        // Package H, and the half of it that is not "there is a form": the two arguments the
+        // interface must NOT draw as text fields say so in the payload. `REFERENCE` and `ACCOUNT`
+        // are what the browser switches on to fetch /api/payments/open and /api/people - so a
+        // declaration that quietly went back to a WORD would put a six-character reference behind
+        // a text field on the one command that books money, and nothing else would notice.
+        final JsonObject settle = offered.asList().stream()
+                .map(com.google.gson.JsonElement::getAsJsonObject)
+                .filter(command -> "/access settle".equals(command.get("name").getAsString()))
+                .findFirst().orElseThrow();
+        assertEquals("REFERENCE", settle.getAsJsonArray("arguments").get(0).getAsJsonObject()
+                .get("kind").getAsString(), settle.toString());
+
+        final JsonObject unlink = offered.asList().stream()
+                .map(com.google.gson.JsonElement::getAsJsonObject)
+                .filter(command -> "/access unlink".equals(command.get("name").getAsString()))
+                .findFirst().orElseThrow();
+        assertEquals("ACCOUNT", unlink.getAsJsonArray("arguments").get(0).getAsJsonObject()
+                .get("kind").getAsString(), unlink.toString());
+    }
+
+    @Test
+    @DisplayName("H: settling is asked for by picking a reference, and the row carries it")
+    void settlingTravelsAsARow() throws Exception {
+        final HttpResponse<String> asked = post("/api/commands",
+                "{\"name\": \"/access settle\", \"arguments\": {\"reference\": \"AB12CD\"}}");
+        assertEquals(202, asked.statusCode(), asked.body());
+        final long id = Long.parseLong(
+                GSON.fromJson(asked.body(), JsonObject.class).get("id").getAsString());
+
+        try (var connection = data.dataSource().getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT target, command, arguments, source FROM command_request WHERE id = ?")) {
+            statement.setLong(1, id);
+            try (var rows = statement.executeQuery()) {
+                assertTrue(rows.next(), "the row was not written");
+                assertEquals("BOT", rows.getString("target"));
+                assertEquals("access settle", rows.getString("command"));
+                assertEquals("AB12CD", rows.getString("arguments"));
+                assertEquals("WEB", rows.getString("source"));
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("H: unlinking takes a Discord id, and nothing that only looks like one")
+    void unlinkingTakesAnAccount() throws Exception {
+        final HttpResponse<String> asked = post("/api/commands",
+                "{\"name\": \"/access unlink\", \"arguments\": {\"member\": \"100000000000000009\"}}");
+        assertEquals(202, asked.statusCode(), asked.body());
+
+        // A Minecraft name is what somebody would type if this were a field, and it is exactly
+        // what the row cannot carry: the bot reads `member` as a snowflake. Refused here, in a
+        // sentence, rather than as an IllegalArgumentException out of RequestArguments.
+        final HttpResponse<String> refused = post("/api/commands",
+                "{\"name\": \"/access unlink\", \"arguments\": {\"member\": \"Notch\"}}");
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("pick the person from the list"), refused.body());
     }
 
     @Test
@@ -1596,6 +1659,277 @@ class StewardUiIntegrationTest {
         assertTrue(refused.body().contains("already has a key"), refused.body());
     }
 
+    // -------------------------------------------------------------------------------------------
+    // Packages C and D: the key at every sign-in, and again before anything that changes something
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("C: Discord alone is not enough - a fresh session sees nothing until it holds the key")
+    void discordAloneIsNotEnough() throws Exception {
+        // The same account as everywhere else in this class, so it HAS a key: this is not the
+        // setup case, it is the case the setup case used to be mistaken for. A cookie that has
+        // completed the Discord redirect and nothing else.
+        final HttpClient fresh = browser();
+        signIn(fresh);
+
+        final JsonObject me = GSON.fromJson(get(fresh, "/api/me").body(), JsonObject.class);
+        assertTrue(me.get("signedIn").getAsBoolean(), me.toString());
+        assertFalse(me.get("verified").getAsBoolean(), "a fresh session started out verified");
+        assertFalse(me.getAsJsonArray("keys").isEmpty(), "this account should have a key already");
+
+        // Reading is refused too, and that is the whole of C. Before it, everything below was
+        // readable for thirty days to anybody holding the cookie.
+        for (final String path : new String[] {
+                "/api/services", "/api/people", "/api/journal", "/api/updates", "/api/config" }) {
+            final HttpResponse<String> refused = get(fresh, path);
+            assertEquals(403, refused.statusCode(), path + " answered " + refused.body());
+            assertEquals("SECOND_FACTOR_REQUIRED",
+                    GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
+                    path + " answered " + refused.body());
+        }
+
+        holdTheKey(fresh, authenticator);
+
+        assertEquals(200, get(fresh, "/api/people").statusCode());
+        assertTrue(GSON.fromJson(get(fresh, "/api/me").body(), JsonObject.class)
+                .get("verified").getAsBoolean(), "the key was held and the session is not verified");
+    }
+
+    @Test
+    @DisplayName("C: a challenge answers once - the second time is not a sign-in, it is a replay")
+    void aChallengeIsSpentWhenItIsAnswered() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        final HttpResponse<String> started =
+                post(browser, "/auth/webauthn/authenticate/start", "");
+        assertEquals(200, started.statusCode(), started.body());
+        final String answer = authenticator.assertion(started.body(), ORIGIN);
+
+        assertEquals(200, finishAssertion(browser, answer).statusCode());
+        // The same bytes again. The column was emptied in the same statement that read it, so
+        // there is nothing to check this against - which is the point: a recording of somebody
+        // else's successful sign-in is not a sign-in.
+        final HttpResponse<String> replayed = finishAssertion(browser, answer);
+        assertEquals(400, replayed.statusCode(), replayed.body());
+        assertTrue(replayed.body().contains("already finished")
+                || replayed.body().contains("not started"), replayed.body());
+    }
+
+    @Test
+    @DisplayName("C: somebody else's key does not open this session")
+    void anotherKeyIsNotThisAccountsKey() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        final HttpResponse<String> started =
+                post(browser, "/auth/webauthn/authenticate/start", "");
+        assertEquals(200, started.statusCode(), started.body());
+
+        // A key this service has never seen, answering a challenge it really was issued. The
+        // signature verifies against ITS OWN public key and against nothing this account has - so
+        // the only thing standing here is the lookup, which is exactly what is being tested.
+        final HttpResponse<String> refused =
+                finishAssertion(browser, new TestAuthenticator().assertion(started.body(), ORIGIN));
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                .get("verified").getAsBoolean(), "a stranger's key verified this session");
+    }
+
+    @Test
+    @DisplayName("C: a browser that was never on this address does not get in")
+    void theOriginIsCheckedOnASignInToo() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        final HttpResponse<String> started =
+                post(browser, "/auth/webauthn/authenticate/start", "");
+        final HttpResponse<String> refused = finishAssertion(browser,
+                authenticator.assertion(started.body(), "https://bluemap.nordtal.eu"));
+
+        // The relying party id is the whole of nordtal.eu so that a key survives the move to
+        // production; the ORIGIN is this one address. Without that narrower check, any subdomain
+        // could relay a ceremony through this service - which is the risk the plan writes down as
+        // the price of the wide id, and this is the thing that pays it.
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertFalse(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                .get("verified").getAsBoolean(), "a ceremony from another subdomain verified");
+    }
+
+    @Test
+    @DisplayName("D: reading stays open after five minutes, writing asks again")
+    void theWindowClosesOnWritingAndNotOnReading() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+        assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}").statusCode());
+
+        heldLongAgo(browser);
+
+        // Reading is KEY_HELD: the key was held in this session, and that does not expire. An
+        // interface that logged somebody out of the service table every five minutes would be an
+        // interface nobody watches a deployment in.
+        assertEquals(200, get(browser, "/api/services").statusCode());
+
+        final HttpResponse<String> refused =
+                post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}");
+        assertEquals(403, refused.statusCode(), refused.body());
+        final JsonObject body = GSON.fromJson(refused.body(), JsonObject.class);
+        assertEquals("SECOND_FACTOR_REQUIRED", body.get("code").getAsString(), refused.body());
+        // `retryable` is what tells the interface to open the dialog and send the request again
+        // rather than to draw a red box. Without it this is indistinguishable from a refusal.
+        assertTrue(body.get("retryable").getAsBoolean(), refused.body());
+
+        // And holding it again lets the SAME request through - which is the whole of "one tap, not
+        // two" as the server sees it.
+        holdTheKey(browser, authenticator);
+        assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"BACKUP\"}").statusCode());
+    }
+
+    @Test
+    @DisplayName("D: every writing route is behind the window, not just the ones somebody remembered")
+    void everyWriteAsksAgain() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+        heldLongAgo(browser);
+
+        // Four writes from four different corners of the service, INCLUDING the two Till moved
+        // across on 2026-09-14 - saving a config file and switching the season phase were "not
+        // dangerous" in the plan and are behind the key now. A test that only listed the obvious
+        // ones would pass on exactly the day somebody moved one back.
+        final String[][] writes = {
+                { "/api/updates", "{\"kind\":\"UPDATE\"}" },
+                { "/api/access/grant", "{\"discordId\":\"1\",\"days\":1}" },
+                { "/api/season/phase", "{\"phase\":\"LIVE\"}" },
+                { "/api/commands", "{\"command\":\"phase\"}" },
+        };
+        for (final String[] write : writes) {
+            final HttpResponse<String> refused = post(browser, write[0], write[1]);
+            assertEquals(403, refused.statusCode(), write[0] + " answered " + refused.body());
+            assertEquals("SECOND_FACTOR_REQUIRED",
+                    GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString(),
+                    write[0] + " answered " + refused.body());
+        }
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // Package F: two keys are comfortable, not merely possible
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("F: a second key can be added, named, renamed and removed")
+    void aSecondKeyIsOrdinaryWork() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+
+        final TestAuthenticator second = new TestAuthenticator();
+        registerAKey(browser, second, "My phone");
+
+        final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
+        final JsonObject added = me.getAsJsonArray("keys").asList().stream()
+                .map(com.google.gson.JsonElement::getAsJsonObject)
+                .filter(key -> "My phone".equals(key.get("label").getAsString()))
+                .findFirst().orElseThrow(() -> new AssertionError(me.toString()));
+        final String id = added.get("id").getAsString();
+
+        assertEquals(200, put(browser, "/api/keys/" + id, "{\"label\":\"My old phone\"}")
+                .statusCode());
+        assertTrue(get(browser, "/api/me").body().contains("My old phone"));
+
+        assertEquals(200, delete(browser, "/api/keys/" + id).statusCode());
+        assertFalse(get(browser, "/api/me").body().contains("My old phone"));
+        // The first key is untouched, which is the thing a remove has to get right: the account
+        // still works afterwards.
+        assertEquals(200, get(browser, "/api/services").statusCode());
+    }
+
+    @Test
+    @DisplayName("F: a key id from somewhere else is not a way to remove somebody's key")
+    void aKeyIsRemovedOnlyFromTheAccountItIsOn() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+        // A credential id is handed to every browser that starts a sign-in, so it is a value a
+        // stranger can hold. The DELETE matches on the account as well, and this is that column.
+        final HttpResponse<String> refused =
+                delete(browser, "/api/keys/" + new TestAuthenticator().credentialId());
+        assertEquals(404, refused.statusCode(), refused.body());
+    }
+
+    @Test
+    @DisplayName("F: managing keys is behind the key, freshly held")
+    void addingAKeyIsAsPowerfulAsHavingOne() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+        heldLongAgo(browser);
+        // A stolen session that could add an authenticator would be a stolen session that had made
+        // itself permanent. That is why key management is in the plan's dangerous list at all.
+        assertEquals(403, delete(browser, "/api/keys/" + authenticator.credentialId()).statusCode());
+        assertEquals(403, put(browser, "/api/keys/" + authenticator.credentialId(),
+                "{\"label\":\"mine now\"}").statusCode());
+    }
+
+    // --- the helpers the four above are written in ---------------------------------------------
+
+    /** The whole authentication, driven the way the browser drives it. */
+    private static void holdTheKey(final HttpClient browser, final TestAuthenticator key)
+            throws Exception {
+        final HttpResponse<String> started =
+                post(browser, "/auth/webauthn/authenticate/start", "");
+        assertEquals(200, started.statusCode(), started.body());
+        final HttpResponse<String> finished =
+                finishAssertion(browser, key.assertion(started.body(), ORIGIN));
+        assertEquals(200, finished.statusCode(), finished.body());
+    }
+
+    private static HttpResponse<String> finishAssertion(final HttpClient browser,
+                                                        final String credential) throws Exception {
+        final JsonObject envelope = new JsonObject();
+        envelope.addProperty("credential", credential);
+        return post(browser, "/auth/webauthn/authenticate/finish", GSON.toJson(envelope));
+    }
+
+    /**
+     * Moves this browser's key ceremony back out of the five-minute window.
+     *
+     * <p>A column and not a clock. The alternative - waiting - would put five minutes into every
+     * run of this suite, and injecting a clock into the service would mean the thing under test is
+     * not the thing that is deployed. The row is what the service reads, so the row is what is
+     * moved.</p>
+     */
+    private static void heldLongAgo(final HttpClient browser) throws Exception {
+        final String csrf = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                .get("csrf").getAsString();
+        try (var connection = data.dataSource().getConnection();
+             var statement = connection.prepareStatement(
+                     "UPDATE steward_session SET verified_at = now() - interval '1 hour'"
+                             + " WHERE csrf = ?")) {
+            statement.setString(1, csrf);
+            assertEquals(1, statement.executeUpdate(), "no session matched that browser");
+        }
+    }
+
+    private static HttpResponse<String> delete(final HttpClient browser, final String path)
+            throws Exception {
+        final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
+        return browser.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + path))
+                .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                .DELETE()
+                .build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static HttpResponse<String> put(final HttpClient browser, final String path,
+                                            final String body) throws Exception {
+        final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
+        return browser.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + path))
+                .header("Content-Type", "application/json")
+                .header("X-Steward-CSRF", me.get("csrf").getAsString())
+                .PUT(HttpRequest.BodyPublishers.ofString(body))
+                .build(), HttpResponse.BodyHandlers.ofString());
+    }
+
     /** The whole registration, driven the way the browser drives it. Nothing is stood in for. */
     private static void registerAKey(final HttpClient browser, final TestAuthenticator key,
                                      final String label) throws Exception {
@@ -1632,6 +1966,9 @@ class StewardUiIntegrationTest {
     void loggingOutEndsTheFollow() throws Exception {
         final HttpClient browser = browser();
         signIn(browser);
+        // Since package C a Discord session on its own reads nothing, this log included. The
+        // follow is what is under test here, not the door in front of it.
+        holdTheKey(browser, authenticator);
         final HttpResponse<InputStream> follow = openTheLog(browser);
         final int whileFollowing;
         try (BufferedReader lines = reader(follow)) {
@@ -1659,6 +1996,7 @@ class StewardUiIntegrationTest {
         try {
             final HttpClient browser = browser();
             signIn(browser);
+            holdTheKey(browser, authenticator);
             // A REAL SOCKET, not an HttpClient. Closing the body of a JDK response leaves the
             // connection open - that is the defect one layer down in this very test's subject -
             // so a "closed tab" made of one would tell the interface nothing and prove nothing.

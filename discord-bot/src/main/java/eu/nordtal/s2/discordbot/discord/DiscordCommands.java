@@ -250,7 +250,7 @@ public final class DiscordCommands extends ListenerAdapter {
         final List<OptionData> options = new ArrayList<>();
         for (final Argument argument : entry.declaration().arguments()) {
             final OptionData option = switch (argument.kind()) {
-                case WORD, GREEDY_STRING, CHOICE -> new OptionData(OptionType.STRING,
+                case WORD, GREEDY_STRING, CHOICE, REFERENCE -> new OptionData(OptionType.STRING,
                         argument.name(), argumentDescription(argument), argument.required());
                 case INTEGER -> new OptionData(OptionType.INTEGER, argument.name(),
                         argumentDescription(argument), argument.required())

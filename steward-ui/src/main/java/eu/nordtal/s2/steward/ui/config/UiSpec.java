@@ -122,19 +122,6 @@ public interface UiSpec {
     })
     AlertSpec alerts();
 
-    @Order(7)
-    @Key("configs")
-    @Comment({
-            "Where the other services' config files are mounted, so this interface can show them.",
-            "",
-            "One directory per compose service, named after it: /configs/steward-worker/steward.yml,",
-            "/configs/smp/nordtal-smp/config.yml. Each is that service's own config volume mounted",
-            "here a second time - read-write where an operator should be able to change something,",
-            "read-only where they should not. A volume that is not mounted is not an error: the",
-            "page lists what it finds and says nothing about what it cannot see."
-    })
-    ConfigsSpec configs();
-
     @Order(8)
     @Key("deployer")
     @Comment({
@@ -223,24 +210,6 @@ public interface UiSpec {
             return "";
         }
     }
-
-    /** Where the other services' config files are mounted. */
-    @ConfigSpec
-    interface ConfigsSpec {
-
-        @Order(1)
-        @Key("root")
-        @Comment({
-                "The mount point inside this container. Everything under it that ends in .yml is",
-                "offered; nothing outside it can be reached, because a file is looked up by",
-                "matching what the browser asked for against the list of files actually found",
-                "rather than by joining a path onto this one."
-        })
-        default String root() {
-            return "/configs";
-        }
-    }
-
     /**
      * The thresholds of the traffic light.
      *

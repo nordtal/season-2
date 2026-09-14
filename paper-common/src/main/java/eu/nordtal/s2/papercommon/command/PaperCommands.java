@@ -441,7 +441,7 @@ public final class PaperCommands {
         final java.util.function.Supplier<java.util.Collection<String>> offered =
                 suggestions.get(declaration.name() + " " + argument.name());
         return switch (argument.kind()) {
-            case WORD -> {
+            case WORD, REFERENCE -> {
                 final RequiredArgumentBuilder<CommandSourceStack, ?> word =
                         Commands.argument(argument.name(), StringArgumentType.word());
                 if (offered != null) {

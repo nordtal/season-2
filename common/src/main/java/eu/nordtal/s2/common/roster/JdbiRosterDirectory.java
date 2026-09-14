@@ -42,6 +42,11 @@ final class JdbiRosterDirectory implements RosterDirectory {
     }
 
     @Override
+    public List<Payment> openPayments() {
+        return dao.openPayments();
+    }
+
+    @Override
     public List<Grant> grantsOf(final String discordId) {
         return dao.grantsOf(Objects.requireNonNull(discordId, "discordId"));
     }

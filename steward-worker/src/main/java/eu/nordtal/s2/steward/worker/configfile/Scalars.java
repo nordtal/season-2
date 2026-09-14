@@ -1,6 +1,6 @@
-package eu.nordtal.s2.steward.ui.configfile;
+package eu.nordtal.s2.steward.worker.configfile;
 
-import eu.nordtal.s2.steward.ui.configfile.ConfigEntry.Type;
+import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
 import org.jetbrains.annotations.NotNull;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;

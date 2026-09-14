@@ -254,6 +254,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
     service: "steward-ui",
     name: "steward-ui.yml",
     path: FILE,
+    readable: true,
     writable: true,
     revision: "rev-2",
     header: [],

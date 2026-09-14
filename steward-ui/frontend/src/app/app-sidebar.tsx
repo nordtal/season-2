@@ -87,7 +87,7 @@ export function AppSidebar() {
         <p className="text-xs text-muted-foreground">
           Alpha - no data yet.{" "}
           <kbd className="rounded-sm border border-border bg-secondary px-1 py-0.5 font-mono text-[0.6875rem] text-foreground">
-            Strg
+            Ctrl
           </kbd>
           <span className="px-0.5">+</span>
           <kbd className="rounded-sm border border-border bg-secondary px-1 py-0.5 font-mono text-[0.6875rem] text-foreground">

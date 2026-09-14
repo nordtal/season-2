@@ -25,7 +25,7 @@ export default defineConfig({
     proxy: { "/api": "http://127.0.0.1:8080" },
   },
   // The tests run under jsdom because two of the four things worth testing here - the log window's
-  // buffer and the Ampel - are a hook and a decision that only exist inside React. A pure Node
+  // buffer and the traffic light - are a hook and a decision that only exist inside React. A pure Node
   // environment would leave exactly those untested, which is where the bugs were.
   test: {
     environment: "jsdom",

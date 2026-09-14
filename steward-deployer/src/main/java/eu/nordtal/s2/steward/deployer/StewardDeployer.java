@@ -104,11 +104,23 @@ public final class StewardDeployer {
      * therefore put steward-deployer back in after it had just been taken out - so the service that
      * must never recreate itself did exactly that on the most ordinary deployment there is, and the
      * new container would have killed the process still writing the report.</p>
+     *
+     * <p><b>A named request is refused rather than filtered</b>, and the reason is the same empty
+     * list from the other side: {@code deploy steward-deployer} used to be quietly turned into an
+     * empty list, which meant every service, which deployed the deployer. Removing the name walked
+     * straight past {@link Compose#up}'s own refusal, because by the time it looked the name was no
+     * longer there. Asking for something this program will not do is an error with a sentence, not
+     * a request silently turned into a different one.</p>
      */
     static List<String> servicesToDeploy(java.util.Collection<String> all, List<String> requested,
                                          boolean bootstrap) {
         List<String> services = requested.isEmpty() ? new ArrayList<>(all) : new ArrayList<>(requested);
         if (!bootstrap) {
+            if (!requested.isEmpty() && services.contains(Compose.SELF)) {
+                throw new IllegalArgumentException(Compose.SELF + " will not recreate itself - the"
+                        + " new container would kill the process writing this report. Renewing it"
+                        + " is what deploy/setup.sh does, from a throwaway container.");
+            }
             services.remove(Compose.SELF);
         }
         return List.copyOf(services);

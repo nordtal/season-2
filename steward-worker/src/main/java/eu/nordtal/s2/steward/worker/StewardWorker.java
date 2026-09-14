@@ -616,32 +616,74 @@ public final class StewardWorker {
         }
     }
 
+    /** How long {@link #openDatabase(DatabaseSpec)} keeps asking before it calls the database absent. */
+    static final Duration DATABASE_WAIT = Duration.ofMinutes(3);
+
+    /** The pause between two attempts. Short enough that a database appearing is noticed at once. */
+    static final Duration DATABASE_RETRY = Duration.ofSeconds(2);
+
     /**
-     * Opens the pool, or says why it could not in one sentence. {@code null} means stop.
+     * Opens the pool, waiting for the database to appear. {@code null} means stop.
      *
-     * <h2>Why this is caught at all</h2>
+     * <h2>Why it waits rather than exiting at once</h2>
      * There is deliberately no {@code depends_on} on the database (see {@code compose.yml}), so on a
      * first deployment this container starts while PostgreSQL is still initialising and the pool
-     * cannot connect. {@code restart: unless-stopped} sorts it out within seconds and the design is
-     * fine - but what the operator saw at that moment was an uncaught
-     * {@code HikariPool$PoolInitializationException} with its whole stack trace, on the very first
-     * screen of the very first deployment, from the container everything else is waiting for. That
-     * reads as a broken deployment and it is a normal one.
+     * cannot connect. The original answer was to exit and let {@code restart: unless-stopped} try
+     * again a few seconds later, which does work - the container really is healthy half a minute
+     * later.
      *
-     * <p>So it gets the same treatment as a config this module refuses: a named sentence, no trace,
-     * and a non-zero exit that the restart policy turns into another try.</p>
+     * <p><b>It is not enough, and a first deployment is exactly where it breaks.</b> Every other
+     * service in the stack waits on this one through {@code depends_on: service_healthy}, and
+     * compose does not treat an exit during startup as "not ready yet" - it treats it as a
+     * dependency that failed, prints {@code dependency failed to start: container
+     * nordtal-s2-steward-worker-1 is unhealthy} and abandons the whole {@code up}. Measured on this
+     * host on 2026-09-14: PostgreSQL was 1.5 s short, the worker exited once, came back on its own
+     * and was healthy - and by then compose had already given up and taken nothing else with it. A
+     * process that is going to be waited for cannot answer "come back later" by dying.</p>
+     *
+     * <p>So it asks again for {@link #DATABASE_WAIT}, and only the end of that window is a refusal.
+     * The refusal keeps what it always had: a named sentence, no stack trace - what an operator saw
+     * before this was caught was a whole {@code HikariPool$PoolInitializationException} on the very
+     * first screen of the very first deployment, which reads as a broken deployment when it is a
+     * normal one - and a non-zero exit that the restart policy turns into another try.</p>
      */
     static Database openDatabase(final DatabaseSpec config) {
-        try {
-            return Schema.open(config);
-        } catch (final RuntimeException unreachable) {
-            log.error("The database at {} did not answer: {}. This is expected on a first"
-                            + " deployment - PostgreSQL is still starting and this container has no"
-                            + " depends_on for it, deliberately - and the restart policy will try"
-                            + " again in a moment. If it repeats, check POSTGRES_PASSWORD and that"
-                            + " the `db` profile is in COMPOSE_PROFILES.",
-                    config.jdbcUrl(), rootCauseOf(unreachable));
-            return null;
+        return openDatabase(config, DATABASE_WAIT, DATABASE_RETRY);
+    }
+
+    /** @see #openDatabase(DatabaseSpec) - the windows are arguments so a test need not wait minutes. */
+    static Database openDatabase(final DatabaseSpec config, final Duration wait, final Duration between) {
+        final long deadline = System.nanoTime() + wait.toNanos();
+        boolean announced = false;
+        while (true) {
+            try {
+                return Schema.open(config);
+            } catch (final RuntimeException unreachable) {
+                if (System.nanoTime() >= deadline) {
+                    log.error("The database at {} did not answer within {}: {}. Check"
+                                    + " POSTGRES_PASSWORD and that the `db` profile is in"
+                                    + " COMPOSE_PROFILES; the restart policy will try again.",
+                            config.jdbcUrl(), wait, rootCauseOf(unreachable));
+                    return null;
+                }
+                if (!announced) {
+                    // Once, not once per attempt: on a first deployment this is the normal path and
+                    // ninety copies of it would bury the line that says the schema was applied.
+                    log.info("The database at {} is not answering yet ({}). That is expected on a"
+                                    + " first deployment - PostgreSQL is still initialising and this"
+                                    + " container has no depends_on for it, deliberately. Asking"
+                                    + " again every {} for up to {}.",
+                            config.jdbcUrl(), rootCauseOf(unreachable), between, wait);
+                    announced = true;
+                }
+                try {
+                    Thread.sleep(between);
+                } catch (final InterruptedException stopped) {
+                    Thread.currentThread().interrupt();
+                    log.error("Interrupted while waiting for the database at {}.", config.jdbcUrl());
+                    return null;
+                }
+            }
         }
     }
 

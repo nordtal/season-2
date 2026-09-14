@@ -786,10 +786,19 @@ public final class StewardUi {
      * that this session has already held one: adding a second authenticator is exactly as powerful
      * as having the first, so a stolen cookie must not be able to do it.
      */
+    /** Who is asking, or the answer the filter would have given. */
+    private Sessions.Session requireSession(final Context ctx) {
+        return session(ctx).orElseThrow(() -> new UnauthorizedResponse("sign in first"));
+    }
+
     private void beginRegistration(final Context ctx) {
+        // THE SAME TWO CHECKS THE /api/* FILTER PERFORMS, IN THE SAME ORDER, and the order is the
+        // point: the filter asks who this is first and only then about the token. Asking about the
+        // token first answers a browser whose session has quietly expired with a sentence about
+        // cross-site requests - which is true of nothing that happened and sends somebody looking
+        // for a fault that is not there. The session went; "sign in first" is what to say.
+        final Sessions.Session who = requireSession(ctx);
         requireCsrfToken(ctx);
-        final Sessions.Session who = session(ctx).orElseThrow(
-                () -> new UnauthorizedResponse("sign in first"));
         if (credentials.any(who.discordId()) && !who.verified()) {
             throw new ForbiddenResponse("This account already has a key, so adding another one"
                     + " needs the key you already have. Sign in again and use it first.");
@@ -813,9 +822,8 @@ public final class StewardUi {
      * precisely the optional ones that differ between brands of authenticator.
      */
     private void finishRegistration(final Context ctx) {
+        final Sessions.Session who = requireSession(ctx);
         requireCsrfToken(ctx);
-        final Sessions.Session who = session(ctx).orElseThrow(
-                () -> new UnauthorizedResponse("sign in first"));
         final Answer answer = ctx.bodyAsClass(Answer.class);
         if (answer == null || answer.credential == null || answer.credential.isBlank()) {
             throw new BadRequestResponse("no credential in that answer");

@@ -92,7 +92,8 @@ public final class DockerSocket {
 
     /** Whether the socket is there at all - asked once at startup so the answer is a sentence. */
     public boolean isReachable() {
-        try (SocketChannel channel = connect()) {
+        try (SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX)) {
+            channel.connect(UnixDomainSocketAddress.of(socket));
             return channel.isConnected();
         } catch (IOException e) {
             return false;
@@ -159,13 +160,20 @@ public final class DockerSocket {
         SocketChannel channel = null;
         ScheduledFuture<?> alarm = null;
         try {
-            channel = connect();
+            // THE WATCHDOG IS SET BEFORE THE CONNECT, not after it. `channel.connect` on a unix
+            // socket blocks when the daemon's listen backlog is full and nothing is accepting -
+            // a wedged dockerd looks exactly like that from here - and an alarm scheduled after it
+            // returns is an alarm that is never scheduled. Closing the channel from the watchdog
+            // thread makes the blocked connect throw AsynchronousCloseException, which is an
+            // IOException and lands in the catch below like any other failure to reach the socket.
+            channel = SocketChannel.open(StandardProtocolFamily.UNIX);
             // A call with a deadline is watched to the end of it; one without - a log follow - is
             // watched only until the headers are in, and the cancellation is below.
             final Duration untilItAnswers = deadline == null ? timeout : deadline;
             final SocketChannel toClose = channel;
             alarm = watchdog.schedule(() -> closeQuietly(toClose, method + " " + path),
                     untilItAnswers.toMillis(), TimeUnit.MILLISECONDS);
+            channel.connect(UnixDomainSocketAddress.of(socket));
             write(channel, method, path, jsonBody);
 
             final BufferedInputStream raw = new BufferedInputStream(
@@ -193,12 +201,6 @@ public final class DockerSocket {
             }
             throw e;
         }
-    }
-
-    private SocketChannel connect() throws IOException {
-        final SocketChannel channel = SocketChannel.open(StandardProtocolFamily.UNIX);
-        channel.connect(UnixDomainSocketAddress.of(socket));
-        return channel;
     }
 
     private void write(final SocketChannel channel, final String method, final String path,

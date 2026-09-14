@@ -766,18 +766,35 @@ class TopologyTest {
         final String root = new StewardSpec.BackupSpec() {
         }.sourcesRoot() + "/";
 
+        // THE DESTINATION IS PARSED FROM THE RIGHT, and the reason is five of these eight mounts:
+        // `${SMP_PLUGINS:-mc-smp-plugins}:/backup-sources/…:ro` splits on ":" into a source, the
+        // string "-mc-smp-plugins}" and the rest - so `fields[1]` was the middle of a shell default
+        // and never started with the root, and this loop skipped every variable-backed mount in
+        // silence. A test that quietly checks three of eight is the failure it was written against.
+        int checked = 0;
         for (final String mount : mountsOf(worker)) {
-            final String[] fields = mount.split(":");
-            if (!fields[1].startsWith(root)) {
+            final String withoutMode = mount.endsWith(":ro") || mount.endsWith(":rw")
+                    ? mount.substring(0, mount.lastIndexOf(':'))
+                    : mount;
+            final String destination = withoutMode.substring(withoutMode.lastIndexOf(':') + 1);
+            if (!destination.startsWith(root)) {
                 continue;
             }
-            final String volume = fields[1].substring(root.length());
+            checked++;
+            final String volume = destination.substring(root.length());
             assertTrue(saved.contains(volume),
-                    "compose.yml mounts " + volume + " at " + fields[1] + " for the backup to read,"
-                            + " and backup.volumes does not list it. Nothing fails: the volume is"
-                            + " simply never saved, and the report says nothing about a volume it"
+                    "compose.yml mounts " + volume + " at " + destination + " for the backup to"
+                            + " read, and backup.volumes does not list it. Nothing fails: the volume"
+                            + " is simply never saved, and the report says nothing about a volume it"
                             + " was never asked for.");
         }
+        // And the count, because the whole failure above was a loop that ran and asserted nothing.
+        final long mounted = mountsOf(worker).stream()
+                .filter(mount -> mount.contains(root))
+                .count();
+        assertEquals(mounted, checked, "compose.yml has " + mounted + " mounts under " + root
+                + " and this test looked at " + checked + " of them. The parsing dropped the rest,"
+                + " which is how a volume goes unsaved with a green build.");
     }
 
     @Test

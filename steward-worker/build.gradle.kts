@@ -16,9 +16,18 @@ repositoryRootTestInputs {
     reads("steward-worker/README.md")
     reads("deploy/README.md")
 
-    // CountdownComesAfterResolvingTest reads Runner as text, because what it asserts is the order of
-    // two statements inside one method and Gradle's own input is the compiled class.
+    // Runner as text, for the two tests that read it rather than call it.
+    // CountdownComesAfterResolvingTest asserts the order of two statements inside one method, and
+    // BackupSavesBeforeItSettlesTest asserts that the backup is written before the run decides it
+    // is a failure. Gradle's own input is the compiled class, which says nothing about either. If
+    // one of those tests is ever deleted, leave this line: the other one still needs it, and a
+    // declaration that quietly goes with the wrong test is exactly the failure they guard against.
     reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/serve/Runner.java")
+
+    // And WorkerApi as text, for the same reason: HeartbeatLeavesTheTimerTest asserts which
+    // executor the heartbeat comment is written on, and folding that back into the timer's own
+    // lambda is a change Gradle's compiled input would not necessarily notice.
+    reads("steward-worker/src/main/java/eu/nordtal/s2/steward/worker/api/WorkerApi.java")
 
     // TopologyTest asks the release workflow whether it pushes every ghcr.io/nordtal image
     // compose.yml defaults to. It is a text read of the workflow, so Gradle has to be told.

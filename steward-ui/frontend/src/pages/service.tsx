@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "@tanstack/react-router"
-import { ArrowDownToLine, Pause, Play, RotateCw, Search, Send, Trash2 } from "lucide-react"
+import { ArrowDownToLine, ChevronRight, Pause, Play, RotateCw, Search, Send, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { LOCALE, bytes, clock, percent, since } from "@/lib/format"
@@ -14,7 +14,6 @@ import { Empty, Failure, Loading } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -22,10 +21,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
  * One service: what it is doing, what it is saying, and - for the four Minecraft servers - a way to
  * say something back.
  *
- * **The console's answer is not in the response.** `mc <command>` hands the line to the server's own
- * tmux session and the server prints its reply on its own console, which is this log. That is not a
- * limitation to apologise for: it is what makes a second admin's command visible to the first
- * instead of private.
+ * **The console is part of the log, not a card of its own.** `mc <command>` hands the line to the
+ * server's own tmux session and the server prints its reply on its own console - which is this log,
+ * three lines above where it was typed. Two cards made that into two places; a card titled
+ * "Console" over a field labelled "Command" made it into four names for one input. It is one line
+ * under the window now, which is also what it looks like on every server console there has ever
+ * been. That the answer appears above rather than beside is not a limitation to apologise for: it
+ * is what makes a second admin's command visible to the first instead of private.
  */
 export function ServicePage() {
   const { name } = useParams({ from: "/services/$name" })
@@ -49,9 +51,7 @@ export function ServicePage() {
         <ServiceHead service={service.data} />
       )}
 
-      <LogPanel name={name} />
-
-      {service.data?.hasConsole ? <ConsolePanel name={name} /> : null}
+      <LogPanel name={name} hasConsole={service.data?.hasConsole ?? false} />
     </div>
   )
 }
@@ -59,7 +59,7 @@ export function ServicePage() {
 function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useService>["data"]> }) {
   return (
     <Card>
-      <CardContent className="flex flex-wrap items-start gap-6 pt-6">
+      <CardContent className="flex flex-wrap items-start gap-x-6 gap-y-4 pt-6">
         <div className="flex flex-col gap-2">
           <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             State
@@ -76,13 +76,13 @@ function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useSe
           <span className="text-xs text-muted-foreground">{service.status}</span>
         </div>
 
-        <Separator orientation="vertical" className="h-14" />
+        <Separator orientation="vertical" className="hidden h-14 sm:block" />
 
         <Stat label="Uptime" value={service.startedAt ? since(service.startedAt) : "–"} />
         <Stat label="RAM" value={bytes(service.memoryBytes)} hint="share of the host - no limit" />
         <Stat label="CPU" value={percent(service.cpuPercent)} />
 
-        <div className="flex min-w-64 flex-col gap-1">
+        <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:min-w-64">
           <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Image
           </span>
@@ -112,7 +112,7 @@ function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useSe
  * disk: up to 50 MB per container, measured on this host, and **nothing older**, because nothing
  * older exists anywhere. Recreating the container starts that buffer again.
  */
-function LogPanel({ name }: { name: string }) {
+function LogPanel({ name, hasConsole }: { name: string; hasConsole: boolean }) {
   const stream = useLogStream(name)
   const [filter, setFilter] = useState("")
   const [follow, setFollow] = useState(true)
@@ -125,9 +125,15 @@ function LogPanel({ name }: { name: string }) {
     return stream.lines.filter((line) => line.text.toLowerCase().includes(needle))
   }, [stream.lines, filter])
 
-  const bottom = useRef<HTMLDivElement>(null)
+  // The window scrolls itself, rather than a sentinel element asking the page to scroll it into
+  // view. `scrollIntoView` walks up every scrolling ancestor, and the shell's scroll area is one of
+  // them - so on a phone, where the log's own box is most of the screen, opening a service scrolled
+  // the page down past its own heading and the Recreate button, every time a line arrived.
+  const box = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (follow && !stream.paused) bottom.current?.scrollIntoView({ block: "end" })
+    if (!follow || stream.paused) return
+    const pane = box.current
+    if (pane) pane.scrollTop = pane.scrollHeight
   }, [shown.length, follow, stream.paused])
 
   return (
@@ -147,16 +153,24 @@ function LogPanel({ name }: { name: string }) {
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
-            <div className="ml-auto flex items-center gap-2">
+            {/*
+              Three switches and a state, and on a phone there is room for the symbols only - so the
+              words are hidden rather than the buttons, and every one carries its name for anything
+              that is not a pair of eyes. "Free" was the old label for the second one and nobody
+              knew what it meant; not following is "Manual".
+            */}
+            <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
               <StreamState stream={stream} />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => stream.setPaused(!stream.paused)}
+                aria-label={stream.paused ? "Resume the stream" : "Pause the stream"}
+                title={stream.paused ? "Resume the stream" : "Pause the stream"}
               >
                 {stream.paused ? <Play aria-hidden /> : <Pause aria-hidden />}
-                {stream.paused ? "Resume" : "Pause"}
+                <span className="max-sm:hidden">{stream.paused ? "Resume" : "Pause"}</span>
               </Button>
               <Button
                 type="button"
@@ -164,13 +178,22 @@ function LogPanel({ name }: { name: string }) {
                 size="sm"
                 onClick={() => setFollow((value) => !value)}
                 aria-pressed={follow}
+                aria-label={follow ? "Following the newest line" : "Scrolling by hand"}
+                title={follow ? "Following the newest line" : "Scrolling by hand"}
               >
                 <ArrowDownToLine aria-hidden />
-                {follow ? "Following" : "Free"}
+                <span className="max-sm:hidden">{follow ? "Following" : "Manual"}</span>
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={stream.clear}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={stream.clear}
+                aria-label="Clear the window"
+                title="Clear the window"
+              >
                 <Trash2 aria-hidden />
-                Clear
+                <span className="max-sm:hidden">Clear</span>
               </Button>
             </div>
           </div>
@@ -188,7 +211,7 @@ function LogPanel({ name }: { name: string }) {
                 {shown.length} / {stream.lines.length}
               </span>
             </div>
-            <LogWindow lines={shown} bottom={bottom} />
+            <LogWindow lines={shown} box={box} />
             <p className="text-xs text-muted-foreground">
               The window holds {LIMIT.toLocaleString(LOCALE)} lines.
               {stream.dropped > 0
@@ -238,6 +261,8 @@ function LogPanel({ name }: { name: string }) {
             )}
           </TabsContent>
         </Tabs>
+
+        {hasConsole ? <ConsoleLine name={name} /> : null}
       </CardContent>
     </Card>
   )
@@ -276,20 +301,23 @@ function StreamState({ stream }: { stream: ReturnType<typeof useLogStream> }) {
  */
 function LogWindow({
   lines,
-  bottom,
+  box,
 }: {
   lines: Array<{ seq: number; text: string; at: number }>
-  bottom?: React.RefObject<HTMLDivElement | null>
+  box?: React.RefObject<HTMLDivElement | null>
 }) {
   if (lines.length === 0) {
     return (
-      <div className="flex h-96 items-center justify-center rounded-md border border-border bg-[#0a0a0a] text-sm text-muted-foreground">
+      <div className="flex h-72 items-center justify-center rounded-md border border-border bg-[#0a0a0a] text-sm text-muted-foreground sm:h-96">
         No lines yet.
       </div>
     )
   }
   return (
-    <div className="h-96 overflow-auto rounded-md border border-border bg-[#0a0a0a] p-3 font-mono text-xs leading-5">
+    <div
+      ref={box}
+      className="h-72 overflow-auto rounded-md border border-border bg-[#0a0a0a] p-2 font-mono text-[0.6875rem] leading-5 sm:h-96 sm:p-3 sm:text-xs"
+    >
       {lines.map((line) => (
         <div key={line.seq} className="flex gap-3 whitespace-pre-wrap">
           {line.at ? (
@@ -298,83 +326,86 @@ function LogWindow({
           <span className="min-w-0 break-all">{line.text}</span>
         </div>
       ))}
-      <div ref={bottom} />
     </div>
   )
 }
 
-// --- the console --------------------------------------------------------------------------------
+// --- the console, which is the bottom edge of the log ------------------------------------------
 
-function ConsolePanel({ name }: { name: string }) {
-  const console_ = useConsole(name)
+/**
+ * One line into the server console, directly under the window its answer comes back in.
+ *
+ * The up arrow does what a shell's does. The history is not persisted, deliberately: a command
+ * history that survives a reload is a command history the next person at this browser can read.
+ */
+function ConsoleLine({ name }: { name: string }) {
+  const send = useConsole(name)
   const [command, setCommand] = useState("")
-  // The last few lines typed here, so that the up arrow does what a shell does. Not persisted: a
-  // command history that survives a reload is a command history somebody else can read.
   const [history, setHistory] = useState<string[]>([])
   const [cursor, setCursor] = useState(-1)
 
   return (
-    <Card id="console">
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Console</CardTitle>
-        <CardDescription>
-          One line into the server console. The answer appears in the log above - not here: the
-          server writes it to its own console, and so every admin sees it.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          className="flex items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const line = command.trim()
-            if (!line) return
-            console_.mutate(line, {
-              onSuccess: () => {
-                toast.success(`"${line}" sent`, {
-                  description: "The answer appears in the log window.",
-                })
-                setHistory((previous) => [line, ...previous].slice(0, 20))
-                setCursor(-1)
-                setCommand("")
-              },
-              onError: (error) => {
-                toast.error("The line was not sent", { description: String(error) })
-              },
-            })
+    <form
+      id="console"
+      className="flex flex-col gap-1.5 border-t border-border pt-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        const line = command.trim()
+        if (!line) return
+        send.mutate(line, {
+          onSuccess: () => {
+            toast.success(`"${line}" sent`, { description: "The answer appears in the window above." })
+            setHistory((previous) => [line, ...previous].slice(0, 20))
+            setCursor(-1)
+            setCommand("")
+          },
+          onError: (error) => {
+            toast.error("The line was not sent", { description: String(error) })
+          },
+        })
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <Input
+          id="console-command"
+          value={command}
+          onChange={(event) => setCommand(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowUp" && history.length > 0) {
+              event.preventDefault()
+              const next = Math.min(cursor + 1, history.length - 1)
+              setCursor(next)
+              setCommand(history[next])
+            } else if (event.key === "ArrowDown" && cursor >= 0) {
+              event.preventDefault()
+              const next = cursor - 1
+              setCursor(next)
+              setCommand(next < 0 ? "" : history[next])
+            }
           }}
+          placeholder="Send a line to the server console, e.g. list"
+          aria-label="Send a line to the server console"
+          className="font-mono"
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+        <Button
+          type="submit"
+          size="icon"
+          disabled={!command.trim() || send.isPending}
+          aria-label="Send"
+          title="Send"
         >
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Label htmlFor="console-command">Command</Label>
-            <Input
-              id="console-command"
-              value={command}
-              onChange={(event) => setCommand(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowUp" && history.length > 0) {
-                  event.preventDefault()
-                  const next = Math.min(cursor + 1, history.length - 1)
-                  setCursor(next)
-                  setCommand(history[next])
-                } else if (event.key === "ArrowDown" && cursor >= 0) {
-                  event.preventDefault()
-                  const next = cursor - 1
-                  setCursor(next)
-                  setCommand(next < 0 ? "" : history[next])
-                }
-              }}
-              placeholder="z. B. list"
-              className="font-mono"
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </div>
-          <Button type="submit" disabled={!command.trim() || console_.isPending}>
-            <Send aria-hidden />
-            Abschicken
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          <Send aria-hidden />
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        The server writes its answer to its own console, so it appears in the window above - and
+        every other admin watching sees it too.
+      </p>
+    </form>
   )
 }

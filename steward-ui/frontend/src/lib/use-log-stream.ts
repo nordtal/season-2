@@ -41,7 +41,7 @@ export type LogStream = {
   paused: boolean
   setPaused: (paused: boolean) => void
   clear: () => void
-  /** Close and open again - what the "neu verbinden" button does. */
+  /** Close and open again - what the "Reconnect" button does. */
   reconnect: () => void
 }
 

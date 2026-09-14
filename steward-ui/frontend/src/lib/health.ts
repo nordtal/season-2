@@ -239,4 +239,4 @@ export function shownLevel(level: Level, failed: boolean): Level {
 export const UNKNOWN = "Whether everything is in order cannot be said right now."
 
 /** The sentence at the top of the start page when nothing is wrong. */
-export const ALL_CLEAR = "Alles in Ordnung."
+export const ALL_CLEAR = "Everything is in order."

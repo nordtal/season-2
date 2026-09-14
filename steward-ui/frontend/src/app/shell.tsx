@@ -1,11 +1,14 @@
 import { Outlet, useRouterState } from "@tanstack/react-router"
+import { Search as SearchIcon } from "lucide-react"
 
 import { AppSidebar } from "@/app/app-sidebar"
 import { CommandPalette } from "@/app/command-palette"
 import { SignInPage } from "@/app/sign-in"
 import { StewardMark } from "@/app/steward-mark"
 import { ApiError } from "@/lib/api"
+import { shortcutLabel } from "@/lib/keys"
 import { useMe } from "@/lib/queries"
+import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -16,19 +19,27 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Failure } from "@/components/steward/query-state"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
- * The shell: a fixed viewport, a sidebar that never collapses and one scrolling column.
+ * The shell: a fixed viewport, one scrolling column, and a sidebar that is a column on a desktop
+ * and a sheet on a phone.
  *
  * The document itself does not scroll. An operator watching a log window and a service table at
  * the same time should not lose the header to do it, so the header is pinned and only the content
- * column moves.
+ * column moves. That is also what makes this survive being added to a home screen: `h-svh` is the
+ * *small* viewport height, so nothing is hidden behind a toolbar that has not retracted yet.
+ *
+ * **The safe areas are given back here, at the edges.** `index.html` asks for `viewport-fit=cover`
+ * and a translucent status bar, which means iOS draws this behind the notch and the home indicator
+ * rather than letterboxing it; every edge that touches one puts the inset back with
+ * `env(safe-area-inset-*)`. On anything that is not a phone those are zero and none of it applies.
  */
 export function Shell() {
   const me = useMe()
+  const isMobile = useIsMobile()
 
   // Nothing is drawn until this has answered. A shell rendered first and replaced a moment later
   // would flash a sidebar full of pages that every answer 401 - which reads as a broken interface
@@ -50,22 +61,30 @@ export function Shell() {
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider
-        // The sidebar never collapses, so the provider's cookie and keyboard shortcut would only
-        // ever toggle a state nothing reads. Fixed open, and the width is stated once here.
+        // ON A DESKTOP the sidebar never collapses, so the provider's cookie and its own Ctrl+B
+        // would only ever toggle a state nothing reads: `open` is held true and the setter is a
+        // no-op. The phone's sheet is a different piece of state (`openMobile`) and is untouched by
+        // this, which is what lets one sidebar be both things.
         open
         onOpenChange={() => undefined}
-        style={{ "--sidebar-width": "15rem" } as React.CSSProperties}
+        style={{ "--sidebar-width": "13rem" } as React.CSSProperties}
       >
         <AppSidebar />
-        <SidebarInset className="flex h-svh min-w-0 flex-col overflow-hidden bg-background">
+        <SidebarInset className="flex h-svh min-w-0 flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)]">
           <Header />
           <ScrollArea className="min-h-0 flex-1">
-            <main className="mx-auto w-full max-w-[110rem] px-6 py-6">
+            <main className="mx-auto w-full max-w-[110rem] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-6 md:py-6">
               <Outlet />
             </main>
           </ScrollArea>
         </SidebarInset>
-        <Toaster position="bottom-right" richColors closeButton />
+        {/*
+          Bottom right on a desktop, bottom centre on a phone - a thumb is in the middle, and a
+          corner toast on a narrow screen covers whatever control is in that corner. One Toaster
+          with a chosen position, not two hidden from each other: `toast()` reaches every mounted
+          one, so a second would be a second notification nobody sees but the screen reader.
+        */}
+        <Toaster position={isMobile ? "bottom-center" : "bottom-right"} richColors closeButton />
         <CommandPalette />
       </SidebarProvider>
     </TooltipProvider>
@@ -104,13 +123,24 @@ function Header() {
   const crumbs = useRouterState({ select: (state) => breadcrumbsFor(state.location.pathname) })
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border px-6">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4 md:gap-4 md:px-6">
+      {/* The only way back to the navigation on a phone. Nothing renders it on a desktop, where
+          the sidebar is always standing there. */}
+      <SidebarTrigger className="-ml-1 size-control shrink-0 md:hidden" />
+      {/*
+        ON A PHONE ONLY THE LAST CRUMB IS SHOWN. `BreadcrumbList` wraps, and "Status > Configuration
+        > steward-worker > steward-worker.yml" is two lines of a header that is one line tall - so
+        the trail spilled over the hamburger and under the border. The trail is a convenience on a
+        wide screen and the sheet is the way back on a narrow one, so below `sm` this prints where
+        you are and nothing else. `flex-nowrap` is the belt to that brace: a two-crumb path that
+        still does not fit now truncates rather than growing the header.
+      */}
       <Breadcrumb className="min-w-0">
-        <BreadcrumbList>
+        <BreadcrumbList className="flex-nowrap">
           {crumbs.map((crumb, index) => {
             const last = index === crumbs.length - 1
             return (
-              <BreadcrumbItem key={crumb.href}>
+              <BreadcrumbItem key={crumb.href} className={last ? "min-w-0" : "max-sm:hidden"}>
                 {last ? (
                   <BreadcrumbPage className="truncate">{crumb.label}</BreadcrumbPage>
                 ) : (
@@ -130,7 +160,7 @@ function Header() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="ml-auto">
+      <div className="ml-auto shrink-0">
         <CommandHint />
       </div>
     </header>
@@ -140,23 +170,43 @@ function Header() {
 /**
  * Looks like a search field and is a button, because it is one: it does nothing but open the
  * palette, and a real input here would be a second place to type the same query.
+ *
+ * On a phone it is the icon alone. A 56-character-wide fake search field beside a breadcrumb is
+ * most of a 390px header, and the word it would be hiding is "Search".
+ *
+ * The key it prints is the key the reader has: `⌘K` on a Mac, `Ctrl+K` on everything else. It used
+ * to say `⌘K` here and `Ctrl` in the sidebar footer - the same shortcut, answered twice, wrongly
+ * for half the readers each time.
  */
 function CommandHint() {
+  const open = () => {
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }),
+    )
+  }
+
   return (
-    <button
-      type="button"
-      onClick={() => {
-        document.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }),
-        )
-      }}
-      className="flex h-control min-w-56 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground transition-colors duration-150 ease-out hover:border-input hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none active:bg-secondary"
-    >
-      <span>Search pages…</span>
-      <kbd className="ml-auto rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-[0.6875rem] text-foreground">
-        ⌘K
-      </kbd>
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={open}
+        aria-label="Search pages"
+        className="flex size-control items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 ease-out hover:border-input hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none active:bg-secondary sm:hidden"
+      >
+        <SearchIcon className="size-4" aria-hidden />
+      </button>
+
+      <button
+        type="button"
+        onClick={open}
+        className="hidden h-control min-w-56 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground transition-colors duration-150 ease-out hover:border-input hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none active:bg-secondary sm:flex"
+      >
+        <span>Search pages…</span>
+        <kbd className="ml-auto rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-[0.6875rem] text-foreground">
+          {shortcutLabel("K")}
+        </kbd>
+      </button>
+    </>
   )
 }
 

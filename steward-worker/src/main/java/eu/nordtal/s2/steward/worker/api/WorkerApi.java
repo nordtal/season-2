@@ -508,8 +508,11 @@ public final class WorkerApi implements AutoCloseable {
         }
         // No container in this stack sets a memory limit, so a percentage is a share of the whole
         // machine. The interface has to say that rather than print a number that looks like a
-        // container's own budget (§10c).
-        answer.put("containerLimits", "none - percentages are a share of the host");
+        // container's own budget (§10c). A whole sentence, because the interface prints it as one:
+        // "none - percentages are a share of the host" needs a label in front of it to parse, and
+        // the label the status page used to carry said the same thing a second time.
+        answer.put("containerLimits",
+                "No container sets a memory limit, so every percentage here is a share of the whole host.");
         return answer;
     }
 

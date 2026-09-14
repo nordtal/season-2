@@ -12,16 +12,24 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { NAVIGATION } from "@/app/navigation"
 import { StewardMark } from "@/app/steward-mark"
+import { shortcutLabel } from "@/lib/keys"
 
 /**
- * The navigation, always expanded.
+ * The navigation.
  *
- * `collapsible="none"` is deliberate and is not a placeholder for a collapse button: this is an
- * operator's tool on a desktop, the labels are the point, and an icon rail that hides the word
- * "Restore" behind a play glyph is a worse interface, not a denser one.
+ * **On a desktop it never collapses**, and that is not a placeholder for a collapse button: this is
+ * an operator's tool, the labels are the point, and an icon rail that hides the word "Restore"
+ * behind a play glyph is a worse interface, not a denser one. The provider holds `open` fixed.
+ *
+ * **On a phone it is a sheet**, because 13rem of a 390px screen is a third of it. `collapsible` is
+ * `offcanvas` rather than `none` for exactly one reason: `none` renders a plain column and skips
+ * the mobile branch entirely, which is why this sidebar used to stand beside the content on a phone
+ * and leave about 150px for the page. The sheet has its own state (`openMobile`), so switching this
+ * changes nothing at all about the desktop.
  *
  * The active item is marked with a blue rule down its left edge and blue text - never a blue
  * background. Blue is action in this interface; a selected row is a place, not an action, so it
@@ -32,12 +40,20 @@ export function AppSidebar() {
   // Decided once for the whole navigation rather than per entry: "is this one active" cannot be
   // answered by looking at one entry, because two of them can match and only the longer is meant.
   const active = activeEntryId(pathname, NAVIGATION)
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  // Tapping a place closes the sheet. Without this the phone lands on the new page with the
+  // navigation still over it, and the first thing every visit needs is a tap somewhere empty.
+  const follow = () => {
+    if (isMobile) setOpenMobile(false)
+  }
 
   return (
-    <Sidebar collapsible="none" className="h-svh border-r">
+    <Sidebar collapsible="offcanvas" className="h-svh border-r">
       <SidebarHeader className="h-14 justify-center border-b px-cell">
         <Link
           to="/"
+          onClick={follow}
           className="flex items-center gap-2.5 rounded-md py-1 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <StewardMark className="size-5 shrink-0" />
@@ -47,12 +63,14 @@ export function AppSidebar() {
         </Link>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="gap-0">
         {NAVIGATION.map((group) => (
-          <SidebarGroup key={group.id}>
-            <SidebarGroupLabel className="text-[0.6875rem] tracking-[0.08em] uppercase">
-              {group.label}
-            </SidebarGroupLabel>
+          <SidebarGroup key={group.id} className="py-1.5">
+            {group.label ? (
+              <SidebarGroupLabel className="h-6 text-[0.6875rem] tracking-[0.08em] uppercase">
+                {group.label}
+              </SidebarGroupLabel>
+            ) : null}
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.entries.map((entry) => {
@@ -68,6 +86,7 @@ export function AppSidebar() {
                           to={entry.to}
                           params={entry.params as never}
                           activeOptions={{ exact: entry.to === "/" }}
+                          onClick={follow}
                         >
                           {entry.icon ? <entry.icon aria-hidden /> : null}
                           <span className="truncate">{entry.label}</span>
@@ -82,20 +101,25 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarSeparator className="mx-0" />
-      <SidebarFooter className="px-cell py-3">
-        <p className="text-xs text-muted-foreground">
-          Alpha - no data yet.{" "}
-          <kbd className="rounded-sm border border-border bg-secondary px-1 py-0.5 font-mono text-[0.6875rem] text-foreground">
-            Ctrl
-          </kbd>
-          <span className="px-0.5">+</span>
-          <kbd className="rounded-sm border border-border bg-secondary px-1 py-0.5 font-mono text-[0.6875rem] text-foreground">
-            K
-          </kbd>{" "}
-          opens the search.
-        </p>
-      </SidebarFooter>
+      {/*
+        One line, and only on a machine that has the key - which is why it is not here on a phone at
+        all. It said "Alpha - no data yet." beside an interface full of the host's real numbers, and
+        then repeated a shortcut the header already carries. What is left is the shortcut itself, in
+        the notation of whatever is reading it, offered to the only kind of device that has it.
+      */}
+      {isMobile ? null : (
+        <>
+          <SidebarSeparator className="mx-0" />
+          <SidebarFooter className="px-cell py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+            <p className="text-xs text-muted-foreground">
+              <kbd className="rounded-sm border border-border bg-secondary px-1 py-0.5 font-mono text-[0.6875rem] text-foreground">
+                {shortcutLabel("K")}
+              </kbd>{" "}
+              searches every page.
+            </p>
+          </SidebarFooter>
+        </>
+      )}
     </Sidebar>
   )
 }

@@ -13,9 +13,21 @@ function ScrollArea({
       className={cn("relative", className)}
       {...props}
     >
+      {/*
+        `[&>div]:!block` IS THE REASON THE INTERFACE FITS ON A PHONE.
+
+        Radix renders one div inside the viewport with an inline `display: table`, so that content
+        wider than the viewport can be scrolled sideways. A table box sizes to its max-content
+        width - and the max-content width of a page carrying a log line, an image digest or a wide
+        table is far more than 390px. The viewport clips at 390 and renders no horizontal scrollbar,
+        so everything past the fold was drawn and unreachable: on a phone the right-hand third of
+        every page was simply gone. Making that div a block caps it at the viewport's own width,
+        which is what puts the wrapping and truncating rules back in charge. A stylesheet
+        `!important` does beat a non-important inline style, which is why this works at all.
+      */}
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 [&>div]:!block"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

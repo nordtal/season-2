@@ -58,15 +58,31 @@ export type NavEntry = {
 
 export type NavGroup = {
   id: string
-  label: string
+  /**
+   * The heading over the group - and **optional on purpose**.
+   *
+   * Eight of the ten groups here used to hold exactly one entry, so the sidebar drew "Season" as a
+   * heading and "Season" as the row under it, eight times over. That is about a sixth of the
+   * sidebar's height spent saying each thing twice. A group with no label is drawn without a
+   * heading, and the command palette lists it without one; the entries are their own names.
+   */
+  label?: string
   icon: LucideIcon
   entries: NavEntry[]
 }
 
+/**
+ * Four groups, not ten.
+ *
+ * Only `Services` and `Operations` are a set of things that belong together and need saying so.
+ * Everything else is one page with one name, and those are gathered into two unlabelled groups -
+ * the one above (the start page) and the one below (everything that is neither a container nor a
+ * run). Keeping the shape as groups rather than a flat list is what lets the separators and the
+ * command palette's sections stay where they are.
+ */
 export const NAVIGATION: NavGroup[] = [
   {
-    id: "status",
-    label: "Status",
+    id: "overview",
     icon: Activity,
     entries: [
       {
@@ -75,7 +91,7 @@ export const NAVIGATION: NavGroup[] = [
         to: "/",
         note: "The traffic light, host load and the table of every service.",
         icon: Activity,
-        keywords: ["home", "dashboard", "health", "overview"],
+        keywords: ["home", "dashboard", "health", "overview", "status"],
       },
     ],
   },
@@ -143,25 +159,17 @@ export const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    id: "configuration",
-    label: "Configuration",
+    id: "the-rest",
     icon: SlidersHorizontal,
     entries: [
       {
         id: "configuration",
-        label: "Files",
+        label: "Configuration",
         to: "/configuration",
         note: "Commented YAML as a form, read out of the @ConfigSpec.",
         icon: SlidersHorizontal,
-        keywords: ["yaml", "config", "settings", "spec"],
+        keywords: ["yaml", "config", "settings", "spec", "files"],
       },
-    ],
-  },
-  {
-    id: "season",
-    label: "Season",
-    icon: CalendarRange,
-    entries: [
       {
         id: "season",
         label: "Season",
@@ -170,13 +178,6 @@ export const NAVIGATION: NavGroup[] = [
         icon: CalendarRange,
         keywords: ["season", "phase", "reset", "launch"],
       },
-    ],
-  },
-  {
-    id: "access",
-    label: "Access",
-    icon: KeyRound,
-    entries: [
       {
         id: "access",
         label: "Access",
@@ -193,13 +194,6 @@ export const NAVIGATION: NavGroup[] = [
         icon: CreditCard,
         keywords: ["bunq", "contribution", "money", "payments"],
       },
-    ],
-  },
-  {
-    id: "accounts",
-    label: "Accounts",
-    icon: Users,
-    entries: [
       {
         id: "accounts",
         label: "Accounts",
@@ -208,13 +202,6 @@ export const NAVIGATION: NavGroup[] = [
         icon: Users,
         keywords: ["accounts", "players", "discord", "link"],
       },
-    ],
-  },
-  {
-    id: "journal",
-    label: "Journal",
-    icon: BookText,
-    entries: [
       {
         id: "journal",
         label: "Journal",
@@ -223,13 +210,6 @@ export const NAVIGATION: NavGroup[] = [
         icon: BookText,
         keywords: ["audit", "history", "trail", "log"],
       },
-    ],
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: Settings,
-    entries: [
       {
         id: "settings",
         label: "Settings",

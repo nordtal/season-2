@@ -63,7 +63,7 @@ const PHASES: { name: PhaseName; label: string; who: string; where: string }[] =
   },
   {
     name: "START_EVENT",
-    label: "Startevent",
+    label: "Event start",
     who: "Same as before the event.",
     where: "hunger-games",
   },
@@ -142,7 +142,7 @@ function PhaseCard({ season }: { season: Season }) {
           Phase
         </CardTitle>
         <CardDescription>
-          Aktuell: <span className="font-medium text-foreground">{current?.label ?? season.phase}</span>{" "}
+          Now: <span className="font-medium text-foreground">{current?.label ?? season.phase}</span>{" "}
           <span className="font-mono text-xs">({season.phase})</span>
         </CardDescription>
       </CardHeader>
@@ -168,7 +168,7 @@ function PhaseCard({ season }: { season: Season }) {
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{phase.label}</span>
-                  {active ? <Badge variant="secondary">aktuell</Badge> : null}
+                  {active ? <Badge variant="secondary">now</Badge> : null}
                   <span className="font-mono text-xs text-muted-foreground">{phase.name}</span>
                 </div>
                 <p className="max-w-prose text-sm text-muted-foreground">{phase.who}</p>

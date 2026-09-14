@@ -79,14 +79,21 @@ export function SettingsPage() {
           <Alert>
             <Fingerprint aria-hidden />
             <AlertTitle>This alpha knows no second factor.</AlertTitle>
+            {/*
+              One <p>, not a bare run of text. AlertDescription is a grid, so every inline child of
+              it is blockified into a row of its own: the link and the full stop after it each got
+              their own line, and the notice read "...lands in the / Journal / ." down the phone.
+            */}
             <AlertDescription>
-              {me.data?.webauthn ??
-                "There is no password, no security key and no second identity: whoever holds an admin's Discord session holds this interface."}{" "}
-              That is why every change made here lands in the{" "}
-              <Link to="/journal" className="underline underline-offset-4">
-                Journal
-              </Link>
-              .
+              <p>
+                {me.data?.webauthn ??
+                  "There is no password, no security key and no second identity: whoever holds an admin's Discord session holds this interface."}{" "}
+                That is why every change made here lands in the{" "}
+                <Link to="/journal" className="underline underline-offset-4">
+                  Journal
+                </Link>
+                .
+              </p>
             </AlertDescription>
           </Alert>
         </CardContent>

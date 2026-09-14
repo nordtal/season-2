@@ -3,10 +3,33 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      viewport-fit=cover, because the status bar below is translucent: the page is drawn behind the
+      notch and the home indicator, and index.css gives every edge back with env(safe-area-inset-*).
+      Without the cover the browser letterboxes the page and a near-black interface grows two grey
+      bars on a black phone.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0d0d0d" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!--
+      THE MARK IS THE SERVER ICON. resource-pack/src/pack.png is what a player sees in the server
+      browser and what the resource pack carries; it is the same picture here, so the thing on a
+      home screen is the thing on the server list. icon-512.png is that file at exactly four times
+      the size, nearest neighbour - a smoothing resampler turns its 21 colours into hundreds and the
+      mark reads as a low-resolution photograph. MarkIsTheServerIconTest holds both against it.
+    -->
+    <link rel="icon" type="image/png" sizes="128x128" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon-512.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Added to the home screen, this is a standalone app: no address bar, no Safari chrome. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Steward" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
     <title>Nordtal Steward</title>
   </head>
   <body>

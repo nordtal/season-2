@@ -54,8 +54,8 @@ The bot is the `bot` profile in the one stack at the repository root, and that p
 up alone. From the repository root:
 
 ```bash
-cp .env.example .env      # .env is gitignored and must never be committed
-COMPOSE_PROFILES=db,bot docker compose up -d
+deploy/setup.sh                                     # writes the environment file, once
+COMPOSE_PROFILES=db,bot docker compose --env-file /etc/nordtal/season-2.env up -d
 ```
 
 **No Gradle step and no `--build`.** The image is pulled from `ghcr.io/nordtal/discord-bot:latest`,

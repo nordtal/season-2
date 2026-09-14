@@ -19,7 +19,7 @@ system it belongs to.
 ```
 compose.yml            seven services, five profiles: db · bot · mc · backup · devpack
                        (steward-worker has none, and devpack is local only)
-.env.example           every setting; copy to .env and fill in
+.env.example           every setting there is, as a reference - nobody fills it in by hand
 deploy/
   minecraft/
     Dockerfile         one image for all four Minecraft services
@@ -28,7 +28,8 @@ deploy/
     scripts/console    attach to the real server console (read + write)
     scripts/mc         send one command, no TTY needed
                        (named scripts/ and not bin/ - .gitignore has a repo-wide bin/ rule)
-  setup.sh             the host's own script: the .env, the two secrets, the name, the deployer
+  setup.sh             the host's own script: it asks, writes the environment file, generates
+                       the secrets, waits for the name and renews the deployer
   setup-test.sh        its checks, without Docker or a resolver (runs on `check`)
   restore.sh           put one archive back - a volume, or a dump into a NEW database
   restore-test.sh      its guards, without Docker (runs on `check`)
@@ -75,20 +76,41 @@ Docker fails the deploy with `error from registry: denied`.
 
 ### On the host
 
-3. **Check the repository out and write `.env`.** [`../.env.example`](../.env.example) is the
-   reference — every `REPLACE_ME` in it is something only you know, and one is the forwarding secret
-   (`openssl rand -hex 24`). `.env` is gitignored, so it exists only on the host and is never in a
-   commit. **Leave `STEWARD_API_TOKEN` and `STEWARD_DEPLOYER_TOKEN` empty** — the setup script
-   generates those, because a secret a machine can invent is one nobody should have to type.
+3. **Check the repository out.** That is the whole step. There is no `.env` to write: the file is
+   created by the script in the next one, at the absolute path `STEWARD_ENV_FILE` names, mode 600,
+   and it never lives beside `compose.yml`. [`../.env.example`](../.env.example) stays in the
+   repository as the **reference for what a setting is called**, not as a form — copying it and
+   working down it puts values in two places, and from the first edit in the web interface one of
+   the two is wrong.
 4. **Run `deploy/setup.sh`.** It builds nothing; every image is pulled.
 
    ```bash
    deploy/setup.sh --check     # every check, and stop before anything is changed
    deploy/setup.sh             # the deployment itself
+   deploy/setup.sh --from f    # take the answers from a file instead of asking
    ```
 
-   It copies `.env` to the absolute path `STEWARD_ENV_FILE` names (`/etc/nordtal/season-2.env` by
-   default) at mode 600, generates the two Steward secrets, **resolves `STEWARD_HOST` and waits
+   **It asks.** Nine things only a person can know: the name the interface answers on
+   (`STEWARD_HOST`), the address Let's Encrypt writes to (`STEWARD_ACME_EMAIL`), the EULA, the bot
+   token, the client id and client secret of the Discord application the login uses, the guild, the
+   admin role — and the two bunq values if there is a bunq, which are optional and skipped with
+   Enter. Every answer whose shape can be checked is checked at the prompt: a snowflake is digits,
+   a host name is not a URL, an address has an `@` and a dot. Secrets are read with the terminal
+   echo off. **Nothing is ever printed back**, and no value ever reaches a command line —
+   `/proc/<pid>/cmdline` is world-readable, so a token passed as an argument is published to every
+   user on the host for as long as that process runs.
+
+   Everything else it either generates (the database password, the forwarding secret, the two
+   Steward tokens) or leaves alone, because the service's own configuration has a default and the
+   web interface can edit it. **Run it twice and it asks only for what is still missing**, so an
+   interrupted setup is resumed rather than restarted.
+
+   One thing it will *not* generate: on a host where `postgres-data` already exists, a missing
+   `POSTGRES_PASSWORD` is **asked for**. Postgres reads that variable only when it initialises an
+   empty data directory, so inventing a new one there produces a stack that cannot log in to its
+   own database, with no error that says why.
+
+   It then generates the two Steward secrets, **resolves `STEWARD_HOST` and waits
    until it points at this host**, renews `steward-deployer`, and then runs that image once with
    `up` — which pulls every image before it stops anything and creates the rest of the stack,
    including the long-running deployer.
@@ -104,8 +126,8 @@ Docker fails the deploy with `error from registry: denied`.
    `steward-deployer` image, so shipping a changed deployment *is* this script. Everything else —
    a new bot, a new worker, a new server jar — the deployer and the worker do from inside.
 
-   **Every `docker compose` typed by hand needs `--env-file` after this**, and so does every one
-   further down this file — the environment file is no longer beside `compose.yml`:
+   **Every `docker compose` typed by hand needs `--env-file`**, and so does every one further
+   down this file — the environment file is not beside `compose.yml` and never was:
 
    ```bash
    docker compose --env-file /etc/nordtal/season-2.env ps
@@ -220,16 +242,19 @@ When `network-control` cannot start at all, the fail-closed handler answers the 
 Modern forwarding needs the **same secret in all four containers**, and a mismatch does not say so:
 it shows up as every login failing with *"Unable to connect you to the backend server"*.
 
+**`setup.sh` generates it** as `VELOCITY_FORWARDING_SECRET` and you never see it — it is exactly
+the kind of secret a machine can invent, so nobody types it. `compose.yml` hands the same value to
+the proxy under that name and to each backend as `PAPER_VELOCITY_SECRET`; the proxy writes it to
+`/data/forwarding.secret`, and Paper reads its own copy from the environment.
+
+To **rotate** it, which is the one time it is written by hand:
+
 ```bash
 openssl rand -hex 24
 ```
 
-Put it in `.env` as `VELOCITY_FORWARDING_SECRET`. `compose.yml` hands the same value to the proxy
-under that name and to each backend as `PAPER_VELOCITY_SECRET`; the proxy writes it to
-`/data/forwarding.secret`, and Paper reads its own copy from the environment.
-
-**It does still land on disk**: Paper writes the value into `config/paper-global.yml` on first load,
-so **rotating** the secret is `.env` *plus* that one line in each of the three backend volumes.
+**It lands on disk**: Paper writes the value into `config/paper-global.yml` on first load, so a
+rotation is the environment file *plus* that one line in each of the three backend volumes.
 
 ## Getting a world into a volume
 

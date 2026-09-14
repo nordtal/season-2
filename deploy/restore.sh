@@ -42,14 +42,19 @@ die()  { printf '\033[31m[restore]\033[0m %s\n' "$*" >&2; exit 1; }
 # The stamp steward-worker writes into every name: UTC, fixed width, no separator a glob would mind.
 STAMP_PATTERN='[0-9]{8}T[0-9]{6}Z'
 
-# What this file is: `volume`, `database`, `partial` or `unknown`.
+# What this file is: `volume`, `database`, `partial`, `mark` or `unknown`.
 #
 # `partial` is its own answer and not an error message, because a half-written archive is the one
 # thing in that directory that LOOKS restorable. steward-worker writes under `.partial` and renames
 # only after reading the file back, so a name still carrying it is a backup that was interrupted.
+#
+# `mark` is the other one that is not an archive but sits beside them: steward-worker writes
+# `<archive>.unverified` next to a backup it took after a stop it could not confirm the end of. It
+# is a sentence to read, not a thing to restore, and saying that is more use than `unknown`.
 archive_kind() {
     local name="$1"
     [[ "$name" == *.partial ]]                                  && { echo partial;  return; }
+    [[ "$name" == *.unverified ]]                               && { echo mark;     return; }
     [[ "$name" =~ ^.+-${STAMP_PATTERN}\.tar\.zst$ ]]            && { echo volume;   return; }
     [[ "$name" =~ ^nordtal-${STAMP_PATTERN}\.dump$ ]]           && { echo database; return; }
     echo unknown
@@ -130,6 +135,14 @@ in_backups() {
 if $LIST_ONLY; then
     log "archives in $BACKUPS_VOLUME:"
     in_backups 'ls -lh /backups 2>/dev/null || echo "(empty)"'
+    # And what any of them say about themselves. A `.unverified` file is one line in an `ls` and
+    # the whole reason somebody would pick a different archive, so it is printed rather than left
+    # for them to notice.
+    in_backups 'for m in /backups/*.unverified; do
+        [ -e "$m" ] || continue
+        printf "\n%s\n" "$(basename "$m")"
+        sed "s/^/    /" "$m"
+    done'
     exit 0
 fi
 
@@ -144,6 +157,10 @@ case "$kind" in
         die "'$ARCHIVE' is a .partial file. steward-worker writes every archive under that name and
        renames it only after reading it back, so this one is a backup that was interrupted - there
        is nothing complete in it to restore." ;;
+    mark)
+        die "'$ARCHIVE' is the mark beside an archive, not the archive. It says why the backup it
+       belongs to was taken after a stop nobody could confirm; read it with \`--list\` and then
+       name '${ARCHIVE%.unverified}' if you still want it." ;;
     unknown)
         die "'$ARCHIVE' is not a name this deployment writes. A volume archive is
        <volume>-<YYYYMMDDTHHMMSSZ>.tar.zst and a database dump is nordtal-<stamp>.dump." ;;
@@ -204,6 +221,14 @@ mapfile -t running < <(docker ps --format '{{.Names}}' --filter "volume=$VOLUME"
 
 size="$(in_backups "ls -lh '/backups/$ARCHIVE' | awk '{ print \$5 }'")"
 
+# The mark, if steward-worker left one, and before the confirmation rather than after it. An
+# archive taken after an unverified stop is still very probably a good archive - which is exactly
+# why it must not be discovered afterwards.
+mark=""
+if in_backups "test -f '/backups/$ARCHIVE.unverified'"; then
+    mark="$(in_backups "cat '/backups/$ARCHIVE.unverified'")"
+fi
+
 printf '\n'
 warn "ABOUT TO REPLACE THE CONTENTS OF A VOLUME."
 warn "  archive:    $ARCHIVE  ($size)"
@@ -211,11 +236,36 @@ warn "  volume:     $VOLUME"
 warn "  stopping:   ${running[*]:-nothing is running on it}"
 warn "  everything in that volume is deleted first. What is in the archive takes its place,"
 warn "  and anything created since $(stamp_of "$ARCHIVE") - built houses, edited configs - is gone."
+if [[ -n "$mark" ]]; then
+    printf '\n'
+    warn "  THIS ARCHIVE IS MARKED UNVERIFIED:"
+    while IFS= read -r line; do
+        warn "    $line"
+    done <<<"$mark"
+    warn "  It is readable - that was checked when it was written and is checked again below. What"
+    warn "  nobody knows is whether the server had finished saving when it was taken."
+fi
 printf '\n'
 printf 'Type the volume name to confirm: '
 read -r typed
 restore_confirmed "$VOLUME" "$typed" \
     || die "that is not '$VOLUME'. Nothing has been touched."
+
+# THE ARCHIVE IS READ THROUGH BEFORE ANYTHING IS TOUCHED, and the reason is the sentence in the
+# failure message below: `find -mindepth 1 -delete` runs before the extraction, so a truncated or
+# corrupt archive was discovered with the volume already empty. The whole point of a restore is that
+# the state it replaces was worth keeping until the replacement was known to be good.
+#
+# Two checks, because one would not do it: `zstd -t` verifies the compressed frames and their
+# checksum, and the tar traversal verifies that what is inside them is a complete archive. Only the
+# first can be trusted to set the exit status of a pipeline, which is why it is not one.
+log "reading $ARCHIVE through before anything is touched"
+in_backups "zstd -t '/backups/$ARCHIVE'" \
+    || die "'$ARCHIVE' is not a complete zstd archive - it is truncated or corrupt. Nothing has been
+       touched. \`--list\` shows what else is there."
+in_backups "zstd -dc '/backups/$ARCHIVE' | tar -tf - >/dev/null" \
+    || die "'$ARCHIVE' decompresses but does not hold a complete tar archive. Nothing has been
+       touched. \`--list\` shows what else is there."
 
 if (( ${#running[@]} > 0 )); then
     log "stopping ${running[*]}"

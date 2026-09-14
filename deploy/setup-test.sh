@@ -151,6 +151,51 @@ done
 ok "no answer is reported, not passed over"
 
 # ------------------------------------------------------------------------------------------------
+case_begin "a generated secret lands in the file whatever the assignment looks like"
+# THE FAILURE THIS IS FOR: set_secret looked for the name one way and replaced it another.
+# `env_value` accepts leading whitespace and an `export`, and so does the grep that decides whether
+# there is a line to replace - but the awk that does the replacing compared the whole first field,
+# so `  NAME=` was found and not replaced, and `export NAME=` was not found at all and appended a
+# second assignment below the first one. Either way the script logged "generated" and compose got
+# an empty value, which is the one outcome a setup script must never report as success.
+for form in "STEWARD_API_TOKEN=" "  STEWARD_API_TOKEN=" "export STEWARD_API_TOKEN=" \
+            "STEWARD_API_TOKEN = " "  export  STEWARD_API_TOKEN="; do
+    secrets="$WORK/secret.env"
+    printf 'BEFORE=1\n%s\nAFTER=2\n' "$form" > "$secrets"
+
+    set_assignment "$secrets" STEWARD_API_TOKEN "$(printf '%064d' 7 | tr '0-9' 'a-f0-3')"
+
+    written="$(env_value "$secrets" STEWARD_API_TOKEN)"
+    [[ "$written" =~ ^[0-9a-f]{64}$ ]] \
+        || bad "«$form» left the token as «$written» and said it had generated one"
+    count="$(grep -cE '^[[:space:]]*(export[[:space:]]+)?STEWARD_API_TOKEN[[:space:]]*=' "$secrets")"
+    [[ "$count" == "1" ]] || bad "«$form» left $count assignments of the name in the file"
+    # And nothing else moved. A rewrite of the whole file is a rewrite of the whole file.
+    [[ "$(env_value "$secrets" BEFORE)" == "1" && "$(env_value "$secrets" AFTER)" == "2" ]] \
+        || bad "«$form» disturbed the lines around it"
+done
+ok "every spelling of an empty assignment is replaced, once, in place"
+
+case_begin "a name that is not in the file is appended, not lost"
+secrets="$WORK/secret.env"
+printf 'BEFORE=1\n' > "$secrets"
+set_assignment "$secrets" STEWARD_DEPLOYER_TOKEN "abc"
+[[ "$(env_value "$secrets" STEWARD_DEPLOYER_TOKEN)" == "abc" ]] || bad "the new name was not written"
+[[ "$(env_value "$secrets" BEFORE)" == "1" ]] || bad "the file it was appended to was disturbed"
+ok "an absent name is appended once"
+
+case_begin "a value full of shell metacharacters survives the round trip"
+# The same argument env_value makes: an environment file is not a script. A generated secret is hex
+# today, but this function is the one place a value is written, and the next caller may not be.
+secrets="$WORK/secret.env"
+printf 'NAME=old\n' > "$secrets"
+set_assignment "$secrets" NAME 'a(b)c$(touch "'"$WORK"'/executed")'
+[[ -e "$WORK/executed" ]] && bad "writing a value executed it"
+[[ "$(env_value "$secrets" NAME)" == 'a(b)c$(touch "'"$WORK"'/executed")' ]] \
+    || bad "a value with brackets and a substitution did not come back unchanged"
+ok "a value is text on the way in and text on the way out"
+
+# ------------------------------------------------------------------------------------------------
 
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2

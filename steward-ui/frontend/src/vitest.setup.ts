@@ -15,3 +15,28 @@ import { configure } from "@testing-library/react"
  * the run rather than hanging it.
  */
 configure({ asyncUtilTimeout: 5_000 })
+
+/**
+ * `window.matchMedia`, which jsdom does not have.
+ *
+ * The shell asks whether it is on a phone - the sidebar is a column or a sheet, the toaster is in
+ * the corner or under the thumb - and `useIsMobile` answers with a media query. jsdom has no layout
+ * and therefore no `matchMedia`, so without this every test that renders the shell dies on a
+ * `TypeError` that has nothing to do with what it was testing.
+ *
+ * It always answers **no**: jsdom's window is 1024 wide, which is a desktop, and that is the branch
+ * these tests are about. A test that wants the phone can stub this itself.
+ */
+if (typeof window !== "undefined" && !window.matchMedia) {
+  window.matchMedia = (query: string): MediaQueryList =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    }) as MediaQueryList
+}

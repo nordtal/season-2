@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import type { CSSProperties } from "react"
 import { Link, useParams } from "@tanstack/react-router"
 import { FileWarning, Lock, Plus, RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -69,7 +70,7 @@ export function ConfigurationPage() {
         {(found) => (
           <div className="flex flex-col gap-4">
             {group(found).map(([service, entries]) => (
-              <Card key={service || "(Wurzel)"}>
+              <Card key={service || "(root)"}>
                 <CardHeader>
                   <CardTitle className="font-mono text-sm">{service || "No service"}</CardTitle>
                   <CardDescription>
@@ -186,20 +187,23 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
         <Alert>
           <FileWarning aria-hidden />
           <AlertTitle>A saved change does not reach a running service.</AlertTitle>
+          {/* One <p>: AlertDescription is a grid and would give the link a row of its own. */}
           <AlertDescription>
-            It is in the file, and the service reads it at its next start.{" "}
-            {document.service ? (
-              <Link
-                to="/services/$name"
-                params={{ name: document.service }}
-                className="underline underline-offset-4"
-              >
-                Restart {document.service}
-              </Link>
-            ) : (
-              "The service concerned has to be restarted for it."
-            )}
-            .
+            <p>
+              It is in the file, and the service reads it at its next start.{" "}
+              {document.service ? (
+                <Link
+                  to="/services/$name"
+                  params={{ name: document.service }}
+                  className="underline underline-offset-4"
+                >
+                  Restart {document.service}
+                </Link>
+              ) : (
+                "The service concerned has to be restarted for it."
+              )}
+              .
+            </p>
           </AlertDescription>
         </Alert>
       ) : (
@@ -332,7 +336,10 @@ function Field({
 
   if (entry.kind === "MAP") {
     return (
-      <div style={{ marginLeft: depth * 16 }} className="pt-6 pb-2">
+      <div
+        style={{ "--depth": depth } as CSSProperties}
+        className="ml-[calc(var(--depth)*0.375rem)] pt-6 pb-2 sm:ml-[calc(var(--depth)*1rem)]"
+      >
         <Separator className="mb-4" />
         <h2 className="text-sm font-semibold">{entry.label}</h2>
         <p className="font-mono text-xs text-muted-foreground">{entry.path}</p>
@@ -349,8 +356,12 @@ function Field({
 
   return (
     <div
-      style={{ marginLeft: depth * 16 }}
-      className={`flex flex-col gap-2 border-border py-3 ${first ? "" : "border-t"}`}
+      // The nesting of the YAML, given back as an indent - and a third of one on a phone, where
+      // three levels of 16px is a tenth of the screen spent on saying "this key is inside that
+      // one". An inline `marginLeft` cannot answer a media query, so the depth is a variable and
+      // the two widths are a class.
+      style={{ "--depth": depth } as CSSProperties}
+      className={`ml-[calc(var(--depth)*0.375rem)] flex flex-col gap-2 border-border py-3 sm:ml-[calc(var(--depth)*1rem)] ${first ? "" : "border-t"}`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <Label htmlFor={entry.path} className="text-sm font-medium">
@@ -538,7 +549,7 @@ function ListControl({
   return (
     <div className="flex flex-col gap-2">
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Leere Liste.</p>
+        <p className="text-sm text-muted-foreground">Empty list.</p>
       ) : (
         items.map((item, index) => (
           <div key={index} className="flex items-center gap-2">

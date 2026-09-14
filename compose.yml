@@ -947,7 +947,7 @@ volumes:
   postgres-data:
   bot-config:
   steward-worker-config:
-  # The interface's own steward-ui.yml. It is in the backup list because the Ampel's thresholds
+  # The interface's own steward-ui.yml. It is in the backup list because the traffic light's thresholds
   # live in it and are edited from the interface - the file is small and the alternative is
   # "somebody will remember what those numbers were".
   steward-ui-config:

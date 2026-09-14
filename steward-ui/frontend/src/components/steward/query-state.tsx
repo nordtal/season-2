@@ -80,7 +80,10 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
             </p>
           ) : null}
           {api?.detail ? (
-            <pre className="mt-1 max-h-32 overflow-auto rounded-sm bg-muted px-2 py-1 text-xs text-muted-foreground">
+            // `whitespace-pre-wrap`: a server's detail is one long line, and a box that only
+            // scrolls sideways on a phone is a box that reads "There is no config file called
+            // steward-w" and stops.
+            <pre className="mt-1 max-h-32 overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
               {api.detail}
             </pre>
           ) : null}

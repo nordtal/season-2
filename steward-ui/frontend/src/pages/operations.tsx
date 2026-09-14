@@ -36,6 +36,7 @@ import {
   useSchedule,
   useServices,
 } from "@/lib/queries"
+import { Disclosure } from "@/components/steward/disclosure"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import {
@@ -528,14 +529,14 @@ function DriftCard({ note }: { note?: string }) {
                     <TableRow>
                       <TableHead className="w-[14rem]">Service</TableHead>
                       <TableHead>Image</TableHead>
-                      <TableHead className="w-[8rem]">Vergleich</TableHead>
+                      <TableHead className="w-[8rem]">Compared</TableHead>
                       <TableHead className="w-[10rem] text-right">Container</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {rows.map((service) => (
                       <TableRow key={service.service}>
-                        <TableCell className="font-medium">
+                        <TableCell data-label="Service" className="font-medium">
                           <Link
                             to="/services/$name"
                             params={{ name: service.service }}
@@ -544,13 +545,13 @@ function DriftCard({ note }: { note?: string }) {
                             {service.service}
                           </Link>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell data-label="Image" className="text-muted-foreground">
                           <code className="text-xs">{service.image}</code>
                         </TableCell>
-                        <TableCell>
+                        <TableCell data-label="Compared">
                           <DriftBadge drift={service.drift} />
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell data-label="Container" className="text-right">
                           <RecreateButton service={service.service} />
                         </TableCell>
                       </TableRow>
@@ -646,7 +647,7 @@ function RunsCard() {
               <TableBody>
                 {rows.map((run) => (
                   <TableRow key={run.id}>
-                    <TableCell className="font-medium tnum">
+                    <TableCell data-label="Run" className="font-medium tnum">
                       <Link
                         to="/operations/runs/$id"
                         params={{ id: String(run.id) }}
@@ -655,8 +656,8 @@ function RunsCard() {
                         #{run.id}
                       </Link>
                     </TableCell>
-                    <TableCell>{RUN_KIND[run.kind] ?? run.kind}</TableCell>
-                    <TableCell>
+                    <TableCell data-label="Kind">{RUN_KIND[run.kind] ?? run.kind}</TableCell>
+                    <TableCell data-label="Status">
                       <div className="flex items-center gap-1.5">
                         <RunStatus status={run.status} />
                         {run.report && ENDINGS.has(run.report.stage) === false ? (
@@ -664,22 +665,22 @@ function RunsCard() {
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell className="truncate text-muted-foreground">
+                    <TableCell data-label="Requested by" className="truncate text-muted-foreground">
                       {run.requestedBy}
                       <span className="ml-1 text-xs">
                         ({SOURCE_LABEL[run.source] ?? run.source})
                       </span>
                     </TableCell>
-                    <TableCell
+                    <TableCell data-label="When"
                       className="text-muted-foreground"
                       title={dateTime(run.requested)}
                     >
                       {relative(run.requested)}
                     </TableCell>
-                    <TableCell className="text-right tnum text-muted-foreground">
+                    <TableCell data-label="Duration" className="text-right tnum text-muted-foreground">
                       {duration(runSeconds(run))}
                     </TableCell>
-                    <TableCell className="truncate">
+                    <TableCell data-label="Result" className="truncate">
                       {run.report?.stage === "NOTHING_TO_DO" ? (
                         <span className="flex items-center gap-1.5 text-muted-foreground">
                           <CircleSlash className="size-3.5 shrink-0" aria-hidden />
@@ -739,7 +740,7 @@ function BackupsCard() {
                 <TableBody>
                   {rows.map((backup) => (
                     <TableRow key={backup.name}>
-                      <TableCell className="font-medium">
+                      <TableCell data-label="File" className="font-medium">
                         <Link
                           to="/operations/backups/$id"
                           params={{ id: backup.name }}
@@ -748,17 +749,17 @@ function BackupsCard() {
                           <code className="text-xs">{backup.name}</code>
                         </Link>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell data-label="Contents" className="text-muted-foreground">
                         <ArchiveKind name={backup.name} />
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell data-label="Taken" className="text-muted-foreground">
                         {dateTime(backup.modified)}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell data-label="Age" className="text-muted-foreground">
                         {since(backup.modified)}
                       </TableCell>
-                      <TableCell className="text-right tnum">{bytes(backup.bytes)}</TableCell>
-                      <TableCell>
+                      <TableCell data-label="Size" className="text-right tnum">{bytes(backup.bytes)}</TableCell>
+                      <TableCell data-label="State">
                         {backup.partial ? (
                           <StatusBadge
                             tone="warn"
@@ -830,33 +831,25 @@ export function OperationsPlanPage() {
         actions={<AskButton kind="UPDATE" variant="default" />}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Where the numbers come from</CardTitle>
-          <CardDescription>
-            So that nothing on this page is something the server did not say.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-          <p className="max-w-prose">
-            <strong className="text-foreground">There is no dry run.</strong> steward-worker has no
-            endpoint that works out what an update would do without doing it. So this page shows two
-            real things: the report of a run that has just resolved the versions and touched nothing
-            yet, and the comparison of the images against the registry.
-          </p>
-          <p className="max-w-prose">
-            A run stands in <code className="text-xs">RESOLVING</code> or{" "}
-            <code className="text-xs">PLANNED</code> for seconds only. If none is found below, that
-            does not mean there is nothing to do - it means no run is in that state right now. A
-            pure report run (the old kind <code className="text-xs">REPORT</code>) cannot be asked
-            for from this interface yet.
-          </p>
-        </CardContent>
-      </Card>
+      <Disclosure summary="Where these numbers come from, and what is not here">
+        <p className="max-w-prose">
+          <strong className="text-foreground">There is no dry run.</strong> steward-worker has no
+          endpoint that works out what an update would do without doing it. So this page shows two
+          real things: the report of a run that has just resolved the versions and touched nothing
+          yet, and the comparison of the images against the registry.
+        </p>
+        <p className="max-w-prose">
+          A run stands in <code className="text-xs">RESOLVING</code> or{" "}
+          <code className="text-xs">PLANNED</code> for seconds only. If none is found below, that
+          does not mean there is nothing to do - it means no run is in that state right now. A pure
+          report run (the old kind <code className="text-xs">REPORT</code>) cannot be asked for from
+          this interface yet.
+        </p>
+      </Disclosure>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Zuletzt ermittelt</CardTitle>
+          <CardTitle className="text-sm font-medium">Last resolved</CardTitle>
           <CardDescription>
             The most recent run whose report still stands in{" "}
             <code className="text-xs">RESOLVING</code> or <code className="text-xs">PLANNED</code>.
@@ -889,9 +882,9 @@ export function OperationsPlanPage() {
                   hint={`${RUN_KIND[planned.kind] ?? planned.kind} · ${planned.requestedBy}`}
                 />
                 <Stat
-                  label="Stand"
+                  label="Stage"
                   value={<StageBadge stage={planned.report!.stage} />}
-                  hint={`ermittelt ${relative(planned.requested)}`}
+                  hint={`resolved ${relative(planned.requested)}`}
                 />
               </div>
               <ReportLines lines={planned.report!.services} />
@@ -999,7 +992,7 @@ function RunDetail({ run }: { run: Run }) {
             value={dateTime(run.notBefore)}
             hint="the worker does not pick the row up before this"
           />
-          <Stat label="Gestartet" value={dateTime(run.started)} hint={relative(run.started)} />
+          <Stat label="Started" value={dateTime(run.started)} hint={relative(run.started)} />
           <Stat
             label="Duration"
             value={duration(runSeconds(run))}
@@ -1044,7 +1037,7 @@ function RunDetail({ run }: { run: Run }) {
       {report ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Stufen</CardTitle>
+            <CardTitle className="text-sm font-medium">Stages</CardTitle>
             <CardDescription>
               Not every run walks every stage - an update saves nothing, a backup installs nothing.
               Grey means "this run was never here", not "skipped".
@@ -1183,11 +1176,11 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
       <TableBody>
         {lines.map((line) => (
           <TableRow key={line.service} className="align-top">
-            <TableCell className="font-medium">{line.service}</TableCell>
-            <TableCell>
+            <TableCell data-label="Service" className="font-medium">{line.service}</TableCell>
+            <TableCell data-label="State">
               <LineState state={line.state} />
             </TableCell>
-            <TableCell>
+            <TableCell data-label="Changes">
               {line.changes.length === 0 && !line.detail ? (
                 <span className="text-muted-foreground">–</span>
               ) : (
@@ -1493,26 +1486,10 @@ export function OperationsRestorePage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Restore"
-        note="The finished command, to copy. This interface does not run it."
+        note="The finished command, to copy. This interface does not run it - it is a container in
+              the stack it would be restoring, so a button here would work in every situation except
+              the one it exists for."
       />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Why there is no button here</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-          <p className="max-w-prose">
-            A backup is needed on the day something is broken. This interface runs as a container
-            in the very stack it would be restoring - so a button here would work in every situation
-            except the one it exists for. That is why the page builds the command and does not run
-            it.
-          </p>
-          <p className="max-w-prose">
-            It is run on the host, in the repository's directory, with root rights - the volumes
-            belong to Docker.
-          </p>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -1576,11 +1553,7 @@ export function OperationsRestorePage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Was dabei passiert</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
+      <Disclosure summary="What a restore does - read this once">
           <p className="max-w-prose">
             <strong className="text-foreground">
               A volume is overwritten, not added to.
@@ -1603,8 +1576,11 @@ export function OperationsRestorePage() {
             Every archive sits on the same disk as the original. That helps against a wrong move;
             it does not help against that disk failing.
           </p>
-        </CardContent>
-      </Card>
+          <p className="max-w-prose">
+            It is run on the host, in the repository's directory, with root rights - the volumes
+            belong to Docker.
+          </p>
+      </Disclosure>
     </div>
   )
 }

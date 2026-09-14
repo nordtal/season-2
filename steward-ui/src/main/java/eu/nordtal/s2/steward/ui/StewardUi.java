@@ -23,6 +23,9 @@ import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JavalinGson;
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.SessionHandler;
+import org.eclipse.jetty.http.HttpCookie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -196,6 +199,16 @@ public final class StewardUi {
         app = Javalin.create(cfg -> {
             cfg.jsonMapper(new JavalinGson(new Gson(), true));
             cfg.startup.showJavalinBanner = false;
+
+            cfg.jetty.modifyServletContextHandler(handler -> {
+                theSessionCookie(handler);
+                final SessionHandler sessions = handler.getSessionHandler();
+                if (sessions != null) {
+                    final int seconds = config.sessionHours() * 3600;
+                    sessions.setMaxInactiveInterval(seconds);
+                    sessions.setMaxCookieAge(seconds);
+                }
+            });
 
             // The built frontend, out of the jar. `/web` is where Gradle's vite build lands.
             cfg.staticFiles.add(staticFiles -> {
@@ -541,6 +554,46 @@ public final class StewardUi {
         return app;
     }
 
+    /**
+     * The session cookie, spelled out - because every one of Jetty's defaults for it is wrong here.
+     *
+     * <h2>It has to survive the app being closed</h2>
+     * {@code JSESSIONID} is written without a {@code Max-Age}, which makes it a <em>browser
+     * session</em> cookie: it lives as long as the browser does. On a desktop that is a day. Added
+     * to an iPhone's home screen, Steward is its own app with its own cookie jar, and iOS ends that
+     * app whenever it wants the memory - so every second or third opening began at the Discord
+     * sign-in, which is four seconds of redirects to read one number. The cookie now carries the
+     * same lifetime the session does, so closing the app is not signing out.
+     *
+     * <p>What it still does not survive is a restart of this container: the sessions themselves are
+     * in memory. That is deliberate for now and it is written down in {@code UiSpec} - a cookie
+     * that outlives its session is not a leak, it is one wasted request that is answered with the
+     * sign-in page.</p>
+     *
+     * <h2>SameSite, because Jetty does not set it</h2>
+     * Javalin 7.2.3 leaves it unset and so the browser's own default applies, which is Lax in
+     * every current browser and nothing at all in some older ones. Said out loud here: the sign-in
+     * is a top-level redirect back from discord.com, which Lax allows, and every write is a
+     * {@code POST} from this origin, which Lax also allows. Strict would break the first of those.
+     *
+     * <h2>Secure, but only where there is TLS</h2>
+     * {@code setSecureRequestOnly} marks the cookie {@code Secure} when the request that created it
+     * was itself secure. Behind Caddy that is always; on {@code http://127.0.0.1:8080} in front of
+     * a developer it is never, and a hard {@code setSecureCookies(true)} there would hand out a
+     * cookie the browser then refuses to send back - a sign-in that silently never completes.
+     */
+    private static void theSessionCookie(final ServletContextHandler handler) {
+        final SessionHandler sessions = handler.getSessionHandler();
+        if (sessions == null) {
+            log.warn("Jetty gave this context no session handler, so the sign-in cookie keeps its"
+                    + " defaults: it ends when the browser does.");
+            return;
+        }
+        sessions.setSameSite(HttpCookie.SameSite.LAX);
+        sessions.setHttpOnly(true);
+        sessions.setSecureRequestOnly(true);
+    }
+
     // --- sign-in ---------------------------------------------------------------------------
 
     private void login(final Context ctx) {
@@ -598,9 +651,10 @@ public final class StewardUi {
         });
         discord.whatIsMissing().ifPresent(missing -> answer.put("signInUnavailable", missing));
         // Said out loud rather than in a footnote: §10a wants a security key after Discord, and
-        // this alpha does not have one.
-        answer.put("webauthn", "not built in this alpha - a Discord session is the whole of the "
-                + "authentication");
+        // this alpha does not have one. A whole sentence, because three places print it as one and
+        // a lower-case fragment ran into whatever each of them wrote next.
+        answer.put("webauthn", "A second factor is not built in this alpha: a Discord session is "
+                + "the whole of the authentication.");
         ctx.json(answer);
     }
 

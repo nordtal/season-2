@@ -1,0 +1,71 @@
+{
+  "_": [
+    "The two hand-kept halves of one rule: nothing in Steward is German.",
+    "",
+    "The list of German words is NOT here. It is derived, by both tests that enforce this rule,",
+    "from commands/src/main/resources/messages/commands/de.properties minus en.properties - the",
+    "bilingual bundle this project maintains anyway, which is 601 words of real German and grows",
+    "on its own. What is here is only what a derivation cannot know.",
+    "",
+    "Read by steward-ui/frontend/src/language.test.ts and by NothingIsGermanTest. One file, because",
+    "two copies of a rule is one copy that is quietly out of date."
+  ],
+
+  "_alsoEnglish": [
+    "Words that are in the German bundle and are also English words. Every one was checked by",
+    "hand against the sources here. This list is expected to grow by one whenever an English",
+    "sentence trips it - the test goes red once, somebody reads the word, and adds it. That is the",
+    "right failure: loud, and one line to answer. A guard that reports a false positive and is",
+    "then deleted is the failure this shape avoids."
+  ],
+  "alsoEnglish": [
+    "also",
+    "bots",
+    "den",
+    "die",
+    "hat",
+    "installation",
+    "lang",
+    "man",
+    "mit",
+    "operators",
+    "spawn",
+    "stand",
+    "syntax",
+    "tag",
+    "war"
+  ],
+
+  "_extra": [
+    "German words that the bundle does not contain and that were found in Steward anyway. This is",
+    "the memory of what actually leaked - it is not a dictionary and must not become one."
+  ],
+  "extra": [
+    "Abschicken",
+    "Ampel",
+    "dabei",
+    "ermittelt",
+    "Faktor",
+    "Lauf",
+    "Läufe",
+    "Strg",
+    "Stufen",
+    "umgezogen",
+    "Vergleich",
+    "Wurzel",
+    "zweiten",
+    "Abbrechen",
+    "Löschen",
+    "Zurück",
+    "Übersicht",
+    "Einstellungen",
+    "Willkommen",
+    "Benutzer"
+  ],
+
+  "_abbreviations": [
+    "Not words, so they are not caught by a word boundary. `z. B.` is the one that was actually",
+    "here, in the console's placeholder."
+  ],
+  "abbreviations": ["z. ?B\\.", "d\\. ?h\\.", "bzw\\.", "ggf\\.", "usw\\.", "u\\. ?a\\."]
+}

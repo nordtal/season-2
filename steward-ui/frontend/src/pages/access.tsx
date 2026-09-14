@@ -290,7 +290,7 @@ export function AccessPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex min-w-64 flex-1 items-center gap-2">
+            <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:min-w-64">
               <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={needle}
@@ -355,7 +355,7 @@ export function AccessPage() {
                     <TableBody>
                       {rows.map((person) => (
                         <TableRow key={person.discordId}>
-                          <TableCell className="font-medium">
+                          <TableCell data-label="Discord ID" className="font-medium">
                             {/* A button rather than a clickable row: the row also carries a
                              * destructive action, and "I only wanted to look" must not be one
                              * misplaced click away from it. */}
@@ -367,16 +367,16 @@ export function AccessPage() {
                               {person.discordId}
                             </button>
                           </TableCell>
-                          <TableCell>
+                          <TableCell data-label="Guild">
                             <MemberBadge state={person.memberState} />
                           </TableCell>
-                          <TableCell>
+                          <TableCell data-label="Access">
                             <AccessBadge person={person} now={now} />
                           </TableCell>
-                          <TableCell>
+                          <TableCell data-label="Minecraft">
                             <LinkBadge person={person} />
                           </TableCell>
-                          <TableCell>
+                          <TableCell data-label="Roles">
                             <div className="flex items-center gap-1">
                               {person.donor ? (
                                 <StatusBadge
@@ -468,7 +468,7 @@ function SecondDoorNote() {
         revocation from here writes a row into the{" "}
         <Link to="/journal" className="text-primary underline-offset-4 hover:underline">
           Journal
-        </Link>
+        </Link>{" "}
         naming the admin who clicked.
       </p>
     </div>
@@ -783,16 +783,16 @@ function PersonGrants({
               const state = grantTone(row, now)
               return (
                 <TableRow key={row.id}>
-                  <TableCell>{GRANT_SOURCES[row.source] ?? row.source}</TableCell>
-                  <TableCell className="text-muted-foreground tnum">
+                  <TableCell data-label="Source">{GRANT_SOURCES[row.source] ?? row.source}</TableCell>
+                  <TableCell data-label="Window" className="text-muted-foreground tnum">
                     {dateTime(row.validFrom)} – {dateTime(row.validUntil)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell data-label="State">
                     <StatusBadge tone={state.tone} title={state.title}>
                       {state.label}
                     </StatusBadge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell data-label="Request">
                     {row.paymentRequestId ? (
                       <span className="font-mono text-xs" title={row.paymentRequestId}>
                         {shortId(row.paymentRequestId)}
@@ -935,7 +935,7 @@ export function PaymentsPage() {
                       value={status === "" ? "ALL" : status}
                       onValueChange={(value) => setStatus(value === "ALL" ? "" : value)}
                     >
-                      <SelectTrigger id="payment-status" className="w-56">
+                      <SelectTrigger id="payment-status" className="w-full sm:w-56">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -983,20 +983,20 @@ export function PaymentsPage() {
                           const late = isOverdue(payment, now)
                           return (
                             <TableRow key={payment.id}>
-                              <TableCell className="font-mono font-medium">
+                              <TableCell data-label="Reference" className="font-mono font-medium">
                                 {payment.reference}
                               </TableCell>
-                              <TableCell className="font-mono text-muted-foreground">
+                              <TableCell data-label="Person" className="font-mono text-muted-foreground">
                                 {payment.discordId}
                               </TableCell>
-                              <TableCell className="text-right tnum">{payment.days}</TableCell>
-                              <TableCell className="text-right tnum">
+                              <TableCell data-label="Days" className="text-right tnum">{payment.days}</TableCell>
+                              <TableCell data-label="Amount" className="text-right tnum">
                                 {euros(payment.amountCents)}
                               </TableCell>
-                              <TableCell className="text-right tnum text-muted-foreground">
+                              <TableCell data-label="Donation" className="text-right tnum text-muted-foreground">
                                 {payment.donationCents > 0 ? euros(payment.donationCents) : "–"}
                               </TableCell>
-                              <TableCell>
+                              <TableCell data-label="Status">
                                 <div className="flex items-center gap-1">
                                   <StatusBadge
                                     tone={late ? "warn" : (state?.tone ?? "idle")}
@@ -1017,13 +1017,13 @@ export function PaymentsPage() {
                                   ) : null}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-muted-foreground tnum">
+                              <TableCell data-label="Created" className="text-muted-foreground tnum">
                                 {dateTime(payment.created)}
                               </TableCell>
-                              <TableCell className="text-muted-foreground tnum">
+                              <TableCell data-label="Deadline" className="text-muted-foreground tnum">
                                 {dateTime(payment.expires)}
                               </TableCell>
-                              <TableCell className="text-muted-foreground tnum">
+                              <TableCell data-label="Paid" className="text-muted-foreground tnum">
                                 {dateTime(payment.settled)}
                               </TableCell>
                               <TableCell>
@@ -1099,7 +1099,7 @@ export function AccountsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex min-w-64 flex-1 items-center gap-2">
+            <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:min-w-64">
               <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={needle}
@@ -1160,21 +1160,21 @@ export function AccountsPage() {
                     <TableBody>
                       {rows.map((person) => (
                         <TableRow key={person.discordId}>
-                          <TableCell className="font-mono font-medium">
+                          <TableCell data-label="Discord ID" className="font-mono font-medium">
                             {person.discordId}
                           </TableCell>
-                          <TableCell className="font-mono text-muted-foreground">
+                          <TableCell data-label="Minecraft UUID" className="font-mono text-muted-foreground">
                             {person.minecraftUuid ?? (
                               <span className="font-sans text-xs">not linked</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-muted-foreground tnum">
+                          <TableCell data-label="Linked" className="text-muted-foreground tnum">
                             {person.linked ? dateTime(person.linked) : "–"}
                           </TableCell>
-                          <TableCell>
+                          <TableCell data-label="Guild">
                             <MemberBadge state={person.memberState} />
                           </TableCell>
-                          <TableCell>
+                          <TableCell data-label="Access">
                             <AccessBadge person={person} now={now} />
                           </TableCell>
                         </TableRow>
@@ -1241,7 +1241,7 @@ function AuthenticationCard() {
         ) : me.data ? (
           // The backend's own sentence, verbatim and in English: this is the API's answer and not
           // a claim this page makes on its behalf.
-          <pre className="overflow-auto rounded-sm bg-muted px-2 py-1 text-xs text-muted-foreground">
+          <pre className="overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
             /api/me · webauthn: {me.data.webauthn}
           </pre>
         ) : (
@@ -1295,13 +1295,13 @@ export function JournalPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-4">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
               <Label htmlFor="journal-action">Action</Label>
               <Select
                 value={action === "" ? "ALL" : action}
                 onValueChange={(value) => setAction(value === "ALL" ? "" : value)}
               >
-                <SelectTrigger id="journal-action" className="w-64">
+                <SelectTrigger id="journal-action" className="w-full sm:w-64">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1315,21 +1315,26 @@ export function JournalPage() {
               </Select>
             </div>
 
+            {/*
+              `w-64` on the field and a button beside it is 374px of a 356px card: on a phone the
+              Filter button was drawn half off the screen. The field takes the row it is on and the
+              buttons wrap under it; from `sm` the fixed width and the one-line row come back.
+            */}
             <form
-              className="flex items-end gap-2"
+              className="flex w-full flex-wrap items-end gap-2"
               onSubmit={(event) => {
                 event.preventDefault()
                 setSubject(typed.trim())
               }}
             >
-              <div className="flex flex-col gap-1.5">
+              <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
                 <Label htmlFor="journal-subject">Discord id concerned</Label>
                 <Input
                   id="journal-subject"
                   value={typed}
                   onChange={(event) => setTyped(event.target.value)}
                   placeholder="exact id…"
-                  className="w-64 font-mono"
+                  className="w-full font-mono sm:w-64"
                   autoComplete="off"
                   spellCheck={false}
                 />
@@ -1384,21 +1389,21 @@ export function JournalPage() {
                   <TableBody>
                     {list.map((entry) => (
                       <TableRow key={entry.id}>
-                        <TableCell className="text-muted-foreground tnum" title={entry.occurred}>
+                        <TableCell data-label="When" className="text-muted-foreground tnum" title={entry.occurred}>
                           {dateTime(entry.occurred)}
                         </TableCell>
                         {/* The action is printed raw, exactly as the row carries it: any prettier
                          * wording would be a table that silently falls back to the enum name for
                          * anything new - and this column is what somebody greps the bot's log for. */}
-                        <TableCell className="font-medium">{entry.action}</TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell data-label="Action" className="font-medium">{entry.action}</TableCell>
+                        <TableCell data-label="Triggered by" className="text-muted-foreground">
                           {entry.actor ?? (
                             <span title="No admin - the bot acted on its own.">
                               Bot
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="font-mono text-muted-foreground">
+                        <TableCell data-label="Concerns" className="font-mono text-muted-foreground">
                           {entry.subject ?? "–"}
                           {entry.mcUuid ? (
                             <span className="block text-xs" title={entry.mcUuid}>
@@ -1406,7 +1411,7 @@ export function JournalPage() {
                             </span>
                           ) : null}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{entry.detail ?? "–"}</TableCell>
+                        <TableCell data-label="Detail" className="text-muted-foreground">{entry.detail ?? "–"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -298,7 +298,7 @@ describe("useLogStream", () => {
     const { result } = mount()
     const first = live()
 
-    act(() => first.emit("gone", "weg"))
+    act(() => first.emit("gone", "it ended"))
     act(() => now(result).reconnect())
 
     expect(FakeEventSource.opened).toHaveLength(2)

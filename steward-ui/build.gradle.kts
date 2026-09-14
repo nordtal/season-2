@@ -8,10 +8,14 @@ plugins {
 
 application.mainClass.set("eu.nordtal.s2.steward.ui.StewardUi")
 
-// Files outside this module that NothingIsGermanTest reads as text. Steward is three services and
-// one script, and the rule is about all of them - so the test walks the other two source trees and
-// the deploy script, and without these declarations an edit to one of them would leave
+// Files outside this module that NothingIsGermanTest reads as text. Steward is three services, one
+// script and the compose file, and the rule is about all of them - so the test walks the other two
+// source trees and those files, and without these declarations an edit to one of them would leave
 // :steward-ui:test UP-TO-DATE and the guard would be the thing that did not run.
+//
+// The two message bundles are here for a different reason: the list of German words is DERIVED from
+// them (de minus en), so they are not a thing being checked, they are the check itself. A word
+// added to the bot's German has to re-run this test, or the guard is one commit out of date.
 repositoryRootTestInputs {
     readsTree("steward-worker/src", "steward-deployer/src")
 
@@ -19,6 +23,19 @@ repositoryRootTestInputs {
     reads("deploy/README.md")
     reads("steward-worker/README.md")
     reads("steward-deployer/README.md")
+    reads("compose.yml")
+
+    reads("commands/src/main/resources/messages/commands/de.properties")
+    reads("commands/src/main/resources/messages/commands/en.properties")
+    reads("steward-ui/language-rules.json")
+
+    // MarkIsTheServerIconTest: the mark is the server icon, and the frontend needs its own copy of
+    // it because a Vite build cannot read across the repository. The original and both copies.
+    reads("resource-pack/src/pack.png")
+    reads("steward-ui/frontend/public/icon.png")
+    reads("steward-ui/frontend/public/icon-512.png")
+    reads("steward-ui/frontend/public/manifest.webmanifest")
+    reads("steward-ui/frontend/index.html")
 }
 
 repositories {

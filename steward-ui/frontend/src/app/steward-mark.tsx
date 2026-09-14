@@ -1,20 +1,28 @@
 /**
- * A placeholder mark. The real logo is a paintbrush job and nobody's agent can do it - this is a
- * rounded square in the brand blue so the header is not empty, and it is the one place in the
- * interface where blue appears without being clickable: it is identity, not a surface.
+ * The mark: the server icon, and deliberately the same file.
+ *
+ * `resource-pack/src/pack.png` is what a player sees beside the MOTD in the server browser and what
+ * the resource pack carries as its own picture. It is the favicon, the home-screen icon and this -
+ * so the thing in a phone's app switcher is the thing in the server list, and there is one mark to
+ * keep rather than three that drift. `public/icon.png` is a byte-for-byte copy of it, held there by
+ * `MarkIsTheServerIconTest`, because a frontend cannot read across the repository at build time.
+ *
+ * It is drawn at 20 to 32 pixels, which is a *downscale* of 128 - so the browser's smooth resampler
+ * is the right one and there is no `image-rendering` here. The upscale is the other case, and the
+ * one that needs nearest neighbour; that is `icon-512.png` and it is generated, not scaled by CSS.
  */
 export function StewardMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 16 16" aria-hidden className={className}>
-      <rect x="0.5" y="0.5" width="15" height="15" rx="4" fill="var(--primary)" />
-      <path
-        d="M4.6 11.4V4.6l6.8 6.8V4.6"
-        fill="none"
-        stroke="var(--primary-foreground)"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <img
+      src="/icon.png"
+      alt=""
+      aria-hidden
+      width={128}
+      height={128}
+      className={className}
+      // Square, and the interface's own radius - the source is a square picture with no rounding
+      // of its own, and an unrounded square beside rounded cards reads as a sticker.
+      style={{ borderRadius: "var(--radius-sm)" }}
+    />
   )
 }

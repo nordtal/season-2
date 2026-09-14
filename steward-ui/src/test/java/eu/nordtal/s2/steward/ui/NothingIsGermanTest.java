@@ -1,5 +1,7 @@
 package eu.nordtal.s2.steward.ui;
 
+import com.google.gson.Gson;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -9,62 +11,169 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Nothing in Steward is German - the three services and the script that deploys them.
+ * Nothing in Steward is German - the three services, the script that deploys them and the compose
+ * file they are described in.
  *
  * <h2>Why a test and not a rule</h2>
  * It was a rule, it was carried out by hand, and it drifted. {@code Ampel} survived in
  * {@link eu.nordtal.s2.steward.ui.config.UiSpec}'s {@code @Comment} text, which is not an internal
  * note at all: jcore writes those comments into {@code steward-ui.yml}, so the one German word left
- * in this module was in the file an operator opens. The frontend had lost more than that -
- * {@code Strg} on two pages and {@code lang="de"} on the document - and its own guard lives next to
- * it in {@code frontend/src/language.test.ts}, because that is the runner that sees those files.
+ * in this module was in the file an operator opens.
  *
- * <p>The bot is the bilingual half of this project and is deliberately not scanned. That is what
- * its language configuration is for, and its message bundles are German on purpose.</p>
+ * <h2>The word list is derived, and that is what makes it a guard</h2>
+ * The first version of this test, and of the frontend's, carried a hand-written list of about sixty
+ * words. It was written on 2026-09-14 and by the next morning it had missed nine German strings a
+ * person could read on screen - a button that said {@code Abschicken}, a column head that said
+ * {@code Vergleich}, and the start page's own all-clear sentence, which was
+ * {@code "Alles in Ordnung."}. Sixty words is not a rule. It is a memory of the sixty words
+ * somebody had already noticed.
  *
- * <h2>The word list is small on purpose, and there is no umlaut rule here</h2>
- * These are the words that actually appeared plus their nearest neighbours, not a dictionary. A
- * guard that cries wolf once is a guard somebody deletes - which is also why the frontend's
- * "no umlaut anywhere" rule is not repeated on this side. {@code LogFrames} explains chunked UTF-8
- * with the sentence "an \u00e4 in a death message", and that character is the subject of the
- * comment rather than a word of German: a rule that failed on it would be teaching the code to
- * describe bytes worse.
+ * <p>So the list has a source. {@code commands/.../de.properties} is a corpus of real German this
+ * project maintains anyway, and every word in it that is <b>not</b> also in {@code en.properties}
+ * is forbidden here. That subtraction is what keeps {@code Server}, {@code Status} and
+ * {@code Discord} out of the way, and it means the guard grows whenever the bot's German does.</p>
+ *
+ * <p>What a derivation cannot know lives in {@code steward-ui/language-rules.json}: the words that
+ * are German in the bundle and English here ({@code die}, {@code stand}, {@code spawn}), the ones
+ * that leaked and are in no bundle ({@code Ampel}, {@code Strg}), and the abbreviations, which are
+ * not words and have no boundary to match on. The frontend's guard reads that same file - one rule,
+ * one place, two runners, because each sees files the other cannot.</p>
+ *
+ * <h2>There is no umlaut rule here, unlike on the frontend</h2>
+ * {@code LogFrames} explains chunked UTF-8 with the sentence "an ä in a death message", and
+ * that character is the subject of the comment rather than a word of German: a rule that failed on
+ * it would be teaching the code to describe bytes worse.
+ *
+ * <p>The bot is the bilingual half of this project and is deliberately not scanned - that is what
+ * its language configuration is for.</p>
  */
 class NothingIsGermanTest {
 
-    private static final Pattern GERMAN = Pattern.compile(
-            // The words that were actually still here, and then the function words a whole German
-            // sentence is made of. Every one was checked against English first: `die`, `war`, `man`
-            // and `mit` are English words too and are deliberately absent - one false positive is
-            // what gets a guard deleted. The frontend's guard carries the same list.
-            "\\b(Strg|Ampel|Lauf|Faktor|zweiten|gibt|kein|keine|keinen|keinem|keiner|nicht"
-                    + "|nichts|und|oder|wird|werden|sind|wurde|wurden|ein|eine|einen|einem|eines"
-                    + "|der|den|dem|des|das|diese|dieser|dieses|auch|aber|noch|schon|immer|jetzt"
-                    + "|sehr|wenn|weil|dass|damit|bereits|Abbrechen|Anmelden|Willkommen|Fehler"
-                    + "|Datei|Seite|Passwort|Benutzer|Anmeldung)\\b");
-
-    /** What Steward is: three services and the one script that puts them on a host. */
+    /** What Steward is: three services, the script that puts them on a host, the compose file. */
     private static final List<String> TREES = List.of(
             "steward-ui/src", "steward-worker/src", "steward-deployer/src");
     private static final List<String> FILES = List.of(
             "deploy/setup.sh", "steward-worker/README.md", "steward-deployer/README.md",
-            "deploy/README.md");
+            "deploy/README.md", "compose.yml");
+
+    private static final String BUNDLE = "commands/src/main/resources/messages/commands/";
+    private static final String RULES = "steward-ui/language-rules.json";
+
+    /** Three or more letters, German ones included. Two-letter words are noise in both languages. */
+    private static final Pattern WORD = Pattern.compile("[A-Za-zÄÖÜäöüß]{3,}");
+
+    /** The hand-kept half of the rule. Everything else about the list is computed. */
+    private record Rules(List<String> alsoEnglish, List<String> extra, List<String> abbreviations) {
+    }
+
+    @Test
+    @DisplayName("the word list is derived from the bot's bundle and is not a short one")
+    void theListHasASource() {
+        final Set<String> forbidden = forbidden();
+        // A guard that silently stops guarding is worse than none, because the build stays green.
+        // If the bundle moves or the parse breaks, this is the assertion that says so.
+        assertTrue(forbidden.size() > 300,
+                "only " + forbidden.size() + " German words were derived from " + BUNDLE
+                        + " - the bundle moved, or the values stopped being parsed.");
+        assertTrue(forbidden.contains("vergleich"), "a word that actually leaked is not in the list");
+        assertFalse(forbidden.contains("stand"),
+                "`stand` is an English word and is in language-rules.json's alsoEnglish");
+    }
 
     @Test
     @DisplayName("no German word is in any of Steward's own files")
     void noGermanWord() {
-        assertEquals(List.of(), offences(GERMAN),
+        assertEquals(List.of(), offences(wordPattern(forbidden())),
                 "Steward is English - the interface, the logs, the comments and the files it"
                         + " writes. The bot is the bilingual half and has its own bundles.");
     }
+
+    @Test
+    @DisplayName("no German abbreviation either")
+    void noGermanAbbreviation() {
+        final Rules rules = rules();
+        assertEquals(List.of(), offences(Pattern.compile(String.join("|", rules.abbreviations()))),
+                "`z. B.` is not `e.g.` - and it has no word boundary, which is why it needs its own"
+                        + " pattern rather than a place in the list.");
+    }
+
+    // --- the list ------------------------------------------------------------------------------
+
+    /** German-only bundle words, minus what is also English, plus what leaked and is in no bundle. */
+    private static Set<String> forbidden() {
+        final Rules rules = rules();
+        final Set<String> allowed = lowercased(rules.alsoEnglish());
+        final Set<String> english = bundleWords("en.properties");
+
+        final Set<String> forbidden = new TreeSet<>();
+        for (final String word : bundleWords("de.properties")) {
+            if (!english.contains(word) && !allowed.contains(word)) {
+                forbidden.add(word);
+            }
+        }
+        for (final String word : lowercased(rules.extra())) {
+            if (!allowed.contains(word)) {
+                forbidden.add(word);
+            }
+        }
+        return forbidden;
+    }
+
+    /** Every word in the <em>values</em> of a message bundle, lowercased. Never in its keys. */
+    private static Set<String> bundleWords(final String name) {
+        final Path file = repository().resolve(BUNDLE + name);
+        assertTrue(Files.isRegularFile(file), file + " is not there, so this test derived its word"
+                + " list from nothing. Fix the path rather than the assertion.");
+        final Set<String> words = new HashSet<>();
+        for (final String line : lines(file)) {
+            final int separator = line.indexOf('=');
+            if (separator == -1 || line.stripLeading().startsWith("#")) {
+                continue;
+            }
+            final Matcher matcher = WORD.matcher(line.substring(separator + 1));
+            while (matcher.find()) {
+                words.add(matcher.group().toLowerCase(Locale.ROOT));
+            }
+        }
+        return words;
+    }
+
+    private static Rules rules() {
+        final Path file = repository().resolve(RULES);
+        assertTrue(Files.isRegularFile(file), file + " is not there, and it is half of this rule.");
+        try {
+            return new Gson().fromJson(Files.readString(file, StandardCharsets.UTF_8), Rules.class);
+        } catch (final IOException unreadable) {
+            throw new UncheckedIOException(unreadable);
+        }
+    }
+
+    private static Set<String> lowercased(final Collection<String> words) {
+        return words.stream().map(word -> word.toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
+    }
+
+    private static Pattern wordPattern(final Collection<String> words) {
+        return Pattern.compile("\\b(" + words.stream().map(Pattern::quote)
+                .collect(Collectors.joining("|")) + ")\\b", Pattern.CASE_INSENSITIVE);
+    }
+
+    // --- the scan ------------------------------------------------------------------------------
 
     private static List<String> offences(final Pattern pattern) {
         final Path root = repository();
@@ -76,7 +185,7 @@ class NothingIsGermanTest {
             try (Stream<Path> walk = Files.walk(directory)) {
                 walk.filter(Files::isRegularFile)
                         .filter(path -> path.getFileName().toString().endsWith(".java"))
-                        // This file is a list of German words, which is the whole of the exception.
+                        // This file is about German words, which is the whole of the exception.
                         .filter(path -> !path.getFileName().toString()
                                 .equals("NothingIsGermanTest.java"))
                         .forEach(files::add);
@@ -93,12 +202,7 @@ class NothingIsGermanTest {
 
         final List<String> found = new ArrayList<>();
         for (final Path file : files) {
-            final List<String> lines;
-            try {
-                lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-            } catch (final IOException unreadable) {
-                throw new UncheckedIOException(unreadable);
-            }
+            final List<String> lines = lines(file);
             for (int number = 0; number < lines.size(); number++) {
                 if (pattern.matcher(lines.get(number)).find()) {
                     found.add(root.relativize(file) + ":" + (number + 1) + ": "
@@ -107,6 +211,14 @@ class NothingIsGermanTest {
             }
         }
         return found;
+    }
+
+    private static List<String> lines(final Path file) {
+        try {
+            return Files.readAllLines(file, StandardCharsets.UTF_8);
+        } catch (final IOException unreadable) {
+            throw new UncheckedIOException(unreadable);
+        }
     }
 
     /**

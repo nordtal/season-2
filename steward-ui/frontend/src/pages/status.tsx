@@ -203,7 +203,7 @@ function HostCard() {
           <p className="text-sm text-muted-foreground">{host.data.unreadable}</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 min-[26rem]:grid-cols-2">
               <Stat
                 label="CPU"
                 value={percent(host.data?.cpuPercent)}
@@ -252,9 +252,13 @@ function HostCard() {
               format={(value) => `${Math.round(value)} %`}
               height={96}
             />
-            <p className="text-xs text-muted-foreground">
-              Percentages are shares of the whole host: {host.data?.containerLimits}
-            </p>
+            {/*
+              The worker's own sentence, and nothing in front of it. This used to read
+              "Percentages are shares of the whole host: none - percentages are a share of the
+              host" - the same statement twice, because the value is already a full sentence about
+              exactly that. Whatever steward-worker has to say about limits, it says here.
+            */}
+            <p className="text-xs text-muted-foreground">{host.data?.containerLimits}</p>
           </>
         )}
       </CardContent>
@@ -389,7 +393,7 @@ function SeasonCard() {
           <Failure error={season.error} onRetry={season.refetch} />
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 min-[26rem]:grid-cols-2">
               <Stat label="Phase" value={PHASES[season.data!.phase] ?? season.data!.phase} />
               <Stat label="Season start" value={dateTime(season.data!.launch)} />
             </div>
@@ -575,7 +579,7 @@ function GroupRows({
       </TableRow>
       {rows.map((service) => (
         <TableRow key={service.service}>
-          <TableCell className="font-medium">
+          <TableCell data-label="Service" className="font-medium">
             <Link
               to="/services/$name"
               params={{ name: service.service }}
@@ -587,17 +591,17 @@ function GroupRows({
               <span className="ml-2 text-xs text-warning">{service.unreadable}</span>
             ) : null}
           </TableCell>
-          <TableCell>
+          <TableCell data-label="State">
             <ServiceState state={service.state} health={service.health} />
           </TableCell>
-          <TableCell>
+          <TableCell data-label="Image">
             <DriftBadge drift={service.drift} />
           </TableCell>
-          <TableCell className="text-muted-foreground">
+          <TableCell data-label="Uptime" className="text-muted-foreground">
             {service.startedAt ? since(service.startedAt) : "–"}
           </TableCell>
-          <TableCell className="text-right tnum">{bytes(service.memoryBytes)}</TableCell>
-          <TableCell className="text-right tnum">{percent(service.cpuPercent)}</TableCell>
+          <TableCell data-label="RAM" className="text-right tnum">{bytes(service.memoryBytes)}</TableCell>
+          <TableCell data-label="CPU" className="text-right tnum">{percent(service.cpuPercent)}</TableCell>
           <TableCell>
             <div className="flex items-center justify-end gap-1">
               <Button asChild variant="ghost" size="sm">

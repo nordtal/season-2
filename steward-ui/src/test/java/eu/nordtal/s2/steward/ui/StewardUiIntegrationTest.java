@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,7 @@ import java.util.regex.Pattern;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -512,6 +514,44 @@ class StewardUiIntegrationTest {
 
         assertFalse(GSON.fromJson(get(browser(), "/api/me").body(), JsonObject.class)
                 .get("signedIn").getAsBoolean());
+    }
+
+    @Test
+    @DisplayName("the cookie outlives the app being closed, and says so in its own attributes")
+    void theCookieSurvivesTheAppBeingClosed() throws Exception {
+        // WHY THIS IS ASSERTED ON THE WIRE AND NOT ON A SETTER. Every one of these is a default
+        // that Jetty picks and that is wrong for a thing on an iPhone's home screen: without
+        // Max-Age the cookie ends when the browser does, which for a standalone web app means
+        // whenever iOS wants the memory back, and the next opening is four seconds of Discord
+        // redirects to read one number.
+        //
+        // The cookie is set by /auth/login, not by /auth/callback: the session comes into being the
+        // moment the OAuth state is put in it, which is one request before anybody is signed in.
+        final HttpClient browser = browser();
+        final HttpResponse<String> login = get(browser, "/auth/login");
+        final String state = stateFrom(login);
+        get(browser, "/auth/callback?code=the-code&state=" + state);
+
+        final String cookie = login.headers().allValues("Set-Cookie").stream()
+                .filter(header -> header.startsWith("JSESSIONID="))
+                .findFirst()
+                .orElseGet(() -> fail("the sign-in set no session cookie: "
+                        + login.headers().map()));
+
+        assertTrue(cookie.contains("Max-Age="), cookie
+                + " has no Max-Age, so it is a browser-session cookie and a home-screen web app"
+                + " signs in again every time iOS has ended it");
+        assertTrue(cookie.contains("HttpOnly"), cookie + " is readable from JavaScript");
+        assertTrue(cookie.toLowerCase(Locale.ROOT).contains("samesite=lax"), cookie
+                + " has no SameSite, so what a browser does with it on a cross-site POST is the"
+                + " browser's default rather than this application's decision");
+        // ...and NOT Secure, because this request was plain http. That is `setSecureRequestOnly`
+        // doing its job: behind Caddy every request is https and the flag appears, in front of a
+        // developer on 127.0.0.1 it does not - and a hard Secure here would hand out a cookie the
+        // browser then refuses to send back, which is a sign-in that never completes and says
+        // nothing about why.
+        assertFalse(cookie.contains("Secure"), cookie
+                + " is marked Secure on a plain http request, so a local sign-in cannot finish");
     }
 
     @Test
@@ -1113,7 +1153,7 @@ class StewardUiIntegrationTest {
     @DisplayName("an admin with the longest name Discord allows can do everything, and is journalled by id")
     void aLongDisplayNameIsNotAnOverflow() throws Exception {
         final String snowflake = "1234567890123456789";
-        final String longName = "Wilhelmine von Hohenzollernstein";
+        final String longName = "Archibald Fotheringay-Chumleighs";
         assertEquals(19, snowflake.length(), "a Discord snowflake is 17 to 19 digits");
         assertEquals(32, longName.length(), "32 is the longest nickname Discord accepts");
         // What the old form would have produced, and what the column is: the arithmetic, so that

@@ -95,6 +95,22 @@
   --control-min-height: 36px;
 }
 
+/*
+ * A FINGER IS NOT A MOUSE POINTER.
+ *
+ * 36px is a comfortable target for something you aim with a cursor and a poor one for something you
+ * aim with the middle of a thumb; both Apple and Google land on about 44. This asks about the input
+ * device rather than the width, which is the honest question - a touchscreen laptop gets the larger
+ * targets and a narrow desktop window does not.
+ */
+@media (pointer: coarse) {
+  :root,
+  .dark {
+    --row-height: 44px;
+    --control-min-height: 44px;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -221,5 +237,98 @@
 
   .steward-table :where(button, a[role="button"], [data-slot="button"]) {
     min-height: var(--control-min-height);
+  }
+
+  /*
+   * ON A PHONE A ROW IS A CARD.
+   *
+   * Every table in this interface was built with fixed column widths - `w-[14rem]`, `w-[22rem]` -
+   * because every one of them is a table of facts an operator reads across. None of that fits in
+   * 390 pixels, and the fallback the component already had was a sideways scrollbar: to see the CPU
+   * column you swiped, per table, per row, forever.
+   *
+   * So below `md` the table stops being a table. `display` is changed out from under it, which
+   * takes the column widths with it - `w-[14rem]` on a `<th>` means nothing once the `<th>` is
+   * `display: none` - and every cell becomes a line of "name: value". The name comes from
+   * `data-label` on the cell, because the header row it would have come from is gone.
+   *
+   * A CELL WITH NO `data-label` IS NOT A HOLE: it spans the full width instead of leaving an empty
+   * name column. That is deliberate. An action cell holding two buttons wants the whole width, and
+   * a label somebody forgot reads as an unnamed line rather than as a broken layout.
+   */
+  @media (width < 48rem) {
+    .steward-table,
+    .steward-table :where(thead, tbody, tr, th, td) {
+      display: block;
+    }
+
+    .steward-table thead {
+      display: none;
+    }
+
+    .steward-table tbody {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .steward-table tbody tr {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: color-mix(in oklab, var(--card) 70%, var(--background));
+      padding: 0.25rem var(--cell-padding);
+    }
+
+    /* The component's own `[&_tr:last-child]:border-0` would leave the last card without one. */
+    .steward-table tbody tr:last-child {
+      border-bottom-width: 1px;
+    }
+
+    .steward-table :where(th, td) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: center;
+      gap: 0 0.75rem;
+      height: auto;
+      min-height: var(--row-height);
+      padding-inline: 0;
+      padding-block: 0.25rem;
+      text-align: left;
+      /*
+        An image reference is one word to a line-breaking algorithm - `ghcr.io/nordtal/steward-
+        deployer:latest` is 281px of unbreakable text in a column 200px wide, and it was drawn
+        straight off the right edge of the phone where nothing could reach it. On a wide screen the
+        column is wide enough and this never applies.
+      */
+      overflow-wrap: anywhere;
+    }
+
+    .steward-table td[data-label] {
+      grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr);
+    }
+
+    .steward-table td[data-label]::before {
+      content: attr(data-label);
+      color: var(--muted-foreground);
+      font-size: 0.75rem;
+      line-height: 1.25rem;
+    }
+
+    /* `text-right` is an alignment against a column that no longer exists. */
+    .steward-table td {
+      justify-items: start;
+    }
+
+    /*
+      ...and `justify-items: start` is why this is needed. A grid item that is not stretched is
+      sized to its content, and Firefox measured `ghcr.io/nordtal/steward-deployer:latest` at its
+      full 281px inside a 134px column - so the cell was right, the badge inside it was right, and
+      the reference was still drawn 80px off the right edge of the phone. A percentage max-width
+      resolves against the grid area, which is the number that was being ignored. Stretching the
+      items instead would fix it and make every status badge as wide as the column.
+    */
+    .steward-table td > * {
+      max-width: 100%;
+    }
   }
 }

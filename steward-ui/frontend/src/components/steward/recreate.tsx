@@ -88,7 +88,7 @@ export function RecreateButton({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Recreate {service}?</DialogTitle>
           <DialogDescription asChild>

@@ -15,12 +15,30 @@
 -- be registered, not a source a row is ever written with: `announce` travels as CONSOLE, correctly,
 -- because nobody typed it. Adding a value nothing writes is a CHECK that stops checking.
 
+-- NOT VALID, AND THEN VALIDATED SEPARATELY, for both of the constraints below.
+--
+-- A plain ADD CONSTRAINT scans the whole table while holding ACCESS EXCLUSIVE, so every command
+-- submission waits for the scan. Today that is 28 rows and microseconds; a season from now this
+-- table is every command anybody sent all year, and by then this file cannot be changed - it will
+-- have been applied and Flyway will hold its checksum. NOT VALID takes the lock only long enough
+-- to record the rule, VALIDATE CONSTRAINT then re-reads under a lock that lets writes through, and
+-- the rule applies to new rows from the first statement onwards either way.
+--
+-- The source check is replaced rather than altered, which Postgres has no single statement for. It
+-- goes in under a temporary name so that the moment where neither constraint is in force is one
+-- statement long instead of a full table scan long.
+ALTER TABLE command_request
+    ADD CONSTRAINT command_request_source_check_new
+        CHECK (source IN ('DISCORD', 'GAME', 'CONSOLE', 'WEB')) NOT VALID;
+
+ALTER TABLE command_request
+    VALIDATE CONSTRAINT command_request_source_check_new;
+
 ALTER TABLE command_request
     DROP CONSTRAINT command_request_source_check;
 
 ALTER TABLE command_request
-    ADD CONSTRAINT command_request_source_check
-        CHECK (source IN ('DISCORD', 'GAME', 'CONSOLE', 'WEB'));
+    RENAME CONSTRAINT command_request_source_check_new TO command_request_source_check;
 
 -- The same rule DISCORD has, and for the same reason: the target re-reads `discord_user.admin`
 -- after it claims the row, because the flag can change while the row is waiting. A row with no
@@ -31,4 +49,7 @@ ALTER TABLE command_request
 -- still press a button.
 ALTER TABLE command_request
     ADD CONSTRAINT command_request_web_knows_who
-        CHECK (source <> 'WEB' OR discord_id IS NOT NULL);
+        CHECK (source <> 'WEB' OR discord_id IS NOT NULL) NOT VALID;
+
+ALTER TABLE command_request
+    VALIDATE CONSTRAINT command_request_web_knows_who;

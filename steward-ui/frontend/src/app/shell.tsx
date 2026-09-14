@@ -3,6 +3,7 @@ import { Outlet, useRouterState } from "@tanstack/react-router"
 import { AppSidebar } from "@/app/app-sidebar"
 import { CommandPalette } from "@/app/command-palette"
 import { SignInPage } from "@/app/sign-in"
+import { StewardMark } from "@/app/steward-mark"
 import { ApiError } from "@/lib/api"
 import { useMe } from "@/lib/queries"
 import {
@@ -13,6 +14,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { Failure } from "@/components/steward/query-state"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
@@ -33,10 +35,17 @@ export function Shell() {
   // rather than as a missing session.
   if (me.isPending) return <SignInPage loading />
 
-  // A 401 here IS the signed-out state; `useMe` is the one route that answers without a session,
-  // so anything else failing is a real fault and is left to the pages to report.
-  const signedOut = me.data ? !me.data.signedIn : me.error instanceof ApiError
+  // A 401 here IS the signed-out state; `useMe` is the one route that answers without a session.
+  // Anything else that fails is a fault, and it must not be dressed up as one: a 500 or a 429 from
+  // `/api/me` used to draw the sign-in page, where the only offered action - signing in again -
+  // cannot fix it, and the actual reason was nowhere on screen.
+  const signedOut = me.data ? !me.data.signedIn : me.error instanceof ApiError && me.error.isSignedOut
   if (signedOut) return <SignInPage me={me.data} />
+
+  // The shell is not drawn on a failed `/api/me` either, and not because the pages could not report
+  // it themselves: the CSRF token arrives with this answer, so without it every write in the
+  // interface would be refused, one confusing page at a time.
+  if (!me.data) return <DoorIsStuck error={me.error} onRetry={() => void me.refetch()} />
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -60,6 +69,34 @@ export function Shell() {
         <CommandPalette />
       </SidebarProvider>
     </TooltipProvider>
+  )
+}
+
+/**
+ * `/api/me` answered, and it was not a no.
+ *
+ * The whole interface hangs off this one route, so there is nothing useful to draw behind this and
+ * nothing to do but say what happened and offer to ask again. {@link Failure} is the same component
+ * every list uses, for the same reason: it names *which* of the three services answered badly.
+ */
+function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  return (
+    <div className="flex min-h-svh items-center justify-center bg-background px-6 py-12">
+      <div className="flex w-full max-w-md flex-col gap-6">
+        <div className="flex items-center gap-3">
+          <StewardMark className="size-8" />
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
+            <span className="text-sm text-muted-foreground">nordtal.eu · Saison 2</span>
+          </div>
+        </div>
+        <Failure error={error} onRetry={onRetry} />
+        <p className="text-center text-sm text-muted-foreground">
+          Das ist keine abgelaufene Sitzung. Angemeldet bleibst du – erst wenn diese Abfrage wieder
+          durchkommt, weiß die Oberfläche, wer du bist.
+        </p>
+      </div>
+    </div>
   )
 }
 

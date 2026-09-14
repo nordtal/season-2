@@ -1,6 +1,10 @@
 {
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.test.json" },
+    { "path": "./tsconfig.node.json" }
+  ],
   // Duplicated from tsconfig.app.json on purpose: `tsc -b` reads the referenced projects, but the
   // shadcn CLI reads THIS file to resolve the `@/*` alias in components.json. Without it the CLI
   // takes the alias literally and writes a directory called `@` next to src/.

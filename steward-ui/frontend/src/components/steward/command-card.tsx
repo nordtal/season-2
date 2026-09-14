@@ -168,8 +168,17 @@ function CommandRow({ command }: { command: AdminCommand }) {
         </div>
       ) : null}
 
-      {ask.error ? <Failure error={ask.error} /> : null}
-      {run.data ? <Outcome run={run.data} /> : null}
+      {/*
+        While the confirmation is open it covers this, so the same failure is shown inside the
+        dialog instead - see below. A refusal rendered behind a modal is a refusal nobody reads,
+        and the button it belongs to is still sitting there looking like it did nothing.
+      */}
+      {ask.error && !confirming ? <Failure error={ask.error} /> : null}
+      {run.error ? (
+        <Failure error={run.error} onRetry={() => void run.refetch()} />
+      ) : run.data ? (
+        <Outcome run={run.data} />
+      ) : null}
 
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>
@@ -182,6 +191,7 @@ function CommandRow({ command }: { command: AdminCommand }) {
               Chat und Discord. Was er tut, tut er sofort und ohne Rückweg.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {ask.error ? <Failure error={ask.error} /> : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={ask.isPending}>Abbrechen</AlertDialogCancel>
             <AlertDialogAction

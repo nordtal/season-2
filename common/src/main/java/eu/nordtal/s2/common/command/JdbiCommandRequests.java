@@ -1,5 +1,7 @@
 package eu.nordtal.s2.common.command;
 
+import eu.nordtal.s2.common.audit.AuditLine;
+
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
@@ -32,6 +34,18 @@ final class JdbiCommandRequests implements CommandRequests {
                 request.source(), request.requestedBy(),
                 request.discordId().orElse(null), request.minecraftId().orElse(null),
                 request.locale(), request.expires());
+    }
+
+    @Override
+    public long submit(final NewCommandRequest request, final AuditLine journal) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(journal, "journal");
+        return dao.submitJournalled(request.target(), request.command(), request.arguments(),
+                request.source(), request.requestedBy(),
+                request.discordId().orElse(null), request.minecraftId().orElse(null),
+                request.locale(), request.expires(),
+                journal.action(), journal.actor(), journal.subject(), journal.mcUuid(),
+                journal.detail());
     }
 
     @Override

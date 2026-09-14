@@ -3,6 +3,7 @@ import type { UseQueryOptions } from "@tanstack/react-query"
 
 import {
   api,
+  ApiError,
   rememberCsrf,
   type Backup,
   type AdminCommand,
@@ -233,13 +234,6 @@ export function useJournal(action: string, subject: string, enabled = true) {
   })
 }
 
-/**
- * The Ampel's two adjustable thresholds, out of steward-ui.yml.
- *
- * They live on the server rather than in this browser because the same Ampel has to fire into the
- * Discord admin channel, and a threshold kept in somebody's localStorage cannot be read by
- * anything that is not that browser.
- */
 /** Which admin commands this interface may ask for - the declarations carrying Surface.WEB. */
 export function useCommands(enabled = true) {
   return useQuery({
@@ -263,6 +257,11 @@ export function useCommandRun(id: string | null) {
     queryFn: () => api<CommandRun>(`/api/commands/${id}`),
     enabled: Boolean(id),
     refetchInterval: (query) => {
+      // A failed poll stops the polling. `retry: 1` means the query has already asked twice by the
+      // time the error lands, and a request that keeps going every second against a service that is
+      // not answering is a second failure being manufactured once a second. The row shows the error
+      // and a button; asking again is the operator's decision from there.
+      if (query.state.error) return false
       const status = query.state.data?.status
       return status === undefined || status === "PENDING" || status === "RUNNING" ? SECOND : false
     },
@@ -317,10 +316,21 @@ export function useDeployerJob(id: string | null) {
       return job
     },
     enabled: Boolean(id),
-    refetchInterval: (query) => (query.state.data?.state === "RUNNING" ? SECOND : false),
+    // A failed poll stops it, for the same reason as `useCommandRun`: the last answer says RUNNING
+    // and would keep this asking every second while nothing answers. The dialog shows the failure
+    // and offers to ask again.
+    refetchInterval: (query) =>
+      !query.state.error && query.state.data?.state === "RUNNING" ? SECOND : false,
   })
 }
 
+/**
+ * The Ampel's two adjustable thresholds, out of steward-ui.yml.
+ *
+ * They live on the server rather than in this browser because the same Ampel has to fire into the
+ * Discord admin channel, and a threshold kept in somebody's localStorage cannot be read by
+ * anything that is not that browser.
+ */
 export function useSettings(enabled = true) {
   return useQuery({
     queryKey: keys.settings,
@@ -397,16 +407,35 @@ export function useLogSearch(service: string) {
   })
 }
 
+/**
+ * Saves a config file, and says which version of it the form was drawn from.
+ *
+ * The revision is not optional: the backend refuses a PUT without one. It is the whole of the
+ * protection against two open forms - the second save is answered 409 instead of overwriting the
+ * first, and the page redraws from the file as it then stands.
+ */
 export function useSaveConfig(file: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (changes: ConfigChanges) =>
-      api<ConfigDocument>(`/api/config/${encodePath(file)}`, { method: "PUT", body: { changes } }),
+    mutationFn: ({ revision, changes }: { revision: string; changes: ConfigChanges }) =>
+      api<ConfigDocument>(`/api/config/${encodePath(file)}`, {
+        method: "PUT",
+        body: { revision, changes },
+      }),
     onSuccess: (document) => {
       // The answer IS the file as it now reads, so the form redraws from what was written rather
       // than from what it hoped was written. A value the backend quoted or refused to canonicalise
       // is then visible immediately instead of on the next reload.
       client.setQueryData(keys.config(file), document)
+    },
+    onError: (failure) => {
+      // 409 is the other browser having been faster. Nothing was written, and the copy in this
+      // cache is now provably out of date - including its revision, so a second attempt with it
+      // would be refused for the same reason. Re-reading is what lets the operator see what the
+      // file says and decide whether their change is still the one they want.
+      if (failure instanceof ApiError && failure.status === 409) {
+        client.invalidateQueries({ queryKey: keys.config(file) })
+      }
     },
   })
 }

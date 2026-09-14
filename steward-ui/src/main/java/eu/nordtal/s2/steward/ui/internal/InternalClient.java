@@ -56,10 +56,61 @@ public final class InternalClient {
     public InternalClient(final @NotNull String name, final @NotNull String baseUrl,
                           final @NotNull String token, final @NotNull Duration timeout) {
         this.name = name;
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        final String trimmed = baseUrl.endsWith("/")
+                ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.baseUrl = token.isBlank() ? trimmed : plaintextOnlyInside(name, trimmed);
         this.token = token;
         this.timeout = timeout;
         this.http = HttpClient.newBuilder().connectTimeout(timeout).build();
+    }
+
+    /**
+     * Refuses to send a token in clear to an address that is not inside this deployment.
+     *
+     * <p>There is no TLS between these three containers and there is deliberately not going to be:
+     * they share one Docker network on one host, and a certificate authority for a link that never
+     * leaves the machine would be a second thing to renew for no attacker it stops. Somebody who
+     * can read that network already has the host, and with it the docker socket the deployer is
+     * holding.</p>
+     *
+     * <p>What this does stop is the configuration mistake. {@code base-url} is a setting, it is
+     * editable from the interface itself, and pointing it at a public address would put the
+     * deployer's token - the one credential in this stack that may create containers - in clear on
+     * the way there, with nothing anywhere saying so. So plain {@code http} is allowed to a name
+     * with no dot in it (a compose service, which cannot be a public DNS name) or to loopback, and
+     * anything else has to be {@code https}. A client with no token configured is not checked at
+     * all: it sends no secret, and it is already refusing to do anything.</p>
+     */
+    private static String plaintextOnlyInside(final String name, final String baseUrl) {
+        final URI uri = URI.create(baseUrl);
+        if ("https".equalsIgnoreCase(uri.getScheme())) {
+            return baseUrl;
+        }
+        final String host = uri.getHost();
+        if ("http".equalsIgnoreCase(uri.getScheme()) && host != null && isInside(host)) {
+            return baseUrl;
+        }
+        throw new IllegalArgumentException(name + ".base-url is " + baseUrl + ", and this process"
+                + " will not send its token there in clear. It is https, or plain http to a"
+                + " compose service name on the internal network - which is what the default"
+                + " http://" + name + ":8081 is.");
+    }
+
+    /**
+     * Whether a host is somewhere this network can still be called internal.
+     *
+     * <p><b>An IPv6 literal is its own case, and it has to be</b>: {@code URI.getHost()} answers
+     * {@code [::1]} <em>with</em> the brackets, so a bare {@code "::1".equals(host)} never matched
+     * anything - and worse, a literal contains no dot, so the compose-service rule below would have
+     * waved {@code http://[2001:db8::1]:8081} through as if it were a service name on this host.
+     * A bracketed host is therefore decided here and nowhere else, and only loopback passes.</p>
+     */
+    private static boolean isInside(final String host) {
+        if (host.startsWith("[")) {
+            return "[::1]".equals(host) || "[0:0:0:0:0:0:0:1]".equalsIgnoreCase(host);
+        }
+        // A name with no dot in it cannot be a public DNS name, so it is a compose service.
+        return !host.contains(".") || "127.0.0.1".equals(host);
     }
 
     /** Which service this is, for a message that names it. */
@@ -84,7 +135,7 @@ public final class InternalClient {
         try {
             final HttpResponse<String> response = http.send(request(path).GET().build(),
                     HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 400) {
+            if (isNotSuccess(response.statusCode())) {
                 throw new Failure(name, response.statusCode(),
                         name + " answered " + response.statusCode() + " for " + path,
                         response.body());
@@ -104,8 +155,13 @@ public final class InternalClient {
                             .header("Content-Type", "application/json")
                             .POST(HttpRequest.BodyPublishers.ofString(json)).build(),
                     HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 400) {
-                throw new Failure(name, response.statusCode(), response.body(), response.body());
+            if (isNotSuccess(response.statusCode())) {
+                // The same sentence `get` builds. The body used to be the message, and most of the
+                // statuses this now catches have no body at all - a 307 from a proxy, a bodiless
+                // 502 - so the browser was handed {"error":""} and the log line ended in a colon.
+                throw new Failure(name, response.statusCode(),
+                        name + " answered " + response.statusCode() + " for " + path,
+                        response.body());
             }
             return response.body();
         } catch (IOException e) {
@@ -138,7 +194,7 @@ public final class InternalClient {
             final HttpResponse<InputStream> response = http.send(
                     request(path, FOLLOW_DEADLINE).header("Accept", "text/event-stream").GET().build(),
                     HttpResponse.BodyHandlers.ofInputStream());
-            if (response.statusCode() >= 400) {
+            if (isNotSuccess(response.statusCode())) {
                 // ofInputStream hands back an open body for a failure too, and this branch used to
                 // drop it on the floor: a connection to the worker held open by a request that was
                 // already refused, one per rejected follow.
@@ -157,6 +213,18 @@ public final class InternalClient {
             Thread.currentThread().interrupt();
             throw new Failure(name, 503, "interrupted while streaming from " + name, null);
         }
+    }
+
+    /**
+     * Anything that is not 2xx, which includes the redirect nobody is going to follow.
+     *
+     * <p>It was {@code >= 400}, and the gap in the middle had a real answer in it: this client is
+     * built with the JDK's default redirect policy, which is {@code NEVER}. A proxy in front of
+     * the deployer answering {@code 307} therefore came back here as a success with an empty body,
+     * and {@code DeployerApi.recreate} reported {@code 202} for a job that was never accepted.</p>
+     */
+    private static boolean isNotSuccess(final int status) {
+        return status < 200 || status >= 300;
     }
 
     /**

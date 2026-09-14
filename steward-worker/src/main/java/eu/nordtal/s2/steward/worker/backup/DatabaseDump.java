@@ -88,6 +88,22 @@ public final class DatabaseDump {
         final String finalPath = directory + "/" + base;
         final String partialPath = finalPath + ".partial";
 
+        // THE DIRECTORY, AS ROOT, BEFORE THE DUMP.
+        //
+        // pg_dump runs as `postgres` (see `run` below) while the backup volume's root belongs to
+        // root:root 0755 - so the dump could not be written at all. Measured on the dev stack
+        // 2026-09-14: eight volume archives beside one database line reading "Permission denied",
+        // and not a single .dump in the directory since this replaced the sidecar. Handing the
+        // directory to `postgres` here is idempotent, survives a recreated volume, and leaves root
+        // writing into it as before - the volume archives and the retention sweep are unaffected.
+        final Docker.ExecResult prepared = docker.exec(containerId, List.of("sh", "-c",
+                "mkdir -p " + quote(directory) + " && chown postgres " + quote(directory)), null);
+        if (!prepared.ok()) {
+            return SnapshotResult.failed(NAME, took(started),
+                    "could not hand " + directory + " to the postgres user, so pg_dump would not"
+                            + " have been able to write there: " + firstLine(prepared.output()));
+        }
+
         // One `sh -c` per step rather than one long chain, so a failure names the step it failed
         // at. The values come out of the container's own environment: they are already there, and
         // repeating them here would be a second copy of a password.

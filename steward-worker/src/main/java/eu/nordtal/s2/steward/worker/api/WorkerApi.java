@@ -16,6 +16,7 @@ import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.NotFoundResponse;
 import io.javalin.http.UnauthorizedResponse;
+import io.javalin.http.sse.SseClient;
 import io.javalin.json.JavalinGson;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -40,9 +41,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * What steward-ui is allowed to ask this container.
@@ -104,6 +107,19 @@ public final class WorkerApi implements AutoCloseable {
      * taken deliberately instead of being raced into.</p>
      */
     private final Set<DockerSocket.Stream> follows = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Set before anything is shut down, so a request already in flight can be told to give up.
+     *
+     * <p>Without it a follow could register its stream between {@link #close()} iterating
+     * {@link #follows} and the executors refusing new work - and then be rejected by the scheduler
+     * with nothing yet arranged to clean it up. The stream stayed open, the emitter stayed open,
+     * and Jetty stopped on top of both, which is the shape the whole shutdown ordering exists to
+     * prevent. The flag is set first and read twice: once before any work is done, and once after
+     * the stream has been added, which is what makes the pair of them a handover rather than a
+     * race - either close() sees the stream, or the follow sees the flag.</p>
+     */
+    private volatile boolean closing;
 
     /**
      * How often an open log follow says something, even when the container has not.
@@ -218,13 +234,27 @@ public final class WorkerApi implements AutoCloseable {
 
                 final DockerSocket.Stream stream = docker.logs(containerId, true, tail, since);
                 follows.add(stream);
-                final ScheduledFuture<?> heartbeat = heartbeats.scheduleWithFixedDelay(
-                        () -> client.sendComment("following " + name), HEARTBEAT.toSeconds(),
-                        HEARTBEAT.toSeconds(), TimeUnit.SECONDS);
+                if (closing) {
+                    // close() may have walked `follows` a moment before this line put the stream in
+                    // it. Nobody else will close it now, so this does.
+                    goneOnShutdown(client, stream, name);
+                    return;
+                }
+                final ScheduledFuture<?> heartbeat;
+                final AtomicBoolean beating = new AtomicBoolean();
+                try {
+                    heartbeat = heartbeats.scheduleWithFixedDelay(
+                            () -> beat(client, name, beating), HEARTBEAT.toSeconds(),
+                            HEARTBEAT.toSeconds(), TimeUnit.SECONDS);
+                } catch (RejectedExecutionException rejected) {
+                    goneOnShutdown(client, stream, name);
+                    return;
+                }
                 client.onClose(() -> {
                     heartbeat.cancel(false);
                     closeQuietly(stream, name);
                 });
+                try {
                 followers.submit(() -> {
                     try {
                         LogFrames.read(stream.body(), multiplexed, line -> {
@@ -249,6 +279,10 @@ public final class WorkerApi implements AutoCloseable {
                         client.close();
                     }
                 });
+                } catch (RejectedExecutionException rejected) {
+                    heartbeat.cancel(false);
+                    goneOnShutdown(client, stream, name);
+                }
             });
 
             // The second half of §10a's log search: what the browser has is filtered in the
@@ -504,6 +538,64 @@ public final class WorkerApi implements AutoCloseable {
     }
 
     /**
+     * One heartbeat, written somewhere it is allowed to block.
+     *
+     * <h2>What was actually measured, and what was not</h2>
+     * The reason this method exists was reported as: {@link #heartbeats} is a single thread, so a
+     * consumer that has stopped reading parks the write and takes every other follow's heartbeat
+     * with it. <b>That does not reproduce on this stack</b>, and the measurements are written down
+     * in {@code HeartbeatLeavesTheTimerTest} rather than repeated here. Two things in other
+     * people's code are why - Javalin's comment path is not synchronised, and Jetty buffers - so
+     * the hazard is latent rather than live, and it is latent on two facts nobody would be told
+     * had changed.
+     *
+     * <p>What the handover does demonstrably fix is smaller and real: an unchecked exception out of
+     * {@code sendComment} used to escape the {@code Runnable}, and
+     * {@code ScheduledThreadPoolExecutor} then cancels that periodic task <em>permanently</em> -
+     * the follow's heartbeat never returns and Jetty drops it thirty seconds later. The
+     * {@code catch} below is what prevents that.</p>
+     *
+     * <p>{@code beating} keeps the handover from becoming a queue of writes nobody is reading:
+     * while one comment is still on its way out, the next tick is skipped. A consumer that misses
+     * heartbeats because it is not reading is one Jetty is about to close, which is the outcome
+     * that was wanted.</p>
+     */
+    private void beat(final SseClient client, final String name, final AtomicBoolean beating) {
+        if (!beating.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            followers.submit(() -> {
+                try {
+                    client.sendComment("following " + name);
+                } catch (RuntimeException e) {
+                    log.debug("the heartbeat for {} could not be written", name, e);
+                } finally {
+                    beating.set(false);
+                }
+            });
+        } catch (RejectedExecutionException rejected) {
+            // close() got there first. The follow is being torn down anyway.
+            beating.set(false);
+        }
+    }
+
+    /**
+     * Ends a follow that arrived while this process was going away, leaving nothing open.
+     *
+     * <p>Both callers are races with {@link #close()}, and the reader deserves a sentence rather
+     * than a connection that simply stops: an SSE client reconnects by itself, and "the server is
+     * going away" is what tells the page to say so instead of retrying into a closed port.</p>
+     */
+    private void goneOnShutdown(final SseClient client, final DockerSocket.Stream stream,
+                                final String name) {
+        follows.remove(stream);
+        closeQuietly(stream, name);
+        client.sendEvent("gone", "steward-worker is shutting down");
+        client.close();
+    }
+
+    /**
      * Nobody is reading this any more, thrown from inside the line consumer to get out of the read.
      *
      * <p>It carries no stack trace: it is not a failure, it is the ordinary end of a follow, and it
@@ -626,6 +718,10 @@ public final class WorkerApi implements AutoCloseable {
      */
     @Override
     public void close() {
+        // FIRST, and before anything is shut down: a request that is halfway through arranging a
+        // follow reads this and cleans up after itself instead of being refused by an executor that
+        // is already gone.
+        closing = true;
         heartbeats.shutdownNow();
         for (final DockerSocket.Stream stream : follows) {
             closeQuietly(stream, "a follow still open at shutdown");

@@ -456,6 +456,65 @@ refuses before resolving a version or touching a file. What still works is
 `docker compose run --rm steward-worker bootstrap` on the host: enough to bring a fresh deployment
 up, not enough to move a version.
 
+### Replacing one service, from this checkout
+
+For `steward-ui` and `steward-worker`, which are built here and pushed nowhere. From the root of
+this checkout, with `$ENV_FILE` pointing at the host's environment file (`/etc/nordtal/season-2.env`
+on the dev host) and `$PROJECT` at the compose project (`nordtal-s2` there):
+
+```bash
+sh gradlew :steward-ui:build                            # the jar, with the frontend in it
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml build steward-ui
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d --no-deps steward-ui
+docker inspect -f '{{.State.Health.Status}}' "$PROJECT-steward-ui-1"   # wait for `healthy`
+```
+
+`--no-deps` is the word that keeps it to one service: without it Compose recreates everything
+`steward-ui` depends on, which is `postgres` and `steward-worker`, which is the network.
+
+**`-f` has to be said, and the reason is worth a paragraph.** Counted on the dev host on
+2026-09-14, `com.docker.compose.project.config_files` across the ten running containers said two
+different things, and neither is a path a person can open:
+
+- eight said `/app/compose.yml`, which is inside `steward-deployer` — that is where the deployer
+  runs Compose from, and the file is baked into its image. It survives a reboot; it is simply not
+  on the host.
+- `steward-ui` and `steward-worker` said **`/tmp/live-compose.yml`**, left over from being rebuilt
+  by hand earlier that day, and `/tmp` is emptied by a reboot. That is the one Till found, and it
+  is the one that would really have gone missing.
+
+Naming the checkout's copy on each `up` moves the label onto a path that is on the host and
+survives a restart, one service at a time.
+
+**The checkout's copy is the right one to name.** Compared the same day, `/tmp/live-compose.yml`
+(which is byte-identical to `/app/compose.yml` inside `steward-deployer`, i.e. where it came from)
+differs from `season-2/compose.yml` in exactly one line — a comment in which one German word for
+the traffic light was replaced by the English one. (Not quoted here: the guard that found it in the
+first place, `NothingIsGermanTest`, reads this file too, and it was right to.) Nothing declarative
+differs, so the checkout is not a divergence to reconcile; it is the same file with a German word
+taken out of a comment.
+
+**`--env-file` has to be said too.** The stack's `.env` is not beside `compose.yml` in this
+checkout — it is `/etc/nordtal/season-2.env`, mode 600, and it holds the live secrets. Without it
+every `${X:?}` in the compose file fails and the command refuses before it does anything, which is
+the good failure. Do not copy it anywhere.
+
+**After a reboot, the same file brings the whole stack back**, and that is the answer to the
+worry that opened this section — drop `--no-deps` and the service name:
+
+```bash
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d
+```
+
+Nothing is lost with `/tmp`. The volumes are named and the daemon owns them; the file that was in
+`/tmp` is in this checkout and in `steward-deployer`'s image, twice over.
+
+**Run once, 2026-09-14, on `steward-ui` and `steward-worker` together.** `:steward-ui:build` and
+`:steward-worker:build` with their tests: 1m52s. `build` for both images: 17s warm. `up -d
+--no-deps`: 14s to both containers recreated and the worker `healthy`, with `steward-ui` following
+20s later - the healthcheck's own interval, not a hang. Afterwards both containers carry
+`com.docker.compose.project.config_files` pointing at this checkout, which is the point.
+
 ## Locally
 
 The same `compose.yml`, the same `Dockerfile`s, the same `steward-worker`. What differs is a second

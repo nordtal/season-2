@@ -163,14 +163,6 @@ export const NAVIGATION: NavGroup[] = [
     icon: SlidersHorizontal,
     entries: [
       {
-        id: "configuration",
-        label: "Configuration",
-        to: "/configuration",
-        note: "Commented YAML as a form, read out of the @ConfigSpec.",
-        icon: SlidersHorizontal,
-        keywords: ["yaml", "config", "settings", "spec", "files"],
-      },
-      {
         id: "season",
         label: "Season",
         to: "/season",

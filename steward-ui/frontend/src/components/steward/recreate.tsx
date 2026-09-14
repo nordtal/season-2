@@ -92,19 +92,19 @@ export function RecreateButton({
         <DialogHeader>
           <DialogTitle>Recreate {service}?</DialogTitle>
           <DialogDescription asChild>
+            {/*
+              ONE SENTENCE, AND IT IS THE DANGEROUS ONE (2026-09-14). What the dialog used to also
+              say, and what is true: the container is stopped and created again from the image
+              already on this host, so nothing is downloaded and no version is moved - that is what
+              an update is for. The volumes stay, so world, configuration and jars are unchanged
+              afterwards; what is gone is this container's log history, because Docker starts the
+              new one at zero. None of that is what somebody about to press the button needs to be
+              warned about, so none of it is on the screen any more.
+            */}
             <div className="flex flex-col gap-2 text-left">
               <p>
-                The container is stopped and created again from the image already on this host.
-                <strong>Nothing is downloaded and no version is moved</strong> - that is what an
-                update is for.
-              </p>
-              <p>
-                The volumes stay: world, configuration and jars are unchanged afterwards. What is
-                gone is this container's log history - Docker starts the new one at zero.
-              </p>
-              <p>
                 <strong>There is no countdown and no announcement in game.</strong> Anyone on this
-                service right now is thrown out. An update does not do that; it warns first.
+                service right now is thrown out.
               </p>
             </div>
           </DialogDescription>

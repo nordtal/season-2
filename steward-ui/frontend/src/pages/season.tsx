@@ -45,8 +45,8 @@ type PhaseName = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENAN
 /**
  * What each phase actually does, in the words of `SeasonPhase` in :common.
  *
- * Kept as the admission rule rather than as a description, because "Vorbereitung" tells nobody
- * whether their players can log in and "admins only" does.
+ * Kept as the admission rule rather than as a description: a phase name tells nobody whether
+ * their players can log in, and "admins only" does.
  */
 const PHASES: { name: PhaseName; label: string; who: string; where: string }[] = [
   {
@@ -75,7 +75,7 @@ const PHASES: { name: PhaseName; label: string; who: string; where: string }[] =
   },
   {
     name: "MAINTENANCE",
-    label: "Wartung",
+    label: "Maintenance",
     who: "Everybody reaches the network and stays in limbo; admins are not redirected.",
     where: "limbo",
   },
@@ -88,7 +88,6 @@ export function SeasonPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Season"
-        note="The phase decides who gets in and where they land. It takes effect at once, with no restart."
       />
 
       <QueryState query={season} rows={4}>
@@ -142,7 +141,7 @@ function PhaseCard({ season }: { season: Season }) {
           Phase
         </CardTitle>
         <CardDescription>
-          Now: <span className="font-medium text-foreground">{current?.label ?? season.phase}</span>{" "}
+          <span className="font-medium text-foreground">{current?.label ?? season.phase}</span>{" "}
           <span className="font-mono text-xs">({season.phase})</span>
         </CardDescription>
       </CardHeader>
@@ -251,12 +250,8 @@ function DatesCard({ season }: { season: Season }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarClock className="size-4 text-muted-foreground" aria-hidden />
-          Termine
+          Dates
         </CardTitle>
-        <CardDescription>
-          Two moments, and neither switches anything by itself. The countdown before launch shows
-          the first; who may enter stays a decision, not a timestamp.
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         <DateField

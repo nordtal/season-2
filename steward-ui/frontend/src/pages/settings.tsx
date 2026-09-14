@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -34,7 +33,6 @@ export function SettingsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Settings"
-        note="Who is signed in, with what - and the two thresholds at which the light turns yellow."
       />
 
       <Card>
@@ -43,11 +41,6 @@ export function SettingsPage() {
             <UserRound className="size-4 text-muted-foreground" aria-hidden />
             Signed in
           </CardTitle>
-          <CardDescription>
-            The session lives in this container's memory. A restart of steward-ui
-            ends it - that is not a fault but the flip side of having no session store to keep
-            safe.
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <QueryState query={me} rows={2}>
@@ -108,11 +101,6 @@ export function SettingsPage() {
             <SlidersHorizontal className="size-4 text-muted-foreground" aria-hidden />
             Thresholds of the light
           </CardTitle>
-          <CardDescription>
-            Two of them are a matter of taste and live here. The other two triggers - a service
-            that is not running, and a missing backup - are not configurable and should not be. An
-            SMP that is down is not a preference.
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <QueryState query={settings} rows={3}>
@@ -138,15 +126,16 @@ export function SettingsPage() {
           </QueryState>
 
           <p className="text-sm text-muted-foreground">
-            They are changed in{" "}
+            They are changed in <span className="font-mono">steward-ui.yml</span>, section
+            "Alerts", on the{" "}
             <Link
-              to="/configuration/$"
-              params={{ _splat: "steward-ui/steward-ui.yml" }}
-              className="font-mono underline underline-offset-4"
+              to="/services/$name"
+              params={{ name: "steward-ui" }}
+              className="underline underline-offset-4"
             >
-              steward-ui.yml
+              steward-ui page
             </Link>
-            , section "Alerts". A change takes effect at the next start of steward-ui.
+            . A change takes effect at the next start of steward-ui.
           </p>
         </CardContent>
       </Card>

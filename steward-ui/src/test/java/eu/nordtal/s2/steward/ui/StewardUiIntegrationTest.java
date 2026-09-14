@@ -539,6 +539,28 @@ class StewardUiIntegrationTest {
     }
 
     @Test
+    @DisplayName("a stranger at the registration door is told to sign in, not about CSRF")
+    void theRegistrationDoorAnswersTheRightRefusal() throws Exception {
+        // The two register routes are OUTSIDE /api/*, so the filter never sees them and they repeat
+        // its checks by hand. Repeating them in the other order is not equivalent: a browser that
+        // has been sitting on the setup page long enough for the session to lapse would be told
+        // its request looked cross-site, which is a sentence about an attack that did not happen.
+        // 401 is what the rest of the interface says, and it is what the shell knows how to act on.
+        final HttpClient stranger = browser();
+        for (final String path : new String[] {
+                "/auth/webauthn/register/start", "/auth/webauthn/register/finish" }) {
+            final HttpResponse<String> refused = stranger.send(HttpRequest.newBuilder(
+                            URI.create("http://127.0.0.1:" + UI_PORT + path))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                    .build(), HttpResponse.BodyHandlers.ofString());
+
+            assertEquals(401, refused.statusCode(), path + " answered " + refused.body());
+            assertTrue(refused.body().contains("sign in first"), refused.body());
+        }
+    }
+
+    @Test
     @DisplayName("the session is a cookie: the same interface, another browser, is nobody")
     void theSessionIsTheCookieAndNothingElse() throws Exception {
         final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);

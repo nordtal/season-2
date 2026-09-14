@@ -61,6 +61,19 @@ public final class Data implements AutoCloseable {
         this.commands = CommandRequests.borrowing(database.dataSource());
     }
 
+    /**
+     * The pool itself, for the one table this service owns rather than borrows.
+     *
+     * <p>Everything else here is a directory out of {@code :common}, because every other table is
+     * shared with the bot, the plugins or the updater. {@code steward_session} is not: nothing else
+     * in the stack reads it and nothing else ever will, so its SQL lives in {@code :steward-ui}
+     * beside the sign-in it belongs to. The migration is still in {@code :common} - that is where
+     * the schema is, and steward-worker is the one process that applies it.</p>
+     */
+    public @NotNull javax.sql.DataSource dataSource() {
+        return database.dataSource();
+    }
+
     public @NotNull UpdateDirectory updates() {
         return updates;
     }

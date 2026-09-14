@@ -33,7 +33,15 @@ public final class Configs {
                 .envPrefix("NORDTAL_STEWARD_UI")
                 .validator(config -> {
                     requirePositive("port", config.port());
-                    requirePositive("session-hours", config.sessionHours());
+                    requirePositive("session-days", config.sessionDays());
+                    // A ceiling as well as a floor, because this one is multiplied into seconds
+                    // and put in a cookie's Max-Age, which is an int. A year is already far past
+                    // anything defensible; the point of the bound is that a typo says so instead
+                    // of overflowing into a cookie the browser drops.
+                    if (config.sessionDays() > 365) {
+                        throw new IllegalArgumentException("session-days is " + config.sessionDays()
+                                + " - a session lasting longer than a season is not a session");
+                    }
                     requirePublicUrl(config.publicUrl());
                     if (config.worker() == null || config.worker().baseUrl().isBlank()) {
                         throw new IllegalArgumentException("worker.base-url is empty");

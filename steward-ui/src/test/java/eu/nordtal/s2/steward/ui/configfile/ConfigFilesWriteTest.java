@@ -75,9 +75,12 @@ class ConfigFilesWriteTest {
         ConfigLoader.builder(file, UiSpec.class).load();
         final String before = Files.readString(file);
 
-        ConfigFiles.write(file, Map.of("session-hours", ConfigChange.of("24")));
+        ConfigFiles.write(file, Map.of("session-days", ConfigChange.of("14")));
 
-        assertEquals(before.replace("session-hours: 12", "session-hours: 24"),
+        // Anchored to the start of a line, because the key's own COMMENT quotes
+        // `session-days: 30` - a bare replace rewrote the comment too and the file then differed
+        // from the expectation in a place nothing had edited.
+        assertEquals(before.replace("\nsession-days: 30\n", "\nsession-days: 14\n"),
                 Files.readString(file));
     }
 

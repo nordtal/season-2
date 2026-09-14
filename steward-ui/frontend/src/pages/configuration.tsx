@@ -40,14 +40,14 @@ import { Textarea } from "@/components/ui/textarea"
 // The list of files
 // -----------------------------------------------------------------------------------------------
 
-export function KonfigurationPage() {
+export function ConfigurationPage() {
   const files = useConfigs()
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Konfiguration"
-        note="Die Konfigurationsdateien aller Dienste des Stacks, so wie sie auf der Platte stehen."
+        note="The config files of every service in the stack, exactly as they stand on the disk."
       />
 
       <QueryState
@@ -55,8 +55,8 @@ export function KonfigurationPage() {
         rows={6}
         isEmpty={(found) => found.length === 0}
         empty={{
-          title: "Keine Konfigurationsdatei gefunden.",
-          note: "Unter dem Einhängepunkt liegt nichts, was auf .yml endet. Sind die Konfigurationsvolumes in dieses Containerabbild eingehängt?",
+          title: "No configuration file found.",
+          note: "Nothing under the mount point ends in .yml. Are the config volumes mounted into this image?",
         }}
       >
         {(found) => (
@@ -64,18 +64,18 @@ export function KonfigurationPage() {
             {group(found).map(([service, entries]) => (
               <Card key={service || "(Wurzel)"}>
                 <CardHeader>
-                  <CardTitle className="font-mono text-sm">{service || "Ohne Dienst"}</CardTitle>
+                  <CardTitle className="font-mono text-sm">{service || "No service"}</CardTitle>
                   <CardDescription>
                     {service
-                      ? `${entries.length} ${entries.length === 1 ? "Datei" : "Dateien"} aus dem Konfigurationsvolume von ${service}.`
-                      : "Dateien, die direkt im Einhängepunkt liegen und zu keinem Dienstverzeichnis gehören."}
+                      ? `${entries.length} ${entries.length === 1 ? "file" : "files"} from the config volume of ${service}.`
+                      : "Files sitting directly in the mount point, belonging to no service directory."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col">
                   {entries.map((file) => (
                     <Link
                       key={file.path}
-                      to="/konfiguration/$"
+                      to="/configuration/$"
                       params={{ _splat: file.path }}
                       className="flex h-row items-center justify-between gap-3 rounded-sm px-3 -mx-3 hover:bg-accent"
                     >
@@ -83,7 +83,7 @@ export function KonfigurationPage() {
                       {file.writable ? null : (
                         <Badge variant="outline" className="gap-1 shrink-0">
                           <Lock className="size-3" aria-hidden />
-                          nur lesbar
+                          read only
                         </Badge>
                       )}
                     </Link>
@@ -112,8 +112,8 @@ function group(files: { service: string; name: string; path: string; writable: b
 // One file
 // -----------------------------------------------------------------------------------------------
 
-export function KonfigurationDateiPage() {
-  const { _splat } = useParams({ from: "/konfiguration/$" })
+export function ConfigurationFilePage() {
+  const { _splat } = useParams({ from: "/configuration/$" })
   const file = _splat ?? ""
   const document = useConfig(file)
 
@@ -124,7 +124,7 @@ export function KonfigurationDateiPage() {
         note={file}
         actions={
           <Button asChild variant="outline" size="sm">
-            <Link to="/konfiguration">Alle Dateien</Link>
+            <Link to="/configuration">All files</Link>
           </Button>
         }
       />
@@ -154,7 +154,7 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
     save.mutate({ revision: document.revision, changes }, {
       onSuccess: () =>
         toast.success(
-          count === 1 ? "Eine Einstellung gespeichert." : `${count} Einstellungen gespeichert.`,
+          count === 1 ? "One setting saved." : `${count} settings saved.`,
           { description: document.name },
         ),
     })
@@ -173,19 +173,19 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
       {document.writable ? (
         <Alert>
           <FileWarning aria-hidden />
-          <AlertTitle>Eine gespeicherte Änderung erreicht keinen laufenden Dienst.</AlertTitle>
+          <AlertTitle>A saved change does not reach a running service.</AlertTitle>
           <AlertDescription>
-            Sie steht in der Datei, und der Dienst liest sie beim nächsten Start.{" "}
+            It is in the file, and the service reads it at its next start.{" "}
             {document.service ? (
               <Link
-                to="/dienste/$name"
+                to="/services/$name"
                 params={{ name: document.service }}
                 className="underline underline-offset-4"
               >
-                {document.service} neu starten
+                Restart {document.service}
               </Link>
             ) : (
-              "Der betroffene Dienst muss dafür neu gestartet werden."
+              "The service concerned has to be restarted for it."
             )}
             .
           </AlertDescription>
@@ -193,10 +193,10 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
       ) : (
         <Alert>
           <Lock aria-hidden />
-          <AlertTitle>Diese Datei ist schreibgeschützt eingehängt.</AlertTitle>
+          <AlertTitle>This file is mounted read-only.</AlertTitle>
           <AlertDescription>
-            Die Werte sind lesbar, das Formular nimmt keine Änderung an. Das ist eine Eigenschaft
-            des Volumes, nicht dieser Oberfläche.
+            The values are readable, the form accepts no change. That is a property of the volume,
+            not of this interface.
           </AlertDescription>
         </Alert>
       )}
@@ -207,8 +207,8 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
         <CardContent className="flex flex-col gap-0">
           {document.entries.length === 0 ? (
             <Empty
-              title="Diese Datei hat keine Schlüssel."
-              note="Sie ist leer oder besteht nur aus Kommentaren."
+              title="This file has no keys."
+              note="It is empty, or consists only of comments."
             />
           ) : (
             document.entries.map((entry, index) => (
@@ -235,10 +235,10 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 py-3 backdrop-blur">
         <p className="text-sm text-muted-foreground">
           {count === 0
-            ? "Nichts geändert."
+            ? "Nothing changed."
             : count === 1
-              ? "Eine Einstellung geändert."
-              : `${count} Einstellungen geändert.`}
+              ? "One setting changed."
+              : `${count} settings changed.`}
         </p>
         <div className="flex items-center gap-2">
           <Button
@@ -256,7 +256,7 @@ function ConfigForm({ file, document }: { file: string; document: ConfigDocument
             disabled={count === 0 || save.isPending || !document.writable}
             onClick={submit}
           >
-            {save.isPending ? "Wird gespeichert…" : "Speichern"}
+            {save.isPending ? "Saving…" : "Save"}
           </Button>
         </div>
       </div>
@@ -342,7 +342,7 @@ function Field({
           {dirty ? (
             <Button type="button" variant="ghost" size="sm" onClick={onReset}>
               <RotateCcw aria-hidden />
-              Zurücksetzen
+              Reset
             </Button>
           ) : null}
           <span className="font-mono text-xs text-muted-foreground">{entry.path}</span>
@@ -359,8 +359,7 @@ function Field({
 
       {!entry.editable ? (
         <p className="text-sm text-muted-foreground">
-          Diese Zeile wird hier nicht geschrieben – sie ist eine Liste aus Abschnitten. Zeile{" "}
-          {entry.line} der Datei.
+          This row is not written here - it is a list of sections. Line {entry.line} of the file.
         </p>
       ) : null}
     </div>
@@ -394,13 +393,13 @@ function Control({
           autoComplete="off"
           disabled={disabled}
           value={typed ?? ""}
-          placeholder={entry.filled ? "gesetzt – zum Ersetzen neu eintippen" : "leer"}
+          placeholder={entry.filled ? "set - type a new one to replace it" : "empty"}
           onChange={(event) => onChange(event.target.value)}
         />
         <p className="text-sm text-muted-foreground">
           {typed === ""
-            ? "Leer speichern löscht dieses Geheimnis aus der Datei."
-            : "Der gespeicherte Wert wird nicht an den Browser gesendet. Er lässt sich überschreiben, nicht nachlesen."}
+            ? "Saving it empty deletes this secret from the file."
+            : "The stored value is never sent to the browser. It can be overwritten, not read back."}
         </p>
       </div>
     )
@@ -483,7 +482,7 @@ function ListControl({
               value={item}
               spellCheck={false}
               className="font-mono text-sm"
-              aria-label={`Eintrag ${index + 1}`}
+              aria-label={`Entry ${index + 1}`}
               onChange={(event) =>
                 onChange(items.map((old, at) => (at === index ? event.target.value : old)))
               }
@@ -493,7 +492,7 @@ function ListControl({
               variant="ghost"
               size="icon"
               disabled={disabled}
-              aria-label={`Eintrag ${index + 1} entfernen`}
+              aria-label={`Remove entry ${index + 1}`}
               onClick={() => onChange(items.filter((_, at) => at !== index))}
             >
               <Trash2 aria-hidden />
@@ -510,7 +509,7 @@ function ListControl({
           onClick={() => onChange([...items, ""])}
         >
           <Plus aria-hidden />
-          Eintrag hinzufügen
+          Add entry
         </Button>
       </div>
     </div>

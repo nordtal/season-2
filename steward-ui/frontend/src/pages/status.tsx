@@ -40,19 +40,19 @@ import {
 /**
  * The landing page (concept §10c).
  *
- * It answers three questions in this order and no other: **stimmt etwas nicht** - **wie voll ist
- * die Kiste** - **wo will ich hin**. Everything below the Ampel is a tile, and every tile is a link
+ * It answers three questions in this order and no other: **is something wrong** - **how full is
+ * the box** - **where do I want to go**. Everything below the light is a tile, and every tile is a link
  * into the page that can actually do something about it.
  *
  * The service rows are deliberately read-only. No restart button lives here: restarting the SMP
- * throws every player out, and the place where that happens is the Betrieb page, where the
+ * throws every player out, and the place where that happens is the Operations page, where the
  * confirmation already stands. A row is for reading and for jumping onwards.
  */
-export function ZustandPage() {
+export function StatusPage() {
   const services = useServices()
   const host = useHost()
   const backups = useBackups()
-  // The thresholds are configured, not compiled in. Without this the page would draw its Ampel
+  // The thresholds are configured, not compiled in. Without this the page would draw its traffic light
   // against 85/90 while steward-ui.yml said something else - and the Discord channel, which reads
   // the same numbers off the server, would disagree with the screen. Which is why this counts as
   // evidence like any other query: while it is missing, `summarise` leaves the checks that need a
@@ -66,7 +66,7 @@ export function ZustandPage() {
     thresholds: settings.data,
   })
 
-  // Nothing has answered yet: the Ampel must not say "alles in Ordnung" about a stack it has not
+  // Nothing has answered yet: the traffic light must not say "all is well" about a stack it has not
   // looked at. A green light on no evidence is worse than no light.
   const waiting = services.isPending || host.isPending || backups.isPending || settings.isPending
   const failed = services.error ?? host.error ?? backups.error ?? settings.error
@@ -74,11 +74,11 @@ export function ZustandPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Zustand"
-        note="Was gerade läuft, wie voll die Kiste ist und was zuletzt passiert ist."
+        title="Status"
+        note="What is running, how full the box is, and what happened last."
       />
 
-      <Ampel level={level} triggers={triggers} waiting={waiting} failed={Boolean(failed)} />
+      <TrafficLight level={level} triggers={triggers} waiting={waiting} failed={Boolean(failed)} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <HostCard />
@@ -98,13 +98,13 @@ export function ZustandPage() {
 
 // --- the traffic light -------------------------------------------------------------------------
 
-const AMPEL: Record<Level, { icon: typeof CheckCircle2; ring: string; text: string }> = {
+const LIGHTS: Record<Level, { icon: typeof CheckCircle2; ring: string; text: string }> = {
   ok: { icon: CheckCircle2, ring: "border-success/30 bg-success/8", text: "text-success" },
   warn: { icon: CircleAlert, ring: "border-warning/30 bg-warning/8", text: "text-warning" },
   down: { icon: OctagonAlert, ring: "border-destructive/40 bg-destructive/8", text: "text-destructive" },
 }
 
-function Ampel({
+function TrafficLight({
   level,
   triggers,
   waiting,
@@ -119,12 +119,12 @@ function Ampel({
     return (
       <div className="flex items-center gap-3 rounded-md border border-border bg-card px-4 py-3">
         <span className="size-2 animate-pulse rounded-full bg-muted-foreground" aria-hidden />
-        <p className="text-sm text-muted-foreground">Zustand wird gelesen…</p>
+        <p className="text-sm text-muted-foreground">Reading status…</p>
       </div>
     )
   }
 
-  const { icon: Icon, ring, text } = AMPEL[shownLevel(level, failed)]
+  const { icon: Icon, ring, text } = LIGHTS[shownLevel(level, failed)]
   return (
     <div className={`flex flex-col gap-3 rounded-md border px-4 py-3 ${ring}`} role="status">
       <div className="flex items-start gap-3">
@@ -149,7 +149,7 @@ function Ampel({
                       params={trigger.params}
                       className="text-primary underline-offset-4 hover:underline"
                     >
-                      ansehen
+                      view
                     </Link>
                   ) : null}
                 </li>
@@ -166,12 +166,12 @@ function Ampel({
           */}
           {failed ? (
             <p className="text-sm text-muted-foreground">
-              Ein Teil der Angaben konnte nicht gelesen werden – die Ampel urteilt also über
-              weniger, als sie soll.
+              Some of the readings could not be fetched - so the light is judging on less than it
+              should.
             </p>
           ) : waiting ? (
             <p className="text-sm text-muted-foreground">
-              Es wird noch gelesen – die Ampel urteilt bisher über weniger, als sie soll.
+              Still reading - so far the light is judging on less than it should.
             </p>
           ) : null}
         </div>
@@ -191,7 +191,7 @@ function HostCard() {
       <CardHeader>
         <CardTitle className="text-sm font-medium">Host</CardTitle>
         <CardDescription>
-          Gemessen aus <code className="text-xs">/proc</code> – ohne Sonderrecht.
+          Measured from <code className="text-xs">/proc</code> - without any privilege.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -207,16 +207,16 @@ function HostCard() {
               <Stat
                 label="CPU"
                 value={percent(host.data?.cpuPercent)}
-                hint={`${count(host.data?.cpus)} Kerne · Load ${formatLoad(host.data?.load1)}`}
+                hint={`${count(host.data?.cpus)} cores · Load ${formatLoad(host.data?.load1)}`}
               />
               <Stat
-                label="Speicher"
+                label="Memory"
                 value={memoryShare(host.data)}
                 hint={
                   host.data?.memoryTotalBytes
                     ? `${bytes(
                         host.data.memoryTotalBytes - (host.data.memoryAvailableBytes ?? 0),
-                      )} von ${bytes(host.data.memoryTotalBytes)}`
+                      )} of ${bytes(host.data.memoryTotalBytes)}`
                     : "–"
                 }
               />
@@ -233,13 +233,13 @@ function HostCard() {
 
             <div className="flex flex-col gap-2">
               <Stat
-                label="Platte"
+                label="Disk"
                 value={
                   host.data?.diskTotalBytes
                     ? percent(((host.data.diskUsedBytes ?? 0) / host.data.diskTotalBytes) * 100, 0)
                     : "–"
                 }
-                hint={`${bytes(host.data?.diskUsedBytes)} von ${bytes(host.data?.diskTotalBytes)} · Images ${bytes(host.data?.imagesBytes)} · Volumes ${bytes(host.data?.volumesBytes)}`}
+                hint={`${bytes(host.data?.diskUsedBytes)} of ${bytes(host.data?.diskTotalBytes)} · Images ${bytes(host.data?.imagesBytes)} · Volumes ${bytes(host.data?.volumesBytes)}`}
               />
               {host.data?.diskTotalBytes ? (
                 <UsageBar used={host.data.diskUsedBytes ?? 0} total={host.data.diskTotalBytes} />
@@ -253,7 +253,7 @@ function HostCard() {
               height={96}
             />
             <p className="text-xs text-muted-foreground">
-              Prozentwerte sind Anteile am ganzen Host: {host.data?.containerLimits}
+              Percentages are shares of the whole host: {host.data?.containerLimits}
             </p>
           </>
         )}
@@ -281,8 +281,8 @@ function UpdatesCard() {
         <CardTitle className="text-sm font-medium">Updates</CardTitle>
         <CardDescription>
           {services.data?.drift.checkedAt
-            ? `Images verglichen ${relative(services.data.drift.checkedAt)}.`
-            : "Die Images wurden noch nicht verglichen."}
+            ? `Images compared ${relative(services.data.drift.checkedAt)}.`
+            : "The images have not been compared yet."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -293,29 +293,29 @@ function UpdatesCard() {
         ) : (
           <>
             <Stat
-              label="Hinterher"
+              label="Behind"
               value={count(outdated.length)}
               tone={outdated.length > 0 ? "warn" : undefined}
               hint={
                 outdated.length === 0
-                  ? "Kein Dienst läuft auf einem älteren Image."
+                  ? "No service is running an older image."
                   : outdated.map((s) => s.service).join(", ")
               }
             />
             {unverifiable.length > 0 ? (
               <p className="text-xs text-muted-foreground">
-                Ungeprüft: {unverifiable.join(", ")} – ein Image ohne Registry-Digest lässt sich
-                nicht vergleichen und gilt deshalb nicht als aktuell.
+                Unchecked: {unverifiable.join(", ")} - an image with no registry digest cannot be
+                compared, and therefore does not count as up to date.
               </p>
             ) : null}
             <Separator />
             <Stat
-              label="Letzter Lauf"
-              value={lastRun ? relative(lastRun.finished ?? lastRun.requested) : "keiner"}
-              hint={lastRun ? `#${lastRun.id} · ${lastRun.status}` : "Es gab noch kein Update."}
+              label="Last run"
+              value={lastRun ? relative(lastRun.finished ?? lastRun.requested) : "none"}
+              hint={lastRun ? `#${lastRun.id} · ${lastRun.status}` : "There has been no update yet."}
             />
             <Button asChild variant="outline" size="sm" className="w-fit">
-              <Link to="/betrieb">Zum Betrieb</Link>
+              <Link to="/operations">To Operations</Link>
             </Button>
           </>
         )}
@@ -333,8 +333,8 @@ function BackupsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Sicherungen</CardTitle>
-        <CardDescription>Was auf der Platte liegt – nicht, was ein Lauf gemeldet hat.</CardDescription>
+        <CardTitle className="text-sm font-medium">Backups</CardTitle>
+        <CardDescription>What is on the disk - not what a run reported.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {backups.isPending ? (
@@ -343,29 +343,29 @@ function BackupsCard() {
           <Failure error={backups.error} onRetry={backups.refetch} />
         ) : newest === undefined ? (
           <Empty
-            title="Keine fertige Sicherung"
-            note="Es liegt kein abgeschlossenes Archiv im Sicherungsverzeichnis."
+            title="No finished backup"
+            note="There is no finished archive in the backup directory."
           />
         ) : (
           <>
             <Stat
-              label="Neueste"
+              label="Newest"
               value={relative(newest.modified)}
               hint={`${newest.name} · ${newest.human}`}
             />
             <Stat
-              label="Vorrat"
+              label="Stock"
               value={count(finished.length)}
-              hint={`zusammen ${bytes(finished.reduce((sum, backup) => sum + backup.bytes, 0))}`}
+              hint={`together ${bytes(finished.reduce((sum, backup) => sum + backup.bytes, 0))}`}
             />
             {partial.length > 0 ? (
               <p className="text-xs text-warning">
-                {partial.length} angefangene Datei(en) (.partial) – entweder läuft gerade eine
-                Sicherung, oder eine ist abgebrochen.
+                {partial.length} started file(s) (.partial) - either a backup is running right now,
+                or one was aborted.
               </p>
             ) : null}
             <Button asChild variant="outline" size="sm" className="w-fit">
-              <Link to="/betrieb">Alle Sicherungen</Link>
+              <Link to="/operations">All backups</Link>
             </Button>
           </>
         )}
@@ -379,8 +379,8 @@ function SeasonCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Saison</CardTitle>
-        <CardDescription>Phase und Termine, wie sie in der Datenbank stehen.</CardDescription>
+        <CardTitle className="text-sm font-medium">Season</CardTitle>
+        <CardDescription>Phase and dates, as they stand in the database.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {season.isPending ? (
@@ -391,15 +391,15 @@ function SeasonCard() {
           <>
             <div className="grid grid-cols-2 gap-4">
               <Stat label="Phase" value={PHASES[season.data!.phase] ?? season.data!.phase} />
-              <Stat label="Saisonstart" value={dateTime(season.data!.launch)} />
+              <Stat label="Season start" value={dateTime(season.data!.launch)} />
             </div>
             <Stat label="SMP-Start" value={dateTime(season.data!.smpStart)} />
             <p className="text-xs text-muted-foreground">
-              Wie viele Spieler gerade online sind, steht nirgends in der Datenbank – das weiß nur
-              der laufende Proxy, und diese Oberfläche fragt ihn nicht.
+              How many players are online is nowhere in the database - only the running proxy knows
+              that, and this interface does not ask it.
             </p>
             <Button asChild variant="outline" size="sm" className="w-fit">
-              <Link to="/saison">Zur Saison</Link>
+              <Link to="/season">To the season</Link>
             </Button>
           </>
         )}
@@ -409,10 +409,10 @@ function SeasonCard() {
 }
 
 const PHASES: Record<string, string> = {
-  PRE_EVENT: "vor dem Event",
+  PRE_EVENT: "before the event",
   EVENT: "Event",
   SMP: "SMP",
-  ENDED: "beendet",
+  ENDED: "ended",
 }
 
 function ActionsCard() {
@@ -422,10 +422,10 @@ function ActionsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Letzte Aktionen</CardTitle>
+        <CardTitle className="text-sm font-medium">Latest actions</CardTitle>
         <CardDescription>
-          Wer was ausgelöst hat – bei mehreren Admins der Unterschied zwischen „seltsam“ und „ach so,
-          das warst du“.
+          Who triggered what - with several admins, the difference between "odd" and "ah, that was
+          you".
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -434,7 +434,7 @@ function ActionsCard() {
         ) : journal.error ? (
           <Failure error={journal.error} onRetry={journal.refetch} />
         ) : entries.length === 0 ? (
-          <Empty title="Noch nichts protokolliert" />
+          <Empty title="Nothing recorded yet" />
         ) : (
           <ul className="flex flex-col">
             {entries.map((entry) => (
@@ -454,7 +454,7 @@ function ActionsCard() {
           </ul>
         )}
         <Button asChild variant="outline" size="sm" className="w-fit">
-          <Link to="/journal">Ganzes Journal</Link>
+          <Link to="/journal">The whole journal</Link>
         </Button>
       </CardContent>
     </Card>
@@ -466,24 +466,24 @@ function ActionsCard() {
 /**
  * Three groups, and the membership is a decision rather than an alphabet.
  *
- * A service this list does not know still appears - under "Weitere". A new compose service that
+ * A service this list does not know still appears - under "Other". A new compose service that
  * silently vanished from the start page would be exactly the kind of thing nobody notices until it
  * is the one that is down.
  */
 const GROUPS: Array<{ label: string; note: string; members: string[] }> = [
   {
     label: "Minecraft",
-    note: "Was Spieler sehen. Ein Neustart hier wirft alle heraus.",
+    note: "What players see. A restart here throws everybody out.",
     members: ["network-control", "limbo", "hunger-games", "smp"],
   },
   {
     label: "Steward",
-    note: "Diese Oberfläche, der Daemon-Zugriff und das Ausrollen.",
+    note: "This interface, the daemon access and the rollout.",
     members: ["steward-ui", "steward-worker", "steward-deployer"],
   },
   {
-    label: "Infrastruktur",
-    note: "Datenbank, Zustellung und der Bot.",
+    label: "Infrastructure",
+    note: "Database, delivery and the bot.",
     members: ["postgres", "caddy", "discord-bot"],
   },
 ]
@@ -505,8 +505,8 @@ function ServiceTable() {
   const others = all.filter((service) => !known.has(service.service))
   if (others.length > 0) {
     groups.push({
-      label: "Weitere",
-      note: "Dienste, die diese Oberfläche nicht kennt – neu in compose.yml?",
+      label: "Other",
+      note: "Services this interface does not know - new in compose.yml?",
       members: [],
       rows: others,
     })
@@ -515,8 +515,8 @@ function ServiceTable() {
   if (all.length === 0) {
     return (
       <Empty
-        title="Kein Container im Projekt"
-        note="steward-worker hat geantwortet, aber kein Container trägt das Compose-Projektlabel. Läuft der Stack?"
+        title="No container in the project"
+        note="steward-worker answered, but no container carries the compose project label. Is the stack running?"
       />
     )
   }
@@ -524,20 +524,20 @@ function ServiceTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Dienste</CardTitle>
+        <CardTitle className="text-sm font-medium">Services</CardTitle>
         <CardDescription>
-          Zustand, Image, Laufzeit und Verbrauch. Zum Lesen und zum Weiterspringen – neu gestartet
-          wird im Betrieb.
+          Status, image, uptime and usage. To read and to jump from - restarting happens under
+          Operations.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Table className="steward-table">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[18rem]">Dienst</TableHead>
-              <TableHead className="w-[7rem]">Zustand</TableHead>
+              <TableHead className="w-[18rem]">Service</TableHead>
+              <TableHead className="w-[7rem]">State</TableHead>
               <TableHead className="w-[7rem]">Image</TableHead>
-              <TableHead className="w-[8rem]">Laufzeit</TableHead>
+              <TableHead className="w-[8rem]">Uptime</TableHead>
               <TableHead className="w-[8rem] text-right">RAM</TableHead>
               <TableHead className="w-[6rem] text-right">CPU</TableHead>
               <TableHead className="w-[9rem]" />
@@ -577,7 +577,7 @@ function GroupRows({
         <TableRow key={service.service}>
           <TableCell className="font-medium">
             <Link
-              to="/dienste/$name"
+              to="/services/$name"
               params={{ name: service.service }}
               className="underline-offset-4 hover:text-primary hover:underline"
             >
@@ -601,7 +601,7 @@ function GroupRows({
           <TableCell>
             <div className="flex items-center justify-end gap-1">
               <Button asChild variant="ghost" size="sm">
-                <Link to="/dienste/$name" params={{ name: service.service }}>
+                <Link to="/services/$name" params={{ name: service.service }}>
                   <ScrollText aria-hidden />
                   Log
                 </Link>
@@ -610,12 +610,12 @@ function GroupRows({
               {service.hasConsole ? (
                 <Button asChild variant="ghost" size="sm">
                   <Link
-                    to="/dienste/$name"
+                    to="/services/$name"
                     params={{ name: service.service }}
-                    hash="konsole"
+                    hash="console"
                   >
                     <Terminal aria-hidden />
-                    Konsole
+                    Console
                   </Link>
                 </Button>
               ) : null}

@@ -25,13 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 class LogFramesTest {
 
-    private static final String LINE = "[04:45:12 INFO]: Jörg ist in Lava gefallen – schön blöd\n";
+    private static final String LINE = "[04:45:12 INFO]: Zoë fell into lava – hard luck\n";
 
     @Test
     @DisplayName("a character split across two reads is one character, not two question marks")
     void aCharacterSurvivesTheChunkBoundary() throws IOException {
         final byte[] all = LINE.getBytes(StandardCharsets.UTF_8);
-        // Straight through the ö: the first chunk ends on the lead byte of a two-byte character.
+        // Straight through the ë: the first chunk ends on the lead byte of a two-byte character.
         final int cut = indexOfLeadByte(all) + 1;
 
         assertEquals(List.of(LINE.strip()),
@@ -52,12 +52,12 @@ class LogFramesTest {
     @Test
     @DisplayName("a character the stream ends halfway through is one replacement, not a lost line")
     void anUnfinishableCharacterIsStillALine() throws IOException {
-        final byte[] all = "fertig ö".getBytes(StandardCharsets.UTF_8);
+        final byte[] all = "done ë".getBytes(StandardCharsets.UTF_8);
 
         final List<String> lines = linesOf(false, Arrays.copyOfRange(all, 0, all.length - 1));
 
         assertEquals(1, lines.size(), lines.toString());
-        assertEquals("fertig �", lines.getFirst(),
+        assertEquals("done �", lines.getFirst(),
                 "the half character is visible as one, and the line it was on is still delivered");
     }
 

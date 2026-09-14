@@ -5,7 +5,7 @@ import { cn } from "cn"
  * One labelled number.
  *
  * The label is small and quiet, the figure is large and `tabular-nums`, and the hint underneath is
- * where the caveat goes - "Anteil am Host, kein Container hat ein Limit" belongs next to the number
+ * where the caveat goes - "share of the host, no container has a limit" belongs next to the number
  * it qualifies and nowhere else.
  */
 export function Stat({

@@ -46,49 +46,49 @@ type PhaseName = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENAN
  * What each phase actually does, in the words of `SeasonPhase` in :common.
  *
  * Kept as the admission rule rather than as a description, because "Vorbereitung" tells nobody
- * whether their players can log in and "nur Admins" does.
+ * whether their players can log in and "admins only" does.
  */
 const PHASES: { name: PhaseName; label: string; who: string; where: string }[] = [
   {
     name: "PRE_LAUNCH",
-    label: "Vor dem Start",
-    who: "Nur Admins. Alle anderen sehen einen Countdown auf den Starttermin.",
+    label: "Before launch",
+    who: "Admins only. Everybody else sees a countdown to the launch date.",
     where: "—",
   },
   {
     name: "PRE_EVENT",
-    label: "Vor dem Event",
-    who: "Jedes verknüpfte, nicht gesperrte Discord-Mitglied. Ein Beitragszeitraum ist nicht nötig.",
+    label: "Before the event",
+    who: "Every linked, unbanned Discord member. No contribution period is needed.",
     where: "hunger-games",
   },
   {
     name: "START_EVENT",
     label: "Startevent",
-    who: "Wie „Vor dem Event“.",
+    who: "Same as before the event.",
     where: "hunger-games",
   },
   {
     name: "SMP",
-    label: "Saison läuft",
-    who: "Verknüpft, nicht gesperrt – und als einzige Phase zusätzlich mit laufendem Zugang.",
+    label: "Season running",
+    who: "Linked, unbanned - and the only phase that also requires current access.",
     where: "smp",
   },
   {
     name: "MAINTENANCE",
     label: "Wartung",
-    who: "Alle kommen ins Netzwerk und bleiben in limbo; Admins werden nicht umgeleitet.",
+    who: "Everybody reaches the network and stays in limbo; admins are not redirected.",
     where: "limbo",
   },
 ]
 
-export function SaisonPage() {
+export function SeasonPage() {
   const season = useSeason()
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Saison"
-        note="Die Phase entscheidet, wer hereinkommt und wo er landet. Sie gilt sofort, ohne Neustart."
+        title="Season"
+        note="The phase decides who gets in and where they land. It takes effect at once, with no restart."
       />
 
       <QueryState query={season} rows={4}>
@@ -99,11 +99,11 @@ export function SaisonPage() {
             <CommandCard />
             <Alert>
               <ShieldAlert aria-hidden />
-              <AlertTitle>Zwischen Saisons wird nichts übernommen.</AlertTitle>
+              <AlertTitle>Nothing is carried between seasons.</AlertTitle>
               <AlertDescription>
-                Jede Saison ist ein vollständiger Neuaufbau: jeder Dienst, jede Datenbank, jede
-                Konfiguration von vorn. Es gibt hier deshalb bewusst keinen Knopf, der eine Saison
-                beendet – das ist kein Schalter, sondern ein Aufbau.
+                Every season is a full rebuild: every service, every database, every config from
+                scratch. That is why there is deliberately no button here that ends a season - it is
+                not a switch, it is a build.
               </AlertDescription>
             </Alert>
           </>
@@ -126,7 +126,7 @@ function PhaseCard({ season }: { season: Season }) {
       { phase, reason },
       {
         onSuccess: () => {
-          toast.success(`Phase ist jetzt ${PHASES.find((p) => p.name === phase)?.label ?? phase}.`)
+          toast.success(`Phase is now ${PHASES.find((p) => p.name === phase)?.label ?? phase}.`)
           setAsked(null)
           setReason("")
         },
@@ -173,7 +173,7 @@ function PhaseCard({ season }: { season: Season }) {
                 </div>
                 <p className="max-w-prose text-sm text-muted-foreground">{phase.who}</p>
                 <p className="text-sm text-muted-foreground">
-                  Spieler landen auf: <span className="font-mono">{phase.where}</span>
+                  Players land on: <span className="font-mono">{phase.where}</span>
                 </p>
               </div>
               <Button
@@ -183,7 +183,7 @@ function PhaseCard({ season }: { season: Season }) {
                 disabled={active || change.isPending}
                 onClick={() => setAsked(phase.name)}
               >
-                {active ? "läuft" : "Umschalten"}
+                {active ? "current" : "Switch"}
               </Button>
             </div>
           )
@@ -206,29 +206,29 @@ function PhaseCard({ season }: { season: Season }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Phase auf „{PHASES.find((phase) => phase.name === asked)?.label}“ umschalten?
+              Switch the phase to "{PHASES.find((phase) => phase.name === asked)?.label}"?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {PHASES.find((phase) => phase.name === asked)?.who} Die Änderung gilt ab dem nächsten
-              Beitritt – Spieler, die bereits im Netzwerk sind, werden nicht verschoben.
+              {PHASES.find((phase) => phase.name === asked)?.who} The change applies from the next
+              join - players already on the network are not moved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="phase-reason">Grund</Label>
+            <Label htmlFor="phase-reason">Reason</Label>
             <Input
               id="phase-reason"
               value={reason}
-              placeholder="steht später im Journal"
+              placeholder="ends up in the journal"
               onChange={(event) => setReason(event.target.value)}
             />
             <p className="text-sm text-muted-foreground">
-              Der Grund landet im Journal, zusammen mit deinem Namen. Er darf leer bleiben; dann
-              steht dort nur, wer umgeschaltet hat.
+              The reason lands in the journal, together with your name. It may stay empty; then it
+              only records who switched.
             </p>
           </div>
           {change.error ? <Failure error={change.error} /> : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={change.isPending}>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel disabled={change.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault()
@@ -236,7 +236,7 @@ function PhaseCard({ season }: { season: Season }) {
               }}
               disabled={change.isPending}
             >
-              {change.isPending ? "Wird umgeschaltet…" : "Umschalten"}
+              {change.isPending ? "Switching…" : "Switch"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -254,21 +254,21 @@ function DatesCard({ season }: { season: Season }) {
           Termine
         </CardTitle>
         <CardDescription>
-          Zwei Zeitpunkte, und keiner von beiden schaltet selbst um. Der Countdown vor dem Start
-          zeigt den ersten an; wer hereindarf, bleibt eine Entscheidung und kein Zeitstempel.
+          Two moments, and neither switches anything by itself. The countdown before launch shows
+          the first; who may enter stays a decision, not a timestamp.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         <DateField
           which="launch"
-          label="Start des Netzwerks"
-          note="Worauf der Countdown in „Vor dem Start“ zählt."
+          label="Network launch"
+          note="What the countdown before launch counts towards."
           at={season.launch}
         />
         <DateField
           which="smpStart"
-          label="Start der SMP"
-          note="Wann die Saison richtig losgeht."
+          label="SMP launch"
+          note="When the season properly begins."
           at={season.smpStart}
         />
       </CardContent>
@@ -310,20 +310,20 @@ function DateField({
           onClick={() =>
             change.mutate(
               { which, at: new Date(local).toISOString() },
-              { onSuccess: () => toast.success(`${label} gespeichert.`) },
+              { onSuccess: () => toast.success(`${label} saved.`) },
             )
           }
         >
-          Speichern
+          Save
         </Button>
         {dirty ? (
           <Button type="button" variant="ghost" size="sm" onClick={() => setLocal(toLocalInput(at))}>
-            Zurücksetzen
+            Reset
           </Button>
         ) : null}
       </div>
       <p className="text-sm text-muted-foreground">
-        {at ? `Gespeichert: ${dateTime(at)} (${relative(at)})` : "Noch kein Termin gesetzt."}
+        {at ? `Saved: ${dateTime(at)} (${relative(at)})` : "No date set yet."}
       </p>
       {change.error ? <Failure error={change.error} /> : null}
     </div>

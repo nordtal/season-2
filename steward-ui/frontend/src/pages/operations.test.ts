@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { tonight } from "@/pages/betrieb"
+import { tonight } from "@/pages/operations"
 
 /**
- * „Heute Nacht", the one piece of arithmetic behind the buttons on the Betrieb page.
+ * "Tonight", the one piece of arithmetic behind the buttons on the Operations page.
  *
  * What it hands back becomes `not_before` on an `update_request` row, so a moment that is already
  * past is not a harmless rounding error: the worker picks the row up at once, stops smp,
@@ -33,7 +33,7 @@ describe("tonight - with no nightly backup to stay out of the way of", () => {
   })
 
   it("means this morning when it is not yet four", () => {
-    // Somebody at two in the morning asking for „heute Nacht" means the four o'clock two hours
+    // Somebody at two in the morning asking for "tonight" means the four o'clock two hours
     // away, not the one twenty-six hours away.
     const now = new Date(2026, 8, 12, 2, 0, 0)
 
@@ -52,7 +52,7 @@ describe("tonight - with no nightly backup to stay out of the way of", () => {
     // for a NULL column. Both have to land on four o'clock rather than on Invalid Date.
     const now = new Date(2026, 8, 12, 22, 0, 0)
 
-    for (const nothing of [null, undefined, "", "null", "keine Zeit"]) {
+    for (const nothing of [null, undefined, "", "null", "not a time"]) {
       const night = tonight(nothing, now)
 
       expect(Number.isNaN(night.getTime())).toBe(false)

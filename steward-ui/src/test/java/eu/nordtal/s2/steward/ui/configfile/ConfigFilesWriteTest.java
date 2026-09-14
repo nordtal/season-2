@@ -297,7 +297,7 @@ class ConfigFilesWriteTest {
     void nonAsciiInACommentIsNotMangled() throws IOException {
         final Path file = directory.resolve("utf8.yml");
         Files.writeString(file, """
-                # Die Größe der Welt - §8a, „Steward"
+                # The size of the world – §8a, «Steward»
                 size: 4096
                 """, StandardCharsets.UTF_8);
         final String before = Files.readString(file, StandardCharsets.UTF_8);

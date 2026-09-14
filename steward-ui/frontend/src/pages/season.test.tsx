@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { SaisonPage } from "@/pages/saison"
+import { SeasonPage } from "@/pages/season"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
@@ -58,16 +58,16 @@ function draw(node: ReactNode) {
   )
 }
 
-/** Press "Umschalten" on the row of one phase, found by the constant printed beside its label. */
+/** Press "Switch" on the row of one phase, found by the constant printed beside its label. */
 async function ask(phase: string): Promise<HTMLElement> {
   const name = await screen.findByText(phase)
   const card = name.closest("div.rounded-md")
   if (!card) throw new Error(`the row of ${phase} is not shaped the way this test assumed`)
-  fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "Umschalten" }))
+  fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "Switch" }))
   return screen.findByRole("alertdialog")
 }
 
-const reasonField = () => screen.getByLabelText("Grund") as HTMLInputElement
+const reasonField = () => screen.getByLabelText("Reason") as HTMLInputElement
 
 /** What the page sent, as the backend would have read it. */
 function sentPhaseChange(fetched: ReturnType<typeof backend>) {
@@ -81,14 +81,14 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe("SaisonPage - the reason that was typed and abandoned", () => {
+describe("SeasonPage - the reason that was typed and abandoned", () => {
   it("is gone from the field when the dialog is cancelled", async () => {
     vi.stubGlobal("fetch", backend())
-    draw(<SaisonPage />)
+    draw(<SeasonPage />)
 
     await ask("PRE_LAUNCH")
-    fireEvent.change(reasonField(), { target: { value: "Doch nicht, falsche Phase" } })
-    fireEvent.click(screen.getByRole("button", { name: "Abbrechen" }))
+    fireEvent.change(reasonField(), { target: { value: "No - wrong phase after all" } })
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
     await ask("MAINTENANCE")
@@ -100,10 +100,10 @@ describe("SaisonPage - the reason that was typed and abandoned", () => {
     // Escape and a click on the overlay included. Clearing it in the Cancel handler alone would
     // pass the test above and leak here.
     vi.stubGlobal("fetch", backend())
-    draw(<SaisonPage />)
+    draw(<SeasonPage />)
 
     const dialog = await ask("PRE_LAUNCH")
-    fireEvent.change(reasonField(), { target: { value: "Tippfehler" } })
+    fireEvent.change(reasonField(), { target: { value: "Typo" } })
     fireEvent.keyDown(dialog, { key: "Escape", code: "Escape" })
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
@@ -116,15 +116,15 @@ describe("SaisonPage - the reason that was typed and abandoned", () => {
     // carrying a sentence somebody typed about PRE_LAUNCH and then thought better of.
     const fetched = backend()
     vi.stubGlobal("fetch", fetched)
-    draw(<SaisonPage />)
+    draw(<SeasonPage />)
 
     await ask("PRE_LAUNCH")
-    fireEvent.change(reasonField(), { target: { value: "Doch nicht, falsche Phase" } })
-    fireEvent.click(screen.getByRole("button", { name: "Abbrechen" }))
+    fireEvent.change(reasonField(), { target: { value: "No - wrong phase after all" } })
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
 
     const second = await ask("MAINTENANCE")
-    fireEvent.click(within(second).getByRole("button", { name: "Umschalten" }))
+    fireEvent.click(within(second).getByRole("button", { name: "Switch" }))
 
     await waitFor(() => expect(() => sentPhaseChange(fetched)).not.toThrow())
     expect(sentPhaseChange(fetched)).toEqual({ phase: "MAINTENANCE", reason: "" })
@@ -135,11 +135,11 @@ describe("SaisonPage - the reason that was typed and abandoned", () => {
     // works at all.
     const fetched = backend()
     vi.stubGlobal("fetch", fetched)
-    draw(<SaisonPage />)
+    draw(<SeasonPage />)
 
     const dialog = await ask("MAINTENANCE")
     fireEvent.change(reasonField(), { target: { value: "Postgres wird umgezogen" } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Umschalten" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Switch" }))
 
     await waitFor(() => expect(() => sentPhaseChange(fetched)).not.toThrow())
     expect(sentPhaseChange(fetched)).toEqual({ phase: "MAINTENANCE", reason: "Postgres wird umgezogen" })
@@ -147,11 +147,11 @@ describe("SaisonPage - the reason that was typed and abandoned", () => {
 
   it("is gone after a switch that went through", async () => {
     vi.stubGlobal("fetch", backend())
-    draw(<SaisonPage />)
+    draw(<SeasonPage />)
 
     const dialog = await ask("MAINTENANCE")
     fireEvent.change(reasonField(), { target: { value: "Postgres wird umgezogen" } })
-    fireEvent.click(within(dialog).getByRole("button", { name: "Umschalten" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Switch" }))
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
     await ask("PRE_LAUNCH")
@@ -159,27 +159,27 @@ describe("SaisonPage - the reason that was typed and abandoned", () => {
   })
 
   it("asks before it switches at all, and the question names the admission rule", async () => {
-    // Not decoration: "Vorbereitung" tells nobody whether their players can log in, and the
+    // Not decoration: "Before launch" tells nobody whether their players can log in, and the
     // dialog is the last place this can be said before the door changes.
     vi.stubGlobal("fetch", backend())
-    draw(<SaisonPage />)
+    draw(<SeasonPage />)
 
     const dialog = await ask("PRE_LAUNCH")
 
-    expect(dialog.textContent).toContain("Nur Admins")
-    expect(dialog.textContent).toContain("ab dem nächsten Beitritt")
+    expect(dialog.textContent).toContain("Admins only")
+    expect(dialog.textContent).toContain("from the next")
   })
 })
 
-describe("SaisonPage - a switch the backend refuses", () => {
+describe("SeasonPage - a switch the backend refuses", () => {
   it("keeps the dialog open, because the phase has not changed", async () => {
-    vi.stubGlobal("fetch", backend({ phase: () => ({ status: 503, body: { error: "Die Datenbank antwortet nicht." } }) }))
-    draw(<SaisonPage />)
+    vi.stubGlobal("fetch", backend({ phase: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
+    draw(<SeasonPage />)
 
     const dialog = await ask("MAINTENANCE")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Umschalten" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Switch" }))
 
-    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Umschalten" })).toBeTruthy())
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Switch" })).toBeTruthy())
     expect(screen.queryByRole("alertdialog")).not.toBeNull()
   })
 
@@ -188,24 +188,24 @@ describe("SaisonPage - a switch the backend refuses", () => {
      * This was a defect when it was written, and the same one `command-card.tsx` had one file over:
      * `{change.error ? <Failure …/> : null}` sat in the `CardContent`, which the open AlertDialog
      * covers and marks `aria-hidden` - so a refused phase change left the dialog open, the
-     * "Umschalten" button enabled again, and the reason nowhere the operator could see it. Pressing
+     * "Switch" button enabled again, and the reason nowhere the operator could see it. Pressing
      * it a second time is the obvious next move, and it would have failed the same way, silently.
      * The refusal is now repeated inside the dialog, and the copy in the card is only drawn while
      * the dialog is shut.
      */
-    vi.stubGlobal("fetch", backend({ phase: () => ({ status: 503, body: { error: "Die Datenbank antwortet nicht." } }) }))
-    draw(<SaisonPage />)
+    vi.stubGlobal("fetch", backend({ phase: () => ({ status: 503, body: { error: "The database is not answering." } }) }))
+    draw(<SeasonPage />)
 
     const dialog = await ask("MAINTENANCE")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Umschalten" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Switch" }))
 
     // `hidden: true` because Radix marks everything outside the open dialog aria-hidden, and the
-    // filter because the page carries a standing `role="alert"` of its own ("Zwischen Saisons wird
-    // nichts übernommen"), which is not the sentence under test.
+    // filter because the page carries a standing `role="alert"` of its own ("Nothing is carried
+    // between seasons"), which is not the sentence under test.
     const refusals = (scope: { queryAllByRole: typeof screen.queryAllByRole }) =>
       scope
         .queryAllByRole("alert", { hidden: true })
-        .filter((one) => one.textContent?.includes("Die Datenbank antwortet nicht."))
+        .filter((one) => one.textContent?.includes("The database is not answering."))
 
     // It IS rendered - in the card underneath, which the overlay covers.
     await waitFor(() => expect(refusals(screen)).toHaveLength(1))

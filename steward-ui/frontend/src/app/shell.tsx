@@ -87,13 +87,13 @@ function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }
           <StewardMark className="size-8" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-            <span className="text-sm text-muted-foreground">nordtal.eu · Saison 2</span>
+            <span className="text-sm text-muted-foreground">nordtal.eu · Season 2</span>
           </div>
         </div>
         <Failure error={error} onRetry={onRetry} />
         <p className="text-center text-sm text-muted-foreground">
-          Das ist keine abgelaufene Sitzung. Angemeldet bleibst du – erst wenn diese Abfrage wieder
-          durchkommt, weiß die Oberfläche, wer du bist.
+          This is not an expired session. You stay signed in - the interface only knows who you are
+          again once this request gets through.
         </p>
       </div>
     </div>
@@ -152,7 +152,7 @@ function CommandHint() {
       }}
       className="flex h-control min-w-56 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-muted-foreground transition-colors duration-150 ease-out hover:border-input hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none active:bg-secondary"
     >
-      <span>Seite suchen…</span>
+      <span>Search pages…</span>
       <kbd className="ml-auto rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-[0.6875rem] text-foreground">
         ⌘K
       </kbd>
@@ -161,25 +161,25 @@ function CommandHint() {
 }
 
 const SECTION_LABELS: Record<string, string> = {
-  dienste: "Dienste",
-  betrieb: "Betrieb",
+  services: "Services",
+  operations: "Operations",
   plan: "Plan",
-  lauf: "Lauf",
-  sicherung: "Sicherung",
-  wiederherstellen: "Wiederherstellen",
-  konfiguration: "Konfiguration",
-  saison: "Saison",
-  zugaenge: "Zugänge",
-  zahlungen: "Zahlungen",
-  konten: "Konten",
+  runs: "Run",
+  backups: "Backup",
+  restore: "Restore",
+  configuration: "Configuration",
+  season: "Season",
+  access: "Access",
+  payments: "Payments",
+  accounts: "Accounts",
   journal: "Journal",
-  einstellungen: "Einstellungen",
+  settings: "Settings",
 }
 
 /**
  * A path segment as a person should read it, or exactly as it arrived.
  *
- * `decodeURIComponent` throws on a malformed escape - `/dienste/%` is enough - and it is called
+ * `decodeURIComponent` throws on a malformed escape - `/services/%` is enough - and it is called
  * while the header renders, so the whole page became a blank screen for a URL somebody mistyped
  * or a link that lost a character. An undecodable segment is shown as it is; it is a breadcrumb,
  * not a value anything is computed from.
@@ -194,7 +194,7 @@ function readable(segment: string) {
 
 function breadcrumbsFor(pathname: string) {
   const segments = pathname.split("/").filter(Boolean)
-  const crumbs = [{ label: "Zustand", href: "/" }]
+  const crumbs = [{ label: "Status", href: "/" }]
   let href = ""
   for (const segment of segments) {
     href += `/${segment}`

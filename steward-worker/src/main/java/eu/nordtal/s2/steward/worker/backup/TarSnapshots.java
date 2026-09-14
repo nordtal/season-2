@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.worker.backup;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -8,6 +9,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -75,6 +77,16 @@ public final class TarSnapshots implements Snapshots {
 
     /** Written under this and renamed only once read back - see {@link #save}. */
     static final String PARTIAL = ".partial";
+
+    /**
+     * What is appended to an archive's name to mark the stop behind it as unverified.
+     *
+     * <p>Beside the archive and not in it: the archive is a tar of a world directory and a restore
+     * unpacks it, so anything added inside would land in somebody's world. Beside it, the mark is
+     * the first thing {@code deploy/restore.sh --list} prints and the last thing a restore asks
+     * about, and the archive itself is byte for byte an ordinary one.</p>
+     */
+    static final String MARK = ".unverified";
 
     /**
      * {@code <volume>-<stamp>.tar.zst}. The stamp's shape is fixed and a volume name cannot contain
@@ -233,6 +245,29 @@ public final class TarSnapshots implements Snapshots {
         }
     }
 
+    @Override
+    public @Nullable String markUnverified(final @NotNull String archive, final @NotNull String why) {
+        final Path mark;
+        try {
+            mark = Path.of(archive + MARK);
+        } catch (final InvalidPathException notAPath) {
+            log.warn("cannot mark {}: {}", archive, notAPath.toString());
+            return null;
+        }
+        try {
+            Files.writeString(mark, why + System.lineSeparator(), StandardCharsets.UTF_8);
+        } catch (final IOException unwritable) {
+            // Not a reason to discard a backup that succeeded. It is a reason to say so loudly in
+            // the log, because the one thing worse than an unverified archive is an unverified
+            // archive nobody can tell apart from a good one.
+            log.warn("could not mark {} as unverified: {}", archive, unwritable.toString());
+            return null;
+        }
+        log.warn("{} was taken after a stop that could not be verified: {}",
+                mark.getFileName(), why);
+        return mark.getFileName().toString();
+    }
+
     /**
      * Keeps the newest {@code keep} archives <b>of each volume</b>.
      *
@@ -294,6 +329,10 @@ public final class TarSnapshots implements Snapshots {
                 if (delete(old)) {
                     log.info("pruning {} (keeping {} of {})", name, keep, volume.getKey());
                     removed.add(name);
+                    // The mark goes with the archive it belongs to. Left behind it would be a
+                    // warning about a file that is no longer there, which is how a directory fills
+                    // up with notes nobody can act on.
+                    delete(old.resolveSibling(name + MARK));
                 }
             }
         }

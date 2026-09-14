@@ -377,6 +377,31 @@ class UpdateRunTest {
         };
     }
 
+    /**
+     * A clock well inside the window that lets the service come back while it is being waited for.
+     *
+     * <p>The wait is driven rather than slept through: the sleep advances the instant and makes the
+     * container healthy, which is what a real start does one poll later.</p>
+     */
+    private static UpdateRun.Waiting comesBackOnTheSecondLook(final FakeContainers containers,
+                                                              final String service) {
+        return new UpdateRun.Waiting() {
+            private Instant now = Instant.parse("2026-09-07T12:00:00Z");
+
+            @Override
+            public Instant now() {
+                return now;
+            }
+
+            @Override
+            public boolean sleep(final Duration duration) {
+                now = now.plus(duration);
+                containers.back(service);
+                return true;
+            }
+        };
+    }
+
     /** A clock already past the deadline, so the timeout branch is reached on the first look. */
     private static UpdateRun.Waiting impatient() {
         return new UpdateRun.Waiting() {
@@ -467,9 +492,68 @@ class UpdateRunTest {
         assertTrue(report.line(Topology.SMP).detail().contains("image is out of date"),
                 "the reason has to say which half of the run stopped: "
                         + report.line(Topology.SMP).detail());
-        assertTrue(report.line(Topology.SMP).detail().contains("on the old version"),
-                "and it has to say the service is up, or an operator restarts it by hand: "
+        assertTrue(report.line(Topology.SMP).detail()
+                        .contains("started again on the image it already had"),
+                "and it has to say the old container was put back, or an operator starts by hand"
+                        + " one that is already running: " + report.line(Topology.SMP).detail());
+        assertFalse(report.line(Topology.SMP).detail().contains("the service is back"),
+                "this line ended 'so the service is back' until 2026-09-13, written on the strength"
+                        + " of Docker having accepted a start. Docker accepts one just as readily"
+                        + " for a container that exits on the first tick. Whether it came back is"
+                        + " verify()'s to find out and to finish the sentence with: "
                         + report.line(Topology.SMP).detail());
+    }
+
+    @Test
+    @DisplayName("a fallback that really came back is said to have come back, and only then")
+    void aFallbackThatComesBackIsReportedAsBack() {
+        final FakeContainers containers = new FakeContainers().running(Topology.SMP)
+                .imageOutdated(Topology.SMP).recreateRefused(Topology.SMP);
+        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
+        final UpdateReport started = run.start(stopped, containers.images());
+
+        final UpdateReport verified = run.verify(started, stopped.services(),
+                comesBackOnTheSecondLook(containers, Topology.SMP));
+
+        final String detail = verified.line(Topology.SMP).detail();
+        assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state(),
+                "the update genuinely did not happen - the jars moved and the image did not - so"
+                        + " the line stays FAILED however well the old version is running");
+        assertTrue(detail.contains("it is back on that old version"),
+                "which version is running is the question an admin has next, and a bare FAILED"
+                        + " sends somebody to look at a server that is fine: " + detail);
+        assertFalse(detail.contains("did NOT come back"),
+                "a service that came back must not also be reported as down: " + detail);
+    }
+
+    @Test
+    @DisplayName("a fallback that never came back says the service is down, not that it is back")
+    void aFallbackThatStaysDownIsReportedAsDown() {
+        // The case the old wording could not tell from the one above, because it was written the
+        // moment Docker accepted the start. A container that exits on the first tick - the old
+        // image's entrypoint against a plugins directory that has just been updated is a good way
+        // to get one - was reported as a service that was back on the old version.
+        final FakeContainers containers = new FakeContainers().running(Topology.SMP)
+                .imageOutdated(Topology.SMP).recreateRefused(Topology.SMP);
+        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateRun.Stopped stopped = run.stop(planned(Topology.SMP), containers.runtime());
+        final UpdateReport started = run.start(stopped, containers.images());
+
+        final UpdateReport verified = run.verify(started, stopped.services(), impatient());
+
+        final String detail = verified.line(Topology.SMP).detail();
+        assertEquals(UpdateReport.State.FAILED, verified.line(Topology.SMP).state());
+        assertTrue(detail.contains("did NOT come back within "
+                        + UpdateRun.HEALTH_PATIENCE.toMinutes() + " minutes"),
+                "how long was waited is half of what makes this actionable: " + detail);
+        assertTrue(detail.contains("The service is down."),
+                "and somebody has to be told to go and look, in those words: " + detail);
+        assertTrue(detail.contains("running, starting"),
+                "the runtime was actually re-read - this used to be a line verify() never looked"
+                        + " at, because only STARTING lines were waited on: " + detail);
+        assertFalse(detail.contains("is back on that old version"),
+                "a service that is down must not also be reported as back: " + detail);
     }
 
     @Test

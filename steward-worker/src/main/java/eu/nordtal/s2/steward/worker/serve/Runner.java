@@ -357,11 +357,10 @@ public final class Runner implements RequestRunner {
             final UpdateReport verified = run.verify(started, stopped.services(),
                     UpdateRun.Waiting.real());
 
-            final boolean failed = result.hasFailures() || verified.services().stream()
-                    .anyMatch(line -> line.state() == UpdateReport.State.FAILED);
-            final UpdateReport finished = verified.withStage(failed
-                    ? UpdateReport.Stage.FAILED : UpdateReport.Stage.DONE);
-            return failed
+            final UpdateReport finished = settle(verified, run.unverifiedStops(),
+                    "the jars were moved into its plugins directory", result.hasFailures(),
+                    Doubt.FAILS_THE_RUN);
+            return finished.stage() == UpdateReport.Stage.FAILED
                     ? Outcome.failed(UpdateReports.toJson(finished))
                     : Outcome.done(UpdateReports.toJson(finished));
         }
@@ -428,6 +427,77 @@ public final class Runner implements RequestRunner {
      * {@link Outcome}, and because the one path that would keep it is a row settled by something
      * other than a cancel, where "stopped before anything moved" is still the true sentence.</p>
      */
+    /**
+     * What an unverified stop costs on the path being settled.
+     *
+     * <p>Two answers rather than one, and the difference is whether this run left something behind
+     * that somebody later has to decide whether to trust.</p>
+     */
+    enum Doubt {
+
+        /**
+         * The run wrote something while those servers were down - an archive, or jars in a
+         * {@code plugins/} directory. Owner's decision, 2026-09-13: the run settles {@code FAILED},
+         * and the consequence is the one that was wanted, because a failed run authorises no farm
+         * reset. Run 23's shape is a green report over an archive nobody should have trusted; 147's
+         * is jars moved into a directory a JVM may not have let go of, and it is the worse of the
+         * two.
+         */
+        FAILS_THE_RUN,
+
+        /**
+         * The run wrote nothing in between, so there is no artefact to distrust - but the server
+         * may have been killed mid-save and started again on that same world, and a restart is
+         * what somebody does when a server is <em>already</em> misbehaving, which is when this is
+         * most likely. So it is said, at run level, and nothing is blocked over it. Owner's
+         * decision, 2026-09-13.
+         */
+        IS_ONLY_SAID
+    }
+
+    /**
+     * Settles a run that stopped servers, including the one rule that is not about a failed line.
+     *
+     * <h2>A stop whose ending nobody could read is never silent</h2>
+     * Every line can be green - the service stopped, the volume saved, the jars moved, the servers
+     * came back - and the one thing missing is the evidence that the server had finished writing
+     * when the next step touched its files. {@link Doubt} says what that costs on this path.
+     *
+     * <p>The note is why this is a method rather than four lines in each caller. A rule that can
+     * fail a run has to be readable in one place and drivable by a test without a database behind
+     * it; {@link #servicesThatRefused} is package-private for exactly that reason and this sits
+     * beside it. A {@code FAILED} without the note attached would be the worst of the outcomes: a
+     * failure with no reason on it.</p>
+     *
+     * @param verified   the report after {@code verify}, with its stage not yet settled
+     * @param unverified {@link UpdateRun#unverifiedStops()}
+     * @param whatIsAtRisk what the run did while those servers were down, as the middle of a
+     *                     sentence - "the archives were taken", "the jars were moved"
+     * @param alreadyFailed whether something else has already failed this run
+     * @param doubt      what an unverified stop costs here
+     * @return the report with its stage set, and the note on it when there was one to make
+     */
+    static UpdateReport settle(final UpdateReport verified, final List<String> unverified,
+                               final String whatIsAtRisk, final boolean alreadyFailed,
+                               final Doubt doubt) {
+        final UpdateReport told = unverified.isEmpty() ? verified
+                : verified.withNote("UNVERIFIED STOP. " + String.join(", ", unverified)
+                        + " stopped, and how it ended could not be read back, so nothing here knows"
+                        + " whether the server had finished writing when " + whatIsAtRisk + "."
+                        + " Nothing was thrown away and nothing was undone."
+                        + (doubt == Doubt.FAILS_THE_RUN
+                                ? " This run is reported as FAILED for that reason alone, which"
+                                        + " also means it authorises no farm reset."
+                                : " This run is not reported as a failure over it: it left nothing"
+                                        + " behind that anybody has to decide whether to trust."));
+        final boolean failed = (doubt == Doubt.FAILS_THE_RUN && !unverified.isEmpty())
+                || alreadyFailed
+                || told.services().stream()
+                        .anyMatch(line -> line.state() == UpdateReport.State.FAILED);
+        return told.withStage(failed ? UpdateReport.Stage.FAILED : UpdateReport.Stage.DONE);
+    }
+
+
     /**
      * Which of the services this run asked to stop are not among the ones that did.
      *
@@ -612,11 +682,11 @@ public final class Runner implements RequestRunner {
         final UpdateReport verified = run.verify(started, stopped.services(),
                 UpdateRun.Waiting.real());
 
-        final boolean failed = verified.services().stream()
-                .anyMatch(line -> line.state() == UpdateReport.State.FAILED);
-        final UpdateReport finished = verified.withStage(failed
-                ? UpdateReport.Stage.FAILED : UpdateReport.Stage.DONE);
-        return failed
+        final UpdateReport finished = settle(verified, run.unverifiedStops(),
+                "the archives were taken - they were kept, and each one has a .unverified file"
+                        + " beside it saying so, which `deploy/restore.sh --list` prints",
+                false, Doubt.FAILS_THE_RUN);
+        return finished.stage() == UpdateReport.Stage.FAILED
                 ? Outcome.failed(UpdateReports.toJson(finished))
                 : Outcome.done(UpdateReports.toJson(finished));
     }
@@ -691,11 +761,9 @@ public final class Runner implements RequestRunner {
         final UpdateReport verified = run.verify(started, stopped.services(),
                 UpdateRun.Waiting.real());
 
-        final boolean failed = verified.services().stream()
-                .anyMatch(line -> line.state() == UpdateReport.State.FAILED);
-        final UpdateReport finished = verified.withStage(failed
-                ? UpdateReport.Stage.FAILED : UpdateReport.Stage.DONE);
-        return failed
+        final UpdateReport finished = settle(verified, run.unverifiedStops(),
+                "it was started again on the same world", false, Doubt.IS_ONLY_SAID);
+        return finished.stage() == UpdateReport.Stage.FAILED
                 ? Outcome.failed(UpdateReports.toJson(finished))
                 : Outcome.done(UpdateReports.toJson(finished));
     }

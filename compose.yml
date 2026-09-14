@@ -1,7 +1,10 @@
 # nordtal.eu season 2 - the whole deployment.
 #
-#   cp .env.example .env        # fill it in; .env is gitignored and must never be committed
-#   docker compose up -d
+#   deploy/setup.sh             # it asks for what only a person knows, and writes the rest itself
+#
+# NOBODY FILLS IN A .env. .env.example beside this file is the reference for what a setting is
+# called; the environment file itself is created by deploy/setup.sh at STEWARD_ENV_FILE, mode 600,
+# and every `docker compose` typed by hand needs `--env-file` to see it.
 #
 # THIS FILE LIVES AT THE REPOSITORY ROOT and is copied from here into steward-deployer's image
 # (§8b), which is the one thing in the stack allowed to create a container. "Which compose file is

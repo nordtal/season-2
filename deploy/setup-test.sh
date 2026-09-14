@@ -184,6 +184,75 @@ set_assignment "$secrets" STEWARD_DEPLOYER_TOKEN "abc"
 [[ "$(env_value "$secrets" BEFORE)" == "1" ]] || bad "the file it was appended to was disturbed"
 ok "an absent name is appended once"
 
+case_begin "an answer whose shape cannot be right is refused at the prompt"
+# These run at the prompt, where the person can still fix it. The alternative is Caddy asking Let's
+# Encrypt for a certificate for "https://steward.nordtal.eu" and a deployment that waits forever for
+# a name with a scheme in it to resolve.
+for id in 214906139328839681 1234567890123456 123456789012345678901; do
+    looks_like_snowflake "$id" || bad "the snowflake $id was refused"
+done
+for wrong in "" "abc" "<@&214906139328839681>" "21490613932883968 " "12345" "214906139328839681x" \
+             "2149061393288396810123456789"; do
+    if looks_like_snowflake "$wrong"; then bad "«$wrong» was accepted as a Discord id"; fi
+done
+ok "a real id passes; brackets, letters, a short one and a long one do not"
+
+for host in steward.dev.nordtal.eu nordtal.eu a.b; do
+    looks_like_host "$host" || bad "the host name $host was refused"
+done
+for wrong in "" "https://steward.nordtal.eu" "steward.nordtal.eu/" "steward" "steward .eu" \
+             "-steward.eu" "steward.eu." "steward..eu"; do
+    if looks_like_host "$wrong"; then bad "«$wrong» was accepted as a host name"; fi
+done
+ok "a name passes; a URL, a path, a bare label and a stray dot do not"
+
+for address in info@nordtal.eu a@b.c first.last+tag@sub.domain.org; do
+    looks_like_email "$address" || bad "the address $address was refused"
+done
+for wrong in "" "info" "info@" "@nordtal.eu" "info@nordtal" "in fo@nordtal.eu" "a@b@c.de"; do
+    if looks_like_email "$wrong"; then bad "«$wrong» was accepted as an e-mail address"; fi
+done
+ok "an address passes; a missing half, a missing dot and a space do not"
+
+case_begin "the licence question takes yes for an answer and nothing else for one"
+# The only question in the script whose default matters legally. Silence is no.
+for yes in y Y yes YES Yes true; do
+    answer_is_yes "$yes" || bad "«$yes» was not read as yes"
+done
+# `j` and `ja` are in this list rather than the one above on purpose: Steward speaks
+# English, and a German spelling accepted at a prompt is German in the codebase.
+for no in "" n N no nope maybe "y e s" 1 0 accept j ja; do
+    if answer_is_yes "$no"; then bad "«$no» was read as yes"; fi
+done
+ok "six spellings of yes; everything else, silence and German included, is no"
+
+case_begin "a written secret is never on a command line"
+# /proc/<pid>/cmdline is world-readable, so `awk -v value=<the Discord token>` publishes it to every
+# user on the host for as long as that awk runs. This asserts the mechanism rather than the race:
+# the value reaches awk through the environment, so the command line cannot carry it.
+grep -q 'awk -v name=.*-v value=' "$SETUP" && bad "a value is still passed to awk with -v"
+grep -q 'ENVIRON\["SET_ASSIGNMENT_VALUE"\]' "$SETUP" || bad "the value does not come from the environment"
+ok "set_assignment hands the value to awk through the environment"
+
+case_begin "what a deployment demands of a person is the short list"
+# The regression this guards: every role and channel used to be in REQUIRED, so a host could not be
+# deployed until somebody had hand-written six snowflakes into a file. They are optional now - an
+# unset channel means that feature is not served - and this is the list that is left.
+for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA NORDTAL_BOT_TOKEN \
+            NORDTAL_ACCESS_GUILD_ID NORDTAL_ACCESS_ROLES_ADMIN STEWARD_HOST STEWARD_ACME_EMAIL \
+            STEWARD_ENV_FILE STEWARD_UI_DISCORD_CLIENT_ID STEWARD_UI_DISCORD_CLIENT_SECRET; do
+    printf '%s\n' "${REQUIRED[@]}" | grep -qx "$name" || bad "$name is not required and should be"
+done
+for name in NORDTAL_ACCESS_ROLES_ACCESS NORDTAL_ACCESS_ROLES_DONOR NORDTAL_ACCESS_ROLES_ADMIN_PING \
+            NORDTAL_ACCESS_CHANNELS_ADMIN NORDTAL_ACCESS_LANGUAGES NORDTAL_ACCESS_TIERS \
+            NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
+    if printf '%s\n' "${REQUIRED[@]}" | grep -qx "$name"; then
+        bad "$name is required, and a deployment must not stop for it"
+    fi
+done
+ok "twelve required; the roles, the channels, the languages, the tiers and bunq are not"
+
+# ------------------------------------------------------------------------------------------------
 case_begin "a value full of shell metacharacters survives the round trip"
 # The same argument env_value makes: an environment file is not a script. A generated secret is hex
 # today, but this function is the one place a value is written, and the next caller may not be.

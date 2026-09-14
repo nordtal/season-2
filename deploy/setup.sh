@@ -8,22 +8,30 @@
 # script's job (§9c) - and since it has to exist and be re-runnable anyway, it is also what puts the
 # environment file in place and what refuses to continue while the certificate cannot be issued.
 #
-#   deploy/setup.sh                    pull the deployer image, then deploy the whole stack
+#   deploy/setup.sh                    ask for what is missing, then deploy the whole stack
 #   deploy/setup.sh --build            build the deployer from this checkout first (needs a JDK)
 #   deploy/setup.sh --check            every check, and stop before anything is changed
-#   deploy/setup.sh --from PATH        where to take the environment file from (default: ./.env)
-#   deploy/setup.sh --env-file PATH    where it belongs on this host (default: /etc/nordtal/season-2.env)
+#   deploy/setup.sh --from PATH        take the answers from this file instead of asking
+#   deploy/setup.sh --env-file PATH    where the environment file belongs on this host
+#                                      (default: /etc/nordtal/season-2.env)
 #   deploy/setup.sh --address IP       this host's public address, for a host behind NAT
+#
+# NOBODY EDITS A .env. This script asks for the nine things only a person can know - the name the
+# interface answers on, the address Let's Encrypt writes to, the EULA, the bot's token, the two
+# halves of the Discord application, the guild, the admin role, and bunq if there is a bunq - and it
+# writes them itself, into a file it creates with mode 600. Everything else is either generated here
+# (the database password, the proxy's forwarding secret, the two Steward tokens) or has a default in
+# the service's own configuration, which the interface can then edit. Running it again asks only for
+# what is still missing, so it is safe to run twice.
 #
 # RUN IT AGAIN AFTER EVERY RELEASE. That is not a nicety: a new compose.yml reaches this host only
 # inside a new steward-deployer image, so "deploy the new version" is this script, and everything
 # else in the stack then follows from the deployer.
 #
-# IT NEVER PRINTS A SECRET. The environment file holds the Discord token, the bunq key, the database
-# password and the two Steward tokens; this script copies it as a file and reads exactly four values
-# out of it by name - STEWARD_HOST, STEWARD_ENV_FILE, COMPOSE_PROFILES and COMPOSE_PROJECT_NAME,
-# none of them secret. Everything else is checked by NAME only: the report says which variable is
-# missing, never what is in it.
+# IT NEVER PRINTS A SECRET AND NEVER PUTS ONE ON A COMMAND LINE. A secret is read with the terminal
+# echo off, handed to `awk` through the environment rather than through `-v` (an argument is visible
+# in `ps` to every user on the host), and written into a file created 600 beside its destination.
+# The report says which variable is missing, never what is in it.
 #
 # Everything here runs from the repository root whatever directory it is called from.
 set -Eeuo pipefail
@@ -42,28 +50,32 @@ log()  { printf '\033[36m[setup]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[setup]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[setup]\033[0m %s\n' "$*" >&2; exit 1; }
 
-# The variables the stack cannot start without, and every one of them is something only a person
-# knows. They are checked by name: absent, empty or still REPLACE_ME all count as missing, and the
-# report names the variable and never the value.
+# What has to be in the environment file before the stack can start.
 #
-# The two Steward tokens are deliberately NOT here - this script generates those, because a secret a
-# machine can invent is one a person should not have to.
+# Every one of them is either asked for below or generated here, so this list is a last check rather
+# than a demand on the reader: if it ever fires, something in this script failed to write what it
+# said it wrote. It is checked by NAME - absent, empty or still REPLACE_ME all count as missing, and
+# the report names the variable and never the value.
+#
+# WHAT IS DELIBERATELY NOT HERE is as much of the point as what is: the roles the bot hands out, the
+# channels it posts in, the languages, the tiers. None of those stops a deployment - a feature whose
+# channel is unset is simply not served, and the interface can set it afterwards. The old list
+# demanded all six, which is how a host ended up needing a hand-written .env before it could start.
 REQUIRED=(
     COMPOSE_PROFILES
+    POSTGRES_DB
+    POSTGRES_USER
     POSTGRES_PASSWORD
     VELOCITY_FORWARDING_SECRET
+    EULA
     NORDTAL_BOT_TOKEN
-    NORDTAL_BOT_BUNQ_API_KEY
-    NORDTAL_BOT_BUNQ_ACCOUNT_ID
     NORDTAL_ACCESS_GUILD_ID
-    NORDTAL_ACCESS_ROLES_ACCESS
-    NORDTAL_ACCESS_ROLES_DONOR
     NORDTAL_ACCESS_ROLES_ADMIN
-    NORDTAL_ACCESS_ROLES_ADMIN_PING
-    NORDTAL_ACCESS_CHANNELS_ADMIN
     STEWARD_HOST
     STEWARD_ACME_EMAIL
     STEWARD_ENV_FILE
+    STEWARD_UI_DISCORD_CLIENT_ID
+    STEWARD_UI_DISCORD_CLIENT_SECRET
 )
 
 # --- decisions, kept apart so they can be tested ---------------------------------------------------
@@ -99,15 +111,19 @@ env_value() {
 # `env_value` then never reads, because it takes the first match. Both ways the caller was told a
 # value had been written and compose got an empty one.
 #
-# The value is never printed and never passed on a command line: it goes into awk through -v and
-# into a file created with mode 600 beside the destination, so it is not in `ps` and not in a
-# world-readable place, not even for the moment between writing and renaming.
+# THE VALUE IS NEVER PRINTED AND NEVER PUT ON A COMMAND LINE. It used to go into awk through `-v`,
+# with a comment here claiming that kept it out of `ps` - it does not: an argument of a running
+# process is in /proc/<pid>/cmdline, which is world-readable, and this function now writes the
+# Discord token and the database password. So the value travels in the ENVIRONMENT of that one awk
+# (readable by root and the caller, not by everybody) and into a file created with mode 600 beside
+# the destination, never through a world-readable place, not even for the moment before the rename.
 set_assignment() {
     local file="$1" name="$2" value="$3" tmp
     tmp="$(mktemp "$(dirname "$file")/.env.XXXXXX")"
     chmod 600 "$tmp"
     if grep -qE "^[[:space:]]*(export[[:space:]]+)?${name}[[:space:]]*=" "$file"; then
-        awk -v name="$name" -v value="$value" '
+        SET_ASSIGNMENT_NAME="$name" SET_ASSIGNMENT_VALUE="$value" awk '
+            BEGIN { name = ENVIRON["SET_ASSIGNMENT_NAME"]; value = ENVIRON["SET_ASSIGNMENT_VALUE"] }
             {
                 key = $0
                 sub(/=.*$/, "", key)
@@ -158,6 +174,42 @@ profiles_include() {
 
 is_absolute() { [[ "$1" == /* ]]; }
 
+# --- what an answer has to look like ---------------------------------------------------------------
+# Checked at the prompt, not three steps later. A Discord id pasted with its surrounding angle
+# brackets, a host name pasted as an https:// URL and an e-mail address with a stray space in it are
+# all things somebody does once; catching them here costs one repeated question, and catching them
+# in Caddy's log costs a deployment that waits for a name that will never resolve.
+#
+# None of these is a validator in the strict sense and none of them tries to be: a value that looks
+# right can still be the wrong guild. They refuse the shapes that CANNOT be right.
+
+# A Discord snowflake: digits only, and long enough to be a real one. Discord's ids are 17-19 digits
+# today and were shorter in 2015, so the window is deliberately wide at the bottom.
+looks_like_snowflake() { [[ "$1" =~ ^[0-9]{15,21}$ ]]; }
+
+# A host name, not a URL: letters, digits, hyphens and at least one dot. `https://x.y` and `x.y/path`
+# are the two ways this is pasted wrong, and both would be written into compose as the name Caddy
+# asks Let's Encrypt for.
+looks_like_host() {
+    [[ "$1" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]]
+}
+
+# An e-mail address, to the extent that anything can be. One @, something either side, a dot in the
+# domain, no whitespace. Let's Encrypt sends the expiry warnings here and rejects an address it
+# cannot parse, which fails the certificate rather than the address.
+looks_like_email() { [[ "$1" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; }
+
+# Yes, in the three spellings somebody actually types. Anything else - including silence - is no,
+# because the one question asked this way is a licence agreement. English only, so `ja` is not one
+# of them: this script speaks the language the rest of Steward speaks, and a German word accepted
+# here is a German word in the codebase.
+answer_is_yes() {
+    case "${1,,}" in
+        y|yes|true) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # Which of the addresses the name resolves to are NOT this host's.
 #
 # EVERY resolved address has to be ours, not merely one of them. A name with an A record here and a
@@ -196,7 +248,7 @@ while (( $# > 0 )); do
         --address)   ADDRESSES_GIVEN+="${2:?--address needs an address}"$'\n'; shift 2 ;;
         --check)     CHECK_ONLY=true; shift ;;
         --build)     BUILD_DEPLOYER=true; shift ;;
-        -h|--help)   sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)   sed -n '2,35p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *)           die "unknown argument: $1 (try --help)" ;;
     esac
 done
@@ -228,20 +280,26 @@ if [[ ! -f "$ENV_FILE" ]]; then
     if [[ -z "$FROM_FILE" && -f "$ROOT/.env" ]]; then
         FROM_FILE="$ROOT/.env"
     fi
-    [[ -n "$FROM_FILE" ]] || die "there is no environment file at $ENV_FILE and none to take.
-       Either copy .env.example to .env in this checkout and fill it in, or point --from at the one
-       that already exists (a host that has been deployed by something else has one - it is the file
-       that thing interpolated compose.yml from)."
-    [[ -f "$FROM_FILE" ]] || die "--from $FROM_FILE does not exist."
-    $CHECK_ONLY || {
-        install -D -m 600 "$FROM_FILE" "$ENV_FILE"
-        # Copied and compared, never moved. The old file stays where it is on purpose: until a
-        # deployment through this script has been seen to work, whatever put that file there is
-        # still the way back, and a way back that needs a secrets file nobody kept is not one.
-        cmp -s "$FROM_FILE" "$ENV_FILE" || die "the copy of the environment file does not match its
+    if [[ -n "$FROM_FILE" ]]; then
+        [[ -f "$FROM_FILE" ]] || die "--from $FROM_FILE does not exist."
+        $CHECK_ONLY || {
+            install -D -m 600 "$FROM_FILE" "$ENV_FILE"
+            # Copied and compared, never moved. The old file stays where it is on purpose: until a
+            # deployment through this script has been seen to work, whatever put that file there is
+            # still the way back, and a way back that needs a secrets file nobody kept is not one.
+            cmp -s "$FROM_FILE" "$ENV_FILE" || die "the copy of the environment file does not match its
        source. Nothing further has been done."
-        log "environment file copied to $ENV_FILE (mode 600); $FROM_FILE is left alone"
-    }
+            log "environment file copied to $ENV_FILE (mode 600); $FROM_FILE is left alone"
+        }
+    else
+        # THE FIRST RUN ON A NEW HOST, and this is where it used to stop: "copy .env.example and
+        # fill it in" is a sentence that costs an evening and a private file full of secrets that
+        # nobody can check. An empty file is created instead and the questions below fill it.
+        $CHECK_ONLY || {
+            install -D -m 600 /dev/null "$ENV_FILE"
+            log "no environment file yet - created $ENV_FILE (mode 600)"
+        }
+    fi
 else
     $CHECK_ONLY || {
         chmod 600 "$ENV_FILE"
@@ -251,19 +309,261 @@ fi
 [[ -f "$ENV_FILE" ]] || die "no environment file at $ENV_FILE - and --check changes nothing, so it
        was not going to appear. Run without --check, or put it there yourself."
 
-# --- 3 · what it has to contain ------------------------------------------------------------------
+# --- 2a · the questions ------------------------------------------------------------------------------
+# THE POINT OF THIS BLOCK: nobody writes a .env by hand, ever. Everything a person knows and a
+# machine cannot work out is asked for here, once, and written into the file above - which is also
+# why a second run is quiet: a value that is already there is never asked for again.
+#
+# Three rules the prompts keep:
+#   a secret is read with the echo off and never redisplayed, not even to confirm it;
+#   an answer whose SHAPE cannot be right is refused at the prompt, where it can still be corrected;
+#   without a terminal nothing is asked at all - the run stops and names what is missing, because a
+#   setup script reading a secret from a pipe is a setup script writing one into a CI log.
+
+# Asks once for one variable and writes it. `kind` is one of:
+#   plain            required, echoed while typing
+#   secret           required, echo off
+#   optional-plain   may be left empty by pressing Enter
+#   optional-secret  the same, with the echo off
+# `check` is the name of a shape function or "-" for anything non-empty.
+ask_for() {
+    local name="$1" kind="$2" check="$3" prompt="$4" hint="${5:-}" value existing
+
+    existing="$(env_value "$ENV_FILE" "$name")"
+    if [[ -n "${existing//[[:space:]]/}" && "$existing" != *REPLACE_ME* ]]; then
+        log "$name is already set (left alone)"
+        return 0
+    fi
+
+    if $CHECK_ONLY; then
+        warn "$name is not set; a real run would ask for it"
+        return 0
+    fi
+
+    [[ -t 0 ]] || die "$name is not in $ENV_FILE and there is no terminal to ask on. Run this from a
+       shell, or pass --from with a file that already carries it. Nothing has been deployed."
+
+    while true; do
+        printf '\n\033[36m[setup]\033[0m %s\n' "$prompt" >&2
+        [[ -n "$hint" ]] && printf '        %s\n' "$hint" >&2
+        case "$kind" in
+            secret|optional-secret)
+                printf '        > ' >&2
+                read -rs value
+                printf '\n' >&2
+                ;;
+            *)
+                printf '        > ' >&2
+                read -r value
+                ;;
+        esac
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+
+        if [[ -z "$value" ]]; then
+            case "$kind" in
+                optional-plain|optional-secret)
+                    log "$name left empty - the feature that needs it is simply not served"
+                    return 1
+                    ;;
+                *)
+                    warn "that one cannot be left empty."
+                    continue
+                    ;;
+            esac
+        fi
+        if [[ "$check" != "-" ]] && ! "$check" "$value"; then
+            # The value is not repeated back: half of these are secrets, and the half that is not
+            # is on the screen anyway, two lines up.
+            warn "that does not look like it can be right. Try again."
+            continue
+        fi
+        set_assignment "$ENV_FILE" "$name" "$value"
+        log "$name written to $ENV_FILE"
+        return 0
+    done
+}
+
+# Writes a value only if there is none, without asking. The defaults nobody has an opinion about.
+default_for() {
+    local name="$1" value="$2" existing
+    existing="$(env_value "$ENV_FILE" "$name")"
+    [[ -n "${existing//[[:space:]]/}" ]] && return 0
+    $CHECK_ONLY && { warn "$name is not set; a real run would write the default"; return 0; }
+    set_assignment "$ENV_FILE" "$name" "$value"
+    log "$name = $value (default)"
+}
+
+default_for COMPOSE_PROFILES     "db,bot,mc,backup,steward"
+default_for COMPOSE_PROJECT_NAME "$DEFAULT_PROJECT"
+default_for POSTGRES_DB          "nordtal"
+default_for POSTGRES_USER        "nordtal"
+# The path this very file is at, so that steward-deployer mounts the file this deployment is
+# configured from. §3 below refuses to continue if the two ever disagree.
+default_for STEWARD_ENV_FILE     "$ENV_FILE"
+
+ask_for STEWARD_HOST plain looks_like_host \
+    "What name will the interface answer on?" \
+    "A host name, not a URL - e.g. steward.dev.nordtal.eu. Its A/AAAA records have to point here;
+        this script waits for that further down rather than deploying half a stack."
+
+ask_for STEWARD_ACME_EMAIL plain looks_like_email \
+    "Where should Let's Encrypt send certificate warnings?" \
+    "One address, seen by Let's Encrypt only. It is what gets a mail if a renewal ever stops working."
+
+if [[ -z "$(env_value "$ENV_FILE" EULA)" ]] && ! $CHECK_ONLY; then
+    if [[ -t 0 ]]; then
+        printf '\n\033[36m[setup]\033[0m %s\n' "Do you accept the Minecraft EULA? (https://aka.ms/MinecraftEULA)" >&2
+        printf '        %s\n        > ' "Four Minecraft servers are about to start, and none of them may without this. [y/N]" >&2
+        read -r eula_answer
+        answer_is_yes "$eula_answer" || die "the EULA was not accepted, so there is nothing to deploy.
+       Nothing has been changed beyond the environment file this script has been filling in."
+        set_assignment "$ENV_FILE" EULA true
+        log "EULA accepted and recorded"
+    else
+        die "EULA is not in $ENV_FILE and there is no terminal to ask on. It is a licence somebody
+       has to accept, so it cannot be defaulted: set EULA=true in the file yourself, or run this
+       from a shell."
+    fi
+fi
+
+ask_for NORDTAL_BOT_TOKEN secret - \
+    "The Discord bot token." \
+    "Discord Developer Portal -> your application -> Bot -> Reset Token. Nothing is echoed while you
+        type, and this script never prints it back."
+
+ask_for STEWARD_UI_DISCORD_CLIENT_ID plain looks_like_snowflake \
+    "The Discord application's Client ID - this is what the interface signs you in with." \
+    "Same application, OAuth2 page. Its redirect URI has to be
+        https://<the name above>/api/auth/callback, or the sign-in comes back with an error from
+        Discord rather than from here."
+
+ask_for STEWARD_UI_DISCORD_CLIENT_SECRET secret - \
+    "The same application's Client Secret." \
+    "OAuth2 -> Reset Secret. Discord shows it once; if you have lost it, reset it and paste the new
+        one - nothing else in this deployment holds a copy."
+
+ask_for NORDTAL_ACCESS_GUILD_ID plain looks_like_snowflake \
+    "The id of the guild this deployment belongs to." \
+    "Discord -> Developer Mode -> right-click the server -> Copy Server ID."
+
+ask_for NORDTAL_ACCESS_ROLES_ADMIN plain looks_like_snowflake \
+    "The id of the admin role." \
+    "This is the one role that is not optional: it is what the bot mirrors into the database, and it
+        is what decides who may sign in to the interface at all. Right-click the role -> Copy Role ID,
+        and make sure your own account has it."
+
+# bunq is the one answer with a real "no". Without it the bot simply does not poll for payments and
+# nobody can buy access; every other part of the deployment is unaffected. Saying so at the prompt is
+# cheaper than a person inventing a key to get past a question.
+if ask_for NORDTAL_BOT_BUNQ_API_KEY optional-secret - \
+    "The bunq API key, if payments should work. Press Enter to skip." \
+    "Without it the bot starts and runs; it just never polls bunq, and access can only be granted by
+        hand - through the interface or through /access in Discord."; then
+    ask_for NORDTAL_BOT_BUNQ_ACCOUNT_ID plain "-" \
+        "The bunq monetary account id the payments arrive in." \
+        "A number. The bot refuses to start with a key and no account, because a poll loop with
+        nowhere to look would be a silent one."
+fi
+
+# --- 3 · which deployment this is --------------------------------------------------------------------
+# The project name decides which volumes the stack finds. Deploying under a different one does not
+# fail: it brings up a second, empty stack beside the first - its own database, its own worlds - and
+# the first sign of that is a fresh spawn. So a project that already has volumes here has to be the
+# project this run is about to use.
+#
+# This used to sit after the secrets were generated, and that order was wrong in one specific and
+# expensive way: §4 now generates the DATABASE PASSWORD, and whether it may do that depends entirely
+# on whether this host already carries a postgres-data volume.
+STEWARD_NAME="$(env_value "$ENV_FILE" STEWARD_HOST)"
+PROJECT="$(env_value "$ENV_FILE" COMPOSE_PROJECT_NAME)"
+PROJECT="${PROJECT:-$DEFAULT_PROJECT}"
+
+existing="$(docker volume ls --format '{{.Name}}' | sed -n 's/_postgres-data$//p' | sort -u || true)"
+if [[ -n "$existing" ]] && ! grep -qxF "$PROJECT" <<<"$existing"; then
+    die "this host already carries a deployment under the project name(s)
+       '$(tr '\n' ' ' <<<"$existing")', and this run would deploy '$PROJECT'. That would not fail -
+       it would create a SECOND stack with empty volumes beside the one holding the worlds. Set
+       COMPOSE_PROJECT_NAME in $ENV_FILE to the existing name, or remove the old deployment first."
+fi
+if grep -qxF "$PROJECT" <<<"$existing"; then
+    ADOPTING=true
+    log "adopting the existing deployment '$PROJECT' - its volumes are kept"
+else
+    ADOPTING=false
+    log "this is a first deployment; project '$PROJECT'"
+fi
+
+# --- 4 · the secrets nobody should have to invent ------------------------------------------------------
+# Four values that are shared between our own processes and that no person ever has to read: the
+# database password, the proxy's forwarding secret, and the two Steward tokens. Asking for them would
+# only teach somebody to type `hunter2` into a prompt.
+#
+# THE ONE THING THIS MUST NOT DO IS INVENT A PASSWORD FOR A DATABASE THAT ALREADY EXISTS. Postgres
+# takes POSTGRES_PASSWORD from the environment on the first start of an empty data directory and
+# never again: against an existing `postgres-data` a freshly generated password is not applied, it
+# is simply wrong, and every service then fails to authenticate against a database that is
+# perfectly healthy. So on a host that is being adopted, a missing password is a question for a
+# person - the one they wrote down when the volume was created - and not a `rand`.
+set_secret() {
+    local name="$1" bytes="${2:-32}" value
+    value="$(env_value "$ENV_FILE" "$name")"
+    if [[ -n "${value//[[:space:]]/}" ]]; then
+        log "$name is already set (left alone)"
+        return
+    fi
+    if $CHECK_ONLY; then
+        warn "$name is empty; a real run would generate one"
+        return
+    fi
+    value="$(openssl rand -hex "$bytes")"
+    set_assignment "$ENV_FILE" "$name" "$value"
+    log "$name generated ($bytes random bytes, hex)"
+}
+command -v openssl >/dev/null 2>&1 || die "no openssl on this host, and four secrets have to come
+       from somewhere. Install it, or put POSTGRES_PASSWORD, VELOCITY_FORWARDING_SECRET,
+       STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN into $ENV_FILE yourself - and not the same
+       value twice."
+
+if [[ -z "$(env_value "$ENV_FILE" POSTGRES_PASSWORD)" ]] && $ADOPTING && ! $CHECK_ONLY; then
+    ask_for POSTGRES_PASSWORD secret - \
+        "The password of the database that is already on this host." \
+        "'${PROJECT}_postgres-data' exists, so postgres will not take a new password: it reads
+        POSTGRES_PASSWORD only when it initialises an empty data directory. Generating one here
+        would leave every service unable to log in to a database that is working fine."
+else
+    set_secret POSTGRES_PASSWORD 24
+fi
+
+set_secret VELOCITY_FORWARDING_SECRET 24
+set_secret STEWARD_API_TOKEN
+set_secret STEWARD_DEPLOYER_TOKEN
+
+if [[ "$(env_value "$ENV_FILE" STEWARD_API_TOKEN)" == "$(env_value "$ENV_FILE" STEWARD_DEPLOYER_TOKEN)" ]]; then
+    $CHECK_ONLY || die "STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN are the same value. Reading
+       containers and creating containers are different privileges - that is why they are two
+       services on two ports - and one token for both makes the boundary a comment."
+fi
+
+# --- 4a · and now everything is there ------------------------------------------------------------
+# The last check rather than the first demand: everything in REQUIRED has either been asked for or
+# generated above, so this firing means this script failed to write something it said it wrote.
 missing="$(env_missing "$ENV_FILE" "${REQUIRED[@]}")"
 if [[ -n "$missing" ]]; then
-    warn "these are missing from $ENV_FILE, or still say REPLACE_ME:"
+    warn "these are still missing from $ENV_FILE, or still say REPLACE_ME:"
     printf '         %s\n' $missing >&2
-    die "fill them in and run this again. .env.example in this checkout documents every one of them."
+    $CHECK_ONLY && die "--check does not ask and does not generate, so this is the list a real run
+       would work through."
+    die "that should not be possible - everything above is either asked for or generated. Nothing
+       has been deployed."
 fi
 
 leftovers="$(env_replace_me_lines "$ENV_FILE")"
 if [[ -n "$leftovers" ]]; then
     warn "REPLACE_ME is still in $ENV_FILE at line(s): $(tr '\n' ' ' <<<"$leftovers")"
-    die "those are inside a value this script does not read one key at a time - the language table,
-       most likely. Every id in it is validated at start-up and REPLACE_ME fails that check by name."
+    die "those are inside a value this script does not read one key at a time - a language table
+       carried over from an older deployment, most likely. Every id in it is validated at start-up
+       and REPLACE_ME fails that check by name."
 fi
 
 profiles="$(env_value "$ENV_FILE" COMPOSE_PROFILES)"
@@ -277,41 +577,7 @@ declared_env_file="$(env_value "$ENV_FILE" STEWARD_ENV_FILE)"
        into steward-deployer, so the deployer would mount a different file than the one this
        deployment is configured from - or nothing at all."
 
-STEWARD_NAME="$(env_value "$ENV_FILE" STEWARD_HOST)"
-PROJECT="$(env_value "$ENV_FILE" COMPOSE_PROJECT_NAME)"
-PROJECT="${PROJECT:-$DEFAULT_PROJECT}"
 log "every required value is set; the interface will answer on $STEWARD_NAME"
-
-# --- 4 · the two Steward secrets --------------------------------------------------------------------
-# Generated here rather than asked for, because they are shared between two of our own processes and
-# nobody ever has to read them. They are two different values on purpose: one lets steward-ui READ
-# containers through steward-worker, the other lets it CREATE them through steward-deployer.
-set_secret() {
-    local name="$1" value
-    value="$(env_value "$ENV_FILE" "$name")"
-    if [[ -n "${value//[[:space:]]/}" ]]; then
-        log "$name is already set (left alone)"
-        return
-    fi
-    if $CHECK_ONLY; then
-        warn "$name is empty; a real run would generate one"
-        return
-    fi
-    value="$(openssl rand -hex 32)"
-    set_assignment "$ENV_FILE" "$name" "$value"
-    log "$name generated (32 random bytes, hex)"
-}
-command -v openssl >/dev/null 2>&1 || die "no openssl on this host, and two secrets have to come
-       from somewhere. Install it, or put STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN into
-       $ENV_FILE yourself - 64 hex characters each, and NOT the same value twice."
-set_secret STEWARD_API_TOKEN
-set_secret STEWARD_DEPLOYER_TOKEN
-
-if [[ "$(env_value "$ENV_FILE" STEWARD_API_TOKEN)" == "$(env_value "$ENV_FILE" STEWARD_DEPLOYER_TOKEN)" ]]; then
-    $CHECK_ONLY || die "STEWARD_API_TOKEN and STEWARD_DEPLOYER_TOKEN are the same value. Reading
-       containers and creating containers are different privileges - that is why they are two
-       services on two ports - and one token for both makes the boundary a comment."
-fi
 
 # --- 5 · the name, and the wait -------------------------------------------------------------------
 # §10: a finished setup means everything works. There is no half state where the interface is up and
@@ -365,30 +631,12 @@ while true; do
 done
 log "$STEWARD_NAME resolves to this host ($(tr '\n' ' ' <<<"$resolved"))"
 
-# --- 6 · which deployment this is ------------------------------------------------------------------
-# The project name decides which volumes the stack finds. Deploying under a different one does not
-# fail: it brings up a second, empty stack beside the first - its own database, its own worlds - and
-# the first sign of that is a fresh spawn. So a project that already has volumes here has to be the
-# project this run is about to use.
-existing="$(docker volume ls --format '{{.Name}}' | sed -n 's/_postgres-data$//p' | sort -u || true)"
-if [[ -n "$existing" ]] && ! grep -qxF "$PROJECT" <<<"$existing"; then
-    die "this host already carries a deployment under the project name(s)
-       '$(tr '\n' ' ' <<<"$existing")', and this run would deploy '$PROJECT'. That would not fail -
-       it would create a SECOND stack with empty volumes beside the one holding the worlds. Set
-       COMPOSE_PROJECT_NAME in $ENV_FILE to the existing name, or remove the old deployment first."
-fi
-if grep -qxF "$PROJECT" <<<"$existing"; then
-    log "adopting the existing deployment '$PROJECT' - its volumes are kept"
-else
-    log "this is a first deployment; project '$PROJECT'"
-fi
-
 if $CHECK_ONLY; then
     log "--check: everything that can be checked without changing anything is in order."
     exit 0
 fi
 
-# --- 7 · renew steward-deployer ---------------------------------------------------------------------
+# --- 6 · renew steward-deployer ---------------------------------------------------------------------
 # The one image nothing inside the stack can replace. compose.yml is baked into it, so this step is
 # also how a changed deployment reaches this host at all.
 if $BUILD_DEPLOYER; then
@@ -405,7 +653,7 @@ else
        builds it from this checkout instead, and needs a JDK."
 fi
 
-# --- 8 · the deployment itself -----------------------------------------------------------------------
+# --- 7 · the deployment itself -----------------------------------------------------------------------
 # A one-off container of the image just pulled, running `up`: it pulls every other image FIRST and
 # only then takes anything down, and it exits with the deployment's own code. The long-running
 # steward-deployer service is one of the containers it creates - this one is gone by then.

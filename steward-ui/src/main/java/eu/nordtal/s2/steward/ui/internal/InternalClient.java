@@ -179,6 +179,35 @@ public final class InternalClient {
     }
 
     /**
+     * The same, as a {@code PUT}.
+     *
+     * <p>One verb and one method, rather than a parameter: the two calls differ in nothing else,
+     * and a {@code method} argument is how a {@code POST} eventually gets sent to a route that
+     * only accepts {@code PUT} with the failure showing up as a 405 nobody can place.</p>
+     */
+    public @NotNull String put(final @NotNull String path, final @NotNull String json) {
+        try {
+            final HttpResponse<String> response = http.send(request(path)
+                            .header("Content-Type", "application/json")
+                            .PUT(HttpRequest.BodyPublishers.ofString(json)).build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (isNotSuccess(response.statusCode())) {
+                throw new Failure(name, response.statusCode(),
+                        name + " answered " + response.statusCode() + " for " + path,
+                        response.body());
+            }
+            return response.body();
+        } catch (HttpTimeoutException slow) {
+            throw new Failure(name, 504, tooSlow(path, timeout), null);
+        } catch (IOException e) {
+            throw new Failure(name, 502, unreachable(path), null);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new Failure(name, 503, "interrupted while asking " + name, null);
+        }
+    }
+
+    /**
      * Opens a stream and hands the caller the body to read.
      *
      * <p>Used for the log follow, which is an SSE stream on both sides: the worker sends events,

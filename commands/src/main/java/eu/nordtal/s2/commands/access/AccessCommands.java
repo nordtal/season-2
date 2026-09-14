@@ -43,8 +43,39 @@ public final class AccessCommands {
     private AccessCommands() {
     }
 
+    /** {@code status} and {@code reload}: the two that read. Everywhere, Discord included. */
     private static final Set<Surface> EVERYWHERE =
             Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
+
+    /**
+     * The writing four, and <b>Discord is not among them</b>.
+     *
+     * <h2>Why it was taken away, 2026-09-14</h2>
+     * A Discord slash command is guarded by {@code discord_user.admin} and by nothing else: anybody
+     * holding the account - or a session on somebody's phone - can grant a year of access, revoke
+     * somebody's, book a payment or break a link. Steward now asks for a security key before each
+     * of those, and every one of them is reachable there. Two doors into one room is fine when both
+     * are locked; leaving the unlocked one open because it is the older one is not.
+     *
+     * <h2>The check that had to come first</h2>
+     * The plan (steward/25) refuses to switch anything off on a guess, so the {@code audit_log} was
+     * read on 2026-09-14 before this line was written. It holds <b>two rows in total</b> -
+     * {@code REGISTER_KEY} and {@code RECREATE}, both from that day - and {@code command_request} is
+     * empty, as are {@code payment_request} and {@code account_link}. Nobody has ever run one of
+     * these four on this stack, in Discord or anywhere else: the season has not opened. So this
+     * takes away a habit nobody has yet, which is the only moment it can be taken away cheaply.
+     *
+     * <p><b>If it turns out somebody does need them in Discord</b>, the finding is that Steward does
+     * not replace that side, and it belongs written down rather than repaired by quietly adding
+     * {@link Surface#DISCORD} back here.</p>
+     */
+    private static final Set<Surface> NOT_IN_DISCORD =
+            Set.of(Surface.GAME, Surface.CONSOLE);
+
+    /** The two that Steward runs as commands, so: the same, plus the interface. */
+    private static final Set<Surface> AND_THE_INTERFACE =
+            Set.of(Surface.GAME, Surface.CONSOLE, Surface.WEB);
+
 
     // Every one of these takes an ACCOUNT and not a PLAYER, and the difference is the whole reason
     // the two kinds exist. Their subject is a Discord account: /access grant is exactly what an
@@ -59,7 +90,7 @@ public final class AccessCommands {
 
     /** {@code /access grant <member> <days>} - days on top of whatever is already running. */
     public static final Declaration GRANT = new Declaration(
-            List.of("access", "grant"), Target.BOT, EVERYWHERE, true, true,
+            List.of("access", "grant"), Target.BOT, NOT_IN_DISCORD, true, true,
             // Bounded, which the Discord command was not: it hand-checked "greater than zero" in the
             // handler and had no upper bound at all, so a mistyped 3650 was a decade of free access
             // and one keystroke away from 365.
@@ -67,7 +98,7 @@ public final class AccessCommands {
 
     /** {@code /access revoke <member>} - every running grant, at once. */
     public static final Declaration REVOKE = new Declaration(
-            List.of("access", "revoke"), Target.BOT, EVERYWHERE, true, true,
+            List.of("access", "revoke"), Target.BOT, NOT_IN_DISCORD, true, true,
             List.of(Argument.account("member")));
 
     /**
@@ -78,7 +109,7 @@ public final class AccessCommands {
      * it: re-linking needs a code the <em>player</em> generates in game.</p>
      */
     public static final Declaration UNLINK = new Declaration(
-            List.of("access", "unlink"), Target.BOT, EVERYWHERE, true, true,
+            List.of("access", "unlink"), Target.BOT, AND_THE_INTERFACE, true, true,
             List.of(Argument.account("member")));
 
     /**
@@ -89,8 +120,8 @@ public final class AccessCommands {
      * on the one command that books money.</p>
      */
     public static final Declaration SETTLE = new Declaration(
-            List.of("access", "settle"), Target.BOT, EVERYWHERE, true, true,
-            List.of(Argument.word("reference")));
+            List.of("access", "settle"), Target.BOT, AND_THE_INTERFACE, true, true,
+            List.of(Argument.reference("reference")));
 
     /**
      * {@code /access reload} - the bot's own wording.

@@ -21,6 +21,7 @@ import {
   usePeople,
   useRevokeAccess,
 } from "@/lib/queries"
+import { CommandCard, isAccessCommand } from "@/components/steward/command-card"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
@@ -418,6 +419,18 @@ export function AccessPage() {
           </QueryState>
         </CardContent>
       </Card>
+
+      {/*
+        `access settle` and `access unlink`, which are commands and not routes of their own: they
+        need the bot (a role, a direct message, a donor flag; the link table the bot owns), so they
+        travel as a `command_request` row exactly as they do from Discord. Granting and revoking are
+        not here because this interface does those itself - see the dialogs above.
+
+        The reference is picked from the open requests and the member from the roster. Neither is
+        typed, and that is the point of package H rather than a nicety: a reference is six
+        characters with no meaning and a Discord id is eighteen digits.
+      */}
+      <CommandCard title="Access commands" only={isAccessCommand} />
 
       <Dialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
         <DialogContent className="max-w-2xl">

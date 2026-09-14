@@ -84,6 +84,28 @@ interface RosterDao {
     List<Payment> payments(@Bind("limit") int limit);
 
     /**
+     * The payment requests that are still {@code OPEN}, oldest first.
+     *
+     * <p>Not a filter over {@link #payments(int)}: that one is a page of a table and takes a limit,
+     * so a deployment with three hundred settled requests could push every open one off the end of
+     * it - and this list is what a person picks a reference from. There is no limit here because
+     * there is no honest one: an open request is one nobody has paid yet, and if there are two
+     * hundred of those, two hundred is the answer.
+     *
+     * <p>Oldest first, which is the opposite of {@link #payments(int)} and deliberate: this is a
+     * queue to work through, not a page to read.
+     */
+    @SqlQuery("""
+            SELECT id, reference, discord_id, days, amount_cents, donation_cents, status,
+                   bunq_tab_id, share_url, created, expires, settled
+            FROM payment_request
+            WHERE status = 'OPEN'
+            ORDER BY created, id
+            """)
+    @RegisterRowMapper(PaymentMapper.class)
+    List<Payment> openPayments();
+
+    /**
      * Every grant of one person, newest first.
      *
      * <p>It orders by {@code valid_from DESC} rather than by {@code created}: grants are appended,

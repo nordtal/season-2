@@ -70,6 +70,19 @@ public interface RosterDirectory {
     List<Payment> payments(int limit);
 
     /**
+     * The payment requests still waiting to be paid, oldest first.
+     *
+     * <p>Unbounded, and the second method here that is. It exists so that an interface offering
+     * {@code /access settle} can offer a <em>list</em> rather than a field: a reference is six
+     * characters with no meaning, and typing one from memory on the one command that books money is
+     * a mistake nobody needs. A limit would make the list quietly incomplete, which is worse than
+     * long.
+     *
+     * @return the open requests, possibly empty
+     */
+    List<Payment> openPayments();
+
+    /**
      * Every access grant of one person, newest first, including expired and revoked ones.
      *
      * <p>Unbounded on purpose, and it is the only method here that is: a grant is written when

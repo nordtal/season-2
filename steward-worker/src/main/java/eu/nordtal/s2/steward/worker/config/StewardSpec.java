@@ -386,6 +386,29 @@ public interface StewardSpec {
         default String token() {
             return "";
         }
+
+        @Order(3)
+        @Key("configs-root")
+        @Comment({
+                "Where every service's configuration is mounted in THIS container, one directory",
+                "per compose service, named after it. steward-ui draws the form; this service",
+                "reads and writes the files.",
+                "",
+                "IT MOVED HERE ON 2026-09-14, and the reason is a measurement rather than a",
+                "preference. Every config jcore writes is 0600 root:root, and steward-ui is the",
+                "one service in the stack that does not run as root - so it could neither read",
+                "nor write any of them, and tapping a file answered `HTTP 400 Permission denied`.",
+                "Making the files readable was the wrong repair: database.yml holds the Postgres",
+                "password and bot.yml the Discord token. So the mounts left the web layer, which",
+                "is what §3 already says about the docker socket.",
+                "",
+                "Everything under it ending in .yml is offered. Nothing outside it can be reached:",
+                "a file is found by matching what the browser asked against the list actually",
+                "discovered, never by joining a path onto this one."
+        })
+        default String configsRoot() {
+            return "/configs";
+        }
     }
 
     /** What a {@code BACKUP} run saves and what it stops while it does. */

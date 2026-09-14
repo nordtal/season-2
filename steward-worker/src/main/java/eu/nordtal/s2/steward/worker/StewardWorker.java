@@ -433,7 +433,7 @@ public final class StewardWorker {
                 try (WorkerApi api = new WorkerApi(docker, containers,
                         new Console(docker, config.docker().project()), new HostMetrics(),
                         config.docker().project(), Path.of(config.backup().outputRoot()),
-                        config.api().token(),
+                        config.api().token(), Path.of(config.api().configsRoot()),
                         new WorkerApi.Nightly(config.backup().at(), ZoneId.systemDefault()))) {
                     if (config.api().token().isBlank()) {
                         log.warn("api.token is empty, so the internal API is not listening and"

@@ -1,16 +1,16 @@
-package eu.nordtal.s2.steward.ui;
+package eu.nordtal.s2.steward.worker.api;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
-import eu.nordtal.s2.steward.ui.configfile.ConfigChange;
-import eu.nordtal.s2.steward.ui.configfile.ConfigDocument;
-import eu.nordtal.s2.steward.ui.configfile.ConfigEntry;
-import eu.nordtal.s2.steward.ui.configfile.ConfigFiles;
-import eu.nordtal.s2.steward.ui.configfile.ConfigLocation;
-import eu.nordtal.s2.steward.ui.configfile.StaleConfigException;
+import eu.nordtal.s2.steward.worker.configfile.ConfigChange;
+import eu.nordtal.s2.steward.worker.configfile.ConfigDocument;
+import eu.nordtal.s2.steward.worker.configfile.ConfigEntry;
+import eu.nordtal.s2.steward.worker.configfile.ConfigFiles;
+import eu.nordtal.s2.steward.worker.configfile.ConfigLocation;
+import eu.nordtal.s2.steward.worker.configfile.StaleConfigException;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,7 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The three routes over {@code eu.nordtal.s2.steward.ui.configfile}.
+ * The three routes over {@code eu.nordtal.s2.steward.worker.configfile}.
  *
  * <p><b>A file is found by matching, never by joining.</b> What the browser sends is compared with
  * the list of files actually discovered under the mount; nothing builds a path out of it. That is
@@ -45,23 +46,23 @@ import java.util.Optional;
  * the old one. What is given up is comparing two services' tokens by eye; what is bought is that
  * the Discord bot token is not in a browser cache, a screen recording or the next XSS.</p>
  */
-final class ConfigApi {
+public final class ConfigApi {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigApi.class);
 
     private final Path root;
 
-    ConfigApi(final @NotNull Path root) {
+    public ConfigApi(final @NotNull Path root) {
         this.root = root;
     }
 
     /** {@code GET /api/config} - every file under the mount, without reading any of them. */
-    void list(final @NotNull Context ctx) {
+    public void list(final @NotNull Context ctx) {
         ctx.json(locations().stream().map(ConfigApi::describe).toList());
     }
 
     /** {@code GET /api/config/<file>} - one file, as a form. */
-    void one(final @NotNull Context ctx) {
+    public void one(final @NotNull Context ctx) {
         final ConfigLocation location = locate(ctx);
         ctx.json(document(location, read(location)));
     }
@@ -81,7 +82,7 @@ final class ConfigApi {
      * conflict, it would simply be gone, with nothing anywhere saying so. A stale one is a 409 and
      * the page shows the file as it now stands.</p>
      */
-    void save(final @NotNull Context ctx) {
+    public void save(final @NotNull Context ctx) {
         final ConfigLocation location = locate(ctx);
         if (!location.writable()) {
             throw new ForbiddenResponse(location.name() + " is mounted read-only in this container,"
@@ -170,15 +171,41 @@ final class ConfigApi {
         row.put("service", location.service());
         row.put("name", location.name());
         row.put("path", identityOf(location));
+        // BOTH, and in that order, because they fail differently. A file that cannot be read has
+        // nothing to show; one that can be read but not written has a form to look at and no save
+        // button. The listing used to send only `writable`, so an unreadable file was drawn as an
+        // ordinary greyed-out row and said what was wrong only when somebody tapped it.
+        row.put("readable", location.readable());
         row.put("writable", location.writable());
         return row;
     }
 
     private ConfigDocument read(final ConfigLocation location) {
+        // NOT PERMITTED IS NOT A BAD REQUEST, and it used to be: every IOException became a 400,
+        // so a file this process may not open answered the browser with its own path and the words
+        // "Permission denied" under a red alert about the request. The request was fine. The
+        // deployment was not, and that is a different sentence with a different thing to do about
+        // it - which is why it is asked BEFORE the open rather than sorted out of the exception
+        // afterwards by reading its message.
+        if (!location.readable()) {
+            log.warn("{} cannot be read by this process", location.file());
+            throw new InternalServerErrorResponse(location.name() + " is on this host but this"
+                    + " service may not open it. Nothing is wrong with what you asked for: the file"
+                    + " belongs to another user, so the mount that would let Steward read it is"
+                    + " missing or the file's permissions changed.");
+        }
         try {
             return ConfigFiles.read(location.file());
+        } catch (final AccessDeniedException denied) {
+            // The same thing again, caught rather than asked - because a permission can change
+            // between the two lines, and because a directory somewhere above this file can refuse
+            // the open without `isReadable` on the file itself saying so.
+            log.warn("{} cannot be read by this process", location.file(), denied);
+            throw new InternalServerErrorResponse(location.name() + " is on this host but this"
+                    + " service may not open it.");
         } catch (final IOException e) {
-            // A file that is not YAML is not a server fault, and the message names the line.
+            // What is left IS about the request, or rather about the file it names: it is not
+            // YAML, and the message says which line. That is the case this branch was written for.
             throw new BadRequestResponse(e.getMessage());
         }
     }
@@ -295,7 +322,7 @@ final class ConfigApi {
     }
 
     /** For the page that lists the mount: whether there is anything there at all. */
-    Optional<String> whatIsMissing() {
+    public Optional<String> whatIsMissing() {
         return locations().isEmpty()
                 ? Optional.of("Nothing is mounted at " + root)
                 : Optional.empty();

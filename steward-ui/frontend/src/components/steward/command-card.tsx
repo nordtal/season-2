@@ -1,8 +1,15 @@
 import { useState } from "react"
 import { Play, Terminal } from "lucide-react"
 
-import type { AdminCommand, CommandRun } from "@/lib/api"
-import { useAdminCommand, useCommandRun, useCommands } from "@/lib/queries"
+import type { AdminCommand, CommandArgument, CommandRun } from "@/lib/api"
+import { euros } from "@/lib/format"
+import {
+  useAdminCommand,
+  useCommandRun,
+  useCommands,
+  useOpenPayments,
+  usePeople,
+} from "@/lib/queries"
 import { Failure, QueryState } from "@/components/steward/query-state"
 import {
   AlertDialog,
@@ -45,20 +52,36 @@ import {
  * all shown: EXPIRED means nothing ever claimed the row, which is a different fault from FAILED and
  * wants a different errand.
  */
-export function CommandCard() {
+export function CommandCard({
+  title = "Commands",
+  only,
+}: {
+  title?: string
+  /**
+   * Which of the declared commands belong on this page. Absent means all of them.
+   *
+   * A filter and not a second list: the card still draws whatever `/api/commands` returns, so a
+   * command added to a declaration still appears somewhere without this file being edited. What
+   * the predicate decides is only *where* - `access settle` under Access rather than under Season,
+   * which is where it would otherwise have landed for no better reason than that the card was
+   * already there.
+   */
+  only?: (command: AdminCommand) => boolean
+} = {}) {
   const commands = useCommands()
+  const shown = only ? (commands.data ?? []).filter(only) : commands.data
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Terminal className="size-4 text-muted-foreground" aria-hidden />
-          Commands
+          {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <QueryState
-          query={commands}
+          query={{ ...commands, data: shown } as typeof commands}
           rows={4}
           isEmpty={(list) => list.length === 0}
           empty={{ title: "No command is released to the interface." }}
@@ -68,6 +91,17 @@ export function CommandCard() {
       </CardContent>
     </Card>
   )
+}
+
+/**
+ * The `/access` commands, which belong on the Access page and not on the Season one.
+ *
+ * One predicate used from both sides, so the two cards cannot both claim a command or both
+ * disown it - which is exactly what two independently written filters do the first time a command
+ * is added.
+ */
+export function isAccessCommand(command: AdminCommand): boolean {
+  return command.path[0] === "access"
 }
 
 function CommandRow({ command }: { command: AdminCommand }) {
@@ -120,44 +154,13 @@ function CommandRow({ command }: { command: AdminCommand }) {
       {command.arguments.length > 0 ? (
         <div className="flex flex-wrap gap-3">
           {command.arguments.map((argument) => (
-            <div key={argument.name} className="flex min-w-48 flex-col gap-1.5">
-              <Label htmlFor={`${command.name}-${argument.name}`} className="text-xs">
-                {argument.name}
-                {argument.required ? null : (
-                  <span className="text-muted-foreground"> (optional)</span>
-                )}
-              </Label>
-              {argument.choices ? (
-                <Select
-                  value={values[argument.name] ?? ""}
-                  onValueChange={(picked) =>
-                    setValues((old) => ({ ...old, [argument.name]: picked }))
-                  }
-                >
-                  <SelectTrigger id={`${command.name}-${argument.name}`}>
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {argument.choices.map((choice) => (
-                      <SelectItem key={choice} value={choice}>
-                        {choice}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  id={`${command.name}-${argument.name}`}
-                  className="font-mono text-sm"
-                  spellCheck={false}
-                  inputMode={argument.kind === "INTEGER" ? "numeric" : undefined}
-                  value={values[argument.name] ?? ""}
-                  onChange={(event) =>
-                    setValues((old) => ({ ...old, [argument.name]: event.target.value }))
-                  }
-                />
-              )}
-            </div>
+            <ArgumentField
+              key={argument.name}
+              id={`${command.name}-${argument.name}`}
+              argument={argument}
+              value={values[argument.name] ?? ""}
+              onChange={(next) => setValues((old) => ({ ...old, [argument.name]: next }))}
+            />
           ))}
         </div>
       ) : null}
@@ -201,6 +204,112 @@ function CommandRow({ command }: { command: AdminCommand }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+
+/**
+ * One argument, drawn the way its kind asks to be drawn.
+ *
+ * **Two of the kinds are lists and not fields**, and that is the whole of package H's second
+ * sentence: a REFERENCE is six characters with no meaning, and an ACCOUNT is a Discord snowflake.
+ * Typing either from memory is a mistake nobody needs, on the two commands that book money and
+ * break a link. Discord has autocompleted the reference since the command existed; this is the
+ * browser's half of the same decision.
+ *
+ * The hooks are called unconditionally and switched off with `enabled`, because they are hooks -
+ * and because a command with no ACCOUNT argument must not make the interface fetch the roster.
+ */
+function ArgumentField({
+  id,
+  argument,
+  value,
+  onChange,
+}: {
+  id: string
+  argument: CommandArgument
+  value: string
+  onChange: (next: string) => void
+}) {
+  const people = usePeople(argument.kind === "ACCOUNT")
+  const open = useOpenPayments(argument.kind === "REFERENCE")
+
+  const label = (
+    <Label htmlFor={id} className="text-xs">
+      {argument.name}
+      {argument.required ? null : <span className="text-muted-foreground"> (optional)</span>}
+    </Label>
+  )
+
+  if (argument.choices || argument.kind === "ACCOUNT" || argument.kind === "REFERENCE") {
+    // One `Select` for three sources. The empty case is spelled out rather than left as a silent
+    // dropdown with nothing in it: "nothing is open" and "the list has not loaded" are different
+    // answers and the difference decides whether somebody waits or goes and looks.
+    const options: { value: string; label: string }[] = argument.choices
+      ? argument.choices.map((choice) => ({ value: choice, label: choice }))
+      : argument.kind === "ACCOUNT"
+        ? // The id, and whether there is a Minecraft account behind it. No name: the roster is one
+          // query against one database and a Discord display name is Discord's to answer - which
+          // is also why this is a picker rather than a field, since an id is not something anybody
+          // types correctly from memory.
+          (people.data ?? []).map((person) => ({
+            value: person.discordId,
+            label: person.minecraftUuid
+              ? `${person.discordId} · linked`
+              : `${person.discordId} · not linked`,
+          }))
+        : (open.data ?? []).map((payment) => ({
+            value: payment.reference,
+            label: `${payment.reference} · ${payment.days} days · ${euros(
+              payment.amountCents + payment.donationCents,
+            )} · ${payment.discordId}`,
+          }))
+
+    const loading =
+      (argument.kind === "ACCOUNT" && people.isPending) ||
+      (argument.kind === "REFERENCE" && open.isPending)
+
+    return (
+      <div className="flex min-w-48 flex-col gap-1.5">
+        {label}
+        <Select value={value} onValueChange={onChange} disabled={options.length === 0}>
+          <SelectTrigger id={id} className="min-w-72">
+            <SelectValue
+              placeholder={
+                loading
+                  ? "Loading…"
+                  : options.length === 0
+                    ? argument.kind === "REFERENCE"
+                      ? "Nothing is open"
+                      : "Nobody to pick"
+                    : "—"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-w-48 flex-col gap-1.5">
+      {label}
+      <Input
+        id={id}
+        className="font-mono text-sm"
+        spellCheck={false}
+        inputMode={argument.kind === "INTEGER" ? "numeric" : undefined}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </div>
   )
 }

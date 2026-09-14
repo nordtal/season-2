@@ -102,6 +102,48 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
                 discordId, label.trim(), dao.forAccount(discordId).size());
     }
 
+    /**
+     * Removes every key of one account. See {@link CredentialDao#forget}.
+     *
+     * @return how many were removed
+     */
+    public int forget(final @NotNull String discordId) {
+        final int gone = dao.forget(Objects.requireNonNull(discordId, "discordId"));
+        log.warn("removed {} security key(s) of {} - that account's second factor is gone until it"
+                + " registers a new one", gone, discordId);
+        return gone;
+    }
+
+    /**
+     * Removes one key of one account.
+     *
+     * <p><b>Removing the last one is allowed, and that is the decision.</b> It does not lock
+     * anybody out: an account with no key reaches the setup page and registers a new one, which is
+     * exactly the state a fresh deployment is in. Refusing it would be refusing the one sensible
+     * thing to do with a key you have just thrown away - and it would still not protect anybody,
+     * because removing a key already requires holding one.</p>
+     *
+     * @return whether a key of that id was on that account
+     */
+    public boolean remove(final @NotNull String discordId, final @NotNull ByteArray credentialId) {
+        final boolean gone = dao.remove(credentialId.getBytes(), discordId) == 1;
+        if (gone) {
+            log.info("removed a security key of {} - {} left on that account", discordId,
+                    dao.forAccount(discordId).size());
+        }
+        return gone;
+    }
+
+    /**
+     * Renames one key of one account.
+     *
+     * @return whether a key of that id was on that account
+     */
+    public boolean rename(final @NotNull String discordId, final @NotNull ByteArray credentialId,
+                          final @NotNull String label) {
+        return dao.rename(credentialId.getBytes(), discordId, label.trim()) == 1;
+    }
+
     /** Moves the counter forward and stamps the time, after an assertion the library accepted. */
     public void used(final @NotNull ByteArray credentialId, final long signatureCount) {
         dao.used(credentialId.getBytes(), signatureCount);

@@ -1,10 +1,10 @@
-package eu.nordtal.s2.steward.ui.configfile;
+package eu.nordtal.s2.steward.worker.configfile;
 
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.s2.steward.ui.config.UiSpec;
-import eu.nordtal.s2.steward.ui.configfile.ConfigEntry.Kind;
-import eu.nordtal.s2.steward.ui.configfile.ConfigEntry.Type;
+import eu.nordtal.s2.steward.worker.config.StewardSpec;
+import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
+import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -238,28 +238,33 @@ class ConfigFilesReadTest {
     }
 
     @Test
-    void theInterfacesOwnConfigReadsBackTheWayItsSpecDescribesIt() throws IOException, ConfigException {
-        final Path file = directory.resolve("steward-ui.yml");
-        ConfigLoader.builder(file, UiSpec.class).load();
+    void thisServicesOwnConfigReadsBackTheWayItsSpecDescribesIt() throws IOException, ConfigException {
+        // A REAL CONFIG FROM THIS REPOSITORY, written by jcore, rather than a fixture written to
+        // be easy to parse. It was steward-ui.yml until 2026-09-14, when this whole package moved
+        // here; the point is unchanged and is not about which file it is - a fixture only proves
+        // that the parser agrees with whoever wrote the fixture.
+        final Path file = directory.resolve("steward.yml");
+        ConfigLoader.builder(file, StewardSpec.class).load();
 
         final ConfigDocument document = ConfigFiles.read(file);
 
-        assertTrue(document.header().getFirst().startsWith("Nordtal Steward"));
-        assertEquals(Type.INTEGER, entry(document, "port").type());
-        assertEquals("8080", entry(document, "port").value());
-        assertEquals(Kind.MAP, entry(document, "worker").kind());
-        assertEquals("http://steward-worker:8082", entry(document, "worker.base-url").value());
-        assertTrue(entry(document, "worker.token").secret());
-        assertTrue(entry(document, "discord.client-secret").secret());
-        assertEquals(List.of("The compose service name and the API port - no TLS, it never leaves"
-                + " the network."), entry(document, "worker.base-url").comments());
-        assertEquals(Type.INTEGER, entry(document, "session-days").type());
+        assertTrue(document.header().getFirst().contains("---"), document.header().toString());
+        assertEquals(Type.INTEGER, entry(document, "api.port").type());
+        assertEquals("8082", entry(document, "api.port").value());
+        assertEquals(Kind.MAP, entry(document, "api").kind());
+        assertEquals("/configs", entry(document, "api.configs-root").value());
+        assertTrue(entry(document, "api.token").secret());
+        assertTrue(entry(document, "github-token").secret());
+        assertEquals(Kind.LIST, entry(document, "backup.volumes").kind());
     }
 
     /**
-     * steward-ui does not depend on steward-worker and must not start doing so to read its file -
-     * the point of this package is that no module's spec class is on this classpath. So the
-     * worker's shape is a hand-made fixture in jcore's style.
+     * The same shapes again, hand-made.
+     *
+     * <p>It duplicates the test above on purpose. That one loads a real spec, so it drifts with
+     * the spec and would go quiet if somebody deleted the key it was asserting on; this one pins
+     * the <em>shapes</em> - a list, two sections, a comment above a key - in a fixture that is
+     * only ever changed by somebody meaning to change it.</p>
      */
     @Test
     void aWorkerStyleFileWithAListAndTwoSectionsReadsBack() throws IOException {

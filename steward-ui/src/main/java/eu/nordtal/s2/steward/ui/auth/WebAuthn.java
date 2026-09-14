@@ -1,14 +1,20 @@
 package eu.nordtal.s2.steward.ui.auth;
 
+import com.yubico.webauthn.AssertionRequest;
+import com.yubico.webauthn.AssertionResultV2;
+import com.yubico.webauthn.FinishAssertionOptions;
 import com.yubico.webauthn.FinishRegistrationOptions;
 import com.yubico.webauthn.RegistrationResult;
 import com.yubico.webauthn.RelyingParty;
 import com.yubico.webauthn.RelyingPartyV2;
+import com.yubico.webauthn.StartAssertionOptions;
 import com.yubico.webauthn.StartRegistrationOptions;
+import com.yubico.webauthn.data.AuthenticatorAssertionResponse;
 import com.yubico.webauthn.data.AuthenticatorAttestationResponse;
 import com.yubico.webauthn.data.AuthenticatorSelectionCriteria;
 import com.yubico.webauthn.data.AuthenticatorTransport;
 import com.yubico.webauthn.data.ByteArray;
+import com.yubico.webauthn.data.ClientAssertionExtensionOutputs;
 import com.yubico.webauthn.data.ClientRegistrationExtensionOutputs;
 import com.yubico.webauthn.data.PublicKeyCredential;
 import com.yubico.webauthn.data.PublicKeyCredentialCreationOptions;
@@ -16,6 +22,7 @@ import com.yubico.webauthn.data.RelyingPartyIdentity;
 import com.yubico.webauthn.data.ResidentKeyRequirement;
 import com.yubico.webauthn.data.UserIdentity;
 import com.yubico.webauthn.data.UserVerificationRequirement;
+import com.yubico.webauthn.exception.AssertionFailedException;
 import com.yubico.webauthn.exception.RegistrationFailedException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -242,13 +249,127 @@ public final class WebAuthn {
                 result.isBackedUp());
     }
 
+    // --- the other ceremony: proving a key is still in somebody's hand -------------------------
+
+    /**
+     * Starts an authentication for one account.
+     *
+     * <p>The account's keys become {@code allowCredentials} - the library reads them out of the
+     * repository from the user handle, so nothing here passes them. That list is what makes the
+     * browser offer <em>this person's</em> key rather than every passkey it has for the domain,
+     * and it is also why a sign-in here is never usernameless: Discord has already said who this
+     * is, so there is nothing to discover.</p>
+     *
+     * @return the request in two forms - one to park, one to hand the browser
+     * @throws Refused when the account has no key at all, which is a state the caller has to turn
+     *                 into the setup page rather than into a dialog with nothing in it
+     */
+    public @NotNull Ceremony startAssertion(final @NotNull String discordId) throws Refused {
+        if (credentials.of(discordId).isEmpty()) {
+            // The library would happily issue a request with an empty allowCredentials, which a
+            // browser answers by offering every passkey it holds for nordtal.eu - including
+            // somebody else's. An empty list is not "any key"; it is "no key", and it says so.
+            throw new Refused("that account has no security key to be asked for", null);
+        }
+        final AssertionRequest request = relyingParty.startAssertion(
+                StartAssertionOptions.builder()
+                        .userHandle(Credentials.handleOf(discordId))
+                        // PREFERRED, matching the registration. REQUIRED here would refuse, at
+                        // sign-in, exactly the bare USB key that registration accepted - and the
+                        // person holding it would have a key that could be registered and never
+                        // used, which is the worst of the three possible arrangements.
+                        .userVerification(UserVerificationRequirement.PREFERRED)
+                        .timeout(DIALOG.toMillis())
+                        .build());
+        try {
+            return new Ceremony(request.toJson(), request.toCredentialsGetJson());
+        } catch (IOException impossible) {
+            throw new IllegalStateException("the assertion request could not be serialised -"
+                    + " check for a second jackson-databind on the classpath", impossible);
+        }
+    }
+
+    /**
+     * Finishes an authentication: verifies the signature and moves the counter on.
+     *
+     * <p><b>The account is checked against the parked request</b>, exactly as registration does,
+     * and for a sharper reason: the parked request names whose keys were allowed to answer. If the
+     * session changed hands between start and finish, finishing it must not verify the first
+     * person's session with the second person's key.</p>
+     *
+     * <p>The signature counter is written through {@link Credentials#used}, which only ever moves
+     * it forward. The library has already refused a counter that went backwards - that is its
+     * clone detection - and the {@code GREATEST} in the SQL is the second half of the same
+     * argument, for the window between the check and the write.</p>
+     *
+     * @param parked    what {@link #startAssertion} said to park
+     * @param answer    the browser's {@code PublicKeyCredential}, as it serialised it
+     * @param discordId whose session this is - checked against the parked request, not trusted
+     * @return the key that answered
+     * @throws Refused for every way this can legitimately fail: a replayed or unknown challenge, a
+     *                 key belonging to somebody else, a signature that does not verify, a browser
+     *                 on the wrong origin
+     */
+    public @NotNull Held finishAssertion(final @NotNull String parked,
+                                         final @NotNull String answer,
+                                         final @NotNull String discordId) throws Refused {
+        final AssertionRequest request;
+        final PublicKeyCredential<AuthenticatorAssertionResponse,
+                ClientAssertionExtensionOutputs> response;
+        try {
+            request = AssertionRequest.fromJson(parked);
+        } catch (IOException unreadable) {
+            // The column holds whichever ceremony this browser has open, and there is only ever
+            // one. Landing here means a registration was started and an authentication finished,
+            // or the jar changed under a dialog that was already on screen.
+            throw new Refused("that sign-in was started differently, or by another version of this"
+                    + " service - start again", unreadable);
+        }
+        try {
+            response = PublicKeyCredential.parseAssertionResponseJson(answer);
+        } catch (IOException malformed) {
+            throw new Refused("the browser's answer could not be read", malformed);
+        }
+
+        final String intended = request.getUserHandle()
+                .flatMap(Credentials::accountOf)
+                .orElse("");
+        if (!intended.equals(discordId)) {
+            throw new Refused("that sign-in was started for a different account", null);
+        }
+
+        final AssertionResultV2<Credentials.Key> result;
+        try {
+            result = relyingParty.finishAssertion(FinishAssertionOptions.builder()
+                    .request(request)
+                    .response(response)
+                    .build());
+        } catch (AssertionFailedException refused) {
+            log.info("an assertion for {} was refused: {}", discordId, refused.getMessage());
+            throw new Refused("that key was not accepted: " + refused.getMessage(), refused);
+        }
+        if (!result.isSuccess()) {
+            // Belt and braces: the library throws on every failure it knows about, so this is the
+            // one it does not. Treating a false here as a pass would be the single most expensive
+            // line in this file.
+            throw new Refused("that key was not accepted", null);
+        }
+        credentials.used(result.getCredential().getCredentialId(), result.getSignatureCount());
+        return new Held(result.getCredential().label(), result.isUserVerified());
+    }
+
+    /** The key that just answered, for the journal and for the sentence on screen. */
+    public record Held(@NotNull String label, boolean userVerified) {
+    }
+
     /**
      * One request, in the two forms it is needed in.
      *
      * @param parked     the library's own JSON, for {@code steward_session.webauthn_request}
      * @param forBrowser the same thing wrapped as {@code {"publicKey": …}}, which is what
-     *                   {@code navigator.credentials.create} takes - handed to the browser as an
-     *                   opaque string and never re-parsed on this side
+     *                   {@code navigator.credentials.create} - or {@code .get}, for an
+     *                   authentication - takes. Handed to the browser as an opaque string and
+     *                   never re-parsed on this side.
      */
     public record Ceremony(@NotNull String parked, @NotNull String forBrowser) {
     }

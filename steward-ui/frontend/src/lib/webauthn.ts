@@ -129,6 +129,8 @@ export function whyTheKeyFailed(error: unknown): string {
     case "InvalidStateError":
       return "That key is already registered on this account. Use a different one, or sign in with"
         + " the one you are holding."
+    case "AbortError":
+      return "The dialog was closed before the key answered. Nothing happened - try again."
     case "SecurityError":
       return "The browser refused because this page's address does not match the domain the key"
         + " would be registered to. That is a configuration fault on this server, not on your key."
@@ -140,4 +142,76 @@ export function whyTheKeyFailed(error: unknown): string {
         ? error.message
         : "The key could not be registered, and the browser did not say why."
   }
+}
+
+/**
+ * What `/auth/webauthn/authenticate/start` answers, with its byte fields still base64url.
+ *
+ * The same shape as the registration options and a different set of fields, which is why it is a
+ * second type rather than a widened one: `allowCredentials` is the account's own keys and is the
+ * whole reason this sign-in is never usernameless.
+ */
+export type RequestOptionsJson = {
+  publicKey: Record<string, unknown> & {
+    challenge: string
+    allowCredentials?: Array<Record<string, unknown> & { id: string }>
+  }
+}
+
+/** The server's JSON as `navigator.credentials.get` wants it: the same object, with bytes. */
+export function toRequestOptions(answer: RequestOptionsJson): PublicKeyCredentialRequestOptions {
+  const publicKey = answer.publicKey
+  return {
+    ...publicKey,
+    challenge: fromBase64Url(publicKey.challenge),
+    allowCredentials: publicKey.allowCredentials?.map((one) => ({
+      ...one,
+      id: fromBase64Url(one.id),
+    })),
+  } as unknown as PublicKeyCredentialRequestOptions
+}
+
+/**
+ * The assertion as the server's library reads it.
+ *
+ * `userHandle` is the one field that is genuinely optional on the wire: a non-discoverable
+ * credential - which is every key this service registers, because `residentKey` is DISCOURAGED -
+ * does not return one. Sending `null` and omitting it are different to a strict parser, so it is
+ * omitted.
+ */
+export function fromAssertion(credential: PublicKeyCredential): string {
+  const response = credential.response as AuthenticatorAssertionResponse
+  const inner: Record<string, unknown> = {
+    clientDataJSON: toBase64Url(response.clientDataJSON),
+    authenticatorData: toBase64Url(response.authenticatorData),
+    signature: toBase64Url(response.signature),
+  }
+  if (response.userHandle) inner.userHandle = toBase64Url(response.userHandle)
+  const answer: Record<string, unknown> = {
+    type: credential.type,
+    id: credential.id,
+    rawId: toBase64Url(credential.rawId),
+    response: inner,
+    clientExtensionResults: credential.getClientExtensionResults(),
+  }
+  if (credential.authenticatorAttachment) {
+    answer.authenticatorAttachment = credential.authenticatorAttachment
+  }
+  return JSON.stringify(answer)
+}
+
+/**
+ * Holds the dialog open and hands back the signature.
+ *
+ * Throws whatever the browser threw - see {@link whyTheKeyFailed}, which is shared with
+ * registration because the two fail in the same ways and a person reads the same sentences.
+ */
+export async function useSecurityKey(startAnswer: RequestOptionsJson): Promise<string> {
+  const credential = (await navigator.credentials.get({
+    publicKey: toRequestOptions(startAnswer),
+  })) as PublicKeyCredential | null
+  if (!credential) {
+    throw new Error("The browser ended the dialog without an answer.")
+  }
+  return fromAssertion(credential)
 }

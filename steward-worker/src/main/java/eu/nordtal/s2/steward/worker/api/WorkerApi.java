@@ -182,10 +182,13 @@ public final class WorkerApi implements AutoCloseable {
 
     private Javalin app;
 
+    private final ConfigApi configs;
+
     public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
                      final @NotNull Console console, final @NotNull HostMetrics host,
                      final @NotNull String project, final @NotNull Path backups,
-                     final @NotNull String token, final @NotNull Nightly nightly) {
+                     final @NotNull String token, final @NotNull Path configs,
+                     final @NotNull Nightly nightly) {
         this.docker = docker;
         this.ops = ops;
         this.console = console;
@@ -194,6 +197,10 @@ public final class WorkerApi implements AutoCloseable {
         this.backups = backups;
         this.token = token;
         this.nightly = nightly;
+        // The configuration editor's whole back end. It lives here and not in steward-ui because
+        // every file it touches is 0600 root:root and steward-ui is the one service that is not
+        // root - see ApiSpec#configsRoot for the measurement that moved it.
+        this.configs = new ConfigApi(configs);
         // Here rather than at the field, because it reads `ops`, which is a constructor argument.
         this.drift = new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL,
                 driftRefresh, Instant::now);
@@ -345,6 +352,14 @@ public final class WorkerApi implements AutoCloseable {
                 ctx.status(202).json(Map.of("sent", body.command.strip(),
                         "where", "the answer appears in this service's log"));
             });
+
+            // The configuration of every service in the stack (§10a.6). steward-ui proxies these
+            // three verbatim: it draws the form and holds the security key in front of it, and
+            // this side holds the file permissions. Neither half can do the other's job, which is
+            // the point.
+            config.routes.get("/api/config", configs::list);
+            config.routes.get("/api/config/<file>", configs::one);
+            config.routes.put("/api/config/<file>", configs::save);
 
             config.routes.get("/api/host", ctx -> ctx.json(hostNumbers()));
 

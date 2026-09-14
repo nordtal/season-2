@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import type { Season } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
 import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
-import { CommandCard } from "@/components/steward/command-card"
+import { CommandCard, isAccessCommand } from "@/components/steward/command-card"
 import { PageHeader } from "@/components/steward/page-header"
 import { Failure, QueryState } from "@/components/steward/query-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -95,7 +95,9 @@ export function SeasonPage() {
           <>
             <PhaseCard season={current} />
             <DatesCard season={current} />
-            <CommandCard />
+            {/* Everything except `/access`, which has its own card on the page about
+              * people. A season is not where somebody goes to settle a payment. */}
+            <CommandCard only={(command) => !isAccessCommand(command)} />
             <Alert>
               <ShieldAlert aria-hidden />
               <AlertTitle>Nothing is carried between seasons.</AlertTitle>

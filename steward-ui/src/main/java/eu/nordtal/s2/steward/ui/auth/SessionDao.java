@@ -165,6 +165,18 @@ interface SessionDao {
     void end(@Bind("id") String id);
 
     /** Housekeeping. Returns how many rows went, so the log line can be about something. */
+    /**
+     * Every session of one account, gone.
+     *
+     * <p>Half of {@code forget-factors}, and the half that is easy to leave out: clearing the keys
+     * of an account whose browser is still signed in would leave that browser signed in with no
+     * key - which is the state the whole door exists to refuse, reached from the inside.</p>
+     *
+     * @return how many browsers were signed out
+     */
+    @SqlUpdate("DELETE FROM steward_session WHERE discord_id = :discordId")
+    int endAllOf(@Bind("discordId") String discordId);
+
     @SqlUpdate("DELETE FROM steward_session WHERE expires_at < now()")
     int sweep();
 

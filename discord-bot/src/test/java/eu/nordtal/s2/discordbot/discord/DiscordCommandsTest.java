@@ -241,7 +241,7 @@ class DiscordCommandsTest {
         final Map<String, Object> values = new LinkedHashMap<>();
         for (final Argument argument : declaration.arguments()) {
             values.put(argument.name(), switch (argument.kind()) {
-                case WORD -> "ancient-debris";
+                case WORD, REFERENCE -> "ancient-debris";
                 case GREEDY_STRING -> "2026-10-01 18:00";
                 case INTEGER -> argument.max();
                 case PLAYER -> UUID.fromString("11111111-2222-3333-4444-555555555555");

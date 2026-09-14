@@ -1,8 +1,8 @@
-package eu.nordtal.s2.steward.ui.configfile;
+package eu.nordtal.s2.steward.worker.configfile;
 
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
-import eu.nordtal.s2.steward.ui.config.UiSpec;
+import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,17 +70,20 @@ class ConfigFilesWriteTest {
     }
 
     @Test
-    void theInterfacesOwnConfigSurvivesAnEditWordForWord() throws IOException, ConfigException {
-        final Path file = directory.resolve("steward-ui.yml");
-        ConfigLoader.builder(file, UiSpec.class).load();
+    void thisServicesOwnConfigSurvivesAnEditWordForWord() throws IOException, ConfigException {
+        // It was steward-ui.yml until 2026-09-14, when this package moved into steward-worker.
+        // The file is not the point: a real spec written by jcore is, because the thing being
+        // asserted is that everything this class did NOT edit comes back byte for byte.
+        final Path file = directory.resolve("steward.yml");
+        ConfigLoader.builder(file, StewardSpec.class).load();
         final String before = Files.readString(file);
 
-        ConfigFiles.write(file, Map.of("session-days", ConfigChange.of("14")));
+        ConfigFiles.write(file, Map.of("poll-interval-seconds", ConfigChange.of("90")));
 
-        // Anchored to the start of a line, because the key's own COMMENT quotes
-        // `session-days: 30` - a bare replace rewrote the comment too and the file then differed
-        // from the expectation in a place nothing had edited.
-        assertEquals(before.replace("\nsession-days: 30\n", "\nsession-days: 14\n"),
+        // Anchored to the start of a line: a bare replace would rewrite any comment that quotes
+        // the same text, and the file would then differ in a place nothing had edited.
+        assertEquals(before.replace("\npoll-interval-seconds: 15\n",
+                        "\npoll-interval-seconds: 90\n"),
                 Files.readString(file));
     }
 

@@ -185,6 +185,16 @@ dependencies {
     // applied, for the same reason :common's are: a fake of a database proves the fake works.
     // The test authenticator writes CBOR, because that is what an authenticator's answer is made
     // of. Tests only: nothing in main/ encodes anything itself - the library does that.
+    // THE OTHER HALF OF THE CONFIGURATION EDITOR, for the tests only.
+    //
+    // `ConfigApi` moved to steward-worker on 2026-09-14 (the files are 0600 root:root and this
+    // service is the one that is not root), and what is left here is a proxy. The stand-in worker
+    // in StewardUiIntegrationTest mounts the real thing, so those tests still go end to end -
+    // through the gate, over the internal API, onto a file, and back - rather than proving that a
+    // proxy proxies. Test scope on purpose: nothing in this service's own code may reach for it,
+    // and the compiler says so.
+    testImplementation(project(":steward-worker"))
+
     testImplementation(libs.cbor)
 
     testImplementation(libs.testcontainers.postgresql)

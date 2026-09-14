@@ -1,4 +1,4 @@
-package eu.nordtal.s2.steward.ui.configfile;
+package eu.nordtal.s2.steward.worker.configfile;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;

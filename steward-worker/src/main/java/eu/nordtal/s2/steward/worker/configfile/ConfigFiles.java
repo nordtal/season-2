@@ -1,7 +1,7 @@
-package eu.nordtal.s2.steward.ui.configfile;
+package eu.nordtal.s2.steward.worker.configfile;
 
-import eu.nordtal.s2.steward.ui.configfile.ConfigEntry.Kind;
-import eu.nordtal.s2.steward.ui.configfile.ConfigEntry.Type;
+import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
+import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
 import org.jetbrains.annotations.NotNull;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -911,7 +911,7 @@ public final class ConfigFiles {
         // config and renames it over the top. A writable file in a read-only mount cannot be saved.
         final Path directory = file.toAbsolutePath().getParent();
         final boolean writable = Files.isWritable(file) && directory != null && Files.isWritable(directory);
-        return new ConfigLocation(service, name.toString(), file, writable);
+        return new ConfigLocation(service, name.toString(), file, Files.isReadable(file), writable);
     }
 
     // -----------------------------------------------------------------------------------------

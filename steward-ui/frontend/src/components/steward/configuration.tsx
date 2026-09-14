@@ -110,7 +110,15 @@ function FileRow({
       type="button"
       aria-expanded={open}
       onClick={onToggle}
-      className="-mx-3 flex h-row items-center justify-between gap-3 rounded-sm px-3 text-left hover:bg-accent"
+      // Not openable rather than openable-into-an-error. There is nothing behind it: the service
+      // cannot read the file, so the form would be an alert with a path in it.
+      disabled={!file.readable}
+      title={
+        file.readable
+          ? undefined
+          : "Steward can see this file but may not open it. It belongs to another user - the mount that would let Steward read it is missing, or its permissions changed."
+      }
+      className="-mx-3 flex h-row items-center justify-between gap-3 rounded-sm px-3 text-left hover:bg-accent disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:bg-transparent"
     >
       <span className="flex min-w-0 items-center gap-2">
         <Chevron className="size-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -121,7 +129,16 @@ function FileRow({
           </Badge>
         ) : null}
       </span>
-      {file.writable ? null : (
+      {/*
+        Three states, not two. "not readable" is the one that used to be invisible: the row looked
+        ordinary and opening it produced an error alert with the file's path in it.
+      */}
+      {!file.readable ? (
+        <Badge variant="outline" className="shrink-0 gap-1 text-destructive">
+          <Lock className="size-3" aria-hidden />
+          not readable
+        </Badge>
+      ) : file.writable ? null : (
         <Badge variant="outline" className="shrink-0 gap-1">
           <Lock className="size-3" aria-hidden />
           read only

@@ -24,9 +24,11 @@ import { Skeleton } from "@/components/ui/skeleton"
  *
  * - What is missing, if anything is: an unconfigured deployment and a wrong account look exactly
  *   the same at Discord's end, and only this end knows which it was.
- * - That there is no second factor. §10a wants a security key after the Discord login and this
- *   alpha does not have one, so a stolen Discord session is the whole of the authentication. That
- *   belongs on the door, not in a footnote somebody reads later.
+ * - That Discord is not the end of it. A security key is asked for after the sign-in, and
+ *   somebody arriving without theirs should find that out here rather than one redirect later.
+ *   The sentence comes from `/api/me` so that the server owns it - what is and is not built is
+ *   the server's answer, not a claim this page makes on its behalf, and the last version of this
+ *   text went stale the day the key was built.
  */
 export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
   const missing = me?.signInUnavailable
@@ -70,10 +72,10 @@ export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
 
             <Alert>
               <Fingerprint aria-hidden />
-              <AlertTitle>There is no second factor.</AlertTitle>
+              <AlertTitle>Discord is not the whole of it.</AlertTitle>
               <AlertDescription>
                 {me?.webauthn ??
-                  "A security key is not built in this alpha: whoever holds an admin's Discord session holds this interface - and it can stop services and type into consoles."}
+                  "A security key is asked for after the Discord sign-in. An account without one cannot use Steward at all - the first sign-in sets one up."}
               </AlertDescription>
             </Alert>
           </CardContent>

@@ -5,19 +5,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Shell } from "@/app/shell"
 
 /**
- * Which of the three doors `/api/me` opens.
+ * Which of the four doors `/api/me` opens.
  *
- * There are exactly three answers and they used to be two. A 401 is the session being gone and is
+ * There are exactly four answers; there used to be two. A 401 is the session being gone and is
  * the sign-in page. **Anything else is a fault**, and dressing it up as a missing session is worse
  * than useless: the only action the sign-in page offers - signing in again - cannot fix a 500 or a
  * 429, and the actual reason was nowhere on the screen. That is what `DoorIsStuck` is for; it
  * carries the same {@link Failure} every list uses, so it still names *which* of the three services
  * answered badly.
  *
- * These tests render the real `Shell`. They never reach the signed-in branch, which is deliberate -
- * that branch needs a router and a sidebar and would test neither of the two sentences above. What
- * is asserted instead is the one thing that must never be true: that a fault offers a sign-in
- * button, or that a missing session offers a retry button.
+ * The fourth is a signed-in account with no security key (V20), which reaches `/api/me` and nothing
+ * else; it is drawn the setup page and no shell.
+ *
+ * These tests render the real `Shell`. They never reach the fifth case - an account that HAS a key -
+ * which is deliberate: that branch needs a router and a sidebar and would test none of the sentences
+ * above. What is asserted instead is the set of things that must never be true: that a fault offers
+ * a sign-in button, that a missing session offers a retry button, or that somebody who is not
+ * signed in at all is asked to register a key.
  *
  * `/api/me` is the one route the backend serves without a session (StewardUi.java excludes it from
  * the `before("/api/*")` filter), so in this deployment a 401 from it can only come from something
@@ -160,12 +164,69 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
   })
 })
 
+describe("Shell - signed in, and still not in", () => {
+  /** The setup page, identified by the one sentence only it has. */
+  const setupPage = () => screen.queryByText(/One more thing: your security key/)
+
+  const signedIn = (keys: unknown) => ({
+    signedIn: true,
+    id: "1",
+    name: "till",
+    csrf: "t",
+    webauthn: "required",
+    relyingPartyId: "nordtal.eu",
+    keys,
+  })
+
+  it("draws the security key page for an account that has none", async () => {
+    fetched.mockResolvedValue(answer(200, signedIn([])))
+    draw()
+
+    await waitFor(() => expect(setupPage()).not.toBeNull())
+    // Not a page being withheld: without a key every route but this answer is a 403, so a shell
+    // here would be a sidebar of eleven links to refusals.
+    expect(screen.queryByRole("navigation")).toBeNull()
+    expect(signInButton()).toBeNull()
+    expect(stuckDoor()).toBeNull()
+  })
+
+  it("does not draw it for somebody who is not signed in at all", async () => {
+    // ORDERING, and it is the whole of this test: `keys` is ABSENT for a signed-out answer, so a
+    // gate written as `keys?.length ?? 0` placed above the signed-out branch sends everybody to a
+    // page whose register button needs the session it is standing in front of.
+    fetched.mockResolvedValue(answer(200, { signedIn: false, webauthn: "required" }))
+    draw()
+
+    await waitFor(() => expect(signInButton()).not.toBeNull())
+    expect(setupPage()).toBeNull()
+  })
+
+  it("does not draw it for a 401 either", async () => {
+    fetched.mockResolvedValue(answer(401, { error: "sign in first" }))
+    draw()
+
+    await waitFor(() => expect(signInButton()).not.toBeNull())
+    expect(setupPage()).toBeNull()
+  })
+
+  it("does not draw it when the request failed and nobody knows about any keys", async () => {
+    // `me.data` is undefined here. A gate that reads through it without the `!me.data` return
+    // above throws, and a gate defaulting to zero turns every 500 into "register a key".
+    fetched.mockResolvedValue(answer(500, { error: "Internal error." }))
+    draw()
+
+    await waitFor(() => expect(stuckDoor()).not.toBeNull())
+    expect(setupPage()).toBeNull()
+  })
+})
+
 /*
  * What is NOT here, and why: the signed-in branch.
  *
- * Past both refusals the Shell renders `<Outlet/>`, a sidebar and `useRouterState`, so it needs a
+ * The three refusals above are all reachable; the fourth branch - an account that HAS a key - is
+ * not. Past it the Shell renders `<Outlet/>`, a sidebar and `useRouterState`, so it needs a
  * router - and a router needs a route tree, a memory history and a `window.matchMedia` jsdom does
  * not have. A test that renders it without one gets as far as the loading skeleton and then throws
  * asynchronously inside TanStack Router, which passes while asserting nothing. That the shell
- * appears for a signed-in operator is therefore still only known by looking at it.
+ * appears for an operator holding a registered key is therefore still only known by looking at it.
  */

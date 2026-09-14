@@ -148,6 +148,22 @@ dependencies {
     // jackson-databind is optional in its POM and this repo does not carry Jackson at all.
     implementation(libs.javalin)
 
+    // The second factor (§10a), server side.
+    //
+    // THIS IS THE ONE PLACE IN THE REPOSITORY THAT CARRIES JACKSON. The library brings
+    // jackson-databind, guava, cbor and httpclient5 with it; the version catalog spells out why
+    // that was accepted here and only here. The boundary is kept exactly one class wide:
+    // `auth/WebAuthn` speaks Jackson and hands everything else a String, so no object ever meets
+    // both mappers. Two databinds let loose on one object graph is the likeliest bug in this whole
+    // feature, and it would show up as a sign-in that fails for one brand of key.
+    implementation(libs.webauthn.server.core)
+
+    // Not a dependency, an exception type. See the version catalog: webauthn-server-core puts
+    // Jackson on the RUNTIME classpath only, and javac still has to resolve
+    // JsonProcessingException to compile a call to the method that declares it. compileOnly, so
+    // nothing here is built against a Jackson API and the runtime uses whatever the library picked.
+    compileOnly(libs.jackson.core)
+
     // Drawn from the Spec model, not hand-written: the configuration forms of §10a.6 read
     // SpecProperty, SpecClass and environmentOverrides() - Java objects, which is why this module
     // takes jcore directly rather than going through a DTO.
@@ -167,6 +183,10 @@ dependencies {
 
     // The endpoints that read rows are tested against a real PostgreSQL with the real migrations
     // applied, for the same reason :common's are: a fake of a database proves the fake works.
+    // The test authenticator writes CBOR, because that is what an authenticator's answer is made
+    // of. Tests only: nothing in main/ encodes anything itself - the library does that.
+    testImplementation(libs.cbor)
+
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.flyway.core)
     testImplementation(libs.flyway.postgresql)

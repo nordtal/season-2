@@ -71,4 +71,52 @@ class ConfigsTest {
         assertDoesNotThrow(() -> Configs.requirePublicUrl("http://127.0.0.1:8080"));
         assertDoesNotThrow(() -> Configs.requirePublicUrl("https://nordtal.eu/steward"));
     }
+
+    // --- the relying party, held against the address the browser actually uses -----------------
+
+    @Test
+    @DisplayName("a relying party the public address is not under is refused, and the message names both")
+    void aRelyingPartyMustBeTheAddressOrAParentOfIt() {
+        // The production pair, and the two shapes of it that are correct.
+        Configs.requireRelyingParty("nordtal.eu", "https://steward.dev.nordtal.eu");
+        Configs.requireRelyingParty("nordtal.eu", "https://nordtal.eu");
+        Configs.requireRelyingParty("steward.dev.nordtal.eu", "https://steward.dev.nordtal.eu");
+
+        // A NEAR MISS THAT LOOKS RIGHT IN A DIFF. `nordtal.eu` and `ordtal.eu` differ by a
+        // character, and the naive check - endsWith - accepts the second for the first. A browser
+        // would refuse every ceremony in silence, so the dot is part of the comparison here.
+        final IllegalArgumentException wrong = assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("ordtal.eu", "https://steward.dev.nordtal.eu"));
+        assertTrue(wrong.getMessage().contains("ordtal.eu")
+                && wrong.getMessage().contains("steward.dev.nordtal.eu"),
+                "the message has to name both values, or nobody can see what does not match: "
+                        + wrong.getMessage());
+
+        // A BARE TLD IS A SUFFIX OF THE HOST, and the naive check therefore accepts it - measured,
+        // which is why the implementation has a second condition. A browser refuses a relying
+        // party id that is a public suffix, in silence, because every site under one would share a
+        // set of keys.
+        final IllegalArgumentException tld = assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("eu", "https://steward.dev.nordtal.eu"));
+        assertTrue(tld.getMessage().contains("registrable"), tld.getMessage());
+        // Narrower than the address: a key registered here would never be offered at all.
+        assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("other.nordtal.eu",
+                        "https://steward.dev.nordtal.eu"));
+    }
+
+    @Test
+    @DisplayName("a relying party written as a URL is refused, because it is a domain")
+    void aRelyingPartyIsNotAUrl() {
+        assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("https://nordtal.eu",
+                        "https://steward.dev.nordtal.eu"));
+        assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("nordtal.eu:443",
+                        "https://steward.dev.nordtal.eu"));
+        assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty("", "https://steward.dev.nordtal.eu"));
+        assertThrows(IllegalArgumentException.class,
+                () -> Configs.requireRelyingParty(null, "https://steward.dev.nordtal.eu"));
+    }
 }

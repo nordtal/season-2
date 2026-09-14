@@ -1217,9 +1217,20 @@ function AuthenticationCard() {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <StatusBadge tone="warn" title="§10a foresees a security key after Discord.">
-            Security key: not built yet
-          </StatusBadge>
+          {/*
+            THE BADGE FOLLOWS THE ANSWER, not the release notes. `keys` is what /api/me says this
+            account has; a badge hard-coded to "not built" is what the last one was, and it stayed
+            wrong for exactly as long as nobody re-read this file.
+          */}
+          {(me.data?.keys?.length ?? 0) > 0 ? (
+            <StatusBadge tone="ok" title="A key was registered and is required to be here at all.">
+              Security key: registered
+            </StatusBadge>
+          ) : (
+            <StatusBadge tone="warn" title="§10a asks for a security key after Discord.">
+              Security key: none on this account
+            </StatusBadge>
+          )}
           {me.data?.name ? (
             <span className="text-sm text-muted-foreground">
               signed in as <span className="text-foreground">{me.data.name}</span>
@@ -1227,14 +1238,14 @@ function AuthenticationCard() {
           ) : null}
         </div>
         <p className="max-w-prose text-sm text-muted-foreground">
-          There is no third, Steward-owned identity - no password of its own, no second factor.
-          Whoever holds an admin's Discord session holds this interface, and with it the two writes
-          on the{" "}
+          There is no password of Steward's own: Discord says who you are, and a security key says
+          you are holding something. Both are needed to be here at all - including for the two
+          writes on the{" "}
           <Link to="/access" className="text-primary underline-offset-4 hover:underline">
             Access
           </Link>
-          {" "}page. That is deliberate while the key is missing, and it is the reason every change
-          lands in the Journal.
+          {" "}page. What the key does not yet do is stand in front of each of those individually,
+          which is why every change still lands in the Journal.
         </p>
         {me.error ? (
           <Failure error={me.error} onRetry={me.refetch} />

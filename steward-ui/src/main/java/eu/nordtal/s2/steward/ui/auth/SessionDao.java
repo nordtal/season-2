@@ -89,12 +89,77 @@ interface SessionDao {
                 @Bind("seconds") long seconds);
 
     @SqlQuery("""
-            SELECT id, discord_id, display_name, roles, csrf, created_at, expires_at
+            SELECT id, discord_id, display_name, roles, csrf, created_at, expires_at, verified_at
             FROM steward_session
             WHERE id = :id
               AND expires_at > now()
             """)
     Optional<Sessions.Session> find(@Bind("id") String id);
+
+    /**
+     * Parks the WebAuthn ceremony this browser has just been handed.
+     *
+     * <p>One at a time, deliberately: a second {@code /start} overwrites the first, so a person who
+     * taps the button twice finishes the ceremony they are actually looking at. Two challenges
+     * outstanding would mean the older one is redeemable by whoever else has seen it.</p>
+     */
+    @SqlUpdate("""
+            UPDATE steward_session
+            SET webauthn_request = :request,
+                webauthn_started_at = now()
+            WHERE id = :id
+              AND expires_at > now()
+            """)
+    int startCeremony(@Bind("id") String id, @Bind("request") String request);
+
+    /**
+     * The ceremony this browser started, readable exactly once.
+     *
+     * <p><b>The same shape as {@link #consumeState}, and the same trap.</b> {@code RETURNING}
+     * answers with the new row, so the obvious one-liner hands back the {@code NULL} it just
+     * wrote - see that method for what that cost. The old value comes out of a {@code FOR UPDATE}
+     * subquery here too.</p>
+     *
+     * <p>Reading it once is what makes a challenge single-use: a replayed {@code /finish} finds
+     * nothing to verify against and is refused, rather than being checked a second time against a
+     * challenge that is still lying there.</p>
+     *
+     * <p>Ten minutes, and the clock is in the {@code WHERE} rather than in a sweep - same argument
+     * as the expiry above. The browser's own dialog gives two minutes, so this only ever catches a
+     * ceremony nobody is still looking at.</p>
+     */
+    @SqlQuery("""
+            UPDATE steward_session AS s
+            SET webauthn_request = NULL,
+                webauthn_started_at = NULL
+            FROM (
+                SELECT id, webauthn_request
+                FROM steward_session
+                WHERE id = :id
+                FOR UPDATE
+            ) AS before
+            WHERE s.id = before.id
+              AND s.webauthn_request IS NOT NULL
+              AND s.webauthn_started_at > now() - interval '10 minutes'
+              AND s.expires_at > now()
+            RETURNING before.webauthn_request
+            """)
+    Optional<String> consumeCeremony(@Bind("id") String id);
+
+    /**
+     * Records that this browser has just held its key.
+     *
+     * <p>{@code now()} is PostgreSQL's, like every other clock in this file: the five-minute window
+     * of the step-up is compared against the same clock that wrote this, not against whatever the
+     * JVM thinks the time is.</p>
+     */
+    @SqlUpdate("""
+            UPDATE steward_session
+            SET verified_at = now()
+            WHERE id = :id
+              AND expires_at > now()
+            """)
+    int markVerified(@Bind("id") String id);
 
     @SqlUpdate("DELETE FROM steward_session WHERE id = :id")
     void end(@Bind("id") String id);
@@ -109,7 +174,23 @@ interface SessionDao {
      * <p>It is here rather than in a test helper because a test that writes its own SQL against
      * this table is a second place that has to be changed when a column moves, and the first thing
      * such a test stops noticing is a column it no longer writes.</p>
+     *
+     * <p><b>It moves {@code created_at} as well, and it has to.</b> V19 constrains
+     * {@code expires_at > created_at}, so the one-line version of this - setting the expiry alone -
+     * cannot age a session at all: PostgreSQL refuses it. That went unnoticed because this method
+     * was written in the same commit as the constraint and had no caller until now, which is its
+     * own small lesson about a helper added ahead of the test that needs it.</p>
      */
-    @SqlUpdate("UPDATE steward_session SET expires_at = :at WHERE id = :id")
+    @SqlUpdate("""
+            UPDATE steward_session
+            SET expires_at = CAST(:at AS timestamptz),
+                created_at = LEAST(created_at,
+                                   CAST(:at AS timestamptz) - interval '1 second')
+            WHERE id = :id
+            """)
     void expireAt(@Bind("id") String id, @Bind("at") Instant at);
+
+    /** The same, for the ceremony clock: a challenge aged past its window without a ten-minute wait. */
+    @SqlUpdate("UPDATE steward_session SET webauthn_started_at = :at WHERE id = :id")
+    void ceremonyStartedAt(@Bind("id") String id, @Bind("at") Instant at);
 }

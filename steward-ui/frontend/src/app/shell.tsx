@@ -3,6 +3,7 @@ import { Search as SearchIcon } from "lucide-react"
 
 import { AppSidebar } from "@/app/app-sidebar"
 import { CommandPalette } from "@/app/command-palette"
+import { SecurityKeyPage } from "@/app/security-key"
 import { SignInPage } from "@/app/sign-in"
 import { StewardMark } from "@/app/steward-mark"
 import { ApiError } from "@/lib/api"
@@ -57,6 +58,14 @@ export function Shell() {
   // it themselves: the CSRF token arrives with this answer, so without it every write in the
   // interface would be refused, one confusing page at a time.
   if (!me.data) return <DoorIsStuck error={me.error} onRetry={() => void me.refetch()} />
+
+  // SIGNED IN AND STILL NOT IN. An account with no registered security key reaches /api/me and
+  // nothing else (V20), so this is not a page being withheld - it is the only page that answers.
+  // Drawing the shell here would be a sidebar of eleven links to 403s.
+  //
+  // `keys` is absent, not empty, when nobody is signed in - which cannot happen here, because
+  // `signedOut` above already returned. An account that HAS keys always sends an array.
+  if ((me.data.keys?.length ?? 0) === 0) return <SecurityKeyPage me={me.data} />
 
   return (
     <TooltipProvider delayDuration={300}>

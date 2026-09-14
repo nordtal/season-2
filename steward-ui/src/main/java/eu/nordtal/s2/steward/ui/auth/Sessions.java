@@ -129,6 +129,36 @@ public final class Sessions {
         return dao.find(id).filter(Session::signedIn);
     }
 
+    /**
+     * Hands this browser a WebAuthn ceremony to answer, replacing any it had not finished.
+     *
+     * @param request the library's own JSON - see {@code WebAuthn}, the only class that reads it
+     */
+    public void startCeremony(final @Nullable String id, final @NotNull String request) {
+        Objects.requireNonNull(request, "request");
+        if (id != null && !id.isBlank()) {
+            dao.startCeremony(id, request);
+        }
+    }
+
+    /**
+     * The ceremony this browser started, readable exactly once.
+     *
+     * <p>Empty means there is nothing to finish: none was started, it has already been answered,
+     * or the session is gone. The route says one sentence for all three, for the same reason
+     * {@link #consumeState} does.</p>
+     */
+    public @NotNull Optional<String> consumeCeremony(final @Nullable String id) {
+        return id == null || id.isBlank() ? Optional.empty() : dao.consumeCeremony(id);
+    }
+
+    /** Records that this browser has just proved a key. */
+    public void markVerified(final @Nullable String id) {
+        if (id != null && !id.isBlank()) {
+            dao.markVerified(id);
+        }
+    }
+
     /** Ends one session. Used by sign-out, and by the sign-in dropping the row it started in. */
     public void end(final @Nullable String id) {
         if (id != null && !id.isBlank()) {
@@ -158,6 +188,11 @@ public final class Sessions {
         dao.expireAt(id, at);
     }
 
+    /** Only for tests: ages the ceremony clock, so the ten-minute window can be walked past. */
+    void ceremonyStartedAt(final String id, final Instant at) {
+        dao.ceremonyStartedAt(id, at);
+    }
+
     private static String random() {
         final byte[] bytes = new byte[BYTES];
         RANDOM.nextBytes(bytes);
@@ -175,7 +210,8 @@ public final class Sessions {
                           @Nullable String roles,
                           @NotNull String csrf,
                           @ColumnName("created_at") @NotNull Instant createdAt,
-                          @ColumnName("expires_at") @NotNull Instant expiresAt) {
+                          @ColumnName("expires_at") @NotNull Instant expiresAt,
+                          @ColumnName("verified_at") @Nullable Instant verifiedAt) {
 
         /** False for a row that is still between {@code /auth/login} and a completed callback. */
         public boolean signedIn() {
@@ -186,6 +222,17 @@ public final class Sessions {
         public DiscordAuth.@NotNull Account account() {
             return new DiscordAuth.Account(Objects.requireNonNull(discordId),
                     Objects.requireNonNull(displayName), roleList());
+        }
+
+        /**
+         * Whether a security key has been held in this session at all.
+         *
+         * <p>Not the same question as the step-up's, which is whether it was held <em>recently</em>
+         * (package D). This one is the door: a session that has never seen a key reaches the setup
+         * page and nothing else.</p>
+         */
+        public boolean verified() {
+            return verifiedAt != null;
         }
 
         public @NotNull List<String> roleList() {

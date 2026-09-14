@@ -767,8 +767,20 @@ services:
       NORDTAL_STEWARD_UI_DISCORD_CLIENT_SECRET: ${STEWARD_UI_DISCORD_CLIENT_SECRET:-}
       # A SECOND COPY of what the bot's access.yml says, deliberately: two processes, two volumes,
       # no shared file. Written from the same .env variables so they start out agreeing.
-      NORDTAL_STEWARD_UI_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in .env}
-      NORDTAL_STEWARD_UI_DISCORD_ADMIN_ROLE: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in .env - the role mirrored into discord_user.admin}
+      NORDTAL_STEWARD_UI_DISCORD_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/setup.sh asks for it}
+      NORDTAL_STEWARD_UI_DISCORD_ADMIN_ROLE: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/setup.sh asks for it}
+      # THE BOT'S TOKEN, READ-ONLY AND FOR ONE THING: asking Discord what the guild's roles and
+      # channels are CALLED, so the configuration editor offers a list to pick from instead of a
+      # field to transcribe an eighteen-digit id into. Steward never sends a message with it, never
+      # changes a role, and never puts it in an answer, a log or a browser - what leaves the process
+      # is a list of {id, name} that is public inside the guild anyway.
+      #
+      # Giving a web server the bot's token is a real widening and is worth saying out loud: whoever
+      # reaches this container's filesystem or environment has the bot. The alternative was a second
+      # application with its own token, which is a second thing to rotate and a second bot in the
+      # member list for no gain - the token is already on this host, in the service next door.
+      # Empty is fine: the pickers fall back to a text field and the ids still work.
+      NORDTAL_STEWARD_UI_DISCORD_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:-}
     volumes:
       - steward-ui-config:/app/config
       # THE CONFIGURATION OF EVERY SERVICE IN THE STACK, mounted a second time so the interface can

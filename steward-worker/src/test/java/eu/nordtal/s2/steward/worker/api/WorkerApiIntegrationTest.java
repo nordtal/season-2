@@ -250,7 +250,7 @@ class WorkerApiIntegrationTest {
 
         assertTrue(host.get("memoryTotalBytes").getAsLong() > 0);
         assertTrue(host.get("diskTotalBytes").getAsLong() > 0);
-        assertTrue(host.get("containerLimits").getAsString().contains("share of the host"),
+        assertTrue(host.get("containerLimits").getAsString().contains("share of the whole host"),
                 "a percentage without that sentence is a number that means something else");
     }
 

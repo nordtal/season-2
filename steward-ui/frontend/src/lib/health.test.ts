@@ -297,7 +297,7 @@ describe("summarise - the backup", () => {
     // to believe there is a backup.
     const { level, triggers } = summarise({
       ...healthy(),
-      backups: [backup(40), backup(0.5, { partial: true, name: "neu.tar.zst.partial" })],
+      backups: [backup(40), backup(0.5, { partial: true, name: "fresh.tar.zst.partial" })],
     })
 
     expect(level).toBe("down")
@@ -488,7 +488,7 @@ describe("shownLevel", () => {
 
   it("keeps the light and the sentence saying the same thing with everything failed", () => {
     // End to end, the defect as it was reported: a page with every query failed drew the green tick
-    // and "Alles in Ordnung." while its own footnote said it had read nothing.
+    // and its all-clear sentence while its own footnote said it had read nothing.
     const { level, triggers } = summarise({})
 
     expect(triggers).toEqual([])

@@ -70,7 +70,11 @@ class DockerOpsStopTest {
     @Test
     @DisplayName("an ordinary shutdown is an ordinary stop")
     void anOrdinaryExitIsAStop() throws IOException {
-        assertTrue(ops(0).stop("smp-container").triggered());
+        final RedeployResult result = ops(0).stop("smp-container");
+
+        assertTrue(result.triggered());
+        assertTrue(result.verified(), "the ending was read and it was a clean one, so nothing"
+                + " downstream has any reason to doubt the backup that follows");
     }
 
     @Test
@@ -78,7 +82,36 @@ class DockerOpsStopTest {
     void aMissingExitCodeIsNotAKill() throws IOException {
         // -1 is this client's "the daemon said nothing about it". Refusing on that would take a
         // network down over a field an older daemon does not send.
-        assertTrue(ops(null).stop("smp-container").triggered());
+        final RedeployResult result = ops(null).stop("smp-container");
+
+        assertTrue(result.triggered());
+        assertTrue(result.verified(), "the inspect answered; an old daemon leaving the field out is"
+                + " not the same as an inspect nobody could read");
+    }
+
+    @Test
+    @DisplayName("a stop whose ending could not be read is neither a failure nor an ordinary stop")
+    void anUnreadableInspectIsAnUnverifiedStop() throws IOException {
+        // The daemon accepts the stop and then stops answering, which is run 23's shape: the
+        // container is down, and whether the world had finished writing is a question nobody can
+        // answer any more. Refusing would take the network down over an unreadable inspect; calling
+        // it a success is what let the archive taken afterwards look like every other archive.
+        final RedeployResult result = deafAfterTheStop().stop("smp-container");
+
+        assertTrue(result.triggered(), "the stop itself worked, and the container really is down: "
+                + result.message());
+        assertFalse(result.verified(), "not knowing how it ended is not the same as knowing it"
+                + " ended well, and the backup taken over it is marked on the strength of this"
+                + " one bit: " + result.message());
+        assertTrue(result.message().contains("could not be read back"),
+                "the sentence ends up on the report line and in the mark beside the archive, so it"
+                        + " has to say what was not read: " + result.message());
+    }
+
+    /** A DockerOps whose daemon accepts the stop and then hangs up on the inspect. */
+    private DockerOps deafAfterTheStop() throws IOException {
+        return new DockerOps(new Docker(new DockerSocket(listening(request ->
+                request.contains("/stop") ? "" : null), Duration.ofSeconds(5))), "nordtal-s2");
     }
 
     /** A DockerOps whose daemon accepts the stop and then reports {@code exitCode}. */
@@ -114,6 +147,13 @@ class DockerOpsStopTest {
                     final String request = new String(buffer.flip().array(), 0, buffer.limit(),
                             StandardCharsets.UTF_8);
                     final String body = answer.to(request);
+                    if (body == null) {
+                        // A daemon that took the connection and then said nothing: the client reads
+                        // end-of-stream where a status line should be. That is what a dockerd which
+                        // died between two calls looks like from this side, and it is the only way
+                        // to reach the unverified branch without a sleep.
+                        continue;
+                    }
                     final String head = body.isEmpty()
                             ? "HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n"
                             : "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
@@ -130,6 +170,7 @@ class DockerOpsStopTest {
 
     @FunctionalInterface
     private interface Answer {
+        /** @return the JSON body, the empty string for a 204, or {@code null} to hang up unanswered */
         String to(String request);
     }
 }

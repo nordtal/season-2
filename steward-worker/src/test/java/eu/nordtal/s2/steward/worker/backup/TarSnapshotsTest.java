@@ -195,6 +195,71 @@ class TarSnapshotsTest {
     }
 
     @Test
+    @DisplayName("a mark lands beside the archive with the reason in it, and leaves the archive alone")
+    void marksBesideTheArchive() throws IOException {
+        // Beside it rather than in it: the archive is a tar of a world directory and a restore
+        // unpacks it, so a note added inside would end up in somebody's world. Beside it, the
+        // warning is one line of an `ls` and the archive is byte for byte an ordinary one - which
+        // matters, because an archive taken after an unverified stop is still very probably good.
+        Files.writeString(sourceDir(VOLUME).resolve("a.txt"), "a".repeat(4096));
+        final TarSnapshots snapshots = snapshots(NIGHT);
+        final SnapshotResult result = snapshots.save(VOLUME);
+        assertTrue(result.ok(), result.message());
+
+        final String mark = snapshots.markUnverified(result.file(),
+                "the end of smp could not be read back");
+
+        assertEquals("nordtal-s2_mc-smp-20260913T044507Z.tar.zst.unverified", mark,
+                "the name comes back so the report line can point at it by name");
+        final Path beside = Path.of(result.file() + ".unverified");
+        assertTrue(Files.exists(beside), "no mark was written at all");
+        assertTrue(Files.readString(beside).contains("the end of smp could not be read back"),
+                "the reason has to be in the file - a nameless warning tells nobody which server"
+                        + " to go and look at: " + Files.readString(beside));
+        assertEquals(result.bytes(), Files.size(Path.of(result.file())),
+                "the archive itself is untouched; only the thing beside it is new");
+        assertEquals(List.of("nordtal-s2_mc-smp-20260913T044507Z.tar.zst"),
+                archivesIn(outputRoot()),
+                "and the mark is not a second archive - restore.sh and prune both match by name");
+    }
+
+    @Test
+    @DisplayName("a mark that cannot be written costs a log line, not the backup")
+    void anUnwritableMarkIsNotAFailedBackup() {
+        // The one thing worse than an unverified archive is no archive. UpdateRun reads this null
+        // and says so in the report line instead of discarding a snapshot that succeeded.
+        assertNull(snapshots(NIGHT).markUnverified(
+                root.resolve("no/such/directory/x.tar.zst").toString(), "smp"));
+    }
+
+    @Test
+    @DisplayName("a mark is swept with the archive it belongs to and never without it")
+    void marksGoWithTheirArchive() throws IOException {
+        // An orphaned warning is worse than none: it names a file that is no longer there, and a
+        // directory of those is one nobody reads the next time it matters.
+        archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z");
+        mark("nordtal-s2_mc-smp-20260910T044500Z.tar.zst");
+        mark("nordtal-s2_mc-smp-20260912T044500Z.tar.zst");
+
+        final List<String> removed = snapshots(NIGHT).prune(2);
+
+        assertEquals(List.of("nordtal-s2_mc-smp-20260910T044500Z.tar.zst"), removed,
+                "the sweep's list is what the run's report prints, and a mark listed there would"
+                        + " read as a lost backup");
+        assertFalse(Files.exists(outputRoot()
+                        .resolve("nordtal-s2_mc-smp-20260910T044500Z.tar.zst.unverified")),
+                "the mark of a deleted archive is a warning about a file that is gone");
+        assertTrue(Files.exists(outputRoot()
+                        .resolve("nordtal-s2_mc-smp-20260912T044500Z.tar.zst.unverified")),
+                "and the mark of an archive that is still there has to survive, or the one archive"
+                        + " somebody must not trust silently becomes indistinguishable");
+        assertEquals(List.of("nordtal-s2_mc-smp-20260911T044500Z.tar.zst",
+                        "nordtal-s2_mc-smp-20260912T044500Z.tar.zst"),
+                archivesIn(outputRoot()),
+                "and a mark is never counted against keep as though it were an archive of its own");
+    }
+
+    @Test
     @DisplayName("prune sweeps a day-old partial but leaves a fresh one alone")
     void prunesStalePartials() throws IOException {
         Files.createDirectories(outputRoot());
@@ -303,6 +368,12 @@ class TarSnapshotsTest {
             Files.writeString(outputRoot().resolve(volume + "-" + stamp + ".tar.zst"), stamp,
                     StandardCharsets.UTF_8);
         }
+    }
+
+    /** The sidecar a run writes when it could not read how the servers stopped. */
+    private void mark(final String archive) throws IOException {
+        Files.writeString(outputRoot().resolve(archive + ".unverified"),
+                "the end of smp could not be read back\n", StandardCharsets.UTF_8);
     }
 
     private List<String> archivesIn(final Path directory) throws IOException {

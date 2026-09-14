@@ -88,6 +88,18 @@ public final class DockerOps implements ContainerOps {
      * is, and a failed run authorises no farm reset. Nothing here tries to be cleverer than that:
      * the world is already saved or it is not, and the only useful thing left is to stop calling it
      * a success.</p>
+     *
+     * <h2>And an inspect nobody could read is a third answer</h2>
+     * {@linkplain RedeployResult#unverified Unverified}, not refused and not an ordinary success.
+     * Refusing <em>here</em> would take the network down over an unreadable {@code inspect}, which
+     * is a worse outcome than the one being guarded against - so the line stays {@code STOPPED}
+     * with the reason beside it and this method stops the sequence at nothing. What the doubt does
+     * instead is travel. {@code UpdateRun} collects it, marks every archive the run then writes,
+     * and {@code Runner.settle} decides what it costs on the path being settled: a run that wrote
+     * something while those servers were down - an archive, or jars in a {@code plugins/} directory
+     * - is settled {@code FAILED} over it, and a restart, which wrote nothing, is told about it and
+     * left {@code DONE}. That is the difference this method exists to keep open: a stop nobody
+     * watched is neither a failure of this call nor a fact to swallow.
      */
     @Override
     public @NotNull RedeployResult stop(final @NotNull String containerId) {
@@ -106,7 +118,11 @@ public final class DockerOps implements ContainerOps {
         } catch (DockerException e) {
             // The stop itself succeeded. Not knowing how it ended is not the same as knowing it
             // ended badly, and refusing here would take a network down over an unreadable inspect.
+            // It is not an ordinary success either, so it says which of the two it is and the
+            // backup taken after it carries the mark.
             log.warn("could not read how {} exited", shortId(containerId), e);
+            return RedeployResult.unverified(shortId(containerId) + " was stopped, and how it ended"
+                    + " could not be read back: " + e.getMessage());
         }
         return RedeployResult.triggered("stop asked for " + shortId(containerId));
     }

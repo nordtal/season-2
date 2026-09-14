@@ -26,6 +26,22 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app/config /configs
 
+# NOT ROOT, and this is the container it matters most on: it is the only one on the public
+# internet. It has no docker socket (see below), so root inside it was never root on the host - but
+# "the process that a stranger reaches first runs as UID 0" is not a sentence to leave standing
+# when the fix is three lines.
+#
+# A fixed UID rather than whatever the next base image hands out: /app/config is a named volume,
+# and a volume remembers the numeric owner. An image that renumbered its user on a rebuild would
+# come back unable to write its own configuration, which is the failure this kind of change is
+# infamous for. 10001 is outside the range Debian hands to system accounts.
+#
+# /configs is the other services' config volumes and is mounted read-only, so it is deliberately
+# NOT chowned: being unable to write there is the arrangement, not an accident.
+RUN groupadd --gid 10001 steward \
+    && useradd --uid 10001 --gid 10001 --home-dir /app --no-create-home --shell /usr/sbin/nologin steward \
+    && chown -R 10001:10001 /app
+
 # THIS CONTAINER HAS NO DOCKER SOCKET AND MUST NEVER BE GIVEN ONE (concept §3).
 #
 # It is the part of the stack an attacker reaches first - it is the only one on the public internet
@@ -58,5 +74,7 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=6 \
     CMD curl -fsS http://127.0.0.1:8080/api/health >/dev/null || exit 1
 
 VOLUME ["/app/config"]
+
+USER 10001:10001
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

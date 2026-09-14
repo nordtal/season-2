@@ -54,7 +54,9 @@ export function ZustandPage() {
   const backups = useBackups()
   // The thresholds are configured, not compiled in. Without this the page would draw its Ampel
   // against 85/90 while steward-ui.yml said something else - and the Discord channel, which reads
-  // the same numbers off the server, would disagree with the screen.
+  // the same numbers off the server, would disagree with the screen. Which is why this counts as
+  // evidence like any other query: while it is missing, `summarise` leaves the checks that need a
+  // threshold alone, and the light below says it could not read everything.
   const settings = useSettings()
 
   const { level, triggers } = summarise({
@@ -66,8 +68,8 @@ export function ZustandPage() {
 
   // Nothing has answered yet: the Ampel must not say "alles in Ordnung" about a stack it has not
   // looked at. A green light on no evidence is worse than no light.
-  const waiting = services.isPending || host.isPending || backups.isPending
-  const failed = services.error ?? host.error ?? backups.error
+  const waiting = services.isPending || host.isPending || backups.isPending || settings.isPending
+  const failed = services.error ?? host.error ?? backups.error ?? settings.error
 
   return (
     <div className="flex flex-col gap-6">
@@ -154,10 +156,22 @@ function Ampel({
               ))}
             </ul>
           )}
+          {/*
+            Both sentences, and `waiting` is the one that was missing. The loading state above only
+            fires while there is NOTHING to say; with one trigger already found - an image behind,
+            say - the page drew a definite yellow light while `/api/settings` was still on its way,
+            and the answer can turn it red (a backup older than the threshold that had not arrived
+            yet). A light that is definite about an incomplete reading is the failure this whole
+            file argues against.
+          */}
           {failed ? (
             <p className="text-sm text-muted-foreground">
               Ein Teil der Angaben konnte nicht gelesen werden – die Ampel urteilt also über
               weniger, als sie soll.
+            </p>
+          ) : waiting ? (
+            <p className="text-sm text-muted-foreground">
+              Es wird noch gelesen – die Ampel urteilt bisher über weniger, als sie soll.
             </p>
           ) : null}
         </div>

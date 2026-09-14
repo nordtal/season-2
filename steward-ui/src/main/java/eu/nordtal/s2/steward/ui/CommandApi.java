@@ -10,6 +10,7 @@ import eu.nordtal.s2.commands.Declaration;
 import eu.nordtal.s2.commands.Surface;
 import eu.nordtal.s2.commands.Values;
 import eu.nordtal.s2.commands.remote.RequestArguments;
+import eu.nordtal.s2.common.audit.AuditLine;
 import eu.nordtal.s2.common.command.CommandOutcome;
 import eu.nordtal.s2.common.command.NewCommandRequest;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
@@ -92,22 +93,38 @@ final class CommandApi {
         final String arguments = encode(declaration,
                 sent == null || sent.isJsonNull() ? null : sent.getAsJsonObject());
 
+        // Two different columns for two different things, and they are not interchangeable.
+        // `command_request.requested_by` is varchar(64) and exists to be read by a person, so it
+        // carries the name. `audit_log.actor` is varchar(32) and is documented as the admin's
+        // Discord id - which is what the bot writes there, and what a snowflake plus a name plus
+        // brackets does not fit into: any display name of 11 characters or more overflowed the
+        // column and took the whole request down with it. The name is not lost; it goes in the
+        // detail, which is `text`.
+        final String requestedBy = who.name() + " (" + who.id() + ")";
+
+        // The row and its journal line go in together, as one statement, which is the one place in
+        // this repository where the journal is transactional with what it describes. The reason is
+        // what this row is: not a note about something that happened, but work a target will claim
+        // and run. A committed row whose journal line failed would be a command running while this
+        // handler told the operator it had not - and the next thing an operator does when told that
+        // is press the button again. CommandRequests#submit(NewCommandRequest, AuditLine) carries
+        // the full argument.
         final long id = data.commands().submit(new NewCommandRequest(
                 declaration.target().name(),
                 String.join(" ", declaration.path()),
                 arguments,
                 "WEB",
-                who.name() + " (" + who.id() + ")",
+                requestedBy,
                 Optional.of(who.id()),
                 // The Minecraft account is not looked up. The target re-reads what it needs, and an
                 // admin who has never linked one can still press a button.
                 Optional.empty(),
                 "de",
-                Instant.now().plus(PATIENCE)));
+                Instant.now().plus(PATIENCE)),
+                new AuditLine("COMMAND", who.id(), declaration.name(), null,
+                        "asked by " + who.name() + " from the web interface"
+                                + (arguments.isBlank() ? "" : ": " + arguments)));
 
-        data.audit().record("COMMAND", who.name() + " (" + who.id() + ")",
-                declaration.name(), null,
-                arguments.isBlank() ? "from the web interface" : "from the web interface: " + arguments);
         log.info("{} asked for {} {}", who.name(), declaration.name(), arguments);
 
         final Map<String, Object> answer = new LinkedHashMap<>();
@@ -187,6 +204,13 @@ final class CommandApi {
             if (sent == null || sent.isJsonNull()
                     || (sent.isJsonPrimitive() && sent.getAsString().isBlank())) {
                 continue;
+            }
+            // Every branch below reaches getAsString(), which throws UnsupportedOperationException
+            // on an object or an array - outside the refusals this method is built out of, so a
+            // client sending `{"text": {"a": 1}}` got a 500 for what is an ordinary bad request.
+            if (!sent.isJsonPrimitive()) {
+                throw new BadRequestResponse(argument.name() + " is a single value, not a "
+                        + (sent.isJsonArray() ? "list" : "structure") + ".");
             }
             supplied.put(argument.name(), switch (argument.kind()) {
                 case INTEGER -> {

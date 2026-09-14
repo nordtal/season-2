@@ -160,10 +160,15 @@ class CatalogueTest {
     void thereIsOneAdminList() {
         // discord_user.admin, mirrored from the Discord role, and the console: no permission nodes
         // and no second list. The exceptions are named one by one so that another does not arrive by
-        // accident: /smp status is the one read-only thing a player may ask the SMP, and announce is
-        // typed by nobody at all - its surface is SYSTEM,
-        // so no adapter registers it and the only thing that can run it is a request row from a
-        // server.
+        // accident: /smp status is the one read-only thing a player may ask the SMP.
+        //
+        // /announce left this list on 2026-09-14. It had been here on the grounds that it is typed
+        // by nobody - its surface is SYSTEM, no adapter registers it, and the only thing that can
+        // run it is a request row written by a server. That stopped being the whole story when
+        // steward-ui gained the ability to write those rows: CommandInbox re-reads adminOnly when
+        // it claims one, and a declaration that says false is a row anybody who reaches the inbox
+        // may have executed. The SMP is unaffected - it writes source CONSOLE, which that check
+        // lets through on its own.
         //
         // The private messages are the newest and they arrived with a reason (Till, 2026-09-08):
         // the command allowlist takes vanilla's /tell, /msg, /w and /teammsg away from players, and
@@ -172,7 +177,7 @@ class CatalogueTest {
         // /aura, /discord and /rules arrived with the same change and for the same reason: the
         // allowlist leaves a player with our commands and nothing else, so ours have to cover what
         // a player actually needs - where they stand, where the Discord is, and what the rules are.
-        assertEquals(List.of("/smp status", "/aura", "/announce", "/msg", "/whisper", "/r",
+        assertEquals(List.of("/smp status", "/aura", "/msg", "/whisper", "/r",
                         "/discord", "/rules"),
                 Catalogue.all().stream()
                 .filter(declaration -> !declaration.adminOnly())

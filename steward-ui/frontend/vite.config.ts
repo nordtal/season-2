@@ -29,6 +29,8 @@ export default defineConfig({
   // environment would leave exactly those untested, which is where the bugs were.
   test: {
     environment: "jsdom",
+    // Raises Testing Library's async budget; the file says why.
+    setupFiles: ["./src/vitest.setup.ts"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     // No globals. `describe`, `it` and `expect` are imported in every test file, so a reader can
     // see where they come from and the type-check covers them like any other import.

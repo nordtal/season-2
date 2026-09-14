@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -89,6 +90,24 @@ class StewardUiIntegrationTest {
     /** What the stand-in Discord says this person's roles are. A test turns the admin one off. */
     private static final java.util.concurrent.atomic.AtomicReference<List<String>> memberRoles =
             new java.util.concurrent.atomic.AtomicReference<>(List.of(ADMIN_ROLE, "9999"));
+
+    /**
+     * Who the stand-in Discord says is signing in - changeable, because the default is the shape
+     * of the bug.
+     *
+     * <p>"Till" and {@code "1"} are eight characters together, and every assertion about the
+     * journal in this class was written against them. A real snowflake is 17 to 19 digits and a
+     * guild nickname may be 32 characters, so the composed {@code "name (id)"} this interface used
+     * to write into {@code audit_log.actor} - {@code varchar(32)} - overflowed for anything but a
+     * very short name, and no test here could see it. Making the pair settable is the cheapest
+     * honest fix: one sign-in against the real flow, rather than a second copy of this whole
+     * fixture with different constants in it.</p>
+     */
+    private static final java.util.concurrent.atomic.AtomicReference<String> memberId =
+            new java.util.concurrent.atomic.AtomicReference<>("1");
+
+    private static final java.util.concurrent.atomic.AtomicReference<String> memberNick =
+            new java.util.concurrent.atomic.AtomicReference<>("Till");
 
     /** The client secret as it arrived at the stand-in Discord, or null if it never did. */
     private static final java.util.concurrent.atomic.AtomicReference<String> secretDiscordSaw =
@@ -287,13 +306,14 @@ class StewardUiIntegrationTest {
                 }
                 ctx.json(Map.of("access_token", "an-access-token", "token_type", "Bearer"));
             });
-            cfg.routes.get("/users/@me", ctx -> ctx.json(Map.of("id", "1", "username", "till")));
+            cfg.routes.get("/users/@me",
+                    ctx -> ctx.json(Map.of("id", memberId.get(), "username", "till")));
             cfg.routes.get("/users/@me/guilds/{guild}/member", ctx -> {
                 if (!GUILD.equals(ctx.pathParam("guild"))) {
                     ctx.status(404).json(Map.of("message", "Unknown Guild"));
                     return;
                 }
-                ctx.json(Map.of("nick", "Till", "roles", memberRoles.get()));
+                ctx.json(Map.of("nick", memberNick.get(), "roles", memberRoles.get()));
             });
         }).start(DISCORD_PORT);
 
@@ -788,7 +808,8 @@ class StewardUiIntegrationTest {
     @DisplayName("a change is written to the file and the answer is the file as it now reads")
     void aChangeIsWrittenThrough() throws Exception {
         final HttpResponse<String> saved = put("/api/config/steward-worker/steward.yml",
-                "{\"changes\": {\"port\": \"9099\"}}");
+                "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
+                        + "\", \"changes\": {\"port\": \"9099\"}}");
 
         assertEquals(200, saved.statusCode(), saved.body());
         assertEquals("9099", entry(GSON.fromJson(saved.body(), JsonObject.class), "port")
@@ -805,7 +826,9 @@ class StewardUiIntegrationTest {
     @DisplayName("a list arrives as a list and is written as one")
     void aListIsSavedAsAList() throws Exception {
         final HttpResponse<String> saved = put("/api/config/steward-worker/steward.yml",
-                "{\"changes\": {\"stop-services\": [\"smp\", \"limbo\", \"hunger-games\"]}}");
+                "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
+                        + "\", \"changes\": {\"stop-services\": [\"smp\", \"limbo\","
+                        + " \"hunger-games\"]}}");
 
         assertEquals(200, saved.statusCode(), saved.body());
         assertTrue(Files.readString(configRoot.resolve("steward-worker/steward.yml"))
@@ -816,10 +839,97 @@ class StewardUiIntegrationTest {
     @DisplayName("one value sent to a list is refused with a sentence, not a stack trace")
     void theWrongShapeIsRefused() throws Exception {
         final HttpResponse<String> refused = put("/api/config/steward-worker/steward.yml",
-                "{\"changes\": {\"stop-services\": \"smp\"}}");
+                "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
+                        + "\", \"changes\": {\"stop-services\": \"smp\"}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("stop-services"), refused.body());
+    }
+
+    /**
+     * The revision the interface just handed out for a file - which every save has to carry.
+     *
+     * <p>Read through the API rather than hashed here on purpose: a test that computed the value
+     * itself would still pass if the route stopped sending one.</p>
+     */
+    private String revisionOf(final String file) throws Exception {
+        final JsonObject document = GSON.fromJson(get("/api/config/" + file).body(), JsonObject.class);
+        return document.get("revision").getAsString();
+    }
+
+    @Test
+    @DisplayName("a save without a revision is refused, and the file is not touched")
+    void aSaveHasToSayWhatItWasLastShown() throws Exception {
+        // Deliberately not optional-with-a-default. A save that MAY omit the revision is a save
+        // every client can accidentally make unconditional, and the client that forgets is the one
+        // that quietly overwrites somebody - which is the failure the whole mechanism exists for,
+        // now with a field name to blame it on.
+        final byte[] before = Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml"));
+
+        final HttpResponse<String> refused = put("/api/config/steward-worker/steward.yml",
+                "{\"changes\": {\"port\": \"9098\"}}");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("revision"), refused.body());
+        assertArrayEquals(before,
+                Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml")),
+                "a 400 still wrote the file");
+    }
+
+    @Test
+    @DisplayName("a save against a revision somebody else has moved on from is a 409 that writes nothing")
+    void twoAdminsOnOneFile() throws Exception {
+        // The Sunday evening this exists for: two forms open on one file. The second save is not
+        // in conflict with the first in any way a merge could resolve - it simply applies its own
+        // change to a file it has not seen and writes the result, and the first admin's change is
+        // gone with nothing anywhere saying so.
+        final String whatTheSecondFormShows = revisionOf("steward-worker/steward.yml");
+
+        assertEquals(200, put("/api/config/steward-worker/steward.yml",
+                "{\"revision\": \"" + whatTheSecondFormShows
+                        + "\", \"changes\": {\"port\": \"9097\"}}").statusCode());
+        final byte[] afterTheFirstSave =
+                Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml"));
+
+        final HttpResponse<String> refused = put("/api/config/steward-worker/steward.yml",
+                "{\"revision\": \"" + whatTheSecondFormShows
+                        + "\", \"changes\": {\"token\": \"hunter3\"}}");
+
+        assertEquals(409, refused.statusCode(), refused.body());
+        assertArrayEquals(afterTheFirstSave,
+                Files.readAllBytes(configRoot.resolve("steward-worker/steward.yml")),
+                "the refused save wrote anyway - the operator is told nothing was saved while the"
+                        + " other admin's change is being undone underneath them");
+        assertTrue(refused.body().contains("changed by somebody else"), refused.body());
+
+        // And the way out of it, which is the half that makes a 409 usable rather than a wall: the
+        // page re-reads the file, the operator decides their change is still the one they want,
+        // and the same save goes through against the revision the fresh read handed out.
+        final HttpResponse<String> retried = put("/api/config/steward-worker/steward.yml",
+                "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
+                        + "\", \"changes\": {\"token\": \"hunter3\"}}");
+        assertEquals(200, retried.statusCode(), retried.body());
+        assertTrue(Files.readString(configRoot.resolve("steward-worker/steward.yml"))
+                .contains("port: 9097"), "the retry undid the other admin's change after all");
+    }
+
+    @Test
+    @DisplayName("the revision the save answers with is the one the next save can use straight away")
+    void aSaveHandsBackWhatTheNextOneNeeds() throws Exception {
+        // Otherwise every save is followed by a mandatory reload, and a page that does not know
+        // that shows a 409 for the operator's own second edit - the one thing guaranteed to teach
+        // somebody that the conflict message is noise.
+        final HttpResponse<String> first = put("/api/config/steward-worker/steward.yml",
+                "{\"revision\": \"" + revisionOf("steward-worker/steward.yml")
+                        + "\", \"changes\": {\"port\": \"9096\"}}");
+        assertEquals(200, first.statusCode(), first.body());
+
+        final String handedBack =
+                GSON.fromJson(first.body(), JsonObject.class).get("revision").getAsString();
+        final HttpResponse<String> second = put("/api/config/steward-worker/steward.yml",
+                "{\"revision\": \"" + handedBack + "\", \"changes\": {\"port\": \"9095\"}}");
+
+        assertEquals(200, second.statusCode(), second.body());
     }
 
     @Test
@@ -904,6 +1014,43 @@ class StewardUiIntegrationTest {
         assertTrue(refused.body().contains("key"), refused.body());
     }
 
+    @Test
+    @DisplayName("an argument sent as a list or an object is a sentence, not a stack trace")
+    void anArgumentThatIsNotASingleValueIsRefused() throws Exception {
+        // Every branch of CommandApi#encode reaches getAsString(), which answers
+        // UnsupportedOperationException on a JsonArray or a JsonObject - a RuntimeException from
+        // outside the set of refusals that method is built out of, so Javalin turned it into a 500
+        // with a stack trace for what is an ordinary bad request. A form cannot send these; a
+        // script, a paste, or a frontend that starts sending multi-selects can.
+        final long before = commandRequestCount();
+
+        final HttpResponse<String> asList = post("/api/commands",
+                "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": [\"a\", \"b\"]}}");
+        assertEquals(400, asList.statusCode(), asList.body());
+        assertTrue(asList.body().contains("key") && asList.body().contains("list"), asList.body());
+
+        final HttpResponse<String> asObject = post("/api/commands",
+                "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": {\"a\": 1}}}");
+        assertEquals(400, asObject.statusCode(), asObject.body());
+        assertTrue(asObject.body().contains("key") && asObject.body().contains("structure"),
+                asObject.body());
+
+        // Neither of them is a row. A 400 that has already written the request would be the worse
+        // half of the bug the journalled submit was introduced to close, from the other direction.
+        assertEquals(before, commandRequestCount(),
+                "a refused command was written into command_request anyway");
+    }
+
+    private static long commandRequestCount() throws Exception {
+        try (var connection = java.sql.DriverManager.getConnection(
+                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             var statement = connection.createStatement();
+             var rows = statement.executeQuery("SELECT count(*) FROM command_request")) {
+            assertTrue(rows.next());
+            return rows.getLong(1);
+        }
+    }
+
     // --- steward-deployer: the one thing the interface asks it for (10a.4) --------------------
 
     @Test
@@ -929,8 +1076,144 @@ class StewardUiIntegrationTest {
                 get("/api/journal?action=RECREATE").body(), JsonArray.class);
         final JsonObject row = journal.get(0).getAsJsonObject();
         assertEquals("RECREATE", row.get("action").getAsString());
-        assertEquals("Till (1)", row.get("actor").getAsString());
+        // The Discord id, which is what `audit_log.actor` is documented to hold and what the bot
+        // writes there. It used to be "name (id)", and that overflowed varchar(32) for any display
+        // name of 11 characters or more - a 500 where the recreate should have been. The name is
+        // in the detail now, which is `text` and has room for it.
+        assertEquals("1", row.get("actor").getAsString());
+        assertTrue(row.get("detail").getAsString().contains("Till"), row.get("detail").getAsString());
         assertEquals("limbo", row.get("subject").getAsString());
+    }
+
+    /**
+     * The column that could not hold what was being written into it, on every path that writes it.
+     *
+     * <h2>Why one test and not five</h2>
+     * It is one mistake, made five times, and it has one shape: a composed {@code "name (id)"} put
+     * into {@code audit_log.actor}, which is {@code varchar(32)} and is documented as the admin's
+     * Discord id. A snowflake is 17 to 19 digits, so the brackets and the id alone are 20 to 22
+     * characters; any display name of eleven characters or more overflowed. Splitting this into
+     * five tests would let four of them stay green while the fifth path was reintroduced, and the
+     * thing worth asserting is that <em>no</em> route into this journal composes any more.
+     *
+     * <h2>Why it needs its own sign-in</h2>
+     * Every other test in this class is signed in as {@code Till (1)} - eight characters, which
+     * fits with room to spare and is exactly why nothing here saw the bug for as long as it
+     * existed. This one signs in a second browser against the same real flow with the stand-in
+     * Discord answering a 19-digit snowflake and a 32-character nickname: the maximum Discord
+     * allows, which is the case that has to work rather than a case that happens to.
+     *
+     * <h2>The phase path is the quiet one</h2>
+     * {@code PhaseDao} writes its own journal row with {@code cast(:actor AS varchar(32))}, and an
+     * explicit cast in PostgreSQL <b>truncates</b> rather than refusing. That path therefore never
+     * failed; it wrote half a name into the journal and said nothing, which is worse than the 500
+     * the other four gave. So the assertion there is on the value, not on the status code.
+     */
+    @Test
+    @DisplayName("an admin with the longest name Discord allows can do everything, and is journalled by id")
+    void aLongDisplayNameIsNotAnOverflow() throws Exception {
+        final String snowflake = "1234567890123456789";
+        final String longName = "Wilhelmine von Hohenzollernstein";
+        assertEquals(19, snowflake.length(), "a Discord snowflake is 17 to 19 digits");
+        assertEquals(32, longName.length(), "32 is the longest nickname Discord accepts");
+        // What the old form would have produced, and what the column is: the arithmetic, so that
+        // nobody has to take the sentence above on trust.
+        assertEquals(54, (longName + " (" + snowflake + ")").length());
+
+        memberId.set(snowflake);
+        memberNick.set(longName);
+        try {
+            final HttpClient browser = browser();
+            signIn(browser);
+            assertEquals(longName, GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                    .get("name").getAsString(), "the stand-in did not take the long name");
+
+            // 1. A command. The row and its journal line are one statement now, so an actor the
+            //    column cannot hold does not lose the journal line - it loses the command.
+            final HttpResponse<String> asked = post(browser, "/api/commands",
+                    "{\"name\": \"/smp milestone unlock\", \"arguments\": {\"key\": \"aufbruch\"}}");
+            assertEquals(202, asked.statusCode(), asked.body());
+            journalledBy(snowflake, "COMMAND", longName);
+
+            // 2. A recreate. Journalled BEFORE the call, so an overflow here stopped the recreate
+            //    from ever being asked for.
+            assertEquals(202, post(browser, "/api/deployer/recreate/smp", "").statusCode());
+            journalledBy(snowflake, "RECREATE", longName);
+
+            // 3. and 4. Giving access and taking it away - the two things this interface does that
+            //    somebody's money is attached to.
+            assertEquals(201, post(browser, "/api/access/grant",
+                    "{\"discordId\":\"555000000000000001\",\"days\":30}").statusCode());
+            journalledBy(snowflake, "GRANT_ACCESS", longName);
+
+            assertEquals(200, post(browser, "/api/access/revoke",
+                    "{\"discordId\":\"555000000000000001\"}").statusCode());
+            journalledBy(snowflake, "REVOKE_ACCESS", longName);
+
+            // 5. The two season dates, and the phase. These never threw: PhaseDao casts the actor
+            //    to varchar(32) explicitly, and an explicit cast in PostgreSQL TRUNCATES. So the
+            //    assertion is on the value written, not on the status code - a half-name in the
+            //    journal is the failure, and it is a silent one.
+            //
+            //    The dates are rewritten to whatever they already say, so this test moves no state
+            //    another test depends on. Setting a date to the value it already has still writes
+            //    the journal row, which is all that is being read here - and it cannot fall foul of
+            //    the launch/smp-start ordering rules, because it does not change the ordering.
+            final JsonObject season = GSON.fromJson(get("/api/season").body(), JsonObject.class);
+            final String phaseBefore = season.get("phase").getAsString();
+            final String launchAt = season.has("launch")
+                    ? season.get("launch").getAsString() : "2026-10-01T18:00:00Z";
+            final String smpStartAt = season.has("smpStart")
+                    ? season.get("smpStart").getAsString() : "2026-10-01T18:00:00Z";
+
+            assertEquals(200, post(browser, "/api/season/date",
+                    "{\"at\":\"" + launchAt + "\",\"which\":\"launch\"}").statusCode());
+            assertEquals(snowflake, actorOf("SET_LAUNCH"),
+                    "the season journal took a truncated actor and said nothing");
+
+            assertEquals(200, post(browser, "/api/season/date",
+                    "{\"at\":\"" + smpStartAt + "\",\"which\":\"smpStart\"}").statusCode());
+            assertEquals(snowflake, actorOf("SET_SMP_START"));
+
+            // START_EVENT and never SMP: setSmpStart refuses outright once the season is in SMP,
+            // and leaving the network in that phase would make the date tests beside this one fail
+            // for a reason that has nothing to do with them.
+            try {
+                assertEquals(200, post(browser, "/api/season/phase",
+                        "{\"phase\":\"START_EVENT\",\"reason\":\"a long name should not matter\"}")
+                        .statusCode());
+                assertEquals(snowflake, actorOf("SET_PHASE"));
+            } finally {
+                post(browser, "/api/season/phase",
+                        "{\"phase\":\"" + phaseBefore + "\",\"reason\":\"restoring the fixture\"}");
+            }
+        } finally {
+            memberId.set("1");
+            memberNick.set("Till");
+        }
+    }
+
+    /** The newest journal row of this action: written by that id, and naming the person in its detail. */
+    private static void journalledBy(final String id, final String action, final String name)
+            throws Exception {
+        final JsonObject row = newestJournalRow(action);
+        assertEquals(id, row.get("actor").getAsString(),
+                action + " was journalled as something other than the bare Discord id: " + row);
+        // The name is not lost, it moved. `detail` is `text`, so it has room for it, and without
+        // it the journal page would name nobody a person recognises.
+        assertTrue(row.get("detail").getAsString().contains(name),
+                action + " lost the name entirely instead of moving it into the detail: " + row);
+    }
+
+    private static String actorOf(final String action) throws Exception {
+        return newestJournalRow(action).get("actor").getAsString();
+    }
+
+    private static JsonObject newestJournalRow(final String action) throws Exception {
+        final JsonArray journal = GSON.fromJson(
+                get("/api/journal?action=" + action).body(), JsonArray.class);
+        assertFalse(journal.isEmpty(), "nothing was journalled as " + action);
+        return journal.get(0).getAsJsonObject();
     }
 
     @Test
@@ -1168,8 +1451,13 @@ class StewardUiIntegrationTest {
     }
 
     private static HttpResponse<String> post(final String path, final String body) throws Exception {
-        final JsonObject me = GSON.fromJson(get("/api/me").body(), JsonObject.class);
-        return http.send(HttpRequest.newBuilder(
+        return post(http, path, body);
+    }
+
+    private static HttpResponse<String> post(final HttpClient browser, final String path,
+                                             final String body) throws Exception {
+        final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
+        return browser.send(HttpRequest.newBuilder(
                         URI.create("http://127.0.0.1:" + UI_PORT + path))
                 .header("Content-Type", "application/json")
                 .header("X-Steward-CSRF", me.get("csrf").getAsString())

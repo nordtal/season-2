@@ -147,7 +147,14 @@ function PhaseCard({ season }: { season: Season }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {change.error ? <Failure error={change.error} /> : null}
+        {/*
+          Only while the dialog is shut. A refused switch leaves it open - `setAsked(null)` is in
+          `onSuccess` and nowhere else - so this card is behind a modal at exactly the moment it
+          has something to say, and Radix marks everything out here aria-hidden on top of that.
+          The refusal is repeated inside the dialog; see below. It is the same mistake command-card
+          was just corrected for, one file over.
+        */}
+        {change.error && asked === null ? <Failure error={change.error} /> : null}
 
         {PHASES.map((phase) => {
           const active = phase.name === season.phase
@@ -183,7 +190,19 @@ function PhaseCard({ season }: { season: Season }) {
         })}
       </CardContent>
 
-      <AlertDialog open={asked !== null} onOpenChange={(open) => (open ? null : setAsked(null))}>
+      {/*
+        The reason is cleared with the dialog, not only after a successful switch. A cancelled
+        sentence left in the field is not a harmless leftover: the next confirmation sends it, and
+        the journal then records the reason for a phase change that nobody gave it.
+      */}
+      <AlertDialog
+        open={asked !== null}
+        onOpenChange={(open) => {
+          if (open) return
+          setAsked(null)
+          setReason("")
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -207,6 +226,7 @@ function PhaseCard({ season }: { season: Season }) {
               steht dort nur, wer umgeschaltet hat.
             </p>
           </div>
+          {change.error ? <Failure error={change.error} /> : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={change.isPending}>Abbrechen</AlertDialogCancel>
             <AlertDialogAction

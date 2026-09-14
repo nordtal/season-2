@@ -2,6 +2,7 @@ import { useState } from "react"
 import { RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 
+import { ApiError } from "@/lib/api"
 import { useDeployer, useDeployerJob, useRecreate } from "@/lib/queries"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Failure } from "@/components/steward/query-state"
 import { StatusBadge } from "@/components/steward/status"
 
 /**
@@ -48,7 +50,13 @@ export function RecreateButton({
   if (service === "steward-deployer") return null
 
   const unavailable = deployer.data?.available === false
-  const running = recreate.isPending || job.data?.state === "RUNNING"
+
+  // `job.data` survives a failed poll, so without the error guard this stayed true forever once one
+  // answer had said RUNNING - and `running` is what disables the close button AND what makes
+  // onOpenChange swallow Escape and the overlay. The body would say "steward-deployer antwortet
+  // nicht" while the footer said "Läuft…" and the dialog refused to close: shut in a window that
+  // has just announced nothing more is coming. Same guard `refetchInterval` uses in queries.ts.
+  const running = recreate.isPending || (!job.error && job.data?.state === "RUNNING")
 
   return (
     <Dialog
@@ -102,7 +110,18 @@ export function RecreateButton({
           </DialogDescription>
         </DialogHeader>
 
-        {jobId ? <Output job={job.data} /> : null}
+        {/*
+          A job that cannot be read is not a job that is running. Defaulting to "Läuft" and three
+          dots said exactly the same thing as a compose run in progress, which is the one situation
+          where an operator most needs to know the difference: the container may already be down.
+        */}
+        {jobId ? (
+          job.error ? (
+            <Failure error={job.error} onRetry={() => void job.refetch()} />
+          ) : (
+            <Output job={job.data} />
+          )
+        ) : null}
 
         <DialogFooter>
           {jobId ? (
@@ -119,7 +138,15 @@ export function RecreateButton({
                 onClick={() => {
                   recreate.mutate(service, {
                     onSuccess: (started) => setJobId(started.id),
-                    onError: (failure) => toast.error(String(failure)),
+                    // Named, not stringified: String(apiError) is "ApiError: …" and says nothing
+                    // about which of the three services refused, which is the whole reason
+                    // ApiError carries `where`.
+                    onError: (failure) =>
+                      toast.error(
+                        failure instanceof ApiError
+                          ? `${failure.where} hat abgelehnt: ${failure.message}`
+                          : String(failure),
+                      ),
                   })
                 }}
               >

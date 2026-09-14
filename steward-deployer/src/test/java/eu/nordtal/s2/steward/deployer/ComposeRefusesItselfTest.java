@@ -63,6 +63,37 @@ class ComposeRefusesItselfTest {
         assertEquals(List.of("postgres", "smp", "steward-ui"), deployed);
     }
 
+    /**
+     * The removal is for the whole-stack path and for nothing else.
+     *
+     * <p>`servicesToDeploy` took SELF out of any request, including one that consisted of nothing
+     * but SELF - which left the empty list, and an empty list means EVERY service to
+     * {@code docker compose up}. So asking for the deployer alone deployed the entire project, the
+     * deployer included, and the new container killed the process still writing the report. It is
+     * the same bug the whole-stack path was fixed for, arrived at from the other side, and it
+     * walked straight past {@link Compose#up}'s own refusal because the name had been removed one
+     * step before it got there.</p>
+     */
+    @Test
+    @DisplayName("a request for this service alone is refused, not turned into every service")
+    void namingOnlyItselfIsRefused() {
+        final List<String> all = List.of("postgres", "smp", Compose.SELF);
+
+        final IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> StewardDeployer.servicesToDeploy(all, List.of(Compose.SELF), false));
+
+        assertTrue(refused.getMessage().contains("setup"), refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("and so is a request that names it beside another service")
+    void namingItBesideAnotherIsRefused() {
+        final List<String> all = List.of("postgres", "smp", Compose.SELF);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> StewardDeployer.servicesToDeploy(all, List.of("smp", Compose.SELF), false));
+    }
+
     @Test
     @DisplayName("the bootstrap is the one caller that may create it")
     void theBootstrapMayCreateIt() {

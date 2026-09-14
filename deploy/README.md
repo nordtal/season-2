@@ -585,6 +585,18 @@ file is refused by name: steward-worker renames an archive only after reading it
 carrying that suffix is a backup that was interrupted, and it is the only file in that directory
 that *looks* restorable.
 
+**A `.unverified` file beside an archive is a sentence to read before restoring from it.**
+Docker's stop call succeeds whether a container shut down or was killed at the end of the grace
+period, so `steward-worker` inspects afterwards — and that inspect can itself fail. A backup taken
+over a stop whose ending nobody could read is still taken (refusing would take the network down
+over an unreadable `inspect`), and it is not reported as an ordinary one: the run's report says
+`UNVERIFIED STOP`, and a `<archive>.unverified` file lands next to the archive saying which service
+it was. `--list` prints those files' contents, naming one directly is refused with a pointer at the
+archive it belongs to, and a restore warns with the text *before* asking for the typed
+confirmation. The retention sweep deletes the mark with the archive it belongs to. The archive
+itself is byte for byte an ordinary archive — what is unverified is the moment it was taken, not
+its readability, which is checked when it is written and again before a restore touches anything.
+
 `deploy/restore-test.sh` pins which names are recognised and that the confirmation cannot be
 satisfied by "yes", by a bare Return or by a neighbouring volume's name; it runs on `check`.
 

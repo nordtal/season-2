@@ -33,6 +33,9 @@ final class FakeContainers implements ContainerOps {
     private boolean reachable = true;
     private boolean stopFails;
 
+    /** Services whose stop succeeds and whose ending cannot be read back afterwards. */
+    private final java.util.Set<String> stopUnverified = new java.util.LinkedHashSet<>();
+
     /** service -> what the drift check found. Absent means UNKNOWN, which is never work. */
     private final Map<String, ImageResult.State> images = new LinkedHashMap<>();
 
@@ -115,6 +118,19 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
+    /**
+     * These stops are accepted and nothing can say how they ended - the run 23 shape.
+     *
+     * <p>Docker's stop call succeeds whether the server shut down or was killed at the end of the
+     * grace period, so the real client inspects the container afterwards; this is the case where
+     * that inspect itself fails. The container is stopped, and whether the world had finished
+     * writing is a question nobody can answer any more.</p>
+     */
+    FakeContainers stopUnverified(final String... names) {
+        stopUnverified.addAll(List.of(names));
+        return this;
+    }
+
     /** A service that is up but whose plugin died - running, unhealthy. The interesting failure. */
     void sick(final String service) {
         services.put(service, new ServiceRuntime(service, service + "-container", "running",
@@ -153,6 +169,10 @@ final class FakeContainers implements ContainerOps {
         }
         services.computeIfPresent(service(containerId), (name, entry) ->
                 new ServiceRuntime(name, entry.containerId(), "exited", null));
+        if (stopUnverified.contains(service(containerId))) {
+            return RedeployResult.unverified(containerId + " was stopped, and how it ended could"
+                    + " not be read back: reading the docker socket");
+        }
         return RedeployResult.triggered("HTTP 204");
     }
 

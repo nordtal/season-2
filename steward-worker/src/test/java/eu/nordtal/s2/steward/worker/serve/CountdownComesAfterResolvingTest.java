@@ -80,19 +80,26 @@ class CountdownComesAfterResolvingTest {
     /**
      * The body of {@code update}, so an ordering assertion cannot straddle two methods.
      *
-     * <p>{@code countDown(request.id()} and {@code run.stop(planned, runtime)} each appear twice in
-     * this file - once in {@code update} and once in {@code restartUnderLock}. Searching the whole
-     * source happens to work today because {@code update} comes first; reorder the two methods and
-     * the same assertions would compare a call in one against a call in the other, and still
-     * pass.</p>
+     * <p>{@code countDown(request.id()} and {@code run.stop(planned, runtime)} each appear three
+     * times in this file - in {@code update}, in {@code backupUnderLock} and in
+     * {@code restartUnderLock}. Searching the whole source would compare a call in one method
+     * against a call in another and pass while proving nothing about either.</p>
+     *
+     * <p><b>The end of the bracket is the method that really follows {@code update}.</b> It was
+     * {@code restartUnderLock} until 2026-09-13, which is five methods further down: this said it
+     * bracketed one method and actually spanned six, including both of the others that call
+     * {@code countDown}. The assertions below were right anyway, but only by accident - {@link #at}
+     * takes the first occurrence and {@code update} happens to come first in the file. Moving
+     * {@code update} below {@code backup} would have turned every one of them into a comparison
+     * between two different methods, still green.</p>
      */
     private String updateMethod() {
-        final int from = source.indexOf("Outcome update(");
+        final int from = source.indexOf("private Outcome update(");
         assertTrue(from > 0, "Runner#update is gone - if it was renamed, this test moves with it,"
                 + " because a check that cannot find its subject silently stops running");
-        final int to = source.indexOf("\n    private Outcome restartUnderLock(");
-        assertTrue(to > from, "Runner#restartUnderLock is gone or has moved above update; this"
-                + " test brackets one method and needs both ends");
+        final int to = source.indexOf("\n    private boolean countDown(");
+        assertTrue(to > from, "Runner#countDown is gone or has moved above update; this test"
+                + " brackets one method and needs both ends");
         return source.substring(from, to);
     }
 

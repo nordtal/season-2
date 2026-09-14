@@ -16,7 +16,9 @@ import org.jetbrains.annotations.NotNull;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -67,6 +69,38 @@ final class UpdateRun {
     private final ContainerOps containers;
     private final Snapshots snapshots;
     private final Consumer<UpdateReport> progress;
+
+    /**
+     * Stops this run made, whose ending nobody could read, in the order they were made.
+     *
+     * <p>Docker's stop call succeeds whether the container shut down or was killed at the end of
+     * the grace period, so {@code DockerOps#stop} inspects afterwards - and that inspect can
+     * itself fail, at which point this run has a stopped container and no idea whether the server
+     * finished writing. Refusing there would take the network down over an unreadable inspect, and
+     * calling it an ordinary success is what made run 23's report unusable. So the run carries on,
+     * and every archive it then writes gets a mark beside it naming what could not be confirmed:
+     * see {@link Snapshots#markUnverified}.</p>
+     */
+    private final List<String> unverifiedStops = new ArrayList<>();
+
+    /**
+     * Services running the image they already had because the recreate could not be done, each
+     * with the half of its report line that was known before the wait.
+     *
+     * <p>They are {@code FAILED} lines - the update did not happen - and they are also lines this
+     * process asked Docker to start, which is a different claim from "the service is back".
+     * {@link #start} only knows that the daemon accepted the request; a container that exits on the
+     * first tick or never passes its healthcheck is accepted just as readily. So the names are kept
+     * here and {@link #verify} waits for them on exactly the same healthcheck as everything else,
+     * and then finishes the sentence with which of the two happened.</p>
+     *
+     * <p>The first half is kept <em>here</em> rather than read back off the report line, because
+     * reading it back would make the finished sentence depend on nobody having rewritten that line
+     * in between - true today at all six call sites, and one edit away from a report that reads
+     * "null, and it is back on that old version".</p>
+     */
+    private final Map<String, String> fellBack = new LinkedHashMap<>();
+
 
     UpdateRun(final @NotNull ContainerOps containers, final @NotNull Snapshots snapshots,
               final @NotNull Consumer<UpdateReport> progress) {
@@ -126,7 +160,13 @@ final class UpdateRun {
                 continue;
             }
             stopped.add(line.service());
-            report = report.with(line.at(UpdateReport.State.STOPPED));
+            if (result.verified()) {
+                report = report.with(line.at(UpdateReport.State.STOPPED));
+            } else {
+                unverifiedStops.add(line.service());
+                report = report.with(line.at(UpdateReport.State.STOPPED)
+                        .withDetail(result.message()));
+            }
             progress.accept(report);
         }
         return new Stopped(report, List.copyOf(stopped), runtime);
@@ -161,14 +201,43 @@ final class UpdateRun {
             progress.accept(report);
 
             final SnapshotResult result = snapshots.save(volume);
+            String detail = result.ok() ? null : result.message();
+            if (result.ok() && result.file() != null && !unverifiedStops.isEmpty()) {
+                // The archive is kept. It is a real snapshot of a real volume and it is very
+                // probably fine - but "very probably fine" is a thing somebody has to be told
+                // before they restore from it at half past four in the morning, not after.
+                final String why = "The servers were stopped for this backup and the end of "
+                        + String.join(", ", unverifiedStops) + " could not be read back, so nothing"
+                        + " here knows whether the world had finished saving. The archive is"
+                        + " readable; what is unverified is the moment it was taken.";
+                final String mark = snapshots.markUnverified(result.file(), why);
+                detail = mark == null
+                        ? "UNVERIFIED STOP - and the mark beside the archive could not be written: "
+                                + why
+                        : "UNVERIFIED STOP - see " + mark;
+            }
             final UpdateReport.ServiceLine line = new UpdateReport.ServiceLine(volume,
                     result.ok() ? UpdateReport.State.SAVED : UpdateReport.State.FAILED,
                     List.of(new UpdateReport.Change("backup", null, result.message())),
-                    result.ok() ? null : result.message());
+                    detail);
             report = report.with(line);
             progress.accept(report);
         }
         return report;
+    }
+
+    /**
+     * Which of this run's stops had an ending nobody could read, or empty when every one was clean.
+     *
+     * <p>Read by {@code Runner} to settle the run. A stop like this is not a failure of anything
+     * this process did - which is why the service line stays {@code STOPPED} - and a backup taken
+     * over it is still a real archive of a real volume. What it is not is something to report as an
+     * ordinary success: that is the shape of run 23, a green report over a backup nobody should
+     * have trusted. Owner's decision, 2026-09-13: the run settles {@code FAILED}, and the
+     * consequence is the one that was wanted, because a failed run authorises no farm reset.</p>
+     */
+    @NotNull List<String> unverifiedStops() {
+        return List.copyOf(unverifiedStops);
     }
 
     /**
@@ -235,11 +304,22 @@ final class UpdateRun {
                     continue;
                 }
                 final RedeployResult back = containers.start(outdated.containerId());
-                report = report.with(report.line(service).failed(back.triggered()
-                        ? why + ". It was started again on the image it already had, so the service"
-                                + " is back - on the old version"
-                        : why + ", and starting it again on the old image failed too: "
-                                + back.message()));
+                if (back.triggered()) {
+                    // Not "so the service is back". Docker accepting a start is not a service
+                    // coming back, and the two were the same sentence here until 2026-09-13. The
+                    // half that is known is kept, and verify() finishes it with what it saw.
+                    //
+                    // Published terminated rather than trailing off: this is what somebody watching
+                    // the embed reads for as long as the wait lasts, which can be HEALTH_PATIENCE.
+                    final String half = why + ". It was started again on the image it already had";
+                    fellBack.put(service, half);
+                    report = report.with(report.line(service)
+                            .failed(half + ", and has not been seen coming back yet."));
+                } else {
+                    report = report.with(report.line(service).failed(why
+                            + ", and starting it again on the old image failed too: "
+                            + back.message()));
+                }
                 progress.accept(report);
                 continue;
             }
@@ -278,7 +358,8 @@ final class UpdateRun {
 
         final UpdateReport starting = report;
         final List<String> pending = new ArrayList<>(services.stream()
-                .filter(service -> starting.line(service).state() == UpdateReport.State.STARTING)
+                .filter(service -> starting.line(service).state() == UpdateReport.State.STARTING
+                        || fellBack.containsKey(service))
                 .toList());
         final Instant deadline = clock.now().plus(HEALTH_PATIENCE);
 
@@ -289,7 +370,12 @@ final class UpdateRun {
                 for (final String service : pending) {
                     if (now.service(service).map(ServiceRuntime::isBack).orElse(false)) {
                         back.add(service);
-                        report = report.with(report.line(service).at(UpdateReport.State.HEALTHY));
+                        // A fallback line stays FAILED - the update genuinely did not happen - and
+                        // gains the half of the sentence that is now known.
+                        report = report.with(fellBack.containsKey(service)
+                                ? report.line(service).failed(fellBack.get(service)
+                                        + ", and it is back on that old version.")
+                                : report.line(service).at(UpdateReport.State.HEALTHY));
                     }
                 }
                 if (!back.isEmpty()) {
@@ -311,10 +397,15 @@ final class UpdateRun {
                             ? last.service(service).map(ServiceRuntime::describe)
                                     .orElse("no container for it in the project")
                             : "the container runtime could not be read: " + last.message();
-                    report = report.with(report.line(service).failed("did not come back within "
-                            + HEALTH_PATIENCE.toMinutes() + " minutes (" + seen + ") - its own log"
-                            + " is where the reason is, and the jar it was running before this"
-                            + " update is still on disk"));
+                    report = report.with(fellBack.containsKey(service)
+                            ? report.line(service).failed(fellBack.get(service)
+                                    + ", and it did NOT come back within "
+                                    + HEALTH_PATIENCE.toMinutes() + " minutes (" + seen + "). The"
+                                    + " service is down.")
+                            : report.line(service).failed("did not come back within "
+                                    + HEALTH_PATIENCE.toMinutes() + " minutes (" + seen + ") - its"
+                                    + " own log is where the reason is, and the jar it was running"
+                                    + " before this update is still on disk"));
                 }
                 progress.accept(report);
                 break;
@@ -323,8 +414,10 @@ final class UpdateRun {
                 // Interrupted: the container is going down under us. Say so rather than reporting
                 // a timeout that did not happen.
                 for (final String service : pending) {
-                    report = report.with(report.line(service)
-                            .failed("steward-worker stopped while waiting for this service"));
+                    report = report.with(report.line(service).failed(fellBack.containsKey(service)
+                            ? fellBack.get(service) + ", and steward-worker stopped before it was"
+                                    + " seen coming back."
+                            : "steward-worker stopped while waiting for this service"));
                 }
                 progress.accept(report);
                 break;

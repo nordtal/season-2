@@ -26,6 +26,23 @@ public interface Snapshots {
     @NotNull SnapshotResult save(@NotNull String volume);
 
     /**
+     * Writes the mark that says the servers behind this archive were stopped unverified.
+     *
+     * <p>A sidecar file rather than a different archive name, and that is the whole design
+     * decision: {@code deploy/restore.sh} matches archives by name, the retention sweep groups
+     * them by name, and a second naming scheme would have both of them silently skipping the file
+     * that most needs looking at. A sidecar is visible to {@code --list}, invisible to everything
+     * that only knows about {@code .tar.zst}, and swept away with the archive it belongs to.</p>
+     *
+     * @param archive the path {@link SnapshotResult#file()} came back with
+     * @param why     what could not be confirmed, in a sentence somebody reads before restoring
+     * @return the name of the mark that was written, or {@code null} if it could not be - which is
+     *         logged and is not a reason to discard a backup that otherwise succeeded
+     */
+    @org.jetbrains.annotations.Nullable String markUnverified(@NotNull String archive,
+                                                              @NotNull String why);
+
+    /**
      * Deletes the oldest archives until {@code keep} of each kind remain.
      *
      * @return what was removed, for the report - a retention that quietly deletes is one nobody

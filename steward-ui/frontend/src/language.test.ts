@@ -29,6 +29,22 @@ import { describe, expect, it } from "vitest"
  * words and so have no boundary to match on. That file is read by this test and by
  * `NothingIsGermanTest`, which enforces the same rule on the Java half - one rule, one file.
  *
+ * <h2>Two more things, because on 2026-09-14 the derivation alone walked past four words</h2>
+ * `Befehle`, `Konfiguration`, `Gelaufen` and `Sperre` were all on the screen with every test
+ * green. Three of them are answered without adding a single word to a hand list:
+ *
+ * - **Stems, not whole words.** The bundle says `Befehl` and this said `Befehle`; the bundle says
+ *   `Konfigurationsdateien` and this said `Konfiguration`. A derived list only ever knows the
+ *   forms the bot happens to use, and German inflects and compounds, so a word counts as German
+ *   when a derived word is a prefix of it or it is a prefix of a derived one.
+ * - **Shape, not vocabulary.** `Gelaufen` is in no bundle and no stem of it is either. `shapes`
+ *   in the rules file finds German by its endings, which works on words the bot has never said.
+ *   `Verwerfen`, on the config form's discard button, was the same and cost a third pattern.
+ *
+ * **`Sperre` is the honest fourth**, and it is why the blind spot is written down rather than
+ * papered over: a German word with no German ending, that the bot never says, cannot be derived
+ * or recognised. It is in `extra`, by hand, which is what that list is for.
+ *
  * An umlaut and an ß need no list at all: there is no English word with one, and every name in
  * this repository is spelt without.
  *
@@ -40,7 +56,16 @@ const frontend = path.resolve(here, "..")
 const repository = path.resolve(frontend, "../..")
 const bundle = path.join(repository, "commands/src/main/resources/messages/commands")
 
-type Rules = { alsoEnglish: string[]; extra: string[]; abbreviations: string[] }
+type Rules = {
+  alsoEnglish: string[]
+  extra: string[]
+  abbreviations: string[]
+  minStem: number
+  minPrefix: number
+  minRest: number
+  tails: string[]
+  shapes: string[]
+}
 
 const rules: Rules = JSON.parse(
   readFileSync(path.join(repository, "steward-ui/language-rules.json"), "utf8"),
@@ -72,10 +97,43 @@ function forbidden(): string[] {
   return [...words].sort()
 }
 
-const GERMAN = new RegExp(
-  `\\b(${forbidden().map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
-  "i",
-)
+const ALSO_ENGLISH = new Set(rules.alsoEnglish.map((word) => word.toLowerCase()))
+
+/**
+ * Whether one word out of a source file is German - by stem, not only by equality.
+ *
+ * Two cases, and they are different mistakes. **Inflection**: the word is a derived one plus a
+ * German ending, which is how `Befehle` got past a list holding `Befehl`. **Compounding**: a
+ * derived word continues it, which is how `Konfiguration` got past a list holding
+ * `Konfigurationsdateien`. The ending list is German-only on purpose - `stopped` is `stoppe` plus
+ * a `d`, and `d` is not one of them.
+ */
+export function isGerman(word: string, german: Set<string>): boolean {
+  const lower = word.toLowerCase()
+  if (ALSO_ENGLISH.has(lower)) return false
+  if (german.has(lower)) return true
+  for (const known of german) {
+    if (known.length >= rules.minStem && lower.startsWith(known)) {
+      if (rules.tails.includes(lower.slice(known.length))) return true
+    }
+    if (lower.length >= rules.minPrefix && known.startsWith(lower)) {
+      if (known.length - lower.length >= rules.minRest) return true
+    }
+  }
+  return false
+}
+
+/**
+ * A word as a reader would see one, which an identifier is not.
+ *
+ * `_` and a digit count as part of the word - which is what `\b` did before this rule read
+ * stems, and is what kept `NORDTAL_STEWARD_UI_CONFIG_DIR` quiet while `dir` sits in the German
+ * bundle. Splitting on letters alone finds `DIR` in there, and nobody reads an environment
+ * variable as a sentence.
+ */
+const WORD = /(?<![\wÄÖÜäöüß])[A-Za-zÄÖÜäöüß]{3,}(?![\wÄÖÜäöüß])/g
+
+const SHAPES = rules.shapes.map((shape) => new RegExp(shape, "i"))
 
 const ABBREVIATION = new RegExp(`(${rules.abbreviations.join("|")})`)
 
@@ -101,19 +159,30 @@ function scanned(): string[] {
   return files
 }
 
-function offences(pattern: RegExp): string[] {
+function offences(guilty: (line: string) => boolean): string[] {
   const found: string[] = []
   for (const file of scanned()) {
     readFileSync(file, "utf8")
       .split("\n")
       .forEach((line, index) => {
-        if (pattern.test(line)) {
+        if (guilty(line)) {
           found.push(`${path.relative(frontend, file)}:${index + 1}: ${line.trim()}`)
         }
       })
   }
   return found
 }
+
+const matching = (pattern: RegExp) => (line: string) => pattern.test(line)
+
+/** Derived once. It is a set of 450 words and this is asked of every line of every source file. */
+const GERMAN = new Set(forbidden())
+
+function germanWords(line: string): boolean {
+  return (line.match(WORD) ?? []).some((word) => isGerman(word, GERMAN))
+}
+
+const hasGermanShape = (line: string) => SHAPES.some((shape) => shape.test(line))
 
 describe("nothing in Steward is German", () => {
   it("derives its word list from the bot's own bundle, and it is not a short one", () => {
@@ -124,16 +193,49 @@ describe("nothing in Steward is German", () => {
     expect(forbidden()).not.toContain("stand")
   })
 
+  it("knows a German word by its stem, not only by the form the bot happens to use", () => {
+    // The four that were on the screen on 2026-09-14 with every test green. Three are answered
+    // here; `Sperre` is the one that cannot be, and it is in the rules file by hand.
+    expect(isGerman("Befehle", GERMAN), "inflection: the bundle only says Befehl").toBe(true)
+    expect(
+      isGerman("Konfiguration", GERMAN),
+      "compounding: the bundle only says Konfigurationsdateien",
+    ).toBe(true)
+    // The honest fourth: no stem of it is derivable and it has no German ending, so it is in the
+    // hand list. If that line is ever removed this goes red, which is the point of asserting it.
+    expect(isGerman("Sperre", GERMAN), "Sperre is in the rules file by hand").toBe(true)
+
+    // And it still lets the language this interface is written in through. `started` and `stopped`
+    // are the two that a looser rule flagged: they extend `starte` and `stoppe` by an English `d`.
+    const english = ["Configuration", "Commands", "Status", "Backup", "Service", "Restore",
+      "started", "stopped", "argument", "Operations"]
+    for (const word of english) expect(isGerman(word, GERMAN), word).toBe(false)
+  })
+
+  it("knows German by its shape too, for words the bot has never said", () => {
+    expect(hasGermanShape("label=\"Gelaufen\"")).toBe(true)
+    expect(hasGermanShape("title=\"Einstellung\"")).toBe(true)
+    expect(hasGermanShape("<Button>Verwerfen</Button>")).toBe(true)
+    // The two that are deliberately reachable by no shape: `ge...t` participles share their shape
+    // with `government`, and a guard that cries on `government` is a guard somebody deletes.
+    expect(hasGermanShape("const government = readableNumber(x)")).toBe(false)
+    expect(hasGermanShape("<span>the gentlest version</span>")).toBe(false)
+  })
+
   it("has no German word in any source file", () => {
-    expect(offences(GERMAN)).toEqual([])
+    expect(offences(germanWords)).toEqual([])
+  })
+
+  it("has nothing with a German ending either", () => {
+    expect(offences(hasGermanShape)).toEqual([])
   })
 
   it("has no German abbreviation either", () => {
-    expect(offences(ABBREVIATION)).toEqual([])
+    expect(offences(matching(ABBREVIATION))).toEqual([])
   })
 
   it("has no umlaut and no ß anywhere", () => {
-    expect(offences(NON_ENGLISH_LETTERS)).toEqual([])
+    expect(offences(matching(NON_ENGLISH_LETTERS))).toEqual([])
   })
 
   it("says English on the document, because that is what a screen reader reads", () => {

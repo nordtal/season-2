@@ -11,7 +11,6 @@ import {
 } from "@/pages/operations"
 import { ServicePage } from "@/pages/service"
 import { SettingsPage } from "@/pages/settings"
-import { ConfigurationFilePage, ConfigurationPage } from "@/pages/configuration"
 import { SeasonPage } from "@/pages/season"
 import { JournalPage, AccountsPage, PaymentsPage, AccessPage } from "@/pages/access"
 import { StatusPage } from "@/pages/status"
@@ -50,19 +49,8 @@ const routes = [
     path: "/operations/restore",
     component: OperationsRestorePage,
   }),
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/configuration",
-    component: ConfigurationPage,
-  }),
-  // A splat, not a `$file`. A config file is identified by its path under the mount, and a
-  // Paper plugin's always has slashes in it (`smp/nordtal-smp/config.yml`); a single named
-  // parameter stops at the first one and would 404 exactly those files and no others.
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/configuration/$",
-    component: ConfigurationFilePage,
-  }),
+  // There is no `/configuration` route any more (2026-09-14). Every file belongs to exactly one
+  // service, so it is a card on that service's page - see `components/steward/configuration.tsx`.
   createRoute({ getParentRoute: () => rootRoute, path: "/season", component: SeasonPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),

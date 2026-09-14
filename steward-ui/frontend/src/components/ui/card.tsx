@@ -24,7 +24,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
         // the other half, with the space under the button empty; below 640px it goes under the
         // description instead, where it has the whole width. A container query would be the more
         // precise rule, but an element cannot query the container it declares itself.
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+        "@container/card-header grid grid-cols-1 auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
         className
       )}
       {...props}

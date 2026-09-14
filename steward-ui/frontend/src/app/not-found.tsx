@@ -11,7 +11,6 @@ export function NotFoundPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Page not found"
-        note="This address does not belong to any page of this interface."
       />
       <Card className="max-w-2xl">
         <CardContent className="flex flex-col items-start gap-4">

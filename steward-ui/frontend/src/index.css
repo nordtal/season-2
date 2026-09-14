@@ -93,6 +93,18 @@
   --row-height: 34px;
   --cell-padding: 12px;
   --control-min-height: 36px;
+
+  /*
+   * THE TWO NUMBERS `lib/app-frame.ts` MEASURES, and the values they have until it has.
+   *
+   * These are the answers for everything that is not an iOS home screen, and they are correct
+   * there: the viewport is the window, and there is no blurred band over the top of it. The
+   * script overwrites both on `<html>` on the first frame. They are declared here so the shell is
+   * laid out correctly before it runs and on anything where it cannot - `var(--app-height)` with
+   * nothing behind it is not a height at all, and the shell would collapse to its content.
+   */
+  --app-height: 100svh;
+  --blur-clearance: 0px;
 }
 
 /*

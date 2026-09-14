@@ -6,13 +6,14 @@ import { toast } from "sonner"
 import { LOCALE, bytes, clock, percent, since } from "@/lib/format"
 import { useConsole, useLogSearch, useService } from "@/lib/queries"
 import { useLogStream, LIMIT } from "@/lib/use-log-stream"
+import { ServiceConfiguration } from "@/components/steward/configuration"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { RecreateButton } from "@/components/steward/recreate"
 import { DriftBadge, ServiceState, StatusBadge } from "@/components/steward/status"
 import { Empty, Failure, Loading } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -37,7 +38,6 @@ export function ServicePage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title={name}
-        note="Status, log window and - where there is one - the console."
         actions={<RecreateButton service={name} />}
       />
 
@@ -52,6 +52,10 @@ export function ServicePage() {
       )}
 
       <LogPanel name={name} hasConsole={service.data?.hasConsole ?? false} />
+
+      {/* Below the log on purpose. The log is what somebody came here for; the configuration is
+          what they came here for once. */}
+      <ServiceConfiguration service={name} />
     </div>
   )
 }
@@ -61,7 +65,7 @@ function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useSe
     <Card>
       <CardContent className="flex flex-wrap items-start gap-x-6 gap-y-4 pt-6">
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <span className="text-xs font-medium text-muted-foreground">
             State
           </span>
           <div className="flex items-center gap-2">
@@ -83,7 +87,7 @@ function ServiceHead({ service }: { service: NonNullable<ReturnType<typeof useSe
         <Stat label="CPU" value={percent(service.cpuPercent)} />
 
         <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:min-w-64">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <span className="text-xs font-medium text-muted-foreground">
             Image
           </span>
           <code className="truncate text-sm">{service.image}</code>
@@ -140,10 +144,6 @@ function LogPanel({ name, hasConsole }: { name: string; hasConsole: boolean }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Log</CardTitle>
-        <CardDescription>
-          Live from the container. Docker keeps up to 50 MB per container (5 × 10 MB) and nothing
-          older; recreating the container resets that store.
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <Tabs defaultValue="window">
@@ -384,7 +384,7 @@ function ConsoleLine({ name }: { name: string }) {
               setCommand(next < 0 ? "" : history[next])
             }
           }}
-          placeholder="Send a line to the server console, e.g. list"
+          placeholder="e.g. list"
           aria-label="Send a line to the server console"
           className="font-mono"
           autoComplete="off"
@@ -402,10 +402,6 @@ function ConsoleLine({ name }: { name: string }) {
           <Send aria-hidden />
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        The server writes its answer to its own console, so it appears in the window above - and
-        every other admin watching sees it too.
-      </p>
     </form>
   )
 }

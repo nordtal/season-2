@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -75,12 +74,11 @@ export function StatusPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Status"
-        note="What is running, how full the box is, and what happened last."
       />
 
       <TrafficLight level={level} triggers={triggers} waiting={waiting} failed={Boolean(failed)} />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <HostCard />
         <UpdatesCard />
         <BackupsCard />
@@ -88,7 +86,7 @@ export function StatusPage() {
 
       <ServiceTable />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SeasonCard />
         <ActionsCard />
       </div>
@@ -190,9 +188,6 @@ function HostCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Host</CardTitle>
-        <CardDescription>
-          Measured from <code className="text-xs">/proc</code> - without any privilege.
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {host.isPending ? (
@@ -283,11 +278,6 @@ function UpdatesCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Updates</CardTitle>
-        <CardDescription>
-          {services.data?.drift.checkedAt
-            ? `Images compared ${relative(services.data.drift.checkedAt)}.`
-            : "The images have not been compared yet."}
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {services.isPending ? (
@@ -301,9 +291,12 @@ function UpdatesCard() {
               value={count(outdated.length)}
               tone={outdated.length > 0 ? "warn" : undefined}
               hint={
-                outdated.length === 0
+                (outdated.length === 0
                   ? "No service is running an older image."
-                  : outdated.map((s) => s.service).join(", ")
+                  : outdated.map((s) => s.service).join(", ")) +
+                (services.data?.drift.checkedAt
+                  ? ` · compared ${relative(services.data.drift.checkedAt)}`
+                  : " · not compared yet")
               }
             />
             {unverifiable.length > 0 ? (
@@ -338,7 +331,6 @@ function BackupsCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Backups</CardTitle>
-        <CardDescription>What is on the disk - not what a run reported.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {backups.isPending ? (
@@ -384,7 +376,6 @@ function SeasonCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Season</CardTitle>
-        <CardDescription>Phase and dates, as they stand in the database.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {season.isPending ? (
@@ -398,10 +389,6 @@ function SeasonCard() {
               <Stat label="Season start" value={dateTime(season.data!.launch)} />
             </div>
             <Stat label="SMP-Start" value={dateTime(season.data!.smpStart)} />
-            <p className="text-xs text-muted-foreground">
-              How many players are online is nowhere in the database - only the running proxy knows
-              that, and this interface does not ask it.
-            </p>
             <Button asChild variant="outline" size="sm" className="w-fit">
               <Link to="/season">To the season</Link>
             </Button>
@@ -427,10 +414,6 @@ function ActionsCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Latest actions</CardTitle>
-        <CardDescription>
-          Who triggered what - with several admins, the difference between "odd" and "ah, that was
-          you".
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {journal.isPending ? (
@@ -529,10 +512,6 @@ function ServiceTable() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Services</CardTitle>
-        <CardDescription>
-          Status, image, uptime and usage. To read and to jump from - restarting happens under
-          Operations.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <Table className="steward-table">
@@ -573,7 +552,7 @@ function GroupRows({
     <>
       <TableRow className="hover:bg-transparent">
         <TableCell colSpan={7} className="bg-secondary/40">
-          <span className="text-xs font-semibold tracking-wide uppercase">{label}</span>
+          <span className="text-xs font-semibold">{label}</span>
           <span className="ml-2 text-xs text-muted-foreground">{note}</span>
         </TableCell>
       </TableRow>

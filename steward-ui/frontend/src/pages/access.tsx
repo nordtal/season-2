@@ -1,9 +1,7 @@
 import { useState } from "react"
-import { Link } from "@tanstack/react-router"
 import {
   CircleAlert,
   ExternalLink,
-  KeyRound,
   Search,
   ShieldCheck,
   ShieldX,
@@ -42,7 +40,6 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -273,20 +270,13 @@ export function AccessPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Access"
-        note="Who may join the server, and why they may - request, payment, period, link."
         actions={<GrantDialog />}
       />
 
-      <SecondDoorNote />
 
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium">People</CardTitle>
-          <CardDescription>
-            From <code className="text-xs">discord_user</code>, with link and access beside it. The
-            500 most recently changed accounts are loaded; filtering happens in this list, not in
-            the database.
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-4">
@@ -456,24 +446,13 @@ export function AccessPage() {
   )
 }
 
-/** The one paragraph that justifies this page being allowed to write at all. */
-function SecondDoorNote() {
-  return (
-    <div className="flex items-start gap-3 rounded-md border border-border bg-card px-4 py-3">
-      <KeyRound className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-      <p className="max-w-prose text-sm text-muted-foreground">
-        This is the <span className="text-foreground">second door into the same room</span>:{" "}
-        <code className="text-xs">/access</code> in Discord is the first, and both write into the
-        same tables. The price of that second door is paid in the record - every grant and every
-        revocation from here writes a row into the{" "}
-        <Link to="/journal" className="text-primary underline-offset-4 hover:underline">
-          Journal
-        </Link>{" "}
-        naming the admin who clicked.
-      </p>
-    </div>
-  )
-}
+/*
+ * WHY THIS PAGE MAY WRITE AT ALL, which used to be a paragraph at the top of it: `/access` in
+ * Discord is the first door into the same tables and this is the second. The price of a second
+ * door is paid in the record - every grant and every revocation from here writes a row into the
+ * journal naming the admin who clicked. That is a decision, and a decision belongs here and not on
+ * the screen of somebody who has already opened the page.
+ */
 
 /** The header of the access column, with the reason its two halves disagree. */
 function AccessColumnHead() {
@@ -817,10 +796,6 @@ function PersonGrants({
         </Table>
       )}
 
-      <p className="text-sm text-muted-foreground">
-        Revoking happens in this person's row in the table - not here, so that a confirmation never
-        sits inside a window that is already open.
-      </p>
     </>
   )
 }
@@ -868,7 +843,6 @@ export function PaymentsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Payments"
-        note="Request, bunq tab and outcome - the three links a purchased access is made of."
       />
 
       <QueryState
@@ -921,10 +895,6 @@ export function PaymentsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm font-medium">Requests</CardTitle>
-                  <CardDescription>
-                    From <code className="text-xs">payment_request</code>, newest first. The last
-                    200 are loaded.
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1084,7 +1054,6 @@ export function AccountsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Accounts"
-        note="Which Minecraft account belongs to which Discord account - and what this interface identifies itself with."
       />
 
       <AuthenticationCard />
@@ -1092,10 +1061,6 @@ export function AccountsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium">Links</CardTitle>
-          <CardDescription>
-            From <code className="text-xs">account_link</code>. The database enforces 1:1 - a
-            Discord id appears once, and so does a Minecraft UUID.
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-4">
@@ -1210,10 +1175,6 @@ function AuthenticationCard() {
           <ShieldCheck className="size-4 text-muted-foreground" aria-hidden />
           Signing in to this interface
         </CardTitle>
-        <CardDescription>
-          A Discord session is currently the <span className="text-foreground">whole</span>{" "}
-          authentication of this interface.
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -1237,16 +1198,6 @@ function AuthenticationCard() {
             </span>
           ) : null}
         </div>
-        <p className="max-w-prose text-sm text-muted-foreground">
-          There is no password of Steward's own: Discord says who you are, and a security key says
-          you are holding something. Both are needed to be here at all - including for the two
-          writes on the{" "}
-          <Link to="/access" className="text-primary underline-offset-4 hover:underline">
-            Access
-          </Link>
-          {" "}page. What the key does not yet do is stand in front of each of those individually,
-          which is why every change still lands in the Journal.
-        </p>
         {me.error ? (
           <Failure error={me.error} onRetry={me.refetch} />
         ) : me.data ? (
@@ -1292,17 +1243,11 @@ export function JournalPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Journal"
-        note="Every change, who triggered it and whom it concerned - the last 200 entries."
       />
 
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium">Entries</CardTitle>
-          <CardDescription>
-            From <code className="text-xs">audit_log</code>, newest first. Both filters compare
-            <span className="text-foreground"> the whole string</span> - a partial match is not
-            something this query can do.
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-4">

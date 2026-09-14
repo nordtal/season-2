@@ -60,7 +60,52 @@
     "Übersicht",
     "Einstellungen",
     "Willkommen",
-    "Benutzer"
+    "Benutzer",
+    "Sperre",
+    "streiten"
+  ],
+
+  "_stems": [
+    "MEASURED 2026-09-14, and this is why the derivation is not enough on its own: the bundle says",
+    "`Befehl` and Steward said `Befehle`; the bundle says `Konfigurationsdateien` and Steward said",
+    "`Konfiguration`. Both guards matched whole words, so both walked past. A derived list knows",
+    "the forms the bot happens to use, and German inflects and compounds.",
+    "",
+    "So a word in a source file is German in two more cases. INFLECTION: it is a derived word of",
+    "`minStem` letters plus one of `tails` - German endings only, which is why `stopped` does not",
+    "count as `stoppe` plus a `d`. COMPOUNDING: it is at least `minPrefix` letters and a derived",
+    "word continues it by at least `minRest` - `argument` inside `argumente` is one letter and is",
+    "not a compound, `Konfiguration` inside `Konfigurationsdateien` is eight and is.",
+    "",
+    "MEASURED with these numbers on 2026-09-14: zero false positives across the whole frontend and",
+    "all three Java trees. A false positive is one line in alsoEnglish, which is the failure this",
+    "whole file is shaped around - but the numbers are chosen so it stays rare."
+  ],
+  "minStem": 6,
+  "minPrefix": 8,
+  "minRest": 3,
+  "tails": ["e", "en", "er", "es", "em", "n", "s", "ern", "nen"],
+
+  "_shapes": [
+    "The second check, and it is beside the derivation rather than part of it: these find German",
+    "by its SHAPE, so they work on words the bot has never said. `Gelaufen` was one - it is in no",
+    "bundle, no stem of it is, and it was on the run list of the operations page.",
+    "",
+    "WHAT THESE DO NOT FIND, written down because a guard that hides its blind spot is worse than",
+    "one that has none: a word with no German ending. `Sperre` and `streiten` both leaked on",
+    "2026-09-14 and neither has a shape - they are a hand-list job, which is what `extra` is.",
+    "",
+    "`ge...t` participles (`gemacht`, `gesagt`) are deliberately NOT here: `government` and",
+    "`gentlest` are the same shape, and a guard that cries on `government` gets deleted.",
+    "",
+    "The third pattern was added the same day for `Verwerfen`, which sat on the config form's",
+    "discard button and was in no bundle, no stem and neither of the first two shapes. MEASURED",
+    "across the frontend and all three Java trees: zero lines match it that are not German."
+  ],
+  "shapes": [
+    "\\b[A-Za-z\u00c4\u00d6\u00dc\u00e4\u00f6\u00fc\u00df]{3,}(ung|ungen|heit|heiten|keit|keiten|schaft|schaften|lich|lichen)\\b",
+    "\\bge[a-z\u00e4\u00f6\u00fc\u00df]{3,}en\\b",
+    "\\bver[a-z\u00e4\u00f6\u00fc\u00df]{3,}en\\b"
   ],
 
   "_abbreviations": [

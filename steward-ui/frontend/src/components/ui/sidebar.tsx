@@ -137,7 +137,7 @@ function SidebarProvider({
             } as React.CSSProperties
           }
           className={cn(
-            "group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-sidebar",
+            "group/sidebar-wrapper flex min-h-(--app-height) w-full has-data-[variant=inset]:bg-sidebar",
             className
           )}
           {...props}
@@ -185,7 +185,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="top-0 bottom-auto h-(--app-height) w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -198,8 +198,11 @@ function Sidebar({
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
           {/* The status bar is translucent (index.html) and this sheet is full height, so its
-              own top edge is behind the notch without this. Zero everywhere else. */}
-          <div className="flex h-full w-full flex-col pt-[env(safe-area-inset-top)]">{children}</div>
+              own top edge is behind the notch without this - and on a home screen iOS blurs a band
+              deeper than the notch, which is what `--blur-clearance` adds. Zero everywhere else. */}
+          <div className="flex h-full w-full flex-col pt-[calc(env(safe-area-inset-top)+var(--blur-clearance))]">
+            {children}
+          </div>
         </SheetContent>
       </Sheet>
     )
@@ -229,7 +232,7 @@ function Sidebar({
       <div
         data-slot="sidebar-container"
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
+          "fixed inset-y-0 z-10 hidden h-(--app-height) w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",

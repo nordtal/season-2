@@ -36,7 +36,6 @@ import {
   useSchedule,
   useServices,
 } from "@/lib/queries"
-import { Disclosure } from "@/components/steward/disclosure"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import {
@@ -64,7 +63,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -183,13 +181,16 @@ function Change({ change }: { change: ReportChange }) {
   if (change.state === "UNSUPPORTED") {
     return (
       <span className="text-muted-foreground">
-        <code className="text-xs">{change.artefact}</code> - no build for this
-        Minecraft-Version
+        <code className="text-xs">{change.artefact}</code> - no build for this Minecraft
+        version
       </span>
     )
   }
   return (
-    <span className="flex items-center gap-1.5">
+    // `flex-wrap`: MEASURED 2026-09-14 at 390px on /operations/runs/latest. A jar name, the old
+    // version, an arrow and the new one is 180px of unbreakable content more than the card has,
+    // and a flex row with nowhere to break puts the last two off the right edge of the phone.
+    <span className="flex flex-wrap items-center gap-1.5">
       <code className="text-xs">{change.artefact}</code>
       {change.from ? (
         <>
@@ -406,6 +407,13 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
           <AlertDialogDescription>{spec.what}</AlertDialogDescription>
         </AlertDialogHeader>
 
+        {/*
+          WHAT THIS DIALOG USED TO ALSO SAY, and what is still true (2026-09-14): the button only
+          writes a row into `update_request`; steward-worker picks it up once its moment has come
+          and runs a countdown every player sees before each stop. And there is no cancel button
+          here, because the API so far knows only entering a run and reading one. Both are the
+          mechanism explaining itself to somebody who has already decided, so neither is on screen.
+        */}
         <div className="flex flex-col gap-3 text-sm">
           {spec.warning ? (
             <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
@@ -414,22 +422,13 @@ function AskButton({ kind, variant = "outline" }: { kind: Kind; variant?: "defau
             </p>
           ) : null}
           <p className="text-muted-foreground">
-            This button only writes a row into <code className="text-xs">update_request</code>.
-            steward-worker picks it up once its moment has come, and runs a countdown every player
-            sees before each stop.
-          </p>
-          <p className="text-muted-foreground">
-            This interface has no cancel button yet - the API so far knows only entering a run and
-            reading one.
-          </p>
-          <p className="text-muted-foreground">
             "Tonight" means <span className="text-foreground tnum">{dateTime(night)}</span>
             {schedule.data?.nextBackupAt ? (
               <>
                 {" "}
                 - {MINUTES_BEFORE_BACKUP} minutes before the worker's own backup clock (
-                {schedule.data.backupAt} {schedule.data.zone}), so the two do not fight over the same
-                Sperre streiten.
+                {schedule.data.backupAt} {schedule.data.zone}), so the two do not fight over the
+                same lock.
               </>
             ) : schedule.isPending ? (
               <> - the worker's backup clock is being read right now.</>
@@ -480,17 +479,13 @@ function AskBar() {
 /** Whatever wants attention first: OUTDATED, then UNKNOWN, then UP_TO_DATE, then by name. */
 const DRIFT_RANK: Record<string, number> = { OUTDATED: 0, UP_TO_DATE: 2 }
 
-function DriftCard({ note }: { note?: string }) {
+function DriftCard() {
   const services = useServices()
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Images</CardTitle>
-        <CardDescription>
-          {note ??
-            "What the registry has, compared with what is running. The comparison is a cached result, not a live query."}
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <QueryState
@@ -590,7 +585,6 @@ export function OperationsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Operations"
-        note="Runs, the comparison of images against the registry, and the backups sitting on the disk."
         actions={<AskBar />}
       />
 
@@ -608,10 +602,6 @@ function RunsCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Runs</CardTitle>
-        <CardDescription>
-          The last 20 rows from <code className="text-xs">update_request</code> - each of them an
-          order, not a call.
-        </CardDescription>
         <CardAction>
           <Button asChild variant="outline" size="sm">
             <Link to="/operations/plan">
@@ -708,11 +698,6 @@ function BackupsCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Backups</CardTitle>
-        <CardDescription>
-          What is in the backup directory - read from the disk, not from the report of a run.
-          Started files (<code className="text-xs">.partial</code>) are listed too: a list that
-          hides them looks tidy and lies.
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <QueryState
@@ -787,8 +772,10 @@ function BackupsCard() {
                   )}`}
                 />
                 <Separator orientation="vertical" className="h-10" />
+                {/* One of the three sentences that stay (2026-09-14): it names an absence,
+                    and nothing on the screen would otherwise say that there is no second copy. */}
                 <p className="max-w-prose text-xs text-muted-foreground">
-                  Every archive sits on the same disk as the thing it is a copy of. There is no
+                  Every archive sits on the same disk as the thing it is a copy of - there is no
                   off-site copy.
                 </p>
                 <Button asChild variant="outline" size="sm" className="ml-auto">
@@ -814,8 +801,11 @@ function BackupsCard() {
  * **There is no dry run.** The API knows three ways to a run (`POST /api/updates` with UPDATE,
  * BACKUP or RESTART) and none that only calculates. What there is: the report of a run still
  * sitting in `RESOLVING` or `PLANNED` - exactly what a `REPORT` run used to leave behind - and the
- * image comparison. Both are here, and the page says next to every figure where it came from. An invented
- * preview would be more convenient and would be a lie.
+ * image comparison. Both are here. An invented preview would be more convenient and would be a lie.
+ *
+ * A run stands in those two stages for seconds only, so "no resolved run" on this page does not
+ * mean there is nothing to do - it means none is in that state at this moment. That sentence used
+ * to be a disclosure on the page itself; it is a fact about the mechanism, so it lives here.
  */
 export function OperationsPlanPage() {
   const runs = useRuns(20)
@@ -827,33 +817,12 @@ export function OperationsPlanPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Plan"
-        note="What a run would change before it starts - assembled from what actually exists."
         actions={<AskButton kind="UPDATE" variant="default" />}
       />
-
-      <Disclosure summary="Where these numbers come from, and what is not here">
-        <p className="max-w-prose">
-          <strong className="text-foreground">There is no dry run.</strong> steward-worker has no
-          endpoint that works out what an update would do without doing it. So this page shows two
-          real things: the report of a run that has just resolved the versions and touched nothing
-          yet, and the comparison of the images against the registry.
-        </p>
-        <p className="max-w-prose">
-          A run stands in <code className="text-xs">RESOLVING</code> or{" "}
-          <code className="text-xs">PLANNED</code> for seconds only. If none is found below, that
-          does not mean there is nothing to do - it means no run is in that state right now. A pure
-          report run (the old kind <code className="text-xs">REPORT</code>) cannot be asked for from
-          this interface yet.
-        </p>
-      </Disclosure>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium">Last resolved</CardTitle>
-          <CardDescription>
-            The most recent run whose report still stands in{" "}
-            <code className="text-xs">RESOLVING</code> or <code className="text-xs">PLANNED</code>.
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {runs.isPending ? (
@@ -894,7 +863,7 @@ export function OperationsPlanPage() {
         </CardContent>
       </Card>
 
-      <DriftCard note="The second half of the plan: which image lags behind the registry. That says which container would be recreated - not which jars an update would swap." />
+      <DriftCard />
     </div>
   )
 }
@@ -923,7 +892,6 @@ export function OperationsRunPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title={numeric ? `Run #${resolved}` : "Run"}
-        note="The report as steward-worker writes it into the row - stage by stage, service by service."
         actions={
           <Button asChild variant="outline">
             <Link to="/operations">
@@ -972,7 +940,7 @@ function RunDetail({ run }: { run: Run }) {
       <Card>
         <CardContent className="flex flex-wrap items-start gap-6 pt-6">
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            <span className="text-xs font-medium text-muted-foreground">
               Status
             </span>
             <div className="flex items-center gap-2">
@@ -1010,9 +978,7 @@ function RunDetail({ run }: { run: Run }) {
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">Nothing to do.</p>
             <p className="max-w-prose text-sm text-muted-foreground">
-              This is the third answer, not a quiet kind of "done": nothing was stopped, nothing
-              swapped and nothing backed up. A run that had taken the network down to establish that
-              would be a defect.
+              Nothing was stopped, nothing swapped and nothing backed up.
             </p>
           </div>
         </div>
@@ -1027,8 +993,7 @@ function RunDetail({ run }: { run: Run }) {
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">This run saved nothing.</p>
             <p className="max-w-prose text-sm text-muted-foreground">
-              No line of the report stands at "saved". A run's status answers whether a step
-              reported an error - whether a file came into being is answered only by this row.
+              No line of the report stands at "saved".
             </p>
           </div>
         </div>
@@ -1038,10 +1003,6 @@ function RunDetail({ run }: { run: Run }) {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Stages</CardTitle>
-            <CardDescription>
-              Not every run walks every stage - an update saves nothing, a backup installs nothing.
-              Grey means "this run was never here", not "skipped".
-            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <StageTrail stage={report.stage} kind={run.kind} />
@@ -1058,9 +1019,6 @@ function RunDetail({ run }: { run: Run }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium">Report</CardTitle>
-          <CardDescription>
-            One row per service - per volume for a backup - with what was moved on it.
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {run.resultText ? (
@@ -1180,7 +1138,11 @@ function ReportLines({ lines }: { lines: ReportLine[] }) {
             <TableCell data-label="State">
               <LineState state={line.state} />
             </TableCell>
-            <TableCell data-label="Changes">
+            {/* `whitespace-normal`: the Table component puts `whitespace-nowrap` on every cell,
+                which is right for a service name and wrong for a list of them. MEASURED
+                2026-09-14 at 1440px: a failed run of network-control drew this table 1922px wide
+                on a 1440px screen, because six artefact changes were one unbreakable line. */}
+            <TableCell data-label="Changes" className="whitespace-normal">
               {line.changes.length === 0 && !line.detail ? (
                 <span className="text-muted-foreground">–</span>
               ) : (
@@ -1214,8 +1176,8 @@ function Notes({ notes }: { notes: string[] }) {
   if (notes.length === 0) return null
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        Anmerkungen
+      <span className="text-xs font-medium text-muted-foreground">
+        Notes
       </span>
       <ul className="flex flex-col gap-1">
         {notes.map((note) => (
@@ -1306,7 +1268,6 @@ export function OperationsBackupPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title={backup ? backup.name : "Backup"}
-        note="A single file from the backup directory: when it was made, how big it is and whether it is complete."
         actions={
           <Button asChild variant="outline">
             <Link to="/operations/restore">
@@ -1337,7 +1298,7 @@ export function OperationsBackupPage() {
           <Card>
             <CardContent className="flex flex-wrap items-start gap-6 pt-6">
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                <span className="text-xs font-medium text-muted-foreground">
                   State
                 </span>
                 {backup.partial ? (
@@ -1366,7 +1327,7 @@ export function OperationsBackupPage() {
                 hint={`the worker calls it ${backup.human}`}
               />
               <div className="flex min-w-48 flex-col gap-1">
-                <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                <span className="text-xs font-medium text-muted-foreground">
                   Contents
                 </span>
                 <span className="text-sm">
@@ -1384,15 +1345,6 @@ export function OperationsBackupPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium">The run behind it</CardTitle>
-              <CardDescription>
-                Inferred, not recorded: no report contains a file name. What is looked for is a run
-                that was running when this file was made and carries a report line for
-                {" "}
-                <code className="text-xs">
-                  {archived(backup.name).subject ?? "this archive"}
-                </code>{" "}
-                .
-              </CardDescription>
             </CardHeader>
             <CardContent>
               {runs.isPending ? (
@@ -1421,7 +1373,7 @@ export function OperationsBackupPage() {
                   />
                   <Stat label="Status" value={<RunStatus status={match.status} />} />
                   <Stat
-                    label="Gelaufen"
+                    label="Ran"
                     value={dateTime(match.started)}
                     hint={duration(runSeconds(match))}
                   />
@@ -1486,19 +1438,11 @@ export function OperationsRestorePage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Restore"
-        note="The finished command, to copy. This interface does not run it - it is a container in
-              the stack it would be restoring, so a button here would work in every situation except
-              the one it exists for."
       />
 
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium">Choose an archive</CardTitle>
-          <CardDescription>
-            Only finished archives are listed here: nothing can be restored from a{" "}
-            <code className="text-xs">.partial</code> file. Whatever else sits in the directory is
-            shown by the backup list on the Operations page.
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {backups.isPending ? (
@@ -1536,7 +1480,7 @@ export function OperationsRestorePage() {
           )}
 
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            <span className="text-xs font-medium text-muted-foreground">
               Command
             </span>
             <div className="flex items-center gap-2">
@@ -1545,42 +1489,19 @@ export function OperationsRestorePage() {
               </code>
               <CopyButton text={command} disabled={!chosen} />
             </div>
+            {/* TWO SENTENCES STAY HERE, and they are different in kind (2026-09-14). The
+                first is why there is no button, which is the ticket's named exception; the second
+                names a real danger, which is the fourth case that exception allows for. */}
             <p className="max-w-prose text-xs text-muted-foreground">
-              Before overwriting, the script asks for the volume's name - typed, not confirmed.
-              <code className="text-xs"> --list</code> shows what is on the disk.
+              Steward does not run it: it is a container in the stack it would be restoring.
+            </p>
+            <p className="max-w-prose text-xs text-warning">
+              A volume is overwritten, not added to - everything made since the backup is gone.
             </p>
           </div>
         </CardContent>
       </Card>
 
-      <Disclosure summary="What a restore does - read this once">
-          <p className="max-w-prose">
-            <strong className="text-foreground">
-              A volume is overwritten, not added to.
-            </strong>{" "}
-            The contents of the archive take the place of what is in the volume now. Everything
-            that came into being since the backup was taken - houses built, configs changed - is
-            gone afterwards.
-          </p>
-          <p className="max-w-prose">
-            Whatever writes to the volume is stopped first. Unpacking an archive into a volume a
-            running server is writing to produces a mixture of the two that represents neither
-            state.
-          </p>
-          <p className="max-w-prose">
-            A database dump (<code className="text-xs">.dump</code>) is a different case from a
-            volume archive (<code className="text-xs">.tar.zst</code>): it goes into a fresh database
-            first, so it can be looked into before anything points at it.
-          </p>
-          <p className="max-w-prose">
-            Every archive sits on the same disk as the original. That helps against a wrong move;
-            it does not help against that disk failing.
-          </p>
-          <p className="max-w-prose">
-            It is run on the host, in the repository's directory, with root rights - the volumes
-            belong to Docker.
-          </p>
-      </Disclosure>
     </div>
   )
 }

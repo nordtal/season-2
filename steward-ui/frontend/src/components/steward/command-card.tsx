@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -54,13 +53,8 @@ export function CommandCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Terminal className="size-4 text-muted-foreground" aria-hidden />
-          Befehle
+          Commands
         </CardTitle>
-        <CardDescription>
-          The same commands as in game and in Discord, the same implementation. They are carried
-          out by the service that owns them - the interface only writes the row and waits for the
-          answer.
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <QueryState

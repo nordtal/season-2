@@ -166,7 +166,19 @@ public final class WorkerApi implements AutoCloseable {
      */
     private record Drift(@NotNull ImageResult result, @NotNull Instant checkedAt) { }
 
-    private Drift drift;
+    /**
+     * One thread, and it belongs to nobody's request.
+     *
+     * <p>A daemon, because a registry call in flight must not hold this process up on the way out,
+     * and one rather than a pool because {@link Refreshed} never has two refreshes going at once.</p>
+     */
+    private final ExecutorService driftRefresh = Executors.newSingleThreadExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "steward-worker-drift");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    private final Refreshed<Drift> drift;
 
     private Javalin app;
 
@@ -182,6 +194,9 @@ public final class WorkerApi implements AutoCloseable {
         this.backups = backups;
         this.token = token;
         this.nightly = nightly;
+        // Here rather than at the field, because it reads `ops`, which is a constructor argument.
+        this.drift = new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL,
+                driftRefresh, Instant::now);
     }
 
     public void start(final int port) {
@@ -344,6 +359,20 @@ public final class WorkerApi implements AutoCloseable {
         }).start(port);
 
         log.info("the internal API is on {} - steward-ui reads the daemon through it", port);
+
+        // The registry call, once, before anybody asks. Refreshed only blocks when it has nothing
+        // at all to hand over, and without this that one blocking read is the FIRST /api/services
+        // after every start - 11.5s measured on this host, against steward-ui's ten-second
+        // deadline. Getting it out of the way here costs nothing: nothing is waiting on this
+        // thread, and a failure is the same one the background refresh already knows how to have.
+        driftRefresh.execute(() -> {
+            try {
+                drift.get();
+            } catch (RuntimeException failed) {
+                log.warn("the first image comparison failed - the next request will try again: {}",
+                        failed.toString());
+            }
+        });
     }
 
     /**
@@ -423,13 +452,15 @@ public final class WorkerApi implements AutoCloseable {
         }
     }
 
-    /** The cached drift answer, refreshed at most once per {@link #DRIFT_TTL}. */
-    private synchronized Drift drift() {
-        final Instant now = Instant.now();
-        if (drift == null || drift.checkedAt().plus(DRIFT_TTL).isBefore(now)) {
-            drift = new Drift(ops.images(), now);
-        }
-        return drift;
+    /**
+     * The drift answer as it stands, which is not necessarily the newest one there could be.
+     *
+     * <p>See {@link Refreshed} for why this no longer reads the registry on the caller's thread.
+     * The short of it: it used to, and steward-ui's ten-second deadline ran out on one request in
+     * every sixty while the interface logged that a healthy service could not be reached.</p>
+     */
+    private Drift drift() {
+        return drift.get();
     }
 
     private Map<String, Object> describe(final Docker.Container container, final ImageResult drift) {
@@ -726,6 +757,9 @@ public final class WorkerApi implements AutoCloseable {
         // is already gone.
         closing = true;
         heartbeats.shutdownNow();
+        // Not awaited: a registry call has its own timeout and nothing is waiting for its answer.
+        // Refreshed handles the rejection that a later reader will get from this.
+        driftRefresh.shutdownNow();
         for (final DockerSocket.Stream stream : follows) {
             closeQuietly(stream, "a follow still open at shutdown");
         }

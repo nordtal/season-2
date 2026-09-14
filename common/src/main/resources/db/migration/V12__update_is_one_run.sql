@@ -59,7 +59,7 @@ ALTER TABLE update_request
 --     always read as a whole and never joined against anything.
 --
 -- The cost, and it is real: a row in this column is no longer readable in psql at a glance. That is
--- what `docker compose run --rm steward-worker report` is for, and it renders from the same object.
+-- what `docker compose run --rm updater report` is for, and it renders from the same object.
 --
 -- No column changes here. `text` holds JSON, and an older row holds the plain text an updater
 -- before 2026-09-07 wrote - UpdateReports.parse answers "not a report" for those rather than

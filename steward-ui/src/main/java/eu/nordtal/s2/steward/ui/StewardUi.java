@@ -9,6 +9,8 @@ import eu.nordtal.s2.common.update.UpdateRequest;
 import eu.nordtal.s2.common.update.UpdateSource;
 import eu.nordtal.s2.steward.ui.data.Data;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
+import eu.nordtal.s2.steward.ui.discord.DiscordApi;
+import eu.nordtal.s2.steward.ui.discord.DiscordDirectory;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.s2.steward.ui.config.Configs;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
@@ -94,6 +96,9 @@ public final class StewardUi {
     /** The other services' config files, mounted into this container. */
     private final ConfigApi configs;
 
+    /** What the guild's roles and channels are CALLED, so an id can be picked rather than typed. */
+    private final DiscordApi guild;
+
     /** The admin commands that also exist in the game, over `command_request`. */
     private final CommandApi commands;
 
@@ -137,6 +142,8 @@ public final class StewardUi {
         this.data = data;
         this.accounts = accounts;
         this.configs = new ConfigApi(Path.of(config.configs().root()));
+        this.guild = new DiscordApi(
+                new DiscordDirectory(config.discord(), DiscordAuth.DISCORD_API));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow());
         this.deployments = new DeployerApi(deployer, data, ctx -> account(ctx).orElseThrow(),
                 !config.deployer().token().isBlank());
@@ -381,6 +388,11 @@ public final class StewardUi {
             cfg.routes.get("/api/config", configs::list);
             cfg.routes.get("/api/config/<file>", configs::one);
             cfg.routes.put("/api/config/<file>", configs::save);
+
+            // The names behind the ids, so the editor above can offer a list instead of a field.
+            // Never a failure: an unreachable Discord is `available: false` and a typed id.
+            cfg.routes.get("/api/discord/roles", guild::roles);
+            cfg.routes.get("/api/discord/channels", guild::channels);
 
             cfg.routes.get("/api/settings", ctx -> ctx.json(Map.of(
                     "disk", config.alerts().diskPercent(),

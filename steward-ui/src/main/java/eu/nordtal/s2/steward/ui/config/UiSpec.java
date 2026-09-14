@@ -272,6 +272,24 @@ public interface UiSpec {
         }
 
         @Order(4)
+        @Key("bot-token")
+        @Comment({
+                "The Discord bot's token, and it is here for ONE thing: asking Discord what the",
+                "guild's roles and channels are called, so the configuration editor can offer a",
+                "list to pick from instead of a field to transcribe an eighteen-digit id into.",
+                "",
+                "It is the same token discord-bot uses. Steward only reads with it - it never",
+                "sends a message, never changes a role, and never puts the token in an answer, in",
+                "a log or in front of a browser. Empty means the pickers fall back to a text",
+                "field, which still works; it is the names that are missing, not the setting.",
+                "",
+                "From the environment, never from this file."
+        })
+        default String botToken() {
+            return "";
+        }
+
+        @Order(5)
         @Key("admin-role")
         @Comment({
                 "The role id that may sign in. Everybody else is refused after Discord has",

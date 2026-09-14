@@ -161,7 +161,7 @@ export function useRuns(limit = 20, enabled = true) {
  *
  * While it is running the report grows row by row - the worker writes progress into the same
  * column - so this polls quickly until the run has finished and then stops. That is the whole
- * "Lauf live" of the plan: no socket, no stream, just a row that keeps changing.
+ * "run live" of the plan: no socket, no stream, just a row that keeps changing.
  */
 export function useRun(id: string, enabled = true) {
   return useQuery({

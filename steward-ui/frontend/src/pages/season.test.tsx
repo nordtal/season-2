@@ -138,11 +138,11 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
     draw(<SeasonPage />)
 
     const dialog = await ask("MAINTENANCE")
-    fireEvent.change(reasonField(), { target: { value: "Postgres wird umgezogen" } })
+    fireEvent.change(reasonField(), { target: { value: "Postgres is being moved" } })
     fireEvent.click(within(dialog).getByRole("button", { name: "Switch" }))
 
     await waitFor(() => expect(() => sentPhaseChange(fetched)).not.toThrow())
-    expect(sentPhaseChange(fetched)).toEqual({ phase: "MAINTENANCE", reason: "Postgres wird umgezogen" })
+    expect(sentPhaseChange(fetched)).toEqual({ phase: "MAINTENANCE", reason: "Postgres is being moved" })
   })
 
   it("is gone after a switch that went through", async () => {
@@ -150,7 +150,7 @@ describe("SeasonPage - the reason that was typed and abandoned", () => {
     draw(<SeasonPage />)
 
     const dialog = await ask("MAINTENANCE")
-    fireEvent.change(reasonField(), { target: { value: "Postgres wird umgezogen" } })
+    fireEvent.change(reasonField(), { target: { value: "Postgres is being moved" } })
     fireEvent.click(within(dialog).getByRole("button", { name: "Switch" }))
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())

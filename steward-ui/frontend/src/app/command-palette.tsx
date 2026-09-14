@@ -14,9 +14,9 @@ import {
 import { NAVIGATION } from "@/app/navigation"
 
 /**
- * ⌘K / Strg+K. Every route in the interface is in here, including the parameterised ones, which
- * appear with a representative parameter - the point of the palette is that a place you know the
- * name of is one keystroke away, and "Lauf" is a name somebody knows.
+ * Ctrl+K, and ⌘K on a Mac. Every route in the interface is in here, including the parameterised
+ * ones, which appear with a representative parameter - the point of the palette is that a place
+ * you know the name of is one keystroke away, and "Run" is a name somebody knows.
  */
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)

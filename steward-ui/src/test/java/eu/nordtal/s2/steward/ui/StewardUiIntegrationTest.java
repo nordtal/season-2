@@ -324,7 +324,7 @@ class StewardUiIntegrationTest {
             }
 
             /**
-             * The Ampel's thresholds. Left at the interface's own defaults - this test is about
+             * The traffic light's thresholds. Left at the interface's own defaults - this test is about
              * routing and sessions, and a threshold invented here would be a second set of numbers
              * that could drift away from the ones in the spec.
              */

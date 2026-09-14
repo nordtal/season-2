@@ -70,7 +70,7 @@ export function SignInPage({ me, loading }: { me?: Me; loading?: boolean }) {
 
             <Alert>
               <Fingerprint aria-hidden />
-              <AlertTitle>Es gibt keinen zweiten Faktor.</AlertTitle>
+              <AlertTitle>There is no second factor.</AlertTitle>
               <AlertDescription>
                 {me?.webauthn ??
                   "A security key is not built in this alpha: whoever holds an admin's Discord session holds this interface - and it can stop services and type into consoles."}

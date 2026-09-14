@@ -367,8 +367,8 @@ public final class StewardUi {
             // --- the thresholds the start page judges by ---------------------------------------
             //
             // Read from this service's own config rather than kept in the browser, because the
-            // Ampel has to be able to fire into Discord as well, and a number in somebody's
-            // localStorage cannot be read by anything that is not that browser.
+            // traffic light has to be able to fire into Discord as well, and a number in
+            // somebody's localStorage cannot be read by anything that is not that browser.
             // --- the five admin commands that stayed in the game (§10b) ------------------------
             //
             // A row in `command_request`, not a connection to a server: the interface holds none.

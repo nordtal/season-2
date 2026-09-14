@@ -90,7 +90,7 @@ public interface UiSpec {
     @Order(6)
     @Key("alerts")
     @Comment({
-            "When the Ampel on the start page turns yellow or red (concept 10c).",
+            "When the traffic light on the start page turns yellow or red (concept 10c).",
             "",
             "These are the two thresholds that are a matter of taste; the other two triggers - a",
             "service that is down, and a missing backup - are not adjustable and are not meant to",
@@ -170,9 +170,9 @@ public interface UiSpec {
     /**
      * The thresholds of the traffic light.
      *
-     * <p>They live here rather than in the browser because the Ampel also has to fire outside the
-     * interface - into the Discord admin channel - and a threshold kept in somebody's localStorage
-     * cannot be read by anything that is not that browser.</p>
+     * <p>They live here rather than in the browser because the traffic light also has to fire
+     * outside the interface - into the Discord admin channel - and a threshold kept in somebody's
+     * localStorage cannot be read by anything that is not that browser.</p>
      */
     @ConfigSpec
     interface AlertSpec {
@@ -202,9 +202,9 @@ public interface UiSpec {
         @Order(3)
         @Key("backup-age-hours")
         @Comment({
-                "How old the newest finished backup may be before the Ampel turns RED. The nightly",
-                "clock runs once a day, so anything under 24 would fire on a normal morning; 36",
-                "leaves one missed night visible and two nights impossible to miss.",
+                "How old the newest finished backup may be before the traffic light turns RED.",
+                "The nightly clock runs once a day, so anything under 24 would fire on a normal",
+                "morning; 36 leaves one missed night visible and two nights impossible to miss.",
                 "",
                 "This one counts files on the disk, not runs that reported success. Run 23 reported",
                 "success having saved nothing at all (todo.md A23), which is why."

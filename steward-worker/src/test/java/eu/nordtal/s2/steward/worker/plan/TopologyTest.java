@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -900,42 +901,58 @@ class TopologyTest {
     }
 
     @Test
-    @DisplayName("the bootstrap default repeated in compose.yml still matches the spec's own")
-    void theBootstrapDefaultAgreesWithTheSpec() {
-        // An empty environment variable wins over the file, so the fallback has to say what the spec
-        // says rather than nothing.
+    @DisplayName("compose.yml does not pin bootstrap, so steward.yml still decides")
+    void theBootstrapIsNotPinnedInCompose() {
+        // THIS TEST USED TO DEMAND THE OPPOSITE, and the reason it gave was wrong. It said an
+        // environment variable set to the empty string wins over the file, so compose's fallback
+        // had to repeat StewardSpec#bootstrap rather than be empty. jcore's EnvOverlay.applyTo
+        // skips a variable that is null or blank - EnvOverlayTest.blankVariableIsUnset asserts it -
+        // so `${VAR:-}` leaves the spec's default in force, which is what every other defaulted
+        // line in that file has always relied on.
+        //
+        // The repetition was not harmless. A variable that always carries a value wins over
+        // steward.yml on every start, so turning bootstrap off in Steward would have written the
+        // file and changed nothing at all. What the old test was protecting - that a first
+        // deployment comes up without anybody running `steward-worker apply` on the host - is
+        // protected by the spec's own default being true, which is asserted here too.
         @SuppressWarnings("unchecked")
         final Map<String, Object> worker = (Map<String, Object>) services.get("steward-worker");
         @SuppressWarnings("unchecked")
         final Map<String, Object> environment = (Map<String, Object>) worker.get("environment");
 
-        final StewardSpec spec = new StewardSpec() {
-            @Override
-            public ApiSpec api() {
-                // Defaults: nothing here serves HTTP.
-                return new ApiSpec() {
-                };
-            }
+        assertAll(
+                () -> assertEquals("${STEWARD_WORKER_BOOTSTRAP:-}",
+                        String.valueOf(environment.get("NORDTAL_STEWARD_BOOTSTRAP")),
+                        "compose.yml carries a fallback for STEWARD_WORKER_BOOTSTRAP. A value here"
+                                + " wins over steward.yml for ever, so the setting cannot be"
+                                + " changed from the interface."),
+                () -> assertTrue(new StewardSpec() {
+                            @Override
+                            public ApiSpec api() {
+                                // Defaults: nothing here serves HTTP.
+                                return new ApiSpec() {
+                                };
+                            }
 
-            @Override
-            public DockerSpec docker() {
-                // Defaults: this test is not about the daemon, and nothing here reads it.
-                return new DockerSpec() {
-                };
-            }
+                            @Override
+                            public DockerSpec docker() {
+                                // Defaults: this test is not about the daemon.
+                                return new DockerSpec() {
+                                };
+                            }
 
-            @Override
-            public BackupSpec backup() {
-                // Defaults throughout: this test is not about a backup.
-                return new BackupSpec() {
-                };
-            }
-        };
-        assertTrue(String.valueOf(environment.get("NORDTAL_STEWARD_BOOTSTRAP"))
-                        .endsWith(":-" + spec.bootstrap() + "}"),
-                "compose.yml's STEWARD_WORKER_BOOTSTRAP fallback is not '" + spec.bootstrap()
-                        + "' any more. With it off, a first deployment cannot come up without"
-                        + " somebody running `steward-worker apply` on the host.");
+                            @Override
+                            public BackupSpec backup() {
+                                // Defaults throughout: this test is not about a backup.
+                                return new BackupSpec() {
+                                };
+                            }
+                        }.bootstrap(),
+                        "StewardSpec#bootstrap is false. It is now the ONLY thing that makes a"
+                                + " first deployment fill its empty volumes, so with it off nothing"
+                                + " comes up without somebody running `steward-worker apply` on"
+                                + " the host.")
+        );
     }
 
     @Test

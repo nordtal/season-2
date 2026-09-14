@@ -244,17 +244,29 @@ services:
 
       # --- bot.yml -----------------------------------------------------------------------
       NORDTAL_BOT_TOKEN: ${NORDTAL_BOT_TOKEN:?set NORDTAL_BOT_TOKEN in .env}
-      NORDTAL_BOT_BUNQ_API_KEY: ${NORDTAL_BOT_BUNQ_API_KEY:?set NORDTAL_BOT_BUNQ_API_KEY in .env}
-      NORDTAL_BOT_BUNQ_ACCOUNT_ID: ${NORDTAL_BOT_BUNQ_ACCOUNT_ID:?set NORDTAL_BOT_BUNQ_ACCOUNT_ID in .env}
+      # Optional, and deliberately not `:?`: a season without a bunq account is a season whose bot
+      # does everything except take payments. deploy/setup.sh offers them and accepts Enter.
+      NORDTAL_BOT_BUNQ_API_KEY: ${NORDTAL_BOT_BUNQ_API_KEY:-}
+      NORDTAL_BOT_BUNQ_ACCOUNT_ID: ${NORDTAL_BOT_BUNQ_ACCOUNT_ID:-}
 
       # --- access.yml --------------------------------------------------------------------
-      NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in .env}
-      NORDTAL_ACCESS_ROLES_ACCESS: ${NORDTAL_ACCESS_ROLES_ACCESS:?set NORDTAL_ACCESS_ROLES_ACCESS in .env - the bot-owned access role}
-      NORDTAL_ACCESS_ROLES_DONOR: ${NORDTAL_ACCESS_ROLES_DONOR:?set NORDTAL_ACCESS_ROLES_DONOR in .env - the permanent donor role}
-      NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in .env - the role mirrored into discord_user.admin}
-      NORDTAL_ACCESS_ROLES_ADMIN_PING: ${NORDTAL_ACCESS_ROLES_ADMIN_PING:?set NORDTAL_ACCESS_ROLES_ADMIN_PING in .env - the role pinged in the admin channel}
-      NORDTAL_ACCESS_CHANNELS_ADMIN: ${NORDTAL_ACCESS_CHANNELS_ADMIN:?set NORDTAL_ACCESS_CHANNELS_ADMIN in .env - the admin channel}
-      NORDTAL_ACCESS_LANGUAGES: ${NORDTAL_ACCESS_LANGUAGES:?set NORDTAL_ACCESS_LANGUAGES in .env - the JSON language list, whose shape .env.example ships in full}
+      # TWO OF THESE ARE REQUIRED AND THE REST ARE FEATURES. The guild says where the bot lives;
+      # the admin role says who may administer it, and without it nobody can log in to Steward to
+      # fill the rest in. Both are asked for by deploy/setup.sh.
+      NORDTAL_ACCESS_GUILD_ID: ${NORDTAL_ACCESS_GUILD_ID:?set NORDTAL_ACCESS_GUILD_ID in the environment file - deploy/setup.sh asks for it}
+      NORDTAL_ACCESS_ROLES_ADMIN: ${NORDTAL_ACCESS_ROLES_ADMIN:?set NORDTAL_ACCESS_ROLES_ADMIN in the environment file - deploy/setup.sh asks for it}
+      #
+      # Everything below is `:-` on purpose. An EMPTY environment variable is UNSET to jcore -
+      # EnvOverlay skips a blank rather than writing it over the file - so leaving one of these out
+      # keeps whatever access.yml says, which is what the web interface edits. Empty there in turn
+      # means the feature behind the id is simply not served, and the bot names every one of them
+      # in a single line at startup. A deployment must not stop because nobody has made a donor
+      # role yet.
+      NORDTAL_ACCESS_ROLES_ACCESS: ${NORDTAL_ACCESS_ROLES_ACCESS:-}
+      NORDTAL_ACCESS_ROLES_DONOR: ${NORDTAL_ACCESS_ROLES_DONOR:-}
+      NORDTAL_ACCESS_ROLES_ADMIN_PING: ${NORDTAL_ACCESS_ROLES_ADMIN_PING:-}
+      NORDTAL_ACCESS_CHANNELS_ADMIN: ${NORDTAL_ACCESS_CHANNELS_ADMIN:-}
+      NORDTAL_ACCESS_LANGUAGES: ${NORDTAL_ACCESS_LANGUAGES:-}
       NORDTAL_ACCESS_TIERS: ${NORDTAL_ACCESS_TIERS:-}
       NORDTAL_ACCESS_DONATION_CENTS: ${NORDTAL_ACCESS_DONATION_CENTS:-}
       NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS: ${NORDTAL_ACCESS_PAYMENT_POLL_INTERVAL_SECONDS:-}
@@ -507,10 +519,12 @@ services:
       # a machine also used for something else wants false, because Chunky takes every core it is
       # given. The cost is one postponed reset.
       #
-      # The default is REPEATED from SmpSpec rather than left empty: an environment variable set to
-      # the empty string still WINS over the file in jcore, so `${VAR:-}` would blank out the spec's
-      # own default. smp's ConfigsTest asserts the two copies agree.
-      NORDTAL_SMP_PREGENERATION_ON_START: ${SMP_PREGENERATION_ON_START:-true}
+      # No fallback here, deliberately. jcore's EnvOverlay SKIPS a blank variable - it is unset,
+      # not an override - so `${VAR:-}` leaves SmpSpec's own default in force and, more to the
+      # point, leaves smp.yml editable. A fallback repeated here would win over the file for ever,
+      # which means switching pre-generation off in the interface would silently do nothing.
+      # This comment used to claim the opposite; see jcore 3.1.0 EnvOverlay.applyTo.
+      NORDTAL_SMP_PREGENERATION_ON_START: ${SMP_PREGENERATION_ON_START:-}
       # HOW RECENT A BACKUP HAS TO BE BEFORE THIS SERVER WILL RESET THE FARM WORLD.
       #
       # The nightly clock moved to steward-worker on 2026-09-13 (§9a), because a season with `smp`
@@ -519,10 +533,10 @@ services:
       # Now the reset asks the database instead: no successful backup inside this window means the
       # world is left alone, loudly.
       #
-      # The default is repeated from SmpSpec because an empty environment variable wins over the
-      # file; smp's ConfigsTest asserts the two copies agree. `0` turns the check off, which is
+      # No fallback, for the reason above: a blank variable is unset to jcore, so SmpSpec's own
+      # default stands and smp.yml stays the thing that decides. `0` turns the check off, which is
       # what a local stack with no steward-worker wants, and which is logged on every start.
-      NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS: ${SMP_FARM_RESET_BACKUP_WINDOW_HOURS:-12}
+      NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS: ${SMP_FARM_RESET_BACKUP_WINDOW_HOURS:-}
       NORDTAL_SMP_DATABASE_JDBC_URL: *db-url
       NORDTAL_SMP_DATABASE_USERNAME: *db-username
       NORDTAL_SMP_DATABASE_PASSWORD: *db-password
@@ -600,7 +614,7 @@ services:
       # release of each repository, and there is no variable and no config key that says otherwise -
       # the rollback-by-tag lever was removed on 2026-09-09 for the reason at the top of this file.
       # What a server runs is the jar lying in its volume, never a variable claiming to describe it.
-      NORDTAL_STEWARD_SEASON_REPO: ${SEASON_REPO:-nordtal/season-2}
+      NORDTAL_STEWARD_SEASON_REPO: ${SEASON_REPO:-}
       # No platform version and no build pin here, deliberately: the versions are constants in
       # :common, because a Minecraft version is a property of the season rather than of an
       # installation, and the newest STABLE build is what all five processes install and run.
@@ -610,9 +624,10 @@ services:
       # `docker compose run --rm steward-worker bootstrap`.
       #
       # It cannot move a version - only artefacts with nothing installed at all are fetched - so a
-      # restart of a live network finds nothing missing and does nothing. Repeated from
-      # StewardSpec#bootstrap because an env var set to the empty string still wins over the file.
-      NORDTAL_STEWARD_BOOTSTRAP: ${STEWARD_WORKER_BOOTSTRAP:-true}
+      # restart of a live network finds nothing missing and does nothing. No fallback here: a blank
+      # variable is UNSET to jcore, so StewardSpec#bootstrap (true) stands and steward.yml stays
+      # editable. Repeating the default here would pin it and make the setting unchangeable.
+      NORDTAL_STEWARD_BOOTSTRAP: ${STEWARD_WORKER_BOOTSTRAP:-}
       # Optional. Raises GitHub's unauthenticated limit of 60 requests per hour per IP; a run makes
       # two GitHub calls, so it only matters on a host sharing its address with something busy.
       NORDTAL_STEWARD_GITHUB_TOKEN: ${STEWARD_WORKER_GITHUB_TOKEN:-}

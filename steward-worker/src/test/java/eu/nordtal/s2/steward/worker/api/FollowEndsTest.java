@@ -72,57 +72,71 @@ class FollowEndsTest {
     @Test
     @DisplayName("a follow whose browser has gone stops, rather than reading the rest aloud to nobody")
     void aFollowEndsWithItsBrowser() throws Exception {
-        final Warnings warnings = new Warnings();
-        final ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger)
-                LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
-        warnings.setContext(root.getLoggerContext());
-        warnings.start();
-        root.addAppender(warnings);
-
+        // EVERY ASSUMPTION BEFORE THE THING IT COULD STRAND. An assumption is an abort, not a
+        // failure, so it runs no `finally` that has not been entered yet - and this test attaches
+        // an appender to the ROOT logger and opens a port. Skipping between those two and their
+        // cleanup left both behind for every later test in the same JVM, which is a test suite
+        // that counts somebody else's warnings.
         final DockerSocket socket = new DockerSocket();
         assumeTrue(socket.isReachable(), "no docker socket - skipping");
         final Docker docker = new Docker(socket);
         final WorkerApi api = new WorkerApi(docker, new DockerOps(docker, PROJECT),
                 new Console(docker, PROJECT), new HostMetrics(), PROJECT, Path.of("/tmp"), TOKEN,
                 new WorkerApi.Nightly("04:45", ZoneId.of("Europe/Berlin")));
+        boolean closedByTheTest = false;
         api.start(PORT);
-
-        final HttpClient http = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5)).build();
-        final String name = aRunningService(http);
-
-        final HttpResponse<InputStream> follow = http.send(HttpRequest.newBuilder(
-                        URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name
-                                + "/logs?tail=200"))
-                .header("X-Steward-Token", TOKEN)
-                .header("Accept", "text/event-stream")
-                .GET().build(), HttpResponse.BodyHandlers.ofInputStream());
-        assertEquals(200, follow.statusCode());
-
-        // Read one line, so the follow is established rather than merely accepted, and then leave
-        // the way a browser leaves: the body closed and the server told nothing. That is the state
-        // the defect needs - an emitter whose connection is already broken, closed a second time
-        // by a shutdown - and it is also the ordinary case, because a tab closing is the usual way
-        // a log view ends.
-        try (InputStream lines = follow.body()) {
-            assertTrue(lines.read() != -1, "the follow ended before it said anything");
-        }
-        Thread.sleep(200);
-
         try {
-            api.close();
-            // A second is nothing next to sixty thousand a second, and it is long enough for the
-            // ordinary path - one follow ending, one emitter closing - to have happened.
-            Thread.sleep(1_000);
+            final HttpClient http = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(5)).build();
+            final String name = aRunningService(http);
 
-            assertTrue(warnings.count.get() < 5,
-                    "a follow that lost its browser, and the shutdown after it, logged "
-                    + warnings.count.get() + " warnings. One per line of the backlog is the shape"
-                    + " to look for: WorkerApi asks client.terminated() before it writes, because"
-                    + " Javalin will not tell it any other way");
+            final Warnings warnings = new Warnings();
+            final ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger)
+                    LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+            warnings.setContext(root.getLoggerContext());
+            warnings.start();
+            root.addAppender(warnings);
+
+            final HttpResponse<InputStream> follow = http.send(HttpRequest.newBuilder(
+                            URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name
+                                    + "/logs?tail=200"))
+                    .header("X-Steward-Token", TOKEN)
+                    .header("Accept", "text/event-stream")
+                    .GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+            assertEquals(200, follow.statusCode());
+
+            // Read one line, so the follow is established rather than merely accepted, and then leave
+            // the way a browser leaves: the body closed and the server told nothing. That is the state
+            // the defect needs - an emitter whose connection is already broken, closed a second time
+            // by a shutdown - and it is also the ordinary case, because a tab closing is the usual way
+            // a log view ends.
+            try (InputStream lines = follow.body()) {
+                assertTrue(lines.read() != -1, "the follow ended before it said anything");
+            }
+            Thread.sleep(200);
+
+            try {
+                api.close();
+                closedByTheTest = true;
+                // A second is nothing next to sixty thousand a second, and it is long enough for the
+                // ordinary path - one follow ending, one emitter closing - to have happened.
+                Thread.sleep(1_000);
+
+                assertTrue(warnings.count.get() < 5,
+                        "a follow that lost its browser, and the shutdown after it, logged "
+                        + warnings.count.get() + " warnings. One per line of the backlog is the shape"
+                        + " to look for: WorkerApi asks client.terminated() before it writes, because"
+                        + " Javalin will not tell it any other way");
+            } finally {
+                root.detachAppender(warnings);
+                warnings.stop();
+            }
         } finally {
-            root.detachAppender(warnings);
-            warnings.stop();
+            // The close IS the thing under test, so it happens above; this is only for the paths
+            // that never got there.
+            if (!closedByTheTest) {
+                api.close();
+            }
         }
     }
 

@@ -90,6 +90,40 @@ env_value() {
     printf '%s' "$line"
 }
 
+# Writes `name=value` into the file, replacing the assignment that is there or appending one.
+#
+# THE SPELLING OF AN ASSIGNMENT IS NOT ONE THING, and this used to look for it one way and replace
+# it another: the search accepted leading whitespace and the replacement compared the whole first
+# field, so `  NAME=` was found and left alone; and neither of them knew about `export`, so
+# `export NAME=` was not found at all and a SECOND assignment was appended below the first - which
+# `env_value` then never reads, because it takes the first match. Both ways the caller was told a
+# value had been written and compose got an empty one.
+#
+# The value is never printed and never passed on a command line: it goes into awk through -v and
+# into a file created with mode 600 beside the destination, so it is not in `ps` and not in a
+# world-readable place, not even for the moment between writing and renaming.
+set_assignment() {
+    local file="$1" name="$2" value="$3" tmp
+    tmp="$(mktemp "$(dirname "$file")/.env.XXXXXX")"
+    chmod 600 "$tmp"
+    if grep -qE "^[[:space:]]*(export[[:space:]]+)?${name}[[:space:]]*=" "$file"; then
+        awk -v name="$name" -v value="$value" '
+            {
+                key = $0
+                sub(/=.*$/, "", key)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+                sub(/^export[[:space:]]+/, "", key)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+                if (key == name) { print name "=" value; next }
+                print
+            }' "$file" > "$tmp"
+    else
+        cat "$file" > "$tmp"
+        printf '%s=%s\n' "$name" "$value" >> "$tmp"
+    fi
+    mv "$tmp" "$file"
+}
+
 # Which of the given names have no usable value. Prints names, one per line, and never a value.
 env_missing() {
     local file="$1" name value
@@ -264,19 +298,7 @@ set_secret() {
         return
     fi
     value="$(openssl rand -hex 32)"
-    if grep -qE "^[[:space:]]*${name}=" "$ENV_FILE"; then
-        # A temporary file beside the target, so the secret is never on a line an editor or a `ps`
-        # could show and never in a world-readable place, not even for a moment.
-        local tmp
-        tmp="$(mktemp "$(dirname "$ENV_FILE")/.env.XXXXXX")"
-        chmod 600 "$tmp"
-        awk -v name="$name" -v value="$value" \
-            'BEGIN { FS = "=" } $1 == name { print name "=" value; next } { print }' \
-            "$ENV_FILE" > "$tmp"
-        mv "$tmp" "$ENV_FILE"
-    else
-        printf '%s=%s\n' "$name" "$value" >> "$ENV_FILE"
-    fi
+    set_assignment "$ENV_FILE" "$name" "$value"
     log "$name generated (32 random bytes, hex)"
 }
 command -v openssl >/dev/null 2>&1 || die "no openssl on this host, and two secrets have to come

@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.s2.steward.ui.auth.DiscordAuth;
+import eu.nordtal.s2.steward.ui.auth.Sessions;
 import eu.nordtal.s2.steward.ui.config.DatabaseSpec;
 import eu.nordtal.s2.steward.ui.config.UiSpec;
 import eu.nordtal.s2.steward.ui.data.Data;
@@ -48,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -160,6 +162,9 @@ class StewardUiIntegrationTest {
     private static HttpClient http;
     private static PostgreSQLContainer<?> postgres;
     private static Data data;
+
+    /** Kept, so a test can build a second interface against the same database. */
+    private static UiSpec config;
     private static Path configRoot;
 
     @BeforeAll
@@ -319,7 +324,7 @@ class StewardUiIntegrationTest {
             });
         }).start(DISCORD_PORT);
 
-        final UiSpec config = new UiSpec() {
+        config = new UiSpec() {
             @Override
             public int port() {
                 return UI_PORT;
@@ -533,7 +538,7 @@ class StewardUiIntegrationTest {
         get(browser, "/auth/callback?code=the-code&state=" + state);
 
         final String cookie = login.headers().allValues("Set-Cookie").stream()
-                .filter(header -> header.startsWith("JSESSIONID="))
+                .filter(header -> header.startsWith(Sessions.COOKIE + "="))
                 .findFirst()
                 .orElseGet(() -> fail("the sign-in set no session cookie: "
                         + login.headers().map()));
@@ -545,13 +550,85 @@ class StewardUiIntegrationTest {
         assertTrue(cookie.toLowerCase(Locale.ROOT).contains("samesite=lax"), cookie
                 + " has no SameSite, so what a browser does with it on a cross-site POST is the"
                 + " browser's default rather than this application's decision");
-        // ...and NOT Secure, because this request was plain http. That is `setSecureRequestOnly`
-        // doing its job: behind Caddy every request is https and the flag appears, in front of a
-        // developer on 127.0.0.1 it does not - and a hard Secure here would hand out a cookie the
-        // browser then refuses to send back, which is a sign-in that never completes and says
-        // nothing about why.
+        // ...and NOT Secure, because this request arrived over plain http and carried no
+        // X-Forwarded-Proto. That is the flag doing its job: behind Caddy the header says https
+        // and it appears, in front of a developer on 127.0.0.1 it does not - and a cookie marked
+        // Secure on a plain http connection is one the browser refuses to send back, which is a
+        // sign-in that never completes and says nothing about why.
         assertFalse(cookie.contains("Secure"), cookie
                 + " is marked Secure on a plain http request, so a local sign-in cannot finish");
+
+        // And the other half of the same decision, which is the one the deployment actually runs.
+        final HttpClient throughCaddy = browser();
+        final HttpResponse<String> behindTls = throughCaddy.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + "/auth/login"))
+                .header("X-Forwarded-Proto", "https")
+                .GET().build(), HttpResponse.BodyHandlers.ofString());
+
+        final String secured = behindTls.headers().allValues("Set-Cookie").stream()
+                .filter(header -> header.startsWith(Sessions.COOKIE + "="))
+                .findFirst()
+                .orElseGet(() -> fail("no session cookie: " + behindTls.headers().map()));
+        assertTrue(secured.contains("Secure"), secured
+                + " is not marked Secure although the proxy said the browser is on https, so the"
+                + " session cookie travels in clear text to anybody who can downgrade one request");
+    }
+
+    @Test
+    @DisplayName("the session survives this service being restarted")
+    void theSessionOutlivesTheProcess() throws Exception {
+        // THE WHOLE REASON steward_session EXISTS. Until V19 a session was a map in this JVM's
+        // heap, so `docker restart steward-ui` - a release, an image update, a crash - signed
+        // everybody out, and what an operator then saw was not "please sign in" but three
+        // unexplained redirects through discord.com on the next page they opened.
+        //
+        // Stopping and rebuilding the whole service is the only honest way to assert that. A test
+        // that only re-read the row would be asserting that PostgreSQL stores what it is given.
+        final HttpClient browser = browser();
+        signIn(browser);
+        assertTrue(GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class)
+                .get("signedIn").getAsBoolean());
+
+        restartTheInterface();
+
+        final JsonObject me = GSON.fromJson(get(browser, "/api/me").body(), JsonObject.class);
+        assertTrue(me.get("signedIn").getAsBoolean(),
+                "the browser kept its cookie and the row is still there, so this is still a "
+                        + "session: " + me);
+        assertEquals("Till", me.get("name").getAsString(), me.toString());
+    }
+
+    @Test
+    @DisplayName("signing in hands out a new session id, so a planted cookie is not promoted")
+    void theSessionIdIsRotatedOnSignIn() throws Exception {
+        // Session fixation. A row exists before anybody is signed in, because the OAuth state has
+        // to live somewhere between /auth/login and /auth/callback. If the callback simply filled
+        // that row in, the id a browser was carrying BEFORE the sign-in would be a signed-in id
+        // after it - and anybody who can get a cookie value into somebody else's browser (a shared
+        // machine, an XSS anywhere under nordtal.eu, a subdomain writing a cookie for the parent)
+        // would be signed in as them the moment they signed in.
+        final HttpClient browser = browser();
+        final HttpResponse<String> login = get(browser, "/auth/login");
+        final String before = sessionCookieOf(login);
+
+        final HttpResponse<String> callback =
+                get(browser, "/auth/callback?code=the-code&state=" + stateFrom(login));
+        final String after = sessionCookieOf(callback);
+
+        assertNotEquals(before, after,
+                "the id that was in the browser before anybody proved who they were is now a "
+                        + "signed-in session");
+
+        // And the old one is not merely unused - it is gone. A row left behind would still be a
+        // valid cookie for whoever planted it, whatever this browser is now carrying.
+        final HttpClient planted = browser();
+        final HttpResponse<String> withTheOldId = planted.send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + UI_PORT + "/api/me"))
+                .header("Cookie", Sessions.COOKIE + "=" + before)
+                .GET().build(), HttpResponse.BodyHandlers.ofString());
+
+        assertFalse(GSON.fromJson(withTheOldId.body(), JsonObject.class)
+                .get("signedIn").getAsBoolean(), withTheOldId.body());
     }
 
     @Test
@@ -592,8 +669,9 @@ class StewardUiIntegrationTest {
     @DisplayName("signing out needs the CSRF token too, and then really ends the session")
     void signingOutIsNotSomethingAnotherSiteCanDo() throws Exception {
         // /auth/logout is not under /api/*, so the filter that guards every write does not see it.
-        // A form on any other site can post here carrying the cookie - Javalin leaves SameSite
-        // unset - and sign somebody out of the deployment they are watching.
+        // The cookie is SameSite=Lax, which allows exactly the top-level POST a form on another
+        // site performs, so without a token check a stranger's page could sign somebody out of the
+        // deployment they are watching.
         final HttpClient browser = browser();
         signIn(browser);
 
@@ -1479,6 +1557,38 @@ class StewardUiIntegrationTest {
         final Matcher state = Pattern.compile("[?&]state=([^&]+)").matcher(location);
         assertTrue(state.find(), location);
         return state.group(1);
+    }
+
+    /** The value of the session cookie this response set, or a failure naming what it did set. */
+    private static String sessionCookieOf(final HttpResponse<String> response) {
+        return response.headers().allValues("Set-Cookie").stream()
+                .filter(header -> header.startsWith(Sessions.COOKIE + "="))
+                .map(header -> header.substring(Sessions.COOKIE.length() + 1).split(";", 2)[0])
+                .findFirst()
+                .orElseGet(() -> fail("this response set no session cookie: "
+                        + response.headers().map()));
+    }
+
+    /**
+     * Stops the interface and starts a new one against the same database.
+     *
+     * <p>As close to {@code docker restart steward-ui} as a test in one JVM gets: a new
+     * {@code StewardUi}, a new {@code Data} and therefore a new connection pool, sharing nothing
+     * with the old one but the rows. {@code Data} is deliberately NOT closed - {@code http} and
+     * every other test in this class still hold sessions in the old one, and closing a Hikari pool
+     * out from under them would fail the next test rather than this one.</p>
+     */
+    private static void restartTheInterface() throws Exception {
+        ui.stop();
+        ui = new StewardUi(config,
+                new DiscordAuth(config.discord(), config.publicUrl(),
+                        "http://127.0.0.1:" + DISCORD_PORT),
+                new InternalClient("steward-worker", config.worker().baseUrl(),
+                        config.worker().token(), Duration.ofSeconds(5)),
+                new InternalClient("steward-deployer", config.deployer().baseUrl(),
+                        config.deployer().token(), Duration.ofSeconds(5)),
+                data);
+        ui.start(UI_PORT);
     }
 
     private static HttpResponse<String> logout(final HttpClient browser) throws Exception {

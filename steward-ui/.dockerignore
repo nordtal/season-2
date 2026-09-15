@@ -1,0 +1,12 @@
+# The context is what the Dockerfile COPYs and nothing else - same rule as the other three modules,
+# and the same trap: a new COPY without a line here fails with `failed to compute cache key`.
+#
+# It also keeps `frontend/` out, which matters here more than anywhere else: node_modules is tens of
+# thousands of files and would be uploaded to the daemon on every build for an image that does not
+# contain a single one of them.
+*
+!build/libs/*.jar
+
+# The thin jar back out again: shadowJar leaves both side by side and the COPY uses a glob. Two
+# matches is not an error - BuildKit picks one and says nothing.
+build/libs/*-thin.jar

@@ -170,4 +170,37 @@ class MessageRendererTest {
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
                 () -> RENDER.format(Locale.ENGLISH, "greeting", "name"));
     }
+
+    @Test
+    @DisplayName("a whole Map passed as the parameters says so, instead of counting to one")
+    void aMapWhereThePairsBelongSaysWhatIsWrong() {
+        // This is the shape of season-2-ops/15, and the reason it cost a production defect: a Map is
+        // an Object, `parameters` is Object..., so `format(locale, key, map)` compiles. It then
+        // throws "parameters must alternate name and value, got 1" - a count, about an argument the
+        // caller never counted - and it throws for EVERY call, including one whose map is empty.
+        // ConsoleUser did exactly this and the proxy console could answer no command at all.
+        //
+        // The trap itself is still open by decision (season-2-ops/16): the overload that would close
+        // it can silently redirect existing three-argument calls. What is closed here is the part
+        // that made it expensive - the message now names the mistake instead of describing a
+        // symptom.
+        final IllegalArgumentException refused = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> RENDER.format(Locale.ENGLISH, "greeting", (Object) Map.of("name", "Till")));
+
+        assertTrue(refused.getMessage().contains("Map"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("Flatten"), refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("an empty Map is caught too, which is the case that hid the bug")
+    void anEmptyMapIsCaughtAsWell() {
+        // The empty map is the one that matters most: a reply with no placeholders looks like the
+        // safest call in the codebase, and it is the one that threw first.
+        final IllegalArgumentException refused = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> RENDER.format(Locale.ENGLISH, "greeting", (Object) Map.of()));
+
+        assertTrue(refused.getMessage().contains("Map"), refused.getMessage());
+    }
 }

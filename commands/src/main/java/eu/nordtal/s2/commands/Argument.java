@@ -57,7 +57,24 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
          * the normal flow). In Discord it is the member's id and nothing else; in chat it is a
          * Minecraft name resolved through {@code account_link}, refused when there is no link.</p>
          */
-        ACCOUNT
+        ACCOUNT,
+
+        /**
+         * An open payment reference.
+         *
+         * <p>A word, as far as parsing goes - six characters, no spaces - and <b>not</b>
+         * {@link #WORD}, because every adapter that can offer a list has to offer one here. Typing
+         * a reference out of memory is the one mistake nobody needs on the single command that
+         * books money, and that argument is the same in chat, in Discord and in a browser: Discord
+         * autocompletes it from {@code openReferences()}, and the Steward interface draws a select
+         * filled from {@code GET /api/payments/open}.</p>
+         *
+         * <p>It was a {@link #WORD} until 2026-09-14, and the interface would have rendered it as a
+         * text field for exactly as long as nobody looked. A kind is what each adapter already
+         * switches on, so making it one is what turns "offer a list" from a note into something the
+         * compiler asks about.</p>
+         */
+        REFERENCE
     }
 
     public Argument {
@@ -120,6 +137,11 @@ public record Argument(String name, Kind kind, boolean required, int min, int ma
     /** A required Discord account - a person who may not have linked a Minecraft one. */
     public static Argument account(final String name) {
         return new Argument(name, Kind.ACCOUNT, true, 0, 0, List.of());
+    }
+
+    /** A required open payment reference - a word every adapter offers a list for. */
+    public static Argument reference(final String name) {
+        return new Argument(name, Kind.REFERENCE, true, 0, 0, List.of());
     }
 
     /** A required choice from a fixed set. */

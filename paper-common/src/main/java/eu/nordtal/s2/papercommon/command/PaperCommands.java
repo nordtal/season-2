@@ -192,7 +192,7 @@ public final class PaperCommands {
      * A subtree this adapter did not build, hung under one of its roots - for the commands that are
      * not {@link NordtalCommand}s and should not become ones. {@code /smp update} is the case it
      * exists for: it already travels through {@code update_request} to a container that is not a
-     * command target, and its answer is the updater's own report, which must not be rendered twice.
+     * command target, and its answer is steward-worker's own report, which must not be rendered twice.
      *
      * @param root the first path segment it belongs under, which must be one a command here uses
      */
@@ -441,7 +441,7 @@ public final class PaperCommands {
         final java.util.function.Supplier<java.util.Collection<String>> offered =
                 suggestions.get(declaration.name() + " " + argument.name());
         return switch (argument.kind()) {
-            case WORD -> {
+            case WORD, REFERENCE -> {
                 final RequiredArgumentBuilder<CommandSourceStack, ?> word =
                         Commands.argument(argument.name(), StringArgumentType.word());
                 if (offered != null) {

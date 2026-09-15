@@ -26,6 +26,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * The daily farm-world reset: when it happens, who is told, and what happens if tomorrow's world is
@@ -60,6 +61,8 @@ public final class FarmWorldReset {
     private final SmpHud hud;
     private final eu.nordtal.s2.smp.announce.Announcer announcer;
     private final DailySchedule schedule;
+    private final BackupGate backups;
+    private final java.util.concurrent.Executor async;
 
     /**
      * Told the world's name once it has been replaced, so whatever else points into the farm world
@@ -98,12 +101,22 @@ public final class FarmWorldReset {
     private static final Duration STAGING_DELAY = Duration.ofMinutes(1);
     private volatile boolean swapping;
 
+    /**
+     * @param backups what the scheduled reset asks before it deletes anything. Not consulted by
+     *                {@link #resetNow()} - see there
+     * @param async   the plugin's async executor; {@link BackupGate#refusal()} is a database round
+     *                trip and the reset runs on the server thread
+     */
     public FarmWorldReset(final Plugin plugin, final SmpSpec config, final Worlds worlds,
                           final FarmWorldSwap swap, final PreGenerator pregen,
                           final Messages messages, final PlayerLocales locales,
                           final SmpDao dao, final Navigation navigation, final SmpSounds sounds,
-                          final SmpHud hud, final eu.nordtal.s2.smp.announce.Announcer announcer) {
+                          final SmpHud hud, final eu.nordtal.s2.smp.announce.Announcer announcer,
+                          final BackupGate backups,
+                          final java.util.concurrent.Executor async) {
         this.announcer = java.util.Objects.requireNonNull(announcer, "announcer");
+        this.backups = java.util.Objects.requireNonNull(backups, "backups");
+        this.async = java.util.Objects.requireNonNull(async, "async");
         this.plugin = plugin;
         this.config = config;
         this.worlds = worlds;
@@ -150,6 +163,19 @@ public final class FarmWorldReset {
         scheduleNext();
         plugin.getLogger().info("the farm world resets daily at " + schedule
                 + "; warnings at " + config.farmResetWarningMinutes() + " minutes");
+        if (backups.isOff()) {
+            // WARNING and not INFO, and said on every start. This is an off switch on the only
+            // thing standing between a failed backup and a deleted world; a line nobody notices is
+            // how it comes to be left off for a season.
+            plugin.getLogger().warning("farm-reset-backup-window-hours is 0, so the daily reset"
+                    + " deletes the farm world without checking that anything was ever saved."
+                    + " That is a supported setting for a stack with no steward-worker in it and a"
+                    + " bad one for anything else.");
+        } else {
+            plugin.getLogger().info("the reset first requires a network backup that finished and"
+                    + " saved something within the last " + backups.window().toHours() + " hours"
+                    + " (config.yml#farm-reset-backup-window-hours); without one it does not run");
+        }
     }
 
     public void stop() {
@@ -172,7 +198,18 @@ public final class FarmWorldReset {
         pending.clear();
     }
 
-    /** Runs the reset immediately, for {@code /smp farmreset now}. */
+    /**
+     * Runs the reset immediately, for {@code /smp farmreset now}.
+     *
+     * <p><b>The backup check does not apply here</b>, and that is a decision rather than an
+     * oversight. The check exists because the nightly reset used to be coupled to a nightly backup
+     * by nothing but two times in one file, and it runs at five in the morning with nobody
+     * watching. This path is an admin typing an irreversible command on purpose, in front of the
+     * console that would print the refusal; refusing them and leaving no way through would mean
+     * the only way to reset a farm world on a stack whose backup is broken is to edit a config and
+     * restart the season's SMP. What it costs is that the guard is bypassable by an admin, which
+     * is true of every guard an admin can reach.</p>
+     */
     public void resetNow() {
         performReset();
     }
@@ -200,7 +237,7 @@ public final class FarmWorldReset {
                     () -> warn(minutes), ticks(untilWarning)));
         }
 
-        pending.add(Bukkit.getScheduler().runTaskLater(plugin, this::performReset, ticks(untilReset)));
+        pending.add(Bukkit.getScheduler().runTaskLater(plugin, this::resetIfSaved, ticks(untilReset)));
     }
 
     private static long ticks(final Duration duration) {
@@ -236,6 +273,76 @@ public final class FarmWorldReset {
     }
 
     // ------------------------------------------------------------------ the reset
+
+    /**
+     * The scheduled reset: ask the database first, then reset or refuse.
+     *
+     * <h2>Three threads, in this order, and none of them optional</h2>
+     * The Bukkit task fires on the server thread, the question goes to the async executor because
+     * a round trip on a database that has stopped answering costs the pool's whole connection
+     * timeout with the server stopped behind it, and the answer comes back to the server thread
+     * because everything {@link #performReset()} does - teleports, world unload, world load - is
+     * main-thread-only. {@code :common}'s {@code LocaleJoinWiringTest} exists because the first of
+     * those three was got wrong once already.
+     *
+     * <p>{@link #scheduleNext()} runs on every path out of here. A refusal that forgot to re-arm
+     * the clock would not postpone one reset, it would end the daily reset for the rest of the
+     * season, and the only sign would be its absence.</p>
+     */
+    private void resetIfSaved() {
+        if (swapping) {
+            return;
+        }
+        async.execute(() -> {
+            final Optional<String> refusal;
+            try {
+                refusal = backups.refusal();
+            } catch (final RuntimeException unreachable) {
+                // A question nobody can answer is answered "no": the reset is the irreversible
+                // half, and a database that cannot be read is exactly as much proof of a backup as
+                // an empty table. The throwable is kept because "which database, and why not" is
+                // the only thing that makes this fixable.
+                Bukkit.getScheduler().runTask(plugin, () -> refuse(
+                        "THE FARM WORLD WAS NOT RESET. The database could not be asked whether a"
+                                + " network backup succeeded, and an unanswerable question is not a"
+                                + " backup. Nothing has been touched.", unreachable));
+                return;
+            }
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (refusal.isPresent()) {
+                    refuse(refusal.get(), null);
+                } else {
+                    performReset();
+                }
+            });
+        });
+    }
+
+    /**
+     * Says why the world is still there, in the log and to whoever is standing in it, and re-arms.
+     *
+     * <p>There is <b>no line into the Discord admin channel from this plugin</b>. The only path
+     * {@code smp} has into Discord is {@link eu.nordtal.s2.smp.announce.Announcer}, which posts
+     * into the per-language <em>announcement</em> channels through a {@code command_request} row -
+     * the right place for "the farm world resets in ten minutes" and the wrong one for an
+     * operational failure nobody but an admin can act on. Inventing a second transport for one
+     * sentence is worse than the log line, so this is the log line. Noted here so the gap is
+     * visible rather than assumed away.</p>
+     */
+    private void refuse(final String why, final Throwable cause) {
+        if (cause == null) {
+            plugin.getLogger().warning(why);
+        } else {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, why, cause);
+        }
+        // The four warnings promised a reset that is not coming, so the people who read them are
+        // told. No sound: the countdown ticks because a world is about to be taken away, and for
+        // somebody standing in the farm world this is the good outcome.
+        forEachInFarmWorld(player -> player.sendMessage(MessageRenderer.of(messages)
+                .get(locales.of(player.getUniqueId()), "smp.farm.not-saved")));
+        ensureStaging();
+        scheduleNext();
+    }
 
     private void performReset() {
         if (swapping) {

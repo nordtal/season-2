@@ -52,8 +52,8 @@ public final class Channels {
      * A run was asked for, or one has started counting down. Payload: empty.
      *
      * <p>Matches {@code pg_notify('nordtal_update', '')} in {@code UpdateDao#submit}. Two processes
-     * listen: the updater, so a request is claimed the moment it is written, and the proxy, so the
-     * countdown appears in front of every player the moment the updater starts one rather than up to
+     * listen: steward-worker, so a request is claimed the moment it is written, and the proxy, so the
+     * countdown appears in front of every player the moment the worker starts one rather than up to
      * a poll later. On a thirty-second countdown a five-second poll is a sixth of the warning spent
      * before it is shown.</p>
      *

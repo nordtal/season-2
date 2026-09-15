@@ -52,6 +52,10 @@ public final class HungerGamesCommands {
     private static final Set<Surface> EVERYWHERE =
             Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
 
+    /** {@code /hg start} is also a button in Steward - see {@code SmpCommands.EVERYWHERE_AND_WEB}. */
+    private static final Set<Surface> EVERYWHERE_AND_WEB =
+            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE, Surface.WEB);
+
     /**
      * {@code /hg start [confirm]} - begins the event. Its own confirmation lives in
      * {@link StartGame}.
@@ -69,7 +73,7 @@ public final class HungerGamesCommands {
      * asserts no path is both a subcommand and a group, so the next one fails the build.</p>
      */
     public static final Declaration START = new Declaration(
-            List.of("hg", "start"), Target.HUNGER_GAMES, EVERYWHERE, true, false,
+            List.of("hg", "start"), Target.HUNGER_GAMES, EVERYWHERE_AND_WEB, true, false,
             List.of(eu.nordtal.s2.commands.Argument.choice("confirm", List.of("confirm"))
                     .optional()));
 

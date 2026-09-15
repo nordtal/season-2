@@ -9,6 +9,7 @@ import com.bunq.sdk.model.generated.endpoint.BunqMeTabResultInquiryApiObject;
 import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
 import com.bunq.sdk.model.generated.object.AmountObject;
 import eu.nordtal.s2.discordbot.config.BotSpec;
+import eu.nordtal.s2.discordbot.config.Configured;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -55,16 +56,42 @@ public final class BunqGateway {
 
     private final BotSpec config;
     private final long accountId;
+    private final boolean configured;
 
     private boolean contextLoaded;
 
     /**
-     * @param config the loaded and validated bot configuration; the account id is known to be
+     * @param config the loaded bot configuration; the account id, if there is one, is known to be
      *               numeric because {@code Configs.bot()} checked it at startup
      */
     public BunqGateway(final BotSpec config) {
         this.config = Objects.requireNonNull(config, "config");
-        this.accountId = Long.parseLong(config.bunq().accountId().trim());
+        this.configured = Configured.isSet(config.bunq().apiKey())
+                && Configured.isSet(config.bunq().accountId());
+        this.accountId = configured ? Long.parseLong(config.bunq().accountId().trim()) : 0L;
+    }
+
+    /**
+     * Whether there is a bunq account behind this at all.
+     *
+     * <p>A season without one is a season whose bot does everything except take money: the roles,
+     * the link codes, the hunger games and the update commands are untouched. The caller decides
+     * what to do about it - the poll loop is not scheduled and the purchase button is not offered -
+     * because a gateway that quietly answered "no payments" would look exactly like a bank that
+     * had nothing new, which is the one thing this must never be mistaken for.</p>
+     *
+     * @return whether an API key and an account id were both configured
+     */
+    public boolean configured() {
+        return configured;
+    }
+
+    private void requireConfigured() {
+        if (!configured) {
+            throw new IllegalStateException(
+                    "bunq is not configured: set bunq.api-key and bunq.account-id before asking the"
+                            + " bank for anything. Nothing here can be answered without them.");
+        }
     }
 
     /**
@@ -76,6 +103,7 @@ public final class BunqGateway {
      * @return the tab id and the URL to send the payer to
      */
     public Tab createTab(final int amountCents, final String description) {
+        requireConfigured();
         loadContext();
         final Long tabId = BunqMeTabApiObject.create(
                 new BunqMeTabEntryApiObject(
@@ -96,6 +124,7 @@ public final class BunqGateway {
      * @return whether bunq accepted the cancellation
      */
     public boolean cancelTab(final long tabId) {
+        requireConfigured();
         loadContext();
         try {
             BunqMeTabApiObject.update(tabId, accountId, STATUS_CANCELLED);
@@ -115,6 +144,7 @@ public final class BunqGateway {
      * @return the payments bunq attributes to it, possibly empty
      */
     public List<PaymentApiObject> paymentsFor(final long tabId) {
+        requireConfigured();
         loadContext();
         final List<BunqMeTabResultInquiryApiObject> inquiries =
                 BunqMeTabApiObject.get(tabId, accountId).getValue().getResultInquiries();
@@ -134,6 +164,7 @@ public final class BunqGateway {
      * @return the payments
      */
     public List<PaymentApiObject> recentPayments(final int count) {
+        requireConfigured();
         loadContext();
         return PaymentApiObject.list(accountId, Map.of("count", String.valueOf(count))).getValue();
     }

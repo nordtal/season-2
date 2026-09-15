@@ -48,6 +48,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public java.util.List<UpdateRequest> recent(final int limit) {
+        return dao.recent(Math.max(1, limit));
+    }
+
+    @Override
     public java.util.List<UpdateRequest> since(final long id) {
         return dao.since(id);
     }
@@ -64,6 +69,33 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public Optional<UpdateRequest> lastSuccessfulBackup(final Duration within) {
+        Objects.requireNonNull(within, "within");
+        // Clamped like every other duration on this class: a caller computing a window from a
+        // configured number should get "nothing qualifies", not an exception on the path that is
+        // deciding whether to delete a world.
+        return dao.backupsDoneWithin(Math.max(0L, within.toSeconds())).stream()
+                .filter(JdbiUpdateDirectory::saved)
+                .findFirst();
+    }
+
+    /**
+     * Whether this row's report shows a file, rather than merely a run that did not complain.
+     *
+     * <p>{@link UpdateReports#parse} answers empty for anything it cannot read, and empty is
+     * treated as "no" here. That is the opposite of what every drawing surface does with the same
+     * text - they fall back to printing it raw - and deliberately so: a Discord embed failing to
+     * parse a report should still show something, while a caller deciding whether a world may be
+     * deleted must not accept text it cannot interpret as proof.</p>
+     */
+    private static boolean saved(final UpdateRequest request) {
+        return UpdateReports.parse(request.result())
+                .filter(report -> report.stage() == UpdateReport.Stage.DONE)
+                .filter(UpdateReport::savedSomething)
+                .isPresent();
+    }
+
+    @Override
     public Optional<UpdateRequest> claimNext() {
         return dao.claimNext();
     }
@@ -73,7 +105,7 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
         Objects.requireNonNull(status, "status");
         if (!status.isFinished() || status == UpdateStatus.CANCELLED) {
             // CANCELLED is reachable only through cancelCountdown, which is a person withdrawing
-            // a countdown. Letting it in here would mean an updater could report work it had
+            // a countdown. Letting it in here would mean a worker could report work it had
             // already started as somebody else's cancellation.
             throw new IllegalArgumentException(
                     "A claimed request finishes as DONE or FAILED, not as " + status);

@@ -58,7 +58,7 @@ public final class UpdateFeed {
     /**
      * How far back a start looks for runs that ended while this bot was down.
      *
-     * <p>Twelve minutes, the same patience every other surface gives the updater. Anything older is
+     * <p>Twelve minutes, the same patience every other surface gives the worker. Anything older is
      * history somebody would read the log for rather than news for a channel - and posting it would
      * mean a bot that crash-loops filling the channel with the same finished run.</p>
      */

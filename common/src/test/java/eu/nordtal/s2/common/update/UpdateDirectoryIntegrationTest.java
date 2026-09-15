@@ -106,6 +106,26 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
+    @DisplayName("a page size of zero is still a page, and says so in the interface as well")
+    void aLimitBelowOneIsStillAPage() {
+        // `/api/updates?limit=0` reaches this method as a zero, and what it must not do is come
+        // back with nothing while the javadoc promises "at most limit". Either behaviour is
+        // defensible; only one of them is written down, and this is the one - clamped, like the
+        // journal next door, so the two lists cannot drift apart on a query nobody thinks about.
+        updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
+        final UpdateRequest newest =
+                updates.submit(UpdateKind.BACKUP, UpdateSource.CONSOLE, "b", Duration.ZERO);
+
+        assertEquals(List.of(newest.id()), ids(updates.recent(0)));
+        assertEquals(List.of(newest.id()), ids(updates.recent(-5)));
+        assertEquals(2, updates.recent(10).size());
+    }
+
+    private static List<Long> ids(final List<UpdateRequest> requests) {
+        return requests.stream().map(UpdateRequest::id).toList();
+    }
+
+    @Test
     @DisplayName("every kind the code can name is a kind the CHECK accepts")
     void theEnumAndTheConstraintAgree() {
         // The one thing an in-memory test cannot say anything about. UpdateKind is a Java enum and
@@ -202,10 +222,10 @@ class UpdateDirectoryIntegrationTest {
     }
 
     @Test
-    void twoUpdatersNeverClaimTheSameRow() throws Exception {
+    void twoWorkersNeverClaimTheSameRow() throws Exception {
         updates.submit(UpdateKind.REPORT, UpdateSource.DISCORD, "a", Duration.ZERO);
 
-        // Hold the row in an open transaction, the way a second updater that claimed it would.
+        // Hold the row in an open transaction, the way a second worker that claimed it would.
         try (Connection holder = dataSource.getConnection()) {
             holder.setAutoCommit(false);
             try (Statement statement = holder.createStatement()) {
@@ -250,7 +270,7 @@ class UpdateDirectoryIntegrationTest {
         updates.claimNext().orElseThrow();
         assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "x").isPresent());
         assertTrue(updates.finish(submitted.id(), UpdateStatus.FAILED, "y").isEmpty(),
-                "and an answer that is already there is not overwritten by a second updater");
+                "and an answer that is already there is not overwritten by a second worker");
     }
 
     @Test
@@ -259,7 +279,7 @@ class UpdateDirectoryIntegrationTest {
         updates.claimNext().orElseThrow();
 
         // CANCELLED is reachable only through cancelCountdown, which is a person withdrawing one.
-        // Letting it in here would mean an updater could report its own work as somebody's cancel.
+        // Letting it in here would mean a worker could report its own work as somebody's cancel.
         assertThrows(IllegalArgumentException.class,
                 () -> updates.finish(submitted.id(), UpdateStatus.CANCELLED, "too late"));
         assertThrows(IllegalArgumentException.class,
@@ -277,12 +297,12 @@ class UpdateDirectoryIntegrationTest {
         assertEquals("Till changed their mind", cancelled.result());
 
         assertTrue(updates.countingDown().isEmpty(), "and nothing is counting down any more");
-        assertTrue(updates.claimNext().isEmpty(), "and no updater will ever pick it up");
+        assertTrue(updates.claimNext().isEmpty(), "and no worker will ever pick it up");
     }
 
     @Test
-    @DisplayName("the countdown the updater starts is the one the proxy shows and the button stops")
-    void theUpdatersOwnCountdownIsCancellable() {
+    @DisplayName("the countdown steward-worker starts is the one the proxy shows and the button stops")
+    void theWorkersOwnCountdownIsCancellable() {
         // The whole of V13, driven end to end. The row is written due immediately, claimed, and
         // only then given a countdown - which is the order that stops a run finding nothing new
         // from counting thirty seconds down to everybody playing first.
@@ -307,6 +327,88 @@ class UpdateDirectoryIntegrationTest {
         assertTrue(updates.finish(submitted.id(), UpdateStatus.DONE, "{}").isEmpty(),
                 "the cancellation is the answer; a late finish must not overwrite it");
         assertEquals("stop", updates.find(submitted.id()).orElseThrow().result());
+    }
+
+    /**
+     * Everything that stops a server counts down, and the list is asked rather than copied.
+     *
+     * <p><b>The bug this is written against</b> (Till, 2026-09-15, season-2-ops/19): a backup run
+     * stopped the network and moved everybody to the waiting room without a word. The reason was
+     * {@code countingDown()} naming {@code RESTART} and {@code UPDATE} and not {@code BACKUP} - and
+     * that was the <em>second</em> time the list had gone stale, the first being 2026-09-07 when
+     * {@code UPDATE} was the one missing.</p>
+     *
+     * <p>So this test does not restate the list. It asks {@link UpdateKind#stopsServers()} - the
+     * same property the worker uses to decide whether there is anything to stop - and requires that
+     * every kind answering yes is visible to whoever announces the outage. A new kind that stops
+     * servers is therefore covered on the day it is written, which is the only way this stops
+     * happening a third time.</p>
+     */
+    @Test
+    @DisplayName("every kind that stops servers is visible to the countdown")
+    void everythingThatStopsServersCountsDown() {
+        for (final UpdateKind kind : UpdateKind.values()) {
+            if (!kind.stopsServers()) {
+                continue;
+            }
+            execute("TRUNCATE TABLE update_request RESTART IDENTITY");
+            final UpdateRequest submitted =
+                    updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
+            updates.claimNext().orElseThrow();
+            updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+
+            assertEquals(submitted.id(), updates.countingDown()
+                            .orElseThrow(() -> new AssertionError(kind
+                                    + " stops servers and is counting down, but nobody can see it"
+                                    + " - players get no warning at all before it fires"))
+                            .id(),
+                    kind + " has to be the outage the proxy announces");
+        }
+    }
+
+    /**
+     * And every one of them can be called off again.
+     *
+     * <p>Separate from the test above because the hole was separate: {@code cancelCountdown} kept
+     * its own copy of the kind list, so on 2026-09-15 a backup was both unannounceable and
+     * unstoppable, and the second half would not have been noticed by fixing the first. "Stop the
+     * countdown" answering "there was nothing to stop" is worse than no button.</p>
+     */
+    @Test
+    @DisplayName("every countdown that can be started can be called off")
+    void everyCountdownCanBeCalledOff() {
+        for (final UpdateKind kind : UpdateKind.values()) {
+            if (!kind.stopsServers()) {
+                continue;
+            }
+            execute("TRUNCATE TABLE update_request RESTART IDENTITY");
+            final UpdateRequest submitted =
+                    updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
+            updates.claimNext().orElseThrow();
+            updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+
+            assertEquals(submitted.id(), updates.cancelCountdown("Till changed their mind")
+                            .orElseThrow(() -> new AssertionError(kind
+                                    + " is counting down and the cancel cannot reach it - the"
+                                    + " button would answer \"too late\" while it was still early"))
+                            .id());
+            assertEquals(UpdateStatus.CANCELLED, updates.find(submitted.id()).orElseThrow().status(),
+                    kind + " has to end up withdrawn, not merely unannounced");
+        }
+    }
+
+    /** The complement: a kind that stops nothing must never make players hear a countdown. */
+    @Test
+    @DisplayName("a kind that stops nothing is not announced")
+    void aReportIsNeverAnnounced() {
+        final UpdateRequest submitted =
+                updates.submit(UpdateKind.REPORT, UpdateSource.GAME, "Till", Duration.ZERO);
+        assertFalse(UpdateKind.REPORT.stopsServers(), "the premise of this test");
+        updates.claimNext().orElseThrow();
+        updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+
+        assertTrue(updates.countingDown().isEmpty(),
+                "a report moves nothing, so counting down to it would be a lie");
     }
 
     @Test
@@ -434,10 +536,10 @@ class UpdateDirectoryIntegrationTest {
     @DisplayName("an orphaned restart is a failure like every other kind, since 2026-09-08")
     void anOrphanedRestartIsAFailureToo() {
         // It was read as SUCCESS until this change, and the inference was right at the time: a
-        // RESTART was one Arcane redeploy of the whole project, which took the container running it
-        // down every time by design. A restart now cycles the four Minecraft services one at a time
-        // and never stops the updater, so an orphaned one means what every other kind means - the
-        // updater died in the middle of it. Reporting that as "the redeploy happened" is the one
+        // RESTART was one redeploy of the whole project asked for over HTTP, which took the
+        // container running it down every time by design. A restart now cycles the four Minecraft services one at a time
+        // and never stops the worker, so an orphaned one means what every other kind means - the
+        // worker died in the middle of it. Reporting that as "the redeploy happened" is the one
         // reading nobody can act on.
         final UpdateRequest restart = updates.submit(UpdateKind.RESTART, UpdateSource.DISCORD, "a", Duration.ZERO);
         updates.claimNext().orElseThrow();
@@ -530,6 +632,146 @@ class UpdateDirectoryIntegrationTest {
         assertEquals(UpdateStatus.FAILED, UpdateStatus.fromDatabase("SOMETHING_ELSE"));
         assertEquals(UpdateStatus.FAILED, UpdateStatus.fromDatabase(null));
         assertEquals(UpdateStatus.PENDING, UpdateStatus.fromDatabase("PENDING"));
+    }
+
+    // ---------------------------------------------------------------- proving a backup happened
+
+    /**
+     * The one volume line that makes a report a backup, and the one that does not.
+     *
+     * <p>Built through {@link UpdateReports#toJson} rather than written out as a string, because
+     * what is being asserted is that the reader and the writer agree - a literal here would pass
+     * for as long as somebody remembered to edit it.</p>
+     */
+    private static UpdateReport report(final UpdateReport.State volume) {
+        return UpdateReport.at(UpdateReport.Stage.DONE)
+                .with(new UpdateReport.ServiceLine("nordtal-s2_mc-smp", volume,
+                        List.of(new UpdateReport.Change("backup", null, "1.2 GiB in 41s")), null))
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
+    }
+
+    /**
+     * A23: every service back, nothing snapshotted, and the row says DONE.
+     *
+     * <p>This is the shape that made the check necessary. Run 23 reported a successful backup
+     * having saved zero volumes, and no surface anywhere drew a difference between that and a night
+     * that worked.</p>
+     */
+    private static UpdateReport reportWithNoVolumes() {
+        return UpdateReport.at(UpdateReport.Stage.DONE)
+                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
+    }
+
+    @Test
+    @DisplayName("a run that finished and saved a volume is the one it answers with")
+    void aBackupThatSavedSomethingCounts() {
+        final long id = backupRow("DONE", 0.25, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+
+        final UpdateRequest found = updates.lastSuccessfulBackup(Duration.ofHours(12)).orElseThrow();
+        assertEquals(id, found.id());
+        assertEquals(UpdateKind.BACKUP, found.kind());
+    }
+
+    @Test
+    @DisplayName("DONE with nothing saved is not a backup - the A23 case")
+    void aRunThatSavedNothingIsNotABackup() {
+        backupRow("DONE", 0.25, UpdateReports.toJson(reportWithNoVolumes()));
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
+                "a DONE row whose report lists no saved volume was accepted as a backup. That is"
+                        + " exactly run 23: every service healthy, every snapshot missing.");
+    }
+
+    @Test
+    @DisplayName("DONE with every volume FAILED is not a backup either")
+    void aRunWhoseVolumesAllFailedIsNotABackup() {
+        backupRow("DONE", 0.25, UpdateReports.toJson(report(UpdateReport.State.FAILED)));
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
+                "the report is read, not just the status column");
+    }
+
+    @Test
+    @DisplayName("a FAILED run does not count even when its report saved something first")
+    void aFailedRunIsNotABackup() {
+        // The database dump succeeds before the servers are stopped, so a run that fails later
+        // genuinely has a SAVED line in it. The status is what decides here, and it has to:
+        // whatever went wrong afterwards, nobody has said the volumes are consistent.
+        backupRow("FAILED", 0.25, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
+    }
+
+    @Test
+    @DisplayName("yesterday's backup is outside a window measured in hours")
+    void anOldBackupIsOutsideTheWindow() {
+        backupRow("DONE", 25.0, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
+                "the whole point of the window is that yesterday's backup does not authorise"
+                        + " today's reset");
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(48)).isPresent(),
+                "and the row is still there - it is the window that excluded it, not the filter");
+    }
+
+    @Test
+    @DisplayName("a result nobody can parse proves nothing")
+    void anUnreadableResultIsNotProof() {
+        // What a steward-worker older than 2026-09-07 wrote into that column. Every drawing surface
+        // falls back to printing this raw; a caller deciding whether a world may be deleted must
+        // not, because it cannot tell a saved volume from a sentence.
+        backupRow("DONE", 0.25, "Update finished. smp: running");
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
+    }
+
+    @Test
+    @DisplayName("the newest row that can be proved wins, not simply the newest row")
+    void itWalksPastARunItCannotProve() {
+        final long good = backupRow("DONE", 20.0, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+        backupRow("DONE", 1.0, UpdateReports.toJson(reportWithNoVolumes()));
+
+        // A LIMIT 1 on the SQL would answer with the one-hour-old row, find nothing saved in it,
+        // and report no backup at all - while a provable one sat two rows down inside the window.
+        assertEquals(good, updates.lastSuccessfulBackup(Duration.ofHours(24)).orElseThrow().id());
+    }
+
+    @Test
+    @DisplayName("an update is not a backup, however healthy it came back")
+    void onlyBackupsCount() {
+        execute("INSERT INTO update_request (kind, source, status, started, finished, result)"
+                + " VALUES ('UPDATE', 'DISCORD', 'DONE', now(), now(), $json$"
+                + UpdateReports.toJson(report(UpdateReport.State.SAVED)) + "$json$)");
+
+        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
+    }
+
+    /**
+     * Writes a settled {@code BACKUP} row {@code hoursAgo} in the past, on the database's clock.
+     *
+     * @return the id, so a test can say which row it expected back
+     */
+    private static long backupRow(final String status, final double hoursAgo, final String result) {
+        execute("INSERT INTO update_request (kind, source, status, requested, not_before, started,"
+                + " finished, result) VALUES ('BACKUP', 'CONSOLE', '" + status + "',"
+                + " now() - make_interval(hours => " + (int) Math.ceil(hoursAgo) + "),"
+                + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
+                + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
+                + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
+                + " $json$" + result + "$json$)");
+        return lastId();
+    }
+
+    private static long lastId() {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             java.sql.ResultSet rows = statement.executeQuery(
+                     "SELECT max(id) FROM update_request")) {
+            rows.next();
+            return rows.getLong(1);
+        } catch (final SQLException failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     // ---------------------------------------------------------------- helpers

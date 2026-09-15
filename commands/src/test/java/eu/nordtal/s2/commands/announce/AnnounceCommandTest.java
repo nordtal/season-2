@@ -68,8 +68,12 @@ class AnnounceCommandTest {
     }
 
     @Test
-    @DisplayName("announce is typed nowhere: SYSTEM only, so no adapter registers it")
-    void isSystemOnly() {
-        assertEquals(Set.of(Surface.SYSTEM), AnnounceCommands.ANNOUNCE.surfaces());
+    @DisplayName("announce is registered by no command tree, and is askable from Steward")
+    void isSystemAndWeb() {
+        // SYSTEM since 2026-09-06: the SMP writes a row at a milestone and nobody types it. WEB
+        // since 2026-09-13: Till wanted the same line askable by hand. Neither GAME, DISCORD nor
+        // CONSOLE, because those are the three an adapter builds a Brigadier or JDA tree from, and
+        // /announce must not become a command a player can find.
+        assertEquals(Set.of(Surface.SYSTEM, Surface.WEB), AnnounceCommands.ANNOUNCE.surfaces());
     }
 }

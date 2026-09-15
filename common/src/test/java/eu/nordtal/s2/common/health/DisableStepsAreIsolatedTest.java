@@ -48,7 +48,7 @@ class DisableStepsAreIsolatedTest {
                 bare.add(matcher.group(1) + "." + matcher.group(2) + "()");
             }
             assertEquals(List.of(), bare, relative + ": these disable steps are bare, so the first"
-                    + " one that throws - a NoClassDefFoundError from a jar the updater has just"
+                    + " one that throws - a NoClassDefFoundError from a jar the worker has just"
                     + " replaced is the known way - skips every step after it");
             assertTrue(body.contains("quietly("), relative + ": onDisable wraps nothing");
         }

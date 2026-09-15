@@ -40,7 +40,7 @@ ok "the four servers are known"
 case_begin "reset refuses anything that is not one of them"
 # The empty string is the case that matters: `deploy/dev reset` with no argument must reset nothing
 # rather than falling through to some default.
-for wrong in "" " " "postgres" "updater" "all" "smp " "SMP" "../smp" "*"; do
+for wrong in "" " " "postgres" "steward-worker" "all" "smp " "SMP" "../smp" "*"; do
     if known_service "$wrong"; then
         bad "'$wrong' was accepted as a service to reset"
     fi

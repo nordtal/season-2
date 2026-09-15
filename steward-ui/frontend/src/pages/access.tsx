@@ -1,0 +1,1399 @@
+import { useState } from "react"
+import {
+  CircleAlert,
+  ExternalLink,
+  Search,
+  ShieldCheck,
+  ShieldX,
+  TriangleAlert,
+  UserPlus,
+} from "lucide-react"
+import { toast } from "sonner"
+
+import type { Grant, JournalEntry, Payment, Person } from "@/lib/api"
+import { count, dateTime, euros, relative } from "@/lib/format"
+import {
+  useGrantAccess,
+  useGrants,
+  useJournal,
+  useMe,
+  usePayments,
+  usePeople,
+  useRevokeAccess,
+} from "@/lib/queries"
+import { CommandCard, isAccessCommand } from "@/components/steward/command-card"
+import { PageHeader } from "@/components/steward/page-header"
+import { Stat } from "@/components/steward/stat"
+import { StatusBadge, type Tone } from "@/components/steward/status"
+import { Empty, Failure, Loading, QueryState } from "@/components/steward/query-state"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+
+/**
+ * The four pages of the access half (concept §10a.7): who may join, what they paid, which accounts
+ * are one person, and what an admin did about it.
+ *
+ * They are one file because they are one chain, read left to right: **request → tab → paid →
+ * access → linked**. Payments is the first three links, Access the fourth, Accounts the fifth,
+ * and Journal is the record of every hand that reached into any of them. Splitting them into four
+ * files would put the vocabulary that has to agree - what "active" means, what a revoked period
+ * looks like - in four places.
+ *
+ * **Nothing here is computed that the database does not answer.** Where a number would be a guess
+ * the page says so in a sentence instead of printing it: the amount of a paid request is what the
+ * tab asked for and not what arrived, and a person whose access is inactive while their latest
+ * period still runs may have been revoked *or* may be waiting for the SMP to open. Both are written
+ * out below rather than quietly rounded into a badge.
+ */
+
+// --- the vocabulary the four pages share ----------------------------------------------------------
+
+/**
+ * Guild membership.
+ *
+ * `MEMBER` is deliberately the quiet one. Green would spend a status colour on the ordinary case
+ * and leave nothing louder for the two cases an admin is actually scanning for - and a ban does not
+ * stop a paid period running down, it only refuses the login right now.
+ */
+const MEMBER_STATES: Record<string, { label: string; tone: Tone; title: string }> = {
+  MEMBER: { label: "Member", tone: "idle", title: "In the guild, as the bot last saw it." },
+  LEFT: {
+    label: "left",
+    tone: "warn",
+    title:
+      "No longer in the guild. A purchased period keeps running regardless - it is not paused.",
+  },
+  BANNED: {
+    label: "banned",
+    tone: "down",
+    title:
+      "Banned in Discord. The login is refused while that holds; the paid period keeps expiring meanwhile.",
+  },
+}
+
+function MemberBadge({ state }: { state: string }) {
+  const known = MEMBER_STATES[state]
+  // An unknown value is shown, not swallowed: `member_state` has a CHECK constraint today, and a
+  // page that printed nothing for a value added tomorrow would look empty rather than new.
+  if (!known) {
+    return (
+      <StatusBadge tone="idle" title="This interface does not know this membership state.">
+        {state}
+      </StatusBadge>
+    )
+  }
+  return (
+    <StatusBadge tone={known.tone} title={known.title}>
+      {known.label}
+    </StatusBadge>
+  )
+}
+
+/**
+ * Access, from the two fields that are deliberately not one.
+ *
+ * `accessActive` is the login decision - a revoked grant never counts, not even inside its own
+ * window. `accessUntil` is the end of the latest period *on record*, revoked ones included. Keeping
+ * both is what makes "their access was taken away" visible at all: without the date, somebody
+ * whose access was taken away would look exactly like somebody who never bought any.
+ *
+ * The third case - inactive, but the latest period still lies in the future - has two possible
+ * causes and this badge does not pretend to know which: revoked, or bought before the SMP opened
+ * and therefore not yet started. Both are named in the tooltip, and the per-person dialog answers
+ * it for certain, because a grant carries its own `revoked`.
+ */
+function AccessBadge({ person, now }: { person: Person; now: number }) {
+  const until = person.accessUntil ? new Date(person.accessUntil).getTime() : null
+
+  if (person.accessActive) {
+    return (
+      <StatusBadge tone="ok" title={`An unrevoked period covers right now.`}>
+        active until {dateTime(person.accessUntil)}
+      </StatusBadge>
+    )
+  }
+  if (until === null) {
+    return (
+      <StatusBadge tone="idle" title="No period has ever been written for this account.">
+        never
+      </StatusBadge>
+    )
+  }
+  if (until > now) {
+    return (
+      <StatusBadge
+        tone="down"
+        title={
+          "No valid period covers now, although the latest one runs on paper until " +
+          dateTime(person.accessUntil) +
+          ". That means either revoked - or bought before the SMP opened, and therefore not yet begun. Which of the two is shown in this person's periods."
+        }
+      >
+        no access · period until {dateTime(person.accessUntil)}
+      </StatusBadge>
+    )
+  }
+  return (
+    <StatusBadge tone="idle" title="The latest period has expired.">
+      expired {relative(person.accessUntil, now)}
+    </StatusBadge>
+  )
+}
+
+/**
+ * The fifth link of the chain.
+ *
+ * Paid but unlinked is the one combination worth a warning colour: that person has spent money and
+ * still cannot join, because the proxy knows Minecraft accounts and not Discord ones.
+ */
+function LinkBadge({ person }: { person: Person }) {
+  if (person.minecraftUuid) {
+    return (
+      <StatusBadge tone="idle" title={`Linked ${dateTime(person.linked)}.`}>
+        linked
+      </StatusBadge>
+    )
+  }
+  return (
+    <StatusBadge
+      tone={person.accessActive ? "warn" : "idle"}
+      title={
+        person.accessActive
+          ? "Access paid for, but no Minecraft account linked - this person cannot reach the server until they type the code from the login screen into Discord."
+          : "No Minecraft account linked."
+      }
+    >
+      not linked
+    </StatusBadge>
+  )
+}
+
+const GRANT_SOURCES: Record<string, string> = {
+  PURCHASE: "Purchase",
+  ADMIN: "by hand",
+}
+
+/** Where a period stands right now, judged from the row itself rather than from the roster. */
+function grantTone(grant: Grant, now: number): { label: string; tone: Tone; title: string } {
+  if (grant.revoked) {
+    return {
+      label: `revoked ${dateTime(grant.revoked)}`,
+      tone: "down",
+      title: "A revoked period never counts, not even inside its own window.",
+    }
+  }
+  const from = new Date(grant.validFrom).getTime()
+  const until = new Date(grant.validUntil).getTime()
+  if (from > now) {
+    return {
+      label: `begins ${relative(grant.validFrom, now)}`,
+      tone: "idle",
+      title: "Bought but not yet begun - a period is appended, never overwritten.",
+    }
+  }
+  if (until > now) {
+    return { label: "running", tone: "ok", title: "This period covers right now." }
+  }
+  return { label: "expired", tone: "idle", title: "This period lies entirely behind us." }
+}
+
+/** A uuid or a request id, short enough for a cell and complete in the title attribute. */
+function shortId(value: string): string {
+  return value.length > 8 ? `${value.slice(0, 8)}…` : value
+}
+
+// --- 1. /access ---------------------------------------------------------------------------------
+
+/**
+ * The roster: everyone the bot knows, and what they may.
+ *
+ * The two writes on this page are the reason it needs a paragraph of its own. Granting and revoking
+ * used to be `/access` in Discord and nothing else; since 2026-09-13 this is a second door into the
+ * same room, and the price of a second door is that "who let them in" has to stay
+ * answerable. It does, because every click here writes an `audit_log` row naming the admin - which
+ * is exactly what the Journal page shows.
+ */
+export function AccessPage() {
+  const people = usePeople()
+  const [needle, setNeedle] = useState("")
+  const [onlyWithAccess, setOnlyWithAccess] = useState(false)
+  const [selected, setSelected] = useState<Person | null>(null)
+  // The person whose access is being revoked. Separate from `selected` on purpose: opening this
+  // one closes the other, so there is never a dialog inside a dialog.
+  const [revoking, setRevoking] = useState<Person | null>(null)
+  // One clock for the whole render, so that two badges in one row cannot disagree about "now".
+  const now = Date.now()
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Access"
+        actions={<GrantDialog />}
+      />
+
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">People</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:min-w-64">
+              <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <Input
+                value={needle}
+                onChange={(event) => setNeedle(event.target.value)}
+                placeholder="Filter by Discord id…"
+                aria-label="Filter by Discord id"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="only-with-access"
+                checked={onlyWithAccess}
+                onCheckedChange={setOnlyWithAccess}
+              />
+              <Label htmlFor="only-with-access">with access only</Label>
+            </div>
+          </div>
+
+          <QueryState
+            query={people}
+            rows={8}
+            empty={{
+              title: "Nobody yet",
+              note: "The bot has not seen a single Discord account yet - or it is not running.",
+            }}
+            isEmpty={(list: Person[]) => list.length === 0}
+          >
+            {(list) => {
+              const rows = list.filter(
+                (person) =>
+                  (!onlyWithAccess || person.accessActive) &&
+                  (needle.trim() === "" || person.discordId.includes(needle.trim())),
+              )
+              if (rows.length === 0) {
+                return (
+                  <Empty
+                    title="Nobody matches"
+                    note={
+                      onlyWithAccess
+                        ? "With this filter and \"with access only\" nobody is left."
+                        : "No loaded account contains this string in its Discord id."
+                    }
+                  />
+                )
+              }
+              return (
+                <>
+                  <Table className="steward-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[14rem]">Discord-ID</TableHead>
+                        <TableHead className="w-[8rem]">Guild</TableHead>
+                        <TableHead className="w-[20rem]">
+                          <AccessColumnHead />
+                        </TableHead>
+                        <TableHead className="w-[9rem]">Minecraft</TableHead>
+                        <TableHead className="w-[9rem]">Roles</TableHead>
+                        <TableHead className="w-[11rem]" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rows.map((person) => (
+                        <TableRow key={person.discordId}>
+                          <TableCell data-label="Discord ID" className="font-medium">
+                            {/* A button rather than a clickable row: the row also carries a
+                             * destructive action, and "I only wanted to look" must not be one
+                             * misplaced click away from it. */}
+                            <button
+                              type="button"
+                              onClick={() => setSelected(person)}
+                              className="underline-offset-4 hover:text-primary hover:underline"
+                            >
+                              {person.discordId}
+                            </button>
+                          </TableCell>
+                          <TableCell data-label="Guild">
+                            <MemberBadge state={person.memberState} />
+                          </TableCell>
+                          <TableCell data-label="Access">
+                            <AccessBadge person={person} now={now} />
+                          </TableCell>
+                          <TableCell data-label="Minecraft">
+                            <LinkBadge person={person} />
+                          </TableCell>
+                          <TableCell data-label="Roles">
+                            <div className="flex items-center gap-1">
+                              {person.donor ? (
+                                <StatusBadge
+                                  tone="idle"
+                                  title="Given once, never taken away - which is why handing the role out in Discord is harmless."
+                                >
+                                  Supporter
+                                </StatusBadge>
+                              ) : null}
+                              {person.admin ? (
+                                <StatusBadge
+                                  tone="idle"
+                                  title="Mirrors the Discord admin role. If the role goes, this mark goes with it."
+                                >
+                                  Admin
+                                </StatusBadge>
+                              ) : null}
+                              {!person.donor && !person.admin ? (
+                                <span className="text-xs text-muted-foreground">–</span>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelected(person)}
+                              >
+                                Periods
+                              </Button>
+                              {/* No greyed-out button for somebody without access: there is
+                               * nothing to take away, and a disabled destructive control reads as
+                               * "not allowed" rather than "not applicable". */}
+                              {person.accessActive ? <RevokeDialog person={person} /> : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <p className="text-xs text-muted-foreground">
+                    {count(rows.length)} of {count(list.length)} loaded accounts.
+                  </p>
+                </>
+              )
+            }}
+          </QueryState>
+        </CardContent>
+      </Card>
+
+      {/*
+        `access settle` and `access unlink`, which are commands and not routes of their own: they
+        need the bot (a role, a direct message, a donor flag; the link table the bot owns), so they
+        travel as a `command_request` row exactly as they do from Discord. Granting and revoking are
+        not here because this interface does those itself - see the dialogs above.
+
+        The reference is picked from the open requests and the member from the roster. Neither is
+        typed, and that is the point of package H rather than a nicety: a reference is six
+        characters with no meaning and a Discord id is eighteen digits.
+      */}
+      <CommandCard title="Access commands" only={isAccessCommand} />
+
+      <Dialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
+        <DialogContent className="max-w-2xl">
+          {selected ? (
+            <PersonGrants
+              person={selected}
+              now={now}
+              onRevoke={() => {
+                const person = selected
+                setSelected(null)
+                setRevoking(person)
+              }}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {revoking ? (
+        <RevokeDialog
+          person={revoking}
+          open
+          onOpenChange={(open) => (open ? null : setRevoking(null))}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+/*
+ * WHY THIS PAGE MAY WRITE AT ALL, which used to be a paragraph at the top of it: `/access` in
+ * Discord is the first door into the same tables and this is the second. The price of a second
+ * door is paid in the record - every grant and every revocation from here writes a row into the
+ * journal naming the admin who clicked. That is a decision, and a decision belongs here and not on
+ * the screen of somebody who has already opened the page.
+ */
+
+/** The header of the access column, with the reason its two halves disagree. */
+function AccessColumnHead() {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="underline decoration-dotted underline-offset-4">
+          Access
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        Two readings, deliberately not one: whether an unrevoked period covers right now - and when
+        the latest period ends, revoked ones included. Without the second, somebody whose access was
+        taken away would look exactly like somebody who never had any.
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * Granting, with the arithmetic named out loud.
+ *
+ * The rules are the database's, not this form's: a day is exactly 24 hours, a new period is
+ * appended behind a running one instead of replacing it, and a purchase made before the SMP opens
+ * starts on the opening day. Writing them here is the only way the person clicking can predict what
+ * the row will say afterwards.
+ */
+function GrantDialog() {
+  const grant = useGrantAccess()
+  const [discordId, setDiscordId] = useState("")
+  const [days, setDays] = useState("30")
+  const parsedDays = Number.parseInt(days, 10)
+  const usable = discordId.trim().length > 0 && Number.isFinite(parsedDays) && parsedDays > 0
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button type="button">
+          <UserPlus aria-hidden />
+          Grant access
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Grant access by hand</AlertDialogTitle>
+          <AlertDialogDescription>
+            Writes a period with the source <code className="text-xs">ADMIN</code> - no payment, no
+            bunq tab. The person may then join the server as soon as their Minecraft account is
+            linked.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="grant-discord-id">Discord-ID</Label>
+            <Input
+              id="grant-discord-id"
+              value={discordId}
+              onChange={(event) => setDiscordId(event.target.value)}
+              placeholder="e.g. 214906139328839681"
+              className="font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              inputMode="numeric"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="grant-days">Days</Label>
+            <Input
+              id="grant-days"
+              value={days}
+              onChange={(event) => setDays(event.target.value)}
+              type="number"
+              min={1}
+              className="w-32"
+            />
+          </div>
+          <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-muted-foreground">
+            <li>A day is exactly 24 hours, not a calendar day.</li>
+            <li>
+              If a period is already running, the new one is appended - paid time is never lost,
+              and periods are never summed across a gap.
+            </li>
+            <li>
+              If the SMP launch has not been reached, the period starts at that date and not
+              today.
+            </li>
+            <li>
+              If the bot does not know this Discord id yet, the account is created for it. A
+              mistyped id therefore produces a person who does not exist - and no error.
+            </li>
+          </ul>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={!usable || grant.isPending}
+            onClick={() => {
+              grant.mutate(
+                { discordId: discordId.trim(), days: parsedDays },
+                {
+                  onSuccess: (written: Grant) => {
+                    toast.success(`Access granted for ${written.discordId}`, {
+                      description: `Valid ${dateTime(written.validFrom)} until ${dateTime(
+                        written.validUntil,
+                      )}. A journal line names you.`,
+                    })
+                    setDiscordId("")
+                  },
+                  onError: (error) => {
+                    toast.error("No access was granted", { description: String(error) })
+                  },
+                },
+              )
+            }}
+          >
+            Grant
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+/**
+ * Revoking - the destructive half.
+ *
+ * It takes the whole remaining run and not one period: that is what the backend's single statement
+ * does, and it is what lets the login path get away with one `max(valid_until)`. Saying "every
+ * running period" here is therefore accurate and not a simplification.
+ */
+/**
+ * Revoking, from the table row or from the opened person.
+ *
+ * Till asked for both doors (2026-09-13). They are not nested: the button inside the person dialog
+ * CLOSES that dialog and opens this one at page level, because an AlertDialog inside an open
+ * Dialog is two focus traps on one screen, and which of them gets the keyboard back afterwards is
+ * not something anybody here can verify without a browser.
+ *
+ * @param open when given, the dialog is controlled from outside and draws no trigger of its own
+ */
+function RevokeDialog({
+  person,
+  open,
+  onOpenChange,
+}: {
+  person: Person
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const revoke = useRevokeAccess()
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      {open === undefined ? (
+        <AlertDialogTrigger asChild>
+          <Button type="button" variant="ghost" size="sm" className="text-destructive">
+            <ShieldX aria-hidden />
+            Revoke
+          </Button>
+        </AlertDialogTrigger>
+      ) : null}
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Revoke access?</AlertDialogTitle>
+          <AlertDialogDescription>
+            What is revoked is the <span className="text-foreground">whole remaining run</span> of{" "}
+            <span className="font-mono text-foreground">{person.discordId}</span> - every period not
+            yet expired at once, not a single one.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="flex flex-col gap-3 text-sm">
+          <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-3 py-2 text-warning">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+            Anyone playing right now is thrown out: the proxy re-checks every connected player's
+            access regularly and disconnects as soon as it no longer holds - not only at the next
+            login.
+          </p>
+          <p className="text-muted-foreground">
+            Paid time does not come back this way. A later grant starts fresh and does not credit
+            the revoked remainder.
+          </p>
+          <p className="text-muted-foreground">
+            The entry stays and is only marked revoked - which is why a date still stands beside
+            "no access" in the list, instead of the person looking like a stranger.
+          </p>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={revoke.isPending}
+            onClick={() => {
+              revoke.mutate(person.discordId, {
+                onSuccess: (result) => {
+                  // Zero is a real answer and not a success: between opening this dialog and
+                  // clicking, the run may have ended or somebody else may have revoked it.
+                  if (result.revoked === 0) {
+                    toast.warning("There was nothing to revoke", {
+                      description: `No period was still running for ${person.discordId}.`,
+                    })
+                    return
+                  }
+                  toast.success(
+                    `${count(result.revoked)} period(s) of ${person.discordId} revoked`,
+                    { description: "A journal line names you." },
+                  )
+                },
+                onError: (error) => {
+                  toast.error("Nothing was revoked", { description: String(error) })
+                },
+              })
+            }}
+          >
+            Revoke
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+/** One person's chain, period by period. Read-only: the two writes stand in the table row. */
+function PersonGrants({
+  person,
+  now,
+  onRevoke,
+}: {
+  person: Person
+  now: number
+  onRevoke: () => void
+}) {
+  const grants = useGrants(person.discordId)
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="flex flex-wrap items-center justify-between gap-3 pr-6">
+          <span className="font-mono">{person.discordId}</span>
+          {person.accessActive ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-destructive"
+              onClick={onRevoke}
+            >
+              <ShieldX aria-hidden />
+              Revoke
+            </Button>
+          ) : null}
+        </DialogTitle>
+        <DialogDescription>
+          Request → tab → paid → access → linked. This is the fourth link: every period, its source
+          and - for a purchase - the payment request it came from.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="flex flex-wrap gap-6">
+        <Stat label="Guild" value={<MemberBadge state={person.memberState} />} />
+        <Stat
+          label="Minecraft"
+          value={
+            person.minecraftUuid ? (
+              <span className="font-mono text-sm" title={person.minecraftUuid}>
+                {shortId(person.minecraftUuid)}
+              </span>
+            ) : (
+              "–"
+            )
+          }
+          hint={person.linked ? `linked ${dateTime(person.linked)}` : "not linked"}
+        />
+        <Stat
+          label="Language"
+          value={person.locale}
+          hint={`last changed ${relative(person.updated, now)}`}
+        />
+      </div>
+
+      <Separator />
+
+      {grants.isPending ? (
+        <Loading rows={3} />
+      ) : grants.error ? (
+        <Failure error={grants.error} onRetry={grants.refetch} />
+      ) : (grants.data ?? []).length === 0 ? (
+        <Empty
+          title="No period"
+          note="None has ever been written for this account - neither bought nor by hand."
+        />
+      ) : (
+        <Table className="steward-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[7rem]">Source</TableHead>
+              <TableHead>Window</TableHead>
+              <TableHead className="w-[13rem]">State</TableHead>
+              <TableHead className="w-[8rem]">Request</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(grants.data ?? []).map((row) => {
+              const state = grantTone(row, now)
+              return (
+                <TableRow key={row.id}>
+                  <TableCell data-label="Source">{GRANT_SOURCES[row.source] ?? row.source}</TableCell>
+                  <TableCell data-label="Window" className="text-muted-foreground tnum">
+                    {dateTime(row.validFrom)} – {dateTime(row.validUntil)}
+                  </TableCell>
+                  <TableCell data-label="State">
+                    <StatusBadge tone={state.tone} title={state.title}>
+                      {state.label}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell data-label="Request">
+                    {row.paymentRequestId ? (
+                      <span className="font-mono text-xs" title={row.paymentRequestId}>
+                        {shortId(row.paymentRequestId)}
+                      </span>
+                    ) : (
+                      <span
+                        className="text-xs text-muted-foreground"
+                        title={
+                          row.source === "PURCHASE"
+                            ? "Bought, but the payment request is no longer in the database - it is set to NULL when the request is deleted."
+                            : "Granted by hand, so there is no payment request."
+                        }
+                      >
+                        –
+                      </span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      )}
+
+    </>
+  )
+}
+
+// --- 2. /payments --------------------------------------------------------------------------------
+
+const PAYMENT_STATES: Record<string, { label: string; tone: Tone; title: string }> = {
+  OPEN: {
+    label: "open",
+    tone: "idle",
+    title: "The tab is up, nothing has been paid yet. Only one request per person can be open.",
+  },
+  PAID: { label: "paid", tone: "ok", title: "The money has arrived and the period stands." },
+  EXPIRED: {
+    label: "lapsed",
+    tone: "idle",
+    title: "The deadline passed without payment.",
+  },
+  CANCELLED: { label: "cancelled", tone: "idle", title: "Cancelled before anything was paid." },
+  SUPERSEDED: {
+    label: "superseded",
+    tone: "idle",
+    title: "The same person started a new request, which closed this one.",
+  },
+}
+
+/** OPEN and past its `expires`: nobody is about to pay this, the sweep has just not run yet. */
+function isOverdue(payment: Payment, now: number): boolean {
+  return payment.status === "OPEN" && new Date(payment.expires).getTime() <= now
+}
+
+/**
+ * The payments: the first three links of the chain.
+ *
+ * The sum at the top is the one number on these four pages that could mislead, so it is labelled
+ * rather than printed bare: `amount_cents` is what the tab **asked for**, and the payer can edit the
+ * amount on the bunq.me page. What actually arrived is not in this table at all.
+ */
+export function PaymentsPage() {
+  const payments = usePayments()
+  const [status, setStatus] = useState("")
+  const now = Date.now()
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Payments"
+      />
+
+      <QueryState
+        query={payments}
+        rows={8}
+        empty={{
+          title: "No payment request",
+          note: "Nobody has requested access yet - or the bot is not running.",
+        }}
+        isEmpty={(list: Payment[]) => list.length === 0}
+      >
+        {(list) => {
+          const open = list.filter((payment) => payment.status === "OPEN")
+          const overdue = open.filter((payment) => isOverdue(payment, now))
+          const paid = list.filter((payment) => payment.status === "PAID")
+          const requested = paid.reduce(
+            (sum, payment) => sum + payment.amountCents + payment.donationCents,
+            0,
+          )
+          // Built from what is here, plus the value being filtered on, so that a status added to
+          // the CHECK constraint later still appears the moment one row carries it.
+          const present = [...new Set(list.map((payment) => payment.status))].sort()
+          const shown = list.filter((payment) => status === "" || payment.status === status)
+
+          return (
+            <>
+              <Card>
+                <CardContent className="flex flex-wrap items-start gap-8 pt-6">
+                  <Stat
+                    label="Open"
+                    value={count(open.length)}
+                    hint={`${count(overdue.length)} of them past the deadline`}
+                    tone={overdue.length > 0 ? "warn" : undefined}
+                  />
+                  <Stat label="Paid" value={count(paid.length)} />
+                  <Separator orientation="vertical" className="h-14" />
+                  <Stat
+                    label="Asked for (paid requests)"
+                    value={euros(requested)}
+                    hint="Amount plus donation, as the tab asked for it"
+                  />
+                  <p className="max-w-prose text-xs text-muted-foreground">
+                    This is <span className="text-foreground">not the balance</span>: on the
+                    bunq.me page the paying person can change the amount, and what actually arrived
+                    is in none of these columns. This interface does not ask bunq - the bot does.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Requests</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Label htmlFor="payment-status" className="text-muted-foreground">
+                      Status
+                    </Label>
+                    <Select
+                      value={status === "" ? "ALL" : status}
+                      onValueChange={(value) => setStatus(value === "ALL" ? "" : value)}
+                    >
+                      <SelectTrigger id="payment-status" className="w-full sm:w-56">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">all</SelectItem>
+                        {present.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {PAYMENT_STATES[value]?.label ?? value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {overdue.length > 0 ? (
+                      <span className="flex items-center gap-2 text-xs text-warning">
+                        <CircleAlert className="size-4 shrink-0" aria-hidden />
+                        {count(overdue.length)} open request(s) are past their deadline - nobody is
+                        going to pay those, they are only waiting for the bot's cleanup run.
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {shown.length === 0 ? (
+                    <Empty
+                      title="No request with this status"
+                      note="None of the loaded requests carries this status."
+                    />
+                  ) : (
+                    <Table className="steward-table">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[9rem]">Reference</TableHead>
+                          <TableHead className="w-[13rem]">Person</TableHead>
+                          <TableHead className="w-[5rem] text-right">Days</TableHead>
+                          <TableHead className="w-[7rem] text-right">Amount</TableHead>
+                          <TableHead className="w-[7rem] text-right">Donation</TableHead>
+                          <TableHead className="w-[9rem]">Status</TableHead>
+                          <TableHead className="w-[11rem]">Created</TableHead>
+                          <TableHead className="w-[11rem]">Deadline</TableHead>
+                          <TableHead className="w-[11rem]">Paid</TableHead>
+                          <TableHead className="w-[6rem]" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {shown.map((payment) => {
+                          const state = PAYMENT_STATES[payment.status]
+                          const late = isOverdue(payment, now)
+                          return (
+                            <TableRow key={payment.id}>
+                              <TableCell data-label="Reference" className="font-mono font-medium">
+                                {payment.reference}
+                              </TableCell>
+                              <TableCell data-label="Person" className="font-mono text-muted-foreground">
+                                {payment.discordId}
+                              </TableCell>
+                              <TableCell data-label="Days" className="text-right tnum">{payment.days}</TableCell>
+                              <TableCell data-label="Amount" className="text-right tnum">
+                                {euros(payment.amountCents)}
+                              </TableCell>
+                              <TableCell data-label="Donation" className="text-right tnum text-muted-foreground">
+                                {payment.donationCents > 0 ? euros(payment.donationCents) : "–"}
+                              </TableCell>
+                              <TableCell data-label="Status">
+                                <div className="flex items-center gap-1">
+                                  <StatusBadge
+                                    tone={late ? "warn" : (state?.tone ?? "idle")}
+                                    title={
+                                      state?.title ??
+                                      "This interface does not know this status."
+                                    }
+                                  >
+                                    {state?.label ?? payment.status}
+                                  </StatusBadge>
+                                  {late ? (
+                                    <StatusBadge
+                                      tone="warn"
+                                      title="The deadline has passed but the status still reads OPEN - the bot's cleanup run has not touched it yet."
+                                    >
+                                      overdue
+                                    </StatusBadge>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                              <TableCell data-label="Created" className="text-muted-foreground tnum">
+                                {dateTime(payment.created)}
+                              </TableCell>
+                              <TableCell data-label="Deadline" className="text-muted-foreground tnum">
+                                {dateTime(payment.expires)}
+                              </TableCell>
+                              <TableCell data-label="Paid" className="text-muted-foreground tnum">
+                                {dateTime(payment.settled)}
+                              </TableCell>
+                              <TableCell>
+                                {payment.shareUrl ? (
+                                  <Button asChild variant="ghost" size="sm">
+                                    <a
+                                      href={payment.shareUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title={payment.shareUrl}
+                                    >
+                                      <ExternalLink aria-hidden />
+                                      Tab
+                                    </a>
+                                  </Button>
+                                ) : (
+                                  <span
+                                    className="text-xs text-muted-foreground"
+                                    title="No bunq.me address stands in the row for this request."
+                                  >
+                                    –
+                                  </span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )
+        }}
+      </QueryState>
+    </div>
+  )
+}
+
+// --- 3. /accounts -----------------------------------------------------------------------------------
+
+/**
+ * The identities: one Discord account, at most one Minecraft account, and the session you are
+ * reading this in.
+ *
+ * There is no third, Steward-owned identity - and the card at the top says so rather than leaving
+ * the reader to assume one exists. §10a wants a security key after Discord; this alpha does not
+ * have one, `/api/me` says so in its own words, and those words are printed here verbatim.
+ */
+export function AccountsPage() {
+  const people = usePeople()
+  const [needle, setNeedle] = useState("")
+  const [onlyLinked, setOnlyLinked] = useState(false)
+  const now = Date.now()
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Accounts"
+      />
+
+      <AuthenticationCard />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Links</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:min-w-64">
+              <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <Input
+                value={needle}
+                onChange={(event) => setNeedle(event.target.value)}
+                placeholder="Filter by Discord id or UUID…"
+                aria-label="Filter by Discord id or UUID"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch id="only-linked" checked={onlyLinked} onCheckedChange={setOnlyLinked} />
+              <Label htmlFor="only-linked">linked only</Label>
+            </div>
+          </div>
+
+          <QueryState
+            query={people}
+            rows={8}
+            empty={{
+              title: "Nobody yet",
+              note: "The bot has not seen a single Discord account yet - or it is not running.",
+            }}
+            isEmpty={(list: Person[]) => list.length === 0}
+          >
+            {(list) => {
+              const trimmed = needle.trim().toLowerCase()
+              // Truthiness rather than `!== null`, on purpose: Javalin's Gson mapper drops nulls,
+              // so `minecraftUuid` arrives ABSENT for an unlinked person even though `api.ts`
+              // types it `string | null`. `!== null` would let every unlinked account through the
+              // "linked only" filter, and the filter would look broken rather than wrong.
+              const rows = list.filter(
+                (person) =>
+                  (!onlyLinked || Boolean(person.minecraftUuid)) &&
+                  (trimmed === "" ||
+                    person.discordId.toLowerCase().includes(trimmed) ||
+                    (person.minecraftUuid ?? "").toLowerCase().includes(trimmed)),
+              )
+              if (rows.length === 0) {
+                return (
+                  <Empty
+                    title="No account matches"
+                    note="None of the loaded accounts contains this string."
+                  />
+                )
+              }
+              return (
+                <>
+                  <Table className="steward-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[14rem]">Discord-ID</TableHead>
+                        <TableHead className="w-[22rem]">Minecraft-UUID</TableHead>
+                        <TableHead className="w-[13rem]">Linked</TableHead>
+                        <TableHead className="w-[8rem]">Guild</TableHead>
+                        <TableHead>Access</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rows.map((person) => (
+                        <TableRow key={person.discordId}>
+                          <TableCell data-label="Discord ID" className="font-mono font-medium">
+                            {person.discordId}
+                          </TableCell>
+                          <TableCell data-label="Minecraft UUID" className="font-mono text-muted-foreground">
+                            {person.minecraftUuid ?? (
+                              <span className="font-sans text-xs">not linked</span>
+                            )}
+                          </TableCell>
+                          <TableCell data-label="Linked" className="text-muted-foreground tnum">
+                            {person.linked ? dateTime(person.linked) : "–"}
+                          </TableCell>
+                          <TableCell data-label="Guild">
+                            <MemberBadge state={person.memberState} />
+                          </TableCell>
+                          <TableCell data-label="Access">
+                            <AccessBadge person={person} now={now} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <p className="text-xs text-muted-foreground">
+                    {count(rows.length)} of {count(list.length)} loaded accounts. An account with
+                    no link cannot reach the server, not even with paid access: the proxy knows only
+                    Minecraft UUIDs.
+                  </p>
+                </>
+              )
+            }}
+          </QueryState>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+/**
+ * What this interface accepts as proof of who you are - written down where somebody reads about
+ * identities, because a gap here reads as "there is more, you just cannot see it".
+ */
+function AuthenticationCard() {
+  const me = useMe()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <ShieldCheck className="size-4 text-muted-foreground" aria-hidden />
+          Signing in to this interface
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/*
+            THE BADGE FOLLOWS THE ANSWER, not the release notes. `keys` is what /api/me says this
+            account has; a badge hard-coded to "not built" is what the last one was, and it stayed
+            wrong for exactly as long as nobody re-read this file.
+          */}
+          {(me.data?.keys?.length ?? 0) > 0 ? (
+            <StatusBadge tone="ok" title="A key was registered and is required to be here at all.">
+              Security key: registered
+            </StatusBadge>
+          ) : (
+            <StatusBadge tone="warn" title="§10a asks for a security key after Discord.">
+              Security key: none on this account
+            </StatusBadge>
+          )}
+          {me.data?.name ? (
+            <span className="text-sm text-muted-foreground">
+              signed in as <span className="text-foreground">{me.data.name}</span>
+            </span>
+          ) : null}
+        </div>
+        {me.error ? (
+          <Failure error={me.error} onRetry={me.refetch} />
+        ) : me.data ? (
+          // The backend's own sentence, verbatim and in English: this is the API's answer and not
+          // a claim this page makes on its behalf.
+          <pre className="overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
+            /api/me · webauthn: {me.data.webauthn}
+          </pre>
+        ) : (
+          <Loading rows={1} label="Reading the session…" />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// --- 4. /journal ----------------------------------------------------------------------------------
+
+/**
+ * The audit log.
+ *
+ * **Both filters are exact matches.** The backend compares the whole string, so this page offers
+ * the actions as a list to choose from and asks for a subject explicitly rather than searching
+ * while you type - a field that filters on every keystroke promises a substring search that does
+ * not exist.
+ *
+ * The list of actions is built from the rows that are here. `audit_log.action` has no CHECK
+ * constraint, and the writers are three: this interface (`GRANT_ACCESS`, `REVOKE_ACCESS`), the bot
+ * (links, settlements) and the phase switch. A hardcoded list would be a page that cannot draw an
+ * action somebody adds next week.
+ */
+export function JournalPage() {
+  // The unfiltered query, for the options. With both filters empty it *is* the filtered query -
+  // same key, one request - so this costs nothing until somebody actually filters.
+  const all = useJournal("", "")
+  const [action, setAction] = useState("")
+  const [subject, setSubject] = useState("")
+  const [typed, setTyped] = useState("")
+  const entries = useJournal(action, subject)
+  const actions = [...new Set((all.data ?? []).map((entry) => entry.action))].sort()
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Journal"
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Entries</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
+              <Label htmlFor="journal-action">Action</Label>
+              <Select
+                value={action === "" ? "ALL" : action}
+                onValueChange={(value) => setAction(value === "ALL" ? "" : value)}
+              >
+                <SelectTrigger id="journal-action" className="w-full sm:w-64">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">all</SelectItem>
+                  {actions.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/*
+              `w-64` on the field and a button beside it is 374px of a 356px card: on a phone the
+              Filter button was drawn half off the screen. The field takes the row it is on and the
+              buttons wrap under it; from `sm` the fixed width and the one-line row come back.
+            */}
+            <form
+              className="flex w-full flex-wrap items-end gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                setSubject(typed.trim())
+              }}
+            >
+              <div className="flex w-full min-w-0 flex-col gap-1.5 sm:w-auto">
+                <Label htmlFor="journal-subject">Discord id concerned</Label>
+                <Input
+                  id="journal-subject"
+                  value={typed}
+                  onChange={(event) => setTyped(event.target.value)}
+                  placeholder="exact id…"
+                  className="w-full font-mono sm:w-64"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+              <Button type="submit" variant="outline">
+                <Search aria-hidden />
+                Filter
+              </Button>
+              {subject ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setSubject("")
+                    setTyped("")
+                  }}
+                >
+                  Reset
+                </Button>
+              ) : null}
+            </form>
+          </div>
+
+          {actions.length === 0 && !all.isPending && !all.error ? (
+            <p className="text-xs text-muted-foreground">
+              The selector above lists only actions that occur in the loaded entries - none occurs
+              yet.
+            </p>
+          ) : null}
+
+          <QueryState
+            query={entries}
+            rows={10}
+            empty={{
+              title: "No entry",
+              note: "Nothing in the record matches these filters. Both compare exactly, not partially - a typo in the id looks exactly like \"nothing happened\".",
+            }}
+            isEmpty={(list: JournalEntry[]) => list.length === 0}
+          >
+            {(list) => (
+              <>
+                <Table className="steward-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[13rem]">When</TableHead>
+                      <TableHead className="w-[12rem]">Action</TableHead>
+                      <TableHead className="w-[16rem]">Triggered by</TableHead>
+                      <TableHead className="w-[14rem]">Concerns</TableHead>
+                      <TableHead>Detail</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {list.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell data-label="When" className="text-muted-foreground tnum" title={entry.occurred}>
+                          {dateTime(entry.occurred)}
+                        </TableCell>
+                        {/* The action is printed raw, exactly as the row carries it: any prettier
+                         * wording would be a table that silently falls back to the enum name for
+                         * anything new - and this column is what somebody greps the bot's log for. */}
+                        <TableCell data-label="Action" className="font-medium">{entry.action}</TableCell>
+                        <TableCell data-label="Triggered by" className="text-muted-foreground">
+                          {entry.actor ?? (
+                            <span title="No admin - the bot acted on its own.">
+                              Bot
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell data-label="Concerns" className="font-mono text-muted-foreground">
+                          {entry.subject ?? "–"}
+                          {entry.mcUuid ? (
+                            <span className="block text-xs" title={entry.mcUuid}>
+                              {shortId(entry.mcUuid)}
+                            </span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell data-label="Detail" className="text-muted-foreground">{entry.detail ?? "–"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <p className="text-xs text-muted-foreground">
+                  {count(list.length)} entries. This query hands out no more than 200 - paging
+                  through the whole record is not something the API knows yet.
+                </p>
+              </>
+            )}
+          </QueryState>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

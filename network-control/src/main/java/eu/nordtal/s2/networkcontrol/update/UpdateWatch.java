@@ -21,7 +21,7 @@ import java.util.Objects;
  * the network the process serving {@code /update} <b>is</b> the proxy - regardless of which server
  * they are standing on. The same change wired this process with a watcher that drew nothing, on the
  * reasoning that "the proxy's console has the log". The console does; the player does not. Every
- * admin got "asking the updater..." and then silence, on all four commands.
+ * admin got "asking Steward..." and then silence, on all four commands.
  *
  * <p>What to say is {@link UpdateFollower}'s, shared with the Paper consoles. This class is the
  * Velocity scheduler around it and nothing more.</p>

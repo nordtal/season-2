@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest"
 
 import type { Backup, Host, Service, ServiceTable } from "@/lib/api"
 import {
-  ALL_CLEAR,
   DEFAULT_THRESHOLDS,
   UNKNOWN,
   shownLevel,
@@ -137,6 +136,7 @@ describe("summarise - a stack with nothing wrong", () => {
     expect(level).toBe("warn")
     expect(triggers[0].text).toBe("There is no service at all - Docker returned an empty list.")
     expect(triggers[0].to).toBe("/operations")
+    expect(triggers[0].subject).toBe("services")
   })
 
   it("says nothing about an empty list that was never asked for", () => {
@@ -156,6 +156,8 @@ describe("summarise - a service that is not running", () => {
     expect(level).toBe("down")
     expect(triggers).toHaveLength(1)
     expect(triggers[0].text).toBe("smp is not running (Exited (1) 2 minutes ago).")
+    // The short word the start page prints instead of the sentence above (steward/64).
+    expect(triggers[0].subject).toBe("smp")
   })
 
   it("points at the page where something can be done about it", () => {
@@ -234,6 +236,8 @@ describe("summarise - image drift", () => {
     expect(triggers[0].text).toContain("2 services")
     expect(triggers[0].text).toContain("smp, bot")
     expect(triggers[0].text.endsWith(".")).toBe(true)
+    // One trigger, both names - "Errors in smp, bot" is the whole point of a comma-joined subject.
+    expect(triggers[0].subject).toBe("smp, bot")
   })
 
   it("says out loud that the comparison did not happen, and repeats the registry's excuse", () => {
@@ -246,6 +250,7 @@ describe("summarise - image drift", () => {
     expect(level).toBe("warn")
     expect(triggers[0].text).toContain("were not compared")
     expect(triggers[0].text).toContain("504 vom Proxy")
+    expect(triggers[0].subject).toBe("registry")
   })
 
   it("still says something when the registry failed without saying why", () => {
@@ -285,6 +290,7 @@ describe("summarise - the backup", () => {
     expect(level).toBe("down")
     expect(triggers[0].text).toBe("There is not a single backup.")
     expect(triggers[0].to).toBe("/operations")
+    expect(triggers[0].subject).toBe("backups")
   })
 
   it("distinguishes no backup at all from one that was only ever started", () => {
@@ -315,6 +321,8 @@ describe("summarise - the backup", () => {
     // The age is spelled by `relative`, which at day distance uses the calendar words. Pinned so
     // that a sentence saying only "older than allowed" without saying how old would break here.
     expect(triggers[0].text).toContain("2 days ago")
+    // `backup()`'s default name is a `nordtal-s2_mc-smp` archive - the volume name, not the sentence.
+    expect(triggers[0].subject).toBe("nordtal-s2_mc-smp")
   })
 
   it("judges the newest finished archive, not the first row in the list", () => {
@@ -372,6 +380,7 @@ describe("summarise - the database dump, which is not a volume archive", () => {
     expect(level).toBe("down")
     expect(triggers[0].text).toContain("database")
     expect(triggers[0].to).toBe("/operations")
+    expect(triggers[0].subject).toBe("database dump")
   })
 
   it("is quiet once a dump is there beside the archives", () => {
@@ -452,6 +461,8 @@ describe("summarise - one volume out of eight", () => {
     expect(level).toBe("down")
     expect(triggers[0].text).toContain("nordtal-s2_mc-smp")
     expect(triggers[0].text).toContain("older than the permitted")
+    // The subject is the volume name on its own - the sentence above already spells out the rest.
+    expect(triggers[0].subject).toBe("nordtal-s2_mc-smp")
   })
 
   it("names every volume that has gone stale, not just the first one it met", () => {
@@ -516,6 +527,7 @@ describe("summarise - disk and memory", () => {
     expect(level).toBe("warn")
     expect(triggers[0].text).toContain("85 % full")
     expect(triggers[0].text).toContain("threshold 85 %")
+    expect(triggers[0].subject).toBe("disk")
   })
 
   it("says nothing a hair below the threshold", () => {
@@ -561,6 +573,7 @@ describe("summarise - disk and memory", () => {
     expect(level).toBe("warn")
     expect(triggers[0].text).toContain("95 % used")
     expect(triggers[0].text).toContain("threshold 90 %")
+    expect(triggers[0].subject).toBe("memory")
   })
 
   it("turns yellow at the memory threshold itself", () => {
@@ -673,13 +686,14 @@ describe("shownLevel", () => {
   })
 
   it("keeps the light and the sentence saying the same thing with everything failed", () => {
-    // End to end, the defect as it was reported: a page with every query failed drew the green tick
-    // and its all-clear sentence while its own footnote said it had read nothing.
+    // End to end, the defect as it was reported: a page with every query failed used to draw the
+    // green tick and its all-clear sentence while its own footnote said it had read nothing.
+    // steward/64 removed that sentence rather than fixing its wording - the green case now prints
+    // nothing at all - so what is left to pin here is that a FAILED read is never silently "ok".
     const { level, triggers } = summarise({})
 
     expect(triggers).toEqual([])
     expect(shownLevel(level, true)).toBe("warn")
-    expect(UNKNOWN).not.toBe(ALL_CLEAR)
     expect(UNKNOWN).toContain("cannot be said")
   })
 })

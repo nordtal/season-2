@@ -329,6 +329,88 @@ class UpdateDirectoryIntegrationTest {
         assertEquals("stop", updates.find(submitted.id()).orElseThrow().result());
     }
 
+    /**
+     * Everything that stops a server counts down, and the list is asked rather than copied.
+     *
+     * <p><b>The bug this is written against</b> (Till, 2026-09-15, season-2-ops/19): a backup run
+     * stopped the network and moved everybody to the waiting room without a word. The reason was
+     * {@code countingDown()} naming {@code RESTART} and {@code UPDATE} and not {@code BACKUP} - and
+     * that was the <em>second</em> time the list had gone stale, the first being 2026-09-07 when
+     * {@code UPDATE} was the one missing.</p>
+     *
+     * <p>So this test does not restate the list. It asks {@link UpdateKind#stopsServers()} - the
+     * same property the worker uses to decide whether there is anything to stop - and requires that
+     * every kind answering yes is visible to whoever announces the outage. A new kind that stops
+     * servers is therefore covered on the day it is written, which is the only way this stops
+     * happening a third time.</p>
+     */
+    @Test
+    @DisplayName("every kind that stops servers is visible to the countdown")
+    void everythingThatStopsServersCountsDown() {
+        for (final UpdateKind kind : UpdateKind.values()) {
+            if (!kind.stopsServers()) {
+                continue;
+            }
+            execute("TRUNCATE TABLE update_request RESTART IDENTITY");
+            final UpdateRequest submitted =
+                    updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
+            updates.claimNext().orElseThrow();
+            updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+
+            assertEquals(submitted.id(), updates.countingDown()
+                            .orElseThrow(() -> new AssertionError(kind
+                                    + " stops servers and is counting down, but nobody can see it"
+                                    + " - players get no warning at all before it fires"))
+                            .id(),
+                    kind + " has to be the outage the proxy announces");
+        }
+    }
+
+    /**
+     * And every one of them can be called off again.
+     *
+     * <p>Separate from the test above because the hole was separate: {@code cancelCountdown} kept
+     * its own copy of the kind list, so on 2026-09-15 a backup was both unannounceable and
+     * unstoppable, and the second half would not have been noticed by fixing the first. "Stop the
+     * countdown" answering "there was nothing to stop" is worse than no button.</p>
+     */
+    @Test
+    @DisplayName("every countdown that can be started can be called off")
+    void everyCountdownCanBeCalledOff() {
+        for (final UpdateKind kind : UpdateKind.values()) {
+            if (!kind.stopsServers()) {
+                continue;
+            }
+            execute("TRUNCATE TABLE update_request RESTART IDENTITY");
+            final UpdateRequest submitted =
+                    updates.submit(kind, UpdateSource.GAME, "Till", Duration.ZERO);
+            updates.claimNext().orElseThrow();
+            updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+
+            assertEquals(submitted.id(), updates.cancelCountdown("Till changed their mind")
+                            .orElseThrow(() -> new AssertionError(kind
+                                    + " is counting down and the cancel cannot reach it - the"
+                                    + " button would answer \"too late\" while it was still early"))
+                            .id());
+            assertEquals(UpdateStatus.CANCELLED, updates.find(submitted.id()).orElseThrow().status(),
+                    kind + " has to end up withdrawn, not merely unannounced");
+        }
+    }
+
+    /** The complement: a kind that stops nothing must never make players hear a countdown. */
+    @Test
+    @DisplayName("a kind that stops nothing is not announced")
+    void aReportIsNeverAnnounced() {
+        final UpdateRequest submitted =
+                updates.submit(UpdateKind.REPORT, UpdateSource.GAME, "Till", Duration.ZERO);
+        assertFalse(UpdateKind.REPORT.stopsServers(), "the premise of this test");
+        updates.claimNext().orElseThrow();
+        updates.startCountdown(submitted.id(), Duration.ofSeconds(30)).orElseThrow();
+
+        assertTrue(updates.countingDown().isEmpty(),
+                "a report moves nothing, so counting down to it would be a lie");
+    }
+
     @Test
     @DisplayName("committing the countdown takes it out of the set the cancel can reach")
     void committingEndsTheCancelWindow() {

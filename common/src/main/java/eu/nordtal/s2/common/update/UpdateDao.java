@@ -272,12 +272,28 @@ interface UpdateDao {
      * because it costs nothing and covers the moment between the row being written and a worker
      * claiming it.
      *
-     * <h2>Both kinds that take servers down, since 2026-09-07</h2>
+     * <h2>Every kind that takes servers down - and the list has gone stale twice</h2>
      * It was {@code kind = 'RESTART'} alone, which was complete while a restart was the only thing
      * with a countdown on it. An {@code UPDATE} now stops servers too and carries the same
      * {@code not_before} - so leaving this as it was would have counted down for a restart and
      * said <b>nothing at all</b> before an update, which is the one of the two that also replaces
-     * jars. Players would have been dropped mid-sentence with no warning anywhere.
+     * jars. Players would have been dropped mid-sentence with no warning anywhere. That was
+     * 2026-09-07.
+     *
+     * <p><b>{@code BACKUP} was added on 2026-09-15, and it had been missing since the day the kind
+     * existed.</b> Till stood in the world through a nightly backup: the network stopped, he was
+     * moved to the waiting room, and not one word was said first. {@code UpdateKind#BACKUP}'s own
+     * description opens with "count down, stop, save, start" - the countdown was in the definition
+     * of the thing and absent from the query that shows it. The next method down,
+     * {@link #cancelCountdown(String)}, carried the same list and therefore the same hole: a backup
+     * countdown could not have been stopped either.</p>
+     *
+     * <p><b>This list is a literal and it will go stale again.</b> What stops that is not care, it
+     * is {@code UpdateDirectoryIntegrationTest#everythingThatStopsServersCountsDown}, which asks
+     * {@link UpdateKind#stopsServers()} rather than repeating the names here - so a kind added
+     * tomorrow fails the build rather than the players. A view or a generated {@code IN} clause was
+     * the alternative and was not taken: the names belong in the SQL where somebody reading the
+     * query can see them, and the test is what makes them true.</p>
      *
      * <p>{@code not_before > now()} is what keeps a claimed row from looking like a countdown for
      * the whole of a five-minute run: every request is due immediately now, so without it every
@@ -289,7 +305,7 @@ interface UpdateDao {
     @SqlQuery("""
             SELECT * FROM update_request
             WHERE status IN ('PENDING', 'RUNNING')
-              AND kind IN ('RESTART', 'UPDATE')
+              AND kind IN ('RESTART', 'UPDATE', 'BACKUP')
               AND not_before > now()
             ORDER BY not_before, id
             LIMIT 1
@@ -337,11 +353,12 @@ interface UpdateDao {
             WITH cancellable AS (
                 SELECT id
                 FROM update_request
-                -- Both kinds and both statuses, for the reasons countingDown() above gives at
-                -- length: the button says "Stop the countdown", and a countdown it could not stop
-                -- would be worse than no button.
+                -- The same three kinds and both statuses, for the reasons countingDown()
+                -- above gives at length: the button says "Stop the countdown", and a countdown it
+                -- could not stop would be worse than no button. BACKUP was missing here until
+                -- 2026-09-15 for the same reason it was missing there.
                 WHERE status IN ('PENDING', 'RUNNING')
-                  AND kind IN ('RESTART', 'UPDATE')
+                  AND kind IN ('RESTART', 'UPDATE', 'BACKUP')
                   AND not_before > now()
                 ORDER BY not_before, id
                 LIMIT 1

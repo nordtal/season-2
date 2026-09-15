@@ -269,7 +269,14 @@ function readable(segment: string) {
   }
 }
 
-function breadcrumbsFor(pathname: string) {
+/**
+ * The trail over the page, one crumb per path segment.
+ *
+ * Exported for `shell.breadcrumbs.test.ts` and for nothing else: the interesting half of it is
+ * `readable`, which is the difference between a mistyped URL and a blank screen, and that is not
+ * reachable through a render of the shell.
+ */
+export function breadcrumbsFor(pathname: string) {
   const segments = pathname.split("/").filter(Boolean)
   const crumbs = [{ label: "Status", href: "/" }]
   let href = ""

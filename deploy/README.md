@@ -458,9 +458,18 @@ up, not enough to move a version.
 
 ### Replacing one service, from this checkout
 
-For `steward-ui` and `steward-worker`, which are built here and pushed nowhere. From the root of
-this checkout, with `$ENV_FILE` pointing at the host's environment file (`/etc/nordtal/season-2.env`
-on the dev host) and `$PROJECT` at the compose project (`nordtal-s2` there):
+For iterating on `steward-ui` or `steward-worker` without waiting for a release. **This is no longer
+how the dev host runs them** (2026-09-15): both pull `ghcr.io/nordtal/<service>:latest` like every
+other service, because the release workflow has pushed all five images since 2026-09-02. The host's
+environment file carried `STEWARD_UI_IMAGE` and `STEWARD_WORKER_IMAGE` pointing at locally built
+`:alpha` images until then, and the cost was that no update run could ask a registry about either -
+so every delivery needed the three commands below by hand, and the run said `FAILED` while having
+done everything it was allowed to.
+
+What follows is therefore a **development** loop, not a delivery one. Building locally replaces the
+registry image under that tag until the next `pull`. From the root of this checkout, with `$ENV_FILE`
+pointing at the host's environment file (`/etc/nordtal/season-2.env` on the dev host) and `$PROJECT`
+at the compose project (`nordtal-s2` there):
 
 ```bash
 sh gradlew :steward-ui:build                            # the jar, with the frontend in it

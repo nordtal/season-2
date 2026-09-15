@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import type { Query } from "@tanstack/react-query"
-import { renderHook, waitFor } from "@testing-library/react"
+import { cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ApiError, currentCsrf, rememberCsrf, type ConfigDocument } from "@/lib/api"
@@ -98,6 +98,20 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  // Every test in this file renders a hook against its own `QueryClient` and none of them
+  // unmounts it. `render`/`renderHook` from this project's other test files rely on this
+  // codebase's `globals: false` vitest config NOT auto-wiring Testing Library's own cleanup -
+  // that auto-cleanup only fires when it finds `afterEach` as a global, and this project's
+  // vitest.config.ts deliberately does not inject one - so every other file that renders
+  // something imports `cleanup` and calls it by hand. This file never did, which meant the
+  // `useCommandRun`/`useDeployerJob` hooks under test - both polling every second while their
+  // row is unsettled - stayed subscribed after their test ended, with a live `refetchInterval`
+  // timer armed. That timer survives into whichever test file runs next, and eventually fires
+  // after that file's own jsdom environment has been torn down: `window` is gone, and React's
+  // scheduler (and TanStack's own `notifyManager`) throw trying to reach it. `cleanup()`
+  // unmounts every tree still standing, which is what makes `useQuery`'s own effect cleanup run
+  // and cancel the interval - the same reason every sibling test file already does this.
+  cleanup()
 })
 
 describe("useCommandRun - when the polling stops", () => {

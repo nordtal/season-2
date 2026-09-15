@@ -9,10 +9,10 @@ import java.util.Optional;
 /**
  * The three statements behind {@link AllowlistDirectory}. Package-private: the interface is the API.
  *
- * <h2>Why {@code network_setting} and not {@code network_setting}</h2>
- * This row lived in {@code network_setting} for one afternoon, on the reasoning that one row of text is
+ * <h2>Why {@code network_setting} and not {@code bot_setting}</h2>
+ * This row lived in {@code bot_setting} for one afternoon, on the reasoning that one row of text is
  * not worth a migration. It is worth one, and the owner decided so on 2026-09-09: V3 introduces
- * {@code network_setting} as "values the bot decides once and must never decide again", and this row is
+ * {@code bot_setting} as "values the bot decides once and must never decide again", and this row is
  * neither the bot's nor decided once - the proxy rewrites it from {@code network.yml} on every
  * start. A table whose comment describes something other than what is in it costs more than a
  * migration does, because the next reader believes the comment.

@@ -261,6 +261,12 @@ public final class StewardUi {
     /**
      * {@code forget-factors <discord-id>} - the way back in after a lost authenticator.
      *
+     * <p>Run as {@code docker exec nordtal-s2-steward-ui-1 steward-ui forget-factors <discord-id>}
+     * on the host. That line used to be printed on the hold-key screen itself, which told anyone
+     * who ever loaded that page the exact command past the second factor; it was pulled from the
+     * UI on 2026-09-15 for that reason and lives here instead, where only somebody who already has
+     * a shell on the machine reads it.</p>
+     *
      * <p>Removes the account's keys <b>and</b> its sessions, which is one thing and not two:
      * clearing the keys of an account whose browser is still signed in would leave that browser
      * inside with no key at all. The next sign-in lands on the setup page, which is where somebody

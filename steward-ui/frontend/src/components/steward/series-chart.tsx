@@ -85,7 +85,7 @@ export function SeriesChart({
                 new Intl.DateTimeFormat(LOCALE, {
                   dateStyle: "short",
                   timeStyle: "short",
-                }).format(Number(payload?.[0]?.payload?.at ?? Date.now()))
+                }).format(tooltipTimestamp(payload))
               }
               formatter={(value) => format(Number(value))}
             />
@@ -103,4 +103,39 @@ export function SeriesChart({
       </AreaChart>
     </ChartContainer>
   )
+}
+
+/**
+ * Which instant the tooltip's heading names.
+ *
+ * Recharts hands the formatter whatever it currently has, and on the first frame of a hover - and
+ * for a chart being torn down - that is an empty list or an entry with no payload. Reaching for
+ * `payload[0].payload.at` there yields `undefined`, and an `undefined` that reaches
+ * `Intl.DateTimeFormat` is "Invalid Date" across the top of the tooltip.
+ *
+ * **Be precise about what this function changed, because the inline expression it replaced was not
+ * broken.** It read `Number(payload?.[0]?.payload?.at ?? Date.now())`, and the optional chaining
+ * plus `??` already covered every missing case - no payload, no entry, no `at`, an explicit `null`.
+ * `steward/04` listed "null values in the chart tooltip" as a finding, and for those cases the
+ * finding was already answered. Two things are actually new:
+ *
+ * 1. **It is testable.** As an argument to a JSX prop inside a chart inside a container, that
+ *    expression could only be reached by rendering recharts in jsdom and hovering it. Nothing
+ *    asserted any of it; `steward/04` found it by reading, which is how it stayed unasserted.
+ * 2. **A value that is present but not a number now falls back too.** `at: "not a date"` passes
+ *    `??`, becomes `NaN`, and renders as "Invalid Date" - the one hole the old expression left. It
+ *    needs a malformed timestamp out of `/api/metrics`, so it is a guard against the backend and
+ *    not against recharts.
+ *
+ * Falling back to *now* rather than to an empty string is deliberate: the tooltip is over a point
+ * that does exist, and the frame in which the payload has not arrived yet is followed immediately
+ * by one in which it has. A blank heading that flickers reads as a defect; a heading that is a
+ * moment off for one frame does not.
+ */
+export function tooltipTimestamp(
+  payload: readonly { payload?: { at?: unknown } }[] | undefined | null,
+): number {
+  const at = payload?.[0]?.payload?.at
+  const parsed = Number(at)
+  return at === undefined || at === null || Number.isNaN(parsed) ? Date.now() : parsed
 }

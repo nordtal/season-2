@@ -40,3 +40,35 @@ if (typeof window !== "undefined" && !window.matchMedia) {
       dispatchEvent: () => false,
     }) as MediaQueryList
 }
+
+/**
+ * `ResizeObserver`, which jsdom does not have either.
+ *
+ * `cmdk` - the command palette's list - observes its own height so the scroll area knows when to
+ * appear. jsdom has no layout and therefore no `ResizeObserver`, and the failure is the same shape
+ * as the `matchMedia` one above: a `ReferenceError` from inside a dependency, in a test that was
+ * about a keyboard shortcut.
+ *
+ * It observes nothing and reports nothing, which is the honest stub: there is no layout to report.
+ * A test that needs a size change can call the callback itself.
+ */
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+}
+
+/**
+ * `Element.prototype.scrollIntoView`, the third jsdom gap of the same kind.
+ *
+ * `cmdk` scrolls the highlighted item into view as the selection moves, including once on mount.
+ * jsdom does not implement it at all, so the call is a `TypeError` rather than a no-op.
+ *
+ * Kept here rather than in one test file because it is a property of the environment, not of a
+ * component: any test that renders a list which follows its own selection needs it.
+ */
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => undefined
+}

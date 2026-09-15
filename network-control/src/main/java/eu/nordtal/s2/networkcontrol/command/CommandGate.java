@@ -10,6 +10,7 @@ import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.Player;
 
 import eu.nordtal.s2.common.command.CommandAllowlist;
+import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.message.Tone;
@@ -62,9 +63,49 @@ import java.util.Objects;
  */
 public final class CommandGate {
 
+    /**
+     * How a refusal sounds on the proxy - the Velocity-side twin of {@code PaperUser.Chime}, kept
+     * as its own interface because a Velocity {@link Player} is not a Bukkit one and this module
+     * must not depend on {@code paper-common} to borrow its shape.
+     *
+     * <h2>Why this is scaffolding rather than a working sound, 2026-09-15 (season-2-ingame/13)</h2>
+     * Measured before writing anything: {@link Player} extends {@code CommandSource}, which extends
+     * {@code net.kyori.adventure.audience.Audience} - the same interface {@code sendMessage} comes
+     * from - and {@link Player} itself carries a default {@code playSound(Sound)} straight from
+     * Adventure. {@code RestartWatch}, already running in production, calls {@code sendMessage} and
+     * {@code showTitle} from this exact proxy process on players standing on any backend; nothing in
+     * that call path differs for {@code playSound}, because Velocity holds the client connection
+     * itself; a backend is not in between. So the answer to season-2-ingame/05's open question is
+     * <b>yes, the API says the proxy can</b> - this is a structural finding, not an acoustic one:
+     * nobody has listened, and that stays {@code Owner: till} until somebody does.
+     *
+     * <p>What stops this ticket from also wiring a real sound here is a different boundary:
+     * {@code common}'s {@code SoundVocabularyTest} scans {@code network-control} (this module is on
+     * its list) and refuses a bare {@code playSound(} or {@code net.kyori.adventure.sound.} outside
+     * a named, allow-listed "Sounds" adapter file - {@code SmpSounds.java} and
+     * {@code HungerGamesSounds.java} are the only two entries today. Adding a real
+     * {@code NetworkControlSounds.java} here needs that allow-list edited, and the allow-list lives
+     * in {@code common/}, which this session's file scope does not include. So this interface and
+     * the constructor overload below exist and are called at the one refusal site; the
+     * implementation handed in today is {@link #silent()} until that edit is made - which is exactly
+     * the same one-line-per-call-site shape {@code CommandFilter}'s own {@code Chime} needed in the
+     * three Paper plugins, written up as a follow-up ticket rather than guessed at here.
+     */
+    @FunctionalInterface
+    public interface Chime {
+
+        void play(Player player, Feedback feedback);
+
+        /** For as long as nothing plays a real sound here - see the class javadoc above. */
+        static Chime silent() {
+            return (player, feedback) -> { };
+        }
+    }
+
     private final LoginRoster roster;
     private final Messages messages;
     private final Logger logger;
+    private final Chime chime;
 
     /**
      * Read straight out of {@code network.yml} rather than out of the database.
@@ -76,12 +117,19 @@ public final class CommandGate {
      */
     private final CommandAllowlist allowlist;
 
+    /** Without a {@link Chime}: silent, which is every existing caller's behaviour unchanged. */
     public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
                        final Messages messages, final Logger logger) {
+        this(roster, allowlist, messages, logger, Chime.silent());
+    }
+
+    public CommandGate(final LoginRoster roster, final CommandAllowlist allowlist,
+                       final Messages messages, final Logger logger, final Chime chime) {
         this.roster = Objects.requireNonNull(roster, "roster");
         this.allowlist = Objects.requireNonNull(allowlist, "allowlist");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.chime = Objects.requireNonNull(chime, "chime");
     }
 
     /**
@@ -127,6 +175,7 @@ public final class CommandGate {
         event.setResult(CommandExecuteEvent.CommandResult.denied());
         player.sendMessage(Tones.paint(
                 MessageRenderer.of(messages).get(locale(player), "command.unknown"), Tone.BAD));
+        chime.play(player, Feedback.REFUSED);
     }
 
     /**

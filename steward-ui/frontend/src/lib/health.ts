@@ -1,4 +1,5 @@
 import type { Backup, Host, ServiceTable } from "@/lib/api"
+import { archived } from "@/lib/backup-name"
 import { bytes, percent, relative } from "@/lib/format"
 
 /**
@@ -178,26 +179,13 @@ export function summarise(input: {
 }
 
 /**
- * Which of the two kinds of file in `/backups` a row is.
+ * The newest of one series, held against the one permitted age.
  *
- * `DatabaseDump` writes `nordtal-<stamp>.dump`, `TarSnapshots` writes `<volume>-<stamp>.tar.zst`,
- * and `/api/backups` lists the directory naming each file exactly as it lies there. So the suffix is
- * the whole distinction and it is the backend's, not this file's invention.
- *
- * A half-written dump is `nordtal-<stamp>.dump.partial` and therefore does not end in `.dump` at
- * all - but nothing here leans on that. `partial` is the backend's own flag and is what the caller
- * filters on first, so a rename cannot turn a corpse into a backup.
- */
-function isDump(backup: Backup): boolean {
-  return backup.name.endsWith(".dump")
-}
-
-/**
- * The newest of one kind, held against the one permitted age.
- *
- * Split out because the directory holds two kinds and reducing it to a single newest file is the
- * defect: with sixteen archives from tonight and a dump from last week, "the newest backup" is
- * minutes old and says nothing about the half that is not being written.
+ * A series is one volume, or the database dump. Never the whole directory: sixteen files from
+ * tonight and a world from three weeks ago make "the newest backup" minutes old, and a per-volume
+ * tar failure - which is what a missing mount produces, one FAILED line for that volume alone -
+ * hides behind the seven small ones that succeeded. `TarSnapshots.prune` counts per volume for the
+ * same reason and would otherwise keep fourteen of whichever was written last.
  */
 function tooOld(
   rows: Backup[],
@@ -252,8 +240,21 @@ function backupTriggers(
   //
   // The asymmetry is why it matters rather than being pedantry: a world and a set of configs can be
   // rebuilt from the repository and a paintbrush. The accesses, payments and Discord links cannot.
-  const archives = finished.filter((backup) => !isDump(backup))
-  const dumps = finished.filter(isDump)
+  // `archived` is the same classifier the Operations page lists the directory with, and asking it
+  // rather than the suffix is the difference between "not a dump" and "is an archive": an
+  // `.unverified` mark and a README an operator dropped in are neither.
+  const dumps: Backup[] = []
+  const volumes = new Map<string, Backup[]>()
+  for (const backup of finished) {
+    const what = archived(backup.name)
+    if (what.kind === "database") {
+      dumps.push(backup)
+    } else if (what.kind === "volume" && what.subject) {
+      const series = volumes.get(what.subject)
+      if (series) series.push(backup)
+      else volumes.set(what.subject, [backup])
+    }
+  }
   const triggers: Trigger[] = []
 
   // Presence is not a number, so neither of these waits for /api/settings - same argument as "there
@@ -267,7 +268,7 @@ function backupTriggers(
       to: "/operations",
     })
   }
-  if (archives.length === 0) {
+  if (volumes.size === 0) {
     triggers.push({
       level: "down",
       text: "There is no volume archive - only a database dump.",
@@ -277,7 +278,9 @@ function backupTriggers(
 
   if (!thresholds) return triggers
 
-  triggers.push(...tooOld(archives, "volume archive", thresholds, now))
+  for (const [volume, series] of volumes) {
+    triggers.push(...tooOld(series, `archive of ${volume}`, thresholds, now))
+  }
   triggers.push(...tooOld(dumps, "database dump", thresholds, now))
   return triggers
 }

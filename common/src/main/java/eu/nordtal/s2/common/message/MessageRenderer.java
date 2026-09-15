@@ -76,6 +76,18 @@ public final class MessageRenderer {
     }
 
     /**
+     * <b>A {@link Map} is not one of these, and passing one compiles.</b> {@code parameters} is
+     * {@code Object...}, so {@code format(locale, key, placeholders)} is a perfectly valid call with
+     * exactly one parameter in it, and nothing says otherwise until it is run - for every message,
+     * including one whose map is empty. That is not hypothetical: {@code ConsoleUser} did it, and
+     * the Velocity proxy console could answer no command at all until 2026-09-15
+     * ({@code .scratch season-2-ops/15}). The refusal below names the mistake for that reason.
+     *
+     * <p>The trap is left standing on purpose. Closing it with a {@code Map} overload would make an
+     * existing three-argument call that passes a component map bind silently to the new method
+     * instead, so it needs every call site looked at rather than skimmed - {@code season-2-ops/16}.
+     * Flatten the map, or call {@link Messages#format(Locale, String, Map)}, which does take one.</p>
+     *
      * @param parameters alternating name and value, as {@link Messages#format(Locale, String,
      *                   Object...)} takes them; every value is made inert for MiniMessage first
      * @return the formatted message, parsed as MiniMessage
@@ -116,6 +128,18 @@ public final class MessageRenderer {
     public Component format(final Locale locale, final String key,
                             final Map<String, Component> components, final Object... parameters) {
         if (parameters.length % 2 != 0) {
+            // A whole Map where the pairs belong is worth its own sentence rather than a count.
+            // See the note on the other overload: this is the mistake that cost season-2-ops/15,
+            // and "got 1" describes the symptom of an argument the caller never counted.
+            if (parameters.length == 1 && parameters[0] instanceof final Map<?, ?> map) {
+                throw new IllegalArgumentException(
+                        "format takes alternating name and value, and was given a Map of " + map.size()
+                                + " entries as a single parameter. A Map is one Object, so this"
+                                + " compiles and only fails here - including when the map is empty."
+                                + " Flatten it into name, value, name, value (PaperUser, VelocityUser"
+                                + " and ConsoleUser each do), or call Messages#format, which does take"
+                                + " a Map.");
+            }
             throw new IllegalArgumentException(
                     "parameters must alternate name and value, got " + parameters.length);
         }

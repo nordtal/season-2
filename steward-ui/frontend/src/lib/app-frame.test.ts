@@ -106,6 +106,36 @@ describe("trackAppFrame - what lands on the document", () => {
     field.remove()
   })
 
+  it("re-measures when the app comes back, because a resume sends no resize", () => {
+    // STEWARD/51, AND THE WHOLE POINT IS THE EVENT THAT DOES NOT ARRIVE. A home-screen app restored
+    // after a long pause has the height it was frozen with. `visual.height` is changed here without
+    // any `resize` being dispatched - that is not a shortcut, it is the bug: on a resume iOS sends
+    // neither `resize` nor a `visualViewport` event, so the shell keeps a wrong number until the
+    // page is dragged by hand. Each of the three resume events has to be enough on its own.
+    const visual = { height: 800, scale: 1, addEventListener() {}, removeEventListener() {} }
+    Object.defineProperty(window, "visualViewport", { value: visual, configurable: true })
+
+    const stop = trackAppFrame(window)
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("800px")
+
+    visual.height = 700
+    window.dispatchEvent(new Event("pageshow"))
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("700px")
+
+    visual.height = 600
+    document.dispatchEvent(new Event("visibilitychange"))
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("600px")
+
+    visual.height = 500
+    window.dispatchEvent(new Event("focus"))
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("500px")
+
+    stop()
+    visual.height = 400
+    window.dispatchEvent(new Event("pageshow"))
+    expect(document.documentElement.style.getPropertyValue("--app-height")).toBe("500px")
+  })
+
   it("gives the blurred band no clearance in a browser, which is where there is no band", () => {
     const stop = trackAppFrame(window)
     expect(document.documentElement.style.getPropertyValue("--blur-clearance")).toBe("0px")
@@ -117,7 +147,7 @@ describe("trackAppFrame - what lands on the document", () => {
     expect(isStandalone(window)).toBe(true)
 
     const stop = trackAppFrame(window)
-    expect(document.documentElement.style.getPropertyValue("--blur-clearance")).toBe("20px")
+    expect(document.documentElement.style.getPropertyValue("--blur-clearance")).toBe("8px")
     stop()
 
     Object.defineProperty(window.navigator, "standalone", { value: undefined, configurable: true })

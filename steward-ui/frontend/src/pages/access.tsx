@@ -2,10 +2,12 @@ import { useState } from "react"
 import {
   CircleAlert,
   ExternalLink,
+  HandCoins,
   Search,
   ShieldCheck,
   ShieldX,
   TriangleAlert,
+  Unlink,
   UserPlus,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -13,6 +15,8 @@ import { toast } from "sonner"
 import type { Grant, JournalEntry, Payment, Person } from "@/lib/api"
 import { count, dateTime, euros, relative } from "@/lib/format"
 import {
+  useAvatarBaseUrl,
+  useCommands,
   useGrantAccess,
   useGrants,
   useJournal,
@@ -21,7 +25,8 @@ import {
   usePeople,
   useRevokeAccess,
 } from "@/lib/queries"
-import { CommandCard, isAccessCommand } from "@/components/steward/command-card"
+import { MinecraftFace, PersonIdentity } from "@/components/steward/identity"
+import { InlineCommandAction } from "@/components/steward/inline-command"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { StatusBadge, type Tone } from "@/components/steward/status"
@@ -245,6 +250,9 @@ function shortId(value: string): string {
   return value.length > 8 ? `${value.slice(0, 8)}…` : value
 }
 
+/** Rows per page of the People table (steward/46) - the whole roster is filtered first, always. */
+const PEOPLE_PAGE_SIZE = 20
+
 // --- 1. /access ---------------------------------------------------------------------------------
 
 /**
@@ -258,14 +266,30 @@ function shortId(value: string): string {
  */
 export function AccessPage() {
   const people = usePeople()
+  const avatarBase = useAvatarBaseUrl()
+  const commands = useCommands()
+  const unlinkCommand = commands.data?.find((command) => command.name === "/access unlink")
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
+  const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<Person | null>(null)
   // The person whose access is being revoked. Separate from `selected` on purpose: opening this
   // one closes the other, so there is never a dialog inside a dialog.
   const [revoking, setRevoking] = useState<Person | null>(null)
   // One clock for the whole render, so that two badges in one row cannot disagree about "now".
   const now = Date.now()
+
+  // A filter or the switch changing the result set is exactly when a page number from before it
+  // stops meaning anything - kept on the table itself rather than clamped only where it is read,
+  // so a stale "page 3" never flashes before the roster shrinks under it.
+  function changeNeedle(value: string) {
+    setNeedle(value)
+    setPage(0)
+  }
+  function changeOnlyWithAccess(value: boolean) {
+    setOnlyWithAccess(value)
+    setPage(0)
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -285,9 +309,9 @@ export function AccessPage() {
               <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <Input
                 value={needle}
-                onChange={(event) => setNeedle(event.target.value)}
-                placeholder="Filter by Discord id…"
-                aria-label="Filter by Discord id"
+                onChange={(event) => changeNeedle(event.target.value)}
+                placeholder="Filter by name, Discord id, or Minecraft account…"
+                aria-label="Filter people"
                 autoComplete="off"
               />
             </div>
@@ -295,7 +319,7 @@ export function AccessPage() {
               <Switch
                 id="only-with-access"
                 checked={onlyWithAccess}
-                onCheckedChange={setOnlyWithAccess}
+                onCheckedChange={changeOnlyWithAccess}
               />
               <Label htmlFor="only-with-access">with access only</Label>
             </div>
@@ -311,10 +335,21 @@ export function AccessPage() {
             isEmpty={(list: Person[]) => list.length === 0}
           >
             {(list) => {
+              const trimmed = needle.trim().toLowerCase()
+              // Four things, per steward/46, even though it reads as five fields: a Discord name
+              // (guild nickname or username - whichever this account has), a Minecraft name, and
+              // both ids. The ids stay searchable although this table no longer draws them (see
+              // `identity.tsx`) - somebody holding an id out of a log has to be able to find the
+              // person behind it.
               const rows = list.filter(
                 (person) =>
                   (!onlyWithAccess || person.accessActive) &&
-                  (needle.trim() === "" || person.discordId.includes(needle.trim())),
+                  (trimmed === "" ||
+                    person.discordId.toLowerCase().includes(trimmed) ||
+                    (person.discordUsername ?? "").toLowerCase().includes(trimmed) ||
+                    (person.discordDisplayName ?? "").toLowerCase().includes(trimmed) ||
+                    (person.mcName ?? "").toLowerCase().includes(trimmed) ||
+                    (person.minecraftUuid ?? "").toLowerCase().includes(trimmed)),
               )
               if (rows.length === 0) {
                 return (
@@ -323,43 +358,61 @@ export function AccessPage() {
                     note={
                       onlyWithAccess
                         ? "With this filter and \"with access only\" nobody is left."
-                        : "No loaded account contains this string in its Discord id."
+                        : "No loaded account contains this string in its name or either id."
                     }
                   />
                 )
               }
+              // Paged AFTER filtering, over the whole roster - steward/46's explicit worry is a
+              // search that only reaches the visible page, which would look like it works right up
+              // until the 21st match.
+              const pageCount = Math.max(1, Math.ceil(rows.length / PEOPLE_PAGE_SIZE))
+              const clampedPage = Math.min(page, pageCount - 1)
+              const paged = rows.slice(
+                clampedPage * PEOPLE_PAGE_SIZE,
+                clampedPage * PEOPLE_PAGE_SIZE + PEOPLE_PAGE_SIZE,
+              )
               return (
                 <>
                   <Table className="steward-table">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[14rem]">Discord-ID</TableHead>
-                        <TableHead className="w-[8rem]">Guild</TableHead>
+                        <TableHead className="w-[16rem]">Person</TableHead>
                         <TableHead className="w-[20rem]">
                           <AccessColumnHead />
                         </TableHead>
                         <TableHead className="w-[9rem]">Minecraft</TableHead>
                         <TableHead className="w-[9rem]">Roles</TableHead>
-                        <TableHead className="w-[11rem]" />
+                        <TableHead className="w-[15rem]" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rows.map((person) => (
+                      {paged.map((person) => (
                         <TableRow key={person.discordId}>
-                          <TableCell data-label="Discord ID" className="font-medium">
-                            {/* A button rather than a clickable row: the row also carries a
-                             * destructive action, and "I only wanted to look" must not be one
-                             * misplaced click away from it. */}
-                            <button
-                              type="button"
-                              onClick={() => setSelected(person)}
-                              className="underline-offset-4 hover:text-primary hover:underline"
-                            >
-                              {person.discordId}
-                            </button>
-                          </TableCell>
-                          <TableCell data-label="Guild">
-                            <MemberBadge state={person.memberState} />
+                          <TableCell data-label="Person" className="font-medium">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <PersonIdentity
+                                discordId={person.discordId}
+                                discordUsername={person.discordUsername}
+                                discordUsernameUpdated={person.discordUsernameUpdated}
+                                discordDisplayName={person.discordDisplayName}
+                                discordDisplayNameUpdated={person.discordDisplayNameUpdated}
+                                discordAvatarUrl={person.discordAvatarUrl}
+                                discordAvatarUrlUpdated={person.discordAvatarUrlUpdated}
+                                mcUuid={person.minecraftUuid}
+                                mcName={person.mcName}
+                                mcNameUpdated={person.mcNameUpdated}
+                                avatarBaseUrl={avatarBase.data}
+                                now={now}
+                              />
+                              {/* "Member" is the ordinary case and is left unsaid (steward/46) -
+                               * LEFT and BANNED are exactly the two states worth a glance, and
+                               * they still get one, right next to the name rather than in a
+                               * column of their own. */}
+                              {person.memberState !== "MEMBER" ? (
+                                <MemberBadge state={person.memberState} />
+                              ) : null}
+                            </div>
                           </TableCell>
                           <TableCell data-label="Access">
                             <AccessBadge person={person} now={now} />
@@ -391,7 +444,7 @@ export function AccessPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="flex flex-wrap items-center justify-end gap-1">
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -404,33 +457,64 @@ export function AccessPage() {
                                * nothing to take away, and a disabled destructive control reads as
                                * "not allowed" rather than "not applicable". */}
                               {person.accessActive ? <RevokeDialog person={person} /> : null}
+                              {/*
+                                steward/47: `unlink` moved here from the generic command card,
+                                as an action against the person the row already names. Drawn only
+                                when `/access unlink` is one of the declarations `/api/commands`
+                                actually released to the web - the same rule the card it replaced
+                                followed for its own list.
+                              */}
+                              <InlineCommandAction
+                                command={unlinkCommand}
+                                argumentName="member"
+                                value={person.discordId}
+                                label="Unlink"
+                                icon={Unlink}
+                                destructive
+                                confirmDescription="Breaks the link between this Discord account and its Minecraft account. The paid period is untouched; the person can link a Minecraft account again afterwards."
+                              />
                             </div>
                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                  <p className="text-xs text-muted-foreground">
-                    {count(rows.length)} of {count(list.length)} loaded accounts.
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {count(rows.length)} of {count(list.length)} loaded accounts.
+                    </p>
+                    {pageCount > 1 ? (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={clampedPage === 0}
+                          onClick={() => setPage((current) => Math.max(0, current - 1))}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-xs text-muted-foreground tnum">
+                          Page {clampedPage + 1} of {pageCount}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={clampedPage >= pageCount - 1}
+                          onClick={() => setPage((current) => current + 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
                 </>
               )
             }}
           </QueryState>
         </CardContent>
       </Card>
-
-      {/*
-        `access settle` and `access unlink`, which are commands and not routes of their own: they
-        need the bot (a role, a direct message, a donor flag; the link table the bot owns), so they
-        travel as a `command_request` row exactly as they do from Discord. Granting and revoking are
-        not here because this interface does those itself - see the dialogs above.
-
-        The reference is picked from the open requests and the member from the roster. Neither is
-        typed, and that is the point of package H rather than a nicety: a reference is six
-        characters with no meaning and a Discord id is eighteen digits.
-      */}
-      <CommandCard title="Access commands" only={isAccessCommand} />
 
       <Dialog open={selected !== null} onOpenChange={(open) => (open ? null : setSelected(null))}>
         <DialogContent className="max-w-2xl">
@@ -702,12 +786,26 @@ function PersonGrants({
   onRevoke: () => void
 }) {
   const grants = useGrants(person.discordId)
+  const avatarBase = useAvatarBaseUrl()
 
   return (
     <>
       <DialogHeader>
         <DialogTitle className="flex flex-wrap items-center justify-between gap-3 pr-6">
-          <span className="font-mono">{person.discordId}</span>
+          <PersonIdentity
+            discordId={person.discordId}
+            discordUsername={person.discordUsername}
+            discordUsernameUpdated={person.discordUsernameUpdated}
+            discordDisplayName={person.discordDisplayName}
+            discordDisplayNameUpdated={person.discordDisplayNameUpdated}
+            discordAvatarUrl={person.discordAvatarUrl}
+            discordAvatarUrlUpdated={person.discordAvatarUrlUpdated}
+            mcUuid={person.minecraftUuid}
+            mcName={person.mcName}
+            mcNameUpdated={person.mcNameUpdated}
+            avatarBaseUrl={avatarBase.data}
+            now={now}
+          />
           {person.accessActive ? (
             <Button
               type="button"
@@ -733,9 +831,13 @@ function PersonGrants({
           label="Minecraft"
           value={
             person.minecraftUuid ? (
-              <span className="font-mono text-sm" title={person.minecraftUuid}>
-                {shortId(person.minecraftUuid)}
-              </span>
+              <MinecraftFace
+                mcUuid={person.minecraftUuid}
+                mcName={person.mcName}
+                mcNameUpdated={person.mcNameUpdated}
+                avatarBaseUrl={avatarBase.data}
+                now={now}
+              />
             ) : (
               "–"
             )
@@ -849,6 +951,8 @@ function isOverdue(payment: Payment, now: number): boolean {
  */
 export function PaymentsPage() {
   const payments = usePayments()
+  const commands = useCommands()
+  const settleCommand = commands.data?.find((command) => command.name === "/access settle")
   const [status, setStatus] = useState("")
   const now = Date.now()
 
@@ -957,7 +1061,7 @@ export function PaymentsPage() {
                           <TableHead className="w-[11rem]">Created</TableHead>
                           <TableHead className="w-[11rem]">Deadline</TableHead>
                           <TableHead className="w-[11rem]">Paid</TableHead>
-                          <TableHead className="w-[6rem]" />
+                          <TableHead className="w-[12rem]" />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1010,26 +1114,46 @@ export function PaymentsPage() {
                                 {dateTime(payment.settled)}
                               </TableCell>
                               <TableCell>
-                                {payment.shareUrl ? (
-                                  <Button asChild variant="ghost" size="sm">
-                                    <a
-                                      href={payment.shareUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      title={payment.shareUrl}
+                                <div className="flex flex-wrap items-center justify-end gap-1">
+                                  {payment.shareUrl ? (
+                                    <Button asChild variant="ghost" size="sm">
+                                      <a
+                                        href={payment.shareUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        title={payment.shareUrl}
+                                      >
+                                        <ExternalLink aria-hidden />
+                                        Tab
+                                      </a>
+                                    </Button>
+                                  ) : (
+                                    <span
+                                      className="text-xs text-muted-foreground"
+                                      title="No bunq.me address stands in the row for this request."
                                     >
-                                      <ExternalLink aria-hidden />
-                                      Tab
-                                    </a>
-                                  </Button>
-                                ) : (
-                                  <span
-                                    className="text-xs text-muted-foreground"
-                                    title="No bunq.me address stands in the row for this request."
-                                  >
-                                    –
-                                  </span>
-                                )}
+                                      –
+                                    </span>
+                                  )}
+                                  {/*
+                                    steward/47: `settle` moved here from the generic command card,
+                                    onto the one row it can apply to - an OPEN request already
+                                    names the reference the command needs, so there is nothing
+                                    left to pick. Money only moves for a request that can still be
+                                    settled, hence `payment.status === "OPEN"` rather than drawing
+                                    the button everywhere and disabling it.
+                                  */}
+                                  {payment.status === "OPEN" ? (
+                                    <InlineCommandAction
+                                      command={settleCommand}
+                                      argumentName="reference"
+                                      value={payment.reference}
+                                      label="Settle"
+                                      icon={HandCoins}
+                                      confirmDescription={`Marks ${payment.reference} paid by hand and writes the access period it bought. Use this only once the money has actually arrived - it books access, it does not check bunq.`}
+                                    />
+                                  ) : null}
+                                </div>
                               </TableCell>
                             </TableRow>
                           )

@@ -70,7 +70,7 @@ class ResolverTest {
                 // Two calls for the proxy since 2026-09-09: the project list says which version
                 // Velocity's major 4 is on, and only then is that version's build list read.
                 .serving("/projects/velocity", "fill-velocity-project.json")
-                .serving("/projects/velocity/versions/4.1.1/builds", "fill-velocity-4.1.1.json")
+                .serving("/projects/velocity/versions/4.2.0/builds", "fill-velocity-4.2.0.json")
                 .answering(".zip.sha1", PACK_SHA1 + "\n");
     }
 
@@ -84,8 +84,14 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         // 4.0.0 is Fill's name for the whole 4.x line and carries four SNAPSHOTs; what comes out is
-        // 4.1.1, which is the version network-control is compiled against - the same number the
-        // retired velocity-version pin held, reached without anybody maintaining it.
+        // 4.2.0, which is the version network-control is compiled against, reached without anybody
+        // maintaining a pin.
+        //
+        // The recording was 4.1.1 until 2026-09-15, and re-recording it is the whole point of this
+        // test: Fill had published 4.2.0 into the family, the live proxy was already running
+        // velocity-4.2.0-30.jar, and the catalog still said 4.1.1. When the catalog was corrected,
+        // this assertion is what went red - a fixture from 2026-09-09 against a constant from
+        // today - and that is the coupling working rather than a nuisance.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "network-control", "velocity"));
         assertEquals(List.of(), plan.notes(),
                 "the proxy resolved to the API it was built against, so there is nothing to warn"
@@ -98,32 +104,34 @@ class ResolverTest {
         installCurrentEverything();
         // The same family with one release added. This is the situation the whole note exists for:
         // nothing in the run fails, the proxy simply ends up on an API the plugin in it predates.
+        // 4.3.0 is invented; it is one minor past whatever the catalog holds, which is what this
+        // branch needs and what no recorded fixture can contain.
         http.answering("/projects/velocity", """
                 {"project":{"id":"velocity","name":"Velocity"},
-                 "versions":{"4.0.0":["4.2.0-SNAPSHOT","4.2.0","4.1.1","4.1.0","4.0.0"]}}
+                 "versions":{"4.0.0":["4.3.0-SNAPSHOT","4.3.0","4.2.0","4.1.1","4.1.0","4.0.0"]}}
                 """);
-        http.answering("/projects/velocity/versions/4.2.0/builds", """
+        http.answering("/projects/velocity/versions/4.3.0/builds", """
                 [{"id":31,"channel":"STABLE","time":"2026-09-08T00:00:00Z","downloads":{
-                   "server:default":{"name":"velocity-4.2.0-31.jar","url":"https://x/31",
+                   "server:default":{"name":"velocity-4.3.0-31.jar","url":"https://x/31",
                                      "checksums":{"sha256":"dd"}}}}]
                 """);
 
         final UpdatePlan plan = resolve();
 
         // MISSING and not OUTDATED, and that is the filename identity rule showing through rather
-        // than a defect: a jar is superseded by its prefix, and `velocity-4.1.1` and `velocity-4.2.0`
+        // than a defect: a jar is superseded by its prefix, and `velocity-4.2.0` and `velocity-4.3.0`
         // are different prefixes. It is the same thing a Paper version bump has always done. What it
-        // costs is one line of the report - "velocity 4.2.0" instead of "4.1.1 -> 4.2.0" - and one
+        // costs is one line of the report - "velocity 4.3.0" instead of "4.2.0 -> 4.3.0" - and one
         // stale jar in .server/ that the entrypoint removes on the very start this run performs,
         // because it keeps exactly one jar per kind. Asserted rather than left to be discovered.
         assertEquals(Change.Status.MISSING, statusOf(plan, "network-control", "velocity"));
         assertTrue(plan.hasWork());
-        assertEquals("velocity-4.2.0-31.jar",
+        assertEquals("velocity-4.3.0-31.jar",
                 changeFor(plan, "network-control", "velocity").wanted().fileName());
 
         assertEquals(1, plan.notes().size(), "expected exactly one note: " + plan.notes());
         final String note = plan.notes().getFirst();
-        assertTrue(note.contains("4.2.0") && note.contains(Platform.VELOCITY_API), note);
+        assertTrue(note.contains("4.3.0") && note.contains(Platform.VELOCITY_API), note);
         assertTrue(PlanReport.of(plan).render().contains(note),
                 "the note is decided by the resolver and drawn by PlanReport - a report that drops"
                         + " it is a version skew nobody is told about");
@@ -526,7 +534,7 @@ class ResolverTest {
     private void installCurrentEverything() throws IOException {
         write("network-control", "plugins/network-control-0.1.0.jar");
         write("network-control", "plugins/voicechat-velocity-2.6.18.jar");
-        write("network-control", ".server/velocity-4.1.1-24.jar");
+        write("network-control", ".server/velocity-4.2.0-30.jar");
         write("limbo", "plugins/limbo-0.1.0.jar");
         write("limbo", ".server/paper-26.2-121.jar");
         write("hunger-games", "plugins/hunger-games-0.1.0.jar");

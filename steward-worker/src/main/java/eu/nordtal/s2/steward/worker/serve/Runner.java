@@ -307,6 +307,11 @@ public final class Runner implements RequestRunner {
                     .filter(UpdateReport.ServiceLine::isMoving)
                     .map(UpdateReport.ServiceLine::service)
                     .filter(service -> !Topology.STEWARD_WORKER.equals(service))
+                    // The same two exemptions, because "matching exactly" above is a claim and not
+                    // a mechanism. An update's report carries no `database` line today - only a
+                    // backup's does - so this filter changes nothing that runs. It is here so the
+                    // sentence stays true if that ever stops being the case.
+                    .filter(service -> !DatabaseDump.NAME.equals(service))
                     .filter(service -> !stopped.services().contains(service))
                     .toList();
             if (!notStopped.isEmpty()) {

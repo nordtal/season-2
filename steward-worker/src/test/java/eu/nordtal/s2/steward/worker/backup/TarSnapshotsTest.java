@@ -260,6 +260,46 @@ class TarSnapshotsTest {
     }
 
     @Test
+    @DisplayName("prune keeps the newest database dumps too, and counts them apart from the volumes")
+    void prunesTheDumpsAsTheirOwnSeries() throws IOException {
+        // Until 2026-09-15 there was never a dump to sweep, so nothing missed this: `pg_dump` could
+        // not write at all (steward/39). It can now, one per night, onto the same disk that holds
+        // the only copy of the world - and neither ARCHIVE nor PARTIAL_ARCHIVE matches `.dump`, so
+        // the sweep walked past every one of them.
+        archive("nordtal-s2_mc-smp", "20260910T044500Z", "20260911T044500Z", "20260912T044500Z");
+        dump("20260910T044500Z", "20260911T044500Z", "20260912T044500Z", "20260913T044500Z");
+
+        final List<String> removed = snapshots(NIGHT).prune(2);
+
+        assertEquals(List.of(
+                        "nordtal-20260910T044500Z.dump",
+                        "nordtal-20260911T044500Z.dump",
+                        "nordtal-s2_mc-smp-20260910T044500Z.tar.zst"),
+                sorted(removed),
+                "two of each series survive - the dumps are not counted against the volume's two");
+        assertEquals(List.of("nordtal-20260912T044500Z.dump", "nordtal-20260913T044500Z.dump"),
+                dumpsIn(outputRoot()),
+                "the two newest dumps remain");
+    }
+
+    @Test
+    @DisplayName("prune sweeps a day-old partial dump and leaves a fresh one alone")
+    void prunesStalePartialDumps() throws IOException {
+        // DatabaseDump removes its own .partial when pg_dump reports a failure. What it cannot
+        // remove is the one left by a process that was killed mid-dump, which is the same debris
+        // the tar side already sweeps and the same day of grace applies: a dump running right now
+        // must never be mistaken for it.
+        Files.createDirectories(outputRoot());
+        Files.writeString(outputRoot().resolve("nordtal-20260912T044500Z.dump.partial"), "old");
+        Files.writeString(outputRoot().resolve("nordtal-20260913T044500Z.dump.partial"), "running");
+
+        final List<String> removed = snapshots(NIGHT).prune(7);
+
+        assertEquals(List.of("nordtal-20260912T044500Z.dump.partial"), sorted(removed),
+                "a day old is debris; the one from tonight is a dump in progress");
+    }
+
+    @Test
     @DisplayName("prune sweeps a day-old partial but leaves a fresh one alone")
     void prunesStalePartials() throws IOException {
         Files.createDirectories(outputRoot());
@@ -367,6 +407,24 @@ class TarSnapshotsTest {
         for (final String stamp : stamps) {
             Files.writeString(outputRoot().resolve(volume + "-" + stamp + ".tar.zst"), stamp,
                     StandardCharsets.UTF_8);
+        }
+    }
+
+    /** Dumps that are real enough for prune, which reads names and never content. */
+    private void dump(final String... stamps) throws IOException {
+        Files.createDirectories(outputRoot());
+        for (final String stamp : stamps) {
+            Files.writeString(outputRoot().resolve("nordtal-" + stamp + ".dump"), stamp,
+                    StandardCharsets.UTF_8);
+        }
+    }
+
+    private List<String> dumpsIn(final Path directory) throws IOException {
+        try (var listing = Files.list(directory)) {
+            return listing.map(path -> path.getFileName().toString())
+                    .filter(name -> name.endsWith(".dump"))
+                    .sorted()
+                    .toList();
         }
     }
 

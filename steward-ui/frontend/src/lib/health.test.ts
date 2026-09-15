@@ -48,13 +48,18 @@ function table(services: Service[], drift: Partial<ServiceTable["drift"]> = {}):
 
 function backup(hoursAgo: number, over: Partial<Backup> = {}): Backup {
   return {
-    name: "nordtal-2026-09-12.tar.zst",
+    name: "nordtal-s2_mc-smp-20260912T044500Z.tar.zst",
     bytes: 1_500_000_000,
     human: "1.5 GB",
     modified: new Date(NOW - hoursAgo * HOUR).toISOString(),
     partial: false,
     ...over,
   }
+}
+
+/** The same archive, for a named volume - so a test can let one volume go stale and not the rest. */
+function archiveOf(volume: string, hoursAgo: number): Backup {
+  return backup(hoursAgo, { name: `${volume}-20260912T044500Z.tar.zst` })
 }
 
 /**
@@ -424,6 +429,80 @@ describe("summarise - the database dump, which is not a volume archive", () => {
 
     expect(level).toBe("ok")
     expect(triggers).toEqual([])
+  })
+})
+
+describe("summarise - one volume out of eight", () => {
+  // The same blindness as the dump, one level down, and it was already there: reducing the whole
+  // directory to a single newest file means seven small volumes written tonight hide the world
+  // volume that stopped being written three weeks ago. `TarSnapshots.prune` groups per volume for
+  // exactly this reason - a per-volume tar failure is a FAILED line for that volume alone.
+
+  it("is red when one volume has gone stale behind seven fresh ones", () => {
+    const { level, triggers } = summarise({
+      ...healthy(),
+      backups: [
+        dump(1),
+        archiveOf("nordtal-s2_mc-smp", 21 * 24),
+        archiveOf("nordtal-s2_bot-config", 1),
+        archiveOf("nordtal-s2_steward-ui-config", 1),
+      ],
+    })
+
+    expect(level).toBe("down")
+    expect(triggers[0].text).toContain("nordtal-s2_mc-smp")
+    expect(triggers[0].text).toContain("older than the permitted")
+  })
+
+  it("names every volume that has gone stale, not just the first one it met", () => {
+    const { triggers } = summarise({
+      ...healthy(),
+      backups: [
+        dump(1),
+        archiveOf("nordtal-s2_mc-smp", 21 * 24),
+        archiveOf("nordtal-s2_mc-limbo", 21 * 24),
+        archiveOf("nordtal-s2_bot-config", 1),
+      ],
+    })
+
+    const said = triggers.map((trigger) => trigger.text).join(" ")
+    expect(said).toContain("nordtal-s2_mc-smp")
+    expect(said).toContain("nordtal-s2_mc-limbo")
+  })
+
+  it("is quiet when every volume has something from tonight", () => {
+    expect(
+      summarise({
+        ...healthy(),
+        backups: [dump(1), archiveOf("nordtal-s2_mc-smp", 1), archiveOf("nordtal-s2_bot-config", 2)],
+      }).level,
+    ).toBe("ok")
+  })
+
+  it("judges each volume by its own newest, not by the directory's", () => {
+    // smp has a fresh one and an ancient one; the ancient one is not an accusation.
+    const { level } = summarise({
+      ...healthy(),
+      backups: [dump(1), archiveOf("nordtal-s2_mc-smp", 500), archiveOf("nordtal-s2_mc-smp", 1)],
+    })
+
+    expect(level).toBe("ok")
+  })
+
+  it("does not count a file it cannot classify as a volume archive", () => {
+    // `.unverified` marks sit beside archives, and restore instructions get dropped in by hand.
+    // Reading either as "there is an archive" is the same mistake as reading a .partial as one.
+    const { level, triggers } = summarise({
+      ...healthy(),
+      backups: [
+        dump(1),
+        backup(1, { name: "nordtal-s2_mc-smp-20260912T044500Z.tar.zst.unverified" }),
+        backup(1, { name: "README.txt" }),
+      ],
+    })
+
+    expect(level).toBe("down")
+    expect(triggers[0].text).toContain("archive")
   })
 })
 

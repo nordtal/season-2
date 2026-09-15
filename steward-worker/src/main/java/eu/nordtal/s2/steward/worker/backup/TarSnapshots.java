@@ -100,6 +100,25 @@ public final class TarSnapshots implements Snapshots {
             Pattern.compile("^(?<volume>.+)-(?<stamp>\\d{8}T\\d{6}Z)\\Q" + SUFFIX + PARTIAL + "\\E$");
 
     /**
+     * {@code nordtal-<stamp>.dump}, written by {@link DatabaseDump} and swept here.
+     *
+     * <p><b>Why the dump is pruned by the class that tars volumes.</b> There is one retention
+     * setting and one directory, and a second sweep somewhere else would be a second number to keep
+     * in step. What it must not be is the same <i>series</i>: counted together, fourteen files would
+     * be fourteen dumps and no world, or the reverse, depending on which was written last. So the
+     * dump gets a key of its own below - one that no volume can collide with, because
+     * {@link #VOLUME_NAME} forbids the space in it.</p>
+     */
+    private static final Pattern DUMP = Pattern.compile(
+            "^\\Q" + DatabaseDump.PREFIX + "\\E(?<stamp>\\d{8}T\\d{6}Z)\\Q" + DatabaseDump.SUFFIX + "\\E$");
+
+    private static final Pattern PARTIAL_DUMP = Pattern.compile("^\\Q" + DatabaseDump.PREFIX
+            + "\\E(?<stamp>\\d{8}T\\d{6}Z)\\Q" + DatabaseDump.SUFFIX + PARTIAL + "\\E$");
+
+    /** The group key the dumps are counted under. A space, so no volume name can ever be it. */
+    private static final String DUMP_SERIES = "the database dump";
+
+    /**
      * Docker's own rule for a volume name, and this class's rule too. The name becomes a path
      * segment and an argv entry, so a {@code ..} or a slash in it is refused rather than resolved.
      */
@@ -277,6 +296,9 @@ public final class TarSnapshots implements Snapshots {
      * The ordering is the stamp in the name, not the mtime, because a file that was copied off this
      * host and back has a new mtime and the same age.</p>
      *
+     * <p>The database dump is one series more, counted apart from the volumes - see {@link #DUMP}
+     * for why it is swept here at all and why it must not share a count with them.</p>
+     *
      * <p>A {@code .partial} older than a day is swept too, and is the one thing here that is
      * deleted without being counted against {@code keep}: it is debris from a run that was killed
      * mid-{@code tar}, it is never a backup ({@link #save} renames only after reading back), and a
@@ -310,10 +332,23 @@ public final class TarSnapshots implements Snapshots {
                 byVolume.computeIfAbsent(archive.group("volume"), ignored -> new ArrayList<>()).add(file);
                 continue;
             }
+            final Matcher dump = DUMP.matcher(name);
+            if (dump.matches()) {
+                byVolume.computeIfAbsent(DUMP_SERIES, ignored -> new ArrayList<>()).add(file);
+                continue;
+            }
             final Matcher leftover = PARTIAL_ARCHIVE.matcher(name);
             if (leftover.matches() && isOlderThan(leftover.group("stamp"), debrisBefore, name)) {
                 if (delete(file)) {
                     log.info("pruning {} - a partial from a killed run, never a backup", name);
+                    removed.add(name);
+                }
+                continue;
+            }
+            final Matcher halfDump = PARTIAL_DUMP.matcher(name);
+            if (halfDump.matches() && isOlderThan(halfDump.group("stamp"), debrisBefore, name)) {
+                if (delete(file)) {
+                    log.info("pruning {} - a partial dump from a killed run, never a backup", name);
                     removed.add(name);
                 }
             }

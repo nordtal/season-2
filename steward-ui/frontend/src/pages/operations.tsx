@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner"
 
 import type { Backup, ReportChange, ReportLine, Run, ServiceTable } from "@/lib/api"
+import { archived } from "@/lib/backup-name"
 import {
   LOCALE,
   bytes,
@@ -1191,29 +1192,6 @@ function Notes({ notes }: { notes: string[] }) {
 }
 
 // --- 4. /operations/backups/$id -------------------------------------------------------------------
-
-/**
- * How the worker names what it writes into the backup directory.
- *
- * `TarSnapshots`: `<volume>-<stamp>.tar.zst`, and `<…>.partial` while it is being written.
- * `DatabaseDump`: `nordtal-<stamp>.dump`. Nothing in the run's report carries the file name, so the
- * name is the only thing that says what an archive holds - which is why it is taken apart here
- * rather than printed as one string.
- */
-const VOLUME_ARCHIVE = /^(.+)-(\d{8}T\d{6}Z)\.tar\.zst(\.partial)?$/
-const DATABASE_DUMP = /^(.+)-(\d{8}T\d{6}Z)\.dump(\.partial)?$/
-
-type Archived = { kind: "volume" | "database" | "unknown"; subject: string | null }
-
-function archived(name: string): Archived {
-  const dump = DATABASE_DUMP.exec(name)
-  // `DatabaseDump.NAME` is the word the report's line carries for the dump; the file is named after
-  // the database, not after that word.
-  if (dump) return { kind: "database", subject: "database" }
-  const volume = VOLUME_ARCHIVE.exec(name)
-  if (volume) return { kind: "volume", subject: volume[1] }
-  return { kind: "unknown", subject: null }
-}
 
 function ArchiveKind({ name }: { name: string }) {
   const what = archived(name)

@@ -49,6 +49,19 @@ public final class DatabaseDump {
     /** The name a dump is saved under, so the report and the interface can speak of one thing. */
     public static final String NAME = "database";
 
+    /**
+     * {@code nordtal-<stamp>.dump}, in two halves so that the sweep can build a pattern from the
+     * same strings this class writes.
+     *
+     * <p>{@link TarSnapshots#prune} matched neither of these until 2026-09-15, and nothing noticed
+     * because no dump had ever been written. One per night on the disk that holds the only copy of
+     * the world is not a file to leave uncounted.</p>
+     */
+    static final String PREFIX = "nordtal-";
+
+    /** @see #PREFIX */
+    static final String SUFFIX = ".dump";
+
     private final Docker docker;
     private final String project;
     private final String service;
@@ -84,7 +97,7 @@ public final class DatabaseDump {
                     + "database being down is the reason, not a detail of the backup.");
         }
 
-        final String base = "nordtal-" + STAMP.format(started) + ".dump";
+        final String base = PREFIX + STAMP.format(started) + SUFFIX;
         final String finalPath = directory + "/" + base;
         final String partialPath = finalPath + ".partial";
 

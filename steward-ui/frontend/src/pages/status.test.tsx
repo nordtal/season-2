@@ -66,7 +66,7 @@ function service(over: Record<string, unknown> = {}) {
 
 function backup(hoursAgo: number) {
   return {
-    name: "nordtal.tar.zst",
+    name: "nordtal-s2_mc-smp-20260912T044500Z.tar.zst",
     bytes: 1_500_000_000,
     human: "1.5 GB",
     modified: new Date(Date.now() - hoursAgo * HOUR).toISOString(),

@@ -486,6 +486,13 @@ class ApplierTest {
                 };
             }
 
+            @Override
+            public DeployerSpec deployer() {
+                // Defaults: this test never recreates a container.
+                return new DeployerSpec() {
+                };
+            }
+
         };
         return new Applier(config, fetcher).apply(plan);
     }

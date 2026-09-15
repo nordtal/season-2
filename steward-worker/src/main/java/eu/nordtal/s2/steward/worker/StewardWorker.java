@@ -15,11 +15,13 @@ import eu.nordtal.s2.steward.worker.config.Configs;
 import eu.nordtal.s2.steward.worker.config.DatabaseSpec;
 import eu.nordtal.s2.steward.worker.config.StewardSpec;
 import eu.nordtal.s2.steward.worker.docker.Console;
+import eu.nordtal.s2.steward.worker.docker.DeployerRecreate;
 import eu.nordtal.s2.steward.worker.docker.Docker;
 import eu.nordtal.s2.steward.worker.docker.DockerOps;
 import eu.nordtal.s2.steward.worker.docker.DockerSocket;
 import eu.nordtal.s2.steward.worker.host.HostMetrics;
 import eu.nordtal.s2.steward.worker.metric.Sampler;
+import eu.nordtal.s2.steward.worker.ops.ContainerOps;
 import eu.nordtal.s2.steward.worker.plan.Change;
 import eu.nordtal.s2.steward.worker.plan.Report;
 import eu.nordtal.s2.steward.worker.plan.UpdatePlan;
@@ -388,8 +390,25 @@ public final class StewardWorker {
                         Path.of(config.docker().socket()), Duration.ofSeconds(30)));
                 // One instance, shared by the internal API and by every update run: they ask the
                 // same daemon about the same compose project, and a second one would be a second
-                // answer to the same question.
-                final DockerOps containers = new DockerOps(docker, config.docker().project());
+                // answer to the same question. WorkerApi keeps this one, undecorated - it only
+                // ever calls images(), never recreate().
+                final DockerOps dockerOps = new DockerOps(docker, config.docker().project());
+                // The one thing DockerOps refuses (season-2-ops/22): recreating a container needs
+                // the compose file, and only steward-deployer has it. An empty token leaves this
+                // exactly as it always was - DockerOps' own refusal, named - because a container
+                // that cannot authenticate to the deployer must not silently pretend it can.
+                if (config.deployer().token().isBlank()) {
+                    log.warn("deployer.token is empty in steward.yml, so this container cannot ask"
+                            + " steward-deployer to recreate a service: an update whose image has"
+                            + " moved stops the old container and starts it again on that same"
+                            + " image, and the line stays FAILED. The setup script writes that"
+                            + " secret.");
+                }
+                final ContainerOps containers = config.deployer().token().isBlank()
+                        ? dockerOps
+                        : new DeployerRecreate(dockerOps, config.deployer().url(),
+                                config.deployer().token(), Duration.ofSeconds(config.httpTimeoutSeconds()),
+                                Duration.ofSeconds(config.deployer().timeoutSeconds()));
                 if (!docker.isReachable()) {
                     // The one that matters: without the socket an update, a restart or a backup
                     // refuses at its first step rather than half way through. Said once, here,
@@ -430,7 +449,7 @@ public final class StewardWorker {
                 // readiness marker for the same reason the sampler is: nothing in the stack waits
                 // for this API, and a container that would not come up because a web layer failed
                 // would take four Minecraft servers with it.
-                try (WorkerApi api = new WorkerApi(docker, containers,
+                try (WorkerApi api = new WorkerApi(docker, dockerOps,
                         new Console(docker, config.docker().project()), new HostMetrics(),
                         config.docker().project(), Path.of(config.backup().outputRoot()),
                         config.api().token(), Path.of(config.api().configsRoot()),

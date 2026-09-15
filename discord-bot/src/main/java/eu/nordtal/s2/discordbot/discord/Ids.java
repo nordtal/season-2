@@ -50,12 +50,12 @@ public final class Ids {
     // them.
 
     /**
-     * Asks the updater to install what {@code /update} just reported.
+     * Asks steward-worker to install what {@code /update} just reported.
      * <p>
      * Carries no value. Unlike the phase buttons there is nothing to remember between the command
-     * and the click: the request row the updater answers is written when the button is pressed, and
+     * and the click: the request row the worker answers is written when the button is pressed, and
      * "install whatever is newest right now" is what it means. A plan that has moved on since the
-     * report was rendered is a plan the report will show again - the updater resolves afresh.
+     * report was rendered is a plan the report will show again - the worker resolves afresh.
      * </p>
      */
     public static final String UPDATE_INSTALL = "access:update-install";

@@ -133,7 +133,7 @@ public interface NordtalUser {
     /**
      * Hand back text that is already the answer, verbatim.
      *
-     * <p>Only for output produced elsewhere and passed through unchanged - the updater's report.
+     * <p>Only for output produced elsewhere and passed through unchanged - steward-worker's report.
      * Anything a command composes itself goes through {@link #reply(String, Map)}.</p>
      */
     void replyLiteral(String text);

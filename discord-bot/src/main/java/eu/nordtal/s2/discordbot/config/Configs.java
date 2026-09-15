@@ -25,8 +25,16 @@ import java.util.Set;
  * {@code NORDTAL_BOT_*}, {@code NORDTAL_ACCESS_*} - because one shared prefix would make generic
  * keys such as {@code password} collide across files.</p>
  *
- * <p>Every check here runs at startup and stops the process. Nothing is lenient: a broken file must
- * not fall back to defaults and run the bot against the wrong Discord channels.</p>
+ * <p>Every check here runs at startup and stops the process. A value that is <em>present</em> is
+ * never lenient: a stray character in a snowflake must not become a {@code null} role deep inside
+ * a role assignment hours later, so anything that is not digits is refused by name.</p>
+ *
+ * <p><b>An ABSENT value is a different question, and since 2026-09-14 a different answer.</b> Two
+ * ids decide whether the bot can work at all - the guild it lives in and the admin role that says
+ * who may administer it - and those two are still required. Every other id is a feature: leave it
+ * empty and that feature is not served, which {@link Configured} says out loud once at startup.
+ * Eleven mandatory snowflakes meant a deployment could not come up until somebody had collected
+ * all of them by hand, which is exactly the thing the interface exists to do instead.</p>
  */
 @Slf4j
 public final class Configs {
@@ -98,13 +106,25 @@ public final class Configs {
     public static @NotNull ConfigHandle<BotSpec> bot() throws ConfigException {
         return load("bot", BotSpec.class, "NORDTAL_BOT", config -> {
             requireSecret("token", "NORDTAL_BOT_TOKEN", config.token());
-            requireSecret("bunq.api-key", "NORDTAL_BOT_BUNQ_API_KEY", config.bunq().apiKey());
-            requireSecret("bunq.account-id", "NORDTAL_BOT_BUNQ_ACCOUNT_ID", config.bunq().accountId());
-            try {
-                Long.parseLong(config.bunq().accountId().trim());
-            } catch (final NumberFormatException e) {
-                // Parsed here so a wrong value cannot surface inside the poll loop minutes later.
-                throw new IllegalArgumentException("bunq.account-id must be a number");
+
+            // bunq is OPTIONAL, both halves of it together. A season with no bank account is a
+            // season whose bot does everything except take money, and it must be able to start:
+            // the account is the one thing here that cannot be created from a terminal. Half of it
+            // is still a mistake, because it is always a setup that stopped in the middle.
+            final boolean key = Configured.isSet(config.bunq().apiKey());
+            final boolean account = Configured.isSet(config.bunq().accountId());
+            if (key != account) {
+                throw new IllegalArgumentException("bunq needs both api-key and account-id or "
+                        + "neither, and only " + (key ? "api-key" : "account-id") + " is set. "
+                        + "Leave both empty to run without payments.");
+            }
+            if (account) {
+                try {
+                    Long.parseLong(config.bunq().accountId().trim());
+                } catch (final NumberFormatException e) {
+                    // Parsed here so a wrong value cannot surface inside the poll loop minutes later.
+                    throw new IllegalArgumentException("bunq.account-id must be a number");
+                }
             }
         });
     }
@@ -119,14 +139,19 @@ public final class Configs {
      * becomes a {@code null} role deep inside a role assignment, hours later.
      */
     private static void validateAccess(final AccessSpec config) {
+        // The two that are not features. Without a guild there is nothing to act on; without the
+        // admin role nobody is an admin, which means nobody can log in to Steward and fill in the
+        // rest - a stack that came up and cannot be administered is worse than one that said why.
         requireSnowflake("guild-id", config.guildId());
-
-        requireSnowflake("roles.access", config.roles().access());
-        requireSnowflake("roles.donor", config.roles().donor());
         requireSnowflake("roles.admin", config.roles().admin());
-        requireSnowflake("roles.admin-ping", config.roles().adminPing());
 
-        requireSnowflake("channels.admin", config.channels().admin());
+        // Everything below is optional. Empty means the feature behind it is not served; see
+        // Configured, which names each one at startup.
+        requireSnowflakeIfSet("roles.access", config.roles().access());
+        requireSnowflakeIfSet("roles.donor", config.roles().donor());
+        requireSnowflakeIfSet("roles.admin-ping", config.roles().adminPing());
+
+        requireSnowflakeIfSet("channels.admin", config.channels().admin());
 
         // The per-language roles and channels live on the `languages` entries and are checked by
         // validateLanguages, which names the entry that is wrong.
@@ -159,19 +184,16 @@ public final class Configs {
     /**
      * The price list. The ordering is validated rather than sorted: a list where a longer period is
      * cheaper is a mistake, and only the person who made it knows which number is wrong.
+     *
+     * <p><b>Empty is allowed.</b> It used to stop the bot, on the reasoning that a price list with
+     * nothing in it means there is nothing to buy - which is true, and is a perfectly ordinary
+     * state for a deployment that has not decided its prices yet. The contribution message then
+     * offers the donation and no tiers, and {@link Configured} says so at startup. A list that has
+     * entries still has to make sense, which is everything below.</p>
      */
     private static void validateTiers(final List<AccessSpec.TierSpec> tiers) {
         if (tiers == null || tiers.isEmpty()) {
-            throw new IllegalArgumentException("""
-                    tiers is empty, so there is nothing to buy. Write at least one entry:
-
-                      tiers:
-                      - days: 30
-                        price-cents: 300
-                      - days: 60
-                        price-cents: 500
-                      - days: 90
-                        price-cents: 700""");
+            return;
         }
 
         final Set<Integer> days = new HashSet<>();
@@ -203,9 +225,12 @@ public final class Configs {
     }
 
     /**
-     * The language list. {@code en} is mandatory because it is what a missing translation falls
-     * back to; without it the failure surfaces as a message key on a disconnect screen rather than
-     * at startup. Tags are unique and lower case because a tag is the bundle file name and the
+     * The language list. It is the one list that may not be empty, and {@code en} is the one entry
+     * it may not leave out - not as a demand on the operator but because the spec's own default
+     * already writes {@code en} and {@code de} with every id blank, so a fresh file satisfies both
+     * without anybody typing anything. {@code en} is what a missing translation falls back to;
+     * without it the failure surfaces as a message key on a disconnect screen rather than at
+     * startup. Tags are unique and lower case because a tag is the bundle file name and the
      * value in {@code discord_user.locale}, and nothing downstream case-folds a file name.
      */
     private static void validateLanguages(final List<AccessSpec.LanguageSpec> languages) {
@@ -238,12 +263,14 @@ public final class Configs {
                         + "another entry already uses. Tags identify a language and must be unique.");
             }
 
-            requireSnowflake(path + ".role", language.role());
-            requireSnowflake(path + ".contribution-channel", language.contributionChannel());
-            requireSnowflake(path + ".link-channel", language.linkChannel());
-            requireSnowflake(path + ".hunger-games-channel", language.hungerGamesChannel());
-            // Optional: empty means no status channel. A value that is present still has to be a
-            // snowflake, because an unresolvable channel looks exactly like an unconfigured one.
+            // All six are optional, and each one that is empty switches off exactly the thing it
+            // names. A value that IS present still has to be a snowflake, because an unresolvable
+            // channel looks exactly like an unconfigured one from the outside and is not the same
+            // thing at all.
+            requireSnowflakeIfSet(path + ".role", language.role());
+            requireSnowflakeIfSet(path + ".contribution-channel", language.contributionChannel());
+            requireSnowflakeIfSet(path + ".link-channel", language.linkChannel());
+            requireSnowflakeIfSet(path + ".hunger-games-channel", language.hungerGamesChannel());
             requireSnowflakeIfSet(path + ".status-channel", language.statusChannel());
             requireSnowflakeIfSet(path + ".announcement-channel", language.announcementChannel());
         }
@@ -291,8 +318,8 @@ public final class Configs {
     }
 
     /**
-     * The lenient form, for the one id that may be left out. Empty is a decision ("this language
-     * has no status channel"), anything else has to be a real snowflake.
+     * The lenient form, which is now most of them. Empty is a decision ("this deployment has no
+     * donor role yet"), anything else has to be a real snowflake.
      */
     private static void requireSnowflakeIfSet(final String key, final String value) {
         if (value == null || value.isBlank()) {

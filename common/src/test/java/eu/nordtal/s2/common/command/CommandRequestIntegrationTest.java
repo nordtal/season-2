@@ -256,7 +256,7 @@ class CommandRequestIntegrationTest {
     void retention() throws SQLException {
         // The table had no deletion path at all until 2026-09-05, and a settled row carries the
         // asker's name, their Discord id, their Minecraft account, what they typed and what they
-        // were told. Thirty days, swept by the updater at the start of serve.
+        // were told. Thirty days, swept by steward-worker at the start of serve.
         final long old = requests.submit(
                 request("SMP", "smp reload", "", Instant.now().plusSeconds(30)));
         requests.claim("SMP");

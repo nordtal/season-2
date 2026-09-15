@@ -201,7 +201,7 @@ public final class VelocityCommands {
         final Supplier<Collection<String>> offered =
                 suggestions.get(declaration.name() + " " + argument.name());
         return switch (argument.kind()) {
-            case WORD -> {
+            case WORD, REFERENCE -> {
                 final RequiredArgumentBuilder<CommandSource, ?> word =
                         BrigadierCommand.requiredArgumentBuilder(argument.name(),
                                 StringArgumentType.word());

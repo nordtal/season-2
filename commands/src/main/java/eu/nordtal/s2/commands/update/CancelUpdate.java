@@ -13,7 +13,7 @@ import java.util.Map;
  * {@code /update cancel} - stop the countdown, for as long as one is running.
  *
  * <h2>"Too late" is an answer and not a failure</h2>
- * The cancel races an updater that may be claiming the very same row this millisecond, and the
+ * The cancel races a steward-worker that may be claiming the very same row this millisecond, and the
  * statement behind it is guarded rather than read-then-written for exactly that reason. An empty
  * answer means the run has already begun - which is the sentence the asker needs, not an error.
  */

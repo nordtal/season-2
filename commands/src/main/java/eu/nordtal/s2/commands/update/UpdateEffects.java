@@ -11,7 +11,7 @@ import java.util.Optional;
  * What {@code /update} touches, which is one table and nothing else.
  *
  * <h2>Why this is the whole interface</h2>
- * The command does not update anything and cannot: the updater is a different container with the
+ * The command does not update anything and cannot: steward-worker is a different container with the
  * volumes mounted. What every surface actually does is <b>write a row and read the answer back</b> -
  * and every one of the five processes already has that pool open, which is why the declaration is
  * {@link eu.nordtal.s2.commands.Target#LOCAL} and never travels.

@@ -1,0 +1,10 @@
+# The context is what the Dockerfile COPYs and nothing else - same rule as discord-bot's, and the
+# same trap: a new COPY without a line here fails the build with `failed to compute cache key`.
+*
+!build/libs/*.jar
+!build/compose/compose.yml
+
+# The thin jar back out again: shadowJar leaves both side by side and the COPY uses a glob. Two
+# matches is not an error - BuildKit picks one and says nothing - so this line is what guarantees
+# the fat jar is the one that lands.
+build/libs/*-thin.jar

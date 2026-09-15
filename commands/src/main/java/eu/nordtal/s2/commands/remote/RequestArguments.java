@@ -139,7 +139,7 @@ public final class RequestArguments {
     private static Object parse(final Declaration declaration, final Argument argument,
                                 final String token) {
         return switch (argument.kind()) {
-            case WORD, GREEDY_STRING -> token;
+            case WORD, GREEDY_STRING, REFERENCE -> token;
             case ACCOUNT -> {
                 // A Discord snowflake is ASCII '0'..'9'; Character.isDigit would also accept
                 // Devanagari and Arabic-Indic digits.

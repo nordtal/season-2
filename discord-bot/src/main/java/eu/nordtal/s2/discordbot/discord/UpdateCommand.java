@@ -37,12 +37,12 @@ import java.util.concurrent.TimeUnit;
 /**
  * {@code /update} - what is new, install it, restart the network.
  *
- * <p>The bot updates nothing and could not: the updater is a different container with the volumes
+ * <p>The bot updates nothing and could not: steward-worker is a different container with the volumes
  * mounted. This class writes a row into {@code update_request} and reads the answer back, so every
- * fact an admin sees is the updater's own report rather than a second opinion.</p>
+ * fact an admin sees is the worker's own report rather than a second opinion.</p>
  *
  * <p>Two clicks: {@code /update check} changes nothing, and <b>Update now</b> is the confirmation.
- * Behind it is one run - the updater resolves what is new, and only if there is anything does a
+ * Behind it is one run - the worker resolves what is new, and only if there is anything does a
  * countdown begin, after which the affected servers are stopped, moved and started again. There is
  * deliberately no button that swaps jars into running servers.</p>
  *
@@ -61,7 +61,7 @@ public final class UpdateCommand extends ListenerAdapter {
     private static final Duration CHECK_INTERVAL = Duration.ofSeconds(2);
 
     /**
-     * How long to wait for the updater before saying so - short of Discord's fifteen-minute
+     * How long to wait for steward-worker before saying so - short of Discord's fifteen-minute
      * interaction token, so the message is still editable when the wait gives up.
      */
     private static final Duration PATIENCE = Duration.ofMinutes(12);
@@ -155,7 +155,7 @@ public final class UpdateCommand extends ListenerAdapter {
                 return;
             }
 
-            // Due immediately, whatever the kind: the countdown belongs to the updater and starts
+            // Due immediately, whatever the kind: the countdown belongs to steward-worker and starts
             // only once it knows there is work, so a run that finds nothing counts nothing down.
             final UpdateRequest request =
                     updates.submit(kind, UpdateSource.DISCORD, userId, Duration.ZERO);
@@ -173,7 +173,7 @@ public final class UpdateCommand extends ListenerAdapter {
 
     /**
      * What an admin sees before anything moves. The sentence says <em>if</em> there is anything to
-     * install, because the updater resolves first and a run that finds nothing takes nothing down.
+     * install, because steward-worker resolves first and a run that finds nothing takes nothing down.
      *
      * <p>The admin-channel line beside it stays hardcoded English, like every {@code AdminLog}
      * line: that channel is an operational record read by whoever is on, not one reader's
@@ -184,7 +184,7 @@ public final class UpdateCommand extends ListenerAdapter {
         final long seconds = UpdateDirectory.UPDATE_COUNTDOWN.toSeconds();
         final String what = request.kind() == UpdateKind.RESTART ? "a restart" : "an update";
 
-        admin.note("<@" + userId + "> started " + what + ". If the updater finds anything to do,"
+        admin.note("<@" + userId + "> started " + what + ". If Steward finds anything to do,"
                 + " every player online sees a " + seconds + "-second countdown, and the servers"
                 + " involved are stopped, "
                 + (request.kind() == UpdateKind.RESTART ? "" : "updated ") + "and started again"
@@ -308,7 +308,7 @@ public final class UpdateCommand extends ListenerAdapter {
     }
 
     /**
-     * The finished request, as an embed with the updater's own report in it. Only a report that
+     * The finished request, as an embed with steward-worker's own report in it. Only a report that
      * found work offers a button; a finished update has nothing to follow it, and a failure leads
      * nowhere because the next thing to do is read what it says.
      */
@@ -340,7 +340,7 @@ public final class UpdateCommand extends ListenerAdapter {
     }
 
     /**
-     * The updater's report, drawn as an embed: one inline field per service, with the description
+     * steward-worker's report, drawn as an embed: one inline field per service, with the description
      * carrying only what belongs to no service.
      *
      * <p>Older rows in the deployed database hold plain text instead. {@link UpdateReports#parse}
@@ -355,7 +355,7 @@ public final class UpdateCommand extends ListenerAdapter {
             return List.of(new net.dv8tion.jda.api.EmbedBuilder()
                     .setTitle(title(request, locale))
                     .setDescription("```\n" + truncate(result == null
-                            ? "(the updater wrote nothing)" : result) + "\n```")
+                            ? "(Steward wrote nothing)" : result) + "\n```")
                     .setColor(colour(failed))
                     .setTimestamp(request.finished() == null ? Instant.now() : request.finished())
                     .build());
@@ -419,7 +419,7 @@ public final class UpdateCommand extends ListenerAdapter {
             final int left = report.services().size() - drawn.size();
             // Measured, not estimated: a flat reservation here is the same overflow bug it guards
             // against, one line further down.
-            final String overflow = "and " + left + " more - the updater's log has all of it";
+            final String overflow = "and " + left + " more - Steward's log has all of it";
             if ("...".length() + overflow.length() <= budget) {
                 embed.addField("...", overflow, false);
             }
@@ -485,7 +485,7 @@ public final class UpdateCommand extends ListenerAdapter {
     }
 
     private static String truncate(final String text, final int budget) {
-        final String tail = "\n... truncated; the updater's log has all of it";
+        final String tail = "\n... truncated; Steward's log has all of it";
         if (text.length() <= budget) {
             return text;
         }

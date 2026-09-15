@@ -4,6 +4,7 @@ import com.bunq.sdk.model.generated.endpoint.PaymentApiObject;
 import eu.nordtal.s2.discordbot.access.bunq.BunqGateway;
 import eu.nordtal.s2.discordbot.access.bunq.Money;
 import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.config.Languages;
 import eu.nordtal.s2.discordbot.access.SeasonStart;
 import eu.nordtal.s2.discordbot.access.discord.AccessRoles;
@@ -243,6 +244,11 @@ public final class PaymentProcessor {
         // A language that is not configured - a tag left in discord_user.locale by an entry since
         // removed from access.yml - lands in the fallback channel rather than nowhere.
         final String channelId = languages.forLocale(locale).contributionChannelId();
+        // No contribution channel configured means no public thank-you. The donation itself is
+        // booked, the donor flag is set and the role is given; only the applause is missing.
+        if (!Configured.isSet(channelId)) {
+            return;
+        }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
             log.error("Contribution channel {} is not available; the thank-you was not posted", channelId);

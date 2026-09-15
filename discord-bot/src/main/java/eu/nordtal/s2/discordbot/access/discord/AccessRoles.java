@@ -3,6 +3,7 @@ package eu.nordtal.s2.discordbot.access.discord;
 import eu.nordtal.s2.discordbot.discord.AdminLog;
 
 import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.common.access.AccessDirectory;
 import eu.nordtal.s2.common.access.AccessGrant;
 import eu.nordtal.s2.common.message.Locales;
@@ -93,6 +94,11 @@ public final class AccessRoles {
 
     /** Brings one member's access role in line with the database, right now. */
     public void applyAccessRole(final String discordId, final boolean active) {
+        // No access role configured is not a failure: the grant is in the database either way, and
+        // that is what the proxy's login gate reads. Configured names it once at startup.
+        if (!Configured.isSet(config.roles().access())) {
+            return;
+        }
         final Guild guild = guild();
         final Role role = guild == null ? null : guild.getRoleById(config.roles().access());
         if (guild == null || role == null) {
@@ -119,6 +125,10 @@ public final class AccessRoles {
 
     /** Grants the permanent donor role. Never has a counterpart that removes it. */
     public void grantDonorRole(final String discordId) {
+        // The donor flag in the database is already set by the caller; the role is the decoration.
+        if (!Configured.isSet(config.roles().donor())) {
+            return;
+        }
         final Guild guild = guild();
         final Role role = guild == null ? null : guild.getRoleById(config.roles().donor());
         if (guild == null || role == null) {
@@ -144,6 +154,9 @@ public final class AccessRoles {
      * </p>
      */
     public void reconcile() {
+        if (!Configured.isSet(config.roles().access())) {
+            return;
+        }
         final Guild guild = guild();
         if (guild == null) {
             return;

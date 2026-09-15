@@ -21,10 +21,16 @@ import java.util.Optional;
  * place in the bot that turns a language tag, a role id or a locale into anything.
  *
  * <h2>What it guarantees</h2>
- * The list is non-empty, its tags are unique and lower case, {@code en} is present and every id is
- * a snowflake - all validated by {@link Configs} before the bot touches a guild, so nothing here
- * has to cope with a broken list. The same shape is asserted in {@link #of(List)} so a test cannot
- * build one this class's callers could not survive.
+ * The list is non-empty, its tags are unique and lower case, {@code en} is present and every id
+ * that is <em>filled in</em> is a snowflake - all validated by {@link Configs} before the bot
+ * touches a guild, so nothing here has to cope with a broken list. The same shape is asserted in
+ * {@link #of(List)} so a test cannot build one this class's callers could not survive.
+ *
+ * <p><b>An id may be empty, and that is not a broken list.</b> A language whose role is blank is
+ * one no member is ever recorded as speaking; a language whose channel is blank is one that message
+ * is not posted in. What this class must never do is hand an empty id to JDA, which throws rather
+ * than answering {@code null} - so every consumer of an id from here checks
+ * {@link Configured#isSet(String)} first.</p>
  *
  * <h2>Order</h2>
  * The configured order is preserved end to end: it is the order the managed messages are published

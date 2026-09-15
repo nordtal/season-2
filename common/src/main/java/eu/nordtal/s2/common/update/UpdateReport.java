@@ -82,6 +82,27 @@ public record UpdateReport(Stage stage, List<ServiceLine> services, List<String>
     }
 
     /**
+     * @return whether this report shows at least one thing actually saved - one line in
+     *         {@link State#SAVED}.
+     *
+     * <p>Separate from "the run succeeded", because those are two different facts and A23 is the
+     * proof: run 23 settled {@code DONE} having snapshotted <b>zero</b> volumes, and nothing about
+     * the row said so. A run's status answers "did any step report a failure"; this answers "is
+     * there a file", and only the second one is a backup.
+     *
+     * <p>One line is enough on purpose, and the cost is stated rather than hidden: this cannot tell
+     * that the volume which failed was the one holding the world. It does not try to - the volume
+     * list lives in {@code steward.yml#backup.volumes} on the worker's side, and a second copy of
+     * it in a plugin's config is two lists that drift. What makes one line sufficient in practice
+     * is that the worker settles a run {@code FAILED} the moment any line is {@code FAILED}, so a
+     * {@code DONE} row with a {@code SAVED} line is a run in which nothing failed and something
+     * was written.
+     */
+    public boolean savedSomething() {
+        return services.stream().anyMatch(line -> line.state() == State.SAVED);
+    }
+
+    /**
      * The whole report as plain text, for a console, a chat window and any surface with no fields.
      * The only text rendering there is - nothing anywhere composes a sentence of its own about an
      * update.

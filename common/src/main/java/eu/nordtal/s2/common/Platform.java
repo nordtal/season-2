@@ -8,12 +8,12 @@ package eu.nordtal.s2.common;
  * the organisation is compiled against exactly one Paper API and one Velocity API; the resource
  * pack's {@code pack_format} is chosen for that same version, and the message bundles, the fonts
  * and the world all assume it. So there is no deployment that could sensibly answer this question
- * differently from the source tree it runs - and until 2026-09-09 there was one that could: the
- * updater read {@code minecraft-version} and {@code velocity-version} out of {@code updater.yml},
- * with {@code compose.yml} feeding them from {@code PAPER_VERSION} / {@code VELOCITY_VERSION} in
- * {@code .env}. An operator who typed a different number there did not misconfigure the updater;
- * they pointed the whole network at a Minecraft version nothing in this repository was compiled
- * for, and the first sign of it would have been plugins failing to load.
+ * differently from the source tree it runs - and until 2026-09-09 there was one that could:
+ * steward-worker read {@code minecraft-version} and {@code velocity-version} out of
+ * {@code steward.yml}, with {@code compose.yml} feeding them from {@code PAPER_VERSION} /
+ * {@code VELOCITY_VERSION} in {@code .env}. An operator who typed a different number there did not
+ * misconfigure the worker; they pointed the whole network at a Minecraft version nothing in this
+ * repository was compiled for, and the first sign of it would have been plugins failing to load.
  *
  * <p>The constants are mirrored by {@code gradle/libs.versions.toml}, which is what the modules
  * actually compile against, and {@code PlatformTest} in this module holds the two against each
@@ -23,12 +23,12 @@ package eu.nordtal.s2.common;
  * <h2>Paper is an exact version and Velocity is a family</h2>
  * These are asymmetric on purpose, and the asymmetry is the PaperMC Fill API's own. Fill groups
  * versions into families: {@code GET /v3/projects/paper} answers {@code "26.2": ["26.2",
- * "26.2-rc-2"]}, and {@code GET /v3/projects/velocity} answers {@code "4.0.0": ["4.1.2-SNAPSHOT",
- * "4.1.1", "4.1.0", …]} - so Fill's name for the whole Velocity 4 line is the string
- * {@code 4.0.0}.
+ * "26.2-rc-2"]}, and {@code GET /v3/projects/velocity} answers {@code "4.0.0": ["4.2.0",
+ * "4.1.2-SNAPSHOT", "4.1.1", "4.1.0", …]} (read 2026-09-15) - so Fill's name for the whole
+ * Velocity 4 line is the string {@code 4.0.0}, and it is not a version anybody runs.
  *
  * <p>{@link #MINECRAFT} is used as an <b>exact version</b>: a new Minecraft version is a season
- * decision and never the updater's, because it moves the API every plugin here is compiled against.
+ * decision and never the worker's, because it moves the API every plugin here is compiled against.
  * {@link #VELOCITY_FAMILY} is used as a <b>family</b>: the proxy follows the newest stable version
  * inside Velocity's major 4, which today resolves to {@link #VELOCITY_API} by a different road than
  * pinning it did. Velocity's minor releases do not move the Minecraft protocol, so the thing a
@@ -57,14 +57,14 @@ public final class Platform {
      * The Velocity version {@code network-control} is <em>compiled</em> against, mirrored by
      * {@code velocity} in {@code gradle/libs.versions.toml}.
      *
-     * <p>It exists so that the updater can say when the two have parted company. Following
+     * <p>It exists so that steward-worker can say when the two have parted company. Following
      * {@link #VELOCITY_FAMILY} means the proxy can be moved to a newer 4.x by a run nobody
      * reviewed, and a plugin built against an older API then runs on a newer one - the same trap
-     * {@code UpdaterSpec}'s Chunky comment describes for a {@code compileOnly} pin. The update
+     * {@code StewardSpec}'s Chunky comment describes for a {@code compileOnly} pin. The update
      * report names it and does not block on it: refusing the proxy's own update over a version skew
      * that is usually harmless would be the worse failure.</p>
      */
-    public static final String VELOCITY_API = "4.1.1";
+    public static final String VELOCITY_API = "4.2.0";
 
     /**
      * The resource pack format {@link #MINECRAFT} reads, mirrored by

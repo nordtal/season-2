@@ -33,16 +33,16 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
 
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '25'
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Check the tag matches gradle.properties
         run: |
@@ -61,7 +61,7 @@ jobs:
       # has - without one Testcontainers tests skip themselves and the run stays green while
       # proving less.
       - name: Build and test every release artifact
-        run: ./gradlew check releaseArtifacts
+        run: ./gradlew check releaseArtifacts imageContexts
 
       - name: Collect artifacts
         run: |
@@ -71,7 +71,7 @@ jobs:
           cp smp/build/libs/smp-${VERSION}.jar dist/
           cp network-control/build/libs/network-control-${VERSION}.jar dist/
           cp discord-bot/build/libs/discord-bot-${VERSION}.jar dist/
-          cp updater/build/libs/updater-${VERSION}.jar dist/
+          cp steward-worker/build/libs/steward-worker-${VERSION}.jar dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
           ls -la dist
@@ -99,28 +99,29 @@ jobs:
       # deliberately left alone - a human wrote them, and generate_release_notes would replace
       # them with a generated changelog on every re-run.
       - name: Attach the artifacts to the release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ env.TAG }}
           files: dist/*
 
       - name: Log in to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ALL FOUR IMAGES ARE PUSHED, and until 2026-09-02 only this first one was. The reason it
-      # changed is not a preference: ARCANE DEPLOYS BY PULLING. Its Redeploy pulls images and never
-      # builds - building is a separate action in its interface - so an image that exists nowhere
-      # but a host's local daemon makes a deploy fail with `denied` from the registry, which is what
-      # happened with ghcr.io/nordtal/minecraft:local. Two of these cannot be built from a checkout
-      # at all: they COPY a jar Gradle produces into a directory .gitignore excludes.
+      # ALL FIVE IMAGES ARE PUSHED, and until 2026-09-02 only this first one was. The reason it
+      # changed is not a preference: THE DEPLOYMENT PULLS, IT DOES NOT BUILD. steward-deployer runs
+      # `compose pull` and then `up --no-detach --no-deps`, so an image that exists nowhere but a
+      # host's local daemon makes a deploy fail with `denied` from the registry - which is what
+      # happened with ghcr.io/nordtal/minecraft:local, back when a panel did the pulling and the
+      # same rule applied. Two of these cannot be built from a checkout at all: they COPY a jar
+      # Gradle produces into a directory .gitignore excludes.
       #
-      # THE IMAGES ARE A FLOOR, NOT THE VERSION. The bot and the updater run whatever jar is in
-      # their volume, which the updater fills from the release assets above; the jar baked in is
-      # what makes a first deployment possible before any updater run has happened. `latest` is what
+      # THE IMAGES ARE A FLOOR, NOT THE VERSION. The bot and steward-worker run whatever jar is in
+      # their volume, which the worker fills from the release assets above; the jar baked in is
+      # what makes a first deployment possible before any worker run has happened. `latest` is what
       # compose.yml points at, and since 2026-09-09 it is the only thing it can point at: there is no
       # tag variable and no rollback-by-tag any more. The version tag below is still pushed, because
       # a registry that only ever holds `latest` cannot say what `latest` was last week.
@@ -128,7 +129,7 @@ jobs:
       # NO BUILD ARGS. The two Dockerfiles that carry a jar find it by glob in build/libs, so this
       # workflow no longer has to spell out a version that Gradle has already decided.
       - name: Build and push the bot image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: discord-bot
           push: true
@@ -137,22 +138,22 @@ jobs:
             ghcr.io/nordtal/discord-bot:latest
 
       # The bootstrap. It used to be deliberately unpublished, on the reasoning that a host with
-      # nothing yet builds it from this repository - which stopped being true the moment the host
-      # was Arcane rather than a shell.
-      - name: Build and push the updater image
-        uses: docker/build-push-action@v7
+      # nothing yet builds it from this repository - which stopped being true the moment the
+      # deployment became a pull rather than a build.
+      - name: Build and push the steward-worker image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          context: updater
+          context: steward-worker
           push: true
           tags: |
-            ghcr.io/nordtal/updater:${{ env.VERSION }}
-            ghcr.io/nordtal/updater:latest
+            ghcr.io/nordtal/steward-worker:${{ env.VERSION }}
+            ghcr.io/nordtal/steward-worker:latest
 
       # One image for all four Minecraft services; the difference between them is environment. It
       # contains no Gradle output at all - entrypoint.sh and a JRE - so a change to it still needs a
       # release to reach production, which is the deliberate cost of publishing only on release.
       - name: Build and push the minecraft image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: deploy/minecraft
           push: true
@@ -160,15 +161,28 @@ jobs:
             ghcr.io/nordtal/minecraft:${{ env.VERSION }}
             ghcr.io/nordtal/minecraft:latest
 
-      # The backup sidecar. POSTGRES_IMAGE is NOT passed here on purpose: the Dockerfile's own
-      # default is the version this repository tests against, and a build arg set from a workflow
-      # would be a second place that has to agree with .env. A deployment that runs a different
-      # PostgreSQL builds this one locally - the compose `build:` block still does that.
-      - name: Build and push the backup image
-        uses: docker/build-push-action@v7
+      # The web interface. The frontend is inside this jar and not in the image as files - vite runs
+      # under `:steward-ui:build` and processResources puts build/frontend-dist in under `web/` -
+      # so there is no Node here and none in the image either.
+      - name: Build and push the steward-ui image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          context: deploy/postgres-backup
+          context: steward-ui
           push: true
           tags: |
-            ghcr.io/nordtal/postgres-backup:${{ env.VERSION }}
-            ghcr.io/nordtal/postgres-backup:latest
+            ghcr.io/nordtal/steward-ui:${{ env.VERSION }}
+            ghcr.io/nordtal/steward-ui:latest
+
+      # The one image that carries compose.yml (§8b), which is what makes "which compose file is
+      # live" a question with a version number for an answer. It is also the one image nothing in
+      # the stack can renew: the service that would have to do it is this one, so a new version of
+      # it arrives through deploy/setup.sh on the host.
+      - name: Build and push the steward-deployer image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: steward-deployer
+          push: true
+          tags: |
+            ghcr.io/nordtal/steward-deployer:${{ env.VERSION }}
+            ghcr.io/nordtal/steward-deployer:latest
+

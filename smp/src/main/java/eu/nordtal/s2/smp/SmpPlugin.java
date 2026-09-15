@@ -165,8 +165,6 @@ public final class SmpPlugin extends JavaPlugin {
     private final SeasonState season = new SeasonState();
     private Identities identities;
     private FarmWorldReset farmReset;
-    /** The daily ask for a network backup. Null-safe stop: it is built in onEnable. */
-    private eu.nordtal.s2.smp.backup.NightlyBackup nightlyBackup;
     private SmpHud hud;
     private Boards boards;
     private final Navigation navigation = new Navigation();
@@ -313,16 +311,16 @@ public final class SmpPlugin extends JavaPlugin {
                 BukkitSmpEffects.async(this),
                 (message, failure) -> getLogger().log(java.util.logging.Level.WARNING, message, failure));
 
+        // The reset asks the database whether a backup succeeded before it deletes a world. The
+        // nightly backup clock used to live in this plugin, fifteen minutes ahead of the reset;
+        // it belongs to steward-worker since 2026-09-13 (konzept-eigenstaendiger-stack.md §9a),
+        // and a coupling that was two numbers in one file is now a query. See BackupGate.
         farmReset = new FarmWorldReset(this, config, worlds, swap, pregen, messages, locales,
-                dao, navigation, sounds, hud, announcer);
+                dao, navigation, sounds, hud, announcer,
+                new eu.nordtal.s2.smp.farm.BackupGate(UpdateDirectory.using(pool),
+                        config.farmResetBackupWindowHours()),
+                BukkitSmpEffects.async(this));
         farmReset.start();
-
-        // The network's backup clock, here because the updater must not schedule its own work -
-        // `serve` is not a scheduler - and this is the one process that already runs a daily clock.
-        // It writes an update_request row and nothing else.
-        nightlyBackup = new eu.nordtal.s2.smp.backup.NightlyBackup(this,
-                UpdateDirectory.using(pool), BukkitSmpEffects.async(this), config.backupTime());
-        nightlyBackup.start();
 
         // One instance: the object that stamped a rocket has to be the one asked whether that
         // rocket may hurt anybody (WorldEffects#onDamage).
@@ -597,11 +595,6 @@ public final class SmpPlugin extends JavaPlugin {
         if (farmReset != null) {
             quietly("farmReset.stop", farmReset::stop);
         }
-        // Its own guard rather than farmReset's: a throw between the two would leave this null
-        // while farmReset is not.
-        if (nightlyBackup != null) {
-            quietly("nightlyBackup.stop", nightlyBackup::stop);
-        }
         // Before the pool: the listener thread is parked on a connection of its own, but a refresh
         // already in flight reads through the pool.
         if (adminWatch != null) {
@@ -634,7 +627,7 @@ public final class SmpPlugin extends JavaPlugin {
             event.registrar().register(commands.poi());
 
             SmpCommand.build(this, messages, locales, identities, sounds, outbox, chatEffects,
-                            // The updater is a different container and this is how it is reached:
+                            // steward-worker is a different container and this is how it is reached:
                             // a row and a notification, never a call.
                             new UpdateWatcher(this, UpdateDirectory.using(pool)),
                             // A supplier and not the field: /smp reload replaces it.

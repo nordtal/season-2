@@ -61,6 +61,61 @@ interface CommandRequestDao {
                 @Bind("expires") Instant expires);
 
     /**
+     * The same insert, carrying its journal line in the same statement.
+     *
+     * <h2>Why this one is transactional when the journal generally is not</h2>
+     * {@code AuditDirectory#record} says in as many words that a journal line is deliberately
+     * <em>not</em> part of the transaction of the action it describes: a grant that lands without
+     * its line is a bug worth finding, and a member locked out because the bookkeeping failed is
+     * worse. That argument does not survive being pointed at this table. A {@code command_request}
+     * row is not a fact about the past, it is <b>work waiting to be claimed</b>: if the insert
+     * commits and the journal line then fails, the interface answers the operator with an error
+     * while a target quietly picks the row up and runs the command - and the operator, told it did
+     * not work, presses the button again. Two farm resets, one of them in nobody's name.
+     *
+     * <p>So the two rows are one statement. Not a JDBI transaction around two DAOs - one statement,
+     * which cannot half-happen and needs nobody to remember to open it. {@code journalled} is a
+     * data-modifying CTE, and PostgreSQL runs one of those exactly once whether or not the outer
+     * query reads its output; {@code notified} above is a plain {@code SELECT} and is joined in for
+     * precisely the opposite reason. The phase switch writes its own row the same way.</p>
+     */
+    @SqlQuery("""
+            WITH inserted AS (
+                INSERT INTO command_request
+                    (target, command, arguments, source, requested_by,
+                     discord_id, mc_uuid, locale, expires)
+                VALUES (:target, :command, :arguments, :source, :requestedBy,
+                        :discordId, :minecraftId, :locale, :expires)
+                RETURNING id, target
+            ),
+                 journalled AS (
+                     INSERT INTO audit_log (action, actor, subject, mc_uuid, detail)
+                     VALUES (:action, :actor, :subject, :auditUuid, :detail)
+                 ),
+                 notified AS (
+                     SELECT pg_notify('nordtal_command', inserted.target) AS sent
+                     FROM inserted
+                 )
+            SELECT inserted.id
+            FROM inserted,
+                 notified
+            """)
+    long submitJournalled(@Bind("target") String target,
+                          @Bind("command") String command,
+                          @Bind("arguments") String arguments,
+                          @Bind("source") String source,
+                          @Bind("requestedBy") String requestedBy,
+                          @Bind("discordId") String discordId,
+                          @Bind("minecraftId") UUID minecraftId,
+                          @Bind("locale") String locale,
+                          @Bind("expires") Instant expires,
+                          @Bind("action") String action,
+                          @Bind("actor") String actor,
+                          @Bind("subject") String subject,
+                          @Bind("auditUuid") UUID auditUuid,
+                          @Bind("detail") String detail);
+
+    /**
      * Take the oldest pending request for this target, atomically.
      *
      * <h2>{@code FOR UPDATE SKIP LOCKED}</h2>

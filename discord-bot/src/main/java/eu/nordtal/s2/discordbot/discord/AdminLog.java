@@ -1,6 +1,7 @@
 package eu.nordtal.s2.discordbot.discord;
 
 import eu.nordtal.s2.discordbot.config.AccessSpec;
+import eu.nordtal.s2.discordbot.config.Configured;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -40,9 +41,17 @@ public final class AdminLog {
         this.dao = jdbi.onDemand(AuditDao.class);
     }
 
-    /** Something needs a human. Mentions the admin role. */
+    /**
+     * Something needs a human. Mentions the admin role, when there is one to mention.
+     *
+     * <p>No ping role configured does not silence the alert - it posts the same sentence without
+     * the mention. An alert nobody is notified about is still an alert somebody scrolling the
+     * channel can read; an alert that was not posted is nothing.</p>
+     */
     public void alert(final String text) {
-        post("<@&" + config.roles().adminPing() + "> " + text);
+        post(Configured.isSet(config.roles().adminPing())
+                ? "<@&" + config.roles().adminPing() + "> " + text
+                : text);
     }
 
     /** Something happened that should be readable later. No mention. */
@@ -111,6 +120,12 @@ public final class AdminLog {
     }
 
     private MessageChannel channel() {
+        // Unconfigured and unresolvable are two different situations and must not read the same in
+        // a log. The first is a deployment that has not picked a channel; the second is a channel
+        // that was picked and has since been deleted or hidden from the bot.
+        if (!Configured.isSet(config.channels().admin())) {
+            return null;
+        }
         final MessageChannel channel =
                 jda.getChannelById(MessageChannel.class, config.channels().admin());
         if (channel == null) {
@@ -123,7 +138,9 @@ public final class AdminLog {
     private void post(final String text) {
         final MessageChannel channel = channel();
         if (channel == null) {
-            log.error("The message that could not be posted was: {}", text);
+            // At warn rather than error: with no admin channel configured this is the ONLY place
+            // the message exists, so it has to be readable, and it is not a fault.
+            log.warn("No admin channel, so this was not posted to Discord: {}", text);
             return;
         }
         channel.sendMessage(text).queue(

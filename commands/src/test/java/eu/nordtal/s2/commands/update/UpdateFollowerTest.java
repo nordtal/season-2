@@ -61,7 +61,7 @@ class UpdateFollowerTest {
         step.deliver(user);
 
         assertTrue(step.finished());
-        // Not one literal anywhere: a report used to be printed as the updater's own English text,
+        // Not one literal anywhere: a report used to be printed as the worker's own English text,
         // which is what a German admin got on the longest answer in the network.
         assertEquals(List.of("update.stage.PLANNED", "update.line.PLANNED", "update.change"),
                 user.keys());
@@ -188,7 +188,7 @@ class UpdateFollowerTest {
     }
 
     @Test
-    @DisplayName("past the deadline the row's own status is named, because PENDING means the updater is down")
+    @DisplayName("past the deadline the row's own status is named, because PENDING means the worker is down")
     void timesOutNamingTheStatus() {
         final FakeUser user = FakeUser.inGame();
         final UpdateFollower.Step step = following(id -> Optional.of(row(UpdateStatus.PENDING, null)))
@@ -199,7 +199,7 @@ class UpdateFollowerTest {
         assertEquals(UpdateStatus.PENDING, user.only().of("status"));
         assertFalse(user.only().placeholders().containsKey("id"),
                 "the request id is a primary key read out to somebody who cannot use it; the one"
-                        + " reader who can is looking at the updater's log, where it still is");
+                        + " reader who can is looking at steward-worker's log, where it still is");
     }
 
     @Test

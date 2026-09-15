@@ -167,12 +167,54 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("the bot refuses to start while a channel id is empty")
-    void emptyChannelIdStopsTheBot() throws Exception {
+    @DisplayName("no admin channel is a bot that starts and logs its alerts instead")
+    void anEmptyAdminChannelIsAllowed() throws Exception {
+        // This USED to stop the bot, and that was the wrong end of the stick: a deployment that has
+        // a guild but has not made an admin channel yet cannot come up to be told what else is
+        // missing. The channel is a feature, and AdminLog writes its alerts to the log without one.
         Files.writeString(directory.resolve("access.yml"), access().replace("admin: '24'", "admin: ''"));
+
+        assertEquals("", Configs.access().get().channels().admin());
+    }
+
+    @Test
+    @DisplayName("an admin channel that is present still has to be a snowflake")
+    void aNonNumericAdminChannelStillStopsTheBot() throws Exception {
+        // Optional and lenient are not the same thing. Empty is a decision; `<#24>` is a paste.
+        Files.writeString(directory.resolve("access.yml"), access().replace("admin: '24'", "admin: '<#24>'"));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(error.getMessage().contains("channels.admin"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("the guild id is one of the two the bot cannot start without")
+    void emptyGuildIdStopsTheBot() throws Exception {
+        // The other is roles.admin, below. Everything else in this file is a feature that can be
+        // left off; these two say where the bot lives and who may administer it, and without the
+        // second nobody can log in to Steward to fill the rest in.
+        Files.writeString(directory.resolve("access.yml"), access().replace("guild-id: '1'", "guild-id: ''"));
+
+        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
+        assertTrue(error.getMessage().contains("guild-id"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("every role but the admin one may be left empty, and the bot still starts")
+    void theOptionalRolesMayAllBeEmpty() throws Exception {
+        Files.writeString(directory.resolve("access.yml"), access()
+                .replace("access: '10'", "access: ''")
+                .replace("donor: '11'", "donor: ''")
+                .replace("admin-ping: '15'", "admin-ping: ''"));
+
+        final AccessSpec config = Configs.access().get();
+
+        assertAll(
+                () -> assertEquals("", config.roles().access()),
+                () -> assertEquals("", config.roles().donor()),
+                () -> assertEquals("", config.roles().adminPing()),
+                () -> assertEquals("14", config.roles().admin())
+        );
     }
 
     @Test
@@ -221,18 +263,14 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("an empty tier list stops the bot and prints the shape to write")
-    void emptyTiersStopTheBotWithTheShape() throws Exception {
+    @DisplayName("an empty tier list is a deployment that has not priced anything yet")
+    void emptyTiersAreAllowed() throws Exception {
+        // It used to stop the bot with a worked example of what to write, which is a good error
+        // message for a situation that is not an error. Prices are a decision somebody makes in the
+        // interface after the stack is up, not a precondition of the stack being up.
         Files.writeString(directory.resolve("access.yml"), access("tiers: []"));
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
-        assertAll(
-                () -> assertTrue(error.getMessage().contains("nothing to buy"), error.getMessage()),
-                () -> assertTrue(error.getMessage().contains("price-cents: 300"),
-                        "the message has to show what to write: " + error.getMessage()),
-                () -> assertTrue(error.getMessage().contains("access.yml"),
-                        "and name the file: " + error.getMessage())
-        );
+        assertTrue(Configs.access().get().tiers().isEmpty());
     }
 
     // ------------------------------------------------------------- the language list
@@ -312,23 +350,37 @@ class ConfigsTest {
     }
 
     @Test
-    @DisplayName("an empty id on a language entry stops the bot, naming the entry")
-    void emptyLanguageChannelStopsTheBot() throws Exception {
-        Files.writeString(directory.resolve("access.yml"),
-                languages(VALID_LANGUAGES.replace("link-channel: '35'", "link-channel: ''")));
+    @DisplayName("a language entry whose ids are all empty is a language that serves nothing")
+    void everyLanguageIdMayBeEmpty() throws Exception {
+        // All four of these used to be mandatory, which made a first deployment wait on eight
+        // channels nobody had created. Empty switches the thing it names off - no link message in
+        // this language - and Configured lists every one of them in a line at startup.
+        Files.writeString(directory.resolve("access.yml"), languages(VALID_LANGUAGES
+                .replace("role: '33'", "role: ''")
+                .replace("contribution-channel: '34'", "contribution-channel: ''")
+                .replace("link-channel: '35'", "link-channel: ''")
+                .replace("hunger-games-channel: '40'", "hunger-games-channel: ''")));
 
-        final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
-        assertTrue(error.getMessage().contains("languages[1].link-channel"), error.getMessage());
+        final AccessSpec.LanguageSpec german = Configs.access().get().languages().get(1);
+
+        assertAll(
+                () -> assertEquals("", german.role()),
+                () -> assertEquals("", german.contributionChannel()),
+                () -> assertEquals("", german.linkChannel()),
+                () -> assertEquals("", german.hungerGamesChannel())
+        );
     }
 
     @Test
-    @DisplayName("an empty hunger-games-channel id stops the bot, naming the entry")
-    void emptyHungerGamesChannelStopsTheBot() throws Exception {
+    @DisplayName("a language id that is present still has to be a snowflake, naming the entry")
+    void aNonNumericLanguageChannelStillStopsTheBot() throws Exception {
+        // The reason the leniency is about emptiness and nothing else: an unresolvable channel and
+        // an unconfigured one look identical from the outside and are not the same thing at all.
         Files.writeString(directory.resolve("access.yml"),
-                languages(VALID_LANGUAGES.replace("hunger-games-channel: '40'", "hunger-games-channel: ''")));
+                languages(VALID_LANGUAGES.replace("link-channel: '35'", "link-channel: '<#35>'")));
 
         final ConfigValidationException error = assertThrows(ConfigValidationException.class, Configs::access);
-        assertTrue(error.getMessage().contains("languages[1].hunger-games-channel"), error.getMessage());
+        assertTrue(error.getMessage().contains("languages[1].link-channel"), error.getMessage());
     }
 
     @Test

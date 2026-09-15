@@ -34,9 +34,9 @@ import java.util.Optional;
  * backend would have missed entirely.
  *
  * <h2>The instant comes from the row, never from a clock here</h2>
- * {@code update_request.not_before} is written by the updater when it has resolved a plan with work
+ * {@code update_request.not_before} is written by steward-worker when it has resolved a plan with work
  * in it, as an absolute instant on the database's clock. This class counts towards that instant and
- * the updater waits it out, so the two cannot disagree - which is the whole reason the countdown
+ * the worker waits it out, so the two cannot disagree - which is the whole reason the countdown
  * length is not a setting in two config files.
  *
  * <h2>Scheduled tasks, not a poll that speaks - 2026-09-08</h2>

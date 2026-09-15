@@ -1,7 +1,7 @@
 package eu.nordtal.s2.common.update;
 
 /**
- * What an {@link UpdateRequest} asks the updater to do. Stored verbatim in
+ * What an {@link UpdateRequest} asks steward-worker to do. Stored verbatim in
  * {@code update_request.kind}, which a database {@code CHECK} restricts to these four.
  *
  * <p>Separate kinds rather than one command with flags, on purpose: a button that says "check what
@@ -30,7 +30,7 @@ public enum UpdateKind {
      * migrate, swap, start them again, and wait until each one reports healthy.
      *
      * <p>Only the services that actually change are stopped - a server with nothing to install is
-     * an outage with nothing to show for it - and the updater is never one of them, because it is
+     * an outage with nothing to show for it - and the worker is never one of them, because it is
      * the process running the sequence.</p>
      */
     UPDATE,
@@ -39,7 +39,7 @@ public enum UpdateKind {
      * The same sequence with nothing installed: count down, stop, start, wait.
      *
      * <p>Kept as its own kind because "that server is wedged, take it round once" is a thing to
-     * want independently of whether there is a new version, and doing it through Arcane by hand
+     * want independently of whether there is a new version, and doing it with a shell on the host
      * skips the countdown that is the only warning players get.</p>
      */
     RESTART,
@@ -47,20 +47,31 @@ public enum UpdateKind {
     /**
      * The same sequence again, with a volume backup in the gap: count down, stop, save, start.
      *
-     * <h2>Why the updater carries this and Arcane's own schedule does not</h2>
-     * Arcane can run a backup policy on a timer of its own, and it can be told to stop the
-     * containers using a volume first. Both halves of that are wrong here. A stop nobody announced
-     * takes the world out from under whoever is standing in it with no countdown at all - and the
-     * countdown is the entire reason this network has a request row rather than a cron job. So
-     * Arcane's {@code StopContainers} stays <b>off</b>, its policy decides only <em>where</em> a
-     * snapshot goes, and the stopping is done here, by the sequence that already knows how to warn
-     * people and how to say whether everything came back.
+     * <h2>Why steward-worker carries this and no outside schedule does</h2>
+     * Anything else that could take a nightly snapshot - a cron job, a backup policy in a panel -
+     * would have to stop the containers using a volume first, because a file-level copy of a world
+     * Paper is writing to is torn and fails at <em>restore</em> rather than at backup. A stop
+     * nobody announced takes the world out from under whoever is standing in it with no countdown
+     * at all, and the countdown is the entire reason this network has a request row rather than a
+     * cron job. So the stopping is done here, by the sequence that already knows how to warn people
+     * and how to say whether everything came back.
      *
      * <h2>Nobody types this at 04:45</h2>
      * {@code /backup now} exists and is what an admin uses. The nightly one is written by
-     * {@code smp}, which already owns a daily clock for the farm world - see {@code smp}'s
-     * {@code NightlyBackup}. That is deliberate and it is the rule {@code serve} is protected by:
-     * <b>the updater is not a scheduler</b>, and a timer inside it would be one however small.
+     * steward-worker's own clock.
+     *
+     * <p><b>That is a rule change, made deliberately on 2026-09-13</b>
+     * ({@code konzept-eigenstaendiger-stack.md} §9a). It used to be written by {@code smp},
+     * because {@code serve} was not allowed to be a scheduler and {@code smp} already owned a
+     * daily clock for the farm world - with the consequence, written down at the time and then
+     * true for a season, that a network with {@code smp} down had no backup at all and nothing
+     * anywhere noticed. The clock now belongs to the process that performs the work.</p>
+     *
+     * <p>What that broke is the guarantee that came free from the fifteen minutes between
+     * {@code smp}'s backup and {@code smp}'s farm reset: the world about to be deleted had just
+     * been saved. Two clocks in two containers cannot be held against each other, so the reset
+     * asks instead - see {@link UpdateDirectory#lastSuccessfulBackup(java.time.Duration)}, and no
+     * provable backup means no reset.</p>
      */
     BACKUP;
 

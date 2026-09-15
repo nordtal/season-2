@@ -16,7 +16,7 @@ import java.io.IOException
  * A local build compiles the working tree; CI compiles the checkout. Anything present in one and
  * absent from the other makes those two different programs, and the difference surfaces as a
  * compile error on a machine that is not yours. The usual cause is an unanchored directory pattern
- * in `.gitignore` - `run/` matches the Java package `eu.nordtal.s2.updater.run` just as happily as
+ * in `.gitignore` - `run/` matches the Java package `eu.nordtal.s2.steward.worker.run` just as happily as
  * it matches `hunger-games/run` - and it is the worst kind of cause, because an *ignored* file is
  * not an untracked one: `git status` stays clean and nothing ever hints at it.
  *

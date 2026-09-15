@@ -52,7 +52,7 @@ class DirectoryUpdateEffectsTest {
     }
 
     @Test
-    @DisplayName("no kind is written with a countdown on it - the updater starts that, once it knows")
+    @DisplayName("no kind is written with a countdown on it - steward-worker starts that, once it knows")
     void nothingIsCountedDownBeforeItIsResolved() {
         // This asserted the opposite until 2026-09-08, and the opposite is what V13 undoes: every
         // surface wrote now() + 30s, so a countdown ran BEFORE anybody knew whether there was
@@ -66,7 +66,7 @@ class DirectoryUpdateEffectsTest {
         assertEquals(List.of(Duration.ZERO, Duration.ZERO, Duration.ZERO),
                 directory.submitted.stream()
                         .map(FakeUpdateDirectory.Submitted::delay).toList(),
-                "the countdown is UpdateDirectory#startCountdown's, on the row the updater has"
+                "the countdown is UpdateDirectory#startCountdown's, on the row the worker has"
                         + " claimed and resolved");
     }
 }

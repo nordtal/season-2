@@ -1,0 +1,16 @@
+{
+  "id": "/",
+  "name": "Nordtal Steward",
+  "short_name": "Steward",
+  "description": "The season 2 deployment: what is running, what changed it, and who may join.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d0d0d",
+  "theme_color": "#0d0d0d",
+  "icons": [
+    { "src": "/icon.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

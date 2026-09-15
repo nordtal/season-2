@@ -52,9 +52,9 @@ public final class Readiness {
     /**
      * Where the marker goes.
      *
-     * <p>{@code /tmp} and not a volume, for the reason {@code updater}'s own marker gives: it has to
-     * be false again after a restart, and a readiness marker that outlives the process it describes
-     * is worse than none. One process per container, so one path is enough.</p>
+     * <p>{@code /tmp} and not a volume, for the reason {@code steward-worker}'s own marker gives:
+     * it has to be false again after a restart, and a readiness marker that outlives the process it
+     * describes is worse than none. One process per container, so one path is enough.</p>
      */
     public static final Path MARKER = Path.of("/tmp/nordtal-ready");
 

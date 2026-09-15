@@ -6,6 +6,7 @@ import eu.nordtal.s2.discordbot.discord.ManagedMessageDao;
 
 import eu.nordtal.s2.discordbot.access.bunq.Money;
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.discordbot.access.payment.Tier;
 import eu.nordtal.s2.discordbot.access.payment.Tiers;
 import eu.nordtal.s2.common.message.Messages;
@@ -83,6 +84,11 @@ public final class ManagedMessages {
 
     private void publish(final String kind, final boolean contribution, final String channelId,
                          final Locale locale) {
+        // A language with no channel for this message is a language that does not get it. Checked
+        // before the lookup because getChannelById throws on an empty id rather than answering null.
+        if (!Configured.isSet(channelId)) {
+            return;
+        }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
             log.error("Channel {} for the {} message does not exist, or the bot cannot see it. "

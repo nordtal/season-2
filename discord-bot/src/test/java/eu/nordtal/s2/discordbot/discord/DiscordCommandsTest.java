@@ -134,23 +134,44 @@ class DiscordCommandsTest {
     @DisplayName("every description fits, in both languages, after shortening")
     void descriptions() {
         final List<String> tooLong = new ArrayList<>();
+        final List<String> missing = new ArrayList<>();
 
         for (final Declaration declaration : inDiscord()) {
-            check(declaration.describeKey(), tooLong);
+            check(declaration.describeKey(), tooLong, missing);
             declaration.arguments().forEach(argument ->
-                    check("command.argument." + argument.name(), tooLong));
-            check("command.describe.root." + declaration.path().getFirst(), tooLong);
+                    check("command.argument." + argument.name(), tooLong, missing));
+            check("command.describe.root." + declaration.path().getFirst(), tooLong, missing);
         }
+        // Missing first: an absent key is also a short one, so reporting the length of a key that is
+        // not there reads as "this description is fine" and is the opposite of the truth.
+        assertEquals(List.of(), missing,
+                "a description key is not in the bundle, so Discord would be sent the key itself as"
+                        + " the text a person reads. Add it to commands/src/main/resources/messages"
+                        + "/commands/en.properties and de.properties.");
         assertEquals(List.of(), tooLong,
                 "a description is over Discord's limit even after being cut at its first sentence."
                         + " Rewrite the FIRST sentence of the describe key - the rest can stay long,"
                         + " it is what chat shows.");
     }
 
-    private void check(final String key, final List<String> tooLong) {
+    /**
+     * One key in both languages: present, non-blank, and short enough once shortened.
+     *
+     * <p><b>Missing is checked by comparing the text to the key</b>, because that is exactly what
+     * {@link Messages} answers for one it does not have - it logs a warning and falls back to the
+     * key. The fallback is right (a command with no description at all is refused by Discord, and
+     * the guild then has none of them), but it also makes a missing key pass every other assertion
+     * here: {@code command.describe.root.update} is 28 characters, neither blank nor too long. Both
+     * {@code update} and {@code backup} had no root description from the day those commands were
+     * added until 2026-09-14, when the warning was read off a deployment's first startup rather
+     * than off a red build.</p>
+     */
+    private void check(final String key, final List<String> tooLong, final List<String> missing) {
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
             final String text = DiscordCommands.shorten(MESSAGES.get(locale, key));
-            if (text.length() > MAX_DESCRIPTION || text.isBlank()) {
+            if (text.equals(key)) {
+                missing.add(key + " (" + locale.getLanguage() + ")");
+            } else if (text.length() > MAX_DESCRIPTION || text.isBlank()) {
                 tooLong.add(key + " (" + locale.getLanguage() + ", " + text.length() + " chars)");
             }
         }
@@ -220,7 +241,7 @@ class DiscordCommandsTest {
         final Map<String, Object> values = new LinkedHashMap<>();
         for (final Argument argument : declaration.arguments()) {
             values.put(argument.name(), switch (argument.kind()) {
-                case WORD -> "ancient-debris";
+                case WORD, REFERENCE -> "ancient-debris";
                 case GREEDY_STRING -> "2026-10-01 18:00";
                 case INTEGER -> argument.max();
                 case PLAYER -> UUID.fromString("11111111-2222-3333-4444-555555555555");

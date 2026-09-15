@@ -3,7 +3,7 @@
 # PID 1 for every Minecraft service. Four jobs, in order:
 #
 #   1. run the newest server jar in the cache, or resolve one (PaperMC Fill API) if it is empty
-#   2. refuse to start on an empty plugins folder - the `updater` container fills it
+#   2. refuse to start on an empty plugins folder - the `steward-worker` container fills it
 #   3. start the server inside a tmux session, so that `docker exec` has a writable console
 #   4. translate SIGTERM into a graceful shutdown and wait for the JVM to finish saving
 #
@@ -201,9 +201,9 @@ newer_server_jar() {
 # Prints the filename of the newest `<kind>-<version>-<build>.jar` in directory $1, or nothing.
 #
 # IT GLOBS ON THE KIND ALONE, never on the version. Globbing on the version is a trap now that the
-# proxy follows Velocity's minors: the updater puts velocity-4.2.0-15.jar in the cache, a glob for
-# velocity-4.1.1-*.jar finds nothing, decides the cache is empty and fetches 4.1.1 back - so every
-# update to the proxy would be undone by the restart meant to apply it.
+# proxy follows Velocity's minors: steward-worker puts velocity-4.2.0-15.jar in the cache, a glob
+# for velocity-4.1.1-*.jar finds nothing, decides the cache is empty and fetches 4.1.1 back - so
+# every update to the proxy would be undone by the restart meant to apply it.
 #
 # A file that does not match the shape is skipped rather than guessed at: no build number
 # (paper-26.2.jar), a non-numeric build, or a version carrying anything but digits and dots - which
@@ -277,11 +277,11 @@ FILL_UA="nordtal-season-2/deploy (+https://github.com/nordtal/season-2)"
 mkdir -p "$CACHE" "$PLUGINS" "$(dirname "$SOCK")"
 
 # --- the server jar --------------------------------------------------------------------------
-# THE UPDATER OWNS THIS JAR. What runs is whatever `<kind>-<version>-<build>.jar` is lying in the
-# cache: the `updater` container puts the newest STABLE build there, and newest_server_jar above
-# picks the highest version-then-build of them. The Fill API is only asked when the cache holds no
-# jar of this kind at all - a fresh volume, or one the updater has never run against. Fetching a
-# pinned build here unconditionally would undo every updater run on the next restart.
+# STEWARD-WORKER OWNS THIS JAR. What runs is whatever `<kind>-<version>-<build>.jar` is lying in the
+# cache: the `steward-worker` container puts the newest STABLE build there, and newest_server_jar
+# above picks the highest version-then-build of them. The Fill API is only asked when the cache
+# holds no jar of this kind at all - a fresh volume, or one the worker has never run against.
+# Fetching a pinned build here unconditionally would undo every worker run on the next restart.
 #
 # NOTHING IS PINNED, and there is deliberately no way back out of a bad platform build in this
 # deployment. Do not add one here.
@@ -312,7 +312,7 @@ else
         || log "${SERVER_KIND} family ${SERVER_VERSION} resolves to version ${version}"
 
     # `/builds/latest` exists and is NOT what is wanted: it answers the newest build of any channel,
-    # ALPHA included. The list is read and filtered instead, the same way the updater does it.
+    # ALPHA included. The list is read and filtered instead, the same way steward-worker does it.
     builds=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" \
         "${FILL_API}/${SERVER_KIND}/versions/${version}/builds") \
         || die "could not read the ${SERVER_KIND} ${version} builds from the Fill API, and no ${SERVER_KIND} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
@@ -321,7 +321,7 @@ else
         || die "the Fill API lists no STABLE build with a 'server:default' download for ${SERVER_KIND} ${version}. Check ${FILL_API}/${SERVER_KIND}/versions/${version}/builds"
 
     # The filename comes from the API rather than being built from three variables: it is the same
-    # name the updater installs under, and two programs constructing it separately is how a server
+    # name the worker installs under, and two programs constructing it separately is how a server
     # ends up running one jar while another thinks it installed a different one.
     JAR_NAME=$(jq -er '.downloads."server:default".name' <<<"$meta") \
         || die "the Fill API returned a download with no filename"
@@ -345,10 +345,10 @@ else
 fi
 
 # One server jar per kind. What this removes is every jar this start did not choose: an older build,
-# an older version the updater superseded across a version bump (it supersedes by filename prefix,
-# so paper-26.2-121 -> paper-26.2-125 replaces in place but velocity-4.1.1-24 -> velocity-4.2.0-31
-# does not), and anything hand-copied in that newest_server_jar refused to read. They would
-# otherwise sit here forever at 40-70 MB each.
+# an older version steward-worker superseded across a version bump (it supersedes by filename
+# prefix, so paper-26.2-121 -> paper-26.2-125 replaces in place but velocity-4.1.1-24 ->
+# velocity-4.2.0-31 does not), and anything hand-copied in that newest_server_jar refused to read.
+# They would otherwise sit here forever at 40-70 MB each.
 shopt -s nullglob
 for old in "$CACHE/${SERVER_KIND}-"*.jar; do
     [[ "$old" != "$JAR_PATH" ]] && { rm -f "$old"; log "removed superseded ${old##*/}"; }
@@ -364,12 +364,12 @@ SERVER_BUILD_RUNNING="${SERVER_VERSION_RUNNING##*-}"
 SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 
 # --- plugins ---------------------------------------------------------------------------------
-# THIS SCRIPT DOES NOT FETCH PLUGINS, and must not start again: the `updater` container owns the
-# plugin jars, and two owners is one too many - an updater that puts 0.3.0 into this volume while
+# THIS SCRIPT DOES NOT FETCH PLUGINS, and must not start again: the `steward-worker` container owns
+# the plugin jars, and two owners is one too many - a worker that puts 0.3.0 into this volume while
 # .env still said 0.2.0 would have the next restart delete exactly the jar it had just fetched.
 #
 # What this container still owns is the server jar above and the datapacks below - neither of which
-# the updater touches, and both of which have to be right before the JVM starts.
+# the worker touches, and both of which have to be right before the JVM starts.
 #
 # WHAT THE GUARD BELOW REPLACES: refusing to start rather than run an older jar. It asks instead for
 # the jars this service is SUPPOSED to have, because merely counting them is not enough - a
@@ -379,7 +379,7 @@ SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 # EXPECTED_PLUGINS is a whitespace-separated list of filename prefixes, split the way JarName splits
 # them - ${file%-*.jar} - so no second and disagreeing rule is invented here.
 #
-# IT IS A MINIMUM, NEVER AN EXACT SET. An extra jar is legitimate and expected - the updater's own
+# IT IS A MINIMUM, NEVER AN EXACT SET. An extra jar is legitimate and expected - the worker's own
 # rule for anything it does not account for is that it is reported and left alone - and a guard
 # demanding an exact set would stop the SMP the first evening one is hand-installed.
 #
@@ -388,7 +388,7 @@ SERVER_VERSION_RUNNING="${SERVER_VERSION_RUNNING%-*}"
 # packetevents-spigot-*.jar and `chunky` to Chunky-Bukkit-*.jar. Listing them here does assume
 # it. If either publisher renames a jar on a first install, this refuses to start while the plugin
 # is really there - a false positive, but a loud one with the prefix in the message, and the same
-# blind spot the updater already has (it would call the artefact MISSING and report the old jar as
+# blind spot the worker already has (it would call the artefact MISSING and report the old jar as
 # unclaimed). Refusing is the right side to fail on.
 if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -s nullglob
@@ -396,9 +396,9 @@ if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -u nullglob
 
     if (( ${#installed[@]} == 0 )); then
-        die "no plugin jars in ${PLUGINS}. This container does not fetch them any more - the updater does. Run it once against this stack:
+        die "no plugin jars in ${PLUGINS}. This container does not fetch them any more - steward-worker does. Run it once against this stack:
 
-    docker compose run --rm updater bootstrap
+    docker compose run --rm steward-worker bootstrap
 
 Refusing to start: a Minecraft server with no plugins is a server with no season on it, and nothing about it looks wrong until somebody joins. Set ALLOW_NO_PLUGINS=true if a server with no plugins really is what you want."
     fi
@@ -431,9 +431,9 @@ Refusing to start: a Minecraft server with no plugins is a server with no season
 
 Refusing to start. A folder with SOME of the plugins in it is the state that looks fine and is not: a Minecraft server missing its season jar starts, reports healthy, and is discovered by the first player who joins.
 
-The likeliest cause is an updater run that could not reach a source and skipped this whole server - read its log for a line saying so, and run it again once the source answers:
+The likeliest cause is a steward-worker run that could not reach a source and skipped this whole server - read its log for a line saying so, and run it again once the source answers:
 
-    docker compose run --rm updater bootstrap
+    docker compose run --rm steward-worker bootstrap
 
 If the plugin IS in the folder under a different filename, its publisher renamed the jar: correct EXPECTED_PLUGINS for this service rather than deleting anything."
         fi
@@ -669,7 +669,7 @@ fi
 JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+AlwaysPreTouch}"
 
 # --- start it inside tmux --------------------------------------------------------------------
-# Arcane's per-container shell is a `docker exec` and therefore cannot reach PID 1's stdin. tmux
+# A shell opened into this container is a `docker exec` and cannot reach PID 1's stdin. tmux
 # is what makes the console writable from there; `console` attaches, `mc <cmd>` sends one command.
 log "starting ${SERVER_KIND} ${SERVER_VERSION_RUNNING} build ${SERVER_BUILD_RUNNING}"
 log "console: run 'console' in this container to attach, or 'mc <command>' to send one command"
@@ -701,7 +701,7 @@ tmux -S "$SOCK" new-session -d -s "$SESSION" -c "$DATA" -x 200 -y 50 \
     "exec java ${JVM_OPTS} -jar '${JAR_PATH}' ${JAVA_ARGS[*]:-}" \
   \; pipe-pane -o -t "$SESSION" "cat >> '$BOOT_LOG'"
 piping=1
-# Mirror the server log to this process's stdout, so `docker logs` and Arcane's log view keep
+# Mirror the server log to this process's stdout, so `docker logs` and any log viewer reading it keep
 # showing everything they would have shown without tmux.
 #
 # THIS IS DELIBERATELY `tail -F` AND NOT `tmux pipe-pane ... > /proc/1/fd/1`, which is the obvious
@@ -778,7 +778,7 @@ kill "$TAIL_PID" 2>/dev/null || true
 # creating latest.log, so `tail -F` had nothing to follow and the container log is about to say
 # "server exited with status 1" and not one word about why. The pane held the answer and is about
 # to be destroyed with the tmux server, so it goes to stdout now - which is where a person, and
-# Arcane's log view, will actually look.
+# anything reading `docker logs`, will actually look.
 if [[ ! -s "$LOG_FILE" && -s "$BOOT_LOG" ]]; then
     warn "the server produced no ${LOG_FILE##*/}, so it died before Paper started logging. Its console output follows - this is the only copy, and it is also in ${BOOT_LOG} until the next start:"
     cat "$BOOT_LOG" >&2

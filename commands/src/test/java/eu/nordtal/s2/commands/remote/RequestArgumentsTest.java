@@ -232,7 +232,7 @@ class RequestArgumentsTest {
         final Map<String, Object> values = new LinkedHashMap<>();
         for (final Argument argument : declaration.arguments()) {
             values.put(argument.name(), switch (argument.kind()) {
-                case WORD -> "sample-key";
+                case WORD, REFERENCE -> "sample-key";
                 // Deliberately with spaces: a greedy argument that does not exercise them proves
                 // nothing, and it is the one kind that is allowed to carry them.
                 case GREEDY_STRING -> "2026-10-01 18:00";

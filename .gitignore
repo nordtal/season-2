@@ -3,7 +3,7 @@
 # Java package - and because the result is an *ignored* file rather than an untracked one, it
 # never shows up in `git status`. It has bitten this repo twice: `config/` kept
 # eu.nordtal.s2.paymentsbot.config out of the first commits, and `run/` kept
-# eu.nordtal.s2.updater.run out of the repository until the CI build failed on it.
+# eu.nordtal.s2.steward.worker.run out of the repository until the CI build failed on it.
 #
 # The cost of anchoring is that a build directory in a place no pattern lists is not ignored. That
 # failure is loud - the files appear as untracked in `git status` - which is exactly the trade we
@@ -31,8 +31,8 @@ bunq-config.conf
 /*/run/
 
 # The four servers' plugins/ folders, bound into the containers by compose.yml (SERVERS_ROOT).
-# Jars the updater fetched and configs an operator edited - runtime state that happens to sit next
-# to the source, which is the price of being able to open plugins/smp/config.yml in an editor.
+# Jars steward-worker fetched and configs an operator edited - runtime state that happens to sit
+# next to the source, which is the price of being able to open plugins/smp/config.yml in an editor.
 /deploy/servers/
 # The pack zip the devpack profile serves on localhost. Built from resource-pack/, never edited.
 /deploy/pack/

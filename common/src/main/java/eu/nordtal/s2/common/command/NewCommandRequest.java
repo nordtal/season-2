@@ -21,7 +21,7 @@ import java.util.UUID;
  * @param target       which process runs the effect, as {@code Target#name()}
  * @param command      the command path joined with spaces, no leading slash: {@code "smp aura"}
  * @param arguments    the arguments as a line, empty for a command that takes none
- * @param source       {@code DISCORD}, {@code GAME} or {@code CONSOLE}
+ * @param source       {@code DISCORD}, {@code GAME}, {@code CONSOLE} or {@code WEB}
  * @param requestedBy  who asked, for people to read
  * @param discordId    their Discord id, absent for the console
  * @param minecraftId  their Minecraft UUID, absent for the console and for an unlinked member
@@ -68,14 +68,21 @@ public record NewCommandRequest(String target, String command, String arguments,
                     "a console request carries no identity, got discordId=" + discordId
                             + " minecraftId=" + minecraftId);
         }
-        if ("DISCORD".equals(source) && discordId.isEmpty()) {
+        if (("DISCORD".equals(source) || "WEB".equals(source)) && discordId.isEmpty()) {
             throw new IllegalArgumentException(
-                    "a request from Discord always knows the asker's id - without one the target"
-                            + " cannot re-check the admin flag after it claims the row");
+                    "a request from " + source + " always knows the asker's id - without one the"
+                            + " target cannot re-check the admin flag after it claims the row");
         }
     }
 
-    /** The three the {@code command_request_source_check} CHECK in V11 allows. */
+    /**
+     * The four the {@code command_request_source_check} CHECK allows - three from V11, WEB from
+     * V18.
+     *
+     * <p>{@code SYSTEM} is a {@code Surface} and is deliberately not one of these: it says where a
+     * command may be registered, and the one command that has it travels as {@code CONSOLE},
+     * because nobody typed it.</p>
+     */
     private static final java.util.Set<String> SOURCES =
-            java.util.Set.of("DISCORD", "GAME", "CONSOLE");
+            java.util.Set.of("DISCORD", "GAME", "CONSOLE", "WEB");
 }

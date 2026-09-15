@@ -16,7 +16,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -68,69 +67,55 @@ class ComposeWorldTest {
     }
 
     /**
-     * The pre-generation switch reaches the container, and compose's fallback is the spec's own.
+     * The pre-generation switch reaches the container, and compose does <b>not</b> pin it.
      *
-     * <p><b>Both halves cost something to learn, on 2026-09-05.</b> The first is that a value in an
-     * env file does not reach a container at all - compose uses it for interpolation, and only what
-     * a service's {@code environment:} block lists is passed in. {@code dev.env} carried
+     * <p><b>The first half cost something to learn, on 2026-09-05.</b> A value in an env file does
+     * not reach a container at all - compose uses it for interpolation, and only what a service's
+     * {@code environment:} block lists is passed in. {@code dev.env} carried
      * {@code NORDTAL_SMP_PREGENERATION_ON_START=false}, the local stack came up, and Chunky started
      * pre-generating anyway; nothing said why, because from inside the plugin the setting simply
      * had its default.
      *
-     * <p>The second is that the fallback has to <em>repeat</em> the spec's default rather than be
-     * empty. An environment variable set to the empty string still wins over the file in jcore's
-     * config system, so a {@code ${VAR:-}} here would blank the default rather than fall back to
-     * it - the same trap the updater's two Arcane defaults carry, and the same test.
+     * <p><b>The second half was wrong until 2026-09-14, and this test said so out loud.</b> It used
+     * to demand that compose's fallback <em>repeat</em> the spec's default, on the belief that an
+     * environment variable set to the empty string still wins over the file. It does not: jcore's
+     * {@code EnvOverlay.applyTo} skips a variable that is null or blank, and
+     * {@code EnvOverlayTest.blankVariableIsUnset} asserts it - which is also the only reason the
+     * two dozen other {@code ${VAR:-}} lines in that file are not all blanking their own defaults.
+     * The repetition was not harmless: an environment variable that always carries a value wins
+     * over {@code smp.yml} for ever, so switching pre-generation off in Steward would have written
+     * the file and changed nothing.
      */
     @Test
-    void thePreGenerationSwitchIsPassedThroughAndDefaultsToTheSpec() throws Exception {
+    void thePreGenerationSwitchIsPassedThroughAndIsNotPinned() {
         final String composed = defaultOf(
                 environmentOf("smp").get("NORDTAL_SMP_PREGENERATION_ON_START"),
                 "smp.NORDTAL_SMP_PREGENERATION_ON_START");
 
-        assertEquals(String.valueOf(Configs.load(directory, LOGGER).get().pregenerationOnStart()),
-                composed,
-                "compose.yml's fallback for pregeneration-on-start is '" + composed + "' while"
-                        + " SmpSpec defaults to something else. An empty environment variable wins"
-                        + " over the file, so this fallback is the effective production value.");
+        assertEquals("", composed,
+                "compose.yml's fallback for pregeneration-on-start is '" + composed + "' rather"
+                        + " than empty. A blank variable is UNSET to jcore, so an empty fallback"
+                        + " leaves SmpSpec's default in force AND leaves smp.yml editable; a"
+                        + " repeated default wins over the file for ever and makes the setting"
+                        + " unchangeable from the interface.");
     }
 
     /**
-     * The backup clock reaches the container, and compose's fallback is the spec's own.
+     * The same rule for the backup window, which had the same comment and the same mistake.
      *
-     * <p>The same two traps {@code pregeneration-on-start} above carries, and this key is worse off
-     * for one of them. An empty environment variable wins over the file, and empty here means
-     * <b>never</b> - so a {@code ${VAR:-}} fallback would not merely change a default, it would
-     * turn the network's only backup clock off in production, silently, with the correct value
-     * still sitting in {@code config.yml} where anybody looking would find it.</p>
+     * <p>{@code 0} turns the check off, which is what a local stack with no steward-worker wants.
+     * That is a value somebody sets deliberately, in the file or in the environment - not one
+     * compose should be carrying on every start.</p>
      */
     @Test
-    void theBackupClockIsPassedThroughAndDefaultsToTheSpec() throws Exception {
-        final String expression =
-                String.valueOf(environmentOf("smp").get("NORDTAL_SMP_BACKUP_TIME"));
-        // `${VAR:-x}` falls back when the variable is unset OR empty; `${VAR-x}` only when it is
-        // unset. This is the one setting whose empty value MEANS something - "never" - so `:-`
-        // here would make `SMP_BACKUP_TIME=` in deploy/dev.env silently become 04:45, and the
-        // local stack would ask for a nightly backup against an Arcane that does not exist.
-        //
-        // THE SINGLE DASH IS THE ASSERTION, and it comes first because the pattern below rejects
-        // a colon: with `${VAR:-x}` the match fails, and the test would then report the generic
-        // "no default" message about an expression that has one. Naming the actual regression is
-        // the whole point of a test that guards one character.
-        assertFalse(expression.contains(":-"),
-                "smp.NORDTAL_SMP_BACKUP_TIME uses `:-`, so setting it to an empty value falls back"
-                        + " to the default instead of turning the nightly backup off");
+    void theBackupWindowIsNotPinnedEither() {
+        final String composed = defaultOf(
+                environmentOf("smp").get("NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS"),
+                "smp.NORDTAL_SMP_FARM_RESET_BACKUP_WINDOW_HOURS");
 
-        final Matcher matcher =
-                Pattern.compile("^\\$\\{[A-Z0-9_]+-(.*)}$").matcher(expression);
-        assertTrue(matcher.matches(), "smp.NORDTAL_SMP_BACKUP_TIME is '" + expression + "', which"
-                + " has no default an unfilled .env would fall back to");
-
-        assertEquals(Configs.load(directory, LOGGER).get().backupTime(), matcher.group(1),
-                "compose.yml's fallback for backup-time is '" + matcher.group(1) + "' while SmpSpec"
-                        + " defaults to something else. An empty value here means no nightly"
-                        + " backup anywhere in the network, and nothing would say so.");
-
+        assertEquals("", composed,
+                "compose.yml's fallback for farm-reset-backup-window-hours is '" + composed
+                        + "' rather than empty, which pins it over smp.yml for ever.");
     }
 
     /** The datapacks have to land in the world Paper actually generates, not beside it. */

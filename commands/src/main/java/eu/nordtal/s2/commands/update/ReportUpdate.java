@@ -31,7 +31,7 @@ public final class ReportUpdate implements NordtalCommand<UpdateEffects> {
                 //
                 // The id is deliberately not in the sentence. It was, and it is a database
                 // primary key being read out to somebody who cannot do anything with it; the one
-                // reader who can is looking at the updater's log, where it still is.
+                // reader who can is looking at steward-worker's log, where it still is.
                 user.reply("update.asked", Map.of(), Feedback.SMALL_SUCCESS, Tone.GOOD);
             } catch (final RuntimeException failure) {
                 user.reply("update.write-failed", Map.of(), Feedback.REFUSED, Tone.BAD);

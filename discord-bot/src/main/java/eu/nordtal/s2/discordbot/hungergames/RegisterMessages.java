@@ -3,6 +3,7 @@ package eu.nordtal.s2.discordbot.hungergames;
 import eu.nordtal.s2.discordbot.discord.ManagedMessageDao;
 
 import eu.nordtal.s2.discordbot.config.Languages;
+import eu.nordtal.s2.discordbot.config.Configured;
 import eu.nordtal.s2.common.message.Messages;
 
 import lombok.extern.slf4j.Slf4j;
@@ -57,6 +58,11 @@ public final class RegisterMessages {
     }
 
     private void publish(final String kind, final String channelId, final Locale locale) {
+        // No hunger-games channel for this language means no register message in it. Checked before
+        // the lookup: getChannelById throws on an empty id rather than answering null.
+        if (!Configured.isSet(channelId)) {
+            return;
+        }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
             log.error("Channel {} for the {} message does not exist, or the bot cannot see it. "

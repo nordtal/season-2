@@ -25,7 +25,15 @@ public final class AnnounceCommands {
     }
 
     public static final Declaration ANNOUNCE = new Declaration(
-            List.of("announce"), Target.BOT, Set.of(Surface.SYSTEM), false, false,
+            // SYSTEM because the SMP writes these rows by itself at a milestone, WEB because an
+            // admin can also write one by hand - the same command, two askers, one implementation.
+            //
+            // adminOnly, and it costs the SMP nothing: AdminCheck lets `source = 'CONSOLE'` through
+            // by definition, and that is what Announcer#row writes. What it adds is the second
+            // check, at the moment the inbox runs the row rather than at the moment the browser
+            // submitted it - so a WEB row queued by somebody whose admin role has since been taken
+            // away does not still post into an announcement channel.
+            List.of("announce"), Target.BOT, Set.of(Surface.SYSTEM, Surface.WEB), true, false,
             List.of(Argument.word("language"), Argument.greedy("text")));
 
     public static List<NordtalCommand<AnnounceEffects>> all() {

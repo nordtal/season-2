@@ -1,5 +1,6 @@
 package eu.nordtal.s2.smp.config;
 
+import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,6 +20,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -90,27 +92,54 @@ class ConfigsTest {
     }
 
     /**
-     * The nightly backup is scheduled by default, and it is scheduled before the farm reset.
+     * The backup check is on by default, and its window is one a nightly pair can satisfy.
      *
-     * <p>Both halves are the assertion. A backup nobody switched on is a season with no backup, and
-     * the only place that would ever show is Arcane's list of snapshots months later; a backup
-     * scheduled <em>after</em> the reset would save a farm world that is about to be deleted, on
-     * servers it had only just brought back up. Written by name here because neither is visible
-     * from {@link SmpSpec} - the two keys sit next to each other and nothing in the interface says
-     * their order matters.</p>
+     * <p>This is what is left of {@code theNightlyBackupIsOnAndComesBeforeTheReset}, which held
+     * {@code backup-time} against {@code farm-reset-time} until the backup clock moved to
+     * steward-worker on 2026-09-13. The old assertion cannot be made any more - the two times are
+     * in two processes' configuration now - and this is the assertion that replaced the coupling
+     * it was guarding: <b>0 means the farm world is deleted without anything being checked</b>, and
+     * a window of a day or more means yesterday's backup authorises today's reset, which is the
+     * whole failure the check exists to prevent.</p>
      */
     @Test
-    void theNightlyBackupIsOnAndComesBeforeTheReset() throws Exception {
+    void theBackupCheckIsOnAndItsWindowIsUnderADay() throws Exception {
         final SmpSpec config = Configs.load(directory, LOGGER).get();
 
-        assertEquals("04:45", config.backupTime(),
-                "an empty backup-time means no nightly backup at all, and nothing else in the"
-                        + " network asks for one");
-        assertTrue(java.time.LocalTime.parse(config.backupTime())
-                        .isBefore(java.time.LocalTime.parse(config.farmResetTime())),
-                "backup-time has to be before farm-reset-time");
-        assertTrue(Files.readString(directory.resolve("config.yml")).contains("backup-time:"),
+        assertTrue(config.farmResetBackupWindowHours() > 0,
+                "farm-reset-backup-window-hours defaults to 0, which deletes the farm world every"
+                        + " night without checking that anything was ever saved");
+        assertTrue(config.farmResetBackupWindowHours() < 24,
+                "the window is " + config.farmResetBackupWindowHours() + " hours, so a backup from"
+                        + " the night before can authorise tonight's reset - and the reset and the"
+                        + " backup are about a quarter of an hour apart, so 24 would let"
+                        + " yesterday's through by ten minutes");
+        assertTrue(Files.readString(directory.resolve("config.yml"))
+                        .contains("farm-reset-backup-window-hours:"),
                 "the key is not written into a fresh config.yml, so nobody would find it");
+    }
+
+    /**
+     * The default being under a day is not the same as a day being refused.
+     *
+     * <p>The key's own comment has always said the window must be "far enough under 24", and until
+     * 2026-09-13 nothing held an operator to it: {@code 24} loaded, and the gate then accepted a
+     * backup from the night before as proof for tonight's reset - by about ten minutes, which is
+     * the gap between the backup and the reset.</p>
+     */
+    @Test
+    void aWindowOfADayOrMoreIsRefused() throws Exception {
+        Configs.load(directory, LOGGER);
+        final Path file = directory.resolve("config.yml");
+        Files.writeString(file, Files.readString(file)
+                .replaceFirst("(?m)^farm-reset-backup-window-hours: .*$",
+                        "farm-reset-backup-window-hours: 24"));
+
+        // jcore wraps a rejected value; the sentence an operator reads is the one underneath.
+        final ConfigValidationException refused = assertThrows(ConfigValidationException.class,
+                () -> Configs.load(directory, LOGGER));
+
+        assertTrue(refused.getMessage().contains("the night before"), refused.getMessage());
     }
 
     /**

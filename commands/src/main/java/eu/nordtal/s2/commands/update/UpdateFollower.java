@@ -36,9 +36,9 @@ import java.util.function.LongFunction;
  * {@code "smp: waiting - paper 26.2.121 -> 26.2.126"} - on the one command whose answer is longest.
  * The rule the repository actually holds is that nothing is <em>decided</em> twice, and none of the
  * deciding moved: every version, every state and every outcome below is read straight off the
- * updater's report. What is chosen here is which message key names it.
+ * steward-worker's report. What is chosen here is which message key names it.
  *
- * <p>The values that go into those keys - version strings, filenames, an Arcane failure - are
+ * <p>The values that go into those keys - version strings, filenames, a daemon failure - are
  * substituted as placeholders and are therefore escaped by {@code MessageRenderer}. That is what
  * makes it safe to stop printing them as literals: a version containing {@code <} arrives as text
  * rather than as a MiniMessage tag, which is the property the old rule was protecting.</p>
@@ -51,7 +51,7 @@ import java.util.function.LongFunction;
 public final class UpdateFollower {
 
     /**
-     * How long to wait for the updater before giving up on it.
+     * How long to wait for steward-worker before giving up on it.
      *
      * <p>An update stops servers, swaps jars and waits up to five minutes for each to report
      * healthy - minutes, not seconds. What this bounds is the case where nothing is listening at
@@ -190,7 +190,7 @@ public final class UpdateFollower {
         }
         if (now.isAfter(deadline)) {
             // Names the state the row is in, because PENDING here means one specific thing:
-            // nothing is listening, and the updater container is not running.
+            // nothing is listening, and the steward-worker container is not running.
             return Step.done(List.of(Say.key("update.timeout",
                     Map.of("status", request.status()), Tone.BAD)));
         }
@@ -213,7 +213,7 @@ public final class UpdateFollower {
     }
 
     /**
-     * The updater's answer, as lines.
+     * steward-worker's answer, as lines.
      *
      * <p>Since 2026-09-07 the row carries an {@link UpdateReport} as JSON. A row written before
      * that is plain text and is printed as it is, which is why the fallback exists - and a
@@ -272,7 +272,7 @@ public final class UpdateFollower {
         if (request.status() == UpdateStatus.FAILED) {
             says.add(Say.key("update.failed", Tone.BAD));
         }
-        final String text = stored == null ? "(the updater wrote nothing)" : stored;
+        final String text = stored == null ? "(Steward wrote nothing)" : stored;
         for (final String line : text.split("\n", -1)) {
             says.add(Say.literal(line));
         }
@@ -283,7 +283,7 @@ public final class UpdateFollower {
      * One artefact, as a key.
      *
      * <p>Which of the three it is comes off {@link UpdateReport.Change#state()} and off whether
-     * anything was installed before - both decided by the updater. Every one is {@code MUTED}: a
+     * anything was installed before - both decided by the worker. Every one is {@code MUTED}: a
      * version number under a service line is detail, including the one saying an artefact is still
      * waiting for a build. Nothing here has gone wrong.</p>
      */

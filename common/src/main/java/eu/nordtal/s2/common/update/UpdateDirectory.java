@@ -6,11 +6,11 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * The updater's inbox, as seen by every process that can ask for a run.
+ * steward-worker's inbox, as seen by every process that can ask for a run.
  *
- * <p>The updater is a separate container and nothing in this deployment can call it - there is no
+ * <p>The worker is a separate container and nothing in this deployment can call it - there is no
  * socket between the processes - so a request travels through the one PostgreSQL they share: a row,
- * a {@code pg_notify}, and the updater listening. A request therefore survives an updater that
+ * a {@code pg_notify}, and the worker listening. A request therefore survives a worker that
  * happens to be restarting.
  *
  * <p><b>The notification is never the state.</b> Notifications are lost while a process is
@@ -31,7 +31,7 @@ public interface UpdateDirectory {
     /**
      * How long between an update being asked for and the servers going down.
      *
-     * <p>A constant rather than a setting: the updater starts the countdown and the proxy renders it
+     * <p>A constant rather than a setting: the worker starts the countdown and the proxy renders it
      * to every player, and two containers configured separately would eventually disagree. The
      * instant itself travels on the row ({@code not_before}), so it is never computed twice.
      *
@@ -55,9 +55,9 @@ public interface UpdateDirectory {
      * @param kind        what to do
      * @param source      which surface is asking
      * @param requestedBy a Discord id, a Minecraft name, or {@code null} for the console
-     * @param delay       how long the updater must wait before acting. {@link Duration#ZERO} for
+     * @param delay       how long the worker must wait before acting. {@link Duration#ZERO} for
      *                    every kind: the countdown is started by {@link #startCountdown} once the
-     *                    updater knows there is work to do, so a request that finds nothing new
+     *                    worker knows there is work to do, so a request that finds nothing new
      *                    never counts anything down. Negative is treated as zero
      * @return the row as written, with the id to read the answer back by
      */
@@ -70,6 +70,19 @@ public interface UpdateDirectory {
      * @return the row, or empty if it has been deleted by hand
      */
     Optional<UpdateRequest> find(long id);
+
+    /**
+     * The most recent requests, newest first - what the interface's list of runs is drawn from.
+     *
+     * <p>A number below 1 is clamped to 1, exactly as {@code AuditDirectory#recent} clamps it - a
+     * caller that computed a page size down to zero wants the newest run, not an empty table with
+     * no explanation in it. It was already the behaviour; saying so here is the point, because a
+     * clamp nobody documents is a promise of "at most {@code limit} rows" that the implementation
+     * quietly does not keep.</p>
+     *
+     * @param limit how many, at most. A screenful; this is a page, not an export. Below 1 is 1
+     */
+    java.util.List<UpdateRequest> recent(int limit);
 
     /**
      * Every request written after the one named, oldest first - what the Discord bot's
@@ -90,14 +103,55 @@ public interface UpdateDirectory {
     java.util.List<UpdateRequest> finishedWithin(Duration window);
 
     /**
-     * Takes the oldest due request and marks it running. <b>Only the updater calls this.</b>
+     * The most recent nightly backup that finished, succeeded, and can be <em>shown</em> to have
+     * saved something.
+     *
+     * <h2>What it is for</h2>
+     * Until 2026-09-13 the guarantee that the farm world had just been saved was two clocks in two
+     * config files - {@code smp}'s backup at 04:45 against its reset at 05:00 - and no test
+     * anywhere could hold one against the other. The clock moved to steward-worker, so the
+     * coupling is gone and the reset asks the database instead: no backup here means no reset, a
+     * loud line, and a farm world that survives one more day. That is the trade, and it is the
+     * owner's (2026-09-13).
+     *
+     * <h2>How deep "successful" goes, and why exactly this deep</h2>
+     * Three conditions, and each one is there because the one before it is not enough:
+     * <ol>
+     *   <li>{@code kind = 'BACKUP'} and {@code status = 'DONE'} - a run that failed is not a
+     *       backup, and neither is one still going.</li>
+     *   <li>the {@code result} parses as an {@link UpdateReport} at {@link UpdateReport.Stage#DONE}
+     *       - a row whose report nobody can read proves nothing, and proving nothing is the same
+     *       answer as having nothing. The cost is that a worker old enough to write plain text into
+     *       that column would stop the reset; that is a version skew of minutes inside one
+     *       deployment, against a window of hours.</li>
+     *   <li>{@link UpdateReport#savedSomething()} - A23 settled {@code DONE} having saved zero
+     *       volumes. The status cannot see that and the report can.</li>
+     * </ol>
+     * It goes no deeper. It does not check <em>which</em> volume was saved: that list lives in the
+     * worker's own config and a copy of it here would be two lists that drift apart quietly. What
+     * that costs is written down on {@link UpdateReport#savedSomething()}.
+     *
+     * <p><b>This is a blocking database call.</b> A Paper plugin calls it from its async executor
+     * and never from the server thread.</p>
+     *
+     * @param within how far back to look. Hours, not days: see {@code smp}'s
+     *               {@code farm-reset-backup-window-hours} for why the number has to be well under
+     *               a day and well over one slow backup
+     * @return the run, so a caller's log line can name it and an admin can read the row. Empty
+     *         means all three of "there was none", "they failed" and "they saved nothing" - which
+     *         are one outcome for whoever is deciding whether to delete a world
+     */
+    Optional<UpdateRequest> lastSuccessfulBackup(Duration within);
+
+    /**
+     * Takes the oldest due request and marks it running. <b>Only steward-worker calls this.</b>
      *
      * @return the claimed request, or empty when nothing is due
      */
     Optional<UpdateRequest> claimNext();
 
     /**
-     * Writes the answer to a claimed request. <b>Only the updater calls this.</b>
+     * Writes the answer to a claimed request. <b>Only the worker calls this.</b>
      *
      * @param id     the row
      * @param status {@link UpdateStatus#DONE} or {@link UpdateStatus#FAILED}
@@ -121,9 +175,9 @@ public interface UpdateDirectory {
     boolean progress(long id, String result);
 
     /**
-     * Starts the countdown on a request this process has claimed. <b>Only the updater calls this.</b>
+     * Starts the countdown on a request this process has claimed. <b>Only the worker calls this.</b>
      *
-     * <p>The updater and not the submitter, because only the updater knows whether the plan has work
+     * <p>The worker and not the submitter, because only the worker knows whether the plan has work
      * in it - otherwise every request counts down thirty seconds before announcing that nothing
      * changed.
      *
@@ -135,7 +189,7 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> startCountdown(long id, Duration length);
 
     /**
-     * Ends the countdown and says whether it was still there to end. <b>Only the updater calls
+     * Ends the countdown and says whether it was still there to end. <b>Only the worker calls
      * this.</b>
      *
      * <p>The one statement that decides the race at zero: a cancel arriving in the same millisecond
@@ -179,7 +233,7 @@ public interface UpdateDirectory {
     Optional<UpdateRequest> cancelCountdown(String reason);
 
     /**
-     * When the next pending request becomes due. The updater sleeps until this instant rather than
+     * When the next pending request becomes due. The worker sleeps until this instant rather than
      * for a fixed interval, so a restart fires when its counter reaches zero and not a poll later.
      *
      * @return the earliest {@code not_before} among pending rows, or empty when there are none
@@ -187,9 +241,9 @@ public interface UpdateDirectory {
     Optional<Instant> nextDue();
 
     /**
-     * Fails everything left {@code RUNNING}. <b>Only the updater calls this, once, at startup.</b>
+     * Fails everything left {@code RUNNING}. <b>Only the worker calls this, once, at startup.</b>
      *
-     * <p>Nothing is running those rows: the only process that claims one is an updater, exactly one
+     * <p>Nothing is running those rows: the only process that claims one is a worker, exactly one
      * {@code serve} may exist, and this one has just started. An orphaned request of any kind means
      * it died in the middle, so all of them fail rather than any being reported as success.
      *

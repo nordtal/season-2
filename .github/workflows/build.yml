@@ -17,14 +17,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '25'
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # `build` is compile + test + every shadowJar, because nordtal.shaded makes `build` depend
       # on `shadowJar`. The integration tests need a Docker daemon; ubuntu-latest has one, and
@@ -44,7 +44,6 @@ jobs:
           version="$(grep '^version=' gradle.properties | cut -d= -f2)"
           docker build --build-arg "JAR=build/libs/discord-bot-$version.jar" \
             -t nordtal/discord-bot:ci discord-bot
-          docker build --build-arg "JAR=build/libs/updater-$version.jar" \
-            -t nordtal/updater:ci updater
+          docker build --build-arg "JAR=build/libs/steward-worker-$version.jar" \
+            -t nordtal/steward-worker:ci steward-worker
           docker build -t nordtal/minecraft:ci deploy/minecraft
-          docker build -t nordtal/postgres-backup:ci deploy/postgres-backup

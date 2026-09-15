@@ -2,9 +2,15 @@
 [versions]
 # Paper dropped the -R0.1-SNAPSHOT suffix with the 26.x version scheme.
 paper = "26.2.build.121-stable"
-# velocity-api 4.1.1 is compiled for Java 25 and ships the @Plugin annotation processor
+# velocity-api 4.2.0 is compiled for Java 25 and ships the @Plugin annotation processor
 # that generates velocity-plugin.json.
-velocity = "4.1.1"
+#
+# 4.1.1 -> 4.2.0 on 2026-09-14, and it was a correction and not an upgrade: Fill published 4.2.0
+# into the 4.0.0 family, the proxy follows that family by design, and nordtal-s2-network-control-1
+# was already running velocity-4.2.0-30.jar while this said 4.1.1. Three update reports (ids 1, 3
+# and 5 in `update_request`) carried the note that says so and blocked nothing, which is the
+# mechanism working - and the note names this line as the fix.
+velocity = "4.2.0"
 # jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the git
 # tag. It exports no logging backend, so consumers declare logback themselves.
 jcore = "3.1.0"
@@ -12,7 +18,7 @@ jcore = "3.1.0"
 # module is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to
 # be installed on the SMP server.
 #
-# NOT A FIXED VERSION, deliberately: `updater.yml` ships `display-tags-release: latest`, so the jar
+# NOT A FIXED VERSION, deliberately: `steward.yml` ships `display-tags-release: latest`, so the jar
 # that runs on the SMP is whatever the fork released most recently, and a pinned compile version
 # can only agree with that by accident. The cost is that a DisplayTags release can turn CI red with
 # no commit in between; if one does, pin this line to the last good version and say why - do not
@@ -54,6 +60,46 @@ testcontainers = "1.21.4"
 # Pinned to what Paper ships in libraries/, so the parser reading the fonts is the one the
 # client-facing platform uses. Never shaded: Paper and Velocity both provide it.
 gson = "2.14.0"
+# Javalin, the web layer of steward-ui and the small internal API of steward-deployer. Checked on
+# Maven Central 2026-09-12: 7.2.3 is the current release. It pulls jetty-server, jetty-ee10-servlet
+# and the jetty websocket module, and NOTHING ELSE that matters here - jackson-databind, gson,
+# brotli4j and zstd-jni are all `optional` in its POM, so the json mapper is a deliberate choice
+# rather than a transitive surprise. That choice is gson, the parser jcore already exports; a second
+# databind on the classpath is how the repo got two Gson types that were not each other.
+javalin = "7.2.3"
+# The Gradle plugin that downloads its own Node for the vite build of steward-ui's frontend. This
+# host has no node and is not going to get one: the plugin unpacks a private copy under build/.
+# Checked in the Gradle Plugin Portal 2026-09-12.
+node = "7.1.0"
+# WebAuthn, server side. Checked on Maven Central 2026-09-14: <release>2.9.0.
+#
+# IT IS IN :steward-ui AND NOWHERE ELSE, and that is a decision rather than an accident. It pulls
+# jackson-databind, guava, cbor and httpclient5 - and jcore 3.0.0 dropped Jackson on purpose, and
+# :common takes nothing but JDBI, HikariCP, slf4j and the driver. Both rules are untouched: this is
+# a standalone JVM service with its own image, not a Paper plugin and not :common. There is no
+# maintained Jackson-free WebAuthn library for Java; webauthn4j has the same dependency and is at
+# 0.29. The alternative was writing the verification by hand - CBOR, COSE, ES256 - which is exactly
+# the kind of hand-written sign-in code where one missed step makes the whole factor worthless.
+# Till decided it that way on 2026-09-14, with those alternatives named.
+webauthn = "2.9.0"
+# Jackson, compileOnly and ONLY in :steward-ui, and only because of one exception type.
+#
+# webauthn-server-core declares Jackson at RUNTIME scope, so its classes are not on anybody's
+# compile classpath - which is a better boundary than the one this repository was going to draw by
+# hand, and it is left standing. The one thing that leaks through it is `JsonProcessingException`:
+# `PublicKeyCredentialCreationOptions.toJson()` declares it, and javac cannot compile a CALL to
+# that method without being able to resolve the type, catch-clause or not.
+#
+# So jackson-core - not databind - is declared compileOnly, purely so the throws clause resolves.
+# Nothing is compiled against a Jackson API; at runtime the version webauthn-server-core resolves
+# is the one that is used. Pinned to what it resolves today (checked 2026-09-14).
+jackson = "2.22.2"
+# CBOR, and ONLY in :steward-ui's tests. An authenticator's answer is CBOR inside base64url
+# inside JSON, so a test that plays one has to be able to write it. It is already on the runtime
+# classpath (webauthn-server-core brings it); this pins it so the TEST compiles against the same
+# version rather than against whatever a transitive range resolves to today. Resolved 4.5.6 on
+# 2026-09-14, which is what this names.
+cbor = "4.5.6"
 junit = "6.0.0"
 shadow = "9.6.1"
 runpaper = "3.1.0"
@@ -81,6 +127,10 @@ slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+javalin = { module = "io.javalin:javalin", version.ref = "javalin" }
+webauthn-server-core = { module = "com.yubico:webauthn-server-core", version.ref = "webauthn" }
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
+cbor = { module = "com.upokecenter:cbor", version.ref = "cbor" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
@@ -96,3 +146,4 @@ access-persistence = ["jdbi-core", "jdbi-sqlobject", "jdbi-postgres", "hikaricp"
 [plugins]
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 run-paper = { id = "xyz.jpenilla.run-paper", version.ref = "runpaper" }
+node = { id = "com.github.node-gradle.node", version.ref = "node" }

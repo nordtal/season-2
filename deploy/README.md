@@ -1,17 +1,25 @@
 # deploy
 
-Season 2's production deployment: one `docker compose` stack on one host, driven through
-[Arcane](https://github.com/ofkm/arcane). This file is the operator's runbook; the project overview
-is [`../README.md`](../README.md).
+Season 2's production deployment: one `docker compose` stack on one host. This file is the
+operator's runbook; the project overview is [`../README.md`](../README.md).
 
-**`compose.yml` and `.env.example` are at the repository root, not in here**, because Arcane's
-GitOps sync pulls the entire directory the compose file lives in. **Every command in this file
-therefore runs from the repository root**, not from `deploy/`.
+**`compose.yml` and `.env.example` are at the repository root, not in here.** `compose.yml` is
+copied from there into `steward-deployer`'s image, which is the one service allowed to create a
+container — see [`../steward-deployer/README.md`](../steward-deployer/README.md). **Every command in
+this file therefore runs from the repository root**, not from `deploy/`.
+
+**A management panel used to sit in front of all of this and was removed on 2026-09-13.** Its five
+jobs are now steward-worker's (container state, health, stop, start, image drift — over the Docker
+socket) and steward-deployer's (recreate and pull). Anything on a host still carrying `ARCANE_*`
+variables in its `.env` can delete those lines; nothing reads them.
+
+**`steward-worker` was called `updater` until 2026-09-12**, and Steward is the name of the whole
+system it belongs to.
 
 ```
 compose.yml            seven services, five profiles: db · bot · mc · backup · devpack
-                       (the updater has none, and devpack is local only)
-.env.example           every setting; copy to .env and fill in
+                       (steward-worker has none, and devpack is local only)
+.env.example           every setting there is, as a reference - nobody fills it in by hand
 deploy/
   minecraft/
     Dockerfile         one image for all four Minecraft services
@@ -20,6 +28,11 @@ deploy/
     scripts/console    attach to the real server console (read + write)
     scripts/mc         send one command, no TTY needed
                        (named scripts/ and not bin/ - .gitignore has a repo-wide bin/ rule)
+  setup.sh             the host's own script: it asks, writes the environment file, generates
+                       the secrets, waits for the name and renews the deployer
+  setup-test.sh        its checks, without Docker or a resolver (runs on `check`)
+  restore.sh           put one archive back - a volume, or a dump into a NEW database
+  restore-test.sh      its guards, without Docker (runs on `check`)
   dev                  the local stack: init · up · deploy · pack · reset - see Locally below
   dev-test.sh          the guard on `dev reset`, without Docker (runs on `check`)
   dev.env.example      every setting the local stack needs; copy to dev.env
@@ -29,53 +42,116 @@ deploy/
 
 ## First deployment, in order
 
-The host needs no shell, no JDK and no Gradle. All four of our images — `minecraft`, `updater`,
-`discord-bot`, `postgres-backup` — are pushed to `ghcr.io/nordtal` by
+The host needs a shell and nothing else — no JDK, no Gradle, no checkout of anything but this
+repository. All five of our images — `minecraft`, `steward-worker`, `discord-bot`, `steward-ui` and
+`steward-deployer` — are pushed to `ghcr.io/nordtal` by
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) when a release is published, and
 compose pulls every one of them. The `build:` blocks in `compose.yml` are for developing on your own
-machine: **Arcane deploys by pulling and never builds**, so an image that only exists in one host's
+machine: **a deploy pulls and never builds**, so an image that only exists in one host's
 Docker fails the deploy with `error from registry: denied`.
 
 ### Once, before the first deployment
 
 1. **Publish the release.** Tag it, publish it on GitHub, and let `release.yml` finish. It attaches
-   eight assets and pushes four images, each tagged with the version and with `latest`.
-2. **Set all four packages to Public**, in their GitHub package settings. A package under an
+   eight assets and pushes **five** images — `discord-bot`, `steward-worker`, `minecraft`,
+   `steward-ui`, `steward-deployer` — each tagged with the version and with `latest`.
+2. **Set all five packages to Public**, in their GitHub package settings. A package under an
    organisation is **private on its first push**, and a private package answers a pull with the same
-   `denied` as one that does not exist. The alternative is a registry credential in Arcane.
+   `denied` as one that does not exist. The alternative is a registry credential on the host.
 
-### From Arcane, with no shell on the host
+   **Three of the five have never been pushed, and one of them is a surprise.** Measured against
+   the registry on 2026-09-13, anonymously: `discord-bot`, `minecraft`, `updater` and
+   `postgres-backup` answer `200`; `steward-worker`, `steward-ui` and `steward-deployer` answer
+   `403`. The first two new ones are expected — they are new modules. `steward-worker` is not: it
+   is the *renamed* `updater`, and a rename of the image is a **new package** under a new name. The
+   public one is the old name nothing pushes to any more, so the next release creates
+   `steward-worker` from scratch, private, exactly like the other two.
 
-3. **Point the project at the repository root**, not at `deploy/`.
-4. **Type the environment into Arcane.** [`../.env.example`](../.env.example) is the reference —
-   every `REPLACE_ME` in it is something only you know, and one is the forwarding secret
-   (`openssl rand -hex 24`). `.env` is gitignored here, so Arcane's `.env.git` is empty and
-   everything comes from what you type; a sync never overwrites those values.
-5. **Set Auto Sync on and Redeploy After Sync off**, with the pull policy on *always pull latest*. A
-   redeploy takes the four Minecraft servers down for minutes, and a commit must not do that to
-   people who are playing — the updater's restart button gives them a countdown first.
-6. **Deploy.** On its first start the `updater` applies the schema and **fills every empty volume** —
-   the four `plugins/` folders, both jar volumes, each server's `.server/` cache and the proxy's
-   `pack.yml` — and only then writes the readiness marker every other service waits for. It
+   That matters beyond a failed pull. steward-worker asks the daemon's `/distribution` endpoint for
+   a registry digest, with no credentials, so a private package answers nothing and the image lands
+   in `unverifiable` — `UNKNOWN`, never "up to date". That is the honest answer rather than a wrong
+   one, but three of five services reporting `UNKNOWN` is a drift report that says very little.
+   `updater` and `postgres-backup` stay behind as public packages nothing pushes to any more; they
+   can be deleted once the cutover holds (`todo.md` A30).
+
+### On the host
+
+3. **Check the repository out.** That is the whole step. There is no `.env` to write: the file is
+   created by the script in the next one, at the absolute path `STEWARD_ENV_FILE` names, mode 600,
+   and it never lives beside `compose.yml`. [`../.env.example`](../.env.example) stays in the
+   repository as the **reference for what a setting is called**, not as a form — copying it and
+   working down it puts values in two places, and from the first edit in the web interface one of
+   the two is wrong.
+4. **Run `deploy/setup.sh`.** It builds nothing; every image is pulled.
+
+   ```bash
+   deploy/setup.sh --check     # every check, and stop before anything is changed
+   deploy/setup.sh             # the deployment itself
+   deploy/setup.sh --from f    # take the answers from a file instead of asking
+   ```
+
+   **It asks.** Nine things only a person can know: the name the interface answers on
+   (`STEWARD_HOST`), the address Let's Encrypt writes to (`STEWARD_ACME_EMAIL`), the EULA, the bot
+   token, the client id and client secret of the Discord application the login uses, the guild, the
+   admin role — and the two bunq values if there is a bunq, which are optional and skipped with
+   Enter. Every answer whose shape can be checked is checked at the prompt: a snowflake is digits,
+   a host name is not a URL, an address has an `@` and a dot. Secrets are read with the terminal
+   echo off. **Nothing is ever printed back**, and no value ever reaches a command line —
+   `/proc/<pid>/cmdline` is world-readable, so a token passed as an argument is published to every
+   user on the host for as long as that process runs.
+
+   Everything else it either generates (the database password, the forwarding secret, the two
+   Steward tokens) or leaves alone, because the service's own configuration has a default and the
+   web interface can edit it. **Run it twice and it asks only for what is still missing**, so an
+   interrupted setup is resumed rather than restarted.
+
+   One thing it will *not* generate: on a host where `postgres-data` already exists, a missing
+   `POSTGRES_PASSWORD` is **asked for**. Postgres reads that variable only when it initialises an
+   empty data directory, so inventing a new one there produces a stack that cannot log in to its
+   own database, with no error that says why.
+
+   It then generates the two Steward secrets, **resolves `STEWARD_HOST` and waits
+   until it points at this host**, renews `steward-deployer`, and then runs that image once with
+   `up` — which pulls every image before it stops anything and creates the rest of the stack,
+   including the long-running deployer.
+
+   **The wait is the point** (concept §10): Caddy asks Let's Encrypt for a certificate the moment it
+   starts, and the challenge is answered by whatever the name points at. A setup that ran to the end
+   therefore means a working deployment, not a deployment with a certificate still to come. The
+   script says which name, what it resolved to and what this host is, and checks again every 15 s —
+   so the waiting is not guesswork. `--address` supplies this host's public address on a host behind
+   NAT; it does not skip the comparison.
+
+   **Run it again after every release.** `compose.yml` reaches this host only inside a new
+   `steward-deployer` image, so shipping a changed deployment *is* this script. Everything else —
+   a new bot, a new worker, a new server jar — the deployer and the worker do from inside.
+
+   **Every `docker compose` typed by hand needs `--env-file`**, and so does every one further
+   down this file — the environment file is not beside `compose.yml` and never was:
+
+   ```bash
+   docker compose --env-file /etc/nordtal/season-2.env ps
+   ```
+
+   Compose looks for `.env` in the project directory and nowhere else, and it does not fail when
+   there isn't one: it interpolates empty strings, which turns `${X:?}` into an error naming a
+   variable you did set, and everything without a `:?` into a silently different deployment.
+
+   On its first start `steward-worker` applies the schema and **fills every empty
+   volume** — the four `plugins/` folders, both jar volumes, each server's `.server/` cache and the
+   proxy's `pack.yml` — and only then writes the readiness marker every other service waits for. It
    **cannot move a version**: only artefacts with nothing installed are fetched.
-   `UPDATER_BOOTSTRAP=false` turns it off, and the servers then refuse to start until
-   `updater bootstrap` has run, and say so by name. A first deployment downloads four server jars
-   and every plugin before it goes healthy, which is why the updater's healthcheck allows fifteen
-   minutes.
-7. **Upload the hand-built worlds** — see [Getting a world into a
-   volume](#getting-a-world-into-a-volume). **This is the one step that still needs a shell.**
-8. **Run the login-path rehearsal.** Nothing above proves a client can join.
-
-### From a shell instead
-
-Steps 3 to 6 collapse into one command from the repository root, and it still builds nothing:
-
-```bash
-docker compose up -d
-```
+   `STEWARD_WORKER_BOOTSTRAP=false` turns it off, and the servers then refuse to start until
+   `steward-worker bootstrap` has run, and say so by name. A first deployment downloads four server
+   jars and every plugin before it goes healthy, which is why the worker's healthcheck allows
+   fifteen minutes.
+5. **Upload the hand-built worlds** — see [Getting a world into a
+   volume](#getting-a-world-into-a-volume).
+6. **Run the login-path rehearsal.** Nothing above proves a client can join, and it is the one step
+   no log on this host can answer.
 
 **A release cannot be pinned, and there is no rollback.** `IMAGE_TAG` and `UPDATER_SEASON_RELEASE`
-were removed on 2026-09-09: every image is `latest` and the updater follows the newest published
+were removed on 2026-09-09: every image is `latest` and the worker follows the newest published
 release. A bad release is corrected by publishing a better one — the same trade this project already
 took on the Paper build, for the same reason, which is that a pin is a version number kept somewhere
 other than `gradle.properties` and every one of those went stale.
@@ -161,21 +237,55 @@ command. That restart is *not* enough for `NETWORK_MAX_PLAYERS` — see
 
 When `network-control` cannot start at all, the fail-closed handler answers the ping saying so.
 
+## Picking the Discord ids instead of typing them
+
+Every id in the bot's `access.yml` is an eighteen-digit number that exists in exactly one place a
+person can read it: Discord's own right-click menu, behind a developer-mode switch most people have
+never turned on. Typing one into a field is a transcription with no feedback — the wrong id is still
+a valid snowflake, so nothing refuses it, and the first sign of the mistake is a message appearing
+in a channel nobody meant.
+
+So the configuration editor offers a **list of names**. `compose.yml` hands `steward-ui` the same
+`NORDTAL_BOT_TOKEN` the bot gets, as `NORDTAL_STEWARD_UI_DISCORD_BOT_TOKEN`, and it asks Discord
+what the guild's roles and channels are called. One answer is cached for a minute on the server and
+five in the browser, because a page with eleven pickers on it must not be eleven requests.
+
+**Steward only reads with that token.** It never sends a message, never changes a role, and never
+puts the token in an answer, in a log or in front of a browser; what leaves the process is a list of
+`{id, name}` that is public inside the guild anyway. **It is still a real widening and is worth
+knowing:** whoever reaches that container has the bot. The alternative was a second Discord
+application with its own token — a second thing to rotate and a second bot in the member list — for
+a token that is already on this host, in the service next door.
+
+**It never fails the page.** No token, an unreachable Discord and a rate limit all come back as
+`available: false` with a sentence, and the picker is the text field it replaced, with the reason
+underneath it and a reminder of where the id is in Discord. An id that is set but is not in the
+list — a channel the bot cannot see, one deleted since — is kept and marked, never silently
+replaced by "none".
+
+**Which keys get a picker** is decided on the key name, not on the value: anything called `role`,
+`*-role` or under `roles:`, and anything called `channel`, `*-channel` or under `channels:`. It has
+to be the key, because the whole point is to help with an id that is still empty. `guild-id` gets
+none — the list is read *from* the guild, so picking it out of itself is circular.
+
 ## The forwarding secret
 
 Modern forwarding needs the **same secret in all four containers**, and a mismatch does not say so:
 it shows up as every login failing with *"Unable to connect you to the backend server"*.
 
+**`setup.sh` generates it** as `VELOCITY_FORWARDING_SECRET` and you never see it — it is exactly
+the kind of secret a machine can invent, so nobody types it. `compose.yml` hands the same value to
+the proxy under that name and to each backend as `PAPER_VELOCITY_SECRET`; the proxy writes it to
+`/data/forwarding.secret`, and Paper reads its own copy from the environment.
+
+To **rotate** it, which is the one time it is written by hand:
+
 ```bash
 openssl rand -hex 24
 ```
 
-Put it in `.env` as `VELOCITY_FORWARDING_SECRET`. `compose.yml` hands the same value to the proxy
-under that name and to each backend as `PAPER_VELOCITY_SECRET`; the proxy writes it to
-`/data/forwarding.secret`, and Paper reads its own copy from the environment.
-
-**It does still land on disk**: Paper writes the value into `config/paper-global.yml` on first load,
-so **rotating** the secret is `.env` *plus* that one line in each of the three backend volumes.
+**It lands on disk**: Paper writes the value into `config/paper-global.yml` on first load, so a
+rotation is the environment file *plus* that one line in each of the three backend volumes.
 
 ## Getting a world into a volume
 
@@ -192,13 +302,13 @@ world; it disables itself when `config.yml#world-name` — default `hunger_games
 the service's `LEVEL_NAME` is what brings that folder up as the primary world. The two have to be
 the same string; `ComposeWorldTest` asserts they are.
 
-In Arcane the same thing is a file upload into the volume. Either way: **stop the server first.**
-Copying into a world a running server has open produces corruption that surfaces days later.
+**Stop the server first**, whichever way the files get there. Copying into a world a running server
+has open produces corruption that surfaces days later.
 
 ## The console
 
-Arcane's per-container shell is a `docker exec`, which cannot reach PID 1's stdin — so the server
-runs inside a tmux session, and the image ships two commands:
+A shell opened into the container is a `docker exec`, which cannot reach PID 1's stdin — so the
+server runs inside a tmux session, and the image ships two commands:
 
 ```bash
 console            # attach to the real console, read and write. Detach with Ctrl-b then d.
@@ -210,7 +320,7 @@ mc <command>       # send one command, no TTY needed. Output goes to the contain
 `docker compose stop` to shut a server down.
 
 Reading is unaffected: the entrypoint tails the server's own `logs/latest.log` onto the container's
-stdout, so `docker logs` and Arcane's log view show everything.
+stdout, so `docker logs` and steward-ui's log view show everything.
 
 ## Updating
 
@@ -219,19 +329,19 @@ the proxy console. It reports what is newer than what is running and changes not
 now** button under it runs the whole thing, after a 30-second countdown every player online is
 warned through.
 
-Both reach the updater through a row in `update_request` and a notification, answered by the
+Both reach steward-worker through a row in `update_request` and a notification, answered by the
 container that has the volumes; the result is an `UpdateReport` written into
 `update_request.result` as JSON, one line per service and one entry per artefact moving.
 
 On the host:
 
 ```bash
-docker compose run --rm updater report      # what would change, changes nothing
-docker compose run --rm updater bootstrap   # migrate, then fill EMPTY slots. Upgrades nothing
+docker compose run --rm steward-worker report      # what would change, changes nothing
+docker compose run --rm steward-worker bootstrap   # migrate, then fill EMPTY slots. Upgrades nothing
 ```
 
 `bootstrap` is the manual form of the automatic first start and what to reach for when
-`UPDATER_BOOTSTRAP` is off or a volume has been emptied. **It fills gaps and never upgrades.** To
+`STEWARD_WORKER_BOOTSTRAP` is off or a volume has been emptied. **It fills gaps and never upgrades.** To
 move a version that is already installed, use `/update now` in Discord or in game: it stops the
 affected servers, swaps, starts them again and waits until each reports healthy.
 
@@ -243,7 +353,7 @@ An update applies the schema **with the affected servers stopped**, before a jar
 can never come up against a schema older than itself. A migration that fails stops the run there:
 nothing is fetched, nothing is written, and every service that was stopped is started again.
 
-The updater asks GitHub, Modrinth and the PaperMC Fill API what the newest version of everything is,
+The worker asks GitHub, Modrinth and the PaperMC Fill API what the newest version of everything is,
 compares that against the jars in the volumes, and moves the ones that differ. **What a server runs
 is the jar in its volume**; no version is written into a file. What it *follows* is not configurable
 at all — GitHub's `/releases/latest`, which skips drafts and pre-releases, so an update that never
@@ -265,7 +375,7 @@ Checksums are verified where one exists (Modrinth sha512 per file, Fill sha256 p
 mismatch deletes the download instead of installing it. **A GitHub release asset carries no digest
 of any kind**, so our own jars and the DisplayTags jar arrive unverified over TLS.
 
-The **server jar** is the updater's too: it installs the newest `STABLE` build of the version pinned
+The **server jar** is the worker's too: it installs the newest `STABLE` build of the version pinned
 in `.env` into each server's `.server/` cache, and `entrypoint.sh` runs whatever build of that
 version it finds there. There is no build number anywhere in the deployment, and rolling back to an
 older platform build is not provided for. `SERVER_VERSION` is a literal in `compose.yml` mirroring
@@ -279,7 +389,7 @@ next start.
 
 The restart is **the same sequence an update runs, with nothing installed** — stop each service,
 start it again, wait until it reports healthy — asked for by the button in Discord or by
-`/update restart` in game. It is not a project-wide Arcane redeploy, which would take the updater
+`/update restart` in game. It is not a project-wide redeploy, which would take steward-worker
 down with everything else and leave nothing to report whether the network came back.
 
 **The confirmation comes first, and the countdown only after it.** `/update now` and
@@ -290,7 +400,7 @@ the proxy announces, because it is the only process that sees everybody. Inside 
 the **Stop the countdown** button or `/update cancel` still stops it.
 
 **Players on a server that is about to stop are moved into `limbo`, eight seconds before it goes.**
-The waiting room shows *"Update läuft / Gleich geht es automatisch weiter"* rather than the
+The waiting room shows *"Update in progress / You will be moved back automatically"* rather than the
 "waiting for the server" screen it shows when a backend is merely down — the proxy reads that from
 the update row, because from outside the two are the same fact. Bringing them back needs nothing of
 its own: the pack station's five-second sweep already releases a held player the moment their
@@ -312,62 +422,112 @@ pulled at the last deploy. Since 2026-09-09 a run closes that itself: it reads w
 image the registry has moved past, and **recreates** those instead of starting them, pulling the
 image on the way. The volumes are not touched, so a world is never at risk from it.
 
-**Arcane's image update check has to be on.** It answers the updater from results its own check has
-persisted rather than asking a registry when asked, so with the check off every run prints *"Arcane
-holds no image-update result for any service"* and nothing is ever recreated. That sentence in a
-report is the symptom.
+**The check asks the registry, and that is the fix rather than a detail.** The worker resolves each
+running container's image reference against its registry (`GET /distribution/{ref}/json` over the
+Docker socket, ~250 ms) and compares the answer with the digest the container actually carries.
+Three outcomes, and the third is the point: newer in the registry, the same, or **could not be
+asked** — which is a named note in the report and never counted as current. Until 2026-09-12 this
+went through a panel whose image check never asked a registry at all; it answered from what it had
+already persisted, and four releases ran behind while every report said the network was current
+(`todo.md` A24).
+
+An image that **cannot** be checked is one built on this host and pushed nowhere, or a registry that
+did not answer. Credentials are not among the reasons: all three `ghcr.io/nordtal` packages are
+public.
 
 Two things a run will not renew, and both are named in the report rather than done quietly: **its own
 image**, because the recreate would end the run from inside it, and **anything it does not own** —
-`postgres` and the backup sidecar, which it never stops. Both need **Redeploy** in Arcane, by hand,
-which is now the only thing in this deployment that does.
+`postgres` and the backup sidecar, which it never stops. Both need a redeploy of the project from
+the host, which is now the only thing in this deployment that does.
 
-**It is not the Docker socket, deliberately** — a container holding `/var/run/docker.sock` can do
-anything on the host, and the updater's whole job is downloading files from the internet and putting
-them where servers will execute them. The socket is not mounted anywhere in `compose.yml` and must
-not be. It drives Arcane's API instead; four variables turn that on, all optional together:
+**It is the Docker socket, and that is a stated cost rather than a hidden one.** `compose.yml` mounts
+`/var/run/docker.sock` into `steward-worker`, which is how it reads every container's state, health,
+log and image digest and how it stops and starts them. A container that can talk to that socket can
+do anything the daemon can — `:ro` restricts the socket *file*, not the API behind it — and this is
+also the container whose job is downloading files from the internet and putting them where servers
+execute them. The restraint is in the code: `DockerOps` reads, stops and starts, and **refuses to
+create a container**. Creating one needs the compose file, which `steward-deployer` owns. The
+boundary that matters is that `steward-ui`, the part an attacker reaches first, gets no socket at
+all.
 
-```
-ARCANE_URL=https://arcane.example.com       # origin, no trailing slash
-ARCANE_API_KEY=...                          # Settings -> API Keys, permission projects:deploy
-ARCANE_ENVIRONMENT=0                        # the environment's ID; 0 is Arcane's own host
-ARCANE_PROJECT=51b523fe-21aa-…              # the project's ID. A UUID, NOT 'nordtal-s2'
-```
+**Without the socket, updating stops working** — and says so rather than half-running. An update
+stops each affected server before its jars move, so a run that cannot read the container runtime
+refuses before resolving a version or touching a file. What still works is
+`docker compose run --rm steward-worker bootstrap` on the host: enough to bring a fresh deployment
+up, not enough to move a version.
 
-**Leave `ARCANE_URL` empty and updating stops working.** An update stops each affected server before
-its jars move, so a run that cannot reach Arcane **refuses before resolving a version or touching a
-file**, and says so by name. What still works is
-`docker compose run --rm updater bootstrap` on the host — enough to bring a fresh deployment up, not
-enough to move a version. Clicking **Redeploy** in Arcane by hand is an out-of-band fallback: it
-recreates diverged containers, does not stop anything for a jar swap, and nothing then checks that
-the servers came back — and
-[getarcaneapp/arcane#1943](https://github.com/getarcaneapp/arcane/issues/1943) reports a redeploy of
-an *already running* project doing nothing while answering success, so watch the containers actually
-cycle.
+### Replacing one service, from this checkout
 
-**`ARCANE_PROJECT` is an ID, and that is the trap.** The compose project is called `nordtal-s2` in
-every other file here, and putting that name in answers 404. Read the UUID out of the browser URL
-with the project open, or ask for it:
+For iterating on `steward-ui` or `steward-worker` without waiting for a release. **This is no longer
+how the dev host runs them** (2026-09-15): both pull `ghcr.io/nordtal/<service>:latest` like every
+other service, because the release workflow has pushed all five images since 2026-09-02. The host's
+environment file carried `STEWARD_UI_IMAGE` and `STEWARD_WORKER_IMAGE` pointing at locally built
+`:alpha` images until then, and the cost was that no update run could ask a registry about either -
+so every delivery needed the three commands below by hand, and the run said `FAILED` while having
+done everything it was allowed to.
+
+What follows is therefore a **development** loop, not a delivery one. Building locally replaces the
+registry image under that tag until the next `pull`. From the root of this checkout, with `$ENV_FILE`
+pointing at the host's environment file (`/etc/nordtal/season-2.env` on the dev host) and `$PROJECT`
+at the compose project (`nordtal-s2` there):
 
 ```bash
-curl -H "X-Api-Key: $ARCANE_API_KEY" "$ARCANE_URL/api/environments/0/projects"
+sh gradlew :steward-ui:build                            # the jar, with the frontend in it
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml build steward-ui
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d --no-deps steward-ui
+docker inspect -f '{{.State.Health.Status}}' "$PROJECT-steward-ui-1"   # wait for `healthy`
 ```
 
-It has no default and the updater refuses to start without it once `ARCANE_URL` is set.
-`ARCANE_ENVIRONMENT` defaults to `0` and only changes if Arcane reaches this host through an agent,
-in which case it is a UUID too.
+`--no-deps` is the word that keeps it to one service: without it Compose recreates everything
+`steward-ui` depends on, which is `postgres` and `steward-worker`, which is the network.
 
-`ARCANE_RUNTIME_PATH` and `ARCANE_CONTAINER_PATH` are the two API paths a run uses: one read of the
-project's services and one `stop`/`start` per container. Container-level is not a detail — Arcane's
-project-wide calls stop *and* start in a single request, and an update needs the **gap** between
-them, which is also why the updater survives its own update. `ARCANE_REDEPLOY_PATH` is no longer on
-any production path. All three stay settings because Arcane does not publish them, so a version that
-moves a path is a line in `.env` and not a release of ours.
+**`-f` has to be said, and the reason is worth a paragraph.** Counted on the dev host on
+2026-09-14, `com.docker.compose.project.config_files` across the ten running containers said two
+different things, and neither is a path a person can open:
+
+- eight said `/app/compose.yml`, which is inside `steward-deployer` — that is where the deployer
+  runs Compose from, and the file is baked into its image. It survives a reboot; it is simply not
+  on the host.
+- `steward-ui` and `steward-worker` said **`/tmp/live-compose.yml`**, left over from being rebuilt
+  by hand earlier that day, and `/tmp` is emptied by a reboot. That is the one Till found, and it
+  is the one that would really have gone missing.
+
+Naming the checkout's copy on each `up` moves the label onto a path that is on the host and
+survives a restart, one service at a time.
+
+**The checkout's copy is the right one to name.** Compared the same day, `/tmp/live-compose.yml`
+(which is byte-identical to `/app/compose.yml` inside `steward-deployer`, i.e. where it came from)
+differs from `season-2/compose.yml` in exactly one line — a comment in which one German word for
+the traffic light was replaced by the English one. (Not quoted here: the guard that found it in the
+first place, `NothingIsGermanTest`, reads this file too, and it was right to.) Nothing declarative
+differs, so the checkout is not a divergence to reconcile; it is the same file with a German word
+taken out of a comment.
+
+**`--env-file` has to be said too.** The stack's `.env` is not beside `compose.yml` in this
+checkout — it is `/etc/nordtal/season-2.env`, mode 600, and it holds the live secrets. Without it
+every `${X:?}` in the compose file fails and the command refuses before it does anything, which is
+the good failure. Do not copy it anywhere.
+
+**After a reboot, the same file brings the whole stack back**, and that is the answer to the
+worry that opened this section — drop `--no-deps` and the service name:
+
+```bash
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f ./compose.yml up -d
+```
+
+Nothing is lost with `/tmp`. The volumes are named and the daemon owns them; the file that was in
+`/tmp` is in this checkout and in `steward-deployer`'s image, twice over.
+
+**Run once, 2026-09-14, on `steward-ui` and `steward-worker` together.** `:steward-ui:build` and
+`:steward-worker:build` with their tests: 1m52s. `build` for both images: 17s warm. `up -d
+--no-deps`: 14s to both containers recreated and the worker `healthy`, with `steward-ui` following
+20s later - the healthcheck's own interval, not a hang. Afterwards both containers carry
+`com.docker.compose.project.config_files` pointing at this checkout, which is the point.
 
 ## Locally
 
-The same `compose.yml`, the same `Dockerfile`s, the same updater. What differs is a second env file
-and jars out of `build/libs` instead of a GitHub release.
+The same `compose.yml`, the same `Dockerfile`s, the same `steward-worker`. What differs is a second
+env file and jars out of `build/libs` instead of a GitHub release.
 
 ```bash
 deploy/dev init          # writes deploy/dev.env, generates the two secrets, makes the directories
@@ -375,7 +535,7 @@ deploy/dev up            # builds the five jars and both images, then brings the
 deploy/dev deploy smp    # rebuild :smp, replace the jar, restart that one container
 ```
 
-The first `up` takes a while: the `updater` fetches Paper, Velocity, DisplayTags, PacketEvents,
+The first `up` takes a while: `steward-worker` fetches Paper, Velocity, DisplayTags, PacketEvents,
 Chunky and the SMP's two world-generation datapacks. It does **not** fetch our five jars, because
 `deploy/dev up` has already put them in `plugins/` and the bootstrap installs only what is missing.
 Then join `localhost` with a real client.
@@ -395,17 +555,18 @@ that does not work.
   required variable is ever added without one.
 - **`COMPOSE_PROFILES=db,mc,devpack`.** No bot: it needs a real guild and a real bunq key, and it
   cannot tell a test guild from the real one. Add `bot` once you have one.
-- **Images are built, never pulled** (`MC_IMAGE`, `UPDATER_IMAGE` on a `:dev` tag). A locally built
-  plugin needs the locally built updater: the migrations are compiled into `:common` and shaded into
-  that jar, so a released updater would migrate to the released schema.
+- **Images are built, never pulled** (`MC_IMAGE`, `STEWARD_WORKER_IMAGE` on a `:dev` tag). A locally
+  built plugin needs the locally built steward-worker: the migrations are compiled into `:common`
+  and shaded into that jar, so a released worker would migrate to the released schema.
 - **Four `<SERVICE>_PLUGINS` variables pointing at `./deploy/servers/<service>/plugins`**, which is
   what turns each server's plugins folder into a bind mount you can edit with a text editor. An
   existing `deploy/dev.env` needs those four lines added by hand — the file is gitignored, so
   nothing migrated it. `deploy/dev` refuses a value with no `/` in it rather than writing jars into
   a directory no container mounts.
-- **`SMP_BACKUP_TIME=` (empty), which turns the nightly volume backup off.** The interpolation is
-  `${SMP_BACKUP_TIME-04:45}` — a **single** dash, the only one in `compose.yml`, and what makes an
-  empty value mean "off" rather than falling back to the default.
+- **`SMP_FARM_RESET_BACKUP_WINDOW_HOURS=0`, which lets the farm world reset without a backup
+  behind it.** On a laptop there is no steward-worker taking one, so the gate would refuse the
+  reset every night. It is logged at WARN on every start, which is the point: on production that
+  line would mean the farm world is being deleted with nothing saved.
 - **`SMP_PREGENERATION_ON_START=false`**, or every `up` spends its first minutes with Chunky on
   every core. The cost is one postponed reset: the first daily reset finds no finished world, says
   so, and builds it then. The production default is `true`.
@@ -422,7 +583,7 @@ deploy/dev pack
 ```
 
 builds the zip, puts it under `PACK_ROOT`, and writes `url` and `sha1` into the proxy's `pack.yml` —
-the same two lines the updater's `PackWriter` owns and no others. The `devpack` profile serves that
+the same two lines the worker's `PackWriter` owns and no others. The `devpack` profile serves that
 directory on `http://localhost:8080`, which is the client's `localhost` too. A `FAILED_DOWNLOAD` on
 the client is almost always the hash and not the network — rerun after any change under
 `resource-pack/src/`.
@@ -430,19 +591,14 @@ the client is almost always the hash and not the network — rerun after any cha
 ### Rehearsing the restart path locally
 
 `deploy/dev deploy` restarts one container and is what you want ninety-nine times out of a hundred.
-The hundredth is the restart path itself — the button, the countdown, the Arcane calls — and that
-cannot be rehearsed anywhere but against a real Arcane. Run Arcane as its own compose project on
-this machine, point it at this project, and fill in `ARCANE_URL`, `ARCANE_API_KEY` and
-`ARCANE_PROJECT` in `deploy/dev.env`.
+The hundredth is the restart path itself — the button, the countdown, the stop and start of each
+container — and **that needs nothing extra installed any more.** It used to need a management panel
+running beside the stack and four variables pointing at it, which is why it went unrehearsed for so
+long. The worker now uses the Docker socket `compose.yml` already mounts, so `/update restart`
+against a local stack exercises the real sequence.
 
-`ARCANE_URL` is `http://host.docker.internal:<port>` — **not** `http://localhost:...`, which inside
-the updater container is the updater container. Both wrong values are named by the updater at
-startup and again in `update_request.result`. `http://` is right here and wrong in production: the
-API key travels as a header on every call, so **in production `ARCANE_URL` must be an `https://`
-origin**. The updater only warns about a key on `http://`, because it is the only process that
-migrates and refusing to start would trade a working schema for an optional button.
-
-Leaving `ARCANE_URL` empty breaks nothing locally: every surface answers "Arcane is not configured".
+What a local rehearsal still cannot show you is the Discord half — the countdown message, the
+confirmation button and the report in the admin channel — which needs a real guild.
 
 ### What the local stack still cannot tell you
 
@@ -474,56 +630,102 @@ in use"*), and a backup job is left pointed at a database that no longer exists.
 Access periods, payment records, aura, milestone progress and graves are all in one PostgreSQL, and
 it is the only thing in this stack that cannot be rebuilt from the repository and a world folder.
 
-**The `backup` profile dumps it.** `postgres-backup` runs `pg_dump --format=custom` into the
-`postgres-dumps` volume once a day at `BACKUP_AT` (04:00 by default) and again at start-up, keeps
-`BACKUP_KEEP` of them (14), and writes the outcome of the last run to `postgres-dumps/LAST_RESULT`
-and to the container log. A dump is written under a `.partial` name, checked by reading its own
-table of contents back with `pg_restore --list`, and only then renamed.
+**steward-worker takes both halves since 2026-09-13** (`konzept-eigenstaendiger-stack.md` §9a). The
+`postgres-backup` sidecar is gone — one clock, one retention, one directory, one report.
 
-### Point Arcane at `postgres-dumps`, never at `postgres-data`
+### The database is dumped, the volumes are tarred
 
-Arcane can snapshot a named volume to S3, and stops the containers using it **only when the backup
-policy's `Stop Containers` flag is set**. For a live PostgreSQL data directory both settings are
-wrong: **off**, it tars a running PGDATA, which raises no error at backup time and is a broken
-cluster at restore time; **on**, PostgreSQL goes down for the length of the tar every night, and
-every process in this stack fails fast on an unreachable database.
+`pg_dump --format=custom` runs **inside the postgres container**, which is what makes it impossible
+for the client to be older than the server it dumps — an older `pg_dump` refuses a newer server
+outright, and this makes the versions match by construction instead of by somebody keeping two
+images in step. It takes an MVCC snapshot, so it is consistent as of the moment it starts and
+**nothing is stopped for it**: it runs before the servers go down.
 
-`postgres-dumps` has neither problem — nothing holds it open between runs, so a policy with `Stop
-Containers` **off** is correct there, and what travels to S3 is megabytes rather than a whole data
-directory.
+The volumes are `tar` piped through `zstd -1`, read from the read-only mounts under
+`/backup-sources`, written to `/backups`. Measured on this host against the real SMP world: 657 MiB
+in, 512.9 MiB out, **4.0 s**, about 1.6 s of which is reading the archive back to verify it. `-3`
+took 5.3 s for 0.6 % less — region files are already deflated.
 
-### The volume backup is a run, not a schedule
+Both write a `.partial` file and rename only after it has been read back (`tar --zstd -tf`, and
+`pg_restore --list` for the dump). A truncated archive still decompresses perfectly; only walking
+its members finds the truncation. A half-written file that looks like every other one is worse than
+none — it is the one the retention sweep keeps and the one a restore picks.
 
-**Arcane's own scheduler is not what takes the nightly snapshot, and its `Stop Containers` flag must
-stay off** — a stop nobody announced lands on whoever is online at a quarter to five. The updater
-drives it: `/backup now` on any surface, and a nightly row `smp` writes at `config.yml#backup-time`
-(default `04:45`, fifteen minutes before the farm reset). The run is a thirty-second countdown every
-player sees, then `smp`, `network-control` and the bot are stopped, then every volume is
-snapshotted, then everything comes back and is checked. Update and backup take the same lock and
-never overlap.
+### A backup is a run, not a schedule
 
-What Arcane's backup policy still decides is the **destination** — the updater posts with an empty
-body on purpose, so `local` / `s3` / `local_s3` is configured once, in Arcane, per volume.
+`/backup now` on any surface writes a row, and so does the worker's own clock at
+`steward.yml#backup.at` (04:45). **That clock moved out of `smp`**, where it lived because `serve`
+was not allowed to schedule anything — with the consequence that a season with `smp` down had no
+backup and nothing said so. The protection that mattered is kept: the clock writes a request row
+and nothing else, and everything after that row is the path `/backup now` already took.
 
-The eight volumes, with the compose project prefix Arcane addresses them by: `nordtal-s2_mc-smp`,
-`nordtal-s2_mc-network-control`, `nordtal-s2_bot-config`, `nordtal-s2_postgres-dumps` and the four
-`*-plugins` volumes, which is where every hand edit to `config.yml`, `milestones.yml`, `sounds.yml`
-and `pack.yml` lives. `postgres-data` is **never** in that list and is refused by name when the
-updater loads its config. A volume that has not finished after thirty minutes is given up on, the
-servers come back, and the run ends `FAILED`, mentioning the admin role in the admin channel.
+What replaced the fifteen-minute coupling between that clock and the farm reset is a query: `smp`
+will not reset the farm world unless a `BACKUP` run finished, succeeded **and saved something**
+inside `config.yml#farm-reset-backup-window-hours` (12). A `DONE` row is not enough — run 23
+reported success having saved zero volumes (`todo.md` A23), so the check reads the report.
+
+The run is a thirty-second countdown every player sees, then `smp`, `network-control` and the bot
+are stopped, then every volume is tarred in order, then retention runs, then everything comes back
+and is checked. Update and backup take the same lock and never overlap.
+
+**The report names the size and the duration of every line.** A volume that produced nothing is
+`FAILED` even when every call succeeded.
+
+### What is saved, and what is deliberately not
+
+`nordtal-s2_mc-smp` and the four `*-plugins` volumes — the hand-built world and every hand-edited
+`config.yml`, `milestones.yml`, `sounds.yml` and `pack.yml` — plus `mc-network-control` (velocity.toml
+and the forwarding secret) and `bot-config`. `postgres-data` is **never** in that list: a snapshot of
+a live PGDATA is torn and fails at restore. `mc-limbo` and `mc-hunger-games` are rebuilt rather than
+restored; `bot-jar` and `steward-worker-jar` are refilled by `steward-worker bootstrap`.
+
+**There is no offsite copy yet.** §9a's Hetzner Storage Box does not exist, so every archive sits on
+the same disk as the thing it is a copy of, and `backup.keep` (14) protects against a mistake and
+against nothing else. There is deliberately no untested S3 path in the code — `todo.md` A29.
 
 ### Restoring
 
 ```bash
-docker compose exec postgres psql -U "$POSTGRES_USER" -d postgres -c 'CREATE DATABASE restored;'
-docker compose exec postgres-backup sh -c 'pg_restore --dbname=restored --no-owner /dumps/<file>'
+sudo bash deploy/restore.sh --list                                  # what is on the disk
+sudo bash deploy/restore.sh nordtal-s2_mc-smp-<stamp>.tar.zst       # a volume
+sudo bash deploy/restore.sh nordtal-<stamp>.dump                    # the database
 ```
 
-Restore into a *new* database and look at it before you point anything at it. `--no-owner` is what
-lets a dump taken as one role restore under another.
+**A volume archive replaces a volume.** Not merges — replaces: the script empties it and unpacks the
+archive into it, so anything younger than the archive is gone. On `nordtal-s2_mc-smp` that is
+Nordtal. So it stops whatever mounts the volume, prints what it is about to do, and **makes you type
+the volume's name back** — not "yes", the name, the same guard `deploy/dev reset` has and for the
+same reason. Afterwards it starts again exactly what it stopped.
 
-A restore of the real season database from a dump pulled back out of S3 has not been rehearsed; it
-needs the host.
+**A database dump replaces nothing.** It is restored into a *new* database called
+`restore_<stamp>` beside the live one, with `--no-owner --no-privileges`, so you can look inside it
+before anything points at it. Promoting it is a separate, deliberate act and the script does not do
+it — nor does it need the stack to be broken, it needs postgres to be *running*, because a dump is
+restored by the server.
+
+It reads everything out of the `steward-backups` volume and unpacks with a container of the
+`steward-worker` image — the same `tar` and the same `zstd` that wrote the archive. A `.partial`
+file is refused by name: steward-worker renames an archive only after reading it back, so one still
+carrying that suffix is a backup that was interrupted, and it is the only file in that directory
+that *looks* restorable.
+
+**A `.unverified` file beside an archive is a sentence to read before restoring from it.**
+Docker's stop call succeeds whether a container shut down or was killed at the end of the grace
+period, so `steward-worker` inspects afterwards — and that inspect can itself fail. A backup taken
+over a stop whose ending nobody could read is still taken (refusing would take the network down
+over an unreadable `inspect`), and it is not reported as an ordinary one: the run's report says
+`UNVERIFIED STOP`, and a `<archive>.unverified` file lands next to the archive saying which service
+it was. `--list` prints those files' contents, naming one directly is refused with a pointer at the
+archive it belongs to, and a restore warns with the text *before* asking for the typed
+confirmation. The retention sweep deletes the mark with the archive it belongs to. The archive
+itself is byte for byte an ordinary archive — what is unverified is the moment it was taken, not
+its readability, which is checked when it is written and again before a restore touches anything.
+
+`deploy/restore-test.sh` pins which names are recognised and that the confirmation cannot be
+satisfied by "yes", by a bare Return or by a neighbouring volume's name; it runs on `check`.
+
+**A restore of the real season database has not been rehearsed** — that needs the host and an
+evening, and it is in `todo.md`. A green script is not a rehearsed restore.
 
 ### The world volumes are a different problem
 
@@ -559,7 +761,8 @@ docker compose up -d
 
 Check `docker compose logs` for the four servers before deleting anything. **Keep a copy of
 `deploy/servers/` outside the checkout until you have seen a server come up with its own config** —
-that directory is inside the tree Arcane's GitOps sync pulls, and the sync deletes ignored files.
+that directory is inside the checkout, and a deployment that checks this repository out over itself
+deletes ignored files from it (finding 151).
 
 To roll back, set the four `<SERVICE>_PLUGINS` variables to the old paths in `.env`; the volumes are
 left untouched and can be removed later with `docker volume rm`.
@@ -612,7 +815,7 @@ It is optional at every level: a player without the client mod notices nothing, 
   shipped when the phase is ready, the phase opens without block logging and Prism 4.4 is the
   written fallback.
 
-The updater resolves all three — DisplayTags from its own repository's releases, PacketEvents and
+The worker resolves all three — DisplayTags from its own repository's releases, PacketEvents and
 Chunky from Modrinth filtered to this Minecraft version and `paper` — so a version bump is a run of
 `/update now` and not an edit to `.env`.
 

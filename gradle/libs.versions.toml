@@ -2,9 +2,15 @@
 [versions]
 # Paper dropped the -R0.1-SNAPSHOT suffix with the 26.x version scheme.
 paper = "26.2.build.121-stable"
-# velocity-api 4.1.1 is compiled for Java 25 and ships the @Plugin annotation processor
+# velocity-api 4.2.0 is compiled for Java 25 and ships the @Plugin annotation processor
 # that generates velocity-plugin.json.
-velocity = "4.1.1"
+#
+# 4.1.1 -> 4.2.0 on 2026-09-14, and it was a correction and not an upgrade: Fill published 4.2.0
+# into the 4.0.0 family, the proxy follows that family by design, and nordtal-s2-network-control-1
+# was already running velocity-4.2.0-30.jar while this said 4.1.1. Three update reports (ids 1, 3
+# and 5 in `update_request`) carried the note that says so and blocked nothing, which is the
+# mechanism working - and the note names this line as the fix.
+velocity = "4.2.0"
 # jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the git
 # tag. It exports no logging backend, so consumers declare logback themselves.
 jcore = "3.1.0"

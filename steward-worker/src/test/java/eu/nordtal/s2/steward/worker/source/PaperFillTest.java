@@ -73,15 +73,16 @@ class PaperFillTest {
     // ------------------------------------------------------------------ version families
 
     @Test
-    @DisplayName("Velocity's family 4.0.0 resolves to 4.1.1, the four SNAPSHOTs in it ignored")
+    @DisplayName("Velocity's family 4.0.0 resolves to 4.2.0, the four SNAPSHOTs in it ignored")
     void theFamilyResolvesToItsNewestRelease() throws IOException {
-        // The real answer of GET /v3/projects/velocity, recorded 2026-09-09. `4.0.0` is Fill's name
-        // for the whole 4.x line, so the family name is emphatically not a version anybody runs -
-        // 4.0.0 is also a member of it, and the oldest one.
+        // The real answer of GET /v3/projects/velocity, re-recorded 2026-09-15 - it had said 4.1.1
+        // since 2026-09-09 and Fill has published 4.2.0 into the family since. `4.0.0` is Fill's
+        // name for the whole 4.x line, so the family name is emphatically not a version anybody
+        // runs - 4.0.0 is also a member of it, and the oldest one.
         final PaperFill fill = new PaperFill(
                 new FakeHttp().serving("/projects/velocity", "fill-velocity-project.json"));
 
-        assertEquals("4.1.1", fill.newestStableVersion("velocity", "4.0.0"));
+        assertEquals("4.2.0", fill.newestStableVersion("velocity", "4.0.0"));
     }
 
     @Test

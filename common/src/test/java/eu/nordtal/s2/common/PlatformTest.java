@@ -76,7 +76,7 @@ class PlatformTest {
     void theCatalogVersionIsAMemberOfTheFamily() {
         // VELOCITY_FAMILY is Fill's key for a major, not a version - `4.0.0` is what it calls the
         // whole 4.x line. What has to hold is that the line the worker follows is the line the
-        // proxy is compiled for: following major 5 while compiling against 4.1.1 is not a warning
+        // proxy is compiled for: following major 5 while compiling against 4.2.0 is not a warning
         // in a report, it is a proxy that does not start.
         assertEquals(major(Platform.VELOCITY_API), major(Platform.VELOCITY_FAMILY),
                 "Platform.VELOCITY_FAMILY (" + Platform.VELOCITY_FAMILY + ") and the velocity-api in"

@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.s2.common.update.UpdateReport;
+import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.plan.Topology;
 
 import org.junit.jupiter.api.DisplayName;
@@ -105,6 +106,32 @@ class UpdateRunTest {
         assertFalse(stopped.services().contains(Topology.STEWARD_WORKER));
         assertEquals(UpdateReport.State.INSTALLED, stopped.report().line(Topology.STEWARD_WORKER).state(),
                 "its jar is still placed; it is picked up at its next start, as it always was");
+    }
+
+    @Test
+    @DisplayName("the database dump is a report line and not a container, so the stop leaves it alone")
+    void theDumpLineIsNotLookedUpAsAContainer() {
+        // Measured on the dev stack on 2026-09-15, run 13: the dump succeeded for the first time
+        // ever - 790 KiB, no .partial - and the run still settled FAILED. This loop looked for a
+        // container called "database", found none (the compose service is `postgres`), and
+        // overwrote a SAVED line with "could not be stopped and nothing was installed for it".
+        //
+        // Runner#servicesThatRefused already carries this exact finding in its javadoc and already
+        // exempts the line. The stop does not, and that was the whole of the remaining failure.
+        final FakeContainers containers = new FakeContainers().running(Topology.SMP);
+        final UpdateRun run = new UpdateRun(containers, new FakeSnapshots(), progress::add);
+        final UpdateReport planned = planned(Topology.SMP).with(new UpdateReport.ServiceLine(
+                DatabaseDump.NAME, UpdateReport.State.SAVED,
+                List.of(new UpdateReport.Change("backup", null, "saved 790.0 KiB in 0s")), null));
+
+        final UpdateRun.Stopped stopped = run.stop(planned, containers.runtime());
+
+        assertEquals(UpdateReport.State.SAVED, stopped.report().line(DatabaseDump.NAME).state(),
+                "the dump is finished before this loop begins and its line is already written."
+                        + " Turning it FAILED here reports a backup that exists as a backup that"
+                        + " does not, which is the one direction that must never happen");
+        assertFalse(stopped.services().contains(DatabaseDump.NAME),
+                "nothing was stopped for it and nothing may be started for it either");
     }
 
     @Test

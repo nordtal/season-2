@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.worker.serve;
 
 import eu.nordtal.s2.common.update.UpdateReport;
+import eu.nordtal.s2.steward.worker.backup.DatabaseDump;
 import eu.nordtal.s2.steward.worker.backup.SnapshotResult;
 import eu.nordtal.s2.steward.worker.backup.Snapshots;
 import eu.nordtal.s2.steward.worker.ops.ContainerOps;
@@ -137,6 +138,17 @@ final class UpdateRun {
             // every run because CoreProtect has not shipped yet is exactly the outage this class
             // exists to avoid causing.
             if (!line.isMoving()) {
+                continue;
+            }
+            if (DatabaseDump.NAME.equals(line.service())) {
+                // NOT A SERVICE. The backup's report carries the dump as a line of its own, written
+                // and finished before this loop begins - and `database` is not the compose service,
+                // which is `postgres`. Looking it up therefore finds nothing and the line that says
+                // "saved 790.0 KiB" is overwritten with "could not be stopped", which fails the
+                // whole run. Measured on the dev stack on 2026-09-15 (run 13), the first run in
+                // which pg_dump had ever succeeded: that overwrite was the entire remaining
+                // failure. Runner#servicesThatRefused carries the same finding and already exempts
+                // this line; this is the second place that had to.
                 continue;
             }
             if (Topology.STEWARD_WORKER.equals(line.service())) {

@@ -180,7 +180,13 @@ class GateTest {
                 "GET /api/me",
                 // The two halves of the Discord redirect.
                 "GET /auth/login",
-                "GET /auth/callback");
+                "GET /auth/callback",
+                // The two that answer "there is nothing at this address" and nothing else. They
+                // exist because the single-page fallback claimed every unmatched GET, /api
+                // included, and carried no Gate - so a mistyped endpoint came back as a 500 about
+                // a route nobody wrote. These show a stranger no more than a closed door does.
+                "GET /api/<path>",
+                "GET /auth/<path>");
 
         final List<String> loose = new ArrayList<>();
         for (final Endpoint endpoint : endpoints()) {
@@ -221,6 +227,31 @@ class GateTest {
             Set.of(HandlerType.POST, HandlerType.PUT, HandlerType.PATCH, HandlerType.DELETE);
 
     /** What Javalin actually routed, filters and internal entries left out. */
+    @Test
+    void everyEndpointLivesUnderOneOfTheTwoPrefixes() {
+        // THE PREMISE `StewardUi#isOurs` RESTS ON, AND IT IS A PREMISE, NOT A FACT OF NATURE.
+        //
+        // `guard` reads a Gate off the route it is about to run. Two things reach it that cannot
+        // carry one: the static bundle and the single-page fallback. `isOurs` tells them apart
+        // from an endpoint by path prefix and hands them ANYONE - which is right only as long as
+        // every endpoint really does live under /api or /auth.
+        //
+        // The day somebody registers /webhooks/bunq without a Gate, that route would be handed
+        // ANYONE in silence instead of refused. This test is what makes that day loud. If the new
+        // route is deliberate, `isOurs` is the thing to change, and it says so in its own javadoc.
+        final List<String> outside = new ArrayList<>();
+        for (final Endpoint endpoint : endpoints()) {
+            final String path = endpoint.path;
+            if (!path.startsWith("/api/") && !path.startsWith("/auth/")
+                    && !path.equals("/api") && !path.equals("/auth")) {
+                outside.add(endpoint.method + " " + path);
+            }
+        }
+        assertTrue(outside.isEmpty(),
+                "these endpoints sit outside /api and /auth, so StewardUi#isOurs would hand them "
+                        + "ANYONE instead of refusing them: " + outside);
+    }
+
     private static List<Endpoint> endpoints() {
         return app.unsafe.internalRouter.allHttpHandlers().stream()
                 .map(parsed -> parsed.endpoint)

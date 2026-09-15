@@ -9,6 +9,7 @@ import eu.nordtal.s2.common.message.Tone;
 import eu.nordtal.s2.common.message.Tones;
 import eu.nordtal.s2.common.notify.Channels;
 import eu.nordtal.s2.common.notify.NotificationListener;
+import eu.nordtal.s2.common.feedback.Feedback;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -81,6 +82,7 @@ public final class CommandFilter implements Listener {
     private final PlayerLocales locales;
     private final Messages messages;
     private final Logger logger;
+    private final PaperUser.Chime chime;
 
     /**
      * The list as of the last successful read, or {@code null} while none has arrived.
@@ -93,14 +95,32 @@ public final class CommandFilter implements Listener {
     /** So that "nothing has been published" is one warning and not one per poll for a season. */
     private volatile boolean warnedAboutMissingList;
 
+    /**
+     * Without a {@link PaperUser.Chime}: the refusal plays no sound, which was every caller's
+     * behaviour before season-2-ingame/13. Kept rather than removed, because {@code smp},
+     * {@code hunger-games} and {@code limbo} still call it - giving them a real chime is a separate
+     * change, one wiring line in each of those three plugins, out of scope here (see the session
+     * report). This overload delegates to the other one with {@link PaperUser.Chime#silent()}.
+     */
     public CommandFilter(final Plugin plugin, final Source source, final Predicate<UUID> admin,
                          final PlayerLocales locales, final Messages messages, final Logger logger) {
+        this(plugin, source, admin, locales, messages, logger, PaperUser.Chime.silent());
+    }
+
+    /**
+     * @param chime how the refusal sounds - {@link PaperUser.Chime#silent()} for a module with no
+     *              sounds file, same as every other {@code Chime} parameter in this package
+     */
+    public CommandFilter(final Plugin plugin, final Source source, final Predicate<UUID> admin,
+                         final PlayerLocales locales, final Messages messages, final Logger logger,
+                         final PaperUser.Chime chime) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.source = Objects.requireNonNull(source, "source");
         this.admin = Objects.requireNonNull(admin, "admin");
         this.locales = Objects.requireNonNull(locales, "locales");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.chime = Objects.requireNonNull(chime, "chime");
     }
 
     /**
@@ -176,6 +196,7 @@ public final class CommandFilter implements Listener {
         }
         event.setCancelled(true);
         event.getPlayer().sendMessage(refusal(event.getPlayer().getUniqueId()));
+        chime.play(event.getPlayer(), Feedback.REFUSED);
     }
 
     /**
@@ -206,6 +227,7 @@ public final class CommandFilter implements Listener {
             return;
         }
         event.message(refusal(player.getUniqueId()));
+        chime.play(player, Feedback.REFUSED);
     }
 
     /**

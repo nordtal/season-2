@@ -39,6 +39,19 @@ import java.util.UUID;
  * @param accessUntil   the latest {@code valid_until} of any grant this person has, revoked ones
  *                      included; {@code null} when there has never been a grant
  * @param accessActive  whether a non-revoked grant covers this instant
+ * @param discordUsername           the global Discord username last observed, see
+ *                                   {@code eu.nordtal.s2.common.access.DiscordProfile}
+ * @param discordUsernameUpdated    when that was last written, {@code null} together with it
+ * @param discordDisplayName        the guild nickname last observed, {@code null} when unset or
+ *                                   when the account is no longer a member
+ * @param discordDisplayNameUpdated when that was last written, {@code null} together with it
+ * @param discordAvatarUrl          the guild avatar last observed, {@code null} for the same
+ *                                   reasons as {@code discordDisplayName}
+ * @param discordAvatarUrlUpdated   when that was last written, {@code null} together with it
+ * @param mcName                    the Minecraft name last seen at login, see
+ *                                   {@code eu.nordtal.s2.common.access.MinecraftProfile};
+ *                                   {@code null} when unlinked or never seen
+ * @param mcNameUpdated             when that was last written, {@code null} together with it
  */
 public record Person(
         String discordId,
@@ -50,5 +63,13 @@ public record Person(
         UUID minecraftUuid,
         Instant linked,
         Instant accessUntil,
-        boolean accessActive) {
+        boolean accessActive,
+        String discordUsername,
+        Instant discordUsernameUpdated,
+        String discordDisplayName,
+        Instant discordDisplayNameUpdated,
+        String discordAvatarUrl,
+        Instant discordAvatarUrlUpdated,
+        String mcName,
+        Instant mcNameUpdated) {
 }

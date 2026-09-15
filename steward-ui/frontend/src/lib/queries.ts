@@ -473,6 +473,23 @@ export function useSettings(enabled = true) {
   })
 }
 
+/**
+ * The one other thing `/api/settings` carries: where a Minecraft head is composed from.
+ *
+ * Same endpoint and same cache entry as {@link useSettings} - two hooks reading one response
+ * rather than two requests - but typed on its own rather than added to {@link Thresholds}, which
+ * belongs to the traffic light and is not this component's to widen.
+ */
+export function useAvatarBaseUrl(enabled = true) {
+  return useQuery({
+    queryKey: keys.settings,
+    queryFn: () => api<Thresholds & { minecraftHeadBaseUrl: string }>("/api/settings"),
+    staleTime: 5 * 60 * SECOND,
+    enabled,
+    select: (settings) => settings.minecraftHeadBaseUrl,
+  })
+}
+
 export function useConfigs(enabled = true) {
   return useQuery({
     queryKey: keys.configs,

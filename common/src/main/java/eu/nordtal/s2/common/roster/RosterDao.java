@@ -51,7 +51,15 @@ interface RosterDao {
                    link.mc_uuid,
                    link.linked,
                    access.access_until,
-                   coalesce(access.access_active, false) AS access_active
+                   coalesce(access.access_active, false) AS access_active,
+                   usr.discord_username,
+                   usr.discord_username_updated,
+                   usr.discord_display_name,
+                   usr.discord_display_name_updated,
+                   usr.discord_avatar_url,
+                   usr.discord_avatar_url_updated,
+                   link.mc_name,
+                   link.mc_name_updated
             FROM discord_user usr
                      LEFT JOIN account_link link ON link.discord_id = usr.discord_id
                      LEFT JOIN LATERAL (

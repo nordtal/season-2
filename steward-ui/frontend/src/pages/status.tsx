@@ -1,32 +1,26 @@
+import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
-import { CheckCircle2, CircleAlert, OctagonAlert, Terminal, ScrollText } from "lucide-react"
+import { ChevronRight, CircleAlert, OctagonAlert, Terminal, ScrollText } from "lucide-react"
 
 import type { Service } from "@/lib/api"
 import { bytes, count, dateTime, load as formatLoad, percent, relative, since } from "@/lib/format"
-import { ALL_CLEAR, UNKNOWN, shownLevel, summarise, type Level } from "@/lib/health"
+import { UNKNOWN, shownLevel, summarise, type Level } from "@/lib/health"
 import {
   useBackups,
   useHost,
   useJournal,
   useMetrics,
-  useRuns,
   useSeason,
   useServices,
   useSettings,
 } from "@/lib/queries"
 import { PageHeader } from "@/components/steward/page-header"
-import { SeriesChart } from "@/components/steward/series-chart"
+import { Panel } from "@/components/steward/panel"
+import { Sparkline } from "@/components/steward/sparkline"
 import { Stat, UsageBar } from "@/components/steward/stat"
 import { DriftBadge, ServiceState } from "@/components/steward/status"
 import { Empty, Failure, Loading } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import {
   Table,
   TableBody,
@@ -40,8 +34,13 @@ import {
  * The landing page (concept §10c).
  *
  * It answers three questions in this order and no other: **is something wrong** - **how full is
- * the box** - **where do I want to go**. Everything below the light is a tile, and every tile is a link
- * into the page that can actually do something about it.
+ * the box** - **where do I want to go**. Everything below the light is a tile, and every tile is a
+ * link into the page that can actually do something about it.
+ *
+ * **Mobile first, as of steward/64** - and a standing rule for this page from here on, not a one-off
+ * for this ticket. Till reads this page on a phone before he reads it anywhere else, so the narrow
+ * column is the layout that gets designed, and the wide one is what falls out of it at `lg`, never
+ * the other way around.
  *
  * The service rows are deliberately read-only. No restart button lives here: restarting the SMP
  * throws every player out, and the place where that happens is the Operations page, where the
@@ -78,17 +77,13 @@ export function StatusPage() {
 
       <TrafficLight level={level} triggers={triggers} waiting={waiting} failed={Boolean(failed)} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <HostCard />
-        <UpdatesCard />
-        <BackupsCard />
-      </div>
+      <MetricRow />
 
       <ServiceTable />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <SeasonCard />
-        <ActionsCard />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SeasonPanel />
+        <ActionsPanel />
       </div>
     </div>
   )
@@ -96,8 +91,7 @@ export function StatusPage() {
 
 // --- the traffic light -------------------------------------------------------------------------
 
-const LIGHTS: Record<Level, { icon: typeof CheckCircle2; ring: string; text: string }> = {
-  ok: { icon: CheckCircle2, ring: "border-success/30 bg-success/8", text: "text-success" },
+const LIGHTS: Record<Exclude<Level, "ok">, { icon: typeof CircleAlert; ring: string; text: string }> = {
   warn: { icon: CircleAlert, ring: "border-warning/30 bg-warning/8", text: "text-warning" },
   down: { icon: OctagonAlert, ring: "border-destructive/40 bg-destructive/8", text: "text-destructive" },
 }
@@ -122,37 +116,58 @@ function TrafficLight({
     )
   }
 
-  const { icon: Icon, ring, text } = LIGHTS[shownLevel(level, failed)]
+  const shown = shownLevel(level, failed)
+
+  // steward/64: Till's instruction was to remove the green banner entirely rather than to shorten
+  // its text - show it only for the red and yellow case, and even there just a short reference. A
+  // stack with nothing wrong gets no banner at all; the page starts with the numbers below. This branch is
+  // only reachable once `waiting` is false AND `failed` is false, because `shownLevel` only ever
+  // turns "ok" into "warn" on a failed query - so an `ok` here is a settled, evidenced "ok", never a
+  // guess. That is the one distinction this whole file exists to keep visible: "checked and fine"
+  // must never render the same as "nothing read yet", and the branch above is what still renders for
+  // the second case.
+  if (shown === "ok") {
+    return null
+  }
+
+  const { icon: Icon, ring, text } = LIGHTS[shown]
+  // A single link for a single line: the worst trigger (triggers are sorted red-first) is the one
+  // whose destination the operator most wants, and every other trigger this render still names by
+  // its subject even though only one of them gets a place to click through to.
+  const worst = triggers[0]
+
   return (
     <div className={`flex flex-col gap-3 rounded-md border px-4 py-3 ${ring}`} role="status">
       <div className="flex items-start gap-3">
         <Icon className={`mt-0.5 size-5 shrink-0 ${text}`} aria-hidden />
         <div className="flex min-w-0 flex-col gap-1">
           {triggers.length === 0 ? (
-            <p className="text-sm font-medium">{failed ? UNKNOWN : ALL_CLEAR}</p>
+            <p className="text-sm font-medium">{UNKNOWN}</p>
           ) : (
-            <ul className="flex flex-col gap-1">
-              {triggers.map((trigger) => (
-                <li key={trigger.text} className="text-sm">
-                  <span
-                    className={
-                      trigger.level === "down" ? "text-destructive" : "text-warning"
-                    }
-                  >
-                    {trigger.text}
-                  </span>{" "}
-                  {trigger.to ? (
-                    <Link
-                      to={trigger.to}
-                      params={trigger.params}
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      view
-                    </Link>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm">
+              {/*
+                Till's own words for what belongs here: "Fehler in smp, discord-bot" plus a link -
+                a reference, not a list of sentences. The full sentence per trigger (`text`) still
+                exists, on `Trigger` itself, for the page this link leads to; nothing here parses it
+                back out of prose, `subject` is already the short form.
+              */}
+              <span className={worst.level === "down" ? "text-destructive" : "text-warning"}>
+                Errors in {triggers.map((trigger) => trigger.subject).join(", ")}.
+              </span>{" "}
+              {worst.to ? (
+                <Link
+                  to={worst.to}
+                  params={worst.params}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  view
+                </Link>
+              ) : (
+                <Link to="/operations" className="text-primary underline-offset-4 hover:underline">
+                  view
+                </Link>
+              )}
+            </p>
           )}
           {/*
             Both sentences, and `waiting` is the one that was missing. The loading state above only
@@ -178,86 +193,116 @@ function TrafficLight({
   )
 }
 
-// --- the tiles ----------------------------------------------------------------------------------
+// --- the metric row -------------------------------------------------------------------------------
 
-function HostCard() {
+/**
+ * CPU, memory, disk, drift and the newest backup - the five numbers §10c and Till's own list of
+ * 2026-09-15 agreed are the ones an operator wants without scrolling. This replaces the Host,
+ * Updates and Backups cards: their remaining detail - the container limits, when the registry was
+ * last compared, the unverifiable services, the last update run and the partial archives - is not
+ * lost with them. The Operations page already showed every one of it before this change (Images
+ * table with its Compared column and its `drift.unverifiable` line, the runs table, the backups
+ * table with its partial state), so nothing had to be carried across; the front page simply stopped
+ * printing a second copy of a page one tap away.
+ *
+ * Mobile first: two tiles to a row is the width steward/64 asked for on a phone, three from
+ * `26rem`, and only the desktop breakpoint spends the whole thing on one row of five - the layout
+ * this row *ends* on, not the one it starts from.
+ */
+function MetricRow() {
   const host = useHost()
   const cpu = useMetrics("host", "cpu", 6)
+  const services = useServices()
+  const backups = useBackups()
+
+  const outdated = (services.data?.services ?? []).filter((service) => service.drift === "OUTDATED")
+  const finishedBackups = (backups.data ?? []).filter((backup) => !backup.partial)
+  const newest = finishedBackups[0]
+
+  const unreadable = host.data?.unreadable
+  const usedMemory = host.data?.memoryTotalBytes
+    ? host.data.memoryTotalBytes - (host.data.memoryAvailableBytes ?? 0)
+    : undefined
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Host</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {host.isPending ? (
-          <Loading rows={3} />
-        ) : host.error ? (
-          <Failure error={host.error} onRetry={host.refetch} />
-        ) : host.data?.unreadable ? (
-          <p className="text-sm text-muted-foreground">{host.data.unreadable}</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-4 min-[26rem]:grid-cols-2">
-              <Stat
-                label="CPU"
-                value={percent(host.data?.cpuPercent)}
-                hint={`${count(host.data?.cpus)} cores · Load ${formatLoad(host.data?.load1)}`}
-              />
-              <Stat
-                label="Memory"
-                value={memoryShare(host.data)}
-                hint={
-                  host.data?.memoryTotalBytes
-                    ? `${bytes(
-                        host.data.memoryTotalBytes - (host.data.memoryAvailableBytes ?? 0),
-                      )} of ${bytes(host.data.memoryTotalBytes)}`
-                    : "–"
-                }
-              />
-            </div>
+    <div className="grid grid-cols-2 gap-x-4 gap-y-5 min-[26rem]:grid-cols-3 lg:grid-cols-5">
+      <MetricTile
+        label="CPU"
+        value={percent(host.data?.cpuPercent)}
+        hint={unreadable ?? `${count(host.data?.cpus)} cores · Load ${formatLoad(host.data?.load1)}`}
+      >
+        <Sparkline points={cpu.data?.points ?? []} />
+      </MetricTile>
 
-            {host.data?.memoryTotalBytes ? (
-              <UsageBar
-                used={host.data.memoryTotalBytes - (host.data.memoryAvailableBytes ?? 0)}
-                total={host.data.memoryTotalBytes}
-              />
-            ) : null}
+      <MetricTile
+        label="Memory"
+        value={memoryShare(host.data)}
+        hint={
+          unreadable ??
+          (host.data?.memoryTotalBytes
+            ? `${bytes(usedMemory)} of ${bytes(host.data.memoryTotalBytes)}`
+            : "–")
+        }
+      >
+        {host.data?.memoryTotalBytes ? (
+          <UsageBar used={usedMemory ?? 0} total={host.data.memoryTotalBytes} />
+        ) : null}
+      </MetricTile>
 
-            <Separator />
+      <MetricTile
+        label="Disk"
+        value={
+          host.data?.diskTotalBytes
+            ? percent(((host.data.diskUsedBytes ?? 0) / host.data.diskTotalBytes) * 100, 0)
+            : "–"
+        }
+        hint={
+          unreadable ??
+          (host.data?.diskTotalBytes
+            ? `${bytes(host.data.diskUsedBytes)} of ${bytes(host.data.diskTotalBytes)}`
+            : "–")
+        }
+      >
+        {host.data?.diskTotalBytes ? (
+          <UsageBar used={host.data.diskUsedBytes ?? 0} total={host.data.diskTotalBytes} />
+        ) : null}
+      </MetricTile>
 
-            <div className="flex flex-col gap-2">
-              <Stat
-                label="Disk"
-                value={
-                  host.data?.diskTotalBytes
-                    ? percent(((host.data.diskUsedBytes ?? 0) / host.data.diskTotalBytes) * 100, 0)
-                    : "–"
-                }
-                hint={`${bytes(host.data?.diskUsedBytes)} of ${bytes(host.data?.diskTotalBytes)} · Images ${bytes(host.data?.imagesBytes)} · Volumes ${bytes(host.data?.volumesBytes)}`}
-              />
-              {host.data?.diskTotalBytes ? (
-                <UsageBar used={host.data.diskUsedBytes ?? 0} total={host.data.diskTotalBytes} />
-              ) : null}
-            </div>
+      <MetricTile
+        label="Behind"
+        value={count(outdated.length)}
+        tone={outdated.length > 0 ? "warn" : undefined}
+        hint={outdated.length === 0 ? "up to date" : outdated.map((service) => service.service).join(", ")}
+      />
 
-            <SeriesChart
-              points={cpu.data?.points ?? []}
-              label="CPU"
-              format={(value) => `${Math.round(value)} %`}
-              height={96}
-            />
-            {/*
-              The worker's own sentence, and nothing in front of it. This used to read
-              "Percentages are shares of the whole host: none - percentages are a share of the
-              host" - the same statement twice, because the value is already a full sentence about
-              exactly that. Whatever steward-worker has to say about limits, it says here.
-            */}
-            <p className="text-xs text-muted-foreground">{host.data?.containerLimits}</p>
-          </>
-        )}
-      </CardContent>
-    </Card>
+      <MetricTile
+        label="Newest backup"
+        value={newest ? relative(newest.modified) : backups.data ? "none" : "–"}
+        tone={backups.data && !newest ? "down" : undefined}
+        hint={newest ? newest.human : backups.data ? "no finished backup" : "–"}
+      />
+    </div>
+  )
+}
+
+function MetricTile({
+  label,
+  value,
+  hint,
+  tone,
+  children,
+}: {
+  label: string
+  value: string
+  hint?: string
+  tone?: "ok" | "warn" | "down"
+  children?: ReactNode
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <Stat label={label} value={value} hint={hint} tone={tone} />
+      {children}
+    </div>
   )
 }
 
@@ -267,135 +312,29 @@ function memoryShare(host: { memoryTotalBytes?: number; memoryAvailableBytes?: n
   return percent((used / host.memoryTotalBytes) * 100, 0)
 }
 
-function UpdatesCard() {
-  const services = useServices()
-  const runs = useRuns(8)
-  const outdated = (services.data?.services ?? []).filter((s) => s.drift === "OUTDATED")
-  const unverifiable = services.data?.drift.unverifiable ?? []
-  const lastRun = (runs.data ?? []).find((run) => run.kind === "UPDATE")
+// --- Season and the journal, flattened ------------------------------------------------------------
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Updates</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {services.isPending ? (
-          <Loading rows={2} />
-        ) : services.error ? (
-          <Failure error={services.error} onRetry={services.refetch} />
-        ) : (
-          <>
-            <Stat
-              label="Behind"
-              value={count(outdated.length)}
-              tone={outdated.length > 0 ? "warn" : undefined}
-              hint={
-                (outdated.length === 0
-                  ? "No service is running an older image."
-                  : outdated.map((s) => s.service).join(", ")) +
-                (services.data?.drift.checkedAt
-                  ? ` · compared ${relative(services.data.drift.checkedAt)}`
-                  : " · not compared yet")
-              }
-            />
-            {unverifiable.length > 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Unchecked: {unverifiable.join(", ")} - an image with no registry digest cannot be
-                compared, and therefore does not count as up to date.
-              </p>
-            ) : null}
-            <Separator />
-            <Stat
-              label="Last run"
-              value={lastRun ? relative(lastRun.finished ?? lastRun.requested) : "none"}
-              hint={lastRun ? `#${lastRun.id} · ${lastRun.status}` : "There has been no update yet."}
-            />
-            <Button asChild variant="outline" size="sm" className="w-fit">
-              <Link to="/operations">To Operations</Link>
-            </Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function BackupsCard() {
-  const backups = useBackups()
-  const finished = (backups.data ?? []).filter((backup) => !backup.partial)
-  const newest = finished[0]
-  const partial = (backups.data ?? []).filter((backup) => backup.partial)
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Backups</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {backups.isPending ? (
-          <Loading rows={2} />
-        ) : backups.error ? (
-          <Failure error={backups.error} onRetry={backups.refetch} />
-        ) : newest === undefined ? (
-          <Empty
-            title="No finished backup"
-            note="There is no finished archive in the backup directory."
-          />
-        ) : (
-          <>
-            <Stat
-              label="Newest"
-              value={relative(newest.modified)}
-              hint={`${newest.name} · ${newest.human}`}
-            />
-            <Stat
-              label="Stock"
-              value={count(finished.length)}
-              hint={`together ${bytes(finished.reduce((sum, backup) => sum + backup.bytes, 0))}`}
-            />
-            {partial.length > 0 ? (
-              <p className="text-xs text-warning">
-                {partial.length} started file(s) (.partial) - either a backup is running right now,
-                or one was aborted.
-              </p>
-            ) : null}
-            <Button asChild variant="outline" size="sm" className="w-fit">
-              <Link to="/operations">All backups</Link>
-            </Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function SeasonCard() {
+function SeasonPanel() {
   const season = useSeason()
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Season</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {season.isPending ? (
-          <Loading rows={2} />
-        ) : season.error ? (
-          <Failure error={season.error} onRetry={season.refetch} />
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-4 min-[26rem]:grid-cols-2">
-              <Stat label="Phase" value={PHASES[season.data!.phase] ?? season.data!.phase} />
-              <Stat label="Season start" value={dateTime(season.data!.launch)} />
-            </div>
+    <Panel title="Season">
+      {season.isPending ? (
+        <Loading rows={2} />
+      ) : season.error ? (
+        <Failure error={season.error} onRetry={season.refetch} />
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-4 min-[26rem]:grid-cols-3">
+            <Stat label="Phase" value={PHASES[season.data!.phase] ?? season.data!.phase} />
+            <Stat label="Season start" value={dateTime(season.data!.launch)} />
             <Stat label="SMP-Start" value={dateTime(season.data!.smpStart)} />
-            <Button asChild variant="outline" size="sm" className="w-fit">
-              <Link to="/season">To the season</Link>
-            </Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          </div>
+          <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
+            <Link to="/season">To the season</Link>
+          </Button>
+        </div>
+      )}
+    </Panel>
   )
 }
 
@@ -406,45 +345,40 @@ const PHASES: Record<string, string> = {
   ENDED: "ended",
 }
 
-function ActionsCard() {
+function ActionsPanel() {
   const journal = useJournal("", "")
   const entries = (journal.data ?? []).slice(0, 8)
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Latest actions</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {journal.isPending ? (
-          <Loading rows={4} />
-        ) : journal.error ? (
-          <Failure error={journal.error} onRetry={journal.refetch} />
-        ) : entries.length === 0 ? (
-          <Empty title="Nothing recorded yet" />
-        ) : (
-          <ul className="flex flex-col">
-            {entries.map((entry) => (
-              <li
-                key={entry.id}
-                className="flex h-row items-center gap-3 border-b border-border/60 last:border-0"
-              >
-                <span className="w-28 shrink-0 text-xs text-muted-foreground tnum">
-                  {relative(entry.occurred)}
-                </span>
-                <span className="truncate text-sm">{entry.action}</span>
-                <span className="ml-auto truncate text-xs text-muted-foreground">
-                  {entry.actor ?? "System"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Button asChild variant="outline" size="sm" className="w-fit">
-          <Link to="/journal">The whole journal</Link>
-        </Button>
-      </CardContent>
-    </Card>
+    <Panel title="Latest actions">
+      {journal.isPending ? (
+        <Loading rows={4} />
+      ) : journal.error ? (
+        <Failure error={journal.error} onRetry={journal.refetch} />
+      ) : entries.length === 0 ? (
+        <Empty title="Nothing recorded yet" />
+      ) : (
+        <ul className="flex flex-col">
+          {entries.map((entry) => (
+            <li
+              key={entry.id}
+              className="flex h-row items-center gap-3 border-b border-border/60 last:border-0"
+            >
+              <span className="w-28 shrink-0 text-xs text-muted-foreground tnum">
+                {relative(entry.occurred)}
+              </span>
+              <span className="truncate text-sm">{entry.action}</span>
+              <span className="ml-auto truncate text-xs text-muted-foreground">
+                {entry.actor ?? "System"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Button asChild variant="ghost" size="sm" className="w-fit -ml-3">
+        <Link to="/journal">The whole journal</Link>
+      </Button>
+    </Panel>
   )
 }
 
@@ -475,13 +409,90 @@ const GROUPS: Array<{ label: string; note: string; members: string[] }> = [
   },
 ]
 
+/** A container Docker is happy with - the same rule `health.ts` judges the traffic light by. */
+function isHealthy(service: Service): boolean {
+  return service.state === "running" && service.health !== "unhealthy"
+}
+
+/**
+ * A disclosure, not a table, by default.
+ *
+ * steward/64: ten rows of name, state, drift and uptime were the single biggest thing standing
+ * between "open the page" and "see the numbers" on a phone, where each row is a seven-line card
+ * (see `.steward-table`'s narrow layout in `index.css`). The default state is one line - how many
+ * of how many are fine, and which ones are not if any are not - and the full table is one tap away
+ * rather than the first thing scrolled past. `<details>` rather than a component of its own: it is
+ * the platform's own disclosure widget, keyboard- and screen-reader-accessible for free, and it
+ * needs no state this file would otherwise have to own.
+ */
 function ServiceTable() {
   const services = useServices()
 
-  if (services.isPending) return <Loading rows={10} />
+  if (services.isPending) return <Loading rows={3} />
   if (services.error) return <Failure error={services.error} onRetry={services.refetch} />
 
   const all = services.data?.services ?? []
+
+  if (all.length === 0) {
+    return (
+      <Empty
+        title="No container in the project"
+        note="steward-worker answered, but no container carries the compose project label. Is the stack running?"
+      />
+    )
+  }
+
+  const problems = all.filter((service) => !isHealthy(service))
+
+  return (
+    <details className="group rounded-md border border-border">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm select-none [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
+          aria-hidden
+        />
+        {problems.length === 0 ? (
+          <span>
+            Services: {all.length} of {all.length} healthy
+          </span>
+        ) : (
+          <span>
+            <span className="font-medium text-destructive">
+              Services: {problems.length} of {all.length} need attention
+            </span>{" "}
+            <span className="text-muted-foreground">
+              - {problems.map((service) => service.service).join(", ")}
+            </span>
+          </span>
+        )}
+      </summary>
+      <div className="border-t border-border px-1 pb-1">
+        <Table className="steward-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[18rem]">Service</TableHead>
+              <TableHead className="w-[7rem]">State</TableHead>
+              <TableHead className="w-[7rem]">Image</TableHead>
+              <TableHead className="w-[8rem]">Uptime</TableHead>
+              <TableHead className="w-[8rem] text-right">RAM</TableHead>
+              <TableHead className="w-[6rem] text-right">CPU</TableHead>
+              <TableHead className="w-[9rem]" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groupsOf(all)
+              .filter((group) => group.rows.length > 0)
+              .map((group) => (
+                <GroupRows key={group.label} {...group} />
+              ))}
+          </TableBody>
+        </Table>
+      </div>
+    </details>
+  )
+}
+
+function groupsOf(all: Service[]) {
   const known = new Set(GROUPS.flatMap((group) => group.members))
   const groups = GROUPS.map((group) => ({
     ...group,
@@ -498,45 +509,7 @@ function ServiceTable() {
       rows: others,
     })
   }
-
-  if (all.length === 0) {
-    return (
-      <Empty
-        title="No container in the project"
-        note="steward-worker answered, but no container carries the compose project label. Is the stack running?"
-      />
-    )
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Services</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table className="steward-table">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[18rem]">Service</TableHead>
-              <TableHead className="w-[7rem]">State</TableHead>
-              <TableHead className="w-[7rem]">Image</TableHead>
-              <TableHead className="w-[8rem]">Uptime</TableHead>
-              <TableHead className="w-[8rem] text-right">RAM</TableHead>
-              <TableHead className="w-[6rem] text-right">CPU</TableHead>
-              <TableHead className="w-[9rem]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {groups
-              .filter((group) => group.rows.length > 0)
-              .map((group) => (
-                <GroupRows key={group.label} {...group} />
-              ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  )
+  return groups
 }
 
 function GroupRows({

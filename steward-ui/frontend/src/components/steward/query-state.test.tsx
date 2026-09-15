@@ -39,7 +39,7 @@ describe("QueryState", () => {
       </QueryState>,
     )
     expect(screen.queryByRole("status")).toBeNull()
-    expect(screen.getByText(/nothing was asked for/i)).toBeTruthy()
+    expect(screen.getByText(/nothing was requested/i)).toBeTruthy()
   })
 
   it("still draws skeletons when nothing said which it is", () => {

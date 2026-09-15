@@ -893,9 +893,9 @@ export function PaymentsPage() {
                   <Stat label="Paid" value={count(paid.length)} />
                   <Separator orientation="vertical" className="h-14" />
                   <Stat
-                    label="Asked for (paid requests)"
+                    label="Requested (paid requests)"
                     value={euros(requested)}
-                    hint="Amount plus donation, as the tab asked for it"
+                    hint="Amount plus donation, as the tab requested it"
                   />
                   <p className="max-w-prose text-xs text-muted-foreground">
                     This is <span className="text-foreground">not the balance</span>: on the

@@ -88,13 +88,10 @@ export function HoldKeyPage({ me }: { me: Me }) {
               <KeyRound aria-hidden />
               <AlertTitle>If you no longer have it, somebody has to go to the server.</AlertTitle>
               <AlertDescription>
-                {/* The exact command, because the person who needs it is not reading this page. */}
-                <p>
-                  There is no email reset. On the host:{" "}
-                  <span className="font-mono text-xs">
-                    docker exec nordtal-s2-steward-ui-1 steward-ui forget-factors {me.id ?? "<id>"}
-                  </span>
-                </p>
+                {/* A danger, not an instruction: this screen loads for anyone signed in with
+                    Discord alone, so the exact recovery command does not belong on it. It is in
+                    the javadoc of StewardUi.forgetFactors instead. */}
+                <p>There is no email reset and no second route in.</p>
               </AlertDescription>
             </Alert>
 

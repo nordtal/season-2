@@ -94,27 +94,6 @@ export function SettingsPage() {
           <Separator />
 
           <SecurityKeys me={me.data} />
-
-          <Alert>
-            <Fingerprint aria-hidden />
-            <AlertTitle>What the key does and does not cover.</AlertTitle>
-            {/*
-              One <p>, not a bare run of text. AlertDescription is a grid, so every inline child of
-              it is blockified into a row of its own: the link and the full stop after it each got
-              their own line, and the notice read "...lands in the / Journal / ." down the phone.
-            */}
-            <AlertDescription>
-              <p>
-                {me.data?.webauthn ??
-                  "A security key is required: an account without one cannot use Steward at all."}{" "}
-                That is why every change made here lands in the{" "}
-                <Link to="/journal" className="underline underline-offset-4">
-                  Journal
-                </Link>
-                .
-              </p>
-            </AlertDescription>
-          </Alert>
         </CardContent>
       </Card>
 

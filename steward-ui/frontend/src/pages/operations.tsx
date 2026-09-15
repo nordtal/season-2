@@ -329,9 +329,9 @@ const ASKS: Record<
   { title: string; what: string; warning?: string; icon: typeof RefreshCw }
 > = {
   UPDATE: {
-    title: "Update eintragen",
+    title: "Enter an update",
     what:
-      "Asks every source for the newest version, stops the services where something changes, swaps their jars and starts them again. If nothing is new, nothing is stopped - the run then ends at \"Nothing to do\".",
+      "Queries every source for the newest version, stops the services where something changes, swaps their jars and starts them again. If nothing is new, nothing is stopped - the run then ends at \"Nothing to do\".",
     icon: RefreshCw,
   },
   BACKUP: {
@@ -508,8 +508,8 @@ function DriftCard() {
               <>
                 <p className="text-xs text-muted-foreground">
                   {table.drift.checkedAt
-                    ? `Registry last asked ${relative(table.drift.checkedAt)} (${dateTime(table.drift.checkedAt)}) - that is the age of this comparison, not of the row beside it.`
-                    : "The registry has not been asked yet; no row below is a comparison."}
+                    ? `Registry last queried ${relative(table.drift.checkedAt)} (${dateTime(table.drift.checkedAt)}) - that is the age of this comparison, not of the row beside it.`
+                    : "The registry has not been queried yet; no row below is a comparison."}
                 </p>
                 {table.drift.reached === false ? (
                   <p className="flex items-start gap-2 text-xs text-warning">

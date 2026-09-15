@@ -114,6 +114,18 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
+    public DiscordProfile discordProfile(final String discordId) {
+        Objects.requireNonNull(discordId, "discordId");
+        return dao.discordProfile(discordId).orElse(DiscordProfile.EMPTY);
+    }
+
+    @Override
+    public MinecraftProfile minecraftProfile(final String discordId) {
+        Objects.requireNonNull(discordId, "discordId");
+        return dao.minecraftProfile(discordId).orElse(MinecraftProfile.EMPTY);
+    }
+
+    @Override
     public List<AccessGrant> grantsOf(final String discordId) {
         return dao.grantsOf(Objects.requireNonNull(discordId, "discordId"));
     }
@@ -149,6 +161,17 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
+    public void setDiscordProfile(final String discordId, final String username,
+                                  final String displayName, final String avatarUrl) {
+        dao.setDiscordProfile(Objects.requireNonNull(discordId, "discordId"), username, displayName, avatarUrl);
+    }
+
+    @Override
+    public void clearGuildProfile(final String discordId) {
+        dao.clearGuildProfile(Objects.requireNonNull(discordId, "discordId"));
+    }
+
+    @Override
     public boolean link(final String discordId, final UUID mcUuid) {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(mcUuid, "mcUuid");
@@ -165,6 +188,12 @@ final class JdbiAccessDirectory implements AccessDirectory {
     @Override
     public boolean unlink(final String discordId) {
         return dao.unlink(Objects.requireNonNull(discordId, "discordId")) > 0;
+    }
+
+    @Override
+    public boolean setMinecraftName(final UUID mcUuid, final String name) {
+        Objects.requireNonNull(mcUuid, "mcUuid");
+        return dao.setMinecraftName(mcUuid, name) > 0;
     }
 
     @Override

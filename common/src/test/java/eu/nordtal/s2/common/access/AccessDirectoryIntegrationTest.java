@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -601,6 +602,128 @@ class AccessDirectoryIntegrationTest {
         directory.setAdmin("400000000000000001", true);
 
         assertEquals(1, count("SELECT count(*) FROM discord_user WHERE discord_id = '400000000000000001' AND admin"));
+    }
+
+    // ---------------------------------------------------------------- the profile cache (steward/44)
+
+    @Test
+    void discordProfileOfAnUnknownAccountIsEmptyNotNull() {
+        assertEquals(DiscordProfile.EMPTY, directory.discordProfile("999999999999999999"));
+    }
+
+    @Test
+    void minecraftProfileOfAnUnknownAccountIsEmptyNotNull() {
+        assertEquals(MinecraftProfile.EMPTY, directory.minecraftProfile("999999999999999999"));
+    }
+
+    @Test
+    void setDiscordProfileWritesAllThreeFieldsWithTheirOwnTimestamps() {
+        directory.ensureUser(DISCORD_ID);
+
+        directory.setDiscordProfile(DISCORD_ID, "steve", "Bau-Steve", "https://example.invalid/a.png");
+
+        final DiscordProfile profile = directory.discordProfile(DISCORD_ID);
+        assertEquals("steve", profile.username());
+        assertEquals("Bau-Steve", profile.displayName());
+        assertEquals("https://example.invalid/a.png", profile.avatarUrl());
+        assertWithinSeconds(Instant.now(), profile.usernameUpdated(), 5);
+        assertWithinSeconds(Instant.now(), profile.displayNameUpdated(), 5);
+        assertWithinSeconds(Instant.now(), profile.avatarUrlUpdated(), 5);
+    }
+
+    @Test
+    void setDiscordProfileCreatesTheUserRowIfItIsNotThereYet() {
+        directory.setDiscordProfile("400000000000000002", "new-user", null, null);
+
+        assertEquals("new-user", directory.discordProfile("400000000000000002").username());
+    }
+
+    @Test
+    @DisplayName("a member with no guild nickname or avatar has null there, not an empty string")
+    void aMemberWithNoGuildNicknameOrAvatarStoresNullForBoth() {
+        directory.setDiscordProfile(DISCORD_ID, "steve", null, null);
+
+        final DiscordProfile profile = directory.discordProfile(DISCORD_ID);
+        assertNull(profile.displayName());
+        assertNull(profile.avatarUrl());
+        // Still observed, even though the answer is "nothing set" - the timestamp says when the
+        // absence was last confirmed, not just when a value last existed.
+        assertNotNull(profile.displayNameUpdated());
+        assertNotNull(profile.avatarUrlUpdated());
+    }
+
+    @Test
+    @DisplayName("leaving the guild clears the nickname and the avatar, but the username merely goes stale")
+    void clearingTheGuildProfileLeavesTheUsernameInPlace() {
+        directory.setDiscordProfile(DISCORD_ID, "steve", "Bau-Steve", "https://example.invalid/a.png");
+
+        directory.clearGuildProfile(DISCORD_ID);
+
+        final DiscordProfile profile = directory.discordProfile(DISCORD_ID);
+        assertEquals("steve", profile.username(), "the global username is not guild-scoped");
+        assertNull(profile.displayName(), "the guild nickname does not survive a departure");
+        assertNull(profile.avatarUrl(), "neither does the guild avatar");
+    }
+
+    @Test
+    void clearGuildProfileOfAnUnknownAccountDoesNothing() {
+        directory.clearGuildProfile("999999999999999999");
+
+        assertEquals(DiscordProfile.EMPTY, directory.discordProfile("999999999999999999"));
+    }
+
+    @Test
+    void setMinecraftNameWritesOntoTheLinkedAccount() {
+        directory.link(DISCORD_ID, MC_UUID);
+
+        final boolean written = directory.setMinecraftName(MC_UUID, "Notch");
+
+        assertTrue(written);
+        final MinecraftProfile profile = directory.minecraftProfile(DISCORD_ID);
+        assertEquals("Notch", profile.name());
+        assertWithinSeconds(Instant.now(), profile.nameUpdated(), 5);
+    }
+
+    @Test
+    @DisplayName("a name cannot be cached for an account nobody has linked - there is no row to write it onto")
+    void setMinecraftNameOfAnUnlinkedAccountIsANoOp() {
+        final boolean written = directory.setMinecraftName(UUID.randomUUID(), "Notch");
+
+        assertFalse(written);
+    }
+
+    // -------------------------------------------- a name is not a key (steward/44's own demand)
+
+    @Test
+    @DisplayName("two Discord accounts may share every observed field without becoming one identity")
+    void twoDiscordAccountsMayShareANameWithoutMergingIdentity() {
+        // Discord does not stop two different people from picking the same username or the same
+        // guild nickname, and neither may this cache: a UNIQUE constraint on any of these columns
+        // would turn an ordinary coincidence into a migration that refuses to apply. If this test
+        // ever goes red on the INSERT itself, a name has been made a key somewhere in the schema.
+        final String otherDiscordId = "100000000000000099";
+        final UUID otherMcUuid = UUID.randomUUID();
+        directory.link(DISCORD_ID, MC_UUID);
+        directory.link(otherDiscordId, otherMcUuid);
+
+        directory.setDiscordProfile(DISCORD_ID, "steve", "Steve", "https://example.invalid/a.png");
+        directory.setDiscordProfile(otherDiscordId, "steve2", "Steve", "https://example.invalid/a.png");
+        directory.setMinecraftName(MC_UUID, "Herobrine");
+        directory.setMinecraftName(otherMcUuid, "Herobrine");
+
+        // Same rendered name and the same picture for both - and each account still resolves to its
+        // own, distinct Minecraft account. The lookup below is keyed on discordId, never on the name
+        // both of them happen to carry; that is the property this whole test exists to pin down.
+        assertEquals(MC_UUID, directory.linkedMinecraftAccount(DISCORD_ID).orElseThrow());
+        assertEquals(otherMcUuid, directory.linkedMinecraftAccount(otherDiscordId).orElseThrow());
+        assertEquals(DISCORD_ID, directory.linkedDiscordAccount(MC_UUID).orElseThrow());
+        assertEquals(otherDiscordId, directory.linkedDiscordAccount(otherMcUuid).orElseThrow());
+
+        final DiscordProfile first = directory.discordProfile(DISCORD_ID);
+        final DiscordProfile second = directory.discordProfile(otherDiscordId);
+        assertEquals("Steve", first.displayName());
+        assertEquals("Steve", second.displayName());
+        assertNotEquals(first, second, "identical display names must not make the two records equal");
     }
 
     // ---------------------------------------------------------------- the join-time locale component

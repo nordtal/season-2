@@ -35,10 +35,19 @@ public final class LimboCommands {
     private LimboCommands() {
     }
 
-    /** {@code /limbo reload} - the wording, never the world. */
+    /**
+     * {@code /limbo reload} - the wording, never the world.
+     *
+     * <h2>Console only, 2026-09-15 (ops/18)</h2>
+     * "alles Admin nur noch Konsole und Web" took {@link Surface#GAME} and {@link Surface#DISCORD}
+     * off every admin command, this one included - the javadoc above about a player having no chat
+     * mid-login is about a player who is not an admin typing nothing here; it does not argue for
+     * keeping an admin's own in-game or Discord path once the owner decided against both for admin
+     * commands generally.
+     */
     public static final Declaration RELOAD = new Declaration(
             List.of("limbo", "reload"), Target.LIMBO,
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, false, List.of());
+            Set.of(Surface.CONSOLE), true, false, List.of());
 
     /** Every {@code /limbo} command. */
     public static List<NordtalCommand<LimboEffects>> all() {

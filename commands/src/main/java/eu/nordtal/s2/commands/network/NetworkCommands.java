@@ -23,10 +23,18 @@ public final class NetworkCommands {
     private NetworkCommands() {
     }
 
-    /** {@code /network reload} - the wording, and nothing that is wired into a running proxy. */
+    /**
+     * {@code /network reload} - the wording, and nothing that is wired into a running proxy.
+     *
+     * <h2>Console only, 2026-09-15 (ops/18)</h2>
+     * "alles Admin nur noch Konsole und Web" removed {@link Surface#GAME} and {@link
+     * Surface#DISCORD} from this declaration too. The class javadoc above, about the console being
+     * an admin here, is unaffected - it is now the <em>only</em> surface an admin reaches this
+     * through, {@link Surface#CONSOLE} rather than one of three.
+     */
     public static final Declaration RELOAD = new Declaration(
             List.of("network", "reload"), Target.PROXY,
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, false, List.of());
+            Set.of(Surface.CONSOLE), true, false, List.of());
 
     /** Every {@code /network} command. */
     public static List<NordtalCommand<NetworkEffects>> all() {

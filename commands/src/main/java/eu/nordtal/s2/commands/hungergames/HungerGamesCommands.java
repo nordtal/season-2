@@ -49,12 +49,17 @@ public final class HungerGamesCommands {
      */
     public static final int HARD_MINIMUM_PARTICIPANTS = 2;
 
-    private static final Set<Surface> EVERYWHERE =
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE);
+    /**
+     * Console only, 2026-09-15 (ops/18): "alles Admin nur noch Konsole und Web" took every admin
+     * command off {@link Surface#GAME} and {@link Surface#DISCORD}, {@code /hg ready-status} (which
+     * only reads) included - the same reasoning {@code AccessCommands} now carries for its own two
+     * reading commands.
+     */
+    private static final Set<Surface> CONSOLE_ONLY = Set.of(Surface.CONSOLE);
 
-    /** {@code /hg start} is also a button in Steward - see {@code SmpCommands.EVERYWHERE_AND_WEB}. */
-    private static final Set<Surface> EVERYWHERE_AND_WEB =
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE, Surface.WEB);
+    /** {@code /hg start} is also a button in Steward - see {@code SmpCommands.CONSOLE_AND_WEB}. */
+    private static final Set<Surface> CONSOLE_AND_WEB =
+            Set.of(Surface.CONSOLE, Surface.WEB);
 
     /**
      * {@code /hg start [confirm]} - begins the event. Its own confirmation lives in
@@ -73,17 +78,17 @@ public final class HungerGamesCommands {
      * asserts no path is both a subcommand and a group, so the next one fails the build.</p>
      */
     public static final Declaration START = new Declaration(
-            List.of("hg", "start"), Target.HUNGER_GAMES, EVERYWHERE_AND_WEB, true, false,
+            List.of("hg", "start"), Target.HUNGER_GAMES, CONSOLE_AND_WEB, true, false,
             List.of(eu.nordtal.s2.commands.Argument.choice("confirm", List.of("confirm"))
                     .optional()));
 
     /** {@code /hg ready-status} - which teams have said they are ready. */
     public static final Declaration READY_STATUS = new Declaration(
-            List.of("hg", "ready-status"), Target.HUNGER_GAMES, EVERYWHERE, true, false, List.of());
+            List.of("hg", "ready-status"), Target.HUNGER_GAMES, CONSOLE_ONLY, true, false, List.of());
 
     /** {@code /hg reload} - the wording and the sounds, never {@code config.yml}. */
     public static final Declaration RELOAD = new Declaration(
-            List.of("hg", "reload"), Target.HUNGER_GAMES, EVERYWHERE, true, false, List.of());
+            List.of("hg", "reload"), Target.HUNGER_GAMES, CONSOLE_ONLY, true, false, List.of());
 
     /**
      * Every {@code /hg} command.

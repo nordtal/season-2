@@ -63,13 +63,14 @@ class LimboCommandsTest {
     }
 
     @Test
-    @DisplayName("it is reachable from Discord, which is the whole reason it was folded")
-    void itIsOnEverySurface() {
-        assertTrue(LimboCommands.RELOAD.surfaces().containsAll(
-                        List.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE)),
-                "nobody can type this where it runs - a player on limbo is mid-login and has no"
-                        + " chat - so a surface missing here is a command that can only be reached"
-                        + " from a shell on the production host");
+    @DisplayName("it is console only, since ops/18 took every admin command off game and Discord")
+    void itIsConsoleOnly() {
+        // Until 2026-09-15 this asserted GAME, DISCORD and CONSOLE, for the reason the class
+        // javadoc still gives: nobody can type this where it runs. ops/18 ("alles Admin nur noch
+        // Konsole und Web", owner) decided that reasoning no longer wins for an admin command - the
+        // wording still needs to be reloadable, and console still reaches every backend, which is
+        // exactly what is left once GAME and DISCORD are gone.
+        assertEquals(java.util.Set.of(Surface.CONSOLE), LimboCommands.RELOAD.surfaces());
     }
 
     @Test

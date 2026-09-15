@@ -20,7 +20,10 @@ The sources were copied, renamed from package `revxrsal.spec` to
 `eu.nordtal.jcore.config.spec`, and modified. Every modified file records what was
 changed in a comment block directly below the original licence header.
 `ManagedSpecReference.java` in that package is nordtal.eu's own work and is not part of
-Spec; it is marked as such in its own javadoc.
+Spec; it is marked as such in its own javadoc. So are the four annotations added to
+`eu.nordtal.jcore.config.spec.annotation` in 3.2.0 (`Explain`, `NoExplanationNeeded`, `Secret`,
+`AllowedValues`) and everything under `eu.nordtal.jcore.config.schema` - none of it is part of
+Spec, each says so in its own javadoc.
 
 Spec is licensed under the MIT License:
 

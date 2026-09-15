@@ -1,0 +1,275 @@
+package eu.nordtal.jcore.config.schema;
+
+import eu.nordtal.jcore.config.ConfigLoader;
+import eu.nordtal.jcore.config.TestSpecs;
+import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
+import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * steward/54: jcore writes a {@code config.schema.json} beside the YAML it writes, and the YAML
+ * stops carrying comments. Each test here was watched fail before the corresponding piece of
+ * {@link SchemaWriter} / {@code ConfigHandle} existed - see the ticket for the recorded output.
+ */
+class SchemaWriterTest {
+
+    @TempDir
+    Path directory;
+
+    // ---------------------------------------------------------------- the annotation split
+
+    @Test
+    @DisplayName("@Explain's short text lands in the schema; @Comment's long text never reaches the YAML")
+    void explainTextGoesToSchemaAndNeverToYaml() throws Exception {
+        final Path file = directory.resolve("payments.yml");
+        ConfigLoader.builder(file, TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        final String yaml = Files.readString(file);
+        assertAll(
+                () -> assertFalse(yaml.contains("How often the account is polled"),
+                        "the long @Comment text must never reach the YAML: " + yaml),
+                () -> assertFalse(yaml.lines().anyMatch(line -> line.strip().startsWith("#")),
+                        "the YAML must carry no comment lines at all: " + yaml)
+        );
+
+        final SchemaNode schema = SchemaWriter.build(TestSpecs.Payments.class);
+        final SchemaNode checkInterval = schema.children().get("check-interval-seconds");
+        assertAll(
+                () -> assertEquals("How often payments are checked, in seconds.", checkInterval.explanation(),
+                        "the schema must carry @Explain's short text"),
+                () -> assertFalse(checkInterval.explanation().contains("How often the account is polled"),
+                        "the schema must not carry @Comment's long text")
+        );
+    }
+
+    @Test
+    @DisplayName("a property with neither @Explain nor @NoExplanationNeeded gets an empty explanation, not an error")
+    void unmigratedPropertyGetsAnEmptyExplanation() {
+        final SchemaNode schema = SchemaWriter.build(TestSpecs.Balance.class);
+        final SchemaNode channelId = schema.children().get("channel-id");
+        assertAll(
+                () -> assertEquals("", channelId.explanation()),
+                () -> assertFalse(channelId.noExplanationNeeded())
+        );
+    }
+
+    @Test
+    @DisplayName("@NoExplanationNeeded is recorded, with an empty explanation text")
+    void noExplanationNeededIsRecorded() {
+        final SchemaNode schema = SchemaWriter.build(TestSpecs.SchemaExample.class);
+        final SchemaNode internalId = schema.children().get("internal-id");
+        assertAll(
+                () -> assertTrue(internalId.noExplanationNeeded()),
+                () -> assertEquals("", internalId.explanation())
+        );
+    }
+
+    @Test
+    @DisplayName("@Explain and @NoExplanationNeeded together is refused rather than guessed at")
+    void explainAndNoExplanationNeededTogetherIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> SchemaWriter.build(Contradiction.class));
+    }
+
+    @ConfigSpec
+    public interface Contradiction {
+        @Explain("short")
+        @NoExplanationNeeded
+        default String setting() {
+            return "";
+        }
+    }
+
+    // ---------------------------------------------------------------- secret
+
+    @Test
+    @DisplayName("@Secret is recorded on the schema entry")
+    void secretIsRecorded() {
+        final SchemaNode schema = SchemaWriter.build(TestSpecs.SchemaExample.class);
+        assertAll(
+                () -> assertTrue(schema.children().get("api-token").secret()),
+                () -> assertFalse(schema.children().get("region").secret())
+        );
+    }
+
+    // ---------------------------------------------------------------- allowed values
+
+    @Test
+    @DisplayName("@AllowedValues(strict) is a closed list")
+    void strictAllowedValues() {
+        final SchemaNode region = SchemaWriter.build(TestSpecs.SchemaExample.class).children().get("region");
+        assertAll(
+                () -> assertEquals(List.of("eu", "us"), region.choices().values()),
+                () -> assertTrue(region.choices().strict())
+        );
+    }
+
+    @Test
+    @DisplayName("@AllowedValues(strict = false) is a suggestion beside free text")
+    void suggestionAllowedValues() {
+        final SchemaNode colour = SchemaWriter.build(TestSpecs.SchemaExample.class).children().get("accent-colour");
+        assertAll(
+                () -> assertEquals(List.of("red", "green", "blue"), colour.choices().values()),
+                () -> assertFalse(colour.choices().strict())
+        );
+    }
+
+    @Test
+    @DisplayName("a Java enum property gets its allowed values for free, and is always strict")
+    void enumPropertyGetsAllowedValuesAutomatically() {
+        final SchemaNode mode = SchemaWriter.build(TestSpecs.SchemaExample.class).children().get("mode");
+        assertAll(
+                () -> assertEquals(List.of("STRICT", "LOOSE"), mode.choices().values()),
+                () -> assertTrue(mode.choices().strict()),
+                () -> assertEquals(SettingType.STRING, mode.type())
+        );
+    }
+
+    @Test
+    @DisplayName("a plain scalar with no @AllowedValues has no choices at all - not an empty list")
+    void plainScalarHasNoChoices() {
+        final SchemaNode checkInterval = SchemaWriter.build(TestSpecs.Payments.class)
+                .children().get("check-interval-seconds");
+        assertNull(checkInterval.choices());
+    }
+
+    // ---------------------------------------------------------------- kind, type, and the group
+
+    @Test
+    @DisplayName("kind and type mirror what ConfigEntry already knows: a nested spec is a MAP, a list of scalars is a LIST")
+    void kindAndTypeMirrorConfigEntry() {
+        final SchemaNode payments = SchemaWriter.build(TestSpecs.Payments.class);
+        assertAll(
+                () -> assertEquals(SettingKind.SCALAR, payments.children().get("check-interval-seconds").kind()),
+                () -> assertEquals(SettingType.INTEGER, payments.children().get("check-interval-seconds").type()),
+                () -> assertEquals(SettingKind.MAP, payments.children().get("balance").kind()),
+                () -> assertNull(payments.children().get("balance").type())
+        );
+
+        final SchemaNode worlds = SchemaWriter.build(TestSpecs.Worlds.class);
+        final SchemaNode worldsList = worlds.children().get("worlds");
+        assertAll(
+                () -> assertEquals(SettingKind.LIST, worldsList.kind()),
+                () -> assertTrue(worldsList.children().containsKey("preserved"),
+                        "a list of nested specs describes the shape of one element"),
+                () -> assertEquals(SettingType.BOOLEAN, worldsList.children().get("preserved").type())
+        );
+    }
+
+    @Test
+    @DisplayName("the group is the schema's own nesting - Balance's settings sit under 'balance', nowhere else")
+    void groupIsTheNestingItself() {
+        final SchemaNode payments = SchemaWriter.build(TestSpecs.Payments.class);
+        final Map<String, SchemaNode> balanceChildren = payments.children().get("balance").children();
+        assertAll(
+                () -> assertTrue(balanceChildren.containsKey("channel-id")),
+                () -> assertTrue(balanceChildren.containsKey("format")),
+                () -> assertFalse(payments.children().containsKey("channel-id"),
+                        "a nested setting must not also appear flattened at the root")
+        );
+    }
+
+    @Test
+    @DisplayName("children keep @Order's order - a schema is read by a person, not a HashMap")
+    void childrenPreserveDeclarationOrder() {
+        final SchemaNode payments = SchemaWriter.build(TestSpecs.Payments.class);
+        assertEquals(
+                List.of("check-interval-seconds", "confirmation-channel-id", "balance"),
+                List.copyOf(payments.children().keySet()));
+    }
+
+    @Test
+    @DisplayName("@Reload / @Save are proxy-handled and are not settings of their own")
+    void proxyHandledMethodsAreNotSettings() {
+        final SchemaNode payments = SchemaWriter.build(TestSpecs.Payments.class);
+        assertFalse(payments.children().containsKey("reload"));
+        assertFalse(payments.children().containsKey("save"));
+    }
+
+    // ---------------------------------------------------------------- file and schema come into being together
+
+    @Test
+    @DisplayName("a fresh load writes the file and its schema together")
+    void fileAndSchemaComeIntoBeingTogether() throws Exception {
+        final Path file = directory.resolve("payments.yml");
+        final Path schema = SchemaWriter.schemaFileFor(file);
+
+        assertAll(
+                () -> assertFalse(Files.exists(file), "precondition: nothing written yet"),
+                () -> assertFalse(Files.exists(schema), "precondition: nothing written yet")
+        );
+
+        ConfigLoader.builder(file, TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        assertAll(
+                () -> assertTrue(Files.isRegularFile(file), "the config file must exist"),
+                () -> assertTrue(Files.isRegularFile(schema),
+                        "the schema must be written beside it, found nothing at " + schema)
+        );
+    }
+
+    @Test
+    @DisplayName("the schema is refreshed on every load, even when the YAML itself does not change")
+    void schemaIsRefreshedEveryLoad() throws Exception {
+        final Path file = directory.resolve("payments.yml");
+        ConfigLoader.builder(file, TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+        final Path schema = SchemaWriter.schemaFileFor(file);
+        final long firstWrite = Files.getLastModifiedTime(schema).toMillis();
+
+        Thread.sleep(10);
+        // The YAML is byte-identical on this second load - nothing in the interface changed.
+        ConfigLoader.builder(file, TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        assertTrue(Files.getLastModifiedTime(schema).toMillis() >= firstWrite,
+                "the schema write must not be skipped just because the YAML did not change");
+    }
+
+    // ---------------------------------------------------------------- a schema without a file, and back
+
+    @Test
+    @DisplayName("a schema with no file behind it is an error")
+    void schemaWithoutFileIsAnError() throws Exception {
+        final Path file = directory.resolve("payments.yml");
+        SchemaWriter.write(file, TestSpecs.Payments.class);
+        assertTrue(Files.exists(SchemaWriter.schemaFileFor(file)), "precondition");
+
+        final ConfigException error = assertThrows(ConfigException.class, () -> SchemaWriter.checkPaired(file));
+        assertTrue(error.getMessage().contains(file.toString()),
+                "the error must name the missing file: " + error.getMessage());
+    }
+
+    @Test
+    @DisplayName("a file with no schema behind it is an error")
+    void fileWithoutSchemaIsAnError() throws Exception {
+        final Path file = directory.resolve("payments.yml");
+        ConfigLoader.builder(file, TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+        final Path schema = SchemaWriter.schemaFileFor(file);
+        Files.delete(schema);
+
+        final ConfigException error = assertThrows(ConfigException.class, () -> SchemaWriter.checkPaired(file));
+        assertTrue(error.getMessage().contains(schema.toString()),
+                "the error must name the missing schema: " + error.getMessage());
+    }
+
+    @Test
+    @DisplayName("neither file nor schema existing is not an error - that is the fresh, not-yet-written state")
+    void neitherExistingIsNotAnError() {
+        assertDoesNotThrow(() -> SchemaWriter.checkPaired(directory.resolve("nothing-here.yml")));
+    }
+}

@@ -257,6 +257,7 @@ class ConfigLoaderTest {
             try {
                 Files.deleteIfExists(bare);
                 Files.deleteIfExists(Path.of(bare + ".bak"));
+                Files.deleteIfExists(eu.nordtal.jcore.config.schema.SchemaWriter.schemaFileFor(bare));
             } catch (IOException ignored) {
                 // best effort
             }
@@ -298,8 +299,9 @@ class ConfigLoaderTest {
                 () -> assertEquals(42L, handle.get().checkIntervalSeconds(), "the operator's value survives"),
                 () -> assertTrue(written.contains("confirmation-channel-id:"), "the missing setting is added"),
                 () -> assertTrue(written.contains("balance:"), "the missing section is added"),
-                () -> assertTrue(written.contains("# How often the account is polled, in seconds."),
-                        "comments are written"),
+                () -> assertFalse(written.contains("#"),
+                        "the YAML carries no comments at all (steward/54) - see"
+                                + " eu.nordtal.jcore.config.schema.SchemaWriter for where the explanations went"),
                 () -> assertTrue(Files.isRegularFile(directory.resolve("payments.yml.bak")),
                         "the previous content is preserved before any rewrite"),
                 () -> assertEquals("check-interval-seconds: 42\n",
@@ -322,13 +324,13 @@ class ConfigLoaderTest {
         );
     }
 
-    // ---------------------------------------------------------------- comment round-trip
+    // ---------------------------------------------------------------- steward/54: comment-free YAML
 
     @Test
-    @DisplayName("round-trip: a reworded comment and a new setting reach an existing file, values survive")
+    @DisplayName("round-trip: an operator's own comment does not survive, and a new setting reaches an existing file")
     void commentsAndNewSettingsReachAnExistingFile() throws Exception {
-        // A file written against an older version of the spec: correct keys, old comment, and
-        // one section missing entirely.
+        // A file written against an older version of the spec: correct keys, a hand-written
+        // comment, and one section missing entirely.
         Files.writeString(file(), """
                 # An outdated comment nobody rewrote
                 check-interval-seconds: 99
@@ -343,26 +345,26 @@ class ConfigLoaderTest {
                 () -> assertEquals(99L, handle.get().checkIntervalSeconds(), "operator value kept"),
                 () -> assertEquals("555", handle.get().confirmationChannelId(), "operator value kept"),
                 () -> assertFalse(content.contains("An outdated comment nobody rewrote"),
-                        "the stale comment is replaced"),
-                () -> assertTrue(content.contains("# How often the account is polled, in seconds."),
-                        "the current comment is written"),
-                () -> assertTrue(content.contains("# Test configuration"), "the header is written"),
+                        "an operator's own comment does not survive a rewrite"),
+                () -> assertFalse(content.lines().anyMatch(line -> line.strip().startsWith("#")),
+                        "the file carries no comments at all - not the header, not @Comment's text (steward/54)"),
                 () -> assertTrue(content.contains("channel-id: '1417574134958788720'"),
                         "a section added to the spec since reaches the file with its default")
         );
     }
 
     @Test
-    @DisplayName("round-trip: the header is emitted once, not duplicated on every load")
-    void headerIsNotDuplicated() throws Exception {
+    @DisplayName("round-trip: no header and no comment ever appears, across repeated loads")
+    void noHeaderOrCommentAppearsAcrossRepeatedLoads() throws Exception {
         ConfigLoader.builder(file(), TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
         ConfigLoader.builder(file(), TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
         ConfigLoader.builder(file(), TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
 
-        final long headers = Files.readAllLines(file()).stream()
-                .filter(line -> line.equals("# Test configuration"))
+        final long commentLines = Files.readAllLines(file()).stream()
+                .filter(line -> line.strip().startsWith("#"))
                 .count();
-        assertEquals(1, headers, "the header must not accumulate");
+        assertEquals(0, commentLines,
+                "@ConfigSpec's header text used to appear here; it no longer reaches the YAML at all (steward/54)");
     }
 
     // ---------------------------------------------------------------- validation

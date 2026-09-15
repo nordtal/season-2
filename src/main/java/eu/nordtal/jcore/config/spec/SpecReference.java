@@ -29,6 +29,9 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
+ *   - reload() no longer calls config.setComments()/setHeaders(): the YAML this writes is
+ *     comment-free, in step with ConfigHandle (steward/54). @Comment still exists and SpecClass
+ *     still computes it; nothing here feeds it to a file any more.
  */
 package eu.nordtal.jcore.config.spec;
 
@@ -117,9 +120,6 @@ public final class SpecReference<T> {
      */
     public void reload() {
         config.load();
-        SpecClass from = Specs.from(type);
-        config.setComments(from.comments());
-        config.setHeaders(from.headers());
         this.value = config.getAs(type);
     }
 

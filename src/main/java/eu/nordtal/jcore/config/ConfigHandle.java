@@ -10,10 +10,10 @@ import eu.nordtal.jcore.config.internal.AtomicConfigWriter;
 import eu.nordtal.jcore.config.internal.EnvOverlay;
 import eu.nordtal.jcore.config.internal.SpecPaths;
 import eu.nordtal.jcore.config.internal.UnknownKeyDetector;
+import eu.nordtal.jcore.config.schema.SchemaWriter;
 import eu.nordtal.jcore.config.spec.ArrayCommentStyle;
 import eu.nordtal.jcore.config.spec.CommentedConfiguration;
 import eu.nordtal.jcore.config.spec.ManagedSpecReference;
-import eu.nordtal.jcore.config.spec.SpecClass;
 import eu.nordtal.jcore.config.spec.Specs;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
@@ -33,7 +33,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
 /**
- * A live handle on one commented YAML configuration file.
+ * A live handle on one YAML configuration file and its schema.
  * <p>
  * Obtain one from {@link ConfigLoader}. {@link #get()} returns a stable instance of the spec
  * interface that always reads the current values, so it is safe to store in a field across a
@@ -46,16 +46,21 @@ import java.util.function.Consumer;
  *       <b>without touching the file</b>. A key that resembles nothing declared is a setting the
  *       spec has since dropped; it is logged and removed by the write in step 4;</li>
  *   <li>deserialize;</li>
- *   <li>if the canonical rendering differs from what is on disk - a new setting, a reworded
- *       comment, a changed header - back the file up to {@code .bak} and rewrite it atomically;</li>
+ *   <li>if the canonical rendering differs from what is on disk - a new setting or a value
+ *       normalised - back the file up to {@code .bak} and rewrite it atomically. The YAML carries
+ *       no comments; see {@link eu.nordtal.jcore.config.schema.SchemaWriter} for where the
+ *       explanations went;</li>
+ *   <li>write this spec's {@code config.schema.json} beside the file, every time, whether or not
+ *       step 4 changed anything - a {@code @Explain} or {@code @AllowedValues} edit never changes
+ *       the rendered YAML, but it must never leave the schema stale either;</li>
  *   <li>apply the environment overlay <b>after</b> that write, so an overridden value can never
  *       reach the file;</li>
  *   <li>validate;</li>
  *   <li>run the load hook - <b>always</b>, whether or not anything changed.</li>
  * </ol>
- * Step 7 is where the old loader went wrong: it ran {@code postLoad()} only when the diff was
- * non-empty, so in the normal case of a file that already matched the class the hook never ran
- * at all.
+ * The load hook step is where the old loader went wrong: it ran {@code postLoad()} only when the
+ * diff was non-empty, so in the normal case of a file that already matched the class the hook
+ * never ran at all.
  *
  * <h2>Threading</h2>
  * Reads through {@link #get()} are lock-free. {@link #reload()} and {@link #save()} take a write
@@ -134,7 +139,7 @@ public final class ConfigHandle<T> {
     }
 
     /**
-     * Writes the current values back to the file, atomically, preserving comments.
+     * Writes the current values back to the file, atomically, and refreshes its schema.
      * Environment-supplied values are restored to their file values first, so an override is
      * never persisted.
      *
@@ -242,6 +247,16 @@ public final class ConfigHandle<T> {
             throw new ConfigWriteException(file, specType, e.getCause());
         }
 
+        // Unconditional, unlike the YAML write just above: an @Explain or @AllowedValues edit
+        // never changes the rendered YAML (it carries no comments any more), but it does change
+        // the schema, and the schema must never lag behind what the interface currently says.
+        try {
+            SchemaWriter.write(file, specType);
+        } catch (UncheckedIOException e) {
+            throw new ConfigWriteException(file, specType, e.getCause());
+        }
+        SchemaWriter.checkPaired(file);
+
         // After the write, so overrides never reach the file.
         final List<String> overridden;
         try {
@@ -296,18 +311,24 @@ public final class ConfigHandle<T> {
         return configuration;
     }
 
+    /**
+     * A fresh, empty configuration for {@link #file}.
+     * <p>
+     * Carries no comments and no header - see {@link SchemaWriter}. {@code @Comment} on a spec
+     * method still exists and is still read (it is what {@link Specs#from} builds
+     * {@code SpecClass#comments()} from), but nothing here feeds it to the YAML any more; the
+     * short text a {@code @Comment}'s long form used to double as belongs in
+     * {@code @Explain} and the schema instead.
+     */
     private CommentedConfiguration newConfiguration() {
-        final CommentedConfiguration configuration =
-                new CommentedConfiguration(file, gson, ArrayCommentStyle.COMMENT_FIRST_ELEMENT);
-        final SpecClass spec = Specs.from(specType);
-        configuration.setComments(spec.comments());
-        configuration.setHeaders(spec.headers());
-        return configuration;
+        return new CommentedConfiguration(file, gson, ArrayCommentStyle.COMMENT_FIRST_ELEMENT);
     }
 
-    private void write(final CommentedConfiguration configuration) {
+    private void write(final CommentedConfiguration configuration) throws ConfigException {
         AtomicConfigWriter.backup(file);
         AtomicConfigWriter.write(file, configuration.render());
+        SchemaWriter.write(file, specType);
+        SchemaWriter.checkPaired(file);
     }
 
     private String readOrEmpty() {

@@ -26,9 +26,8 @@ The following is brief overview of the utility classes provided by jcore.
 
 ### Commented YAML configuration
 
-`eu.nordtal.jcore.config` describes a config file as an **annotated interface** and keeps a
-commented YAML file in step with it. It replaces `JsonConfigLoader` and `JsonConfig`, which are
-gone in 2.0.0.
+`eu.nordtal.jcore.config` describes a config file as an **annotated interface** and keeps a YAML
+file in step with it. It replaces `JsonConfigLoader` and `JsonConfig`, which are gone in 2.0.0.
 
 ```java
 @ConfigSpec(header = {
@@ -39,10 +38,12 @@ public interface PaymentProcessingSpec {
 
     @Order(1) @Key("check-interval-seconds")
     @Comment("How often the bunq account is polled for new payments, in seconds.")
+    @Explain("How often payments are checked, in seconds.")
     default long checkIntervalSeconds() { return 10; }
 
     @Order(2) @Key("confirmation-channel-id")
     @Comment("Discord channel that receives payment confirmations.")
+    @Explain("Where payment confirmations are posted.")
     default String confirmationChannelId() { return "1397264662545957056"; }
 
     @Reload void reload();
@@ -60,23 +61,69 @@ ConfigHandle<PaymentProcessingSpec> handle = ConfigLoader
 PaymentProcessingSpec config = handle.get();   // stable across reloads, safe to keep in a field
 ```
 
-The generated file carries the header and every `@Comment`, in `@Order`:
+**The generated YAML carries no comments at all** (3.2.0, steward/54) - not the header, not
+`@Comment`:
 
 ```yaml
-# Payment processing
-# Any setting here can be overridden with NORDTAL_<SETTING>.
-
-# How often the bunq account is polled for new payments, in seconds.
 check-interval-seconds: 10
-# Discord channel that receives payment confirmations.
 confirmation-channel-id: '1397264662545957056'
 ```
 
+**`@Explain` carries the short text instead, and it goes into a schema, not the file.** The same
+call that writes `payment-processing.yml` writes `payment-processing.schema.json` beside it - same
+directory, same moment, so the two cannot drift apart the way a schema written elsewhere could.
+`@Comment` still exists and is still read; it is simply no longer written anywhere. It is the long
+form for the person reading the code, and `@Explain` is the short form for the person looking at
+the interface - a property may carry both, either, or neither (an unmigrated property gets an
+empty explanation, not an error). `@NoExplanationNeeded` marks a setting as self-explanatory, and
+is mutually exclusive with `@Explain`. `@Secret` marks a setting as a credential, on top of - not
+instead of - a consumer's own key-name heuristic. `@AllowedValues({"a", "b"}, strict = true|false)`
+declares the values to offer and whether the field beside them accepts free text; a Java `enum`
+property gets this automatically from its constants and is always strict, since a free-text value
+could never deserialize into it. Per `payment-processing.schema.json`:
+
+```json
+{
+  "kind": "MAP",
+  "label": "",
+  "explanation": "",
+  "noExplanationNeeded": false,
+  "secret": false,
+  "children": {
+    "check-interval-seconds": {
+      "kind": "SCALAR",
+      "label": "Check interval seconds",
+      "explanation": "How often payments are checked, in seconds.",
+      "noExplanationNeeded": false,
+      "secret": false,
+      "type": "INTEGER",
+      "children": {}
+    },
+    "confirmation-channel-id": {
+      "kind": "SCALAR",
+      "label": "Confirmation channel id",
+      "explanation": "Where payment confirmations are posted.",
+      "noExplanationNeeded": false,
+      "secret": false,
+      "type": "STRING",
+      "children": {}
+    }
+  }
+}
+```
+
+The group a setting belongs to is not a field of its own - it is `children` nested inside
+`children`, mirroring the YAML's own nesting exactly (a second, parallel grouping mechanism was
+considered and rejected). Unit and value range were considered too and are deliberately absent.
+See `eu.nordtal.jcore.config.schema.SchemaWriter` and `SchemaNode`.
+
 **What a load does, in order.** Write a defaults file if none exists; read it; reject any key that
 reads as a *misspelling* of a declared one; deserialize; if the canonical rendering differs from
-what is on disk — a new setting, a reworded comment, a setting the interface has dropped — back the
-file up to `.bak` and rewrite it *atomically*; apply the environment overlay; validate; run the
-`onLoad` hook. The hook runs **every** time, whether or not anything changed.
+what is on disk — a new setting, a setting the interface has dropped — back the file up to `.bak`
+and rewrite it *atomically*; write the schema beside it, **every time**, even when the YAML itself
+did not change (an `@Explain` edit never touches the rendered YAML, but it must never leave the
+schema stale either); apply the environment overlay; validate; run the `onLoad` hook. The hook
+runs **every** time, whether or not anything changed.
 
 **A misspelled key stops the start; a retired one is deleted.** Both are keys the interface does
 not declare, and the difference is whether a declared key is close enough to name. If one is, the

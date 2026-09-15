@@ -76,7 +76,27 @@ public final class ConsoleUser implements NordtalUser {
 
     @Override
     public void reply(final String messageKey, final Map<String, ?> placeholders) {
-        send(renderer.format(Locale.ENGLISH, messageKey, placeholders));
+        send(render(messageKey, placeholders));
+    }
+
+    /**
+     * Flatten the placeholders into the alternating name and value {@code format} wants.
+     *
+     * <p>This line used to hand {@code format} the {@link Map} itself, which compiles - a map is an
+     * {@code Object} and the parameter is {@code Object...} - and then throws
+     * {@code parameters must alternate name and value, got 1} at runtime, for <b>every</b> reply
+     * including one whose map is empty. The proxy console could answer no command at all; found by
+     * running {@code mc update} against it on 2026-09-15. {@code PaperUser} and {@link VelocityUser}
+     * both already did this; this class was the third and the only one without it.</p>
+     */
+    private Component render(final String messageKey, final Map<String, ?> placeholders) {
+        final Object[] flattened = new Object[placeholders.size() * 2];
+        int index = 0;
+        for (final Map.Entry<String, ?> entry : placeholders.entrySet()) {
+            flattened[index++] = entry.getKey();
+            flattened[index++] = String.valueOf(entry.getValue());
+        }
+        return renderer.format(Locale.ENGLISH, messageKey, flattened);
     }
 
     @Override

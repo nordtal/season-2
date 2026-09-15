@@ -295,6 +295,24 @@ public interface StewardSpec {
     })
     BackupSpec backup();
 
+    @Order(17)
+    @Key("deployer")
+    @Comment({
+            "steward-deployer, the one process in this deployment allowed to create a container",
+            "(season-2-ops/22, deploy/README.md §8b).",
+            "",
+            "THE `docker` BLOCK ABOVE STILL REFUSES TO RECREATE A CONTAINER ON ITS OWN, and that",
+            "does not change here: a container rebuilt from an inspect would drift from",
+            "compose.yml silently, and only steward-deployer carries that file. What this key",
+            "wires is the request ACROSS that boundary - when an update finds a service's image",
+            "out of date, it asks steward-deployer's HTTP API to pull it and run",
+            "`compose up --force-recreate --no-deps <service>`, instead of leaving the service",
+            "on its old image until somebody types that command on the host by hand.",
+            "",
+            "Without a token below this asks nothing, on purpose - see token."
+    })
+    DeployerSpec deployer();
+
     @Order(16)
     @Key("api")
     @Comment({
@@ -408,6 +426,60 @@ public interface StewardSpec {
         })
         default String configsRoot() {
             return "/configs";
+        }
+    }
+
+    /** How this container asks steward-deployer to recreate one service. */
+    @ConfigSpec
+    interface DeployerSpec {
+
+        @Order(1)
+        @Key("url")
+        @Comment({
+                "Where steward-deployer's HTTP API answers, from inside this container.",
+                "",
+                "The default is the compose service name and the port StewardDeployer listens",
+                "on by default - both fixed by this deployment's own compose.yml rather than by",
+                "an operator, so there is normally nothing to change here."
+        })
+        default String url() {
+            return "http://steward-deployer:8081";
+        }
+
+        @Order(2)
+        @Key("token")
+        @Comment({
+                "The shared secret this container sends as X-Steward-Token when it asks",
+                "steward-deployer to recreate a service. steward-ui and steward-deployer already",
+                "share a secret for the same header (NORDTAL_STEWARD_UI_DEPLOYER_TOKEN) - this is",
+                "a second reader of the same value, carried in the same environment variable",
+                "compose.yml already requires (STEWARD_DEPLOYER_TOKEN), not a second secret to",
+                "keep in step with it.",
+                "",
+                "Empty means this container does not ask at all: a recreate refuses exactly as",
+                "it did before this key existed, named, and the service is left on the image it",
+                "already had rather than half-recreated. It comes from the environment in a",
+                "deployment (NORDTAL_STEWARD_DEPLOYER_TOKEN), so this file holds an empty string",
+                "rather than a secret somebody might commit."
+        })
+        default String token() {
+            return "";
+        }
+
+        @Order(3)
+        @Key("timeout-seconds")
+        @Comment({
+                "How long one recreate may take - steward-deployer pulling a new image plus",
+                "`compose up --force-recreate --no-deps` - before this process stops waiting for",
+                "its job to settle and reports it unfinished rather than failed.",
+                "",
+                "Longer than http-timeout-seconds on purpose: that one bounds a handful of small",
+                "JSON documents and this one bounds a pull of a multi-hundred-MB image over the",
+                "network this host is on. Ten minutes matches download-timeout-seconds, which",
+                "bounds the same kind of wait on this container's own side of a jar download."
+        })
+        default int timeoutSeconds() {
+            return 600;
         }
     }
 

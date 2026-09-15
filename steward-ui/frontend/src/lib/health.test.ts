@@ -57,6 +57,35 @@ function backup(hoursAgo: number, over: Partial<Backup> = {}): Backup {
   }
 }
 
+/**
+ * The other kind of file in `/backups`, and the one steward/39 showed was never there.
+ *
+ * `DatabaseDump` writes `nordtal-<stamp>.dump`, `TarSnapshots` writes `<volume>-<stamp>.tar.zst`,
+ * and `/api/backups` lists the directory naming each file as it lies there. So the suffix is the
+ * whole distinction, and it is the backend's, not this file's invention.
+ */
+function dump(hoursAgo: number, over: Partial<Backup> = {}): Backup {
+  return {
+    name: "nordtal-20260912T024500Z.dump",
+    bytes: 40_000_000,
+    human: "40 MB",
+    modified: new Date(NOW - hoursAgo * HOUR).toISOString(),
+    partial: false,
+    ...over,
+  }
+}
+
+/**
+ * An archive list with a healthy dump already in it.
+ *
+ * Every test that is about the *archives* wants one, because otherwise the missing dump is a second
+ * trigger and the test stops being about one thing. Tests that are about the dump build their list
+ * by hand.
+ */
+function withDump(...archives: Backup[]): Backup[] {
+  return [dump(1), ...archives]
+}
+
 /** A host with room to spare, so that only the value under test can trip a threshold. */
 function host(over: Partial<Host> = {}): Host {
   return {
@@ -79,7 +108,7 @@ function healthy() {
   return {
     table: table([service(), service({ service: "postgres" })]),
     host: host(),
-    backups: [backup(2)],
+    backups: [backup(2), dump(2)],
     thresholds: DEFAULT_THRESHOLDS,
     now: NOW,
   }
@@ -108,7 +137,7 @@ describe("summarise - a stack with nothing wrong", () => {
   it("says nothing about an empty list that was never asked for", () => {
     // Undefined is "not answered yet", and a page that has not finished loading must not accuse
     // the host of having lost every container.
-    expect(summarise({ host: host(), backups: [backup(1)], now: NOW }).level).toBe("ok")
+    expect(summarise({ host: host(), backups: withDump(backup(1)), now: NOW }).level).toBe("ok")
   })
 })
 
@@ -265,7 +294,7 @@ describe("summarise - the backup", () => {
   it("is quiet for a backup exactly at the age the thresholds still allow", () => {
     // "How old the newest backup may be": at 36 h it still may be. A run that finishes at 04:45
     // every night is 36 h old for nobody, but the boundary is where an off-by-one lives.
-    expect(summarise({ ...healthy(), backups: [backup(DEFAULT_THRESHOLDS.backupAgeHours)] }).level).toBe(
+    expect(summarise({ ...healthy(), backups: withDump(backup(DEFAULT_THRESHOLDS.backupAgeHours)) }).level).toBe(
       "ok",
     )
   })
@@ -273,7 +302,7 @@ describe("summarise - the backup", () => {
   it("is red a minute past that age, and says what the limit was", () => {
     const { level, triggers } = summarise({
       ...healthy(),
-      backups: [backup(DEFAULT_THRESHOLDS.backupAgeHours + 1 / 60)],
+      backups: withDump(backup(DEFAULT_THRESHOLDS.backupAgeHours + 1 / 60)),
     })
 
     expect(level).toBe("down")
@@ -286,7 +315,7 @@ describe("summarise - the backup", () => {
   it("judges the newest finished archive, not the first row in the list", () => {
     const { level } = summarise({
       ...healthy(),
-      backups: [backup(200, { name: "alt.tar.zst" }), backup(3), backup(80)],
+      backups: withDump(backup(200, { name: "alt.tar.zst" }), backup(3), backup(80)),
     })
 
     expect(level).toBe("ok")
@@ -297,7 +326,7 @@ describe("summarise - the backup", () => {
     // to believe there is a backup.
     const { level, triggers } = summarise({
       ...healthy(),
-      backups: [backup(40), backup(0.5, { partial: true, name: "fresh.tar.zst.partial" })],
+      backups: withDump(backup(40), backup(0.5, { partial: true, name: "fresh.tar.zst.partial" })),
     })
 
     expect(level).toBe("down")
@@ -307,7 +336,7 @@ describe("summarise - the backup", () => {
   it("is red rather than quietly fine when the newest archive has no readable timestamp", () => {
     // The backend prints String.valueOf(instant), so a NULL arrives as the word "null" and the age
     // is NaN. NaN is not "young enough".
-    const { level } = summarise({ ...healthy(), backups: [backup(1, { modified: "null" })] })
+    const { level } = summarise({ ...healthy(), backups: withDump(backup(1, { modified: "null" })) })
 
     expect(level).toBe("down")
   })
@@ -315,8 +344,86 @@ describe("summarise - the backup", () => {
   it("honours a threshold the deployment changed", () => {
     const thresholds = { ...DEFAULT_THRESHOLDS, backupAgeHours: 6 }
 
-    expect(summarise({ ...healthy(), backups: [backup(5)], thresholds }).level).toBe("ok")
-    expect(summarise({ ...healthy(), backups: [backup(7)], thresholds }).level).toBe("down")
+    expect(summarise({ ...healthy(), backups: withDump(backup(5)), thresholds }).level).toBe("ok")
+    expect(summarise({ ...healthy(), backups: withDump(backup(7)), thresholds }).level).toBe("down")
+  })
+})
+
+describe("summarise - the database dump, which is not a volume archive", () => {
+  // steward/39: pg_dump runs as `postgres`, the backup volume's root belongs to root:root 0755, and
+  // so not one dump was ever written. The nightly run came back FAILED - and this page stayed green,
+  // because the eight volume archives beside it are written by a root container and succeed.
+  //
+  // That is the asymmetry worth a check of its own. A world and a set of configs can be rebuilt from
+  // the repository and a paintbrush. The accesses, the payments and the Discord links cannot.
+
+  it("is red when every archive is fresh and there is no dump at all", () => {
+    // The exact shape of /backups on 2026-09-15: sixteen .tar.zst from 04:45, zero .dump.
+    const { level, triggers } = summarise({
+      ...healthy(),
+      backups: [backup(0.5), backup(0.5, { name: "nordtal-s2_mc-smp-20260915T024543Z.tar.zst" })],
+    })
+
+    expect(level).toBe("down")
+    expect(triggers[0].text).toContain("database")
+    expect(triggers[0].to).toBe("/operations")
+  })
+
+  it("is quiet once a dump is there beside the archives", () => {
+    expect(summarise({ ...healthy(), backups: [backup(2), dump(2)] }).level).toBe("ok")
+  })
+
+  it("does not accept a .partial dump as a dump", () => {
+    // The file pg_dump was writing when it died is named `nordtal-<stamp>.dump.partial`, so it does
+    // not even end in `.dump` - but a check that looked only at the suffix would be one rename away
+    // from being fooled. `partial` is the backend's own flag and is what this trusts.
+    const { level } = summarise({
+      ...healthy(),
+      backups: [backup(1), dump(0.1, { partial: true, name: "nordtal-20260915T024501Z.dump.partial" })],
+    })
+
+    expect(level).toBe("down")
+  })
+
+  it("judges the dump's own age, not the age of the newest file in the directory", () => {
+    // The archives are minutes old and the dump is a week old: a run has been half-failing for days.
+    // Reducing the directory to one newest file is exactly how that goes unseen.
+    const { level, triggers } = summarise({ ...healthy(), backups: [backup(0.5), dump(200)] })
+
+    expect(level).toBe("down")
+    expect(triggers.some((trigger) => trigger.text.includes("dump"))).toBe(true)
+  })
+
+  it("says so about the archives too when only a dump is there", () => {
+    // The mirror image, and it must not be silent either: a database saved with nothing to restore
+    // it into is half a backup as much as the other way round.
+    const { level, triggers } = summarise({ ...healthy(), backups: [dump(1)] })
+
+    expect(level).toBe("down")
+    expect(triggers[0].text).toContain("archive")
+  })
+
+  it("still says there is no backup at all rather than naming one of the two kinds", () => {
+    // An empty directory is not "the dump is missing". The sentence that was already there is the
+    // better one, and the two new triggers must not push past it.
+    const { triggers } = summarise({ ...healthy(), backups: [] })
+
+    expect(triggers[0].text).toBe("There is not a single backup.")
+  })
+
+  it("asks whether a dump is there without waiting for /api/settings", () => {
+    // Presence is not a number. The age is, and that one does wait - see the pair below.
+    const { level, triggers } = summarise({ ...blind(), backups: [backup(1)] })
+
+    expect(level).toBe("down")
+    expect(triggers[0].text).toContain("database")
+  })
+
+  it("says nothing about the dump's age while the thresholds have not arrived", () => {
+    const { level, triggers } = summarise({ ...blind(), backups: [backup(1), dump(500)] })
+
+    expect(level).toBe("ok")
+    expect(triggers).toEqual([])
   })
 })
 
@@ -404,7 +511,7 @@ describe("summarise - disk and memory", () => {
   })
 
   it("says nothing at all when the host could not be read", () => {
-    expect(summarise({ table: table([service()]), backups: [backup(2)], now: NOW }).level).toBe("ok")
+    expect(summarise({ table: table([service()]), backups: withDump(backup(2)), now: NOW }).level).toBe("ok")
   })
 })
 
@@ -548,7 +655,7 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
     // `waiting` and in `failed` alongside the other three queries, so an unanswered /api/settings
     // draws either "Reading status…" or the yellow "could not be fetched". Take that
     // away and this green is what the operator sees over a backup from the 23rd.
-    const { level, triggers } = summarise({ ...blind(), backups: [backup(500)] })
+    const { level, triggers } = summarise({ ...blind(), backups: withDump(backup(500)) })
 
     expect(level).toBe("ok")
     expect(triggers).toEqual([])
@@ -557,7 +664,7 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
   it("is red about the very same backup the moment the thresholds arrive", () => {
     // The pair to the test above, and the point of both: the only difference between the two
     // calls is the three numbers.
-    const { level } = summarise({ ...blind(), thresholds: DEFAULT_THRESHOLDS, backups: [backup(500)] })
+    const { level } = summarise({ ...blind(), thresholds: DEFAULT_THRESHOLDS, backups: withDump(backup(500)) })
 
     expect(level).toBe("down")
   })
@@ -569,7 +676,7 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
     const over = [
       { ...blind(), host: host({ diskTotalBytes: 100e9, diskUsedBytes: 90e9 }) },
       { ...blind(), host: host({ memoryTotalBytes: 8e9, memoryAvailableBytes: 400e6 }) },
-      { ...blind(), backups: [backup(DEFAULT_THRESHOLDS.backupAgeHours + 12)] },
+      { ...blind(), backups: withDump(backup(DEFAULT_THRESHOLDS.backupAgeHours + 12)) },
     ]
 
     for (const input of over) {
@@ -583,9 +690,9 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
     // "null" is red with thresholds and invisible without them. Whether "this file has no
     // readable date" is an age comparison at all is a judgement; pinned here so that changing it
     // is a decision somebody makes rather than a side effect.
-    expect(summarise({ ...blind(), backups: [backup(1, { modified: "null" })] }).level).toBe("ok")
+    expect(summarise({ ...blind(), backups: withDump(backup(1, { modified: "null" })) }).level).toBe("ok")
     expect(
-      summarise({ ...blind(), thresholds: DEFAULT_THRESHOLDS, backups: [backup(1, { modified: "null" })] })
+      summarise({ ...blind(), thresholds: DEFAULT_THRESHOLDS, backups: withDump(backup(1, { modified: "null" })) })
         .level,
     ).toBe("down")
   })

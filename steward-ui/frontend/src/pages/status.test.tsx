@@ -75,6 +75,22 @@ function backup(hoursAgo: number) {
 }
 
 /**
+ * The other file in `/backups`, which since steward/40 has to be there too.
+ *
+ * A fixture that carries only archives is a stack whose database has never been dumped, and the
+ * light is red about it - correctly. Every test here is about something else, so they all get one.
+ */
+function dump(hoursAgo: number) {
+  return {
+    name: "nordtal-20260912T024500Z.dump",
+    bytes: 40_000_000,
+    human: "40 MB",
+    modified: new Date(Date.now() - hoursAgo * HOUR).toISOString(),
+    partial: false,
+  }
+}
+
+/**
  * Everything the start page asks for.
  *
  * `settings` is a function so that a test can hold `/api/settings` open and let it answer in the
@@ -89,7 +105,7 @@ function backend(over: { services?: unknown[]; backups?: unknown[]; settings?: (
       })
     }
     if (url === "/api/host") return json(200, HOST)
-    if (url === "/api/backups") return json(200, over.backups ?? [backup(2)])
+    if (url === "/api/backups") return json(200, over.backups ?? [backup(2), dump(2)])
     if (url === "/api/settings") {
       return json(200, await (over.settings?.() ?? Promise.resolve({ disk: 85, memory: 90, backupAgeHours: 36 })))
     }
@@ -212,7 +228,7 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
       "fetch",
       backend({
         services: [service({ service: "bot", drift: "OUTDATED" })],
-        backups: [backup(500)],
+        backups: [backup(500), dump(1)],
         settings: () => held,
       }),
     )

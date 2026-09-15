@@ -33,6 +33,19 @@ public final class UpdateCommands {
     }
 
     /**
+     * Every {@code /update} command and {@code /backup now}: console only, 2026-09-15 (ops/18).
+     *
+     * <p>"alles Admin nur noch Konsole und Web" (owner) took {@link Surface#GAME} and {@link
+     * Surface#DISCORD} off every admin command, and being able to update from Discord or in game
+     * alone is how a network with a broken bot or a broken server becomes one nobody can update from
+     * anywhere but a shell - the opposite of what those two surfaces were meant to buy. Console
+     * remains, which is the one surface that does not depend on the thing being updated.
+     * See {@code season-2-ops/10} and {@code season-2-community/01}, both rewritten in the same
+     * change because they assumed the surfaces this constant used to carry.</p>
+     */
+    private static final Set<Surface> CONSOLE_ONLY = Set.of(Surface.CONSOLE);
+
+    /**
      * {@code /update check} - resolve every source, compare, report. Writes no file.
      *
      * <h2>Why a subcommand, when the bare {@code /update} reads better</h2>
@@ -45,7 +58,7 @@ public final class UpdateCommands {
      */
     public static final Declaration REPORT = new Declaration(
             List.of("update", "check"), Target.LOCAL,
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, false, List.of());
+            CONSOLE_ONLY, true, false, List.of());
 
     /**
      * {@code /update now} - the whole sequence, under one confirmation.
@@ -56,17 +69,17 @@ public final class UpdateCommands {
      */
     public static final Declaration NOW = new Declaration(
             List.of("update", "now"), Target.LOCAL,
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, true, List.of());
+            CONSOLE_ONLY, true, true, List.of());
 
     /** {@code /update restart} - the same sequence with nothing installed. */
     public static final Declaration RESTART = new Declaration(
             List.of("update", "restart"), Target.LOCAL,
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, true, List.of());
+            CONSOLE_ONLY, true, true, List.of());
 
     /** {@code /update cancel} - stop the countdown, for as long as one is running. */
     public static final Declaration CANCEL = new Declaration(
             List.of("update", "cancel"), Target.LOCAL,
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, false, List.of());
+            CONSOLE_ONLY, true, false, List.of());
 
     /**
      * {@code /backup now} - the same sequence with a volume backup in the gap.
@@ -90,7 +103,7 @@ public final class UpdateCommands {
      */
     public static final Declaration BACKUP = new Declaration(
             List.of("backup", "now"), Target.LOCAL,
-            Set.of(Surface.GAME, Surface.DISCORD, Surface.CONSOLE), true, true, List.of());
+            CONSOLE_ONLY, true, true, List.of());
 
     /** Every command served by {@link UpdateEffects} - the four {@code /update} ones and backup. */
     public static List<NordtalCommand<UpdateEffects>> all() {

@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -157,25 +158,32 @@ class AccessCommandsTest {
     }
 
     @Test
-    @DisplayName("all of them are reachable in game and from the console")
-    void bothDirections() {
+    @DisplayName("all six are reachable from the console, and from nowhere a player or a bot user reaches")
+    void consoleAndWebOnly() {
+        // ops/18, 2026-09-15: "alles Admin nur noch Konsole und Web" (owner) took every admin
+        // command off Surface.GAME and Surface.DISCORD - /access status and /access reload
+        // included, even though both only read. See AdminCommandsAreConsoleAndWebOnlyTest for the
+        // catalogue-wide version of this assertion; this one is the module-local tripwire.
         for (final Declaration declaration : AccessCommands.declarations()) {
-            assertTrue(declaration.surfaces().containsAll(List.of(Surface.GAME, Surface.CONSOLE)),
-                    declaration.name() + " is not reachable in game and from the console");
+            assertTrue(declaration.surfaces().contains(Surface.CONSOLE),
+                    declaration.name() + " lost the console, which must never happen");
+            assertFalse(declaration.surfaces().contains(Surface.GAME),
+                    declaration.name() + " is still reachable in game");
+            assertFalse(declaration.surfaces().contains(Surface.DISCORD),
+                    declaration.name() + " is still reachable from Discord");
         }
     }
 
     @Test
-    @DisplayName("only the two that read are still in Discord")
-    void theWritingFourLeftDiscord() {
-        // steward/25, 2026-09-14. A slash command is guarded by `discord_user.admin` and nothing
-        // else; Steward now asks for a security key before each of these four and can do all four.
-        // The audit_log was read first, as the ticket insists: two rows in total, neither of them
-        // one of these, and command_request empty - so this took away a habit nobody had yet.
-        //
-        // This test is the line that decision costs. If one of the four comes back to Discord,
-        // that is a finding about Steward not replacing it, and it belongs written down here.
-        assertEquals(Set.of("/access status", "/access reload"),
+    @DisplayName("nothing is in Discord any more, which supersedes the narrower steward/25 cut")
+    void nothingIsInDiscordAnyMore() {
+        // steward/25 (2026-09-14) took Discord away from the writing four and left it on the two
+        // that read, /access status and /access reload, because they only read. ops/18
+        // (2026-09-15, this test's replacement for theWritingFourLeftDiscord) went further and
+        // took Discord off every admin command including those two - so the set this test used to
+        // name is now empty, not because steward/25 was undone but because it was overtaken by a
+        // broader decision that does not carve out an exception for reading.
+        assertEquals(Set.of(),
                 AccessCommands.declarations().stream()
                         .filter(declaration -> declaration.surfaces().contains(Surface.DISCORD))
                         .map(Declaration::name)

@@ -50,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -330,10 +331,28 @@ public final class StewardUi {
                 staticFiles.hostedPath = "/";
                 staticFiles.directory = "/web";
                 staticFiles.location = Location.CLASSPATH;
+                // THE BUNDLE CARRIES ITS DECISION TOO, AND IT HAS TO BE SAID HERE.
+                //
+                // `guard` hangs on `beforeMatched`, which runs in front of static files as well -
+                // and a static file is not registered through `cfg.routes`, so it cannot pick up a
+                // Gate the way a route does. Left empty, `gateOf` finds zero decisions and refuses
+                // `/` with a 500: no sign-in page, no Discord button, a white screen apologising
+                // for itself. That is what happened on 2026-09-15, the first day this service ran
+                // an image built after the gatekeeper landed.
+                //
+                // ANYONE is not a concession, it is the same answer `/auth/login` and `/api/me`
+                // give: whoever cannot sign in yet has to be able to read the page that offers it.
+                // The bundle holds no data - every byte it shows arrives later, through /api, and
+                // every one of those doors is shut.
+                staticFiles.roles = Set.of(Gate.ANYONE);
             });
             // A client-side router owns every path that is not an API call or a file, so an
             // unknown path is index.html rather than a 404 - which is what makes a reload of
             // /operations/runs/27 land on the page it names instead of on nothing.
+            //
+            // It carries no Gate and cannot: `SinglePageHandler` has no roles field (checked
+            // against javalin 7.2.3). `gateOf` answers for it, and for the static files, by the
+            // one rule below - not by guessing.
             cfg.spaRoot.addFile("/", "/web/index.html", Location.CLASSPATH);
 
             cfg.routes.get("/api/health", ctx -> ctx.json(Map.of(
@@ -678,6 +697,27 @@ public final class StewardUi {
                 ctx.json(season);
             }, Gate.KEY_HELD);
 
+            // --- a call to an endpoint that is not there, and these two go LAST ---------------
+            //
+            // Javalin takes the first route that matches, so these greedy ones have to come after
+            // every real one; registered earlier they would swallow the lot.
+            //
+            // WHY THEY EXIST AT ALL. The single-page fallback claims every unmatched GET, /api
+            // included, and it carries no Gate - so a mistyped or retired endpoint came out of
+            // `gateOf` as a 500 reading "this route was built without a decision", which is a
+            // sentence about a route nobody ever wrote. It put an ERROR in the log Till reads and
+            // sent the next person after a fault that was not there. A 404 is the true answer.
+            //
+            // ANYONE is right for the same reason 404 is: this hands out no data and reaches no
+            // database. It says one thing, that there is nothing at this address, and somebody
+            // who is not signed in may hear that as readily as anybody else.
+            cfg.routes.get("/api/<path>", ctx -> {
+                throw new NotFoundResponse("no such endpoint: " + ctx.path());
+            }, Gate.ANYONE);
+            cfg.routes.get("/auth/<path>", ctx -> {
+                throw new NotFoundResponse("no such endpoint: " + ctx.path());
+            }, Gate.ANYONE);
+
             cfg.routes.exception(SecondFactorMissing.class, (missing, ctx) ->
                     ctx.status(403).json(Map.of(
                             "error", missing.getMessage(),
@@ -891,13 +931,41 @@ public final class StewardUi {
                 .filter(Gate.class::isInstance)
                 .map(Gate.class::cast)
                 .toList();
-        if (decided.size() != 1) {
-            log.error("{} {} carries {} of Steward's own route decisions and has to carry exactly"
-                    + " one - refusing it rather than guessing.", ctx.method(), ctx.path(),
-                    decided.size());
-            throw new UndecidedRoute();
+        if (decided.size() == 1) {
+            return decided.getFirst();
         }
-        return decided.getFirst();
+        if (decided.isEmpty() && !isOurs(ctx.path())) {
+            return Gate.ANYONE;
+        }
+        log.error("{} {} carries {} of Steward's own route decisions and has to carry exactly"
+                + " one - refusing it rather than guessing.", ctx.method(), ctx.path(),
+                decided.size());
+        throw new UndecidedRoute();
+    }
+
+    /**
+     * The two prefixes every endpoint this service registers lives under.
+     *
+     * <p>Everything else that reaches {@code guard} is the frontend bundle - a static file out of
+     * the jar, or the single-page fallback for a path the client-side router owns. Neither can
+     * carry a {@link Gate}: static files are registered through {@code cfg.staticFiles} (which
+     * does have a roles field, and has one set) and the fallback through {@code cfg.spaRoot}
+     * (which has none, checked against javalin 7.2.3). So the decision for them is made here,
+     * once, in the open: <b>ANYONE</b>, the same answer {@code /auth/login} gives, because
+     * whoever cannot sign in yet has to be able to read the page that offers it. The bundle holds
+     * no data - every byte it shows arrives later through /api, and those doors are shut.</p>
+     *
+     * <p><b>This is not the guess {@link UndecidedRoute} refuses.</b> That refusal protects an
+     * endpoint somebody registered and forgot to decide about, and it still does: a new route
+     * under either prefix without a Gate is a 500 on its first call, loudly. What makes the rest
+     * safe is that the premise is tested rather than believed -
+     * {@code GateTest#everyEndpointLivesUnderOneOfTheTwoPrefixes} reads the real routing table
+     * and fails the build the day somebody registers {@code /webhooks/bunq}. On that day this
+     * method is what has to change, and the test says so by name.</p>
+     */
+    private static boolean isOurs(final String path) {
+        return path.startsWith("/api/") || path.startsWith("/auth/") || path.equals("/api")
+                || path.equals("/auth");
     }
 
     /**

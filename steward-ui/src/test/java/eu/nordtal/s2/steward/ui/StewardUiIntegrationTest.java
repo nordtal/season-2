@@ -511,6 +511,55 @@ class StewardUiIntegrationTest {
     }
 
     @Test
+    @DisplayName("a stranger gets the page itself - the bundle is not behind the door")
+    void theBundleIsReadableWithoutASession() throws Exception {
+        // THE ONE THAT WAS MISSING, AND IT COST THE WHOLE INTERFACE.
+        //
+        // `guard` runs on `beforeMatched`, which is what makes it impossible for a route to sit
+        // outside the arrangement - and `beforeMatched` also runs in front of STATIC FILES, which
+        // are not registered through `cfg.routes` and therefore carried no Gate at all. The result
+        // was a 500 on `/`: no sign-in page, no Discord button, a white screen with a sentence
+        // apologising for itself. GateTest could not see it, because GateTest reads the route
+        // table and a static file is not in it.
+        //
+        // So this one goes over the real port and asks for the thing a person actually opens.
+        final HttpClient stranger = browser();
+        final HttpResponse<String> page = get(stranger, "/");
+
+        assertEquals(200, page.statusCode(),
+                "the page a person opens before signing in: " + page.body());
+        assertTrue(page.body().contains("<div id=\"root\""),
+                "that should be index.html, not an error page: " + page.body());
+
+        // And the deep path a reload lands on, which takes the SPA fallback rather than the file
+        // handler. Same requirement, different mechanism inside Javalin - measured, not assumed.
+        final HttpResponse<String> deep = get(stranger, "/operations/runs/27");
+        assertEquals(200, deep.statusCode(),
+                "reloading a deep link must land on the page it names: " + deep.body());
+
+        // A file next to it, because the browser asks for these before anybody clicks anything.
+        assertEquals(200, get(stranger, "/favicon.ico").statusCode());
+
+        // THE TWO THE FALLBACK COULD PLAUSIBLY HAVE BROKEN, and neither is hypothetical.
+        //
+        // The fallback is a greedy route. If it were consulted before the file handler, the built
+        // bundle would be served as index.html and the page would load nothing - a white screen
+        // again, by the opposite mistake. So: a real asset still arrives as itself.
+        final String index = page.body();
+        final int asset = index.indexOf("/assets/");
+        assertTrue(asset > 0, "index.html should reference a built asset: " + index);
+        final String assetPath = index.substring(asset, index.indexOf('"', asset));
+        final HttpResponse<String> built = get(stranger, assetPath);
+        assertEquals(200, built.statusCode(), assetPath);
+        assertFalse(built.body().contains("<div id=\"root\""),
+                assetPath + " came back as the page instead of itself");
+
+        // And an endpoint that does not exist answers 404, not 200 with HTML. A caller expecting
+        // JSON would otherwise report a parse error and send the next reader after the wrong bug.
+        assertEquals(404, get(stranger, "/api/there-is-no-such-thing").statusCode());
+    }
+
+    @Test
     @DisplayName("signed out, the API says no and the sign-in state is readable anyway")
     void signedOutIsNotHalfway() throws Exception {
         // A browser with its own empty cookie jar, which is what "signed out" actually is. It used

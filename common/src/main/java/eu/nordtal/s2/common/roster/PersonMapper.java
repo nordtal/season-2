@@ -34,7 +34,15 @@ public final class PersonMapper implements RowMapper<Person> {
                 rs.getObject("mc_uuid", UUID.class),
                 instant(rs, "linked"),
                 instant(rs, "access_until"),
-                rs.getBoolean("access_active"));
+                rs.getBoolean("access_active"),
+                rs.getString("discord_username"),
+                instant(rs, "discord_username_updated"),
+                rs.getString("discord_display_name"),
+                instant(rs, "discord_display_name_updated"),
+                rs.getString("discord_avatar_url"),
+                instant(rs, "discord_avatar_url_updated"),
+                rs.getString("mc_name"),
+                instant(rs, "mc_name_updated"));
     }
 
     /** The one conversion every mapper in this package uses; see the class comment. */

@@ -573,7 +573,12 @@ public final class StewardUi {
             cfg.routes.get("/api/settings", ctx -> ctx.json(Map.of(
                     "disk", config.alerts().diskPercent(),
                     "memory", config.alerts().memoryPercent(),
-                    "backupAgeHours", config.alerts().backupAgeHours())), Gate.KEY_HELD);
+                    "backupAgeHours", config.alerts().backupAgeHours(),
+                    // steward/45: the base a Minecraft head is composed from, never the image
+                    // itself - see AvatarSpec's javadoc for why this is configuration and not a
+                    // column.
+                    "minecraftHeadBaseUrl", config.avatars().minecraftHeadBaseUrl())),
+                    Gate.KEY_HELD);
 
             // --- who is in the guild, what they paid, what they may ----------------------------
             cfg.routes.get("/api/people", ctx -> ctx.json(

@@ -122,6 +122,17 @@ public interface UiSpec {
     })
     AlertSpec alerts();
 
+    @Order(7)
+    @Key("avatars")
+    @Comment({
+            "Where a Minecraft head image comes from (steward/45).",
+            "",
+            "Moved here from steward/44, which found the two open questions and left them: a",
+            "column in the database would have gone stale the moment this URL changed, so the",
+            "identity display builds the address itself from mc_uuid plus the base below."
+    })
+    AvatarSpec avatars();
+
     @Order(8)
     @Key("deployer")
     @Comment({
@@ -254,6 +265,35 @@ public interface UiSpec {
         })
         default int backupAgeHours() {
             return 36;
+        }
+    }
+
+    /**
+     * Where the Minecraft head image in the identity display comes from.
+     *
+     * <p>A face is a pure function of {@code mc_uuid} and this base URL - see
+     * {@code eu.nordtal.s2.common.access.MinecraftProfile}'s class comment for why the image
+     * itself is never a column. Changing the service here is a config edit, never a migration.</p>
+     */
+    @ConfigSpec
+    interface AvatarSpec {
+
+        @Order(1)
+        @Key("minecraft-head-base-url")
+        @Comment({
+                "Till's choice, 2026-09-15: Crafatar. A free, unaffiliated service - see",
+                "season-2/README.md - so the identity display treats a non-answer as a placeholder",
+                "and never blocks the page on it.",
+                "",
+                "NOTED RATHER THAN HIDDEN: every render sends this service the mc_uuid being",
+                "looked at, which is the one piece of information about a player that leaves this",
+                "deployment on the strength of an admin merely opening a page.",
+                "",
+                "The identity display appends '/<uuid>' itself; this is the address up to and",
+                "including the path segment before the uuid, with no trailing slash."
+        })
+        default String minecraftHeadBaseUrl() {
+            return "https://crafatar.com/avatars";
         }
     }
 

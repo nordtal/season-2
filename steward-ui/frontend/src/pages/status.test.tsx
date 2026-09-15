@@ -6,7 +6,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router"
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { StatusPage } from "@/pages/status"
@@ -192,7 +192,9 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
     )
     draw()
 
-    await waitFor(() => expect(said()).toContain("older image"))
+    // steward/64: the light no longer prints the full sentence for a trigger, only its subject
+    // ("Errors in bot" rather than "bot is running an older image..."), so this test follows suit.
+    await waitFor(() => expect(said()).toContain("bot"))
     expect(said()).toMatch(STILL_READING)
     // And not the other sentence: nothing failed, it is simply not finished.
     expect(said()).not.toMatch(COULD_NOT_READ)
@@ -212,7 +214,7 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
     vi.stubGlobal("fetch", backend({ services: [service({ service: "bot", drift: "OUTDATED" })] }))
     draw()
 
-    await waitFor(() => expect(said()).toContain("older image"))
+    await waitFor(() => expect(said()).toContain("bot"))
     expect(said()).not.toMatch(STILL_READING)
   })
 
@@ -220,6 +222,11 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
     // End to end, and the reason the sentence is worth anything: while /api/settings is open the
     // light is YELLOW over one trigger, and the answer adds a second, RED one - a backup older
     // than the threshold that had not arrived yet. Same stack, same moment, two verdicts.
+    //
+    // steward/64 replaced the per-trigger `<li>` list with one short line ("Errors in ..."), so what
+    // used to be a listitem count is now read off the line itself - both subjects present, and the
+    // colour (still asserted through the class rather than a computed style, same as everywhere else
+    // in this suite) having moved from warning to destructive.
     let answer: (value: unknown) => void = () => undefined
     const held = new Promise<unknown>((resolve) => {
       answer = resolve
@@ -234,16 +241,18 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
     )
     draw()
 
-    await waitFor(() => expect(within(light()!).getAllByRole("listitem")).toHaveLength(1))
+    await waitFor(() => expect(said()).toContain("bot"))
     expect(said()).toMatch(STILL_READING)
+    expect(light()?.className).toContain("warning")
 
     await act(async () => {
       answer({ disk: 85, memory: 90, backupAgeHours: 36 })
     })
 
-    await waitFor(() => expect(within(light()!).getAllByRole("listitem")).toHaveLength(2))
-    expect(said()).toContain("older than the permitted")
+    await waitFor(() => expect(said()).toContain("nordtal-s2_mc-smp"))
+    expect(said()).toContain("bot")
     expect(said()).not.toMatch(STILL_READING)
+    expect(light()?.className).toContain("destructive")
   })
 
   it("still says which of the two it is when a query actually failed", async () => {
@@ -257,5 +266,47 @@ describe("StatusPage - the traffic light while /api/settings is still on its way
 
     await waitFor(() => expect(said()).toMatch(COULD_NOT_READ))
     expect(said()).not.toMatch(STILL_READING)
+  })
+})
+
+describe("StatusPage - the banner that steward/64 removed for the green case", () => {
+  /**
+   * The seam the ticket names by name: "a test that requires the page says something when
+   * `waiting` and nothing when `ok` must fail before the rebuild."
+   *
+   * Before this change, the page printed the placeholder while waiting and then - once a healthy
+   * stack finished answering - swapped it for a green tick and "Everything is in order.": SOMETHING
+   * in both states, and the two only distinguishable by colour. `health.ts` has always argued
+   * against exactly that shape (a green light on no evidence is the one thing this page must not
+   * do); steward/64 asked for the opposite failure mode to become impossible too - `ok` now prints
+   * NOTHING, so it cannot be mistaken for the placeholder, and the placeholder is the only thing
+   * that still prints something while nothing has been decided yet.
+   *
+   * Run against the pre-steward/64 page this fails on the second half: `light()` finds the old
+   * green `role="status"` div carrying "Everything is in order.", so `toBeNull()` and the
+   * `/in order/i` query both fail.
+   */
+  it("says something while still reading, and nothing at all once a healthy stack settles", async () => {
+    let answerSettings: (value: unknown) => void = () => undefined
+    const held = new Promise<unknown>((resolve) => {
+      answerSettings = resolve
+    })
+    vi.stubGlobal("fetch", backend({ settings: () => held }))
+    draw()
+
+    // Waiting: SOMETHING is on screen. Not knowing yet and having checked must never render
+    // identically, and this placeholder is the half of that promise that still has to hold.
+    expect(await screen.findByText(/Reading status…/)).toBeTruthy()
+    expect(light()).toBeNull()
+
+    await act(async () => {
+      answerSettings({ disk: 85, memory: 90, backupAgeHours: 36 })
+    })
+
+    // Settled, and every reading is fine: no banner, no tick, no "Everything is in order." - the
+    // page simply has nothing left to say up here, and starts with the numbers instead.
+    await waitFor(() => expect(screen.queryByText(/Reading status…/)).toBeNull())
+    expect(light()).toBeNull()
+    expect(screen.queryByText(/in order/i)).toBeNull()
   })
 })

@@ -16,9 +16,15 @@ import { bytes, percent, relative } from "@/lib/format"
  * Had this existed, neither would have gone unnoticed. That is the argument for these four and not
  * for a wall of tiles.
  *
- * **One sentence, not a field of symbols.** `summarise` returns the worst level and the reasons, in
- * order, and the page prints them as prose. A red trigger outranks a yellow one and never hides it:
- * both are listed, because "a service is down" and "the backup is missing" are two errands.
+ * **Reasons, not a field of symbols.** `summarise` returns the worst level and every trigger that
+ * produced it, in order, worst first. A red trigger outranks a yellow one and never hides it: both
+ * are counted, because "a service is down" and "the backup is missing" are two errands.
+ *
+ * **`text` is the whole sentence; `subject` is what the start page actually prints** (steward/64).
+ * The page used to render `text` for every trigger, one line each - which is exactly the "wall of
+ * tiles" this file argued against replacing itself with a wall of sentences instead. It now prints
+ * "Errors in {subjects}" plus one link, and `text` stays here for the page that link leads to: the
+ * full sentence never had to move, because nothing outside `status.tsx` ever read it.
  */
 
 export type Level = "ok" | "warn" | "down"
@@ -27,6 +33,17 @@ export type Trigger = {
   level: Exclude<Level, "ok">
   /** One sentence, already written out, already complete. */
   text: string
+  /**
+   * The word (or short, comma-joined list of words) this trigger is about - "smp", "disk", "database
+   * dump". Never a sentence.
+   *
+   * steward/64: the start page stopped printing `text` for warn/down and prints "Errors in
+   * {subjects}" instead, because Till's own words for what should replace a screenful of prose were
+   * a reference, not a second sentence per trigger. `text` still exists and still says the whole
+   * thing - it is what the page this trigger links to is for - so a page that wants a service name
+   * or a volume name does not have to parse it back out of the prose.
+   */
+  subject: string
   /** Where to go and do something about it. */
   to?: string
   params?: Record<string, string>
@@ -86,6 +103,7 @@ export function summarise(input: {
     triggers.push({
       level: "warn",
       text: "There is no service at all - Docker returned an empty list.",
+      subject: "services",
       to: "/operations",
     })
   }
@@ -96,6 +114,7 @@ export function summarise(input: {
       triggers.push({
         level: "down",
         text: `${service.service} is not running (${service.status || service.state}).`,
+        subject: service.service,
         to: "/services/$name",
         params: { name: service.service },
       })
@@ -103,6 +122,7 @@ export function summarise(input: {
       triggers.push({
         level: "down",
         text: `${service.service} is running, but reports itself unhealthy.`,
+        subject: service.service,
         to: "/services/$name",
         params: { name: service.service },
       })
@@ -120,6 +140,7 @@ export function summarise(input: {
           ? `${outdated[0].service} is running an older image than the registry has.`
           : `${outdated.length} services are running an older image than the registry has: ` +
             outdated.map((service) => service.service).join(", ") + ".",
+      subject: outdated.map((service) => service.service).join(", "),
       to: "/operations",
     })
   }
@@ -137,6 +158,7 @@ export function summarise(input: {
     triggers.push({
       level: "warn",
       text: `The images were not compared: ${input.table.drift.message ?? "the registry did not answer"}.`,
+      subject: "registry",
       to: "/operations",
     })
   }
@@ -154,6 +176,7 @@ export function summarise(input: {
       triggers.push({
         level: "warn",
         text: `The disk is ${percent(used, 0)} full (${bytes(host.diskUsedBytes)} of ${bytes(host.diskTotalBytes)}), threshold ${thresholds.disk} %.`,
+        subject: "disk",
       })
     }
   }
@@ -163,6 +186,7 @@ export function summarise(input: {
       triggers.push({
         level: "warn",
         text: `Memory is ${percent(used, 0)} used, threshold ${thresholds.memory} %. No container has a limit, so this is the whole host.`,
+        subject: "memory",
       })
     }
   }
@@ -190,6 +214,7 @@ export function summarise(input: {
 function tooOld(
   rows: Backup[],
   what: string,
+  subject: string,
   thresholds: Thresholds,
   now: number,
 ): Trigger[] {
@@ -202,6 +227,7 @@ function tooOld(
       {
         level: "down",
         text: `The newest ${what} is from ${relative(newest.modified, now)} - older than the permitted ${thresholds.backupAgeHours} hours.`,
+        subject,
         to: "/operations",
       },
     ]
@@ -227,6 +253,7 @@ function backupTriggers(
           backups.length > 0
             ? "There is no finished backup - only started ones (.partial)."
             : "There is not a single backup.",
+        subject: "backups",
         to: "/operations",
       },
     ]
@@ -265,6 +292,7 @@ function backupTriggers(
       text:
         "There is no database dump - only volume archives. The worlds and configurations are" +
         " saved, the accesses and payments are not.",
+      subject: "database dump",
       to: "/operations",
     })
   }
@@ -272,6 +300,7 @@ function backupTriggers(
     triggers.push({
       level: "down",
       text: "There is no volume archive - only a database dump.",
+      subject: "backups",
       to: "/operations",
     })
   }
@@ -279,9 +308,9 @@ function backupTriggers(
   if (!thresholds) return triggers
 
   for (const [volume, series] of volumes) {
-    triggers.push(...tooOld(series, `archive of ${volume}`, thresholds, now))
+    triggers.push(...tooOld(series, `archive of ${volume}`, volume, thresholds, now))
   }
-  triggers.push(...tooOld(dumps, "database dump", thresholds, now))
+  triggers.push(...tooOld(dumps, "database dump", "database dump", thresholds, now))
   return triggers
 }
 
@@ -290,9 +319,9 @@ function backupTriggers(
  *
  * A green light on no evidence is the one thing this page must not do. With every query failed
  * there is nothing to summarise, so `summarise` returns no trigger and the level is "ok" - and the
- * page drew the green tick and {@link ALL_CLEAR} above a grey footnote saying the opposite. Not
- * knowing is yellow. It is this file's own argument: A24 went unnoticed for four releases because
- * nothing said it did not know.
+ * page used to draw the green tick and its all-clear sentence above a grey footnote saying the
+ * opposite. Not knowing is yellow. It is this file's own argument: A24 went unnoticed for four
+ * releases because nothing said it did not know.
  *
  * A measured warning or a measured failure outranks the doubt and is shown as it is - "a service
  * is down" is a more useful sentence than "something could not be read".
@@ -304,5 +333,9 @@ export function shownLevel(level: Level, failed: boolean): Level {
 /** What the traffic light says when it found nothing wrong and also could not look. */
 export const UNKNOWN = "Whether everything is in order cannot be said right now."
 
-/** The sentence at the top of the start page when nothing is wrong. */
-export const ALL_CLEAR = "Everything is in order."
+// There used to be an ALL_CLEAR string here - "Everything is in order.", printed above the light
+// whenever `ok` had nothing to report. steward/64 removed the banner for that case entirely rather
+// than replacing its text: Till's own instruction was that a stack with nothing wrong should not
+// say so, it should simply start with the numbers. The constant is gone with the sentence, not kept
+// unused - the only thing that read it was the page itself, and `shownLevel` above already argues
+// why a green line printed on no evidence at all is worse than none.

@@ -140,8 +140,9 @@ export function summarise(input: {
     })
   }
 
-  // 3 - the backup. Red, and this one is about the archive on the disk, not about a run that
-  // reported success.
+  // 3 - the backup. Red, and this one is about the files on the disk, not about a run that
+  // reported success. Since steward/40 it asks for both kinds of file: a run that reports success
+  // having written only half of them is the shape this stack actually had.
   triggers.push(...backupTriggers(input.backups, thresholds, now))
 
   // 4 - disk and memory over the configured thresholds. Yellow.
@@ -176,6 +177,50 @@ export function summarise(input: {
   return { level, triggers }
 }
 
+/**
+ * Which of the two kinds of file in `/backups` a row is.
+ *
+ * `DatabaseDump` writes `nordtal-<stamp>.dump`, `TarSnapshots` writes `<volume>-<stamp>.tar.zst`,
+ * and `/api/backups` lists the directory naming each file exactly as it lies there. So the suffix is
+ * the whole distinction and it is the backend's, not this file's invention.
+ *
+ * A half-written dump is `nordtal-<stamp>.dump.partial` and therefore does not end in `.dump` at
+ * all - but nothing here leans on that. `partial` is the backend's own flag and is what the caller
+ * filters on first, so a rename cannot turn a corpse into a backup.
+ */
+function isDump(backup: Backup): boolean {
+  return backup.name.endsWith(".dump")
+}
+
+/**
+ * The newest of one kind, held against the one permitted age.
+ *
+ * Split out because the directory holds two kinds and reducing it to a single newest file is the
+ * defect: with sixteen archives from tonight and a dump from last week, "the newest backup" is
+ * minutes old and says nothing about the half that is not being written.
+ */
+function tooOld(
+  rows: Backup[],
+  what: string,
+  thresholds: Thresholds,
+  now: number,
+): Trigger[] {
+  if (rows.length === 0) return []
+
+  const newest = rows.reduce((latest, row) => (row.modified > latest.modified ? row : latest))
+  const age = (now - new Date(newest.modified).getTime()) / 3_600_000
+  if (!Number.isFinite(age) || age > thresholds.backupAgeHours) {
+    return [
+      {
+        level: "down",
+        text: `The newest ${what} is from ${relative(newest.modified, now)} - older than the permitted ${thresholds.backupAgeHours} hours.`,
+        to: "/operations",
+      },
+    ]
+  }
+  return []
+}
+
 function backupTriggers(
   backups: Backup[] | undefined,
   thresholds: Thresholds | undefined,
@@ -199,24 +244,42 @@ function backupTriggers(
     ]
   }
 
-  // That there is no archive at all needs no threshold and is reported either way. How old one is
-  // allowed to be is a configured number, so until it has arrived this says nothing about age.
-  if (!thresholds) return []
+  // BOTH KINDS ARE REQUIRED, and this is steward/40. Counting files in `/backups` finds plenty on
+  // a stack where pg_dump has never once succeeded: the volume archives are written by a root
+  // container and the dump runs as `postgres` against a root-owned directory (steward/39). The
+  // nightly run came back FAILED on 2026-09-15 and this page drew the green tick over it, because
+  // sixteen fresh .tar.zst answered the only question it asked.
+  //
+  // The asymmetry is why it matters rather than being pedantry: a world and a set of configs can be
+  // rebuilt from the repository and a paintbrush. The accesses, payments and Discord links cannot.
+  const archives = finished.filter((backup) => !isDump(backup))
+  const dumps = finished.filter(isDump)
+  const triggers: Trigger[] = []
 
-  const newest = finished.reduce((latest, backup) =>
-    backup.modified > latest.modified ? backup : latest,
-  )
-  const age = (now - new Date(newest.modified).getTime()) / 3_600_000
-  if (!Number.isFinite(age) || age > thresholds.backupAgeHours) {
-    return [
-      {
-        level: "down",
-        text: `The newest backup is from ${relative(newest.modified, now)} - older than the permitted ${thresholds.backupAgeHours} hours.`,
-        to: "/operations",
-      },
-    ]
+  // Presence is not a number, so neither of these waits for /api/settings - same argument as "there
+  // is not a single backup" above. The age below is a number and does wait.
+  if (dumps.length === 0) {
+    triggers.push({
+      level: "down",
+      text:
+        "There is no database dump - only volume archives. The worlds and configurations are" +
+        " saved, the accesses and payments are not.",
+      to: "/operations",
+    })
   }
-  return []
+  if (archives.length === 0) {
+    triggers.push({
+      level: "down",
+      text: "There is no volume archive - only a database dump.",
+      to: "/operations",
+    })
+  }
+
+  if (!thresholds) return triggers
+
+  triggers.push(...tooOld(archives, "volume archive", thresholds, now))
+  triggers.push(...tooOld(dumps, "database dump", thresholds, now))
+  return triggers
 }
 
 /**

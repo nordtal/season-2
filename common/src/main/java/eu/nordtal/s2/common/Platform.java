@@ -23,9 +23,9 @@ package eu.nordtal.s2.common;
  * <h2>Paper is an exact version and Velocity is a family</h2>
  * These are asymmetric on purpose, and the asymmetry is the PaperMC Fill API's own. Fill groups
  * versions into families: {@code GET /v3/projects/paper} answers {@code "26.2": ["26.2",
- * "26.2-rc-2"]}, and {@code GET /v3/projects/velocity} answers {@code "4.0.0": ["4.1.2-SNAPSHOT",
- * "4.1.1", "4.1.0", …]} - so Fill's name for the whole Velocity 4 line is the string
- * {@code 4.0.0}.
+ * "26.2-rc-2"]}, and {@code GET /v3/projects/velocity} answers {@code "4.0.0": ["4.2.0",
+ * "4.1.2-SNAPSHOT", "4.1.1", "4.1.0", …]} (read 2026-09-15) - so Fill's name for the whole
+ * Velocity 4 line is the string {@code 4.0.0}, and it is not a version anybody runs.
  *
  * <p>{@link #MINECRAFT} is used as an <b>exact version</b>: a new Minecraft version is a season
  * decision and never the worker's, because it moves the API every plugin here is compiled against.
@@ -64,7 +64,7 @@ public final class Platform {
      * report names it and does not block on it: refusing the proxy's own update over a version skew
      * that is usually harmless would be the worse failure.</p>
      */
-    public static final String VELOCITY_API = "4.1.1";
+    public static final String VELOCITY_API = "4.2.0";
 
     /**
      * The resource pack format {@link #MINECRAFT} reads, mirrored by

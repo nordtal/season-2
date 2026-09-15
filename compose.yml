@@ -637,11 +637,21 @@ services:
       # the interface says "could not look" on every page - so it is required rather than optional.
       NORDTAL_STEWARD_API_TOKEN: ${STEWARD_API_TOKEN:?set STEWARD_API_TOKEN in .env - the secret steward-ui and steward-worker share, `openssl rand -hex 32`}
 
-      # There is no restart endpoint and no panel here any more. Stopping, starting and recreating
-      # go through the Docker socket mounted below and through steward-deployer; the whole
-      # `arcane:` block of steward.yml was removed on 2026-09-13, along with the ARCANE_* variables
-      # that used to be repeated here. A deployed steward.yml still carrying that block loses it
-      # with a WARN and a .bak rather than refusing to start - ConfigsTest holds that.
+      # There is no restart endpoint and no panel here any more. Stopping and starting go through
+      # the Docker socket mounted below; the whole `arcane:` block of steward.yml was removed on
+      # 2026-09-13, along with the ARCANE_* variables that used to be repeated here. A deployed
+      # steward.yml still carrying that block loses it with a WARN and a .bak rather than refusing
+      # to start - ConfigsTest holds that.
+
+      # --- steward.yml#deployer (season-2-ops/22) -----------------------------------------
+      # RECREATING a container - the one thing the socket above cannot be asked to do safely -
+      # goes through steward-deployer's own HTTP API instead, on the `steward` network both
+      # containers already sit on. A THIRD READER OF THE SAME SECRET, not a new one:
+      # steward-ui and steward-deployer already share STEWARD_DEPLOYER_TOKEN for the identical
+      # header, and this is the same variable, not a second one to keep in step with it. Empty
+      # would mean an update whose image has moved can never recreate the container it stopped -
+      # so it is required rather than optional, exactly like the api token above.
+      NORDTAL_STEWARD_DEPLOYER_TOKEN: ${STEWARD_DEPLOYER_TOKEN:?set STEWARD_DEPLOYER_TOKEN in .env - the secret steward-ui, steward-worker and steward-deployer share, `openssl rand -hex 32`}
     volumes:
       - steward-worker-config:/app/config
       # Everything this module owns, under the names Topology expects beneath volumes-root. Writable,

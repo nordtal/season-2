@@ -332,6 +332,30 @@ class ObjectivePanelTest {
     }
 
     @Test
+    @DisplayName("the real share bundle keys are short enough that fit never has to cut them,"
+            + " paged or not")
+    void theRealShareLinesNeverNeedTruncation() {
+        final String font = Glyphs.FONT_GUI_ROWS[ObjectivePanel.SHARE_ROW];
+        for (final String language : new String[] {"en", "de"}) {
+            final Properties bundle = PanelWalk.bundle(language);
+            final String withSpins = bundle.getProperty("smp.objectives.share")
+                    .replace("{spins}", "999");
+            final String none = bundle.getProperty("smp.objectives.share-none");
+            for (final String share : new String[] {withSpins, none}) {
+                for (final boolean hasNext : new boolean[] {false, true}) {
+                    final Run run = PanelWalk.textRuns(
+                            PanelWalk.runs(surface(FOUR, false, hasNext, share)), font).get(0);
+                    assertEquals(MenuFont.fold(share), run.content(),
+                            language + " \"" + share + "\" is shortened even at a generous three"
+                                    + " digit spin count - the whole point of shortening"
+                                    + " smp.objectives.share was to give the page buttons room,"
+                                    + " not to make the truncation less frequent");
+                }
+            }
+        }
+    }
+
+    @Test
     @DisplayName("an icon is the objective's kind, or - when it is finished - the tick")
     void theIconIsTheState() {
         assertEquals(Glyphs.GUI_ROW_ICON_HAND_IN, ObjectivePanel.icon(ObjectiveType.HAND_IN, false));

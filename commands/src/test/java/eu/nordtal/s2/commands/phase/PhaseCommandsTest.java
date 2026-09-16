@@ -31,15 +31,20 @@ class PhaseCommandsTest {
     // ---------------------------------------------------------------- the declarations
 
     @Test
-    @DisplayName("all four subcommands are admin-only, run on the proxy, and are not on the console")
+    @DisplayName("all four subcommands are admin-only, run on the proxy, and are off chat entirely")
     void theDeclarationsAgree() {
         for (final var declaration : List.of(PhaseCommands.SHOW, PhaseCommands.SET,
                 PhaseCommands.LAUNCH, PhaseCommands.SMP_START)) {
             assertEquals(Target.PROXY, declaration.target(), declaration.name());
             assertTrue(declaration.adminOnly(), declaration.name());
-            // The console is absent on purpose: it would be a second notion of who may switch the
-            // phase on a proxy that already knows who is an admin.
-            assertEquals(java.util.Set.of(Surface.GAME, Surface.DISCORD),
+            // This assertion was the exact opposite until 2026-09-16, and it is worth saying why
+            // rather than quietly flipping it. It held GAME and DISCORD and argued that the console
+            // would be a second notion of who may switch the phase. season-2-ops/18 overrules that:
+            // every admin command in the repository is console and web now, and /phase launch - the
+            // command that starts the season - is the last one that should keep a chat exception.
+            // WEB as well as CONSOLE, because a WEB row carries the asker's Discord id (V18) where
+            // a CONSOLE row carries no identity at all (V11).
+            assertEquals(java.util.Set.of(Surface.CONSOLE, Surface.WEB),
                     declaration.surfaces(), declaration.name());
         }
     }

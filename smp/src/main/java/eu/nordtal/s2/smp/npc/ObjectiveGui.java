@@ -185,8 +185,7 @@ public final class ObjectiveGui implements Surface {
             return messages.get(locale, "smp.objectives.share-none");
         }
         return messages.format(locale, "smp.objectives.share",
-                Map.of("percent", OwnShare.format(share.percent(), locale),
-                        "spins", String.valueOf(share.spins())));
+                Map.of("spins", String.valueOf(share.spins())));
     }
 
     private void fill() {

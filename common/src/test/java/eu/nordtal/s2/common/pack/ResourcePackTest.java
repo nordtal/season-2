@@ -261,6 +261,25 @@ class ResourcePackTest {
     }
 
     @Test
+    @DisplayName("the vanilla slot highlight sprites are fully transparent")
+    void theVanillaSlotHighlightSpritesAreBlank() {
+        // season-2-ingame/25 (owner, 2026-09-15): the hover square is transparent everywhere a
+        // slot exists, not only in our own menus, because both layers are a vanilla sprite this
+        // pack overrides rather than art of our own. "back" is the highlight drawn behind the
+        // item; "front" is the one drawn over it - both have to be blank, or the other layer
+        // still shows.
+        for (final String sprite : List.of("slot_highlight_back", "slot_highlight_front")) {
+            final Path path = RepositoryRoot.resolve(
+                    ASSETS + "/minecraft/textures/gui/sprites/container/" + sprite + ".png");
+            final BufferedImage image = read(path);
+            assertTrue(!hasPixels(image, 0, 0, image.getWidth(), image.getHeight()),
+                    sprite + ".png has to be fully transparent: the owner asked for the hover"
+                            + " square to be gone everywhere a slot exists, chests included, and a"
+                            + " pixel in either layer puts it back.");
+        }
+    }
+
+    @Test
     @DisplayName("every texture under nordtal:textures is reachable from a font")
     void noOrphanedFontTexture() {
         final Set<String> referenced = new LinkedHashSet<>();

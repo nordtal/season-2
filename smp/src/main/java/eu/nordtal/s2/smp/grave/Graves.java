@@ -4,6 +4,7 @@ import eu.nordtal.s2.common.message.MessageRenderer;
 import eu.nordtal.s2.common.message.Messages;
 import eu.nordtal.s2.common.feedback.Feedback;
 import eu.nordtal.s2.common.message.PlayerLocales;
+import eu.nordtal.s2.smp.db.ExpiredGrave;
 import eu.nordtal.s2.smp.db.GraveRow;
 import eu.nordtal.s2.smp.feedback.SmpSounds;
 import eu.nordtal.s2.smp.feedback.WorldEffects;
@@ -261,6 +262,49 @@ public final class Graves implements InventoryHolder {
         }
         open.remove(graveId);
         shown.remove(graveId);
+    }
+
+    /**
+     * Deletes every grave that has run out of time, and takes its display down (ingame/20).
+     *
+     * <p>Till, 2026-09-15: a grave stands at most 24 hours, and <b>what is in it decays with it</b>
+     * - the same as vanilla items that despawn. Nothing is dropped on the ground, which is why this
+     * method never touches the contents at all: the row is deleted and the bytes go with it.
+     *
+     * <p><b>Call this off the main thread.</b> It runs the delete on the calling thread, because a
+     * Paper plugin does not query the database from the main thread and the timer that calls it is
+     * already asynchronous - a second hop inside here would only make that harder to see. Taking a
+     * display down and making a sound are main-thread work, so the second half hops back.
+     *
+     * <p>A grave the server never drew - one in a world that is not loaded, one made while this
+     * process was not running - is deleted all the same and simply has no entities to remove. That
+     * is the case {@code erase} already handles by finding nothing under the id.
+     *
+     * @param hours the configured maximum age. Zero or less means decay is off and nothing happens;
+     *              the check is here rather than at the call site so there is one place to read.
+     */
+    public void expire(final int hours) {
+        if (hours <= 0) {
+            return;
+        }
+        final List<ExpiredGrave> gone = dao.expireGravesOlderThan(hours);
+        if (gone.isEmpty()) {
+            return;
+        }
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (final ExpiredGrave grave : gone) {
+                erase(grave.id());
+                final World world = Bukkit.getWorld(grave.world());
+                if (world != null) {
+                    // The same sound as a grave being emptied, and deliberately so: from where
+                    // anybody is standing, both are a grave that is there and then is not.
+                    sounds.playAt(new Location(world, grave.x() + 0.5, grave.y() + 0.5,
+                            grave.z() + 0.5), Feedback.RECLAIMED);
+                }
+            }
+            plugin.getLogger().info("expired " + gone.size() + " grave(s) older than " + hours
+                    + "h, contents included");
+        });
     }
 
     /** Removes every display this plugin drew. Called at disable; the rows stay in the database. */

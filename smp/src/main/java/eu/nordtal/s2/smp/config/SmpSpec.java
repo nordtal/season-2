@@ -2,6 +2,7 @@ package eu.nordtal.s2.smp.config;
 
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
+import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
 
@@ -979,6 +980,30 @@ public interface SmpSpec {
     })
     default FirstJoinSpawnSpec firstJoinSpawn() {
         return DefaultSmp.FIRST_JOIN_SPAWN;
+    }
+
+    @Order(45)
+    @Key("grave-max-age-hours")
+    @Comment({
+            "How long a grave stands before it decays, in hours. Till's decision, 2026-09-15:",
+            "24 hours, and THE CONTENTS GO WITH IT - the same as vanilla items that despawn.",
+            "Nothing is dropped on the ground when a grave expires.",
+            "",
+            "A player who dies twice gets two graves, each with its own clock. Nothing is tidied",
+            "up on their behalf.",
+            "",
+            "0 turns decay off and a grave stands forever, which is what this season did until",
+            "2026-09-16. Negative is refused at load rather than treated as 0, because a negative",
+            "age is somebody meaning something by it and getting it wrong.",
+            "",
+            "THE CLOCK IS THE ROW'S `created`, not a deadline written down when the grave is made.",
+            "That is why it survives a restart, and it is also why lowering this number expires",
+            "graves that already stand rather than only new ones. Raising it brings nothing back:",
+            "an expired grave is deleted, not hidden."
+    })
+    @Explain("How long a grave stands before it and everything in it decays, in hours. 0 never decays.")
+    default int graveMaxAgeHours() {
+        return 24;
     }
 
     /** Where the first join lands, world included. */

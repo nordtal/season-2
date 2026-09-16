@@ -17,6 +17,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -141,6 +142,63 @@ class GraveLootIntegrationTest {
         assertEquals(1, dao.markGraveLooted(graveId, LOOTER).isPresent() ? 1 : 0);
         assertEquals(0, dao.updateGraveContents(graveId, new byte[] {9}),
                 "a grave somebody else finished a moment ago must not be refilled by a late close");
+    }
+
+    @Test
+    @DisplayName("a grave older than the limit is deleted, with everything in it")
+    void anOldGraveDecays() {
+        // season-2-ingame/20. The time is given rather than waited for, which is the whole reason
+        // this is a database test: `created` is the clock, so backdating the row is backdating the
+        // grave, and no scheduler has to run for the statement to be the thing under test.
+        execute("UPDATE smp_grave SET created = now() - interval '25 hours' WHERE id = '"
+                + graveId + "'");
+        final UUID fresh = UUID.randomUUID();
+        execute("INSERT INTO smp_grave (id, owner_id, world, x, y, z, contents, experience)"
+                + " VALUES ('" + fresh + "', '" + OWNER + "', 'nordtal', 9, 9, 9, '\\x00', 0)");
+
+        final List<ExpiredGrave> gone = dao.expireGravesOlderThan(24);
+
+        assertEquals(1, gone.size(), "exactly the old grave, and not the one made a moment ago");
+        assertEquals(graveId, gone.getFirst().id());
+        assertEquals("nordtal", gone.getFirst().world(), "the world has to come back, because the"
+                + " display standing in it still has to be taken down and a sound made where it was");
+        assertEquals("0", scalar("SELECT count(*) FROM smp_grave WHERE id = '" + graveId + "'"),
+                "the row is deleted rather than marked looted: nobody took it, and looted_by is"
+                        + " already nullable for an unlinked looter - marking it would give"
+                        + " \"who took it\" a wrong answer instead of no answer");
+        assertEquals("1", scalar("SELECT count(*) FROM smp_grave WHERE id = '" + fresh + "'"));
+    }
+
+    @Test
+    @DisplayName("a grave somebody emptied is left alone, however old it is")
+    void alreadyLootedStays() {
+        // The record of who took what is not a grave standing in the world, and the sweep has no
+        // business in it. Without the `looted IS NULL` guard this row would vanish the day after.
+        dao.markGraveLooted(graveId, LOOTER);
+        execute("UPDATE smp_grave SET created = now() - interval '400 hours' WHERE id = '"
+                + graveId + "'");
+
+        assertEquals(List.of(), dao.expireGravesOlderThan(24));
+        assertEquals(LOOTER, scalar("SELECT looted_by FROM smp_grave WHERE id = '" + graveId + "'"));
+    }
+
+    @Test
+    @DisplayName("two graves of the same player have their own clocks")
+    void eachGraveExpiresOnItsOwn() {
+        // Till, 2026-09-15, asked directly what happens when somebody dies again while their old
+        // grave still stands: several graves in parallel, each with its own countdown, and no
+        // tidying up of the older one.
+        final UUID second = UUID.randomUUID();
+        execute("INSERT INTO smp_grave (id, owner_id, world, x, y, z, contents, experience, created)"
+                + " VALUES ('" + second + "', '" + OWNER + "', 'nordtal', 4, 5, 6, '\\x00', 0,"
+                + " now() - interval '23 hours')");
+        execute("UPDATE smp_grave SET created = now() - interval '25 hours' WHERE id = '"
+                + graveId + "'");
+
+        assertEquals(List.of(graveId), dao.expireGravesOlderThan(24).stream()
+                .map(ExpiredGrave::id).toList());
+        assertEquals("1", scalar("SELECT count(*) FROM smp_grave WHERE id = '" + second + "'"),
+                "the younger grave of the same player is untouched - two deaths are two graves");
     }
 
     @Test

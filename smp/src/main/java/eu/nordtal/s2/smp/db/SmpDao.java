@@ -562,6 +562,36 @@ public interface SmpDao {
     @SqlUpdate("DELETE FROM smp_grave WHERE world = :world")
     int deleteGravesIn(@Bind("world") String world);
 
+    /**
+     * Deletes every grave older than {@code hours}, and says which ones went.
+     *
+     * <p><b>The clock is the row's own {@code created}</b>, not a deadline written down when the
+     * grave was made. That is what makes the age survive a restart - a grave that came back with a
+     * fresh 24 hours would not be a decay, it would be an invitation (season-2-ingame/20). It is
+     * also why lowering the setting expires graves that already stand: there is one number and it
+     * applies to everything.
+     *
+     * <p>DELETE rather than marking it {@code looted}: nobody took it. {@code looted_by} is already
+     * nullable for an unlinked looter, so an expired grave marked looted would be indistinguishable
+     * from one emptied by somebody with no Discord account, and "who took it" would have a wrong
+     * answer instead of no answer.
+     *
+     * <p>{@code looted IS NULL} keeps this away from graves that were emptied properly and are
+     * being kept as a record. {@code make_interval} rather than string concatenation because the
+     * number comes from a config file.
+     *
+     * @param hours how long a grave may stand. Must be positive - the caller decides what 0 means,
+     *              and it means this is never called at all.
+     */
+    @SqlQuery("""
+            DELETE FROM smp_grave
+            WHERE looted IS NULL
+              AND created < now() - make_interval(hours => :hours)
+            RETURNING id, world, x, y, z
+            """)
+    @RegisterConstructorMapper(ExpiredGrave.class)
+    List<ExpiredGrave> expireGravesOlderThan(@Bind("hours") int hours);
+
     // ---------------------------------------------------------------- the wheel
 
     @SqlQuery("""

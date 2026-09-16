@@ -18,18 +18,18 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
 @ConfigSpec(header = {
         "hunger-games - sounds",
         "",
-        "What each feedback category sounds like. Nine categories, ten entries - open and close are",
+        "What each feedback category sounds like. Ten categories, eleven entries - open and close are",
         "the two halves of one - and a call site in the plugin can pick a category and nothing else.",
         "That is a structural rule and not a matter of discipline: a codebase where every call site",
         "names its own sound drifts into nine different chimes for the same kind of event.",
         "Every value below is deliberately the same as the SMP's, so that the network sounds like",
         "one server rather than three.",
         "",
-        "THREE OF THESE ARE NEVER PLAYED ON THIS SERVER: surface-open, surface-close and select.",
-        "The event server has no menus - chat, three boss bars and a title are the whole interface -",
-        "so those three are read and nothing reaches them. They are still here because the plugin",
-        "has to answer for every category or it does not compile, which is what keeps this file and",
-        "the code from drifting apart.",
+        "FOUR OF THESE ARE NEVER PLAYED ON THIS SERVER: surface-open, surface-close, select and",
+        "reclaimed. The event server has no menus - chat, three boss bars and a title are the whole",
+        "interface - and it has no graves either, so those four are read and nothing reaches them.",
+        "They are still here because the plugin has to answer for every category or it does not",
+        "compile, which is what keeps this file and the code from drifting apart.",
         "",
         "A KEY IS A NAMESPACED REGISTRY KEY, NOT A BUKKIT CONSTANT: minecraft:ui.button.click, never",
         "UI_BUTTON_CLICK. The constant names change between Minecraft versions and the registry keys",
@@ -101,6 +101,10 @@ public interface SoundsSpec {
             "and does not exist yet. Filling it in is one line here and no release."
     })
     default SoundSpec staging() { return DefaultSounds.STAGING; }
+
+    @Order(12) @Key("reclaimed")
+    @Comment("Never played here - this server has no graves. Kept so the vocabulary stays whole.")
+    default SoundSpec reclaimed() { return DefaultSounds.RECLAIMED; }
 
     /** One sound: the key, how loud, how fast. */
     @ConfigSpec

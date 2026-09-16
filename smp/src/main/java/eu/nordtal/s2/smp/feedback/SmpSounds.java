@@ -5,6 +5,7 @@ import eu.nordtal.s2.common.feedback.FeedbackSound;
 import eu.nordtal.s2.common.feedback.FeedbackSounds;
 import eu.nordtal.s2.smp.config.SoundsSpec;
 
+import org.bukkit.Location;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 
@@ -107,6 +108,7 @@ public final class SmpSounds {
             case COUNTDOWN_TICK -> spec.countdownTick();
             case NETWORK_EVENT -> spec.networkEvent();
             case STAGING -> spec.staging();
+            case RECLAIMED -> spec.reclaimed();
         };
     }
 
@@ -133,6 +135,32 @@ public final class SmpSounds {
             // A malformed key is refused at load, so reaching here means the platform disagreed with
             // us about something. Silence the category and say so once - a stack trace per click is
             // the only outcome worse than a missing chime.
+            current.failed(category, exception, problems);
+        }
+    }
+
+    /**
+     * Plays {@code category} at {@code location}, for everyone in range - not for one player.
+     *
+     * <p>{@link #play} reaches exactly the player it is called for, because {@code Player#playSound}
+     * is a message to one client regardless of where they stand. A grave settling is not that: other
+     * people stand at a grave too, and {@code World#playSound} is the overload that puts a sound at a
+     * place in the world rather than in one player's ears (season-2-ingame/15).
+     *
+     * <p>Same failure handling as {@link #play}: a bad key was already refused at load, so a throw
+     * here means the platform disagreed with us, and it silences the category rather than logging
+     * once per grave.
+     */
+    public void playAt(final Location location, final Feedback category) {
+        final FeedbackSounds current = sounds;
+        final FeedbackSound sound = current.sound(category);
+        if (sound == null || location == null || location.getWorld() == null) {
+            return;
+        }
+        try {
+            location.getWorld().playSound(location, sound.key(), SoundCategory.MASTER,
+                    sound.volume(), sound.pitch());
+        } catch (final RuntimeException exception) {
             current.failed(category, exception, problems);
         }
     }

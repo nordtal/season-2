@@ -27,7 +27,14 @@ velocity = "4.2.0"
 # the Discord token and the bunq key come from NORDTAL_BOT_TOKEN and friends rather than from the
 # file somebody is looking at. It is the schema root's `explanation` now. discord-bot's ConfigsTest
 # went red on exactly that string, which is how it was found; that test reads the schema now.
-jcore = "4.1.0"
+#
+# 4.1.1 (2026-09-16, steward/72) is the other half of 4.0.0's move: only `@Explain` ever reached the
+# schema, so a property with no `@Explain` of its own - still nearly everything in this repository -
+# showed an empty explanation where a `@Comment` paragraph used to sit in the YAML. The schema now
+# falls back to `@Comment`, joined with '\n', whenever `@Explain` is absent; `@Explain` still always
+# wins once a setting has one. Writing the short `@Explain` sentences for all 302 settings is
+# steward/62, file by file, and is unaffected by this bump.
+jcore = "4.1.1"
 # Our own Paper plugin, via JitPack. `smp` takes it compileOnly and NEVER shades it - the api
 # module is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to
 # be installed on the SMP server.

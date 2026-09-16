@@ -95,6 +95,7 @@ public final class ConfigApi {
     private static final Map<String, String> RELOAD_COMMAND = Map.of(
             "smp/smp/milestones.yml", "smp reload",
             "smp/smp/sounds.yml", "smp reload",
+            "smp/smp/colours.yml", "smp reload",
             "hunger-games/hunger-games/sounds.yml", "hg reload");
 
     private final Path root;

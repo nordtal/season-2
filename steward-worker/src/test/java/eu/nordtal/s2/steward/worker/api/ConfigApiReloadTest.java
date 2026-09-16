@@ -72,6 +72,22 @@ class ConfigApiReloadTest {
     }
 
     @Test
+    @DisplayName("colours.yml reloads too - /smp reload re-reads it (steward/73)")
+    void theTonePaletteIsReloadable() {
+        final RecordingConsole console = new RecordingConsole();
+        final ConfigApi api = new ConfigApi(Path.of("/tmp"), console);
+
+        final Map<String, Object> outcome = api.reload(location("smp", "smp/colours.yml"));
+
+        // season-2-ingame/22 made the five tone colours a file of their own, and SmpPlugin re-reads
+        // it on `/smp reload`. This map was written the evening before that file existed, so the
+        // interface told an operator to restart a server for a change a console line already
+        // applies - and colours are picked by trying, which is where that costs the most.
+        assertEquals("APPLIED", outcome.get("status"));
+        assertEquals(List.of("smp: smp reload"), console.calls);
+    }
+
+    @Test
     @DisplayName("a reloadable file whose service does not answer is NO_ANSWER, not APPLIED")
     void noAnswerWhenTheContainerCannotBeReached() {
         final RecordingConsole console = new RecordingConsole();

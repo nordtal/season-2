@@ -99,10 +99,13 @@ public final class CommandFilter implements Listener {
 
     /**
      * Without a {@link PaperUser.Chime}: the refusal plays no sound, which was every caller's
-     * behaviour before season-2-ingame/13. Kept rather than removed, because {@code smp},
-     * {@code hunger-games} and {@code limbo} still call it - giving them a real chime is a separate
-     * change, one wiring line in each of those three plugins, out of scope here (see the session
-     * report). This overload delegates to the other one with {@link PaperUser.Chime#silent()}.
+     * behaviour before season-2-ingame/13. {@code smp} and {@code hunger-games} moved to the
+     * 7-parameter constructor below, with their own sound adapter, in season-2-ingame/27.
+     * {@code limbo} keeps calling this overload on purpose: it has no sound adapter, no
+     * {@code sounds.yml} and, since ops/18 made {@code /limbo reload} console-only, no player-facing
+     * command at all - the one command a player could type there mid-login is gone, so there is no
+     * realistic refusal for a chime to announce. This overload delegates to the other one with
+     * {@link PaperUser.Chime#silent()}.
      */
     public CommandFilter(final Plugin plugin, final Source source, final Predicate<UUID> admin,
                          final PlayerLocales locales, final Messages messages, final Logger logger,

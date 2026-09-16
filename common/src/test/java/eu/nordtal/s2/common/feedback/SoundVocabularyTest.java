@@ -62,7 +62,13 @@ class SoundVocabularyTest {
             "hunger-games/src/main/java/eu/nordtal/s2/hungergames/feedback/HungerGamesSounds.java",
             "hunger-games' sound adapter - the same twenty lines, for the same reason: a shared"
                     + " adapter in :common would put org.bukkit.entity.Player in a jar that is"
-                    + " shaded into a Velocity plugin");
+                    + " shaded into a Velocity plugin",
+            "network-control/src/main/java/eu/nordtal/s2/networkcontrol/feedback/"
+                    + "NetworkControlSounds.java",
+            "network-control's sound adapter (season-2-ingame/28) - the Velocity-side twin of the"
+                    + " other two: the proxy holds the client connection itself, so it can call"
+                    + " Player#playSound the same way RestartWatch already calls sendMessage and"
+                    + " showTitle on a player standing on any backend");
 
     @Test
     @DisplayName("only the sound adapters name a sound")

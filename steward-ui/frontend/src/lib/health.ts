@@ -150,10 +150,15 @@ export function summarise(input: {
   //
   // A SINGLE service whose own drift is UNKNOWN is deliberately NOT a trigger (Till, 2026-09-13).
   // status.tsx argues the opposite for the badge, and A24 is this light's whole reason to exist -
-  // but several images here are built on this host and published nowhere, so UNKNOWN is their
-  // ordinary state and a yellow that never clears is a light nobody reads. The Operations page
-  // footnotes how many could not be compared. This trigger is the other case: the registry as a
-  // whole did not answer, which is temporary and therefore worth a sentence.
+  // but a registry that could not be asked about one image, or a container whose exact image is no
+  // longer on file locally, is not rare enough here for a yellow that never clears to be worth
+  // reading. The Operations page footnotes how many could not be compared. This trigger is the
+  // other case: the registry as a whole did not answer, which is temporary and therefore worth a
+  // sentence.
+  //
+  // LOCAL is not checked here at all, on purpose (steward/75): it is the opposite direction from
+  // OUTDATED, not a milder version of it, and a service built here and never published is a known
+  // answer - never "nobody looked", never a reason to turn the light yellow.
   if (input.table && input.table.drift.reached === false) {
     triggers.push({
       level: "warn",

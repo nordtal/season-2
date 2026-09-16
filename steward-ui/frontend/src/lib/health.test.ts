@@ -265,15 +265,32 @@ describe("summarise - image drift", () => {
   it("does not turn yellow for a single image that carries no registry digest", () => {
     // Till's call, 2026-09-13, asked rather than assumed. status.tsx argues that UNKNOWN is
     // "deliberately not silent and deliberately not green", and A24 is the story this whole light
-    // came from - but several images in this stack are built here and published nowhere, so
-    // UNKNOWN is their normal state. A yellow that never goes away is a light nobody reads any
-    // more, which costs more than the case it would catch. The page footnotes the count instead.
+    // came from - but a single unanswered registry, or a container whose exact image is gone, is
+    // not worth a yellow that never goes away. A yellow that never clears is a light nobody reads
+    // any more, which costs more than the case it would catch. The page footnotes the count
+    // instead.
     const { level } = summarise({
       ...healthy(),
       table: table([service({ drift: "UNKNOWN" })], { unverifiable: ["smp"] }),
     })
 
     expect(level).toBe("ok")
+  })
+
+  it("does not turn yellow for a locally built image - LOCAL is not a milder OUTDATED", () => {
+    // steward/75: steward-ui and steward-worker on this host on 2026-09-16, both running a local
+    // `docker build` never pushed anywhere. Ahead of the registry, not behind it - the opposite of
+    // what this trigger exists to catch, so it must stay silent about it entirely.
+    const { level, triggers } = summarise({
+      ...healthy(),
+      table: table([
+        service({ service: "steward-ui", drift: "LOCAL" }),
+        service({ service: "steward-worker", drift: "LOCAL" }),
+      ]),
+    })
+
+    expect(level).toBe("ok")
+    expect(triggers).toHaveLength(0)
   })
 })
 

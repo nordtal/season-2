@@ -56,23 +56,53 @@ export function explanationOf(entry: ConfigEntry): string | null {
  * still empty - a value-shaped test would offer the picker only once somebody had already typed the
  * thing they needed help typing. The names are the ones jcore writes: `roles.admin`,
  * `channels.admin`, and on each language entry `role`, `contribution-channel`, `link-channel`,
- * `hunger-games-channel`, `status-channel`, `announcement-channel`. A field inside a repeatable
- * card (steward/57) carries its own bare key - `role`, `contribution-channel` - rather than a path
- * prefixed with the section it lives in, so this still matches it correctly without knowing it is
- * inside a card at all.
+ * `hunger-games-channel`, `announcement-channel`. A field inside a repeatable card (steward/57)
+ * carries its own bare key - `role`, `contribution-channel` - rather than a path prefixed with the
+ * section it lives in, so this still matches it correctly without knowing it is inside a card at
+ * all.
  *
  * `guild-id` matches none of them, and that is the intended answer rather than an oversight: the
  * guild is what the list is READ FROM, so offering to pick it out of itself is circular and would
  * draw an empty select on the one field that always has to be typed. It is asserted in the tests
  * so a later rule - anything keyed on `-id`, say - cannot quietly acquire it.
+ *
+ * **`status-channel` is excluded on purpose (steward/61), where it used to match** - it ends in
+ * `-channel` like every real snowflake field, but `AccessSpec.LanguageSpec#statusChannel`'s own
+ * `@Comment` says it is stored "as a channel NAME - the bot renames it, it never posts in it", not
+ * an id at all. `SnowflakePicker` writes back `entry.id`, an eighteen-digit snowflake, so wiring it
+ * to this key would silently replace a channel's plain-text name with a number the bot then
+ * searches for and never finds. Found while building the language cards steward/61 asked for -
+ * every field they draw goes through this same function, and this is the one of the six that is
+ * not a snowflake despite its name. Left as plain text, which is what the value actually is.
  */
 export function discordId(entry: ConfigEntry): "role" | "channel" | null {
   if (entry.kind !== "SCALAR" || !entry.editable || entry.secret) return null
   const key = entry.key
   const path = entry.path
+  if (key === "status-channel") return null
   if (key === "role" || key.endsWith("-role") || path.startsWith("roles.")) return "role"
   if (key === "channel" || key.endsWith("-channel") || path.startsWith("channels.")) return "channel"
   return null
+}
+
+/**
+ * Whether an empty channel field is a problem worth calling out, rather than an ordinary blank
+ * (steward/61's "a language missing a channel is visibly incomplete, not merely empty").
+ *
+ * This is generic on purpose - `RepeatableCards` calls it for every field of every card, `languages`
+ * included, without knowing it is looking at a language. Two things decide it, both from the schema
+ * rather than from a value: {@link discordId} says the field is a channel at all, and the schema's
+ * own explanation says whether it is optional. Every field this project marks optional says so in
+ * the same word, in the sentence jcore copies verbatim from the `@Comment` -
+ * `AccessSpec.LanguageSpec#statusChannel` and `#announcementChannel` both start theirs with
+ * "OPTIONAL" - so a field is required unless its own explanation says otherwise. That is a real
+ * heuristic, not a schema fact (a future field marked optional in different words would slip past
+ * it), and it is the same trade `colourValue` above already makes for the same reason: nothing in
+ * `SchemaNode` carries a required/optional flag to read instead.
+ */
+export function isRequiredChannel(entry: ConfigEntry): boolean {
+  if (discordId(entry) !== "channel") return false
+  return !(explanationOf(entry) ?? "").includes("OPTIONAL")
 }
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i

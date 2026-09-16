@@ -405,6 +405,14 @@ public final class SmpPlugin extends JavaPlugin {
         poller.start();
 
         graves = new Graves(this, dao, identities, messages, locales, sounds, effects);
+        // A grave decays after config.graveMaxAgeHours() (season-2-ingame/20). Once a minute is
+        // three orders of magnitude finer than the thing being measured, so the visible cost of the
+        // interval is nothing and the query it runs is one indexed delete that usually deletes
+        // nothing. The first sweep is immediate rather than delayed by a minute: a server that was
+        // down over the weekend has graves that expired while it was off, and they should not stand
+        // for another minute after it comes back.
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this,
+                () -> graves.expire(config.graveMaxAgeHours()), 20L, 20L * 60L);
         duels = new Duels(this, dao, config, worlds, identities, messages, locales, sounds,
                 effects);
 

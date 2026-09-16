@@ -3,9 +3,12 @@ package eu.nordtal.jcore.config.schema;
 import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.TestSpecs;
 import eu.nordtal.jcore.config.exception.ConfigException;
+import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
+import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
+import eu.nordtal.jcore.config.spec.annotation.Order;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -60,14 +63,52 @@ class SchemaWriterTest {
     }
 
     @Test
-    @DisplayName("a property with neither @Explain nor @NoExplanationNeeded gets an empty explanation, not an error")
+    @DisplayName("a property with none of @Explain, @Comment or @NoExplanationNeeded gets an empty explanation, not an error")
     void unmigratedPropertyGetsAnEmptyExplanation() {
+        // Colliding.ab() carries no annotation at all - not even @Comment - which is the one case
+        // left where the schema still has nothing to say.
+        final SchemaNode schema = SchemaWriter.build(TestSpecs.Colliding.class);
+        final SchemaNode ab = schema.children().get("a-b");
+        assertAll(
+                () -> assertEquals("", ab.explanation()),
+                () -> assertFalse(ab.noExplanationNeeded())
+        );
+    }
+
+    @Test
+    @DisplayName("a property with only @Comment gets that text as its schema explanation")
+    void commentIsUsedAsAFallbackWhenNoExplainIsGiven() {
+        // steward/72: 4.0.0 moved only @Explain's short text into the schema and left @Comment's
+        // long text reaching no file at all - measured on the running SMP as 124 of 125 settings
+        // showing an empty field where a paragraph used to be. Balance.channelId() carries
+        // @Comment and no @Explain, which is the ordinary, unmigrated case, not an edge case.
         final SchemaNode schema = SchemaWriter.build(TestSpecs.Balance.class);
         final SchemaNode channelId = schema.children().get("channel-id");
-        assertAll(
-                () -> assertEquals("", channelId.explanation()),
-                () -> assertFalse(channelId.noExplanationNeeded())
-        );
+        assertEquals("The voice channel that shows the balance.", channelId.explanation(),
+                "an unmigrated property must fall back to its @Comment text, not stay empty");
+    }
+
+    @Test
+    @DisplayName("a multi-line @Comment is joined with newlines into one explanation string")
+    void multiLineCommentIsJoinedWithNewlines() {
+        final SchemaNode schema = SchemaWriter.build(MultiLineCommentOnly.class);
+        assertEquals("First line.\n\nSecond paragraph line.",
+                schema.children().get("option").explanation(),
+                "@Comment is a String[], one array entry per line - the browser already renders "
+                        + "a multi-line explanation, so a newline join keeps a blank-line paragraph "
+                        + "break intact instead of running everything onto one line");
+    }
+
+    // The property name is deliberately not "setting" - the vendored Spec reads any method
+    // beginning with "set" as a setter (see the comment on Contradiction below).
+    @ConfigSpec
+    public interface MultiLineCommentOnly {
+        @Order(1)
+        @Key("option")
+        @Comment({"First line.", "", "Second paragraph line."})
+        default String option() {
+            return "";
+        }
     }
 
     @Test

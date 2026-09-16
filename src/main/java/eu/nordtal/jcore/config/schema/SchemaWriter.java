@@ -7,6 +7,7 @@ import eu.nordtal.jcore.config.internal.AtomicConfigWriter;
 import eu.nordtal.jcore.config.spec.Specs;
 import eu.nordtal.jcore.config.spec.SpecProperty;
 import eu.nordtal.jcore.config.spec.annotation.AllowedValues;
+import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
@@ -119,9 +120,12 @@ public final class SchemaWriter {
      * The file-level {@code @ConfigSpec(header = {...})} as one block of text, one array entry per
      * line, or the empty string when the spec declares none.
      * <p>
-     * steward/67, 2026-09-16. 4.0.0 stopped writing comments into the YAML and moved the per-key
-     * {@code @Comment} / {@code @Explain} text into this schema - but the file-level header went
-     * nowhere at all, so it was written into no file any more. That is not a cosmetic loss:
+     * steward/67, 2026-09-16. 4.0.0 stopped writing comments into the YAML, but it only moved the
+     * per-key {@code @Explain} text into this schema - {@code @Comment} reached no file at all
+     * until steward/72 (4.1.1) gave it a home too, as {@link #nodeFor}'s fallback for the (still
+     * common) case where a property has no {@code @Explain} of its own. The file-level header went
+     * nowhere either, exactly like {@code @Comment}, so it was written into no file any more. That
+     * is not a cosmetic loss:
      * season-2's {@code BotSpec} uses its header for the only sentence anywhere that tells an
      * operator the Discord token and the bunq key come from {@code NORDTAL_BOT_TOKEN} and friends
      * rather than from the file they are looking at. A season-2 test caught it going red.
@@ -170,13 +174,24 @@ public final class SchemaWriter {
     private static @NotNull SchemaNode nodeFor(final @NotNull SpecProperty property) {
         final Method getter = property.getter();
         final Explain explain = getter.getAnnotation(Explain.class);
+        final Comment comment = getter.getAnnotation(Comment.class);
         final NoExplanationNeeded noExplanationNeeded = getter.getAnnotation(NoExplanationNeeded.class);
         if (explain != null && noExplanationNeeded != null) {
             throw new IllegalArgumentException(
                     "Property '" + property.key() + "' carries both @Explain and"
                             + " @NoExplanationNeeded - decide which one this setting means.");
         }
-        final String explanation = explain != null ? explain.value() : "";
+        // steward/72: @Explain always wins when it is present - it is the sentence somebody wrote
+        // on purpose for this interface, and @Comment is not a second vote on the same field, it
+        // is the long form for a different reader (see @Explain's own javadoc). When @Explain is
+        // absent, which is still true of most of the codebase, @Comment's text is used instead of
+        // leaving the field empty: a long explanation nobody has shortened yet is still enormously
+        // more useful than none. @Comment is a String[], one array entry per line - joined with
+        // '\n' rather than a space, because a blank entry is a paragraph break the source author
+        // put there on purpose (see Explain's own javadoc example) and the interface already
+        // renders a multi-line explanation. Neither annotation present stays "", exactly as before.
+        final String explanation = explain != null ? explain.value()
+                : comment != null ? String.join("\n", comment.value()) : "";
         final boolean skipExplanation = noExplanationNeeded != null;
         final boolean secret = getter.isAnnotationPresent(Secret.class);
         final String label = SettingLabels.of(property.key());

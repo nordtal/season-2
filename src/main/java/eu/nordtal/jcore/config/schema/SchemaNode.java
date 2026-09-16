@@ -28,10 +28,14 @@ import java.util.Map;
  *                            {@code base-url} becomes {@code Base url}. Always {@code ""} on the
  *                            root node, which stands for the file and has no key to derive one
  *                            from
- * @param explanation         the short text from {@link eu.nordtal.jcore.config.spec.annotation.Explain @Explain},
- *                            or the empty string if the property carries none. Never the long
- *                            {@code @Comment} text - that stays in the source for the person
- *                            reading the code and is never written here.
+ * @param explanation         the short text from {@link eu.nordtal.jcore.config.spec.annotation.Explain @Explain}
+ *                            when the property carries one. When it does not - still most of the
+ *                            codebase as of steward/72 - the longer
+ *                            {@link eu.nordtal.jcore.config.spec.annotation.Comment @Comment} text
+ *                            is used instead, its lines joined with {@code '\n'}: a long
+ *                            explanation nobody has shortened yet is better than an empty field,
+ *                            and {@code @Explain} always wins once it is written. Empty only when
+ *                            the property carries neither.
  *                            <p>
  *                            <b>On the root node this is the file-level header</b> -
  *                            {@code @ConfigSpec(header = {...})}, one array entry per line, joined

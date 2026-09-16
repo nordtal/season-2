@@ -234,8 +234,12 @@ class StewardUiIntegrationTest {
             // the one part of the worker these tests do not fake, because the whole of the
             // configuration editor now lives on that side and what is left in steward-ui is three
             // lines of proxy. Faking it here would test the proxy against a mirror.
+            // No console to type into in this fake worker - none of the fixture files below name a
+            // reload command (steward/59), so a no-op is never actually invoked here; the proxy is
+            // what this test exercises, not ConfigApi's own reload behaviour, which has its own
+            // test in :steward-worker.
             final eu.nordtal.s2.steward.worker.api.ConfigApi configApi =
-                    new eu.nordtal.s2.steward.worker.api.ConfigApi(configRoot);
+                    new eu.nordtal.s2.steward.worker.api.ConfigApi(configRoot, (service, command) -> { });
             cfg.routes.get("/api/config", configApi::list);
             cfg.routes.get("/api/config/<file>", configApi::one);
             cfg.routes.put("/api/config/<file>", configApi::save);

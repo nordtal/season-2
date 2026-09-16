@@ -246,6 +246,8 @@ public final class ConfigFiles {
             final Type type;
             final String value;
             final List<String> items;
+            final List<ConfigEntry> template;
+            final List<List<ConfigEntry>> sections;
             final boolean editable;
 
             if (valueNode instanceof MappingNode) {
@@ -253,9 +255,46 @@ public final class ConfigFiles {
                 type = Type.STRING;
                 value = "";
                 items = List.of();
+                template = List.of();
+                sections = List.of();
                 // A section is a heading, not a value. There is nothing here to change that is not
                 // one of the keys underneath it.
                 editable = false;
+            } else if (valueNode instanceof SequenceNode sequence
+                    && !sequence.getValue().isEmpty()
+                    && sequence.getValue().stream().allMatch(item -> item instanceof MappingNode)) {
+                // A sequence of mappings - `languages` and `tiers` in the bot's access.yml are the
+                // cases this was built for (steward/68). Reading and writing are split on purpose:
+                // this class only ever replaces the characters of one scalar already on a line, so
+                // an existing entry's own field can be changed - see #sections(Parsed, List, Entry,
+                // List) below - but inserting or deleting a whole entry would have to place a new
+                // block of lines (or remove one) with the right indentation and, for an insert, no
+                // comment to invent - a harder problem this class does not solve yet.
+                kind = Kind.SECTIONS;
+                value = "";
+                items = List.of();
+                type = Type.STRING;
+                editable = true;
+
+                final Optional<Map<String, SchemaNode>> elementSchema =
+                        (schemaChild != null && schemaChild.kind() == SettingKind.LIST)
+                                ? Optional.of(schemaChild.children())
+                                : Optional.empty();
+                final List<List<ConfigEntry>> collected = new ArrayList<>();
+                for (int index = 0; index < sequence.getValue().size(); index++) {
+                    final MappingNode element = (MappingNode) sequence.getValue().get(index);
+                    final List<ConfigEntry> fields = new ArrayList<>();
+                    collect(file, element, path + "[" + index + "]", lines, fields, spans, elementSchema);
+                    collected.add(List.copyOf(fields));
+                }
+                sections = List.copyOf(collected);
+                // No template at all when there is nothing to build one from, or when the schema
+                // covers this list but describes an element with a map or a list of its own inside
+                // it - a shape steward/68 leaves as "no card fits" rather than guessing at how deep
+                // to go.
+                template = elementSchema.filter(ConfigFiles::everyFieldIsAScalar)
+                        .map(ConfigFiles::templateOf)
+                        .orElse(List.of());
             } else if (valueNode instanceof SequenceNode sequence) {
                 kind = Kind.LIST;
                 value = "";
@@ -270,9 +309,10 @@ public final class ConfigFiles {
                 }
                 items = scalars.stream().map(ScalarNode::getValue).toList();
                 type = plain ? sharedType(scalars) : Type.STRING;
-                // A list of sections is left alone: rewriting the block would have to carry the
-                // comments and the key order inside every entry across, and a config editor that
-                // reformats a file nobody asked it to touch is one nobody will trust twice.
+                template = List.of();
+                sections = List.of();
+                // A sequence that mixes scalars and mappings is nothing this class can describe as
+                // either shape, so it is left exactly as before: raw and not editable.
                 editable = plain;
             } else {
                 final ScalarNode scalar = (ScalarNode) valueNode;
@@ -280,6 +320,8 @@ public final class ConfigFiles {
                 type = Scalars.typeOf(scalar);
                 value = scalar.getValue();
                 items = List.of();
+                template = List.of();
+                sections = List.of();
                 editable = true;
             }
 
@@ -306,6 +348,8 @@ public final class ConfigFiles {
                     schemaChild != null && schemaChild.noExplanationNeeded(),
                     value,
                     items,
+                    template,
+                    sections,
                     kind,
                     type,
                     keyLine + 1,
@@ -347,6 +391,54 @@ public final class ConfigFiles {
             return null;
         }
         return new ConfigEntry.Choices(schemaChild.choices().values(), schemaChild.choices().strict());
+    }
+
+    /**
+     * Whether a {@link Kind#SECTIONS} element's schema is flat enough to build a
+     * {@link ConfigEntry#template()} from - every one of its own fields a plain scalar, none of them
+     * a nested map or another list.
+     *
+     * <p>Nothing in {@code access.yml} needs more than that today, and a field two levels deep would
+     * need a card that draws a card inside a card - a shape steward-ui's {@code RepeatableCards} was
+     * never asked to draw. Refusing a template here is what sends that case down the raw-text
+     * fallback instead of a card silently dropping the nested part.</p>
+     */
+    private static boolean everyFieldIsAScalar(final Map<String, SchemaNode> elementSchema) {
+        return elementSchema.values().stream().allMatch(field -> field.kind() == SettingKind.SCALAR);
+    }
+
+    /**
+     * The blank card a "Add entry" starts from: one {@link ConfigEntry} per field the schema
+     * describes for one element, in schema order, every one of them an empty, editable scalar.
+     *
+     * @param elementSchema the schema's own shape of one element - see
+     *                      {@link SchemaNode#children()}'s doc for a {@link SettingKind#LIST}
+     */
+    private static List<ConfigEntry> templateOf(final Map<String, SchemaNode> elementSchema) {
+        final List<ConfigEntry> fields = new ArrayList<>();
+        for (final Map.Entry<String, SchemaNode> field : elementSchema.entrySet()) {
+            final String key = field.getKey();
+            final SchemaNode schema = field.getValue();
+            fields.add(new ConfigEntry(
+                    key,
+                    key,
+                    schema.label(),
+                    List.of(),
+                    schema.explanation(),
+                    schema.noExplanationNeeded(),
+                    "",
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    Kind.SCALAR,
+                    schema.type() != null ? Type.valueOf(schema.type().name()) : Type.STRING,
+                    0,
+                    true,
+                    ConfigEntry.isSecretKey(key) || schema.secret(),
+                    true,
+                    choicesOf(schema)));
+        }
+        return List.copyOf(fields);
     }
 
     /**
@@ -506,7 +598,7 @@ public final class ConfigFiles {
         for (final Map.Entry<String, ConfigChange> change : ordered) {
             final ConfigEntry entry = entryOf(parsed, file, change.getKey());
             final Span span = parsed.spans().get(change.getKey());
-            expected.put(change.getKey(), apply(lines, entry, span, change.getValue()));
+            expected.put(change.getKey(), apply(parsed, lines, entry, span, change.getValue()));
         }
 
         final String content = String.join("", lines);
@@ -522,9 +614,11 @@ public final class ConfigFiles {
 
     /**
      * Rewrites one key, and answers with what that key should now read back as - a {@link String}
-     * for a scalar, a {@link List} for a sequence.
+     * for a scalar, a {@link List} for a sequence of scalars, a {@link List} of {@link Map}s for a
+     * {@link Kind#SECTIONS} entry.
      */
-    private static Object apply(final List<String> lines,
+    private static Object apply(final Parsed parsed,
+                                final List<String> lines,
                                 final ConfigEntry entry,
                                 final Span span,
                                 final ConfigChange change) {
@@ -533,14 +627,21 @@ public final class ConfigFiles {
                     + entry.line() + ") and has no value of its own - change the keys under it");
         }
         if (!entry.editable()) {
-            throw new IllegalArgumentException(entry.path() + " is a list of sections (line "
-                    + entry.line() + "): rewriting it would move the comments and the keys inside"
-                    + " it, so this editor leaves it alone - edit that one by hand");
+            // The one remaining shape that reaches here is a sequence that mixes scalars and
+            // mappings - a uniform sequence of mappings is Kind.SECTIONS now and editable (steward/68),
+            // and a uniform sequence of scalars always was.
+            throw new IllegalArgumentException(entry.path() + " is a list whose entries are not all"
+                    + " the same shape (line " + entry.line() + "): this editor cannot describe it"
+                    + " field by field, so it leaves it alone - edit it by hand");
         }
         return switch (change) {
             case ConfigChange.Text text -> {
-                if (entry.kind() != Kind.LIST) {
+                if (entry.kind() == Kind.SCALAR) {
                     yield scalar(lines, entry, span, text.text());
+                }
+                if (entry.kind() == Kind.SECTIONS) {
+                    throw new IllegalArgumentException(entry.path() + " is a list of sections (line "
+                            + entry.line() + "): send one flat record per entry, not one value");
                 }
                 throw new IllegalArgumentException(entry.path() + " is a list (line " + entry.line()
                         + "): send its entries, not one value");
@@ -549,8 +650,20 @@ public final class ConfigFiles {
                 if (entry.kind() == Kind.LIST) {
                     yield sequence(lines, entry, span, items.items());
                 }
+                if (entry.kind() == Kind.SECTIONS) {
+                    throw new IllegalArgumentException(entry.path() + " is a list of sections (line "
+                            + entry.line() + "): send one flat record per entry, not a list of plain"
+                            + " values");
+                }
                 throw new IllegalArgumentException(entry.path() + " is a single value (line "
                         + entry.line() + "): send one value, not a list");
+            }
+            case ConfigChange.Sections sectionsChange -> {
+                if (entry.kind() == Kind.SECTIONS) {
+                    yield sections(parsed, lines, entry, sectionsChange.sections());
+                }
+                throw new IllegalArgumentException(entry.path() + " is not a list of sections (line "
+                        + entry.line() + "): send a single value or a list of values instead");
             }
         };
     }
@@ -668,6 +781,101 @@ public final class ConfigFiles {
         keepEndingOf(replacement, lines.get(last));
         replaceLines(lines, span.keyLine(), last, replacement);
         return List.copyOf(items);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Writing - sections (steward/68)
+    // -----------------------------------------------------------------------------------------
+
+    /**
+     * Rewrites the fields of a {@link Kind#SECTIONS} entry that actually changed, and leaves every
+     * other field - and with it every comment and the key order around it - untouched.
+     *
+     * <p><b>This is the whole of what steward/68 proves.</b> A field already on its own line is
+     * rewritten the same way {@link #scalar} rewrites a top-level one: only the characters of that
+     * value move. A field whose sent value equals what {@code entry.sections()} already read is not
+     * touched at all - not re-read, not re-written, not even considered a candidate line - which is
+     * what makes the surrounding comments and the key order of an entry nobody asked to change
+     * provably still there afterwards, byte for byte.</p>
+     *
+     * <p>Adding or removing an entry is refused rather than guessed at (see the comment on
+     * {@link ConfigChange.Sections}) - {@code incoming} has to name exactly as many entries as
+     * {@code entry.sections()} already has.</p>
+     */
+    private static List<Map<String, String>> sections(final Parsed parsed,
+                                                       final List<String> lines,
+                                                       final ConfigEntry entry,
+                                                       final List<Map<String, String>> incoming) {
+        final List<List<ConfigEntry>> existing = entry.sections();
+        if (incoming.size() != existing.size()) {
+            throw new IllegalArgumentException(entry.path() + " has " + existing.size()
+                    + " entr" + (existing.size() == 1 ? "y" : "ies") + " in the file right now, but "
+                    + incoming.size() + " " + (incoming.size() == 1 ? "was" : "were")
+                    + " sent - adding or removing an entry is not something this editor can do yet"
+                    + " (steward/68); add or remove it in the file by hand");
+        }
+
+        record PendingEdit(ConfigEntry field, String value) {
+        }
+        final List<PendingEdit> edits = new ArrayList<>();
+        for (int index = 0; index < existing.size(); index++) {
+            final List<ConfigEntry> fields = existing.get(index);
+            final Map<String, String> wanted = incoming.get(index);
+            for (final ConfigEntry field : fields) {
+                final String wantedValue = wanted.get(field.key());
+                if (wantedValue == null) {
+                    throw new IllegalArgumentException(field.path() + " is missing from entry "
+                            + index + " of " + entry.path() + " that was sent to be saved");
+                }
+                if (field.kind() != Kind.SCALAR) {
+                    // Neither real case (tiers, languages) nests a map or a list inside one entry;
+                    // refusing rather than guessing is the same choice #everyFieldIsAScalar makes
+                    // for the template on the reading side.
+                    throw new IllegalArgumentException(field.path() + " (line " + field.line()
+                            + ") is not a plain value and cannot be changed through " + entry.path());
+                }
+                if (!wantedValue.equals(field.value())) {
+                    edits.add(new PendingEdit(field, wantedValue));
+                }
+            }
+        }
+
+        // Bottom of the file upwards, exactly like the top-level write() loop and for the same
+        // reason: a field rewritten as a block would change how many lines follow it, and every
+        // span below it would then point at the wrong line.
+        edits.sort(Comparator.comparingInt(
+                (final PendingEdit edit) -> parsed.spans().get(edit.field().path()).line()).reversed());
+        final Map<String, String> rendered = new HashMap<>();
+        for (final PendingEdit edit : edits) {
+            final Span fieldSpan = parsed.spans().get(edit.field().path());
+            rendered.put(edit.field().path(), scalar(lines, edit.field(), fieldSpan, edit.value()));
+        }
+
+        final List<Map<String, String>> written = new ArrayList<>(existing.size());
+        for (final List<ConfigEntry> fields : existing) {
+            final Map<String, String> row = new LinkedHashMap<>();
+            for (final ConfigEntry field : fields) {
+                row.put(field.key(), rendered.getOrDefault(field.path(), field.value()));
+            }
+            written.add(Map.copyOf(row));
+        }
+        return List.copyOf(written);
+    }
+
+    /**
+     * The same shape {@link #sections} writes, read back out of an already-parsed
+     * {@link Kind#SECTIONS} entry - what {@link #verify} compares the write above against.
+     */
+    private static List<Map<String, String>> sectionValuesOf(final ConfigEntry entry) {
+        final List<Map<String, String>> result = new ArrayList<>(entry.sections().size());
+        for (final List<ConfigEntry> section : entry.sections()) {
+            final Map<String, String> row = new LinkedHashMap<>();
+            for (final ConfigEntry field : section) {
+                row.put(field.key(), field.value());
+            }
+            result.add(Map.copyOf(row));
+        }
+        return result;
     }
 
     // -----------------------------------------------------------------------------------------
@@ -848,7 +1056,11 @@ public final class ConfigFiles {
                     .orElseThrow(() -> new IllegalStateException("Refusing to write " + file
                             + ": " + path + " disappeared from the edited content."
                             + " This is a bug in ConfigFiles."));
-            final Object actual = value instanceof List ? entry.items() : entry.value();
+            final Object actual = switch (entry.kind()) {
+                case LIST -> entry.items();
+                case SECTIONS -> sectionValuesOf(entry);
+                case SCALAR, MAP -> entry.value();
+            };
             if (!actual.equals(value)) {
                 throw new IllegalStateException("Refusing to write " + file + ": " + path
                         + " would read back as \"" + actual + "\" instead of \"" + value + "\"."

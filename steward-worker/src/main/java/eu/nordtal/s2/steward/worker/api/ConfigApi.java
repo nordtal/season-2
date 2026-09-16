@@ -11,6 +11,7 @@ import eu.nordtal.s2.steward.worker.configfile.ConfigEntry;
 import eu.nordtal.s2.steward.worker.configfile.ConfigFiles;
 import eu.nordtal.s2.steward.worker.configfile.ConfigLocation;
 import eu.nordtal.s2.steward.worker.configfile.StaleConfigException;
+import eu.nordtal.s2.steward.worker.docker.DockerException;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ConflictResponse;
 import io.javalin.http.Context;
@@ -45,15 +46,62 @@ import java.util.Optional;
  * and no value. It can still be overwritten, because typing a new one does not require having seen
  * the old one. What is given up is comparing two services' tokens by eye; what is bought is that
  * the Discord bot token is not in a browser cache, a screen recording or the next XSS.</p>
+ *
+ * <p><b>A save also asks the affected service to pick the change up (steward/59).</b> Till's
+ * complaint that started that ticket: a change that needs a second click on a second button is a
+ * change that is not applied yet, and the interface used to leave it there. See {@link #reload}
+ * for what "ask" means and {@link #RELOAD_COMMAND} for which files it actually reaches - never a
+ * restart, which stays a deliberate click of Till's own.</p>
  */
 public final class ConfigApi {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigApi.class);
 
-    private final Path root;
+    /**
+     * One line into a running server's console, with nothing read back - exactly
+     * {@link eu.nordtal.s2.steward.worker.docker.Console#send}, narrowed to the one method this
+     * class needs so a test can hand it a lambda instead of a real {@code Docker} socket.
+     */
+    @FunctionalInterface
+    public interface ConsoleLine {
+        void send(@NotNull String service, @NotNull String command);
+    }
 
-    public ConfigApi(final @NotNull Path root) {
+    /**
+     * Which running service to poke, and with what line, once a save actually changes a file on
+     * disk - keyed by the same identity {@link #locate} matches against, because reloadability is
+     * a property of one file, not of a whole service. {@code smp/smp/config.yml} binds worlds and
+     * borders once at enable and {@code /smp reload} deliberately never re-reads it (see
+     * {@code ReloadSmp}, {@code SmpPlugin} in {@code :smp}); {@code smp/smp/milestones.yml} and
+     * {@code smp/smp/sounds.yml} sit right beside it in the same service and are the two files that
+     * command actually re-reads. The same reading gives {@code hunger-games/hunger-games/sounds.yml}
+     * (see {@code ReloadHungerGames}) - {@code config.yml} there is excluded on purpose too, because
+     * a game already running must not have its border schedule move under it.
+     *
+     * <h2>Why a map here and not on the jcore schema</h2>
+     * A {@code @ConfigSpec} already carries a key's type and comment (steward/54, steward/55); it
+     * carries nothing about whether a change to it needs a restart, and jcore has no annotation for
+     * that today. Adding one is a jcore change with a release of its own, and out of reach here
+     * tonight regardless: {@code ConfigFiles.java}, which reads that schema, belongs to another
+     * agent this same evening. This map is the honest stand-in - short on purpose, because being
+     * wrong in either direction is a real failure: too eager sends a command nobody asked for into
+     * a live server's console, too conservative tells an operator a restart is needed when a reload
+     * would already have done it. It grows by hand exactly when a plugin gains or loses a reload
+     * command, the same trade {@code Topology} already makes against {@code compose.yml} for the
+     * same reason - the alternative is inferring live behaviour from a file nobody parses at
+     * runtime.
+     */
+    private static final Map<String, String> RELOAD_COMMAND = Map.of(
+            "smp/smp/milestones.yml", "smp reload",
+            "smp/smp/sounds.yml", "smp reload",
+            "hunger-games/hunger-games/sounds.yml", "hg reload");
+
+    private final Path root;
+    private final ConsoleLine console;
+
+    public ConfigApi(final @NotNull Path root, final @NotNull ConsoleLine console) {
         this.root = root;
+        this.console = console;
     }
 
     /** {@code GET /api/config} - every file under the mount, without reading any of them. */
@@ -101,7 +149,12 @@ public final class ConfigApi {
         final Map<String, ConfigChange> changes = changesOf(body);
         final String revision = revisionOf(body);
         try {
-            ctx.json(document(location, ConfigFiles.write(location.file(), changes, revision)));
+            final Map<String, Object> answer = document(location,
+                    ConfigFiles.write(location.file(), changes, revision));
+            // The write above is what makes the change real; this is what makes it reach anything.
+            // One request, one click - never a second button for "now actually use it" (steward/59).
+            answer.put("reload", reload(location));
+            ctx.json(answer);
         } catch (final StaleConfigException e) {
             // Nobody made a mistake and the change needs no correcting: somebody was faster. The
             // page redraws from the file as it now stands and the operator decides again.
@@ -223,16 +276,73 @@ public final class ConfigApi {
         }
     }
 
-    private static Map<String, Object> document(final ConfigLocation location,
+    // Package-private: ConfigApiReloadTest constructs a ConfigDocument directly, without a
+    // Javalin context or a file on disk, to check what restartRequired says.
+    static Map<String, Object> document(final ConfigLocation location,
                                                 final ConfigDocument read) {
         final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
         answer.put("revision", read.revision());
         answer.put("header", read.header());
+        // Shown at the file, not only after a save (steward/59's third case): a setting nothing
+        // reloads says so the moment the form is open, not only in the toast the save produces.
+        answer.put("restartRequired", !RELOAD_COMMAND.containsKey(identityOf(location)));
         final List<Map<String, Object>> entries = new ArrayList<>(read.entries().size());
         for (final ConfigEntry entry : read.entries()) {
             entries.add(describe(entry));
         }
         answer.put("entries", entries);
+        return answer;
+    }
+
+    /**
+     * Asks the affected service to pick a just-written change up, and says in one word plus one
+     * sentence what happened - the three outcomes steward/59 asks not to look alike.
+     *
+     * <p>{@code RESTART_REQUIRED} when nothing in {@link #RELOAD_COMMAND} names this file: no
+     * command is sent, because there is nothing this process could send that this file's own
+     * reload command would read. {@code APPLIED} when the line was handed to a running container's
+     * console - {@link ConsoleLine#send} throwing nothing back only means the exec succeeded, not
+     * that the plugin liked what it read; a malformed file the plugin refuses is reported on that
+     * service's own console, which is the log every admin here is already watching, the same way a
+     * console command's own reply always has been. {@code NO_ANSWER} when the container that would
+     * have run it is not there to ask - a service that is down, mid-restart, or never started.
+     * Neither branch restarts anything: that stays Till's own click, on purpose.</p>
+     */
+    // Package-private for the same reason: ConfigApiReloadTest drives the three outcomes with a
+    // fake ConsoleLine, never a real Docker socket.
+    Map<String, Object> reload(final ConfigLocation location) {
+        final Map<String, Object> answer = new LinkedHashMap<>();
+        final String command = RELOAD_COMMAND.get(identityOf(location));
+        if (command == null) {
+            answer.put("status", "RESTART_REQUIRED");
+            answer.put("message", "Saved. Nothing reloads " + location.name() + " live; "
+                    + (location.service().isEmpty() ? "it" : location.service())
+                    + " only reads it again at its next restart, which stays a click of its own.");
+            return answer;
+        }
+        try {
+            console.send(location.service(), command);
+            answer.put("status", "APPLIED");
+            answer.put("message", "Saved, and \"" + command + "\" was sent to "
+                    + location.service() + "'s console to pick it up. Its reply, if the change was"
+                    + " refused, appears in that service's own log.");
+        } catch (final DockerException e) {
+            log.warn("{} was saved but {} could not be reached to reload it: {}",
+                    location.file(), location.service(), e.getMessage());
+            answer.put("status", "NO_ANSWER");
+            answer.put("message", "Saved, but " + location.service() + " did not answer: "
+                    + e.getMessage() + ". The change is on disk and takes effect once that service"
+                    + " is running again.");
+        } catch (final IllegalArgumentException e) {
+            // Cannot happen for anything RELOAD_COMMAND names today - every key in it belongs to
+            // one of the four services with a console - but a service losing its console without
+            // this map being updated to match should read as "needs a restart", not crash the save
+            // that already succeeded.
+            log.warn("{} names a reload command for {}, which refused it: {}",
+                    location.file(), location.service(), e.getMessage());
+            answer.put("status", "RESTART_REQUIRED");
+            answer.put("message", "Saved. " + e.getMessage());
+        }
         return answer;
     }
 
@@ -273,7 +383,8 @@ public final class ConfigApi {
         row.put("noExplanationNeeded", entry.noExplanationNeeded());
         // `filled` is what a secret is allowed to say about itself. It is sent for every key, not
         // only the secret ones, so the page has one rule to draw rather than two.
-        row.put("filled", !entry.value().isEmpty() || !entry.items().isEmpty());
+        row.put("filled", !entry.value().isEmpty() || !entry.items().isEmpty()
+                || !entry.sections().isEmpty());
         if (!entry.secret()) {
             row.put("value", entry.value());
             row.put("items", entry.items());
@@ -289,6 +400,17 @@ public final class ConfigApi {
             choices.put("values", entry.choices().values());
             choices.put("strict", entry.choices().strict());
             row.put("choices", choices);
+        }
+        // template and sections exist only for a SECTIONS entry (steward/68) - api.ts's ConfigEntry
+        // declares both undefined for every other kind, which is what leaving the key out of the
+        // map achieves, rather than sending an empty array a scalar or a section itself never has.
+        if (entry.kind() == ConfigEntry.Kind.SECTIONS) {
+            if (!entry.template().isEmpty()) {
+                row.put("template", entry.template().stream().map(ConfigApi::describe).toList());
+            }
+            row.put("sections", entry.sections().stream()
+                    .map(section -> section.stream().map(ConfigApi::describe).toList())
+                    .toList());
         }
         return row;
     }
@@ -343,6 +465,9 @@ public final class ConfigApi {
     private static ConfigChange changeOf(final String path, final JsonElement value) {
         if (value.isJsonArray()) {
             final JsonArray array = value.getAsJsonArray();
+            if (!array.isEmpty() && array.get(0).isJsonObject()) {
+                return ConfigChange.sections(sectionsOf(path, array));
+            }
             final List<String> items = new ArrayList<>(array.size());
             for (final JsonElement item : array) {
                 items.add(textOf(path, item));
@@ -350,6 +475,28 @@ public final class ConfigApi {
             return ConfigChange.list(items);
         }
         return ConfigChange.of(textOf(path, value));
+    }
+
+    /**
+     * The entries of a {@link ConfigEntry.Kind#SECTIONS} change - an array whose first element is a
+     * JSON object rather than a scalar (steward/68). Every element has to follow the same shape;
+     * a mix is reported rather than silently coerced, since {@link ConfigFiles} has no way to tell
+     * whether a stray scalar there was meant as a whole new entry or a mistake.
+     */
+    private static List<Map<String, String>> sectionsOf(final String path, final JsonArray array) {
+        final List<Map<String, String>> sections = new ArrayList<>(array.size());
+        for (final JsonElement item : array) {
+            if (!item.isJsonObject()) {
+                throw new BadRequestResponse(path + ": every entry of a list of sections has to be"
+                        + " an object of field to new value, not " + item);
+            }
+            final Map<String, String> fields = new LinkedHashMap<>();
+            for (final Map.Entry<String, JsonElement> field : item.getAsJsonObject().entrySet()) {
+                fields.put(field.getKey(), textOf(path + "." + field.getKey(), field.getValue()));
+            }
+            sections.add(fields);
+        }
+        return sections;
     }
 
     /**

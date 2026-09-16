@@ -80,6 +80,14 @@ dependencies {
     testImplementation("org.testcontainers:postgresql:1.21.4")
     testImplementation("org.testcontainers:junit-jupiter:1.21.4")
 
+    // https://mvnrepository.com/artifact/com.google.jimfs/jimfs  (1.3.2, read from maven-metadata.xml
+    // on 2026-09-16). An in-memory filesystem, used by exactly one test: AtomicConfigWriter promises
+    // that a full disk cannot destroy the previous content, and Jimfs can be given a maximum size,
+    // so the promise is tested against the thing it is about. The stand-in it replaces - a directory
+    // with the write bit taken away - proves nothing when the build runs as uid 0, which it does on
+    // the nordtal dev host, and that made every jcore build there red for a reason that was not jcore.
+    testImplementation("com.google.jimfs:jimfs:1.3.2")
+
     // A logging backend for jcore's own tests only. Deliberately NOT exported - see README.
     // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
     testRuntimeOnly("ch.qos.logback:logback-classic:1.5.18")

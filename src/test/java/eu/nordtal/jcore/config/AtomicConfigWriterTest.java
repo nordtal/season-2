@@ -1,11 +1,14 @@
 package eu.nordtal.jcore.config;
 
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
 import eu.nordtal.jcore.config.internal.AtomicConfigWriter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.UncheckedIOException;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -18,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Finding 3: the old loader wrote straight into the destination file. */
 class AtomicConfigWriterTest {
@@ -69,22 +71,46 @@ class AtomicConfigWriterTest {
     }
 
     @Test
-    @DisplayName("finding 3: a failed write leaves the previous content intact")
+    @DisplayName("finding 3: a disk with no room left leaves the previous content intact")
     void failedWriteKeepsPreviousContent() throws Exception {
-        final Path file = directory.resolve("sub/config.yml");
-        AtomicConfigWriter.write(file, "good: yes\n");
+        // This used to take the write bit off the destination directory and call that a full disk.
+        // It is not one, and on a machine where the build runs as uid 0 it is not even a failure:
+        // root ignores the permission bits, the write succeeded, and the assertion below failed for
+        // a reason that had nothing to do with jcore. That was every build on the nordtal dev host,
+        // and it cost two agents a round each before anybody read it properly.
+        //
+        // So the failure is produced where it really comes from instead: a filesystem with a
+        // maximum size, in memory. No uid talks its way past a disk that is full, the promise being
+        // tested is exactly the one in the javadoc, and the test says the same thing on every
+        // machine.
+        try (FileSystem full = Jimfs.newFileSystem(
+                Configuration.unix().toBuilder().setMaxSize(64 * 1024).build())) {
+            final Path file = full.getPath("/config/sub/config.yml");
+            AtomicConfigWriter.write(file, "good: yes\n");
 
-        // Make the destination directory unwritable so creating the temp file fails, which is
-        // the closest reproducible stand-in for a full disk.
-        final Path parent = file.getParent();
-        assertTrue(parent.toFile().setWritable(false), "cannot make the directory read-only here");
-        try {
-            assertThrows(UncheckedIOException.class,
-                    () -> AtomicConfigWriter.write(file, "replacement: yes\n"));
+            final String tooBig = "replacement: " + "x".repeat(1_000_000) + "\n";
+            assertThrows(UncheckedIOException.class, () -> AtomicConfigWriter.write(file, tooBig));
             assertEquals("good: yes\n", Files.readString(file),
                     "the destination must still hold the previous, complete content");
-        } finally {
-            parent.toFile().setWritable(true);
+        }
+    }
+
+    /** Nothing is left lying around either - the temp file that did not fit has to go. */
+    @Test
+    @DisplayName("a write that runs out of room leaves no temporary file behind")
+    void failedWriteLeavesNoTemporaryFile() throws Exception {
+        try (FileSystem full = Jimfs.newFileSystem(
+                Configuration.unix().toBuilder().setMaxSize(64 * 1024).build())) {
+            final Path file = full.getPath("/config/config.yml");
+            AtomicConfigWriter.write(file, "good: yes\n");
+
+            assertThrows(UncheckedIOException.class,
+                    () -> AtomicConfigWriter.write(file, "x".repeat(1_000_000)));
+
+            try (var entries = Files.list(file.getParent())) {
+                final List<String> names = entries.map(path -> path.getFileName().toString()).toList();
+                assertEquals(List.of("config.yml"), names, "a temp file survived: " + names);
+            }
         }
     }
 

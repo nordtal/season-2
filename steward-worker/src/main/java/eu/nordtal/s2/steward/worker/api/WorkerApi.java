@@ -219,7 +219,7 @@ public final class WorkerApi implements AutoCloseable {
         // The configuration editor's whole back end. It lives here and not in steward-ui because
         // every file it touches is 0600 root:root and steward-ui is the one service that is not
         // root - see ApiSpec#configsRoot for the measurement that moved it.
-        this.configs = new ConfigApi(configs);
+        this.configs = new ConfigApi(configs, console::send);
         // A message bundle is not a config file - see MessagesApi's own javadoc for why it is kept
         // apart rather than folded into ConfigApi (steward/48).
         this.messages = new MessagesApi(configs, volumesRoot);

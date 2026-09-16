@@ -112,6 +112,123 @@ describe("the file row", () => {
   })
 })
 
+/**
+ * steward/58: a search box confined to one service's own files - label, key path, current value
+ * and explanation text, a secret's value excluded from all of it, and a hit that lands on the field
+ * and lights it up rather than merely opening the file it lives in.
+ */
+describe("searching a service's settings (steward/58)", () => {
+  const file = "steward-worker/steward.yml"
+
+  function withEntries(entries: ConfigEntry[]) {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "steward.yml" }),
+          revision: "r1",
+          header: [],
+          entries,
+        },
+      }),
+    )
+  }
+
+  function searchBox() {
+    return screen.getByLabelText("Search this service's settings")
+  }
+
+  it("finds a setting by its label without the file being open first", async () => {
+    withEntries([
+      entry({ path: "worker.base-url", key: "base-url", label: "Base url", value: "http://steward-worker:8081" }),
+    ])
+    draw(<ServiceConfiguration service="steward-worker" />)
+    await screen.findByText("Steward")
+
+    fireEvent.change(searchBox(), { target: { value: "base url" } })
+
+    await screen.findByText(/worker\.base-url/)
+  })
+
+  it("finds a setting by its current value", async () => {
+    withEntries([
+      entry({ path: "worker.base-url", key: "base-url", label: "Base url", value: "http://steward-worker:8081" }),
+    ])
+    draw(<ServiceConfiguration service="steward-worker" />)
+    await screen.findByText("Steward")
+
+    fireEvent.change(searchBox(), { target: { value: "8081" } })
+
+    await screen.findByText(/worker\.base-url/)
+  })
+
+  it("finds a setting by its explanation text", async () => {
+    withEntries([
+      entry({
+        path: "limits.max-attempts",
+        key: "max-attempts",
+        label: "Max attempts",
+        explanation: "How many times a failed job is retried before it is given up on.",
+      }),
+    ])
+    draw(<ServiceConfiguration service="steward-worker" />)
+    await screen.findByText("Steward")
+
+    fireEvent.change(searchBox(), { target: { value: "given up" } })
+
+    await screen.findByText("Max attempts")
+  })
+
+  it("RED, then fixed: a secret's known value must never surface a hit", async () => {
+    const token = "MTA1NzE4.super-secret-discord-token"
+    withEntries([
+      // As if a future bug sent a value for a secret anyway - the wire contract in lib/api.ts says
+      // this never happens, and the search box has to refuse it on its own regardless.
+      entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: token }),
+    ])
+    draw(<ServiceConfiguration service="steward-worker" />)
+    await screen.findByText("Steward")
+
+    fireEvent.change(searchBox(), { target: { value: token } })
+
+    await screen.findByText("Nothing found.")
+    expect(screen.queryByText("Bot token")).toBeNull()
+  })
+
+  it("still finds that secret entry by its label - only the value is excluded", async () => {
+    withEntries([
+      entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: "irrelevant" }),
+    ])
+    draw(<ServiceConfiguration service="steward-worker" />)
+    await screen.findByText("Steward")
+
+    fireEvent.change(searchBox(), { target: { value: "bot token" } })
+
+    await screen.findByText(/discord\.bot-token/)
+  })
+
+  it("a hit opens the file and highlights the field, not just the file", async () => {
+    withEntries([
+      entry({ path: "worker.base-url", key: "base-url", label: "Base url", value: "http://steward-worker:8081" }),
+    ])
+    const { container } = draw(<ServiceConfiguration service="steward-worker" />)
+    await screen.findByText("Steward")
+
+    // Not open yet - this is the whole point: the box finds the field before anybody expands
+    // the file it lives in.
+    expect(screen.queryByText("http://steward-worker:8081")).toBeNull()
+
+    fireEvent.change(searchBox(), { target: { value: "base url" } })
+    fireEvent.click(await screen.findByText(/worker\.base-url/))
+
+    await screen.findByDisplayValue("http://steward-worker:8081")
+    expect(container.querySelector(".ring-primary")).not.toBeNull()
+
+    // The search box clears and its results close once a hit has been taken.
+    expect((searchBox() as HTMLInputElement).value).toBe("")
+  })
+})
+
 describe("headings and explanations", () => {
   const file = "steward-worker/steward.yml"
 

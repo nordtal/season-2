@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { CommandPalette } from "@/app/command-palette"
 import { GERMAN_BACKUP_SYNONYM } from "@/app/run-search-terms"
-import { useRuns } from "@/lib/queries"
-import type { Run } from "@/lib/api"
+import { useConfigDocuments, useConfigs, useRuns } from "@/lib/queries"
+import { takePendingJump } from "@/lib/settings-search"
+import type { ConfigEntry, ConfigLocation, ParsedConfigDocument, Run } from "@/lib/api"
 
 /**
  * Ctrl+K, and who gets to keep it.
@@ -26,24 +27,33 @@ const navigateSpy = vi.fn()
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateSpy }))
 
 // steward/52: the palette now loads runs to make them findable by more than their page title.
-// Mocked rather than driven through a real QueryClientProvider + fetch stub, matching this file's
-// existing style of mocking a dependency rather than integrating the whole stack.
-vi.mock("@/lib/queries", () => ({ useRuns: vi.fn() }))
+// steward/58 adds the settings search the same way: mocked rather than driven through a real
+// QueryClientProvider + fetch stub, matching this file's existing style of mocking a dependency
+// rather than integrating the whole stack.
+vi.mock("@/lib/queries", () => ({
+  useRuns: vi.fn(),
+  useConfigs: vi.fn(),
+  useConfigDocuments: vi.fn(),
+}))
 
 beforeEach(() => {
-  // The default every test not about runs gets: nothing loaded, so the palette behaves exactly as
-  // it did before steward/52 unless a test asks for runs specifically.
+  // The default every test not about runs or settings gets: nothing loaded, so the palette behaves
+  // exactly as it did before steward/52 unless a test asks for one of them specifically.
   vi.mocked(useRuns).mockReturnValue({ data: [] } as never)
+  vi.mocked(useConfigs).mockReturnValue({ data: [] } as never)
+  vi.mocked(useConfigDocuments).mockReturnValue([])
 })
 
 afterEach(() => {
   cleanup()
   navigateSpy.mockClear()
   vi.mocked(useRuns).mockReset()
+  vi.mocked(useConfigs).mockReset()
+  vi.mocked(useConfigDocuments).mockReset()
 })
 
 /** The palette, identified by the one thing only the open dialog has. */
-const searchInput = () => screen.queryByPlaceholderText("Search pages…")
+const searchInput = () => screen.queryByPlaceholderText("Search pages, runs, settings…")
 
 function ctrlK(target: Element | Document) {
   fireEvent.keyDown(target, { key: "k", ctrlKey: true })
@@ -186,6 +196,117 @@ describe("CommandPalette - finding a run (steward/52)", () => {
     expect(navigateSpy).toHaveBeenCalledWith({
       to: "/operations/runs/$id",
       params: { id: "91" },
+    })
+  })
+})
+
+/**
+ * steward/58: the second box the ticket asked for - a search across every service's settings, with
+ * the service named in the hit, reachable from anywhere the same way a page or a run already is.
+ */
+describe("CommandPalette - finding a setting (steward/58)", () => {
+  function location(over: Partial<ConfigLocation> & { path: string; name: string }): ConfigLocation {
+    return { service: "steward-worker", readable: true, writable: true, ...over }
+  }
+
+  function entry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
+    return {
+      label: over.key,
+      comments: [],
+      explanation: "",
+      noExplanationNeeded: false,
+      filled: true,
+      value: "",
+      items: [],
+      kind: "SCALAR",
+      type: "STRING",
+      line: 1,
+      editable: true,
+      secret: false,
+      inSchema: true,
+      ...over,
+    }
+  }
+
+  /** Wires `useConfigs`/`useConfigDocuments` for one file, the way the palette actually pairs them:
+   * by index, in the order `locations` came back in. */
+  function oneFile(loc: ConfigLocation, entries: ConfigEntry[]) {
+    vi.mocked(useConfigs).mockReturnValue({ data: [loc] } as never)
+    const document: ParsedConfigDocument = { ...loc, revision: "r1", header: [], entries }
+    vi.mocked(useConfigDocuments).mockReturnValue([{ data: document, isLoading: false }] as never)
+  }
+
+  it("finds a setting by its label and names the service it belongs to", async () => {
+    const loc = location({ path: "steward-worker/steward.yml", name: "steward.yml" })
+    oneFile(loc, [entry({ path: "worker.base-url", key: "base-url", label: "Base url" })])
+
+    await search("base url")
+
+    expect(screen.queryByText("Base url")).not.toBeNull()
+    expect(screen.queryByText(/steward-worker/)).not.toBeNull()
+  })
+
+  it("finds a setting by its current value", async () => {
+    const loc = location({ path: "steward-worker/steward.yml", name: "steward.yml" })
+    oneFile(loc, [
+      entry({ path: "worker.base-url", key: "base-url", label: "Base url", value: "http://steward-worker:8081" }),
+    ])
+
+    await search("8081")
+
+    expect(screen.queryByText("Base url")).not.toBeNull()
+  })
+
+  it("never finds a secret by its value, even when it is the only thing typed", async () => {
+    const loc = location({ path: "discord-bot/steward.yml", name: "steward.yml", service: "discord-bot" })
+    const token = "super-secret-discord-token"
+    oneFile(loc, [
+      // As if a future bug sent a value for a secret anyway - the client's own guard has to hold
+      // regardless of what the wire happened to include.
+      entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: token }),
+    ])
+
+    await search(token)
+
+    expect(screen.queryByText("Bot token")).toBeNull()
+  })
+
+  it("still finds that same secret entry by its label - only the value is excluded", async () => {
+    const loc = location({ path: "discord-bot/steward.yml", name: "steward.yml", service: "discord-bot" })
+    oneFile(loc, [
+      entry({ path: "discord.bot-token", key: "bot-token", label: "Bot token", secret: true, value: "irrelevant" }),
+    ])
+
+    await search("bot token")
+
+    expect(screen.queryByText("Bot token")).not.toBeNull()
+  })
+
+  it("shows nothing before anything is typed - not hundreds of settings on open", async () => {
+    const loc = location({ path: "steward-worker/steward.yml", name: "steward.yml" })
+    oneFile(loc, [entry({ path: "worker.base-url", key: "base-url", label: "Base url" })])
+
+    render(<CommandPalette />)
+    ctrlK(document.body)
+    await waitFor(() => expect(searchInput()).not.toBeNull())
+
+    expect(screen.queryByText("Base url")).toBeNull()
+  })
+
+  it("selecting a hit navigates to that service's page and hands it a jump", async () => {
+    const loc = location({ path: "steward-worker/steward.yml", name: "steward.yml" })
+    oneFile(loc, [entry({ path: "worker.base-url", key: "base-url", label: "Base url" })])
+
+    await search("base url")
+    fireEvent.click(await screen.findByText("Base url"))
+
+    expect(navigateSpy).toHaveBeenCalledWith({
+      to: "/services/$name",
+      params: { name: "steward-worker" },
+    })
+    expect(takePendingJump("steward-worker")).toEqual({
+      file: "steward-worker/steward.yml",
+      path: "worker.base-url",
     })
   })
 })

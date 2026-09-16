@@ -43,23 +43,41 @@ import java.util.List;
  *                            same way {@link #value()} is. Empty for every other kind - and an
  *                            empty list is also empty here, which is the same thing a form needs to
  *                            draw either way
- * @param kind                what sits under the key: a scalar, a sequence or a nested mapping.
- *                            Always read from the file, schema or not - the file is the truth
- *                            (steward/50)
+ * @param template            for a {@link Kind#SECTIONS} entry whose schema describes one uniform
+ *                            shape (every field of the element a plain scalar): the field set every
+ *                            existing entry is drawn with, in schema order, each carrying an empty
+ *                            {@link #value()} - the blank card an "Add" starts from. Empty when there
+ *                            is no schema for this list, the schema does not cover it, or an element
+ *                            of it is itself a map or another list (steward/68 stops there rather
+ *                            than guessing at a shape nobody described). Empty for every other kind
+ * @param sections            for a {@link Kind#SECTIONS} entry: one list of field entries per
+ *                            existing entry of the sequence, in file order, each field shaped the
+ *                            way a top-level key is - so a section's own field can be secret, have
+ *                            choices, or a schema explanation, exactly like any other key. Empty for
+ *                            an empty sequence and for every other kind. These field entries are
+ *                            never also flattened into the document's own top-level list of
+ *                            entries - they are reached only through here
+ * @param kind                what sits under the key: a scalar, a sequence of scalars, a sequence of
+ *                            uniform sections, or a nested mapping. Always read from the file,
+ *                            schema or not - the file is the truth (steward/50)
  * @param type                for a SCALAR, what it looks like to YAML - see {@link Type}. <b>For a
  *                            LIST, the type its entries share</b>, or {@link Type#STRING} when they
  *                            are mixed or there are none; that is what decides how a new entry is
  *                            written back, so that a list of ports stays a list of numbers instead
- *                            of quietly becoming strings. Always {@link Type#STRING} for a MAP,
- *                            which has no value of its own. Read from the file, never the schema
+ *                            of quietly becoming strings. Always {@link Type#STRING} for a MAP or a
+ *                            SECTIONS entry, neither of which has a value of its own. Read from the
+ *                            file, never the schema
  * @param line                the 1-based line the key sits on, for an error message that can be
  *                            acted on
  * @param editable            whether {@link ConfigFiles#write} will accept a change to this key:
- *                            true for any scalar, single-line or block, and for a list whose entries
- *                            are all scalars. False for a nested section, which has no value to
- *                            change, and for a list of sections - rewriting one of those would move
- *                            comments and keys around, and a config editor that reformats a file
- *                            nobody asked it to touch is one nobody will trust twice
+ *                            true for any scalar, single-line or block; for a list whose entries are
+ *                            all scalars; and for a {@link Kind#SECTIONS} entry, whose fields can be
+ *                            changed one value at a time (steward/68) - adding or removing an entry
+ *                            through a save is not yet one of those changes, and {@link ConfigFiles}
+ *                            refuses it by itself rather than this flag turning false for it. False
+ *                            for a nested section, which has no value to change, and for a sequence
+ *                            that mixes scalars and mappings, which is not a shape anything here
+ *                            knows how to write back
  * @param secret              whether this key holds a credential. {@code true} the moment either
  *                            says so: the schema's {@code @Secret}, or the leaf-key heuristic (see
  *                            {@link #isSecretKey(String)}). The heuristic is a net that stays under
@@ -89,6 +107,8 @@ public record ConfigEntry(
         boolean noExplanationNeeded,
         @NotNull String value,
         @NotNull List<String> items,
+        @NotNull List<ConfigEntry> template,
+        @NotNull List<List<ConfigEntry>> sections,
         @NotNull Kind kind,
         @NotNull Type type,
         int line,
@@ -101,10 +121,16 @@ public record ConfigEntry(
     public enum Kind {
         /** A single value, on one line or written as a block ({@code |}, {@code >}). */
         SCALAR,
-        /** A YAML sequence, block ({@code - item}) or flow ({@code []}). */
+        /** A YAML sequence, block ({@code - item}) or flow ({@code []}), of scalars only. */
         LIST,
         /** A nested mapping. It exists so the interface can group the keys beneath it. */
-        MAP
+        MAP,
+        /**
+         * A YAML sequence whose every entry is itself a mapping - {@code languages} and
+         * {@code tiers} in the bot's {@code access.yml} are the cases this was built for
+         * (steward/68). Drawn as one card per entry rather than as raw text.
+         */
+        SECTIONS
     }
 
     /** What a scalar looks like to YAML, which is what decides the form control and the check on save. */
@@ -138,6 +164,8 @@ public record ConfigEntry(
     public ConfigEntry {
         comments = List.copyOf(comments);
         items = List.copyOf(items);
+        template = List.copyOf(template);
+        sections = sections.stream().map(List::copyOf).toList();
     }
 
     /**

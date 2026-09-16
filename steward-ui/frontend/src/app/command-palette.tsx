@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { History } from "lucide-react"
+import { History, SlidersHorizontal } from "lucide-react"
 
 import {
   CommandDialog,
@@ -16,8 +16,19 @@ import { NAVIGATION } from "@/app/navigation"
 import { RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
 import type { Run } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"
-import { useRuns } from "@/lib/queries"
+import { useConfigDocuments, useConfigs, useRuns } from "@/lib/queries"
+import { entryHaystack, searchAcross, setPendingJump } from "@/lib/settings-search"
+import { humanFileName } from "@/components/steward/config-controls"
 import { RUN_KIND, RUN_STATUS } from "@/components/steward/status"
+
+/**
+ * How many settings hits the palette ever shows at once (steward/58).
+ *
+ * Not a correctness limit - `searchAcross` itself returns every match - but a screen of thirty rows
+ * is already more than anyone reads before narrowing the query further, and cmdk draws every item
+ * it is handed whether or not it fits the visible list.
+ */
+const MAX_SETTINGS_HITS = 30
 
 /**
  * A run's own search text.
@@ -52,12 +63,39 @@ function runSearchValue(run: Run): string {
  */
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
+  // Controlled rather than left to cmdk's own state, only so the Settings group below (steward/58)
+  // knows what has actually been typed - the Pages and Runs groups above still go through cmdk's
+  // own fuzzy filter over each item's `value`, unaffected by this.
+  const [search, setSearch] = React.useState("")
   const navigate = useNavigate()
   const runs = useRuns(20, open).data ?? []
+
+  // Every config file's location, and then every one of their documents - both gated on `open` the
+  // same way `runs` is, and the documents a second time on there being anything typed (steward/58's
+  // fallback clause, for if this ever turns out too slow): the mount held twenty-five files in
+  // total on 2026-09-14, over roughly a dozen services, so fetching all of them once somebody opens
+  // the palette and starts typing is a bounded, cached cost rather than a reason to stand up a
+  // worker-side index for this ticket.
+  const locations = useConfigs(open).data ?? []
+  const paths = React.useMemo(() => locations.map((location) => location.path), [locations])
+  const documents = useConfigDocuments(paths, open && search.trim().length > 0)
+  const settingsHits = React.useMemo(() => {
+    if (!search.trim()) return []
+    const pairs = locations.map((location, index) => ({ location, document: documents[index]?.data }))
+    return searchAcross(pairs, search)
+  }, [locations, documents, search])
+
   // The listener is registered once, so it would otherwise read the `open` of the render it was
   // created in - which is always false.
   const openRef = React.useRef(open)
   openRef.current = open
+
+  // A stale query from the last time this was open would otherwise sit in `search` (this component
+  // never unmounts, only the dialog's own content does) and gate the Settings group on nothing the
+  // reopened box actually shows.
+  React.useEffect(() => {
+    if (!open) setSearch("")
+  }, [open])
 
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -83,7 +121,11 @@ export function CommandPalette() {
       description="Jump to a page"
       className="top-[20%] translate-y-0"
     >
-      <CommandInput placeholder="Search pages…" />
+      <CommandInput
+        value={search}
+        onValueChange={setSearch}
+        placeholder="Search pages, runs, settings…"
+      />
       <CommandList className="max-h-[22rem]">
         <CommandEmpty>Nothing found.</CommandEmpty>
         {NAVIGATION.map((group, index) => (
@@ -143,6 +185,40 @@ export function CommandPalette() {
                   </CommandShortcut>
                 </CommandItem>
               ))}
+            </CommandGroup>
+          </>
+        ) : null}
+        {/*
+          steward/58: search over the settings, across every service, with the service in the hit.
+          Only drawn once something is typed - unlike Pages and Runs, the settings list is not a
+          small fixed set, so an empty query would mean handing cmdk hundreds of rows to filter for
+          nothing anyone asked to see yet.
+        */}
+        {settingsHits.length > 0 ? (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Settings">
+              {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
+                const service = hit.location.service || "steward-ui"
+                return (
+                  <CommandItem
+                    key={`setting-${hit.location.path}-${hit.entry.path}`}
+                    value={entryHaystack(hit.entry)}
+                    onSelect={() => {
+                      setOpen(false)
+                      setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
+                      void navigate({ to: "/services/$name", params: { name: service } })
+                    }}
+                    className="min-h-control gap-2.5"
+                  >
+                    <SlidersHorizontal aria-hidden className="text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
+                    <CommandShortcut className="truncate text-muted-foreground/70">
+                      {service} · {humanFileName(hit.location.name)}
+                    </CommandShortcut>
+                  </CommandItem>
+                )
+              })}
             </CommandGroup>
           </>
         ) : null}

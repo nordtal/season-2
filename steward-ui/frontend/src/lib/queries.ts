@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { UseQueryOptions } from "@tanstack/react-query"
 
 import {
@@ -26,6 +26,7 @@ import {
   type Metrics,
   type Payment,
   type Person,
+  type ReloadAwareConfigDocument,
   type Run,
   type Schedule,
   type Season,
@@ -574,7 +575,10 @@ export function useSaveConfig(file: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: ({ revision, changes }: { revision: string; changes: ConfigChanges }) =>
-      api<ConfigDocument>(`/api/config/${encodePath(file)}`, {
+      // Never `raw`: a raw file offers no save button in the first place (steward/56), so a PUT's
+      // answer is always a form again - now carrying `reload`, which only a save produces
+      // (steward/59).
+      api<ReloadAwareConfigDocument>(`/api/config/${encodePath(file)}`, {
         method: "PUT",
         body: { revision, changes },
       }),
@@ -705,6 +709,29 @@ export function useSaveMessageBundle(path: string) {
     onSuccess: (document) => {
       client.setQueryData(keys.messageBundle(path), document)
     },
+  })
+}
+
+// --- settings search (steward/58) -----------------------------------------------------------
+
+/**
+ * Every one of the given files' documents, fetched only while `enabled` - a search box that has
+ * something typed into it, or a command palette that is open, never a search box merely mounted.
+ *
+ * Each query shares its key with {@link useConfig}, so a file already open on the page (or already
+ * found by an earlier search) costs nothing a second time, and closing the search again leaves
+ * nothing subscribed. `files` is expected to be referentially stable across renders where possible
+ * - a new array of the same paths still works, it just makes `useQueries` throw the old results
+ * away and re-fetch from cache-or-network once more than strictly needed.
+ */
+export function useConfigDocuments(files: string[], enabled: boolean) {
+  return useQueries({
+    queries: files.map((file) => ({
+      queryKey: keys.config(file),
+      queryFn: () => api<ConfigDocument>(`/api/config/${encodePath(file)}`),
+      staleTime: 5 * 60 * SECOND,
+      enabled,
+    })),
   })
 }
 

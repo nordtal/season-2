@@ -787,3 +787,32 @@ export type MessageChanges = {
   language: "en" | "de"
   changes: Record<string, string | null>
 }
+
+/**
+ * What became of asking the affected service to pick up a just-saved change (steward/59).
+ *
+ * The three values are deliberately not two: `APPLIED` and `NO_ANSWER` both mean a command was
+ * sent, and must not be told apart only by reading `message` closely. `RESTART_REQUIRED` means
+ * nothing was sent at all - there is no live command this file's own reload path would answer to,
+ * so nothing here restarts anything on its own; that stays a deliberate click.
+ */
+export type ConfigReloadOutcome = {
+  status: "APPLIED" | "NO_ANSWER" | "RESTART_REQUIRED"
+  message: string
+}
+
+/**
+ * `ParsedConfigDocument` widened by the two fields steward/59 added.
+ *
+ * `restartRequired` is on every GET as well as every PUT - the "no live reload reaches this file"
+ * fact is a property of the file, known before anybody types anything, and shown at the file
+ * rather than only after a save. `reload` exists only on a PUT's answer, because only a save asks
+ * a service to do anything - reading a file asks nothing of it.
+ *
+ * Its own type rather than a change to `ParsedConfigDocument` itself: other work is landing in
+ * this file tonight, and appending a new type is what stays out of its way.
+ */
+export type ReloadAwareConfigDocument = ParsedConfigDocument & {
+  restartRequired: boolean
+  reload?: ConfigReloadOutcome
+}

@@ -2,7 +2,11 @@ package eu.nordtal.s2.smp.player;
 
 import eu.nordtal.s2.common.Glyphs;
 import eu.nordtal.s2.smp.prestige.Prestige;
+import eu.nordtal.s2.smp.prestige.PrestigeColours;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
 
@@ -10,6 +14,8 @@ import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -20,10 +26,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <em>different subsets</em> of the same six elements. The one that matters most is the nametag's
  * omission: aura changes on every death, every hand-in and every duel, and carrying it on a nametag
  * would mean a packet to everyone in range each time.
+ *
+ * <h2>The name's colour (season-2-ingame/23)</h2>
+ * Before this ticket every name was the exact same {@code NamedTextColor.GRAY}, everywhere, on
+ * purpose. {@link #twoDifferentPrestigeTiersAreColouredDifferently} is the test that used to fail
+ * against that: two identities that differ only in play time produced two components whose name
+ * segment carried the identical colour. See the ticket for the verbatim red this test produced
+ * before {@code PlayerComposition#name} read the prestige palette.
  */
 class PlayerCompositionTest {
 
-    private final PlayerComposition composition = new PlayerComposition(Prestige.defaults());
+    private final PlayerComposition composition =
+            new PlayerComposition(Prestige.defaults(), () -> PrestigeColours.DEFAULTS);
 
     private static String plain(final net.kyori.adventure.text.Component component) {
         return PlainTextComponentSerializer.plainText().serialize(component);
@@ -31,6 +45,24 @@ class PlayerCompositionTest {
 
     private static Identity ordinary() {
         return new Identity(Locale.GERMAN, false, false, 42, 0L);
+    }
+
+    /**
+     * Finds the colour of whichever child component's own text is exactly {@code name} -
+     * {@code PlayerComposition#name} sets it explicitly, so a child that lost track of its own
+     * colour would show up here as {@code null} rather than silently inheriting one from a sibling.
+     */
+    private static TextColor colourOfName(final Component root, final String name) {
+        if (root instanceof TextComponent text && name.equals(text.content())) {
+            return text.color();
+        }
+        for (final Component child : root.children()) {
+            final TextColor found = colourOfName(child, name);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     @Test
@@ -99,5 +131,60 @@ class PlayerCompositionTest {
                 .contains(Glyphs.FLAG_UNITED_KINGDOM));
         assertTrue(plain(composition.chatPrefix("A", new Identity(Locale.FRENCH, false, false, 0, 0L)))
                 .contains(Glyphs.FLAG_OTHER));
+    }
+
+    /**
+     * season-2-ingame/23's whole point, and the red this ticket asked for: before the fix, both
+     * identities' name segments came back {@code NamedTextColor.GRAY} and this assertion failed.
+     */
+    @Test
+    void twoDifferentPrestigeTiersAreColouredDifferently() {
+        final Identity tierOne = new Identity(Locale.GERMAN, false, false, 0, 0L);
+        final Identity tierThirteen = new Identity(Locale.GERMAN, false, false, 0,
+                Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
+
+        final TextColor colourOne = colourOfName(composition.chatPrefix("Alice", tierOne), "Alice");
+        final TextColor colourThirteen =
+                colourOfName(composition.chatPrefix("Bob", tierThirteen), "Bob");
+
+        assertNotNull(colourOne, "the name segment lost its own colour");
+        assertNotNull(colourThirteen, "the name segment lost its own colour");
+        assertNotEquals(colourOne, colourThirteen,
+                "tier 1 and tier 13 read as the same colour, so a player cannot tell prestige apart"
+                        + " by looking at a name");
+    }
+
+    /**
+     * Every tier gets the hex {@code prestige-colours.yml} declares for it, on every surface the
+     * name is drawn on - the "everywhere" the ticket asks for follows from all three calling the
+     * same {@code name} method, and this pins that down for each surface individually.
+     */
+    @Test
+    void everySurfacePaintsTheSameTierTheSameColour() {
+        final Identity tierFive = new Identity(Locale.GERMAN, false, false, 0,
+                Prestige.defaults().secondsFor(5));
+        final TextColor expected = PrestigeColours.DEFAULTS.tier(5);
+
+        assertEquals(expected, colourOfName(composition.chatPrefix("Cara", tierFive), "Cara"));
+        assertEquals(expected, colourOfName(composition.nameTag("Cara", tierFive), "Cara"));
+        assertEquals(expected, colourOfName(composition.tabList("Cara", tierFive), "Cara"));
+    }
+
+    /**
+     * The admin colour wins over the tier, on every surface - it is not a fourteenth tier, so an
+     * admin at tier 13 must not show tier 13's colour just because it is the highest.
+     */
+    @Test
+    void theAdminColourWinsOverTheProminentTier() {
+        final Identity adminAtTopTier = new Identity(Locale.GERMAN, true, false, 0,
+                Prestige.defaults().secondsFor(Prestige.TIER_COUNT));
+
+        final TextColor colour = colourOfName(composition.tabList("Root", adminAtTopTier), "Root");
+
+        assertEquals(PrestigeColours.DEFAULTS.admin(), colour);
+        assertNotEquals(PrestigeColours.DEFAULTS.tier(Prestige.TIER_COUNT), colour,
+                "an admin at the top tier still showed the tier's own colour, so the admin override"
+                        + " is being treated as if it were a fourteenth tier rather than winning"
+                        + " over all thirteen");
     }
 }

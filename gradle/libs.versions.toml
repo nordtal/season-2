@@ -13,7 +13,21 @@ paper = "26.2.build.121-stable"
 velocity = "4.2.0"
 # jcore is published from github.com/nordtal/jcore via JitPack; the coordinate version is the git
 # tag. It exports no logging backend, so consumers declare logback themselves.
-jcore = "3.1.0"
+#
+# 3.1.0 -> 4.0.0 -> 4.1.0, both on 2026-09-16, both tagged and green:
+#
+# 4.0.0 writes a `<name>.schema.json` beside every YAML it writes (steward/54), and the YAML it
+# writes carries no comments and no header any more - the explanations moved into the schema, for
+# steward/50's configuration-interface redesign. A file jcore already wrote loses its comments the
+# next time it is saved; nothing here migrates that for a deployed volume, which is the point of
+# steward/55 and steward/56.
+#
+# 4.1.0 puts the file-level `@ConfigSpec(header)` back. 4.0.0 took it out of the YAML and gave it no
+# new home, so it was written into no file at all - and BotSpec's header is the only place that says
+# the Discord token and the bunq key come from NORDTAL_BOT_TOKEN and friends rather than from the
+# file somebody is looking at. It is the schema root's `explanation` now. discord-bot's ConfigsTest
+# went red on exactly that string, which is how it was found; that test reads the schema now.
+jcore = "4.1.0"
 # Our own Paper plugin, via JitPack. `smp` takes it compileOnly and NEVER shades it - the api
 # module is an interface over the running plugin, so DisplayTags (and PacketEvents under it) has to
 # be installed on the SMP server.

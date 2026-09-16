@@ -1,4 +1,5 @@
 import type { ConfigChoices, ConfigEntry, GuildList } from "@/lib/api"
+import { ColourControl } from "@/components/steward/colour-control"
 import { SnowflakePicker } from "@/components/steward/snowflake-picker"
 import { Input } from "@/components/ui/input"
 import {
@@ -74,6 +75,42 @@ export function discordId(entry: ConfigEntry): "role" | "channel" | null {
   return null
 }
 
+const HEX_COLOUR = /^#[0-9a-f]{6}$/i
+
+/**
+ * Whether a scalar's stored value looks like a colour, `#rrggbb` (steward/63).
+ *
+ * **Why a heuristic at all.** The ticket's first choice was a "colour" kind in the schema, the same
+ * place steward/54 already writes a key's type and its choices - the picker would then follow from
+ * the schema like every other control here, instead of being a special case keyed on what a value
+ * happens to look like. That needs a new annotation in jcore, a separate repository being changed by
+ * someone else tonight for a different reason, so it stays open rather than done: steward/54 is where
+ * it belongs, and the day it lands this whole function is deleted in favour of `entry.kind ===
+ * "COLOUR"` or whatever that ticket calls it. Until then the ticket's own documented fallback
+ * applies - the interface recognises, from the shape of the value alone, that it looks like
+ * `#rrggbb`, and shows the picker - and it lives in the same drawer as `discordId` above and the
+ * secret heuristic in steward/55: it
+ * works until the day it is wrong. That day is an ORDINARY TEXT setting whose value happens to start
+ * with "#" and is followed by exactly six hex digits - a literal colour string typed into a field
+ * that is not one, say. Nothing shipped as of 2026-09-16 (season-2-ingame/22's `colours.yml`, four of
+ * them) looks like that.
+ *
+ * **It reads `entry.value` - the value the FILE holds - never the live keystroke.** `discordId`
+ * above decides on the key rather than the value because the value is what is still missing; here
+ * the reasoning runs the other way but lands on the same rule: deciding on whatever is being typed
+ * right now would flip the control away from the picker the moment somebody selects the text to
+ * retype it, which is the worst possible time to lose it. An empty `entry.value` therefore never
+ * matches - it is not "not a colour", it is "unknown", but nothing in one entry says otherwise, and a
+ * colour setting saved blank falls back to being an ordinary field until a hex value is typed into it
+ * again. That is the honest cost of deciding by value instead of by a schema kind, and it is why the
+ * schema route stays open above rather than being called unnecessary.
+ */
+export function colourValue(entry: ConfigEntry): string | null {
+  if (entry.kind !== "SCALAR" || !entry.editable || entry.secret) return null
+  const value = entry.value ?? ""
+  return HEX_COLOUR.test(value) ? value : null
+}
+
 /**
  * A schema's allowed (or suggested) values (steward/55, steward/56).
  *
@@ -131,8 +168,8 @@ function ChoicesControl({
 
 /**
  * One scalar key, drawn the same way whether it sits at the top of a file or inside a repeatable
- * card (steward/57) - a secret, a schema's choices, a Discord id, a boolean or plain text, in that
- * order of precedence.
+ * card (steward/57) - a secret, a schema's choices, a Discord id, a colour (steward/63), a boolean
+ * or plain text, in that order of precedence.
  *
  * `edited` is the caller's own dirty flag - "has anything been typed here since the value this
  * control started from" - and it decides exactly one thing: whether an empty secret reads as
@@ -206,6 +243,13 @@ export function ScalarControl({
         onChange={onChange}
       />
     )
+  }
+
+  // Decided on `entry.value`, not on `value` (the live draft) - see `colourValue`'s own comment for
+  // why. `value` (which may be mid-edit, or blank while somebody retypes it) is still what gets
+  // shown and typed into the control once it is chosen.
+  if (colourValue(entry) !== null) {
+    return <ColourControl id={id} value={value} disabled={disabled} onChange={onChange} />
   }
 
   if (entry.type === "BOOLEAN") {

@@ -361,6 +361,14 @@ public final class StewardUi {
             // one rule below - not by guessing.
             cfg.spaRoot.addFile("/", "/web/index.html", Location.CLASSPATH);
 
+            // THE FRONTEND'S CACHE HEADERS, SAID ONCE, FOR BOTH WAYS IN. Jetty's own default for
+            // everything under `cfg.staticFiles` and `cfg.spaRoot` - measured on this Javalin
+            // version - is a literal `Cache-Control: max-age=0`, on the bundle and on the document
+            // alike. `after` runs once every request has been answered, including a static file or
+            // the single-page fallback, which neither carries a Gate nor a place of its own to set
+            // a header from - so this is the one hook that sees both. See `cacheHeaders`.
+            cfg.routes.after(StewardUi::cacheHeaders);
+
             cfg.routes.get("/api/health", ctx -> ctx.json(Map.of(
                     "status", "ok",
                     "worker", worker.isReachable())), Gate.ANYONE);
@@ -999,6 +1007,35 @@ public final class StewardUi {
     private static boolean isOurs(final String path) {
         return path.startsWith("/api/") || path.startsWith("/auth/") || path.equals("/api")
                 || path.equals("/auth");
+    }
+
+    /**
+     * The two cache rules the frontend bundle needs, and why they are opposite (steward/79).
+     *
+     * <p>Vite names every file under {@code /assets} after a hash of its own content, so the same
+     * name can never point at different bytes between one build and the next - which is exactly
+     * what {@code max-age=31536000, immutable} promises a cache. {@code index.html} is the one file
+     * whose name never changes while its content does, on every redeploy, so it needs the opposite
+     * promise: {@code no-cache}, not {@code max-age=0}. The two look similar and are not - a cache
+     * with no reachable network is still allowed to answer a plain {@code max-age=0} with what it
+     * already has, offline; {@code no-cache} makes the revalidation mandatory. A cold start on an
+     * iPhone that has just woken up is exactly the "cache with no reachable network yet" case, and
+     * the document this served offline is what pointed at bundle names an intervening redeploy had
+     * already deleted - a page that never ran and never would.</p>
+     *
+     * <p>Runs on every request, after it has been answered - static file, single-page fallback, or
+     * a route - because neither the static bundle nor the SPA fallback has a place of its own to
+     * set a header from (see {@code staticFiles.roles} above, which exists for the same reason).
+     * {@code isOurs} excludes {@code /api} and {@code /auth} so this never touches a header one of
+     * this service's own handlers set on purpose.</p>
+     */
+    private static void cacheHeaders(final Context ctx) {
+        if (isOurs(ctx.path())) {
+            return;
+        }
+        ctx.header("Cache-Control", ctx.path().startsWith("/assets/")
+                ? "max-age=31536000, immutable"
+                : "no-cache");
     }
 
     /**

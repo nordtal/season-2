@@ -450,7 +450,7 @@ public final class SmpPlugin extends JavaPlugin {
         poller = new StatisticPoller(this, () -> track, engine, identities);
         poller.start();
 
-        graves = new Graves(this, dao, identities, messages, locales, sounds, effects);
+        graves = new Graves(this, dao, identities, messages, locales, sounds, effects, config);
         // A grave decays after config.graveMaxAgeHours() (season-2-ingame/20). Once a minute is
         // three orders of magnitude finer than the thing being measured, so the visible cost of the
         // interval is nothing and the query it runs is one indexed delete that usually deletes
@@ -459,6 +459,11 @@ public final class SmpPlugin extends JavaPlugin {
         // for another minute after it comes back.
         Bukkit.getScheduler().runTaskTimerAsynchronously(this,
                 () -> graves.expire(config.graveMaxAgeHours()), 20L, 20L * 60L);
+        // The hologram countdown over each grave (season-2-ingame/19). Once a second on the main
+        // thread - it has to be, TextDisplay#text is a packet - but graves.tickHolograms() only
+        // actually writes one out once a minute per grave, or once a second inside its last minute,
+        // so this tick is a map lookup for everything further out than that.
+        Bukkit.getScheduler().runTaskTimer(this, graves::tickHolograms, 20L, 20L);
         duels = new Duels(this, dao, config, worlds, identities, messages, locales, sounds,
                 effects);
 

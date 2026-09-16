@@ -27,7 +27,15 @@ const queryClient = new QueryClient({
 // How tall the window is and how deep iOS's blurred band reaches - two numbers CSS gets wrong on a
 // home screen and nowhere else. Started before the first render so nothing is drawn at a height
 // that is then corrected; never stopped, because the page outlives it.
-trackAppFrame()
+//
+// steward/79: this runs before `createRoot`, and it used to run unguarded - a wrong guess about a
+// height is a grey stripe (steward/51), but an exception here, thrown before anything has rendered,
+// is a black screen with nothing behind it. Nothing this function does is worth that trade.
+try {
+  trackAppFrame()
+} catch (error) {
+  console.error("trackAppFrame failed to start; the layout will use its CSS fallback instead", error)
+}
 
 const container = document.getElementById("root")
 if (!container) throw new Error("#root is missing from index.html")

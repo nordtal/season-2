@@ -61,7 +61,7 @@ ConfigHandle<PaymentProcessingSpec> handle = ConfigLoader
 PaymentProcessingSpec config = handle.get();   // stable across reloads, safe to keep in a field
 ```
 
-**The generated YAML carries no comments at all** (3.2.0, steward/54) - not the header, not
+**The generated YAML carries no comments at all** (4.0.0, steward/54) - not the header, not
 `@Comment`:
 
 ```yaml
@@ -86,7 +86,7 @@ could never deserialize into it. Per `payment-processing.schema.json`:
 {
   "kind": "MAP",
   "label": "",
-  "explanation": "",
+  "explanation": "Payment processing\nAny setting here can be overridden with NORDTAL_\u003cSETTING\u003e.",
   "noExplanationNeeded": false,
   "secret": false,
   "children": {
@@ -116,6 +116,20 @@ The group a setting belongs to is not a field of its own - it is `children` nest
 `children`, mirroring the YAML's own nesting exactly (a second, parallel grouping mechanism was
 considered and rejected). Unit and value range were considered too and are deliberately absent.
 See `eu.nordtal.jcore.config.schema.SchemaWriter` and `SchemaNode`.
+
+**`@ConfigSpec(header = {...})` is the root node's `explanation`** (4.1.0, steward/58) - the array
+joined with `\n`, one entry per line, verbatim. The root node stands for the file as a whole and so
+does the header, which is why it needs no field of its own. Nothing else changed: the header is
+still not in the YAML, a spec that declares none still gets `""`, and `label` stays empty on the
+root because a label is a name and a header is prose. Between 4.0.0 and 4.1.0 the header was
+written to no file at all - 4.0.0 took it out of the YAML without giving it a new home, and the
+only place an operator was told "supply the token through `NORDTAL_BOT_TOKEN`, not this file" went
+with it. Upstream Spec's `'# '` prefix and the `'#'`-separator convention are gone with the YAML
+rendering: a row of hashes in a header is now a row of hashes in the text.
+
+The `\u003c` in that example is Gson's HTML escaping. It applies to `<`, `>`, `&`, `=` and `'` in
+any label or explanation, not only in a header, and it is a JSON escape - a parser hands the reader
+back a plain `<`.
 
 **What a load does, in order.** Write a defaults file if none exists; read it; reject any key that
 reads as a *misspelling* of a declared one; deserialize; if the canonical rendering differs from

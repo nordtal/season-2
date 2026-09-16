@@ -220,8 +220,9 @@ public final class ConfigHandle<T> {
                     + specType.getSimpleName() + ": " + e.getMessage(), e);
         }
 
-        // Normalise: adds settings that were not in the file yet, refreshes comments and the
-        // header, and fixes ordering. Only writes when the result actually differs.
+        // Normalise: adds settings that were not in the file yet and fixes ordering. Only writes
+        // when the result actually differs. Comments and the header are not part of "normalise"
+        // any more - the YAML carries neither, and the header is in the schema (steward/58).
         try {
             configuration.setTo(value, specType);
             final String rendered = configuration.render();
@@ -247,9 +248,10 @@ public final class ConfigHandle<T> {
             throw new ConfigWriteException(file, specType, e.getCause());
         }
 
-        // Unconditional, unlike the YAML write just above: an @Explain or @AllowedValues edit
-        // never changes the rendered YAML (it carries no comments any more), but it does change
-        // the schema, and the schema must never lag behind what the interface currently says.
+        // Unconditional, unlike the YAML write just above: an @Explain, @AllowedValues or
+        // @ConfigSpec(header) edit never changes the rendered YAML (it carries no comments any
+        // more), but it does change the schema, and the schema must never lag behind what the
+        // interface currently says.
         try {
             SchemaWriter.write(file, specType);
         } catch (UncheckedIOException e) {
@@ -314,7 +316,9 @@ public final class ConfigHandle<T> {
     /**
      * A fresh, empty configuration for {@link #file}.
      * <p>
-     * Carries no comments and no header - see {@link SchemaWriter}. {@code @Comment} on a spec
+     * Carries no comments and no header - see {@link SchemaWriter}, which is where both now go:
+     * {@code @Explain} onto each setting's node and {@code @ConfigSpec(header = {...})} onto the
+     * root's explanation (steward/58). {@code @Comment} on a spec
      * method still exists and is still read (it is what {@link Specs#from} builds
      * {@code SpecClass#comments()} from), but nothing here feeds it to the YAML any more; the
      * short text a {@code @Comment}'s long form used to double as belongs in

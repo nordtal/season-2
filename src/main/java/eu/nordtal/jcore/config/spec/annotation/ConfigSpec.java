@@ -29,6 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
+ *   - header() javadoc rewritten: it goes into the schema, not the YAML (steward/58, 2026-09-16)
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -45,14 +46,29 @@ import java.lang.annotation.*;
 public @interface ConfigSpec {
 
     /**
-     * The comments to add at the very beginning of the file. Each value
-     * is a separate line.
+     * The prose describing the file as a whole. Each value is a separate line; an entry that
+     * itself contains a newline counts as several.
      * <p>
-     * Note that every line will be preceded by a '# ' automatically,
-     * except entries that start with '#', which will not be preceded by a
-     * space (for creating visual separators).
+     * <b>This is no longer a YAML comment block.</b> Upstream Spec wrote it at the top of the
+     * file, each line prefixed with {@code '# '} - and entries starting with {@code '#'} without
+     * the space, so a row of hashes could serve as a visual separator. jcore 4.0.0 stopped writing
+     * comments into the YAML entirely, which left this annotation describing a rendering that no
+     * longer happened and writing to no file at all.
+     * <p>
+     * Since 4.1.0 (steward/58, 2026-09-16) it is carried into
+     * {@code <basename>.schema.json} instead, as the {@code explanation} of the root
+     * {@link eu.nordtal.jcore.config.schema.SchemaNode} - the node that stands for the whole file,
+     * the same way this text does. The lines are joined with {@code '\n'} and are otherwise taken
+     * verbatim: no {@code '# '} is added, and a leading {@code '#'} is neither added nor stripped,
+     * because JSON is not YAML and nothing downstream is going to read it as a comment. A row of
+     * hashes written for the old separator effect is therefore now a row of hashes in the text.
+     * <p>
+     * Write it for the person who has to operate the file, because that is who reads it: this is
+     * the only place a file-wide instruction can be said - "supply these through the environment",
+     * "this file is rewritten on every start" - since a per-setting
+     * {@link eu.nordtal.jcore.config.spec.annotation.Explain @Explain} is attached to one key.
      *
-     * @return The comments
+     * @return The header lines, or an empty array for a file that needs none
      */
     @NotNull String[] header() default {};
 

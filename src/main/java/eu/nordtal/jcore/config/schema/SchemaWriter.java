@@ -33,6 +33,10 @@ import java.util.Map;
  * short explanation text, and the type and kind - already exactly what
  * {@link SchemaNode} documents. The group is not a separate field; it is the nesting of the
  * schema tree itself, which mirrors the YAML's own nesting.
+ * <p>
+ * The file-level {@code @ConfigSpec(header = {...})} is the root node's {@code explanation}
+ * (steward/58, 2026-09-16) - see {@link #headerOf}. Before that it was written nowhere: 4.0.0 took
+ * the header out of the YAML and gave it no new home.
  */
 public final class SchemaWriter {
 
@@ -48,7 +52,8 @@ public final class SchemaWriter {
      * @return the root node, always {@link SettingKind#MAP}
      */
     public static @NotNull SchemaNode build(final @NotNull Class<?> specType) {
-        return new SchemaNode(SettingKind.MAP, "", "", false, false, null, null, childrenOf(specType));
+        return new SchemaNode(SettingKind.MAP, "", headerOf(specType), false, false,
+                null, null, childrenOf(specType));
     }
 
     /**
@@ -109,6 +114,46 @@ public final class SchemaWriter {
     }
 
     // ------------------------------------------------------------------------------------
+
+    /**
+     * The file-level {@code @ConfigSpec(header = {...})} as one block of text, one array entry per
+     * line, or the empty string when the spec declares none.
+     * <p>
+     * steward/58, 2026-09-16. 4.0.0 stopped writing comments into the YAML and moved the per-key
+     * {@code @Comment} / {@code @Explain} text into this schema - but the file-level header went
+     * nowhere at all, so it was written into no file any more. That is not a cosmetic loss:
+     * season-2's {@code BotSpec} uses its header for the only sentence anywhere that tells an
+     * operator the Discord token and the bunq key come from {@code NORDTAL_BOT_TOKEN} and friends
+     * rather than from the file they are looking at. A season-2 test caught it going red.
+     * <p>
+     * The root node is where it belongs, because a header describes the whole file exactly as the
+     * root node does, and because it needs no new field that every consumer would then have to
+     * learn about: anything already rendering {@code explanation} renders this for free.
+     * <p>
+     * It lands on {@code explanation} and deliberately <b>not</b> on {@code label}. A label is a
+     * name - {@code SettingLabels.of} turns {@code base-url} into {@code Base url}, two or three
+     * words meant for a heading - and a header is prose, up to a dozen lines of it. Putting a
+     * paragraph where a consumer expects a heading would break every caller that renders one.
+     * <p>
+     * An absent or empty header stays the empty string, which is what {@code explanation} has
+     * always been for a node with nothing to say, so nothing downstream has to change and no
+     * placeholder text is invented.
+     * <p>
+     * {@code headerOf} has already split every array entry on {@code '\n'}, so joining the result
+     * with {@code '\n'} returns the author's text unchanged rather than doubling a line break.
+     * Blank entries are kept: {@code BotSpec}'s header is paragraphs separated by empty lines, and
+     * dropping them would run all of it together. The text is otherwise taken verbatim - the
+     * {@code '# '} prefix and the {@code '#'} separator convention documented on
+     * {@link eu.nordtal.jcore.config.spec.annotation.ConfigSpec#header()} are how the header used
+     * to be <i>rendered into YAML</i>, and that rendering is gone; re-applying any of it here
+     * would put comment syntax into a JSON string that no YAML parser will ever see.
+     *
+     * @param specType the spec interface
+     * @return the header text, or {@code ""}
+     */
+    private static @NotNull String headerOf(final @NotNull Class<?> specType) {
+        return String.join("\n", Specs.from(specType).headers());
+    }
 
     private static @NotNull Map<String, SchemaNode> childrenOf(final @NotNull Class<?> specType) {
         final Map<String, SchemaNode> children = new LinkedHashMap<>();

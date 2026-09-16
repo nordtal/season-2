@@ -25,11 +25,20 @@ import java.util.Map;
  * @param kind                what sits under this key
  * @param label               the plain-language name, derived from the key the same way
  *                            steward-worker's {@code Labels.of} derives one from a raw YAML key -
- *                            {@code base-url} becomes {@code Base url}
+ *                            {@code base-url} becomes {@code Base url}. Always {@code ""} on the
+ *                            root node, which stands for the file and has no key to derive one
+ *                            from
  * @param explanation         the short text from {@link eu.nordtal.jcore.config.spec.annotation.Explain @Explain},
  *                            or the empty string if the property carries none. Never the long
  *                            {@code @Comment} text - that stays in the source for the person
- *                            reading the code and is never written here
+ *                            reading the code and is never written here.
+ *                            <p>
+ *                            <b>On the root node this is the file-level header</b> -
+ *                            {@code @ConfigSpec(header = {...})}, one array entry per line, joined
+ *                            with {@code '\n'} (steward/58, 2026-09-16). It is therefore the one
+ *                            place in this record where the text can be several lines and a whole
+ *                            paragraph long, so a consumer that renders it must not assume one
+ *                            line. Still {@code ""} when the spec declares no header
  * @param noExplanationNeeded whether {@link eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded @NoExplanationNeeded}
  *                            is present - the interface shows no explanation at all rather than
  *                            an empty one

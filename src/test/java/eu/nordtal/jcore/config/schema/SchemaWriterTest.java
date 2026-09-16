@@ -89,11 +89,119 @@ class SchemaWriterTest {
 
     @ConfigSpec
     public interface Contradiction {
+        // NOT called `setting()`, and that is the whole point (found 2026-09-16 while adding the
+        // header tests below). The vendored Spec reads any method whose name begins with `set` as
+        // a setter, so `setting()` is rejected with "Setter for property 'ting' must return void!"
+        // before @Explain and @NoExplanationNeeded are ever looked at - which means this test threw
+        // the right exception type for the wrong reason, and had done since steward/54. It would
+        // have kept passing if the contradiction check were deleted outright.
         @Explain("short")
         @NoExplanationNeeded
-        default String setting() {
+        default String option() {
             return "";
         }
+    }
+
+    // ---------------------------------------------------------------- the file-level header
+
+    @Test
+    @DisplayName("@ConfigSpec(header) lands on the root node's explanation, one entry per line")
+    void headerBecomesTheRootExplanation() {
+        // steward/58: 4.0.0 stopped writing the header into the YAML and put nothing in its place,
+        // so a spec's header was written to no file at all. season-2's BotSpec uses its header for
+        // the only sentence that tells an operator the token comes from NORDTAL_BOT_TOKEN rather
+        // than from the file - text nobody could afford to lose to a refactor.
+        final SchemaNode schema = SchemaWriter.build(TestSpecs.Payments.class);
+        assertEquals("Test configuration\nSecond header line", schema.explanation());
+    }
+
+    @Test
+    @DisplayName("a one-line header is that line, with no trailing newline bolted on")
+    void singleLineHeaderIsJustThatLine() {
+        assertEquals("Worlds", SchemaWriter.build(TestSpecs.Worlds.class).explanation());
+    }
+
+    @Test
+    @DisplayName("blank lines inside a header survive - a paragraph break is part of the prose")
+    void blankLinesInsideAHeaderSurvive() {
+        // BotSpec's header is a block, a blank line, an indented list, a blank line and a closing
+        // sentence. Dropping the empty entries would run all of it into one paragraph.
+        assertEquals("First paragraph.\n\nSecond paragraph.",
+                SchemaWriter.build(HeaderWithBlankLine.class).explanation());
+    }
+
+    // The property name here is deliberately not "setting": the vendored Spec reads any method
+    // beginning with "set" as a setter, so `String setting()` is rejected as "setter for property
+    // 'ting' must return void" before the header is ever looked at.
+    @ConfigSpec(header = {"First paragraph.", "", "Second paragraph."})
+    public interface HeaderWithBlankLine {
+        default String option() {
+            return "";
+        }
+    }
+
+    @Test
+    @DisplayName("a header entry that itself contains a newline is split, not doubled")
+    void embeddedNewlineIsOneLineBreakAndNotTwo() {
+        // headerOf() splits every entry on '\n' before this ever sees it, so joining with '\n'
+        // has to give the text back unchanged rather than turning one break into two.
+        assertEquals("One\nTwo\nThree", SchemaWriter.build(HeaderWithEmbeddedNewline.class).explanation());
+    }
+
+    @ConfigSpec(header = {"One\nTwo", "Three"})
+    public interface HeaderWithEmbeddedNewline {
+        default String option() {
+            return "";
+        }
+    }
+
+    @Test
+    @DisplayName("no header at all stays the empty string - never a placeholder")
+    void absentHeaderStaysEmpty() {
+        assertEquals("", SchemaWriter.build(TestSpecs.Balance.class).explanation());
+    }
+
+    @Test
+    @DisplayName("the root's label stays empty - a header is prose, and a label is a name")
+    void theRootKeepsNoLabel() {
+        assertEquals("", SchemaWriter.build(TestSpecs.Payments.class).label());
+    }
+
+    @Test
+    @DisplayName("the header reaches the written schema file, not only the in-memory tree")
+    void headerIsInTheWrittenSchemaFile() throws Exception {
+        final Path file = directory.resolve("payments.yml");
+        ConfigLoader.builder(file, TestSpecs.Payments.class).withoutEnvironmentOverlay().load();
+
+        final String json = Files.readString(SchemaWriter.schemaFileFor(file));
+        assertTrue(json.contains("Test configuration\\nSecond header line"),
+                "the schema file must carry the header text: " + json);
+
+        // And still not the YAML - 4.0.0's decision is not being walked back here.
+        assertFalse(Files.readString(file).contains("Test configuration"),
+                "the header must not return to the YAML");
+    }
+
+    @Test
+    @DisplayName("a nested spec's own header does not leak onto the parent's child node")
+    void aNestedSpecsHeaderIsNotTheChildsExplanation() {
+        // A child node's explanation belongs to the property that declares it (@Explain on the
+        // getter), not to the interface behind it. Balance has no header, so make one that does.
+        final SchemaNode outer = SchemaWriter.build(Outer.class);
+        assertEquals("", outer.children().get("inner").explanation(),
+                "the nested interface's header is not the parent property's explanation");
+    }
+
+    @ConfigSpec(header = "The inner file")
+    public interface Inner {
+        default String option() {
+            return "";
+        }
+    }
+
+    @ConfigSpec(header = "The outer file")
+    public interface Outer {
+        Inner inner();
     }
 
     // ---------------------------------------------------------------- secret

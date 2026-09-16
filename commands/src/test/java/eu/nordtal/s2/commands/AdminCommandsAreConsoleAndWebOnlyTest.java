@@ -70,22 +70,25 @@ class AdminCommandsAreConsoleAndWebOnlyTest {
      * {@link Surface#DISCORD}, and why - in the shape {@code GateTest} (steward-ui) uses for its own
      * named exception sets, so that a fifth entry means editing a list a person has to read.
      */
-    private static final Set<String> EXCEPTIONS = Set.of(
-            // PhaseCommands.SHOW / SET / LAUNCH / SMP_START. These four are declared on
-            // GAME_AND_DISCORD and DELIBERATELY NOT on Surface.CONSOLE - the class's own javadoc
-            // says so: "deliberately not the console, which would be a second notion of who may do
-            // this on a proxy that already knows who is an admin". Applying ops/18's cut here would
-            // leave all four with an EMPTY surface set, which Declaration's own constructor refuses
-            // ("is declared on no surface, so nothing would register it") - so the cut cannot be
-            // applied blindly, and applying it while also adding Surface.CONSOLE would reverse a
-            // separate, deliberate decision this ticket never mentions and does not analyse.
-            // NOT RESOLVED THIS SESSION - the two decisions conflict and only the owner can say
-            // which one gives way. Left exactly as PhaseCommands already had it; flagged in the
-            // session report rather than guessed at here.
-            "/phase show", "/phase set", "/phase launch", "/phase smp-start");
+    /**
+     * Empty, and the comment is here so that the next person to add an entry has to argue for it.
+     *
+     * <p>It held {@code /phase show}, {@code /phase set}, {@code /phase launch} and
+     * {@code /phase smp-start} for one night. Those four were declared on GAME and DISCORD and
+     * deliberately not on CONSOLE, so the cut from {@code season-2-ops/18} would have left them
+     * with no surface at all, which {@link Declaration}'s constructor refuses outright. That is a
+     * conflict between two deliberate decisions and not something a test should pick a side in, so
+     * it was carried to the owner instead of guessed at.</p>
+     *
+     * <p>Till's answer, 2026-09-16: CONSOLE <b>and</b> WEB. The Season page in Steward is where a
+     * person reads the phase, so it is where they set it, and a WEB row carries the asker's Discord
+     * id where a CONSOLE row carries no identity at all. {@code PhaseCommands} moved; this set is
+     * empty; the rule has no exceptions.</p>
+     */
+    private static final Set<String> EXCEPTIONS = Set.of();
 
     @Test
-    @DisplayName("no admin command is reachable from the game or from Discord, except the four named")
+    @DisplayName("no admin command is reachable from the game or from Discord")
     void adminCommandsStayOffGameAndDiscord() {
         final List<String> violations = new ArrayList<>();
         for (final Declaration declaration : Catalogue.all()) {

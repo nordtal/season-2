@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
-import type { CSSProperties } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import {
   Ban,
   ChevronDown,
@@ -31,7 +31,13 @@ import {
   useSaveConfig,
 } from "@/lib/queries"
 import { takePendingJump } from "@/lib/settings-search"
-import { explanationOf, humanFileName, ScalarControl } from "@/components/steward/config-controls"
+import {
+  colourValue,
+  explanationOf,
+  humanFileName,
+  ScalarControl,
+} from "@/components/steward/config-controls"
+import { colourRuns } from "@/components/steward/colour-control"
 import { ServiceSettingsSearch } from "@/components/steward/config-search"
 import { RawConfigEditor } from "@/components/steward/raw-config-editor"
 import { Empty, Failure, QueryState } from "@/components/steward/query-state"
@@ -404,27 +410,23 @@ function ConfigForm({
             note="It is empty, or consists only of comments."
           />
         ) : (
-          document.entries.map((entry, index) => (
-            <Field
-              key={entry.path}
-              entry={entry}
-              first={index === 0}
-              writable={writable}
-              draft={draft}
-              roles={roles.data}
-              channels={channels.data}
-              highlighted={entry.path === highlight}
-              onHighlighted={onHighlighted}
-              onChange={(value) => setDraft((old) => ({ ...old, [entry.path]: value }))}
-              onReset={() =>
-                setDraft((old) => {
-                  const next = { ...old }
-                  delete next[entry.path]
-                  return next
-                })
-              }
-            />
-          ))
+          <EntryList
+            entries={document.entries}
+            writable={writable}
+            draft={draft}
+            roles={roles.data}
+            channels={channels.data}
+            highlight={highlight}
+            onHighlighted={onHighlighted}
+            onChange={(path, value) => setDraft((old) => ({ ...old, [path]: value }))}
+            onReset={(path) =>
+              setDraft((old) => {
+                const next = { ...old }
+                delete next[path]
+                return next
+              })
+            }
+          />
         )}
       </div>
 
@@ -520,6 +522,98 @@ function changed(document: ParsedConfigDocument, draft: Draft): ConfigChanges {
   return changes
 }
 
+/**
+ * A file's keys, one `Field` each - except a run of colours (`colourRuns`, steward/63's fourth
+ * requirement): several tones that belong together are the one thing this ticket exists for, and
+ * they have to be judged side by side, not as identical-looking cards stacked one per screenful.
+ * Grouping happens here, once, rather than inside `Field` itself - a field never has to know it is
+ * part of a row, only that it is drawn as one (`layout="row"`) when it is.
+ */
+function EntryList({
+  entries,
+  writable,
+  draft,
+  roles,
+  channels,
+  highlight,
+  onHighlighted,
+  onChange,
+  onReset,
+}: {
+  entries: ConfigEntry[]
+  writable: boolean
+  draft: Draft
+  roles: GuildList | undefined
+  channels: GuildList | undefined
+  highlight: string | null
+  onHighlighted?: () => void
+  onChange: (path: string, value: string | string[] | SectionValues[]) => void
+  onReset: (path: string) => void
+}) {
+  const runs = useMemo(
+    () => colourRuns(entries, (entry) => colourValue(entry) !== null),
+    [entries],
+  )
+  // Every member of a run maps back to the same array, so a later entry in `entries` can be
+  // recognised as "already drawn, as part of an earlier row" without a second pass over `runs`.
+  const runOf = useMemo(() => {
+    const map = new Map<string, ConfigEntry[]>()
+    for (const run of runs) for (const member of run) map.set(member.path, run)
+    return map
+  }, [runs])
+
+  const rows: ReactNode[] = []
+  let position = 0
+  for (const entry of entries) {
+    const run = runOf.get(entry.path)
+    if (run && run[0].path !== entry.path) continue // drawn already, as part of its row's first entry
+
+    if (run) {
+      rows.push(
+        <div
+          key={run.map((member) => member.path).join("+")}
+          className={`flex flex-wrap gap-x-4 gap-y-4 border-border py-3 ${position === 0 ? "" : "border-t"}`}
+        >
+          {run.map((member) => (
+            <Field
+              key={member.path}
+              entry={member}
+              first
+              layout="row"
+              writable={writable}
+              draft={draft}
+              roles={roles}
+              channels={channels}
+              highlighted={member.path === highlight}
+              onHighlighted={onHighlighted}
+              onChange={(value) => onChange(member.path, value)}
+              onReset={() => onReset(member.path)}
+            />
+          ))}
+        </div>,
+      )
+    } else {
+      rows.push(
+        <Field
+          key={entry.path}
+          entry={entry}
+          first={position === 0}
+          writable={writable}
+          draft={draft}
+          roles={roles}
+          channels={channels}
+          highlighted={entry.path === highlight}
+          onHighlighted={onHighlighted}
+          onChange={(value) => onChange(entry.path, value)}
+          onReset={() => onReset(entry.path)}
+        />,
+      )
+    }
+    position++
+  }
+  return <>{rows}</>
+}
+
 // -----------------------------------------------------------------------------------------------
 // One key
 // -----------------------------------------------------------------------------------------------
@@ -535,6 +629,7 @@ function Field({
   onHighlighted,
   onChange,
   onReset,
+  layout = "stack",
 }: {
   entry: ConfigEntry
   first: boolean
@@ -547,6 +642,14 @@ function Field({
   onHighlighted?: () => void
   onChange: (value: string | string[] | SectionValues[]) => void
   onReset: () => void
+  /**
+   * `"row"` is what `EntryList` below asks for when this field is one member of a `colourRuns` run
+   * (steward/63): several tones that belong together side by side, not each in its own full-width
+   * block. It only changes the outer box - depth indent and the divider between ordinary fields make
+   * no sense once several of them sit in one flex row instead of a stack - everything from the label
+   * down is exactly the field it always was.
+   */
+  layout?: "stack" | "row"
 }) {
   const depth = entry.path.split(".").length - 1
   const dirty = draft[entry.path] !== undefined
@@ -600,7 +703,15 @@ function Field({
       // one". An inline `marginLeft` cannot answer a media query, so the depth is a variable and
       // the two widths are a class.
       style={{ "--depth": depth } as CSSProperties}
-      className={`ml-[calc(var(--depth)*0.375rem)] flex scroll-mt-4 flex-col gap-2 rounded-md border-border py-3 transition-colors duration-300 sm:ml-[calc(var(--depth)*1rem)] ${first ? "" : "border-t"} ${highlighted ? "-mx-3 bg-accent px-3 ring-2 ring-primary" : ""}`}
+      className={
+        layout === "row"
+          ? // `min-w-28` (7rem/112px) rather than a wider minimum - two of these plus the gap between
+            // them still has to fit inside a phone's own width once the card's own padding is taken
+            // out, or "side by side" quietly becomes "stacked" on exactly the screen this ticket is
+            // mobile-first about.
+            `flex min-w-28 flex-1 scroll-mt-4 flex-col gap-2 rounded-md p-2 transition-colors duration-300 ${highlighted ? "bg-accent ring-2 ring-primary" : ""}`
+          : `ml-[calc(var(--depth)*0.375rem)] flex scroll-mt-4 flex-col gap-2 rounded-md border-border py-3 transition-colors duration-300 sm:ml-[calc(var(--depth)*1rem)] ${first ? "" : "border-t"} ${highlighted ? "-mx-3 bg-accent px-3 ring-2 ring-primary" : ""}`
+      }
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="flex flex-wrap items-center gap-2">

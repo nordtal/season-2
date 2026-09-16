@@ -29,7 +29,7 @@
  *
  * Modified by nordtal.eu:
  *   - package revxrsal.spec -> eu.nordtal.jcore.config.spec
- *   - header() javadoc rewritten: it goes into the schema, not the YAML (steward/58, 2026-09-16)
+ *   - header() javadoc rewritten: it goes into the schema, not the YAML (steward/67, 2026-09-16)
  */
 package eu.nordtal.jcore.config.spec.annotation;
 
@@ -55,7 +55,7 @@ public @interface ConfigSpec {
      * comments into the YAML entirely, which left this annotation describing a rendering that no
      * longer happened and writing to no file at all.
      * <p>
-     * Since 4.1.0 (steward/58, 2026-09-16) it is carried into
+     * Since 4.1.0 (steward/67, 2026-09-16) it is carried into
      * {@code <basename>.schema.json} instead, as the {@code explanation} of the root
      * {@link eu.nordtal.jcore.config.schema.SchemaNode} - the node that stands for the whole file,
      * the same way this text does. The lines are joined with {@code '\n'} and are otherwise taken

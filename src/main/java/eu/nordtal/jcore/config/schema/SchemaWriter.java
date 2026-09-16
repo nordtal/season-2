@@ -35,7 +35,7 @@ import java.util.Map;
  * schema tree itself, which mirrors the YAML's own nesting.
  * <p>
  * The file-level {@code @ConfigSpec(header = {...})} is the root node's {@code explanation}
- * (steward/58, 2026-09-16) - see {@link #headerOf}. Before that it was written nowhere: 4.0.0 took
+ * (steward/67, 2026-09-16) - see {@link #headerOf}. Before that it was written nowhere: 4.0.0 took
  * the header out of the YAML and gave it no new home.
  */
 public final class SchemaWriter {
@@ -119,7 +119,7 @@ public final class SchemaWriter {
      * The file-level {@code @ConfigSpec(header = {...})} as one block of text, one array entry per
      * line, or the empty string when the spec declares none.
      * <p>
-     * steward/58, 2026-09-16. 4.0.0 stopped writing comments into the YAML and moved the per-key
+     * steward/67, 2026-09-16. 4.0.0 stopped writing comments into the YAML and moved the per-key
      * {@code @Comment} / {@code @Explain} text into this schema - but the file-level header went
      * nowhere at all, so it was written into no file any more. That is not a cosmetic loss:
      * season-2's {@code BotSpec} uses its header for the only sentence anywhere that tells an

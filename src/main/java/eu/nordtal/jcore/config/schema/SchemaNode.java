@@ -35,7 +35,7 @@ import java.util.Map;
  *                            <p>
  *                            <b>On the root node this is the file-level header</b> -
  *                            {@code @ConfigSpec(header = {...})}, one array entry per line, joined
- *                            with {@code '\n'} (steward/58, 2026-09-16). It is therefore the one
+ *                            with {@code '\n'} (steward/67, 2026-09-16). It is therefore the one
  *                            place in this record where the text can be several lines and a whole
  *                            paragraph long, so a consumer that renders it must not assume one
  *                            line. Still {@code ""} when the spec declares no header

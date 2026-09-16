@@ -107,7 +107,7 @@ class SchemaWriterTest {
     @Test
     @DisplayName("@ConfigSpec(header) lands on the root node's explanation, one entry per line")
     void headerBecomesTheRootExplanation() {
-        // steward/58: 4.0.0 stopped writing the header into the YAML and put nothing in its place,
+        // steward/67: 4.0.0 stopped writing the header into the YAML and put nothing in its place,
         // so a spec's header was written to no file at all. season-2's BotSpec uses its header for
         // the only sentence that tells an operator the token comes from NORDTAL_BOT_TOKEN rather
         // than from the file - text nobody could afford to lose to a refactor.

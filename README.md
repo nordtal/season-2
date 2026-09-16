@@ -117,7 +117,7 @@ The group a setting belongs to is not a field of its own - it is `children` nest
 considered and rejected). Unit and value range were considered too and are deliberately absent.
 See `eu.nordtal.jcore.config.schema.SchemaWriter` and `SchemaNode`.
 
-**`@ConfigSpec(header = {...})` is the root node's `explanation`** (4.1.0, steward/58) - the array
+**`@ConfigSpec(header = {...})` is the root node's `explanation`** (4.1.0, steward/67) - the array
 joined with `\n`, one entry per line, verbatim. The root node stands for the file as a whole and so
 does the header, which is why it needs no field of its own. Nothing else changed: the header is
 still not in the YAML, a spec that declares none still gets `""`, and `label` stays empty on the

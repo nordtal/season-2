@@ -222,7 +222,7 @@ public final class ConfigHandle<T> {
 
         // Normalise: adds settings that were not in the file yet and fixes ordering. Only writes
         // when the result actually differs. Comments and the header are not part of "normalise"
-        // any more - the YAML carries neither, and the header is in the schema (steward/58).
+        // any more - the YAML carries neither, and the header is in the schema (steward/67).
         try {
             configuration.setTo(value, specType);
             final String rendered = configuration.render();
@@ -318,7 +318,7 @@ public final class ConfigHandle<T> {
      * <p>
      * Carries no comments and no header - see {@link SchemaWriter}, which is where both now go:
      * {@code @Explain} onto each setting's node and {@code @ConfigSpec(header = {...})} onto the
-     * root's explanation (steward/58). {@code @Comment} on a spec
+     * root's explanation (steward/67). {@code @Comment} on a spec
      * method still exists and is still read (it is what {@link Specs#from} builds
      * {@code SpecClass#comments()} from), but nothing here feeds it to the YAML any more; the
      * short text a {@code @Comment}'s long form used to double as belongs in

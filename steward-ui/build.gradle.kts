@@ -36,6 +36,11 @@ repositoryRootTestInputs {
     reads("steward-ui/frontend/public/icon-512.png")
     reads("steward-ui/frontend/public/manifest.webmanifest")
     reads("steward-ui/frontend/index.html")
+
+    // EveryCalledPathIsRoutedTest reads the frontend's source to find the paths it calls. Without
+    // this the test task stays UP-TO-DATE when a new call is added and the guard never runs on it,
+    // which is the one failure mode a guard must not have.
+    readsTree("steward-ui/frontend/src")
 }
 
 repositories {

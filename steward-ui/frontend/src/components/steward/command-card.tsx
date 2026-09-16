@@ -256,14 +256,14 @@ function ArgumentField({
           (people.data ?? []).map((person) => ({
             value: person.discordId,
             label: person.minecraftUuid
-              ? `${person.discordId} · linked`
-              : `${person.discordId} · not linked`,
+              ? `${person.discordId} (linked)`
+              : `${person.discordId} (not linked)`,
           }))
         : (open.data ?? []).map((payment) => ({
             value: payment.reference,
-            label: `${payment.reference} · ${payment.days} days · ${euros(
+            label: `${payment.reference} (${payment.days} days, ${euros(
               payment.amountCents + payment.donationCents,
-            )} · ${payment.discordId}`,
+            )}, ${payment.discordId})`,
           }))
 
     const loading =

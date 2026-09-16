@@ -177,7 +177,7 @@ function AccessBadge({ person, now }: { person: Person; now: number }) {
           ". That means either revoked - or bought before the SMP opened, and therefore not yet begun. Which of the two is shown in this person's periods."
         }
       >
-        no access · period until {dateTime(person.accessUntil)}
+        no access
       </StatusBadge>
     )
   }
@@ -1402,7 +1402,7 @@ function AuthenticationCard() {
           // The backend's own sentence, verbatim and in English: this is the API's answer and not
           // a claim this page makes on its behalf.
           <pre className="overflow-auto rounded-sm bg-muted px-2 py-1 text-xs break-words whitespace-pre-wrap text-muted-foreground">
-            /api/me · webauthn: {me.data.webauthn}
+            {`/api/me\nwebauthn: ${me.data.webauthn}`}
           </pre>
         ) : (
           <Loading rows={1} label="Reading the session…" />

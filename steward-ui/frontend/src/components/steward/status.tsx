@@ -141,7 +141,9 @@ export function RunStatus({ status }: { status: string }) {
   return <StatusBadge tone={tone}>{RUN_STATUS[status] ?? status}</StatusBadge>
 }
 
-const RUN_STATUS: Record<string, string> = {
+/** The outcome of a run, in the same words {@link RunStatus} draws - exported for anything that
+ * needs the word rather than the badge, such as the command palette's search text. */
+export const RUN_STATUS: Record<string, string> = {
   PENDING: "waiting",
   RUNNING: "running",
   DONE: "done",

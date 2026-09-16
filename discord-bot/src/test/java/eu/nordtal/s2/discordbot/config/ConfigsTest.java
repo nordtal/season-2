@@ -675,12 +675,24 @@ class ConfigsTest {
         assertThrows(ConfigValidationException.class, Configs::bot);
 
         final Path file = directory.resolve("bot.yml");
+        // The header is NOT in the YAML any more, and looking for it there is what made this test
+        // red on 2026-09-16. jcore 4.0.0 stopped writing comments and headers into the file it
+        // writes; 4.1.0 put the file-level @ConfigSpec(header) into the schema beside it, on the
+        // root node's `explanation`. So the sentence that tells an operator where the token
+        // actually comes from still has to exist and still has to be findable - just in the other
+        // file. Asserting it here rather than dropping the assertion is the point: that sentence
+        // is the only place NORDTAL_BOT_TOKEN is explained to somebody looking at bot.yml.
+        final Path schema = directory.resolve("bot.schema.json");
         assertAll(
                 () -> assertTrue(Files.isRegularFile(file), "the defaults file is still written"),
                 () -> assertTrue(Files.readString(file).contains("token: ''"),
                         "the token slot is written empty, never guessed"),
-                () -> assertTrue(Files.readString(file).contains("LEAVE THESE EMPTY"),
-                        "and the header says so")
+                () -> assertTrue(Files.isRegularFile(schema),
+                        "the schema is written beside it, under the config's own base name"),
+                () -> assertTrue(Files.readString(schema).contains("LEAVE THESE EMPTY"),
+                        "and the schema's root explanation carries the header that says so"),
+                () -> assertFalse(Files.readString(file).contains("LEAVE THESE EMPTY"),
+                        "the YAML itself stays comment-free - that is what jcore 4.0.0 decided")
         );
     }
 

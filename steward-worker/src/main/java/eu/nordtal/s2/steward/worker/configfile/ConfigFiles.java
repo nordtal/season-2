@@ -35,10 +35,8 @@ import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -470,15 +468,34 @@ public final class ConfigFiles {
      * belongs to whatever came before.</p>
      */
     private static List<String> commentsAbove(final List<String> lines, final int keyLine) {
-        final Deque<String> block = new ArrayDeque<>();
+        final List<String> block = new ArrayList<>();
+        for (int i = commentBlockStartLine(lines, keyLine); i < keyLine; i++) {
+            block.add(stripCommentMarker(withoutLineEnding(lines.get(i)).strip()));
+        }
+        return List.copyOf(block);
+    }
+
+    /**
+     * The first line of the contiguous {@code #} comment block directly above {@code keyLine}, or
+     * {@code keyLine} itself when there is none directly above it (a blank line, or a line that is
+     * not a comment, stops the walk immediately - the same rule {@link #commentsAbove} has always
+     * used for reading).
+     *
+     * <p>{@link #removeSection} (steward/71) is the other caller: it needs the line number rather
+     * than the text, because deleting an entry has to delete the comment lines that belong to it
+     * along with it - and, just as importantly, stop before the comment that belongs to the entry
+     * above.</p>
+     */
+    private static int commentBlockStartLine(final List<String> lines, final int keyLine) {
+        int start = keyLine;
         for (int i = keyLine - 1; i >= 0; i--) {
             final String text = withoutLineEnding(lines.get(i)).strip();
             if (text.isEmpty() || !text.startsWith("#")) {
                 break;
             }
-            block.addFirst(stripCommentMarker(text));
+            start = i;
         }
-        return List.copyOf(block);
+        return start;
     }
 
     /**
@@ -693,7 +710,7 @@ public final class ConfigFiles {
             }
             case ConfigChange.Sections sectionsChange -> {
                 if (entry.kind() == Kind.SECTIONS) {
-                    yield sections(parsed, lines, entry, sectionsChange.sections());
+                    yield sections(parsed, lines, entry, span, sectionsChange.sections());
                 }
                 throw new IllegalArgumentException(entry.path() + " is not a list of sections (line "
                         + entry.line() + "): send a single value or a list of values instead");
@@ -831,21 +848,33 @@ public final class ConfigFiles {
      * what makes the surrounding comments and the key order of an entry nobody asked to change
      * provably still there afterwards, byte for byte.</p>
      *
-     * <p>Adding or removing an entry is refused rather than guessed at (see the comment on
-     * {@link ConfigChange.Sections}) - {@code incoming} has to name exactly as many entries as
-     * {@code entry.sections()} already has.</p>
+     * <p><b>Adding or removing more than one entry in the same save is refused</b> (steward/71):
+     * {@code incoming} may name exactly as many entries as {@code entry.sections()} already has -
+     * an ordinary field edit, dispatched below - or exactly one more ({@link #appendSection}) or
+     * one fewer ({@link #removeSection}). Anything else is a diff this class does not try to read,
+     * on the same reasoning steward/68 gave for refusing every add or remove outright: guessing
+     * which of several changed entries was added, removed or edited is how a config editor becomes
+     * untrustworthy.</p>
      */
     private static List<Map<String, String>> sections(final Parsed parsed,
                                                        final List<String> lines,
                                                        final ConfigEntry entry,
+                                                       final Span span,
                                                        final List<Map<String, String>> incoming) {
         final List<List<ConfigEntry>> existing = entry.sections();
+        if (incoming.size() == existing.size() + 1) {
+            return appendSection(parsed, lines, entry, span, incoming);
+        }
+        if (incoming.size() == existing.size() - 1) {
+            return removeSection(parsed, lines, entry, incoming);
+        }
         if (incoming.size() != existing.size()) {
             throw new IllegalArgumentException(entry.path() + " has " + existing.size()
                     + " entr" + (existing.size() == 1 ? "y" : "ies") + " in the file right now, but "
                     + incoming.size() + " " + (incoming.size() == 1 ? "was" : "were")
-                    + " sent - adding or removing an entry is not something this editor can do yet"
-                    + " (steward/68); add or remove it in the file by hand");
+                    + " sent - this editor adds or removes exactly one entry per save (steward/71),"
+                    + " not " + Math.abs(incoming.size() - existing.size()) + " at once; save one"
+                    + " change at a time");
         }
 
         record PendingEdit(ConfigEntry field, String value) {
@@ -893,6 +922,244 @@ public final class ConfigFiles {
             written.add(Map.copyOf(row));
         }
         return List.copyOf(written);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Writing - sections: adding and removing an entry (steward/71)
+    // -----------------------------------------------------------------------------------------
+
+    /**
+     * Appends one new entry to a {@link Kind#SECTIONS} list.
+     *
+     * <p><b>Only a pure append is accepted.</b> {@code incoming} has to carry every existing entry
+     * completely unchanged, in order, plus exactly one more entry at the end. A save that both
+     * edits a field and adds an entry is refused rather than guessed at - two saves, not one that
+     * has to be unpicked into which value belonged to which operation.</p>
+     *
+     * <p><b>The new entry's shape is copied from the existing last entry, never invented</b>: the
+     * same field keys, in the same order, at the same two columns (the {@code - } and the
+     * continuation lines beneath it), preceded by a blank line only if the last entry already was
+     * - exactly the "indentation and list style" the ticket asks not to guess at. A list with no
+     * entries at all has no shape to copy and this refuses rather than inventing one; jcore's own
+     * {@code ArrayCommentStyle#COMMENT_FIRST_ELEMENT} is why the last entry, rather than the first,
+     * is the safe one to copy - the first is the one entry that might carry a comment the new one
+     * must not inherit.</p>
+     */
+    private static List<Map<String, String>> appendSection(final Parsed parsed,
+                                                            final List<String> lines,
+                                                            final ConfigEntry entry,
+                                                            final Span span,
+                                                            final List<Map<String, String>> incoming) {
+        final List<List<ConfigEntry>> existing = entry.sections();
+        if (existing.isEmpty()) {
+            throw new IllegalArgumentException(entry.path() + " (line " + entry.line() + ") has no"
+                    + " entry yet to copy the shape of a new one from - add the first entry by hand");
+        }
+        if (span.flow()) {
+            throw new IllegalArgumentException(entry.path() + " (line " + entry.line() + ") is"
+                    + " written as a flow sequence: adding an entry is not supported for that style -"
+                    + " write it as a block sequence by hand first");
+        }
+        if (!allFieldsAreScalar(existing)) {
+            throw new IllegalArgumentException(entry.path() + " (line " + entry.line() + ") has a"
+                    + " field that is not a plain value: adding an entry only works when every field"
+                    + " of every entry is a simple value");
+        }
+
+        for (int index = 0; index < existing.size(); index++) {
+            final Map<String, String> wanted = incoming.get(index);
+            for (final ConfigEntry field : existing.get(index)) {
+                final String wantedValue = wanted.get(field.key());
+                if (wantedValue == null) {
+                    throw new IllegalArgumentException(field.path() + " is missing from entry "
+                            + index + " of " + entry.path() + " that was sent to be saved");
+                }
+                if (!wantedValue.equals(field.value())) {
+                    throw new IllegalArgumentException(entry.path() + ": adding an entry cannot also"
+                            + " change " + field.path() + " in the same save - save that change"
+                            + " first, then add the entry");
+                }
+            }
+        }
+
+        final List<ConfigEntry> template = existing.getLast();
+        final Map<String, String> newFields = incoming.getLast();
+        // Two maps on purpose, and never one: `renderedText` is what has to appear after the colon
+        // in the file - quoted, if the value needs it - and `newRow` is the logical value a re-read
+        // of that same line comes back as, unquoted, which is what ConfigEntry#value() and therefore
+        // #verify() below both deal in. Handing the quoted text to #verify() as if it were the value
+        // is exactly the "'' instead of an empty string" bug the file wrote before this comment did.
+        final Map<String, String> renderedText = new LinkedHashMap<>();
+        final Map<String, String> newRow = new LinkedHashMap<>();
+        for (final ConfigEntry field : template) {
+            final String value = newFields.get(field.key());
+            if (value == null) {
+                throw new IllegalArgumentException(field.key() + " is missing from the new entry of "
+                        + entry.path() + " that was sent to be saved");
+            }
+            if (value.indexOf('\n') >= 0) {
+                throw new IllegalArgumentException(entry.path() + ": a new entry cannot hold a"
+                        + " multi-line value (" + field.key() + ")");
+            }
+            renderedText.put(field.key(),
+                    Scalars.render(field.type(), value, entry.path() + "." + field.key()));
+            newRow.put(field.key(), value);
+        }
+
+        final Span firstFieldSpan = parsed.spans().get(template.getFirst().path());
+        final Span secondFieldSpan = template.size() > 1
+                ? parsed.spans().get(template.get(1).path()) : null;
+        final int dashColumn = span.start();
+        final int fieldColumn = secondFieldSpan != null ? secondFieldSpan.keyColumn() : dashColumn + 2;
+        final int lastEntryStartLine = firstFieldSpan.keyLine();
+        final boolean blankLineBefore = lastEntryStartLine > 0
+                && withoutLineEnding(lines.get(lastEntryStartLine - 1)).isBlank();
+        final String inner = dominantEnding(lines);
+
+        final List<String> newLines = new ArrayList<>();
+        if (blankLineBefore) {
+            newLines.add(inner);
+        }
+        boolean first = true;
+        for (final ConfigEntry field : template) {
+            final String prefix = (first ? " ".repeat(dashColumn) + "- " : " ".repeat(fieldColumn))
+                    + field.key() + ":";
+            newLines.add(prefix + " " + renderedText.get(field.key()) + inner);
+            first = false;
+        }
+        // The end of THIS list's own block, not of the file - `donation-cents` and everything else
+        // AccessSpec declares after `tiers` still has to end up after the new entry, not before it.
+        final int sequenceEndLine = sequenceExtent(lines, span.keyLine(), span.start());
+        insertLinesAfter(lines, sequenceEndLine, newLines);
+
+        final List<Map<String, String>> written = new ArrayList<>(existing.size() + 1);
+        for (final List<ConfigEntry> fields : existing) {
+            final Map<String, String> row = new LinkedHashMap<>();
+            for (final ConfigEntry field : fields) {
+                row.put(field.key(), field.value());
+            }
+            written.add(Map.copyOf(row));
+        }
+        written.add(Map.copyOf(newRow));
+        return List.copyOf(written);
+    }
+
+    /**
+     * Inserts {@code newLines} right after {@code lines.get(index)}, preserving the file's trailing
+     * newline convention if {@code index} happens to be its very last line - the insert counterpart
+     * of {@link #keepEndingOf}, which does the same job for a block rewritten in place.
+     */
+    private static void insertLinesAfter(final List<String> lines, final int index,
+                                         final List<String> newLines) {
+        if (index == lines.size() - 1) {
+            final String last = lines.get(index);
+            final String withoutEnding = withoutLineEnding(last);
+            if (withoutEnding.length() == last.length() && !withoutEnding.isEmpty()) {
+                // The old last line of the file had no trailing newline. It is no longer the last
+                // line, so it needs one now, and the newly inserted last line inherits the "no
+                // ending" state instead.
+                lines.set(index, withoutEnding + dominantEnding(lines));
+                final String newLast = newLines.get(newLines.size() - 1);
+                newLines.set(newLines.size() - 1, withoutLineEnding(newLast));
+            }
+        }
+        lines.addAll(index + 1, newLines);
+    }
+
+    /**
+     * Removes exactly one entry from a {@link Kind#SECTIONS} list, together with the comment lines
+     * that belong to it and none that belong to the next one.
+     *
+     * <p><b>Only a pure removal is accepted</b>, for the same reason {@link #appendSection} only
+     * accepts a pure append: {@code incoming} has to be {@code existing} with exactly one entry
+     * missing and every remaining entry's fields byte-for-byte unchanged, or this refuses rather
+     * than guessing which entry was meant and which value was also edited.</p>
+     *
+     * <p><b>This is the hard half of steward/71.</b> A comment sitting directly above the removed
+     * entry's own {@code - } line belongs to it and is deleted with it ({@link
+     * #commentBlockStartLine}, the same walk {@link #commentsAbove} does for reading); a comment
+     * directly above the <em>next</em> entry's {@code - } line belongs to that one, and is never
+     * reached by this walk because it starts counting from the removed entry's own line, not the
+     * removed entry's end.</p>
+     */
+    private static List<Map<String, String>> removeSection(final Parsed parsed,
+                                                            final List<String> lines,
+                                                            final ConfigEntry entry,
+                                                            final List<Map<String, String>> incoming) {
+        final List<List<ConfigEntry>> existing = entry.sections();
+        if (!allFieldsAreScalar(existing)) {
+            throw new IllegalArgumentException(entry.path() + " (line " + entry.line() + ") has a"
+                    + " field that is not a plain value: removing an entry only works when every"
+                    + " field of every entry is a simple value");
+        }
+
+        int removedIndex = -1;
+        for (int index = 0; index < existing.size(); index++) {
+            final Map<String, String> candidate = index < incoming.size() ? incoming.get(index) : null;
+            if (!matchesSection(existing.get(index), candidate)) {
+                removedIndex = index;
+                break;
+            }
+        }
+        if (removedIndex < 0) {
+            // Every entry that incoming names at all matched exactly; the missing one is the extra
+            // entry at the very end of `existing`.
+            removedIndex = existing.size() - 1;
+        }
+        boolean ok = true;
+        for (int index = removedIndex; index < incoming.size(); index++) {
+            if (!matchesSection(existing.get(index + 1), incoming.get(index))) {
+                ok = false;
+                break;
+            }
+        }
+        if (!ok) {
+            throw new IllegalArgumentException(entry.path() + " has " + existing.size() + " entries"
+                    + " in the file right now, but what was sent does not read as exactly one of"
+                    + " them removed and nothing else changed - remove an entry and edit a field in"
+                    + " separate saves");
+        }
+
+        final List<ConfigEntry> removed = existing.get(removedIndex);
+        final Span firstFieldSpan = parsed.spans().get(removed.getFirst().path());
+        final Span lastFieldSpan = parsed.spans().get(removed.getLast().path());
+        final int entryStartLine = firstFieldSpan.keyLine();
+        final int entryEndLine = blockExtent(lines, lastFieldSpan.keyLine(), lastFieldSpan.keyColumn());
+        final int deleteFrom = commentBlockStartLine(lines, entryStartLine);
+        lines.subList(deleteFrom, entryEndLine + 1).clear();
+
+        final List<Map<String, String>> written = new ArrayList<>(existing.size() - 1);
+        for (int index = 0; index < existing.size(); index++) {
+            if (index == removedIndex) {
+                continue;
+            }
+            final Map<String, String> row = new LinkedHashMap<>();
+            for (final ConfigEntry field : existing.get(index)) {
+                row.put(field.key(), field.value());
+            }
+            written.add(Map.copyOf(row));
+        }
+        return List.copyOf(written);
+    }
+
+    /** Whether every field of {@code fields} already reads exactly as {@code candidate} says. */
+    private static boolean matchesSection(final List<ConfigEntry> fields, final Map<String, String> candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        for (final ConfigEntry field : fields) {
+            if (!field.value().equals(candidate.get(field.key()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether every field of every entry is a plain value - {@link #appendSection} and {@link
+     * #removeSection} both stop rather than guess at a shape with a nested map or list inside it,
+     * the same restriction {@link #everyFieldIsAScalar} places on building a {@code template}. */
+    private static boolean allFieldsAreScalar(final List<List<ConfigEntry>> sections) {
+        return sections.stream().flatMap(List::stream).allMatch(field -> field.kind() == Kind.SCALAR);
     }
 
     /**

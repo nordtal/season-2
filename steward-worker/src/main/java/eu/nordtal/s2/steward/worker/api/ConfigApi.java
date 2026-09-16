@@ -73,9 +73,10 @@ public final class ConfigApi {
      * disk - keyed by the same identity {@link #locate} matches against, because reloadability is
      * a property of one file, not of a whole service. {@code smp/smp/config.yml} binds worlds and
      * borders once at enable and {@code /smp reload} deliberately never re-reads it (see
-     * {@code ReloadSmp}, {@code SmpPlugin} in {@code :smp}); {@code smp/smp/milestones.yml} and
-     * {@code smp/smp/sounds.yml} sit right beside it in the same service and are the two files that
-     * command actually re-reads. The same reading gives {@code hunger-games/hunger-games/sounds.yml}
+     * {@code ReloadSmp}, {@code SmpPlugin} in {@code :smp}); {@code smp/smp/milestones.yml},
+     * {@code smp/smp/sounds.yml}, {@code smp/smp/colours.yml} and
+     * {@code smp/smp/prestige-colours.yml} sit right beside it in the same service and are the files
+     * that command actually re-reads. The same reading gives {@code hunger-games/hunger-games/sounds.yml}
      * (see {@code ReloadHungerGames}) - {@code config.yml} there is excluded on purpose too, because
      * a game already running must not have its border schedule move under it.
      *
@@ -96,6 +97,7 @@ public final class ConfigApi {
             "smp/smp/milestones.yml", "smp reload",
             "smp/smp/sounds.yml", "smp reload",
             "smp/smp/colours.yml", "smp reload",
+            "smp/smp/prestige-colours.yml", "smp reload",
             "hunger-games/hunger-games/sounds.yml", "hg reload");
 
     private final Path root;

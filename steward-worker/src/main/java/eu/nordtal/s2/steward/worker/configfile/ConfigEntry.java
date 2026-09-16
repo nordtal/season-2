@@ -72,12 +72,13 @@ import java.util.List;
  * @param editable            whether {@link ConfigFiles#write} will accept a change to this key:
  *                            true for any scalar, single-line or block; for a list whose entries are
  *                            all scalars; and for a {@link Kind#SECTIONS} entry, whose fields can be
- *                            changed one value at a time (steward/68) - adding or removing an entry
- *                            through a save is not yet one of those changes, and {@link ConfigFiles}
- *                            refuses it by itself rather than this flag turning false for it. False
- *                            for a nested section, which has no value to change, and for a sequence
- *                            that mixes scalars and mappings, which is not a shape anything here
- *                            knows how to write back
+ *                            changed one value at a time (steward/68), one entry appended or one
+ *                            entry removed (steward/71) - which of those a given save is doing, and
+ *                            whether it is allowed to (a mixed add-and-edit is not), is decided by
+ *                            {@link ConfigFiles} itself rather than this flag turning false for it.
+ *                            False for a nested section, which has no value to change, and for a
+ *                            sequence that mixes scalars and mappings, which is not a shape anything
+ *                            here knows how to write back
  * @param secret              whether this key holds a credential. {@code true} the moment either
  *                            says so: the schema's {@code @Secret}, or the leaf-key heuristic (see
  *                            {@link #isSecretKey(String)}). The heuristic is a net that stays under

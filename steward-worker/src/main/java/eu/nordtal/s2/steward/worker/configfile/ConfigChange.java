@@ -65,15 +65,17 @@ public sealed interface ConfigChange {
     }
 
     /**
-     * New field values for every existing entry of a {@link ConfigEntry.Kind#SECTIONS} list, one
-     * flat {@code {key: value}} record per entry, in file order (steward/68).
+     * New field values for every entry of a {@link ConfigEntry.Kind#SECTIONS} list the caller wants
+     * on file afterwards, one flat {@code {key: value}} record per entry, in order (steward/68).
      *
-     * <p><b>The count has to match what the file already has.</b> Adding or removing an entry needs
-     * a block of lines inserted or deleted with the right indentation and, for an insert, no comment
-     * to carry across at all - a harder problem than the one this class solves, which is replacing
-     * one scalar's characters without moving anything else. {@link ConfigFiles#write} refuses a
-     * mismatched count rather than guessing where the new block would go or which one was removed.
-     * </p>
+     * <p><b>The count usually matches what the file already has</b> - an ordinary edit of one or
+     * more fields, on entries otherwise untouched. It may also be exactly one more (an append,
+     * steward/71) or exactly one fewer (a removal, steward/71), each accepted only as a <em>pure</em>
+     * add or remove: every entry {@link ConfigFiles#write} can still recognise as unchanged has to
+     * come through byte-for-byte identical, or the save is refused rather than guessed at - see
+     * {@code ConfigFiles.appendSection} and {@code ConfigFiles.removeSection}. Any other count, or
+     * a genuine add-and-edit or remove-and-edit in the same save, is refused with a message naming
+     * both counts.</p>
      *
      * <p>A field the file's own entry does not have (typically because there is no schema, or the
      * schema describes a field this particular entry never had) is silently ignored rather than

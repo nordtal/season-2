@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties } from "react"
 import {
   Ban,
@@ -17,9 +17,11 @@ import type {
   ConfigChanges,
   ConfigEntry,
   ConfigLocation,
+  ConfigReloadOutcome,
   GuildList,
   ParsedConfigDocument,
   RawConfigDocument,
+  ReloadAwareConfigDocument,
 } from "@/lib/api"
 import {
   useConfig,
@@ -28,7 +30,9 @@ import {
   useGuildRoles,
   useSaveConfig,
 } from "@/lib/queries"
-import { explanationOf, ScalarControl } from "@/components/steward/config-controls"
+import { takePendingJump } from "@/lib/settings-search"
+import { explanationOf, humanFileName, ScalarControl } from "@/components/steward/config-controls"
+import { ServiceSettingsSearch } from "@/components/steward/config-search"
 import { Empty, Failure, QueryState } from "@/components/steward/query-state"
 import {
   type SectionValues,
@@ -74,21 +78,6 @@ export { discordId } from "@/components/steward/config-controls"
  * and a log line will name.
  */
 
-/**
- * The plain-text file name Till asked for, instead of `nordtal-smp/config.yml` verbatim
- * (steward/56) - mechanical, the same way `Labels.of` on the backend turns a YAML key into a
- * label: strip the extension, split on the characters a path uses to separate words, lower-case
- * them, capitalise the first letter of the result. The raw name is still shown beside it, in
- * monospace, because a path is exactly what an error message or a support request will name.
- */
-function humanFileName(name: string): string {
-  const withoutExtension = name.replace(/\.[a-z0-9]+$/i, "")
-  const words = withoutExtension.split(/[-_./]+/).filter(Boolean)
-  if (words.length === 0) return name
-  const joined = words.map((word) => word.toLowerCase()).join(" ")
-  return joined.charAt(0).toUpperCase() + joined.slice(1)
-}
-
 /** The marker for a key the file has but the schema does not mention (steward/50, steward/55). */
 function NotInSchemaBadge() {
   return (
@@ -102,7 +91,22 @@ export function ServiceConfiguration({ service }: { service: string }) {
   // Which file is open, not whether one is. Only the open file is fetched, which is also why the
   // form is mounted rather than hidden: an unopened file is a request nobody made.
   const [open, setOpen] = useState<string | null>(null)
+  // Which entry a hit should land on and light up (steward/58) - `null` the rest of the time, and
+  // cleared by the Field itself once it has scrolled to it and shown it for a moment.
+  const [highlight, setHighlight] = useState<string | null>(null)
   const files = useConfigs()
+
+  // A hit found by the command palette's global search (steward/58) left its destination here
+  // before navigating, since this component is mounted fresh on arrival rather than handed a prop
+  // for it. Runs on mount and again whenever `service` changes under an already-mounted page - both
+  // are "arriving at this service" as far as a pending jump is concerned.
+  useEffect(() => {
+    const jump = takePendingJump(service)
+    if (jump) {
+      setOpen(jump.file)
+      setHighlight(jump.path)
+    }
+  }, [service])
   // A file with no service is one sitting directly in the mount point rather than in a service's
   // directory, and there were none of those on 2026-09-14 - all twenty-five were under exactly one
   // service. It is shown here anyway rather than filtered into nothing, because `/configs` is
@@ -122,6 +126,13 @@ export function ServiceConfiguration({ service }: { service: string }) {
         <CardTitle>Configuration</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col">
+        <ServiceSettingsSearch
+          files={mine}
+          onJump={(file, path) => {
+            setOpen(file)
+            setHighlight(path)
+          }}
+        />
         <QueryState
           query={files}
           rows={3}
@@ -139,7 +150,13 @@ export function ServiceConfiguration({ service }: { service: string }) {
                   open={open === file.path}
                   onToggle={() => setOpen((current) => (current === file.path ? null : file.path))}
                 />
-                {open === file.path ? <OneFile file={file.path} /> : null}
+                {open === file.path ? (
+                  <OneFile
+                    file={file.path}
+                    highlight={highlight}
+                    onHighlighted={() => setHighlight(null)}
+                  />
+                ) : null}
               </Fragment>
             ))
           }
@@ -206,7 +223,16 @@ function FileRow({
   )
 }
 
-function OneFile({ file }: { file: string }) {
+function OneFile({
+  file,
+  highlight,
+  onHighlighted,
+}: {
+  file: string
+  /** The entry path a search hit (steward/58) landed on, or `null` the rest of the time. */
+  highlight: string | null
+  onHighlighted: () => void
+}) {
   const document = useConfig(file)
 
   return (
@@ -217,11 +243,21 @@ function OneFile({ file }: { file: string }) {
           // class parsed, which gets the whole form below, and a file it could not - a foreign one
           // steward/55's broadened `discover()` now finds, or a `.yml` with a mistake in it - which
           // gets its own component so the hooks below stay unconditional rather than depending on
-          // which shape the same `file` happened to come back as.
+          // which shape the same `file` happened to come back as. A raw document has no entries, so
+          // a search hit never points into one and `highlight` has nothing to do here.
           read.raw ? (
             <RawConfigView key={file} document={read} />
           ) : (
-            <ConfigForm key={file} file={file} document={read} />
+            <ConfigForm
+              key={file}
+              file={file}
+              // The worker sends `restartRequired` on every GET as well as every PUT (steward/59);
+              // `ParsedConfigDocument` itself is left alone because other work lands in this file
+              // tonight, so the widened shape is its own type rather than a change to that one.
+              document={read as ReloadAwareConfigDocument}
+              highlight={highlight}
+              onHighlighted={onHighlighted}
+            />
           )
         }
       </QueryState>
@@ -262,7 +298,17 @@ function RawConfigView({ document }: { document: RawConfigDocument }) {
 
 type Draft = Record<string, string | string[] | SectionValues[]>
 
-function ConfigForm({ file, document }: { file: string; document: ParsedConfigDocument }) {
+function ConfigForm({
+  file,
+  document,
+  highlight,
+  onHighlighted,
+}: {
+  file: string
+  document: ReloadAwareConfigDocument
+  highlight: string | null
+  onHighlighted: () => void
+}) {
   const [draft, setDraft] = useState<Draft>({})
   const save = useSaveConfig(file)
   // Asked for on every config file, not only the bot's: both answers are cached for five minutes
@@ -295,12 +341,13 @@ function ConfigForm({ file, document }: { file: string; document: ParsedConfigDo
   const writable = document.writable && !databaseFile
 
   function submit() {
+    const label = count === 1 ? "One setting saved." : `${count} settings saved.`
     save.mutate({ revision: document.revision, changes }, {
-      onSuccess: () =>
-        toast.success(
-          count === 1 ? "One setting saved." : `${count} settings saved.`,
-          { description: document.name },
-        ),
+      // One click, one request - saving already asks the affected service to pick the change up
+      // (steward/59), so there is no second button here for "now actually use it". `reload` says
+      // which of the three outcomes that request had, and the three must not read alike: applied
+      // and unanswered both sent a command, a restart requirement sent none at all.
+      onSuccess: (saved) => announceSave(label, saved.reload, document.name),
     })
   }
 
@@ -322,15 +369,28 @@ function ConfigForm({ file, document }: { file: string; document: ParsedConfigDo
             if it ever has to change.
           </AlertDescription>
         </Alert>
+      ) : writable && document.restartRequired ? (
+        <Alert>
+          <FileWarning aria-hidden />
+          <AlertTitle>Saving here does not reach a running service.</AlertTitle>
+          <AlertDescription>
+            {/* It used to link to the service page. This IS the service page now, so the sentence
+                points at the button rather than at the page the reader is standing on. Named here,
+                not only in the toast after a save (steward/59's third case): a setting nothing
+                reloads live says so before anybody has typed a change into it. */}
+            Nothing here reloads live. It is written to the file, and{" "}
+            {document.service || "the service"} reads it again only at its next start - the
+            Recreate button at the top of this page is what does that.
+          </AlertDescription>
+        </Alert>
       ) : writable ? (
         <Alert>
           <FileWarning aria-hidden />
-          <AlertTitle>A saved change does not reach a running service.</AlertTitle>
+          <AlertTitle>Saving also reloads it.</AlertTitle>
           <AlertDescription>
-            {/* It used to link to the service page. This IS the service page now, so the sentence
-                points at the button rather than at the page the reader is standing on. */}
-            It is in the file, and {document.service || "the service"} reads it at its next start -
-            the Recreate button at the top of this page is what does that.
+            A save here is sent straight to {document.service || "the service"}'s own console, so
+            the change is live as soon as it is saved - no restart, and no second button. What the
+            save itself found out about that appears as its own message underneath.
           </AlertDescription>
         </Alert>
       ) : (
@@ -362,6 +422,8 @@ function ConfigForm({ file, document }: { file: string; document: ParsedConfigDo
               draft={draft}
               roles={roles.data}
               channels={channels.data}
+              highlighted={entry.path === highlight}
+              onHighlighted={onHighlighted}
               onChange={(value) => setDraft((old) => ({ ...old, [entry.path]: value }))}
               onReset={() =>
                 setDraft((old) => {
@@ -405,6 +467,31 @@ function ConfigForm({ file, document }: { file: string; document: ParsedConfigDo
       </div>
     </div>
   )
+}
+
+/**
+ * The one toast a save produces, shaped by what `reload` says happened (steward/59).
+ *
+ * Three outcomes, three different toast types - not three variations of the same green success,
+ * which is exactly the "look alike" the ticket rules out. `APPLIED` and `NO_ANSWER` both mean a
+ * command was actually sent; only the message says which. `undefined` is the GET-era shape kept
+ * for a document nothing has re-fetched yet, and is treated the same as `APPLIED` was always
+ * shown: a plain confirmation with the file's name.
+ */
+function announceSave(
+  label: string,
+  reload: ConfigReloadOutcome | undefined,
+  fallbackDescription: string,
+) {
+  if (!reload || reload.status === "APPLIED") {
+    toast.success(label, { description: reload?.message ?? fallbackDescription })
+    return
+  }
+  if (reload.status === "NO_ANSWER") {
+    toast.warning(label, { description: reload.message })
+    return
+  }
+  toast.info(label, { description: reload.message })
 }
 
 /**
@@ -453,6 +540,8 @@ function Field({
   draft,
   roles,
   channels,
+  highlighted = false,
+  onHighlighted,
   onChange,
   onReset,
 }: {
@@ -462,12 +551,27 @@ function Field({
   draft: Draft
   roles: GuildList | undefined
   channels: GuildList | undefined
+  /** A search hit (steward/58) landed on this exact entry. */
+  highlighted?: boolean
+  onHighlighted?: () => void
   onChange: (value: string | string[] | SectionValues[]) => void
   onReset: () => void
 }) {
   const depth = entry.path.split(".").length - 1
   const dirty = draft[entry.path] !== undefined
   const explanation = explanationOf(entry)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Jump-and-highlight, not just "the file opened" (steward/58's fourth requirement). Scrolls once,
+  // on the render where `highlighted` turns true, and clears itself after a moment so the ring does
+  // not linger once the point has been made - `onHighlighted` is what tells the parent to forget it.
+  useEffect(() => {
+    if (!highlighted) return
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+    const timeout = window.setTimeout(() => onHighlighted?.(), 2400)
+    return () => window.clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlighted])
 
   if (entry.kind === "MAP") {
     // Headings come purely from the file's own nesting (steward/56) - there is no second grouping
@@ -499,12 +603,13 @@ function Field({
 
   return (
     <div
+      ref={ref}
       // The nesting of the YAML, given back as an indent - and a third of one on a phone, where
       // three levels of 16px is a tenth of the screen spent on saying "this key is inside that
       // one". An inline `marginLeft` cannot answer a media query, so the depth is a variable and
       // the two widths are a class.
       style={{ "--depth": depth } as CSSProperties}
-      className={`ml-[calc(var(--depth)*0.375rem)] flex flex-col gap-2 border-border py-3 sm:ml-[calc(var(--depth)*1rem)] ${first ? "" : "border-t"}`}
+      className={`ml-[calc(var(--depth)*0.375rem)] flex scroll-mt-4 flex-col gap-2 rounded-md border-border py-3 transition-colors duration-300 sm:ml-[calc(var(--depth)*1rem)] ${first ? "" : "border-t"} ${highlighted ? "-mx-3 bg-accent px-3 ring-2 ring-primary" : ""}`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="flex flex-wrap items-center gap-2">

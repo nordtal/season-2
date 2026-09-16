@@ -20,6 +20,26 @@ import { Textarea } from "@/components/ui/textarea"
  * never depended on whether it happened to sit inside a card.
  */
 
+/**
+ * The plain-text file name Till asked for, instead of `nordtal-smp/config.yml` verbatim
+ * (steward/56) - mechanical, the same way `Labels.of` on the backend turns a YAML key into a
+ * label: strip the extension, split on the characters a path uses to separate words, lower-case
+ * them, capitalise the first letter of the result. The raw name is still shown beside it, in
+ * monospace, because a path is exactly what an error message or a support request will name.
+ *
+ * It lives here rather than in `configuration.tsx`, the same reason `discordId` does (steward/57):
+ * `config-search.tsx`'s global and per-service search results (steward/58) need it too, and a
+ * third file importing it from `configuration.tsx` while `configuration.tsx` imports the search
+ * box back would be a cycle for no reason.
+ */
+export function humanFileName(name: string): string {
+  const withoutExtension = name.replace(/\.[a-z0-9]+$/i, "")
+  const words = withoutExtension.split(/[-_./]+/).filter(Boolean)
+  if (words.length === 0) return name
+  const joined = words.map((word) => word.toLowerCase()).join(" ")
+  return joined.charAt(0).toUpperCase() + joined.slice(1)
+}
+
 /** The short text under a label - the schema's own words, or the mechanical comment block. */
 export function explanationOf(entry: ConfigEntry): string | null {
   if (entry.noExplanationNeeded) return null

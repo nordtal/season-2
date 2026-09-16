@@ -3,6 +3,7 @@ package eu.nordtal.s2.steward.worker.configfile;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * What a form is asking a key to say.
@@ -23,6 +24,14 @@ public sealed interface ConfigChange {
     /** @param items the new entries of a sequence, in order; empty writes an empty list */
     static @NotNull ConfigChange list(final @NotNull List<String> items) {
         return new Items(items);
+    }
+
+    /**
+     * @param sections one flat {@code field key -> new value} record per entry of a
+     *                 {@link ConfigEntry.Kind#SECTIONS} list, in order - see {@link Sections}
+     */
+    static @NotNull ConfigChange sections(final @NotNull List<Map<String, String>> sections) {
+        return new Sections(sections);
     }
 
     /**
@@ -52,6 +61,29 @@ public sealed interface ConfigChange {
 
         public Items {
             items = List.copyOf(items);
+        }
+    }
+
+    /**
+     * New field values for every existing entry of a {@link ConfigEntry.Kind#SECTIONS} list, one
+     * flat {@code {key: value}} record per entry, in file order (steward/68).
+     *
+     * <p><b>The count has to match what the file already has.</b> Adding or removing an entry needs
+     * a block of lines inserted or deleted with the right indentation and, for an insert, no comment
+     * to carry across at all - a harder problem than the one this class solves, which is replacing
+     * one scalar's characters without moving anything else. {@link ConfigFiles#write} refuses a
+     * mismatched count rather than guessing where the new block would go or which one was removed.
+     * </p>
+     *
+     * <p>A field the file's own entry does not have (typically because there is no schema, or the
+     * schema describes a field this particular entry never had) is silently ignored rather than
+     * invented as a new line - the same "the file is the truth" rule steward/50 applies everywhere
+     * else.</p>
+     */
+    record Sections(@NotNull List<Map<String, String>> sections) implements ConfigChange {
+
+        public Sections {
+            sections = sections.stream().map(Map::copyOf).toList();
         }
     }
 }

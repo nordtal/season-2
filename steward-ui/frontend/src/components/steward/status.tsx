@@ -1,5 +1,6 @@
 import { cn } from "cn"
 
+import type { Service } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -54,6 +55,25 @@ export function StatusBadge({
   )
 }
 
+/** The two fields {@link serviceTone} and {@link ServiceState} actually need. */
+export type ServiceHealth = Pick<Service, "state" | "health">
+
+/**
+ * One service, reduced to the tone the rest of this file already draws in three colours.
+ *
+ * Pulled out of {@link ServiceState} on 2026-09-16 (steward/83) so that a second drawing of the
+ * same state - {@link HealthDot}, for the sidebar and for the network view steward/81 wants - reads
+ * the container the same way `ServiceState`'s badge does. Two functions deciding "is this one
+ * fine" is exactly how `panel.tsx` drifted from the rest of the app's Caps rule (steward/77): one
+ * of them gets fixed and the other is forgotten.
+ */
+export function serviceTone(service: ServiceHealth): Exclude<Tone, "idle"> {
+  if (service.state !== "running") return "down"
+  if (service.health === "unhealthy") return "down"
+  if (service.health === "starting") return "warn"
+  return "ok"
+}
+
 /** Docker's container state, with health folded in where there is one. */
 export function ServiceState({ state, health }: { state: string; health?: string }) {
   if (state !== "running") {
@@ -63,14 +83,15 @@ export function ServiceState({ state, health }: { state: string; health?: string
       </StatusBadge>
     )
   }
-  if (health === "unhealthy") {
+  const tone = serviceTone({ state, health })
+  if (tone === "down") {
     return (
       <StatusBadge tone="down" title="The container is running, but its healthcheck is failing.">
         unhealthy
       </StatusBadge>
     )
   }
-  if (health === "starting") {
+  if (tone === "warn") {
     return (
       <StatusBadge tone="warn" title="The healthcheck has not reached a verdict yet.">
         starting
@@ -91,6 +112,70 @@ const STATES: Record<string, string> = {
   paused: "paused",
   exited: "exited",
   dead: "dead",
+}
+
+const DOT_TONE: Record<Exclude<Tone, "idle">, string> = {
+  ok: "bg-success",
+  warn: "bg-warning",
+  down: "bg-destructive",
+}
+
+const DOT_WORD: Record<Exclude<Tone, "idle">, string> = {
+  ok: "healthy",
+  warn: "starting",
+  down: "unhealthy",
+}
+
+/**
+ * The health of one service, as a dot rather than a badge - built once for two places (steward/83):
+ * the sidebar's service list here, and the node steward/81 wants in the network view. Both draw
+ * the same state from the same query, so this is the one place that decides what a dot means.
+ *
+ * **Silence is the fine state - in the sidebar.** A `tone === "ok"` service draws nothing at all,
+ * the same call steward/64 already made for the traffic light on the start page: ten identical
+ * green dots next to a service list said nothing, and the one row that actually needs a look is
+ * what a quiet sidebar makes easy to spot. Decided at the narrow layout, where a row of ten dots
+ * costs the most.
+ *
+ * **In the network view it will draw green, and that is not a contradiction.** Till asked for a
+ * small dot, green or red, "in any case" - his words are in steward/83 - and when this component
+ * answered that wording with silence, the question went back to him rather than being decided
+ * here. His answer, 2026-09-16: green in the network view, quiet in the sidebar. A network view is
+ * a picture of state, and one whose healthy nodes carry nothing looks like a query that failed; a
+ * sidebar is navigation, where nothing *is* the message. So the line below becomes a switch when
+ * steward/81 builds the second caller. It is deliberately not one yet: a parameter with one caller
+ * is a parameter nobody is holding to its meaning.
+ *
+ * **`service` undefined is not "fine".** `health.ts` already carries the rule this reuses one
+ * level down: *"A green light on no evidence is the one thing this page must not do."* Before
+ * `useServices()` has answered - or when a service is missing from an answer that did - this draws
+ * a neutral, static dot instead of nothing, so "not read yet" is never mistaken for "checked and
+ * fine". It is never coloured like the fine state and never pulses like ten rows all loading at
+ * once would.
+ */
+export function HealthDot({ service, className }: { service?: ServiceHealth; className?: string }) {
+  if (!service) {
+    return (
+      <span
+        role="img"
+        aria-label="Not read yet."
+        title="Not read yet."
+        className={cn("size-2 shrink-0 rounded-full bg-muted-foreground/40", className)}
+      />
+    )
+  }
+
+  const tone = serviceTone(service)
+  if (tone === "ok") return null
+
+  return (
+    <span
+      role="img"
+      aria-label={DOT_WORD[tone]}
+      title={DOT_WORD[tone]}
+      className={cn("size-2 shrink-0 rounded-full", DOT_TONE[tone], className)}
+    />
+  )
 }
 
 /**

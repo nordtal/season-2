@@ -1200,7 +1200,12 @@ class StewardUiIntegrationTest {
     }
 
     // -------------------------------------------------------------------------------------------
-    // The five admin commands that stayed in the game
+    // The admin commands the interface offers
+    //
+    // This heading said "the five admin commands that stayed in the game" until 2026-09-16, and the
+    // sentence stopped being true twice over: season-2-ops/18 took every admin command off chat, so
+    // none of them stayed in the game, and /phase's four joined the list when the owner sent them to
+    // the console and the interface rather than the console alone.
     // -------------------------------------------------------------------------------------------
 
     @Test
@@ -1208,8 +1213,14 @@ class StewardUiIntegrationTest {
     void theCatalogueIsFiltered() throws Exception {
         final JsonArray offered = GSON.fromJson(get("/api/commands").body(), JsonArray.class);
 
+        // Alphabetical, because that is the order the catalogue answers in - not a ranking. The
+        // twin of this list lives in :commands' WebSurfaceTest; two copies is deliberate here,
+        // because this one proves the HTTP endpoint filters and that one proves the declarations
+        // agree, and a single shared constant would let both pass while the wiring between them
+        // was broken.
         assertEquals(
                 List.of("/access settle", "/access unlink", "/announce", "/hg start",
+                        "/phase launch", "/phase set", "/phase show", "/phase smp-start",
                         "/smp farmreset now", "/smp milestone unlock", "/smp objective complete"),
                 offered.asList().stream()
                         .map(command -> command.getAsJsonObject().get("name").getAsString())

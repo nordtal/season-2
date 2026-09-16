@@ -175,6 +175,40 @@ describe("colourRuns", () => {
     expect(runs[1].map((entry) => entry.path)).toEqual(["b.good", "b.bad"])
   })
 
+  it("groups the thirteen prestige tiers into one row and leaves admin out of it (season-2-ingame/23)", () => {
+    // The exact shape smp/smp/prestige-colours.yml reads back as from the live worker on
+    // 2026-09-16: `admin` is a sibling scalar at the top level - not a fourteenth tier - and the
+    // thirteen tiers sit under `prestige`, consecutive and nothing else between them. This is the
+    // claim steward/63's own comment made before this file existed ("all thirteen prestige colours
+    // ... not yet shipped"); this test is what proves it rather than merely asserting it.
+    const entries = [
+      field({ key: "admin", path: "admin", value: "#ff5555" }),
+      field({ key: "tier-01", path: "prestige.tier-01", value: "#5fbfae" }),
+      field({ key: "tier-02", path: "prestige.tier-02", value: "#5ea9d6" }),
+      field({ key: "tier-03", path: "prestige.tier-03", value: "#6f93e0" }),
+      field({ key: "tier-04", path: "prestige.tier-04", value: "#8f83e6" }),
+      field({ key: "tier-05", path: "prestige.tier-05", value: "#a878e0" }),
+      field({ key: "tier-06", path: "prestige.tier-06", value: "#c96fd6" }),
+      field({ key: "tier-07", path: "prestige.tier-07", value: "#dd6fae" }),
+      field({ key: "tier-08", path: "prestige.tier-08", value: "#e07d78" }),
+      field({ key: "tier-09", path: "prestige.tier-09", value: "#e2984f" }),
+      field({ key: "tier-10", path: "prestige.tier-10", value: "#dbb043" }),
+      field({ key: "tier-11", path: "prestige.tier-11", value: "#e8d35a" }),
+      field({ key: "tier-12", path: "prestige.tier-12", value: "#f0dc70" }),
+      field({ key: "tier-13", path: "prestige.tier-13", value: "#fff6d8" }),
+    ]
+
+    const runs = colourRuns(entries, isColour)
+
+    expect(runs).toHaveLength(1)
+    expect(runs[0]).toHaveLength(13)
+    expect(runs[0].map((entry) => entry.key)).toEqual([
+      "tier-01", "tier-02", "tier-03", "tier-04", "tier-05", "tier-06", "tier-07",
+      "tier-08", "tier-09", "tier-10", "tier-11", "tier-12", "tier-13",
+    ])
+    expect(runs[0].some((entry) => entry.key === "admin")).toBe(false)
+  })
+
   it("drops a blank member out of the run rather than guessing it is a colour too", () => {
     // The documented cost of deciding by value: a colour saved blank splits the run exactly the
     // way an unrelated field would. Fixed by a schema "colour" kind (steward/54), not by this

@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -117,6 +118,30 @@ public final class Configs {
             });
         }
         return declared;
+    }
+
+    /**
+     * Loads the prestige name colours (season-2-ingame/23).
+     *
+     * <p><b>No validator.</b> {@code PrestigeColours#parse} is where a bad hex value is caught, and
+     * it corrects rather than refuses - the same rule {@link #colours} follows for the tone palette.
+     */
+    public static @NotNull ConfigHandle<PrestigeColoursSpec> prestigeColours(final Path dataFolder,
+                                                                             final Logger logger)
+            throws ConfigException {
+        return load(dataFolder, logger, "prestige-colours", PrestigeColoursSpec.class,
+                "NORDTAL_SMP_PRESTIGE_COLOURS", config -> { }, false);
+    }
+
+    /**
+     * {@code PrestigeColoursSpec.TierSpec}'s thirteen accessors, in tier order, as
+     * {@link eu.nordtal.s2.smp.prestige.PrestigeColours#parse} takes them.
+     */
+    public static List<String> declaredPrestigeTiers(final PrestigeColoursSpec spec) {
+        final PrestigeColoursSpec.TierSpec tiers = spec.prestige();
+        return List.of(tiers.tier01(), tiers.tier02(), tiers.tier03(), tiers.tier04(), tiers.tier05(),
+                tiers.tier06(), tiers.tier07(), tiers.tier08(), tiers.tier09(), tiers.tier10(),
+                tiers.tier11(), tiers.tier12(), tiers.tier13());
     }
 
     private static void validate(final SmpSpec config) {

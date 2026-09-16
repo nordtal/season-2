@@ -259,6 +259,53 @@ public final class Docker {
         }
     }
 
+    /**
+     * The daemon's own record of one local image: the digests it can vouch for, and how the image
+     * got here - in one call, so {@link eu.nordtal.s2.steward.worker.docker.DockerOps#check} does
+     * not have to guess which shape it is looking at.
+     *
+     * <h2>Why {@code Identity} and not just {@code RepoDigests}</h2>
+     * Measured on this host on 2026-09-16, Docker Engine 29.8.0 with
+     * {@code driver-type: io.containerd.snapshotter.v1} ({@code docker info}): the containerd image
+     * store writes a {@code RepoDigests} entry - one equal to the image's own content id, never
+     * confirmed by any registry round trip - for an image built locally, exactly as it does for one
+     * that was pulled. {@code steward-ui} and {@code steward-worker}, rebuilt with a local
+     * {@code docker build} on that date, both carry one. So "no repo digest" is no longer a
+     * reliable sign of "built here and pushed nowhere" the way it was under the classic graphdriver,
+     * and the digest comparison alone would call a local rebuild {@code OUTDATED} - the opposite of
+     * the truth (steward/75). {@code Identity.Pull} is set once {@code docker pull} (or compose's
+     * own pull) put an image here from a registry; {@code Identity.Build} is set once
+     * {@code docker build}/buildx produced it locally. Neither field is documented API surface, so
+     * {@link ImageIdentity#builtLocally()} is treated as a hint {@code DockerOps} corroborates with
+     * the digest comparison, never as the only signal.
+     *
+     * @return empty when the image cannot be read at all: it is gone from the daemon's store, which
+     *         is what a container's own image looks like once its tag has been rebuilt out from
+     *         under it without a {@code --force-recreate}
+     */
+    public @NotNull Optional<ImageIdentity> imageIdentity(final @NotNull String imageRef) {
+        if (imageRef == null || imageRef.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            final JsonObject json = GSON.fromJson(
+                    socket.send("GET", "/images/" + encodePath(imageRef) + "/json", null),
+                    JsonObject.class);
+            final JsonArray digests = json.getAsJsonArray("RepoDigests");
+            final List<String> all = new ArrayList<>();
+            if (digests != null) {
+                digests.forEach(element -> all.add(element.getAsString()));
+            }
+            final JsonObject identity = json.getAsJsonObject("Identity");
+            final boolean builtLocally = identity != null && identity.has("Build")
+                    && identity.get("Build").isJsonArray() && !identity.getAsJsonArray("Build").isEmpty();
+            return Optional.of(new ImageIdentity(all, builtLocally));
+        } catch (DockerException e) {
+            log.debug("no image record for {}", imageRef, e);
+            return Optional.empty();
+        }
+    }
+
     public void stop(final @NotNull String id, final int secondsBeforeKill) {
         socket.send("POST", "/containers/" + id + "/stop?t=" + secondsBeforeKill, null);
     }
@@ -389,6 +436,16 @@ public final class Docker {
             return health == null || health.isBlank() || "healthy".equalsIgnoreCase(health);
         }
     }
+
+    /**
+     * What the daemon's local image store knows about one image.
+     *
+     * @param repoDigests the {@code repo@sha256:...} entries the daemon has recorded - under the
+     *                     containerd store this is non-empty for a local build too, see
+     *                     {@link #imageIdentity}
+     * @param builtLocally whether {@code Identity.Build} names at least one local build
+     */
+    public record ImageIdentity(@NotNull List<String> repoDigests, boolean builtLocally) { }
 
     public record Stats(long memoryBytes, long memoryLimitBytes, @NotNull OptionalDouble cpuPercent) { }
 

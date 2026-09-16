@@ -452,7 +452,8 @@ public final class NetworkControlPlugin {
         final CommandAllowlist allowlist =
                 CommandAllowlist.parse(networkConfig.commandAllowlist());
         proxy.getEventManager().register(this,
-                new CommandGate(roster, allowlist, messages, logger, () -> colours));
+                new CommandGate(roster, allowlist, messages, logger, () -> colours,
+                        eu.nordtal.s2.networkcontrol.feedback.NetworkControlSounds.defaults(logger::warn)));
         if (allowlist.entries().isEmpty()) {
             logger.warn("network.yml#command-allowlist is empty: a player who is not an admin can "
                     + "type no command at all, anywhere on this network. That is a valid setting "

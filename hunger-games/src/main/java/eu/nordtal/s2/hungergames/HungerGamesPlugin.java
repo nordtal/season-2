@@ -270,7 +270,7 @@ public final class HungerGamesPlugin extends JavaPlugin {
         commandFilter = new eu.nordtal.s2.papercommon.command.CommandFilter(this,
                 eu.nordtal.s2.papercommon.command.CommandFilter.Source.of(
                         eu.nordtal.s2.common.command.AllowlistDirectory.using(pool)),
-                adminWatch::isAdmin, locales, messages, getLogger0(), () -> colours);
+                adminWatch::isAdmin, locales, messages, getLogger0(), () -> colours, sounds::play);
         getServer().getPluginManager().registerEvents(commandFilter, this);
         commandFilter.start(java.time.Duration.ofSeconds(config.adminPollIntervalSeconds()));
 

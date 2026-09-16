@@ -70,7 +70,7 @@ public final class CommandGate {
      * as its own interface because a Velocity {@link Player} is not a Bukkit one and this module
      * must not depend on {@code paper-common} to borrow its shape.
      *
-     * <h2>Why this is scaffolding rather than a working sound, 2026-09-15 (season-2-ingame/13)</h2>
+     * <h2>The proxy can reach a player on any backend, measured 2026-09-15 (season-2-ingame/13)</h2>
      * Measured before writing anything: {@link Player} extends {@code CommandSource}, which extends
      * {@code net.kyori.adventure.audience.Audience} - the same interface {@code sendMessage} comes
      * from - and {@link Player} itself carries a default {@code playSound(Sound)} straight from
@@ -81,17 +81,15 @@ public final class CommandGate {
      * <b>yes, the API says the proxy can</b> - this is a structural finding, not an acoustic one:
      * nobody has listened, and that stays {@code Owner: till} until somebody does.
      *
-     * <p>What stops this ticket from also wiring a real sound here is a different boundary:
+     * <h2>A real chime, wired in season-2-ingame/28</h2>
      * {@code common}'s {@code SoundVocabularyTest} scans {@code network-control} (this module is on
      * its list) and refuses a bare {@code playSound(} or {@code net.kyori.adventure.sound.} outside
-     * a named, allow-listed "Sounds" adapter file - {@code SmpSounds.java} and
-     * {@code HungerGamesSounds.java} are the only two entries today. Adding a real
-     * {@code NetworkControlSounds.java} here needs that allow-list edited, and the allow-list lives
-     * in {@code common/}, which this session's file scope does not include. So this interface and
-     * the constructor overload below exist and are called at the one refusal site; the
-     * implementation handed in today is {@link #silent()} until that edit is made - which is exactly
-     * the same one-line-per-call-site shape {@code CommandFilter}'s own {@code Chime} needed in the
-     * three Paper plugins, written up as a follow-up ticket rather than guessed at here.
+     * a named, allow-listed "Sounds" adapter file. {@code NetworkControlSounds} in
+     * {@code eu.nordtal.s2.networkcontrol.feedback} is that adapter for this module, allow-listed
+     * alongside {@code SmpSounds.java} and {@code HungerGamesSounds.java}, and
+     * {@code NetworkControlPlugin} hands one to the constructor below. {@link #silent()} still
+     * exists for a caller with no chime of its own - the tests in this package use it deliberately,
+     * to hold the old, unchanged constructors in place.
      */
     @FunctionalInterface
     public interface Chime {

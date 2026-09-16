@@ -134,7 +134,7 @@ function DoorIsStuck({ error, onRetry }: { error: unknown; onRetry: () => void }
           <StewardMark className="size-8" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-            <span className="text-sm text-muted-foreground">nordtal.eu · Season 2</span>
+            <span className="text-sm text-muted-foreground">Season 2</span>
           </div>
         </div>
         <Failure error={error} onRetry={onRetry} />

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Fingerprint, KeyRound, LogOut, ShieldAlert } from "lucide-react"
+import { Fingerprint, LogOut, ShieldAlert } from "lucide-react"
 
 import type { Me } from "@/lib/api"
 import { api } from "@/lib/api"
@@ -25,13 +25,13 @@ import { Label } from "@/components/ui/label"
  * underneath would be a sidebar full of pages that cannot load - which reads as a broken interface
  * rather than as one step that has not been taken.
  *
- * **Two things are on the screen and nothing else** (2026-09-14): who is signed in, because that
- * is the account the key is about to belong to, and the one sentence about losing it - a danger,
- * not an explanation. The reasoning that used to stand here is in this comment.
- *
  * Why anything at all is asked for after a successful sign-in: Discord confirms who somebody is
  * and this interface can stop servers and type into consoles, so it wants something nobody can
  * steal by reading a message.
+ *
+ * Till, 2026-09-16 (steward/78): as little text as possible, everywhere. Asked directly whether
+ * the warning about losing the key should stay on this, the registration page: "falls away here
+ * too." Only who is signed in stays on screen.
  */
 export function SecurityKeyPage({ me }: { me: Me }) {
   const [label, setLabel] = useState("")
@@ -47,19 +47,18 @@ export function SecurityKeyPage({ me }: { me: Me }) {
   return (
     <div className="flex min-h-(--app-height) items-center justify-center bg-background px-6 py-12">
       <div className="flex w-full max-w-md flex-col gap-6">
-        <div className="flex items-center gap-3">
-          <StewardMark className="size-8" />
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-            <span className="text-sm text-muted-foreground">
-              nordtal.eu · Season 2 · signed in as{" "}
-              <span className="text-foreground">{me.name ?? "an admin"}</span>
-            </span>
-          </div>
-        </div>
-
         <Card>
           <CardHeader>
+            <div className="flex items-center gap-3">
+              <StewardMark className="size-8" />
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
+                <span className="text-sm text-muted-foreground">Season 2</span>
+                <span className="text-sm text-muted-foreground">
+                  Signed in as <span className="text-foreground">{me.name ?? "an admin"}</span>
+                </span>
+              </div>
+            </div>
             <CardTitle>One more thing: your security key</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -105,15 +104,6 @@ export function SecurityKeyPage({ me }: { me: Me }) {
                 <AlertDescription>{register.error.message}</AlertDescription>
               </Alert>
             ) : null}
-
-            <Alert>
-              <KeyRound aria-hidden />
-              <AlertTitle>If you lose it, somebody has to go to the server.</AlertTitle>
-              <AlertDescription>
-                {/* A danger, not an explanation, which is why this one sentence stays. */}
-                <p>There is no email reset and no second route in.</p>
-              </AlertDescription>
-            </Alert>
 
             <Button
               type="button"

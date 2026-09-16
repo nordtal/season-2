@@ -1,8 +1,12 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
+import eu.nordtal.jcore.config.schema.SchemaNode;
+import eu.nordtal.jcore.config.schema.SettingKind;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Kind;
 import eu.nordtal.s2.steward.worker.configfile.ConfigEntry.Type;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -36,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,14 +53,21 @@ import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.nio.file.StandardOpenOption.WRITE;
 
 /**
- * Reads and writes the commented YAML jcore writes, without knowing the {@code @ConfigSpec} it
- * came from.
+ * Reads and writes the YAML jcore writes, without knowing the {@code @ConfigSpec} it came from.
  *
  * <p><b>The file is the model.</b> Steward shows every configuration in the stack - the worker's
  * {@code steward.yml}, the bot's, the four Paper plugins' - and those specs live in modules
  * steward-ui must not depend on (one of them would drag a Paper API onto a web server's
- * classpath). jcore writes its {@code @Comment}s into the YAML, so a file it wrote documents
- * itself, and a reader of the file can draw the same form a reader of the class could.</p>
+ * classpath). A reader of the file, and now of the {@code <name>.schema.json} beside it
+ * ({@link Schemas}, steward/55), can draw the same form a reader of the class could - without a
+ * class to read.</p>
+ *
+ * <p><b>The schema is the first choice, never the only one.</b> A file with no schema - one jcore
+ * has not written under 4.0.0 yet, or one nothing ever described - reads exactly as it always has:
+ * a mechanical {@link Labels#of(String)} label and whatever comment block sits above the key. And
+ * whichever source wins, <b>the file is still the truth about what keys exist</b> (steward/50): a
+ * key the schema does not mention is delivered anyway, never hidden, and a schema entry with
+ * nothing behind it in the file is silently ignored rather than invented as an entry.</p>
  *
  * <p><b>Writing is a line edit, never a re-dump.</b> Handing the parsed tree back to SnakeYAML's
  * dumper would produce a valid file with every comment gone, blank lines moved and keys in some
@@ -64,6 +76,8 @@ import static java.nio.file.StandardOpenOption.WRITE;
  * the file alone.</p>
  */
 public final class ConfigFiles {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ConfigFiles.class);
 
     private ConfigFiles() {
     }
@@ -185,19 +199,32 @@ public final class ConfigFiles {
 
         final List<ConfigEntry> entries = new ArrayList<>();
         final Map<String, Span> spans = new HashMap<>();
-        collect(file, mapping, "", lines, entries, spans);
+        final Optional<Map<String, SchemaNode>> schema = Schemas.read(file).map(SchemaNode::children);
+        collect(file, mapping, "", lines, entries, spans, schema);
 
         final int firstKeyLine = entries.isEmpty() ? Integer.MAX_VALUE : entries.getFirst().line() - 1;
         return new Parsed(new ConfigDocument(file, revisionOf(content),
                 headerOf(lines, firstKeyLine), entries), lines, spans);
     }
 
+    /**
+     * Walks one mapping level, matching each key against {@code schemaLevel} when there is one.
+     *
+     * @param schemaLevel the schema's children at this level, keyed the same way the file is - or
+     *                    empty when there is no schema to compare against here at all, which is the
+     *                    file-has-no-schema case (steward/55) as well as the case where an ancestor's
+     *                    schema node did not itself describe a nested mapping. Either way, every key
+     *                    at this level is then vacuously {@link ConfigEntry#inSchema()}: there is
+     *                    nothing here for it to be missing from
+     */
     private static void collect(final Path file,
                                 final MappingNode mapping,
                                 final String prefix,
                                 final List<String> lines,
                                 final List<ConfigEntry> entries,
-                                final Map<String, Span> spans) throws IOException {
+                                final Map<String, Span> spans,
+                                final Optional<Map<String, SchemaNode>> schemaLevel) throws IOException {
+        final Set<String> matchedSchemaKeys = new HashSet<>();
         for (final NodeTuple tuple : mapping.getValue()) {
             if (!(tuple.getKeyNode() instanceof ScalarNode keyNode)) {
                 throw new IOException(file + ": line " + (tuple.getKeyNode().getStartMark().getLine() + 1)
@@ -208,6 +235,12 @@ public final class ConfigFiles {
             final String path = prefix.isEmpty() ? key : prefix + "." + key;
             final Node valueNode = tuple.getValueNode();
             final int keyLine = keyNode.getStartMark().getLine();
+
+            final SchemaNode schemaChild = schemaLevel.map(level -> level.get(key)).orElse(null);
+            final boolean inSchema = schemaLevel.isEmpty() || schemaChild != null;
+            if (schemaChild != null) {
+                matchedSchemaKeys.add(key);
+            }
 
             final Kind kind;
             final Type type;
@@ -267,21 +300,53 @@ public final class ConfigFiles {
             entries.add(new ConfigEntry(
                     path,
                     key,
-                    Labels.of(key),
+                    schemaChild != null ? schemaChild.label() : Labels.of(key),
                     commentsAbove(lines, keyLine),
+                    schemaChild != null ? schemaChild.explanation() : "",
+                    schemaChild != null && schemaChild.noExplanationNeeded(),
                     value,
                     items,
                     kind,
                     type,
                     keyLine + 1,
                     editable,
-                    ConfigEntry.isSecretKey(key)));
+                    // The heuristic is a net that stays under the schema (steward/50): a schema
+                    // saying secret=true always wins, but secret=false or no schema entry at all
+                    // never turns the heuristic off, only the schema turning it ON is authoritative.
+                    ConfigEntry.isSecretKey(key) || (schemaChild != null && schemaChild.secret()),
+                    inSchema,
+                    choicesOf(schemaChild)));
             spans.put(path, span);
 
             if (valueNode instanceof MappingNode nested) {
-                collect(file, nested, path, lines, entries, spans);
+                final Optional<Map<String, SchemaNode>> nestedSchema =
+                        (schemaChild != null && schemaChild.kind() == SettingKind.MAP)
+                                ? Optional.of(schemaChild.children())
+                                : Optional.empty();
+                collect(file, nested, path, lines, entries, spans, nestedSchema);
             }
         }
+
+        // The file is the truth (steward/50): a schema entry with nothing in the file behind it is
+        // not an error, but it is worth a line in the log - it is exactly what a setting the
+        // software has since dropped from its spec looks like from here.
+        if (schemaLevel.isPresent()) {
+            final Set<String> extra = new java.util.TreeSet<>(schemaLevel.get().keySet());
+            extra.removeAll(matchedSchemaKeys);
+            if (!extra.isEmpty()) {
+                LOG.warn("{}: the schema names {} setting(s) the file does not have: {}. The file"
+                                + " wins; they are ignored.",
+                        file, extra.size(), String.join(", ", extra));
+            }
+        }
+    }
+
+    /** {@link ConfigEntry.Choices}, from a schema entry's own {@link SchemaNode.Choices} - or {@code null}. */
+    private static ConfigEntry.Choices choicesOf(final SchemaNode schemaChild) {
+        if (schemaChild == null || schemaChild.choices() == null) {
+            return null;
+        }
+        return new ConfigEntry.Choices(schemaChild.choices().values(), schemaChild.choices().strict());
     }
 
     /**
@@ -771,7 +836,8 @@ public final class ConfigFiles {
         }
         final List<ConfigEntry> entries = new ArrayList<>();
         try {
-            collect(file, (MappingNode) root, "", splitKeepingLineEndings(content), entries, new HashMap<>());
+            collect(file, (MappingNode) root, "", splitKeepingLineEndings(content), entries, new HashMap<>(),
+                    Optional.empty());
         } catch (final IOException | ClassCastException e) {
             throw new IllegalStateException("Refusing to write " + file
                     + ": the edited content cannot be read back. This is a bug in ConfigFiles.", e);
@@ -857,17 +923,62 @@ public final class ConfigFiles {
     // Discovery
     // -----------------------------------------------------------------------------------------
 
+    /** The suffix {@link eu.nordtal.jcore.config.schema.SchemaWriter#schemaFileFor} always writes. */
+    private static final String SCHEMA_SUFFIX = ".schema.json";
+
+    /**
+     * jcore's own copy of the file as it was before the last write. Excluded by name, decided by
+     * Till on 2026-09-16 when the broadening below was measured against the running mount and
+     * turned up six of them.
+     *
+     * <p>It is the one new entry that would be actively wrong rather than merely noisy: it is
+     * YAML, it parses, it draws a perfectly ordinary form, and every edit made in that form is
+     * written to a file nothing reads. A page that offers a control which does nothing is worse
+     * than a page missing a file.</p>
+     */
+    private static final String BACKUP_SUFFIX = ".bak";
+
+    /**
+     * A directory whose contents are scratch, not configuration - {@code spark/tmp} holds profiler
+     * dumps and an {@code about.txt}, and the same name is the convention everywhere else. Matched
+     * as a whole path segment, so a file honestly called {@code tmp.yml} is still listed.
+     */
+    private static final String SCRATCH_DIRECTORY = "tmp";
+
+    /** How many bytes of a file {@link #isProbablyText} looks at before deciding. */
+    private static final int SNIFF_LENGTH = 8000;
+
     /**
      * Every config file under the mount, one directory per service.
      *
      * <p>{@code /configs/steward-worker/steward.yml} is service {@code steward-worker}, name
      * {@code steward.yml}; {@code /configs/smp/nordtal-smp/config.yml} is service {@code smp}, name
-     * {@code nordtal-smp/config.yml}. A {@code .yml} lying directly in the root has no service
-     * directory above it and is reported with an empty service rather than dropped - a file the
-     * page does not list is a file nobody will go looking for.</p>
+     * {@code nordtal-smp/config.yml}. A file lying directly in the root has no service directory
+     * above it and is reported with an empty service rather than dropped - a file the page does not
+     * list is a file nobody will go looking for.</p>
+     *
+     * <p><b>Not only {@code .yml} any more (steward/55).</b> A directory under this mount holds a
+     * plugin's {@code README.txt}, a {@code spark/config.json}, a {@code voicechat-server.properties}
+     * - real files this stack already has, that used to be invisible to this page purely because of
+     * their extension. So this no longer filters by name at all; it filters by content, the same way
+     * {@code git} and {@code grep} decide a file is worth treating as text: {@link #isProbablyText}
+     * sniffs the first few kilobytes for a NUL byte, which no text encoding this stack writes ever
+     * contains and every binary format eventually does. A file this process cannot read is not
+     * sniffed and not excluded either - hiding a config nobody can open yet is a worse answer than
+     * showing it and letting {@link ConfigLocation#readable()} say why it is dead.</p>
+     *
+     * <p>Three things are excluded by name rather than by content, and each for its own reason.
+     * Every {@code <name>.schema.json} jcore writes beside a config file is the description of
+     * another file in this listing, never a file of its own. Every {@code *.bak} is jcore's copy of
+     * a file as it was before the last write - it is YAML, it parses, and it would draw a form
+     * whose every control writes to something nothing reads. And anything under a {@code tmp}
+     * directory is scratch: {@code spark/tmp} holds profiler dumps and a stray {@code about.txt}.
+     * Measured against the running mount on 2026-09-16, those three rules are the difference
+     * between 49 files and 39, and the six {@code .bak} among them are the reason the rule exists
+     * at all.</p>
      *
      * @param root the mount point
-     * @return every {@code *.yml} beneath it, by service then name. <b>Empty if the root does not
+     * @return every text file beneath it, by service then name. <b>Empty if the root does not
      *         exist</b>: an unmounted volume is a normal state the page has to be able to report,
      *         not a failure
      * @throws UncheckedIOException if the root exists but cannot be walked
@@ -878,19 +989,73 @@ public final class ConfigFiles {
         }
         try (Stream<Path> walk = Files.walk(root)) {
             return walk.filter(Files::isRegularFile)
-                    // A LINK IS NOT A CONFIG FILE. `isRegularFile` follows one, so a `.yml` link
-                    // dropped into a shared config volume would be listed, read and written
-                    // through - wherever it points. That is the one way out of this mount, and
-                    // this class's whole claim is that there is none: the browser's string is
-                    // matched against this list and never joined onto a path.
+                    // A LINK IS NOT A CONFIG FILE. `isRegularFile` follows one, so a link dropped
+                    // into a shared config volume would be listed, read and written through -
+                    // wherever it points. That is the one way out of this mount, and this class's
+                    // whole claim is that there is none: the browser's string is matched against
+                    // this list and never joined onto a path.
                     .filter(path -> !Files.isSymbolicLink(path))
-                    .filter(path -> path.getFileName().toString().endsWith(".yml"))
+                    .filter(path -> !path.getFileName().toString().endsWith(SCHEMA_SUFFIX))
+                    .filter(path -> !path.getFileName().toString().endsWith(BACKUP_SUFFIX))
+                    .filter(path -> isUnderNoScratchDirectory(root, path))
+                    .filter(ConfigFiles::isProbablyText)
                     .map(path -> locationOf(root, path))
                     .sorted(Comparator.comparing(ConfigLocation::service)
                             .thenComparing(ConfigLocation::name))
                     .toList();
         } catch (final IOException e) {
             throw new UncheckedIOException("Cannot list the config files under " + root, e);
+        }
+    }
+
+    /**
+     * Whether no directory between {@code root} and {@code path} is a scratch directory.
+     *
+     * <p>Compared segment by segment rather than with {@code contains}, so {@code smp/tmp/about.txt}
+     * is excluded and {@code smp/tmpl/config.yml} is not.</p>
+     *
+     * <p><b>Relative to the root, and that is not a detail.</b> Walking the absolute path would
+     * mean every segment above the mount counts too - and this project's own test fixtures live
+     * under {@code /tmp}, so the first version of this rule matched the mount itself and hid every
+     * file in it. The rule is about the layout inside the volume; nothing above it is ours to
+     * read.</p>
+     */
+    private static boolean isUnderNoScratchDirectory(final Path root, final Path path) {
+        for (final Path segment : root.relativize(path)) {
+            if (segment.toString().equals(SCRATCH_DIRECTORY)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Whether a file looks like text rather than a binary format, by the same heuristic {@code git}
+     * and {@code grep} use: a NUL byte in the first few kilobytes means binary, because no text
+     * encoding this stack ever writes contains one.
+     *
+     * <p>A file this process cannot read is treated as text rather than excluded - there is nothing
+     * to sniff, and hiding a config nobody can open (yet) is a worse answer than listing it dead. An
+     * empty file is text; there is nothing in it to say otherwise.</p>
+     */
+    private static boolean isProbablyText(final Path path) {
+        if (!Files.isReadable(path)) {
+            return true;
+        }
+        try (var in = Files.newInputStream(path)) {
+            final byte[] buffer = new byte[SNIFF_LENGTH];
+            final int read = in.read(buffer);
+            for (int i = 0; i < read; i++) {
+                if (buffer[i] == 0) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (final IOException e) {
+            // Unreadable in a way `Files.isReadable` did not catch - a permission race, a link
+            // whose target vanished after the check above. Same answer as above and for the same
+            // reason.
+            return true;
         }
     }
 

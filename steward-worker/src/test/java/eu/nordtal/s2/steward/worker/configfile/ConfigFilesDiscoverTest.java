@@ -1,6 +1,7 @@
 package eu.nordtal.s2.steward.worker.configfile;
 
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -62,14 +63,48 @@ class ConfigFilesDiscoverTest {
     }
 
     @Test
-    void anythingThatIsNotAYmlIsIgnored() throws IOException {
+    void aBinaryFileIsIgnoredButOtherTextFormatsAreNotAnyMore() throws IOException {
+        // Pre-steward/55 this asserted the opposite: only `.yml` survived. The mount actually holds
+        // a `README.txt`, a `spark/config.json`, a `voicechat-server.properties` - real files this
+        // page could not show for no reason but their extension. Only a binary format is still
+        // excluded, and by content now, not by name.
         write("smp/config.yml");
-        write("smp/server.properties");
-        write("smp/config.yaml");
-        write("smp/ops.json");
+        Files.writeString(root.resolve("smp/server.properties"), "level=5\n");
+        Files.writeString(root.resolve("smp/config.yaml"), "port: 1\n");
+        Files.writeString(root.resolve("smp/ops.json"), "{}\n");
+        Files.write(root.resolve("smp/world.dat"), new byte[] {0x1f, (byte) 0x8b, 0, 1, 2, 3});
 
-        assertEquals(List.of("config.yml"), ConfigFiles.discover(root).stream()
-                .map(ConfigLocation::name).toList());
+        assertEquals(List.of("config.yaml", "config.yml", "ops.json", "server.properties"),
+                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
+    }
+
+    @Test
+    @DisplayName("jcore's own .bak is not offered as a file to edit")
+    void aBackupIsNotAConfigFile() throws IOException {
+        // The one new entry the broadening above would get actively wrong. jcore writes `gate.yml`
+        // and leaves the previous content in `gate.yml.bak`; the backup is YAML, it parses, and it
+        // would draw an ordinary form whose every control writes to a file nothing reads. Measured
+        // on the running mount on 2026-09-16 there were six of them. Till: leave them out.
+        write("network-control/gate.yml");
+        Files.writeString(root.resolve("network-control/gate.yml.bak"), "server-limbo: old\n");
+
+        assertEquals(List.of("gate.yml"),
+                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
+    }
+
+    @Test
+    @DisplayName("a tmp directory is scratch, and a file merely called tmpl is not")
+    void scratchDirectoriesAreNotWalkedButASimilarNameIs() throws IOException {
+        // spark keeps profiler dumps and an about.txt under `spark/tmp`. Excluded by whole path
+        // segment rather than by substring, which is what keeps the second file below listed.
+        write("smp/config.yml");
+        Files.createDirectories(root.resolve("smp/spark/tmp"));
+        Files.writeString(root.resolve("smp/spark/tmp/about.txt"), "spark\n");
+        Files.createDirectories(root.resolve("smp/tmpl"));
+        Files.writeString(root.resolve("smp/tmpl/config.yml"), "a: 1\n");
+
+        assertEquals(List.of("config.yml", "tmpl/config.yml"),
+                ConfigFiles.discover(root).stream().map(ConfigLocation::name).sorted().toList());
     }
 
     @Test

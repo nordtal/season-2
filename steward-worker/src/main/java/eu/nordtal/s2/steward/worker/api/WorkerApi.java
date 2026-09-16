@@ -183,11 +183,30 @@ public final class WorkerApi implements AutoCloseable {
     private Javalin app;
 
     private final ConfigApi configs;
+    private final MessagesApi messages;
 
     public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
                      final @NotNull Console console, final @NotNull HostMetrics host,
                      final @NotNull String project, final @NotNull Path backups,
                      final @NotNull String token, final @NotNull Path configs,
+                     final @NotNull Nightly nightly) {
+        this(docker, ops, console, host, project, backups, token, configs, null, nightly);
+    }
+
+    /**
+     * @param volumesRoot where the four Minecraft volumes are mounted - see
+     *                    {@code StewardSpec#volumesRoot}. It is only ever read for one thing: finding
+     *                    the jar a standalone module's message bundle lives in, since that jar (unlike
+     *                    a Paper or Velocity plugin's) is not under {@code configs}. {@code null}
+     *                    skips that second lookup rather than failing - a bundle whose jar cannot be
+     *                    found is left off the list (see {@code MessageBundles#discover}), not this
+     *                    process refusing to start over a mount most tests do not need.
+     */
+    public WorkerApi(final @NotNull Docker docker, final @NotNull DockerOps ops,
+                     final @NotNull Console console, final @NotNull HostMetrics host,
+                     final @NotNull String project, final @NotNull Path backups,
+                     final @NotNull String token, final @NotNull Path configs,
+                     final @org.jetbrains.annotations.Nullable Path volumesRoot,
                      final @NotNull Nightly nightly) {
         this.docker = docker;
         this.ops = ops;
@@ -201,6 +220,9 @@ public final class WorkerApi implements AutoCloseable {
         // every file it touches is 0600 root:root and steward-ui is the one service that is not
         // root - see ApiSpec#configsRoot for the measurement that moved it.
         this.configs = new ConfigApi(configs);
+        // A message bundle is not a config file - see MessagesApi's own javadoc for why it is kept
+        // apart rather than folded into ConfigApi (steward/48).
+        this.messages = new MessagesApi(configs, volumesRoot);
         // Here rather than at the field, because it reads `ops`, which is a constructor argument.
         this.drift = new Refreshed<>(() -> new Drift(ops.images(), Instant.now()), DRIFT_TTL,
                 driftRefresh, Instant::now);
@@ -360,6 +382,12 @@ public final class WorkerApi implements AutoCloseable {
             config.routes.get("/api/config", configs::list);
             config.routes.get("/api/config/<file>", configs::one);
             config.routes.put("/api/config/<file>", configs::save);
+
+            // The message bundles (steward/48) - their own routes and their own card in the
+            // interface, never folded into the three above. See MessagesApi's javadoc for why.
+            config.routes.get("/api/messages", messages::list);
+            config.routes.get("/api/messages/<bundle>", messages::one);
+            config.routes.put("/api/messages/<bundle>", messages::save);
 
             config.routes.get("/api/host", ctx -> ctx.json(hostNumbers()));
 

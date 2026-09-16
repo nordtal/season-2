@@ -459,6 +459,18 @@ public final class ConfigApi {
             choices.put("strict", entry.choices().strict());
             row.put("choices", choices);
         }
+        // steward/74: which of this list's sections may not be removed. Only a SECTIONS entry can
+        // have one, and most do not, so the key is left out rather than sent as null - the same
+        // rule `choices` above follows. Left out of the first version of that ticket, which is the
+        // kind of gap only a live read finds: the worker refused the removal correctly and the
+        // browser never learned to grey the button, because this map is written key by key and
+        // nothing fails when a key is missing from it.
+        if (entry.protectedEntry() != null) {
+            final Map<String, Object> protectedEntry = new LinkedHashMap<>();
+            protectedEntry.put("field", entry.protectedEntry().field());
+            protectedEntry.put("value", entry.protectedEntry().value());
+            row.put("protectedEntry", protectedEntry);
+        }
         // template and sections exist only for a SECTIONS entry (steward/68) - api.ts's ConfigEntry
         // declares both undefined for every other kind, which is what leaving the key out of the
         // map achieves, rather than sending an empty array a scalar or a section itself never has.

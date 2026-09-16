@@ -124,6 +124,14 @@ public final class Configs {
         if (config.duelStake() < 0) {
             throw new IllegalArgumentException("duel-stake must not be negative");
         }
+        if (config.graveMaxAgeHours() < 0) {
+            // Zero is a real answer here and means "never decays", so it cannot double as the
+            // error case. A negative age is somebody meaning something by it and getting it
+            // wrong, and turning decay off silently is the worst of the three readings.
+            throw new IllegalArgumentException(
+                    "grave-max-age-hours must not be negative. 0 is how decay is turned off; a "
+                            + "negative number is not a shorter way of saying that");
+        }
         requirePositive("concurrent-duel-limit", config.concurrentDuelLimit());
 
         if (config.prestigeThresholdHours() == null || config.prestigeThresholdHours().size() != 13) {

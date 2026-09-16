@@ -307,11 +307,17 @@ function SecurityKeys({ me }: { me?: Me }) {
                     <span className="text-sm font-medium">{key.label}</span>
                     <span className="text-xs text-muted-foreground">
                       registered {new Date(key.registeredAt).toLocaleDateString()}
-                      {key.lastUsedAt
-                        ? ` · last used ${new Date(key.lastUsedAt).toLocaleDateString()}`
-                        : " · not used since"}
-                      {key.transports?.length ? ` · ${key.transports.join(", ")}` : ""}
                     </span>
+                    <span className="text-xs text-muted-foreground">
+                      {key.lastUsedAt
+                        ? `last used ${new Date(key.lastUsedAt).toLocaleDateString()}`
+                        : "not used since"}
+                    </span>
+                    {key.transports?.length ? (
+                      <span className="text-xs text-muted-foreground">
+                        {key.transports.join(", ")}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Button

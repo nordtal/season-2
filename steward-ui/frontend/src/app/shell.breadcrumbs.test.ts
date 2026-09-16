@@ -15,13 +15,13 @@ import { breadcrumbsFor } from "@/app/shell"
  * undecodable segment is the segment.
  */
 describe("breadcrumbsFor", () => {
-  it("is just Status at the root", () => {
-    expect(breadcrumbsFor("/")).toEqual([{ label: "Status", href: "/" }])
+  it("is just Overview at the root", () => {
+    expect(breadcrumbsFor("/")).toEqual([{ label: "Overview", href: "/" }])
   })
 
   it("names the sections it knows and builds each href cumulatively", () => {
     expect(breadcrumbsFor("/operations/runs/27")).toEqual([
-      { label: "Status", href: "/" },
+      { label: "Overview", href: "/" },
       { label: "Operations", href: "/operations" },
       { label: "Run", href: "/operations/runs" },
       { label: "27", href: "/operations/runs/27" },

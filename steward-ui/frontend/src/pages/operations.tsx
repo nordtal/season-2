@@ -25,6 +25,7 @@ import {
   count,
   dateTime,
   duration,
+  load,
   parseInstant,
   relative,
   since,
@@ -32,6 +33,7 @@ import {
 import {
   useAskForRun,
   useBackups,
+  useHost,
   useRun,
   useRuns,
   useSchedule,
@@ -228,17 +230,20 @@ function runSeconds(run: Run): number | null {
 }
 
 /**
- * What a run did, in one line for the table.
+ * What a run did, one fact per line in the table's Result cell.
  *
  * Counted out of the report rather than taken from a sentence, because there is no sentence: the
  * worker writes structure and every surface renders its own summary (`UpdateReport`'s own comment
  * says so).
+ *
+ * Used to be one line joined with a middle dot; Till, 2026-09-16, ruled that separator out of the
+ * UI entirely, so each fact now gets its own line instead of a shared one (steward/84).
  */
-function summaryOf(run: Run): string {
-  if (run.resultText) return "report unreadable"
+function summaryOf(run: Run): string[] {
+  if (run.resultText) return ["report unreadable"]
   const report = run.report
-  if (!report) return run.status === "PENDING" ? "nothing written yet" : "–"
-  if (report.stage === "NOTHING_TO_DO") return "nothing to do"
+  if (!report) return [run.status === "PENDING" ? "nothing written yet" : "–"]
+  if (report.stage === "NOTHING_TO_DO") return ["nothing to do"]
 
   const parts: string[] = []
   const saved = report.services.filter((line) => line.state === "SAVED")
@@ -259,8 +264,8 @@ function summaryOf(run: Run): string {
   const failed = report.services.filter((line) => line.state === "FAILED")
   if (failed.length > 0) parts.push(`${count(failed.length)} failed`)
 
-  if (parts.length > 0) return parts.join(" · ")
-  return report.services.length === 0 ? "no line in the report" : "no change"
+  if (parts.length > 0) return parts
+  return [report.services.length === 0 ? "no line in the report" : "no change"]
 }
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -595,9 +600,44 @@ export function OperationsPage() {
       />
 
       <RunsCard />
+      <HostCard />
       <DriftCard />
       <BackupsCard />
     </div>
+  )
+}
+
+/**
+ * The one number the front page dropped: `load1` (steward/80).
+ *
+ * Till asked what the CPU tile's "Load" figure meant and, once told it is the host's one-minute
+ * load average and not a clock speed, decided it should not be on the front page at all - but the
+ * number itself is not abolished, only moved to where there is room for the sentence that explains
+ * it (steward/65 argued against dropping a number without a destination, and this is that
+ * destination).
+ */
+function HostCard() {
+  const host = useHost()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">Host</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {host.isPending ? (
+          <Loading rows={1} />
+        ) : host.error ? (
+          <Failure error={host.error} onRetry={host.refetch} />
+        ) : (
+          <Stat
+            label="Load"
+            value={load(host.data?.load1)}
+            hint={`1-minute average across ${count(host.data?.cpus)} cores`}
+          />
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -676,14 +716,20 @@ function RunsCard() {
                     <TableCell data-label="Duration" className="text-right tnum text-muted-foreground">
                       {duration(runSeconds(run))}
                     </TableCell>
-                    <TableCell data-label="Result" className="truncate">
+                    <TableCell data-label="Result">
                       {run.report?.stage === "NOTHING_TO_DO" ? (
                         <span className="flex items-center gap-1.5 text-muted-foreground">
                           <CircleSlash className="size-3.5 shrink-0" aria-hidden />
                           nothing to do
                         </span>
                       ) : (
-                        summaryOf(run)
+                        <div className="flex flex-col gap-0.5">
+                          {summaryOf(run).map((part, index) => (
+                            <span key={index} className="truncate">
+                              {part}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -854,7 +900,12 @@ export function OperationsPlanPage() {
                       #{planned.id}
                     </Link>
                   }
-                  hint={`${RUN_KIND[planned.kind] ?? planned.kind} · ${planned.requestedBy}`}
+                  hint={
+                    <span className="flex flex-col gap-0.5">
+                      <span>{RUN_KIND[planned.kind] ?? planned.kind}</span>
+                      <span>{planned.requestedBy}</span>
+                    </span>
+                  }
                 />
                 <Stat
                   label="Stage"
@@ -953,8 +1004,9 @@ function RunDetail({ run }: { run: Run }) {
               <RunStatus status={run.status} />
               {report ? <StageBadge stage={report.stage} /> : null}
             </div>
-            <span className="text-xs text-muted-foreground">
-              {RUN_KIND[run.kind] ?? run.kind} · {SOURCE_LABEL[run.source] ?? run.source}
+            <span className="flex flex-col text-xs text-muted-foreground">
+              <span>{RUN_KIND[run.kind] ?? run.kind}</span>
+              <span>{SOURCE_LABEL[run.source] ?? run.source}</span>
             </span>
           </div>
 
@@ -1102,9 +1154,7 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
               {STAGE_LABEL[step]}
             </span>
             {index < TRAIL.length - 1 ? (
-              <span className="text-muted-foreground" aria-hidden>
-                ·
-              </span>
+              <ArrowRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
             ) : null}
           </li>
         )
@@ -1352,7 +1402,12 @@ export function OperationsBackupPage() {
                         #{match.id}
                       </Link>
                     }
-                    hint={`${RUN_KIND[match.kind] ?? match.kind} · ${match.requestedBy}`}
+                    hint={
+                      <span className="flex flex-col gap-0.5">
+                        <span>{RUN_KIND[match.kind] ?? match.kind}</span>
+                        <span>{match.requestedBy}</span>
+                      </span>
+                    }
                   />
                   <Stat label="Status" value={<RunStatus status={match.status} />} />
                   <Stat
@@ -1454,7 +1509,7 @@ export function OperationsRestorePage() {
                 <SelectContent>
                   {restorable.map((backup) => (
                     <SelectItem key={backup.name} value={backup.name}>
-                      {backup.name} · {bytes(backup.bytes)} · {relative(backup.modified)}
+                      {backup.name} ({bytes(backup.bytes)}, {relative(backup.modified)})
                     </SelectItem>
                   ))}
                 </SelectContent>

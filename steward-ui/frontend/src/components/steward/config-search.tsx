@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Lock, Search } from "lucide-react"
+import { ChevronRight, Lock, Search } from "lucide-react"
 
 import type { ConfigLocation } from "@/lib/api"
 import { useConfigDocuments } from "@/lib/queries"
@@ -108,9 +108,18 @@ export function SettingsHitRow({
           </Badge>
         ) : null}
       </span>
-      <span className="w-full truncate font-mono text-xs text-muted-foreground">
-        {showService ? `${location.service || "steward-ui"} · ` : ""}
-        {humanFileName(location.name)} · {entry.path}
+      {/* A path, not a sentence, so the same icon separator `Breadcrumb` defaults to - never a
+          text symbol standing in for one (Till, 2026-09-16). */}
+      <span className="flex w-full min-w-0 items-center gap-1 font-mono text-xs text-muted-foreground">
+        {showService ? (
+          <>
+            <span className="shrink-0 truncate">{location.service || "steward-ui"}</span>
+            <ChevronRight className="size-3 shrink-0" aria-hidden />
+          </>
+        ) : null}
+        <span className="shrink-0 truncate">{humanFileName(location.name)}</span>
+        <ChevronRight className="size-3 shrink-0" aria-hidden />
+        <span className="min-w-0 flex-1 truncate">{entry.path}</span>
       </span>
       {preview ? (
         <span className="w-full truncate text-xs text-muted-foreground">{preview}</span>

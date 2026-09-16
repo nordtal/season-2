@@ -156,7 +156,7 @@ function Header() {
           the sidebar is always standing there. */}
       <SidebarTrigger className="-ml-1 size-control shrink-0 md:hidden" />
       {/*
-        ON A PHONE ONLY THE LAST CRUMB IS SHOWN. `BreadcrumbList` wraps, and "Status > Configuration
+        ON A PHONE ONLY THE LAST CRUMB IS SHOWN. `BreadcrumbList` wraps, and "Overview > Configuration
         > steward-worker > steward-worker.yml" is two lines of a header that is one line tall - so
         the trail spilled over the hamburger and under the border. The trail is a convenience on a
         wide screen and the sheet is the way back on a narrow one, so below `sm` this prints where
@@ -278,7 +278,7 @@ function readable(segment: string) {
  */
 export function breadcrumbsFor(pathname: string) {
   const segments = pathname.split("/").filter(Boolean)
-  const crumbs = [{ label: "Status", href: "/" }]
+  const crumbs = [{ label: "Overview", href: "/" }]
   let href = ""
   for (const segment of segments) {
     href += `/${segment}`

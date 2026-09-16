@@ -150,7 +150,7 @@ export function CommandPalette() {
                     <span className="truncate">{entry.label}</span>
                     <CommandShortcut className="truncate text-muted-foreground/70">
                       {entry.params
-                        ? Object.values(entry.params).join(" · ")
+                        ? Object.values(entry.params).join(" ")
                         : null}
                     </CommandShortcut>
                   </CommandItem>
@@ -178,10 +178,10 @@ export function CommandPalette() {
                 >
                   <History aria-hidden className="text-muted-foreground" />
                   <span className="truncate">
-                    Run #{run.id} · {RUN_KIND[run.kind] ?? run.kind}
+                    Run #{run.id} ({RUN_KIND[run.kind] ?? run.kind})
                   </span>
                   <CommandShortcut className="truncate text-muted-foreground/70">
-                    {RUN_STATUS[run.status] ?? run.status} · {relative(run.requested)}
+                    {RUN_STATUS[run.status] ?? run.status} ({relative(run.requested)})
                   </CommandShortcut>
                 </CommandItem>
               ))}
@@ -214,7 +214,7 @@ export function CommandPalette() {
                     <SlidersHorizontal aria-hidden className="text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
                     <CommandShortcut className="truncate text-muted-foreground/70">
-                      {service} · {humanFileName(hit.location.name)}
+                      {humanFileName(hit.location.name)} ({service})
                     </CommandShortcut>
                   </CommandItem>
                 )

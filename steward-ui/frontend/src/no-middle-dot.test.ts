@@ -18,27 +18,23 @@ const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
  * steward/78 removed the six that sat on the three sign-in pages and the shell's stuck-door
  * screen (`sign-in.tsx`, `hold-key.tsx`, `security-key.tsx`, `shell.tsx`). A sweep of the rest of
  * `src/` on the same day, while this guard was being built, turned up 23 more, spread over six
- * files neither that ticket nor Till's 2026-09-16 walkthrough looked at - `EXEMPT` below is that
- * list, and steward/84 is where removing them is tracked. `pages/status.tsx`'s one dot is
- * steward/80's own find (the CPU tile's hint line), already planned there.
+ * files neither that ticket nor Till's 2026-09-16 walkthrough looked at - steward/84 tracked
+ * removing them and cleared all six on 2026-09-16. `pages/status.tsx`'s one dot (the CPU tile's
+ * hint line, "N cores · Load X") was steward/80's own find, and steward/80 dropped the load
+ * number from the tile entirely rather than keep the dot - so `EXEMPT` below is empty: there is no
+ * middle dot left anywhere under `src/` for this guard to name an owner for.
  */
 const MIDDLE_DOT = /·/
 
 /**
- * Pre-existing dots outside this ticket's three pages plus the shell, each with the ticket that
- * owns removing it. The exemption is by file, not by line: a file half-swept looks identical to
- * one this test never read, which is the same failure mode `identifiers-stay-in-the-popover.
- * test.ts`'s `ALLOWED` and `SoundVocabularyTest.ALLOWED` both guard against.
+ * Pre-existing dots, each with the ticket that owned removing it - empty now that steward/78,
+ * steward/80 and steward/84 have all cleared theirs (2026-09-16). The exemption is by file, not by
+ * line: a file half-swept looks identical to one this test never read, which is the same failure
+ * mode `identifiers-stay-in-the-popover.test.ts`'s `ALLOWED` and `SoundVocabularyTest.ALLOWED`
+ * both guard against. Left as a typed, empty map rather than deleted, so the next dot has
+ * somewhere to be listed rather than a structure to reinvent.
  */
-const EXEMPT = new Map<string, string>([
-  ["pages/status.tsx", "steward/80 - the CPU tile's hint line"],
-  ["pages/operations.tsx", "steward/84"],
-  ["components/steward/command-card.tsx", "steward/84"],
-  ["app/command-palette.tsx", "steward/84"],
-  ["pages/settings.tsx", "steward/84"],
-  ["pages/access.tsx", "steward/84"],
-  ["components/steward/config-search.tsx", "steward/84"],
-])
+const EXEMPT = new Map<string, string>([])
 
 function sourceFiles(directory: string): string[] {
   const found: string[] = []

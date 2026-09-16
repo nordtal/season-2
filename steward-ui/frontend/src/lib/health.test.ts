@@ -263,7 +263,7 @@ describe("summarise - image drift", () => {
   })
 
   it("does not turn yellow for a single image that carries no registry digest", () => {
-    // Till's call, 2026-09-13, asked rather than assumed. status.tsx argues that UNKNOWN is
+    // Till's call, 2026-09-13, asked rather than assumed. overview.tsx argues that UNKNOWN is
     // "deliberately not silent and deliberately not green", and A24 is the story this whole light
     // came from - but a single unanswered registry, or a container whose exact image is gone, is
     // not worth a yellow that never goes away. A yellow that never clears is a light nobody reads
@@ -761,10 +761,10 @@ describe("summarise - with no thresholds, the checks that need a number", () => 
   })
 
   it("says nothing about the age of the newest backup, however old it is", () => {
-    // Three weeks, and green. The page is what has to catch this: status.tsx puts `settings` in
-    // `waiting` and in `failed` alongside the other three queries, so an unanswered /api/settings
-    // draws either "Reading status…" or the yellow "could not be fetched". Take that
-    // away and this green is what the operator sees over a backup from the 23rd.
+    // Three weeks, and green. The page is what has to catch this: overview.tsx's Issues tile puts
+    // `settings` in `waiting` and in `failed` alongside the other three queries, so an unanswered
+    // /api/settings draws either the tile's reading placeholder or its "could not be read" note.
+    // Take that away and this green is what the operator sees over a backup from the 23rd.
     const { level, triggers } = summarise({ ...blind(), backups: withDump(backup(500)) })
 
     expect(level).toBe("ok")

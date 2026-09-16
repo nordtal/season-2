@@ -51,10 +51,18 @@ class EveryCalledPathIsRoutedTest {
      * An {@code /api/...} literal in the frontend, in either quote style.
      *
      * <p>It stops at the first character that ends a path: the closing quote, a {@code ?} beginning
-     * a query, or a {@code $} beginning an interpolation - the interpolated part is a value and not
-     * a route segment, and what matters for routing is the shape up to there.</p>
+     * a query, a {@code $} beginning an interpolation - the interpolated part is a value and not
+     * a route segment, and what matters for routing is the shape up to there - or a backslash,
+     * which begins an escape.</p>
+     *
+     * <p>The backslash was added on 2026-09-16, after this test failed on a path it had invented:
+     * {@code access.tsx} prints the API's own answer in a {@code <pre>} as
+     * {@code `/api/me\nwebauthn: ...`}, and without this the capture ran straight through the
+     * {@code \n} and asked {@code StewardUi} to register {@code "/api/me\nwebauthn: "}. A
+     * backslash cannot occur in a path, so it belongs with the other three terminators rather than
+     * being worked around at the one call site that happened to hit it.</p>
      */
-    private static final Pattern CALLED = Pattern.compile("[\"`](/api/[^\"`?$]*)");
+    private static final Pattern CALLED = Pattern.compile("[\"`](/api/[^\"`?$\\\\]*)");
 
     /** {@code cfg.routes.get("/api/...", ...)} and the other five verbs, plus sse. */
     private static final Pattern REGISTERED = Pattern.compile(

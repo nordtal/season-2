@@ -48,6 +48,14 @@ import java.util.function.Supplier;
  * <p>The proxy does not register the backends' commands. Velocity answers a command it knows before
  * the packet reaches a backend, so registering {@code /smp} here would shadow the SMP's own and turn
  * a local command into a round trip through a request row.</p>
+ *
+ * <p><b>Which is why this class has {@link #local} and no counterpart to {@code PaperCommands}'
+ * {@code remote}</b>, checked while fixing ops/25 on 2026-09-16: there is no second registration
+ * path here that could filter a declaration by its surfaces, so what {@code PaperCommands#remote}
+ * gained on 2026-09-15 under ops/18 - registering a travelling command on {@code GAME}
+ * <em>or</em> {@code CONSOLE} rather than on {@code GAME} alone - has nothing to mirror on this
+ * side. Everything handed to {@code local} is built into the tree whatever its surfaces say, and
+ * {@link #run} is the single place that decides whether the surface it was typed on is allowed.</p>
  */
 public final class VelocityCommands {
 
@@ -285,6 +293,26 @@ public final class VelocityCommands {
             // /phase is the one this exists for: it records who took the decision, and the console
             // is nobody in particular.
             user.reply("command.not-from-console", Map.of(), Feedback.REFUSED, Tone.BAD);
+            return Command.SINGLE_SUCCESS;
+        }
+
+        // The symmetric case, and on this adapter it is not a hypothetical (ops/25, 2026-09-16).
+        // Every command this proxy registers is one of its own, so the CONSOLE-only declarations
+        // ops/18 left behind - /network reload, the four /update ones plus /backup now, and the
+        // four /phase ones with WEB on top - are all built into this tree for every source, admins
+        // included. Their only gate is the requires above, and that gate says "is this an admin",
+        // not "may this be typed in chat". So without this block an admin in the lobby could type
+        // /phase set and have it taken, which is precisely the decision ops/18 took away from the
+        // game. Whoever gets here is by construction somebody who MAY run the command and merely
+        // may no longer run it HERE, because a non-admin was already refused by the requires, so
+        // the hint names the surface that is left rather than pretending the command is gone
+        // (Brigadier's own command.unknown, forbidden by ingame/13). Which hint depends on whether
+        // a player can reach it themselves at all: Surface.WEB, or nothing but the console.
+        if (user.origin() == NordtalUser.Origin.GAME
+                && !entry.declaration().surfaces().contains(Surface.GAME)) {
+            final String key = entry.declaration().surfaces().contains(Surface.WEB)
+                    ? "command.not-in-game.web" : "command.not-in-game";
+            user.reply(key, Map.of(), Feedback.REFUSED, Tone.BAD);
             return Command.SINGLE_SUCCESS;
         }
 

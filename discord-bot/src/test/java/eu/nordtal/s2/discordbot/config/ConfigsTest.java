@@ -4,6 +4,7 @@ import eu.nordtal.jcore.config.ConfigLoader;
 import eu.nordtal.jcore.config.exception.ConfigException;
 import eu.nordtal.jcore.config.exception.ConfigValidationException;
 import eu.nordtal.jcore.config.exception.UnknownConfigKeyException;
+import eu.nordtal.jcore.config.spec.annotation.Protected;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -885,6 +888,32 @@ class ConfigsTest {
                 assertThrows(ConfigValidationException.class, Configs::access);
         assertTrue(thrown.getMessage().contains("roles.access"),
                 "the message has to name the setting, was: " + thrown.getMessage());
+    }
+
+    /**
+     * steward/74: the {@code @Protected} annotation and the bot's own startup rule have to name the
+     * same language, and there is no way to notice at runtime if they stop doing so - the removal
+     * refusal lives in steward-worker, in another process, and the startup check here would simply
+     * go on protecting a different tag without complaining.
+     *
+     * <p>This is that check, at build time. It replaces reading the annotation reflectively into
+     * {@code Configs.FALLBACK_LANGUAGE}: both the field and the annotation already name
+     * {@link Languages#FALLBACK_TAG}, so the reflection guarded against nothing the compiler does
+     * not, while adding one way for this class to fail to initialise at all.</p>
+     */
+    @Test
+    @DisplayName("the language steward-worker refuses to remove is the one this bot falls back to")
+    void theProtectedLanguageIsTheFallback() throws Exception {
+        final Method languages = AccessSpec.class.getMethod("languages");
+        final Protected annotation = languages.getAnnotation(Protected.class);
+        assertNotNull(annotation, "AccessSpec#languages() must carry @Protected - without it"
+                + " steward-worker lets an operator remove the fallback language through the API,"
+                + " and the bot only notices on its next restart");
+        assertEquals("tag", annotation.field(),
+                "@Protected has to match on the element's own tag field");
+        assertEquals(Languages.FALLBACK_TAG, annotation.value(),
+                "the protected tag and the fallback tag are the same language or the rule protects"
+                        + " the wrong entry");
     }
 
     /**

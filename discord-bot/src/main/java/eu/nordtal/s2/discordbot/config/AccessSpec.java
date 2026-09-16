@@ -4,6 +4,7 @@ import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.ConfigSpec;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.jcore.config.spec.annotation.Reload;
 
 import java.util.List;
@@ -122,6 +123,13 @@ public interface AccessSpec {
             "    link-channel: '000000000000000000'",
             "    hunger-games-channel: '000000000000000000'"
     })
+    // steward/74: this is the one place the "'en' is mandatory" rule is declared as data rather
+    // than prose or an `if`. Configs#validateLanguages reads this same annotation rather than
+    // holding its own copy of the tag, and steward-worker's schema-reading side (ConfigFiles,
+    // steward-ui) refuses to let an operator remove the entry it names before the file is ever
+    // touched. `value` is Languages.FALLBACK_TAG rather than a second "en" literal - an annotation
+    // value has to be a compile-time constant, and that field already is one.
+    @Protected(field = "tag", value = Languages.FALLBACK_TAG)
     default List<LanguageSpec> languages() {
         return DefaultLanguages.LIST;
     }

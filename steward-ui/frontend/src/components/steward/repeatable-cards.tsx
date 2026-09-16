@@ -95,14 +95,22 @@ export function RepeatableCards({
   )
 
   // Removing is a two-step action: the trash icon arms it, and only the dialog's own confirmation
-  // splices the draft. `null` is "nothing armed". This is the generic answer steward/49 and
-  // steward/61 settled on in place of refusing to remove `en` outright - `SchemaNode` has no way to
-  // mark one list entry as protected (steward/74), so the interface cannot enforce that, only make
-  // sure a human reads the list's own reason not to before they do it. Nothing below reads a tag or
-  // any other field value to decide whether to ask; every removal gets the same dialog, and what it
-  // shows is `explanationOf(entry)` - whatever the schema already says about the whole list.
+  // splices the draft. `null` is "nothing armed". Every removal still gets the same dialog, and
+  // what it shows is `explanationOf(entry)` - whatever the schema already says about the whole
+  // list - because the confirmation is about the list in general, not about the one entry below
+  // that cannot actually be removed.
   const [pendingRemoval, setPendingRemoval] = useState<number | null>(null)
   const listExplanation = explanationOf(entry)
+
+  // The one entry the schema names as protected (steward/74), if any is currently in the draft -
+  // `en` in `languages`. The worker refuses this removal too (`ConfigFiles.removeSection`), so
+  // this is a courtesy: greying the button out up front is a better answer than letting somebody
+  // confirm a removal that only fails once the save reaches the worker.
+  const protectedIndex = entry.protectedEntry
+    ? value.findIndex(
+        (section) => (section[entry.protectedEntry!.field] ?? "") === entry.protectedEntry!.value,
+      )
+    : -1
 
   // The ticket's own escape hatch: a schema that could not describe one shape for every entry sends
   // no template, and a card that pretended it had one would just be the field set of whichever
@@ -137,6 +145,7 @@ export function RepeatableCards({
       ) : null}
       {value.map((section, index) => {
         const missing = requiredChannelFields.filter((field) => !(section[field.key] ?? "").trim())
+        const isProtected = index === protectedIndex
         return (
         <Card key={index} className="gap-3 py-4">
           <CardContent className="flex flex-col gap-3 px-4">
@@ -148,8 +157,13 @@ export function RepeatableCards({
                 type="button"
                 variant="ghost"
                 size="icon"
-                disabled={disabled}
-                aria-label={`Remove entry ${index + 1}`}
+                disabled={disabled || isProtected}
+                title={isProtected ? listExplanation ?? "This entry cannot be removed." : undefined}
+                aria-label={
+                  isProtected
+                    ? `Entry ${index + 1} cannot be removed`
+                    : `Remove entry ${index + 1}`
+                }
                 onClick={() => setPendingRemoval(index)}
               >
                 <Trash2 aria-hidden />

@@ -206,11 +206,11 @@ describe("RepeatableCards", () => {
 
 /**
  * Removing an entry asks first, and what it asks is the list's own explanation - the generic
- * answer steward/49 and steward/61 settled on instead of an `if tag === "en"`: `SchemaNode` has no
- * way to mark one entry of a list as protected (steward/74), so the interface cannot refuse to
- * remove `en` - it can only make sure whoever tries reads the sentence that says not to, at the
- * moment they are about to. Nothing here knows the word "English" or the tag "en"; it shows
- * whatever `explanationOf(entry)` already carries for the parent list, `en` or not.
+ * confirmation steward/49 and steward/61 built for every `SECTIONS` list, protected or not. Nothing
+ * here knows the word "English" or the tag "en"; it shows whatever `explanationOf(entry)` already
+ * carries for the parent list. The entry a schema actually marks `@Protected` (steward/74) never
+ * reaches this dialog at all - see the describe block below - so this one stays the generic answer
+ * for every entry that is not that one.
  */
 describe("RepeatableCards - confirming a removal", () => {
   it("does not touch the draft on the trash icon alone - it opens a confirmation first", () => {
@@ -273,6 +273,86 @@ describe("RepeatableCards - confirming a removal", () => {
 
     expect(onChange).not.toHaveBeenCalled()
     expect(screen.queryByRole("alertdialog")).toBeNull()
+  })
+})
+
+/**
+ * The one entry a schema's `@Protected` names (steward/74) cannot be removed from here at all - the
+ * worker refuses the same removal (`ConfigFiles.removeSection`), so disabling the button up front
+ * is a courtesy rather than the enforcement: the interface no longer lets somebody confirm a
+ * removal that would only fail once the save reached the worker.
+ */
+describe("RepeatableCards - a protected entry", () => {
+  it("disables the trash icon for the entry the schema names, and leaves every other one alone", () => {
+    const entry = {
+      ...sectionsEntry([
+        [field({ key: "tag", value: "en" }), field({ key: "role" })],
+        [field({ key: "tag", value: "de" }), field({ key: "role" })],
+      ]),
+      protectedEntry: { field: "tag", value: "en" },
+    }
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
+    )
+
+    const protectedButton = screen.getByRole("button", {
+      name: "Entry 1 cannot be removed",
+    }) as HTMLButtonElement
+    const removableButton = screen.getByRole("button", { name: "Remove entry 2" }) as HTMLButtonElement
+
+    expect(protectedButton.disabled).toBe(true)
+    expect(removableButton.disabled).toBe(false)
+  })
+
+  it("clicking the disabled button opens no confirmation - there is nothing to confirm", () => {
+    const entry = {
+      ...sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]]),
+      protectedEntry: { field: "tag", value: "en" },
+    }
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Entry 1 cannot be removed" }))
+
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+  })
+
+  it("does not disable anything when the schema's protected value matches no current entry", () => {
+    // The value is only removed once it stops matching - a schema still marking "en" as protected
+    // while nothing tagged "en" survives in the draft protects nothing right now, and nothing here
+    // should pretend otherwise.
+    const entry = {
+      ...sectionsEntry([[field({ key: "tag", value: "de" }), field({ key: "role" })]]),
+      protectedEntry: { field: "tag", value: "en" },
+    }
+    render(
+      <RepeatableCards
+        entry={entry}
+        value={sectionsFromEntry(entry)}
+        disabled={false}
+        roles={undefined}
+        channels={undefined}
+        onChange={() => {}}
+      />,
+    )
+
+    const button = screen.getByRole("button", { name: "Remove entry 1" }) as HTMLButtonElement
+    expect(button.disabled).toBe(false)
   })
 })
 

@@ -17,6 +17,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -219,6 +220,78 @@ class ConfigFilesSchemaTest {
     }
 
     // ---------------------------------------------------------------------------------------
+    // @Protected: a SECTIONS entry can carry a rule about a specific value (steward/74)
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("a SECTIONS entry's protectedEntry comes from the schema's @Protected, field and value both")
+    void protectedEntryIsReadFromTheSchema() throws IOException {
+        Files.writeString(directory.resolve("service.yml"), "languages:\n- tag: en\n- tag: de\n");
+        writeSchema("service.yml", Map.of("languages", sections("Languages", "'en' must be present.",
+                Map.of("tag", scalar("Tag", "", false, false, SettingType.STRING, null)),
+                new SchemaNode.ProtectedEntry("tag", "en"))));
+
+        final ConfigEntry.Protected protectedEntry =
+                entry(ConfigFiles.read(directory.resolve("service.yml")), "languages").protectedEntry();
+
+        assertEquals("tag", protectedEntry.field());
+        assertEquals("en", protectedEntry.value());
+    }
+
+    @Test
+    @DisplayName("a SECTIONS entry whose schema carries no @Protected has a null protectedEntry")
+    void protectedEntryIsNullWithoutTheAnnotation() throws IOException {
+        Files.writeString(directory.resolve("service.yml"), "tiers:\n- days: 30\n");
+        writeSchema("service.yml", Map.of("tiers", sections("Tiers", "",
+                Map.of("days", scalar("Days", "", false, false, SettingType.INTEGER, null)), null)));
+
+        assertNull(entry(ConfigFiles.read(directory.resolve("service.yml")), "tiers").protectedEntry());
+    }
+
+    @Test
+    @DisplayName("removing the entry a schema marks @Protected is refused, before the file is touched")
+    void removingAProtectedEntryIsRefused() throws IOException {
+        final String original = "languages:\n- tag: en\n- tag: de\n";
+        Files.writeString(directory.resolve("service.yml"), original);
+        writeSchema("service.yml", Map.of("languages", sections("Languages",
+                "'en' must be present - it is the fallback everything degrades to.",
+                Map.of("tag", scalar("Tag", "", false, false, SettingType.STRING, null)),
+                new SchemaNode.ProtectedEntry("tag", "en"))));
+
+        // "de" removed, "en" kept - this is exactly the shape steward/71 already lets an operator
+        // send for an ordinary removal; the only difference is which entry is missing.
+        final Map<String, ConfigChange> removeEnglish = Map.of("languages",
+                ConfigChange.sections(List.of(Map.of("tag", "de"))));
+
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> ConfigFiles.write(directory.resolve("service.yml"), removeEnglish));
+        assertTrue(error.getMessage().contains("en"), error.getMessage());
+
+        // Refused BEFORE a single line moves - not written, then rejected on the way back out.
+        assertEquals(original, Files.readString(directory.resolve("service.yml")));
+    }
+
+    @Test
+    @DisplayName("removing an entry @Protected does NOT name still works - the rule names one value, not the whole list")
+    void removingAnUnprotectedEntryStillWorks() throws IOException {
+        Files.writeString(directory.resolve("service.yml"), "languages:\n- tag: en\n- tag: de\n");
+        writeSchema("service.yml", Map.of("languages", sections("Languages", "'en' must be present.",
+                Map.of("tag", scalar("Tag", "", false, false, SettingType.STRING, null)),
+                new SchemaNode.ProtectedEntry("tag", "en"))));
+
+        // "en" kept, "de" removed.
+        final Map<String, ConfigChange> removeGerman = Map.of("languages",
+                ConfigChange.sections(List.of(Map.of("tag", "en"))));
+
+        final ConfigDocument written = ConfigFiles.write(directory.resolve("service.yml"), removeGerman);
+
+        assertEquals(List.of(Map.of("tag", "en")),
+                entry(written, "languages").sections().stream()
+                        .map(fields -> Map.of(fields.getFirst().key(), fields.getFirst().value()))
+                        .toList());
+    }
+
+    // ---------------------------------------------------------------------------------------
     // Nesting: the group is the schema's own nesting, same as the file's
     // ---------------------------------------------------------------------------------------
 
@@ -228,7 +301,8 @@ class ConfigFilesSchemaTest {
         Files.writeString(directory.resolve("service.yml"), "worker:\n  base-url: http://x\n");
         writeSchema("service.yml", Map.of(
                 "worker", new SchemaNode(SettingKind.MAP, "Worker", "", false, false, null, null,
-                        Map.of("base-url", scalar("Where it is", "", false, false, SettingType.STRING, null)))));
+                        Map.of("base-url", scalar("Where it is", "", false, false, SettingType.STRING, null)),
+                        null)));
 
         final ConfigDocument document = ConfigFiles.read(directory.resolve("service.yml"));
 
@@ -283,11 +357,20 @@ class ConfigFilesSchemaTest {
                                      final boolean noExplanationNeeded, final boolean secret,
                                      final SettingType type, final SchemaNode.Choices choices) {
         return new SchemaNode(SettingKind.SCALAR, label, explanation, noExplanationNeeded, secret,
-                type, choices, Map.of());
+                type, choices, Map.of(), null);
+    }
+
+    /** A {@link SettingKind#LIST} of nested settings - {@code languages} and {@code tiers}' own shape. */
+    private static SchemaNode sections(final String label, final String explanation,
+                                       final Map<String, SchemaNode> elementFields,
+                                       final SchemaNode.ProtectedEntry protectedEntry) {
+        return new SchemaNode(SettingKind.LIST, label, explanation, false, false, null, null,
+                elementFields, protectedEntry);
     }
 
     private void writeSchema(final String ymlName, final Map<String, SchemaNode> children) throws IOException {
-        final SchemaNode root = new SchemaNode(SettingKind.MAP, "", "", false, false, null, null, children);
+        final SchemaNode root = new SchemaNode(SettingKind.MAP, "", "", false, false, null, null,
+                children, null);
         final String base = ymlName.endsWith(".yml") ? ymlName.substring(0, ymlName.length() - 4) : ymlName;
         Files.writeString(directory.resolve(base + ".schema.json"), GSON.toJson(root));
     }

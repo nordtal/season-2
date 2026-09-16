@@ -357,7 +357,8 @@ public final class ConfigFiles {
                     // never turns the heuristic off, only the schema turning it ON is authoritative.
                     ConfigEntry.isSecretKey(key) || (schemaChild != null && schemaChild.secret()),
                     inSchema,
-                    choicesOf(schemaChild)));
+                    choicesOf(schemaChild),
+                    protectedEntryOf(schemaChild)));
             spans.put(path, span);
 
             if (valueNode instanceof MappingNode nested) {
@@ -389,6 +390,19 @@ public final class ConfigFiles {
             return null;
         }
         return new ConfigEntry.Choices(schemaChild.choices().values(), schemaChild.choices().strict());
+    }
+
+    /**
+     * {@link ConfigEntry.Protected}, from a schema entry's own
+     * {@link SchemaNode.ProtectedEntry} - or {@code null} when there is no schema for this key or
+     * its property carries no {@code @Protected} (steward/74).
+     */
+    private static ConfigEntry.Protected protectedEntryOf(final SchemaNode schemaChild) {
+        if (schemaChild == null || schemaChild.protectedEntry() == null) {
+            return null;
+        }
+        return new ConfigEntry.Protected(
+                schemaChild.protectedEntry().field(), schemaChild.protectedEntry().value());
     }
 
     /**
@@ -434,7 +448,11 @@ public final class ConfigFiles {
                     true,
                     ConfigEntry.isSecretKey(key) || schema.secret(),
                     true,
-                    choicesOf(schema)));
+                    choicesOf(schema),
+                    // A template field is the blank shape of one section, not the list itself -
+                    // @Protected names a whole section by one of its field VALUES, which a blank
+                    // template field never has, so this is always null here.
+                    null));
         }
         return List.copyOf(fields);
     }
@@ -1121,6 +1139,7 @@ public final class ConfigFiles {
         }
 
         final List<ConfigEntry> removed = existing.get(removedIndex);
+        refuseIfProtected(entry, removed);
         final Span firstFieldSpan = parsed.spans().get(removed.getFirst().path());
         final Span lastFieldSpan = parsed.spans().get(removed.getLast().path());
         final int entryStartLine = firstFieldSpan.keyLine();
@@ -1140,6 +1159,37 @@ public final class ConfigFiles {
             written.add(Map.copyOf(row));
         }
         return List.copyOf(written);
+    }
+
+    /**
+     * Refuses to remove the one section {@code entry}'s schema names as protected (steward/74),
+     * before a single line of the file is touched.
+     *
+     * <p><b>This is the net {@code SchemaNode} could not express before steward/74.</b> A schema
+     * described only the shape of a list's elements, never a rule about one specific value among
+     * them, so `en` could always be removed from {@code languages} through this same method - the
+     * bot's own startup validator was the only thing that ever noticed, and only on the next
+     * restart. {@link ConfigEntry#protectedEntry()} is what {@code @Protected} on the
+     * {@code @ConfigSpec} now puts here instead.</p>
+     *
+     * <p>Nothing here assumes which list this is or what the protected value means - it only reads
+     * {@code entry.protectedEntry()} and one field of {@code removed}, the same way every other rule
+     * in this class reads the schema rather than hardcoding a list's name.</p>
+     */
+    private static void refuseIfProtected(final ConfigEntry entry, final List<ConfigEntry> removed) {
+        final ConfigEntry.Protected protectedEntry = entry.protectedEntry();
+        if (protectedEntry == null) {
+            return;
+        }
+        for (final ConfigEntry field : removed) {
+            if (field.key().equals(protectedEntry.field())
+                    && field.value().equals(protectedEntry.value())) {
+                throw new IllegalArgumentException(entry.path() + ": the entry whose "
+                        + protectedEntry.field() + " is '" + protectedEntry.value() + "' cannot be"
+                        + " removed - " + (entry.explanation().isBlank()
+                                ? "its schema marks it as required." : entry.explanation()));
+            }
+        }
     }
 
     /** Whether every field of {@code fields} already reads exactly as {@code candidate} says. */

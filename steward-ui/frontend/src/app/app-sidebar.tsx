@@ -17,6 +17,8 @@ import {
 import { NAVIGATION } from "@/app/navigation"
 import { StewardMark } from "@/app/steward-mark"
 import { shortcutLabel } from "@/lib/keys"
+import { useServices } from "@/lib/queries"
+import { HealthDot } from "@/components/steward/status"
 
 /**
  * The navigation.
@@ -34,6 +36,11 @@ import { shortcutLabel } from "@/lib/keys"
  * The active item is marked with a blue rule down its left edge and blue text - never a blue
  * background. Blue is action in this interface; a selected row is a place, not an action, so it
  * gets the brand's line and not the brand's surface.
+ *
+ * **Every service row carries a health dot** (steward/83), drawn by the same {@link HealthDot}
+ * steward/81's network view will use. `useServices()` is the one query this component opens - the
+ * hook already carries its own ten-second `refetchInterval`, so mounting it here does not add a
+ * second poll: every page shares the one query behind `useServices`, this component included.
  */
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
@@ -41,6 +48,7 @@ export function AppSidebar() {
   // answered by looking at one entry, because two of them can match and only the longer is meant.
   const active = activeEntryId(pathname, NAVIGATION)
   const { isMobile, setOpenMobile } = useSidebar()
+  const services = useServices()
 
   // Tapping a place closes the sheet. Without this the phone lands on the new page with the
   // navigation still over it, and the first thing every visit needs is a tap somewhere empty.
@@ -74,6 +82,13 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.entries.map((entry) => {
+                  // Only the ten container rows carry a dot - the health this section is about.
+                  // `entry.params.name` is the exact service name the query answers with, because
+                  // it is the same name `navigation.ts` built the route's params from.
+                  const service =
+                    group.id === "services"
+                      ? services.data?.services.find((row) => row.service === entry.params?.name)
+                      : undefined
                   return (
                     <SidebarMenuItem key={entry.id}>
                       <SidebarMenuButton
@@ -89,7 +104,10 @@ export function AppSidebar() {
                           onClick={follow}
                         >
                           {entry.icon ? <entry.icon aria-hidden /> : null}
-                          <span className="truncate">{entry.label}</span>
+                          <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                          {group.id === "services" ? (
+                            <HealthDot service={service} className="ml-auto" />
+                          ) : null}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

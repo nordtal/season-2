@@ -22,14 +22,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * season-2-ingame/13's proxy half: {@code CommandGate#onCommandExecute} paints
- * {@code Tone.BAD} already and never played anything - the same gap {@code CommandFilterTest}
- * holds Paper to. This is scaffolding rather than a working sound: see the javadoc on
- * {@link CommandGate.Chime} for why a real one cannot be wired from this file (it needs an edit to
- * {@code common}'s {@code SoundVocabularyTest}, out of this session's scope) and for the measured
- * answer to season-2-ingame/05's open question - the API says the proxy can reach a player on any
- * backend with {@code playSound}, the same way {@code RestartWatch} already reaches one with
- * {@code sendMessage} and {@code showTitle}.
+ * season-2-ingame/13's proxy half: {@code CommandGate#onCommandExecute} paints {@code Tone.BAD}
+ * already and calls the chime hook on every refusal - the same call site {@code CommandFilterTest}
+ * holds Paper to. This file stays a hook-level test with a spy rather than a real
+ * {@code NetworkControlSounds}: it is what proves the call site itself is right regardless of what
+ * plays the sound, and {@code NetworkControlSoundsTest} covers the adapter that maps
+ * {@link Feedback} to an actual {@code Player#playSound} call in production, wired by
+ * {@code NetworkControlPlugin} since season-2-ingame/28. See the javadoc on {@link CommandGate.Chime}
+ * for the measured answer to season-2-ingame/05's open question - the API says the proxy can reach a
+ * player on any backend with {@code playSound}, the same way {@code RestartWatch} already reaches one
+ * with {@code sendMessage} and {@code showTitle}.
  */
 class CommandGateChimeTest {
 

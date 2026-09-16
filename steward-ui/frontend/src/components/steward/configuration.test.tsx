@@ -692,3 +692,89 @@ describe("repeatable cards for a SECTIONS entry (steward/57)", () => {
     )
   })
 })
+
+/**
+ * steward/63: the five tones of `colours.yml` (season-2-ingame/22), end to end through the real
+ * form - `colourRuns` and its unit tests in `colour-control.test.tsx` cover the grouping logic in
+ * isolation, but the thing the ticket actually asked for is what a person sees on this page, and
+ * that needs `ServiceConfiguration` wired up for real: `EntryList` receiving the file's entries,
+ * building the run, and `Field`'s `layout="row"` branch actually reaching the DOM.
+ */
+describe("a file of colours, side by side (steward/63)", () => {
+  const file = "smp/colours.yml"
+
+  function colour(key: string, value: string): ConfigEntry {
+    return entry({ path: key, key, label: key, value })
+  }
+
+  it("draws every tone of one file as one row, not five stacked fields", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "colours.yml", service: "smp" }),
+          revision: "r1",
+          header: [],
+          entries: [
+            colour("good", "#8ba888"),
+            colour("bad", "#a8888b"),
+            colour("warn", "#b08a4a"),
+            colour("neutral", "#c9c9c9"),
+            colour("muted", "#aaaaaa"),
+          ],
+        },
+      }),
+    )
+    draw(<ServiceConfiguration service="smp" />)
+    await open("Colours")
+
+    const swatches = await screen.findAllByLabelText("Pick a colour")
+    expect(swatches).toHaveLength(5)
+
+    // Every swatch's row ancestor (`.flex-wrap`, the container `EntryList` builds for a run) has to
+    // be the very same element - that is what "one row" means in the DOM, as opposed to five
+    // separate fields that merely look similar stacked one after another.
+    const rows = new Set(swatches.map((swatch) => swatch.closest(".flex-wrap")))
+    expect(rows.size).toBe(1)
+    expect(rows.has(null)).toBe(false)
+  })
+
+  it("still offers the picker for a colour that is not part of any row", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "colours.yml", service: "smp" }),
+          revision: "r1",
+          header: [],
+          // Only one colour in the file - `colourRuns` never groups a single entry, but the field
+          // itself is still exactly the colour it looks like and still gets the picker.
+          entries: [colour("good", "#8ba888"), entry({ path: "label", key: "label", value: "smp" })],
+        },
+      }),
+    )
+    draw(<ServiceConfiguration service="smp" />)
+    await open("Colours")
+
+    await screen.findByLabelText("Pick a colour")
+  })
+
+  it("leaves an ordinary text field alone - no picker, no swatch", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        [file]: {
+          ...location({ path: file, name: "colours.yml", service: "smp" }),
+          revision: "r1",
+          header: [],
+          entries: [entry({ path: "label", key: "label", label: "Label", value: "smp" })],
+        },
+      }),
+    )
+    draw(<ServiceConfiguration service="smp" />)
+    await open("Colours")
+
+    await screen.findByDisplayValue("smp")
+    expect(screen.queryByLabelText("Pick a colour")).toBeNull()
+  })
+})

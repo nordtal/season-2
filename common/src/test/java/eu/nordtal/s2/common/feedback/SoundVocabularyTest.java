@@ -111,17 +111,18 @@ class SoundVocabularyTest {
     }
 
     /**
-     * The enum stays what it is: eleven constants, no members. A method, field or constructor
+     * The enum stays what it is: twelve constants, no members. A method, field or constructor
      * argument would let a category carry a default sound, and the config file would stop being the
      * only answer.
      */
     @Test
     @DisplayName("Feedback carries nothing but its constants")
     void theEnumCarriesNothingButConstants() {
-        assertEquals(11, Feedback.values().length,
-                "ten categories, of which open/close is two constants, plus STAGING. A TWELFTH IS A"
-                        + " DECISION FOR THE OWNER - a vocabulary that grows to fit each new call"
-                        + " site is not a vocabulary");
+        assertEquals(12, Feedback.values().length,
+                "ten categories, of which open/close is two constants, plus STAGING and RECLAIMED"
+                        + " (season-2-ingame/15, Till 2026-09-15 - the owner's decision this guard"
+                        + " exists to require). A THIRTEENTH IS A DECISION FOR THE OWNER - a"
+                        + " vocabulary that grows to fit each new call site is not a vocabulary");
         // values/valueOf are the enum's own API; $values is javac's array holder, which it does not
         // always flag as synthetic.
         assertEquals(List.of(), Stream.of(Feedback.class.getDeclaredMethods())

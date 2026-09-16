@@ -10,6 +10,7 @@ import eu.nordtal.jcore.config.spec.annotation.AllowedValues;
 import eu.nordtal.jcore.config.spec.annotation.Comment;
 import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
+import eu.nordtal.jcore.config.spec.annotation.Protected;
 import eu.nordtal.jcore.config.spec.annotation.Secret;
 import org.jetbrains.annotations.NotNull;
 
@@ -38,6 +39,11 @@ import java.util.Map;
  * The file-level {@code @ConfigSpec(header = {...})} is the root node's {@code explanation}
  * (steward/67, 2026-09-16) - see {@link #headerOf}. Before that it was written nowhere: 4.0.0 took
  * the header out of the YAML and gave it no new home.
+ * <p>
+ * A list-of-settings property carrying {@code @Protected} (steward/74) gets a
+ * {@link SchemaNode#protectedEntry()} naming the one entry a consumer must never let an operator
+ * remove - before this, the shape a list's own entries take was all a schema could describe, never
+ * a rule about one specific value among them.
  */
 public final class SchemaWriter {
 
@@ -54,7 +60,7 @@ public final class SchemaWriter {
      */
     public static @NotNull SchemaNode build(final @NotNull Class<?> specType) {
         return new SchemaNode(SettingKind.MAP, "", headerOf(specType), false, false,
-                null, null, childrenOf(specType));
+                null, null, childrenOf(specType), null);
     }
 
     /**
@@ -196,22 +202,66 @@ public final class SchemaWriter {
         final boolean secret = getter.isAnnotationPresent(Secret.class);
         final String label = SettingLabels.of(property.key());
         final Class<?> type = property.type();
+        final Protected protectedAnnotation = getter.getAnnotation(Protected.class);
 
         if (Specs.isConfigSpec(type)) {
+            refuseProtectedOutsideAListOfSettings(protectedAnnotation, property.key());
             return new SchemaNode(SettingKind.MAP, label, explanation, skipExplanation, secret,
-                    null, null, childrenOf(type));
+                    null, null, childrenOf(type), null);
         }
         if (isCollection(type)) {
             final Class<?> elementType = collectionElementType(getter);
             if (Specs.isConfigSpec(elementType)) {
                 return new SchemaNode(SettingKind.LIST, label, explanation, skipExplanation, secret,
-                        null, null, childrenOf(elementType));
+                        null, null, childrenOf(elementType),
+                        protectedEntryOf(protectedAnnotation, elementType, property.key()));
             }
+            refuseProtectedOutsideAListOfSettings(protectedAnnotation, property.key());
             return new SchemaNode(SettingKind.LIST, label, explanation, skipExplanation, secret,
-                    scalarTypeOf(elementType), choicesOf(getter, elementType), Map.of());
+                    scalarTypeOf(elementType), choicesOf(getter, elementType), Map.of(), null);
         }
+        refuseProtectedOutsideAListOfSettings(protectedAnnotation, property.key());
         return new SchemaNode(SettingKind.SCALAR, label, explanation, skipExplanation, secret,
-                scalarTypeOf(type), choicesOf(getter, type), Map.of());
+                scalarTypeOf(type), choicesOf(getter, type), Map.of(), null);
+    }
+
+    /**
+     * {@code @Protected} only ever makes sense on a property whose element type is itself a
+     * {@code @ConfigSpec} - a plain scalar, a nested map or a list of scalars has no field of its
+     * own to match a protected value against, so a schema built from one would carry a rule nothing
+     * could ever act on. Refusing here is the same choice {@link #nodeFor} already makes for
+     * {@code @Explain} beside {@code @NoExplanationNeeded}: a contradiction the writer will not
+     * guess at.
+     */
+    private static void refuseProtectedOutsideAListOfSettings(final Protected annotation,
+                                                               final String propertyKey) {
+        if (annotation != null) {
+            throw new IllegalArgumentException("Property '" + propertyKey + "' carries @Protected, but"
+                    + " it is not a list of nested settings - @Protected only makes sense there, since"
+                    + " it names one of the element's own fields.");
+        }
+    }
+
+    /**
+     * Builds the {@link SchemaNode.ProtectedEntry} a list-of-settings property's {@code @Protected}
+     * describes, or {@code null} when it carries none.
+     *
+     * @throws IllegalArgumentException if {@link Protected#field()} names a field the element type
+     *                                  does not have - a typo here would otherwise silently protect
+     *                                  nothing, which is worse than refusing to build the schema
+     */
+    private static SchemaNode.ProtectedEntry protectedEntryOf(final Protected annotation,
+                                                              final Class<?> elementType,
+                                                              final String propertyKey) {
+        if (annotation == null) {
+            return null;
+        }
+        if (!Specs.from(elementType).properties().containsKey(annotation.field())) {
+            throw new IllegalArgumentException("Property '" + propertyKey + "' has @Protected(field = \""
+                    + annotation.field() + "\"), but " + elementType.getSimpleName() + " has no such"
+                    + " field - @Protected must name one of its real properties.");
+        }
+        return new SchemaNode.ProtectedEntry(annotation.field(), annotation.value());
     }
 
     private static boolean isCollection(final @NotNull Class<?> type) {

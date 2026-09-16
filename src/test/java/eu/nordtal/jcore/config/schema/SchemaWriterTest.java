@@ -9,6 +9,7 @@ import eu.nordtal.jcore.config.spec.annotation.Explain;
 import eu.nordtal.jcore.config.spec.annotation.Key;
 import eu.nordtal.jcore.config.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.jcore.config.spec.annotation.Order;
+import eu.nordtal.jcore.config.spec.annotation.Protected;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -420,5 +421,91 @@ class SchemaWriterTest {
     @DisplayName("neither file nor schema existing is not an error - that is the fresh, not-yet-written state")
     void neitherExistingIsNotAnError() {
         assertDoesNotThrow(() -> SchemaWriter.checkPaired(directory.resolve("nothing-here.yml")));
+    }
+
+    // ---------------------------------------------------------------- @Protected (steward/74)
+
+    @Test
+    @DisplayName("@Protected on a list of nested settings is recorded as the schema's protectedEntry")
+    void protectedIsRecordedOnAListOfNestedSettings() {
+        final SchemaNode schema = SchemaWriter.build(ProtectedListHolder.class);
+        assertEquals(new SchemaNode.ProtectedEntry("tag", "en"),
+                schema.children().get("languages").protectedEntry());
+    }
+
+    @Test
+    @DisplayName("a list of nested settings with no @Protected has a null protectedEntry, not a guessed one")
+    void protectedIsNullWithoutTheAnnotation() {
+        final SchemaNode worldsList = SchemaWriter.build(TestSpecs.Worlds.class).children().get("worlds");
+        assertNull(worldsList.protectedEntry());
+    }
+
+    @Test
+    @DisplayName("@Protected naming a field the element type does not have is refused, not silently useless")
+    void protectedNamingAMissingFieldIsRejected() {
+        final IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> SchemaWriter.build(ProtectedWithMissingField.class));
+        assertTrue(error.getMessage().contains("nope"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("@Protected on a list of plain scalars is refused - there is no field to match against")
+    void protectedOnAScalarListIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> SchemaWriter.build(ProtectedOnScalarList.class));
+    }
+
+    @Test
+    @DisplayName("@Protected on a plain scalar property is refused, the same way")
+    void protectedOnAScalarIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> SchemaWriter.build(ProtectedOnScalar.class));
+    }
+
+    @ConfigSpec
+    public interface ProtectedListHolder {
+        @Order(1)
+        @Key("languages")
+        @Protected(field = "tag", value = "en")
+        default List<ProtectedElement> languages() {
+            return List.of();
+        }
+    }
+
+    @ConfigSpec
+    public interface ProtectedElement {
+        @Order(1)
+        @Key("tag")
+        default String tag() {
+            return "";
+        }
+    }
+
+    @ConfigSpec
+    public interface ProtectedWithMissingField {
+        @Order(1)
+        @Key("languages")
+        @Protected(field = "nope", value = "en")
+        default List<ProtectedElement> languages() {
+            return List.of();
+        }
+    }
+
+    @ConfigSpec
+    public interface ProtectedOnScalarList {
+        @Order(1)
+        @Key("tags")
+        @Protected(field = "tag", value = "en")
+        default List<String> tags() {
+            return List.of();
+        }
+    }
+
+    @ConfigSpec
+    public interface ProtectedOnScalar {
+        @Order(1)
+        @Key("tag")
+        @Protected(field = "tag", value = "en")
+        default String tag() {
+            return "en";
+        }
     }
 }

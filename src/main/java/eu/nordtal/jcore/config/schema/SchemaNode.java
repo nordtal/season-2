@@ -62,6 +62,17 @@ import java.util.Map;
  *                            own leaf key; for a {@link SettingKind#LIST} of nested objects, the
  *                            shape of one element, the same way. Empty for a scalar list and for
  *                            a scalar setting
+ * @param protectedEntry      for a {@link SettingKind#LIST} of nested objects whose property carries
+ *                            {@link eu.nordtal.jcore.config.spec.annotation.Protected @Protected}:
+ *                            the field and value that identify the one entry a consumer must refuse
+ *                            to remove (steward/74) - {@code tag} / {@code en} for
+ *                            {@code languages}, say. {@code null} whenever the property carries no
+ *                            {@code @Protected}, and always {@code null} for a {@link SettingKind#SCALAR},
+ *                            a {@link SettingKind#MAP} or a scalar list, none of which {@code @Protected}
+ *                            is legal on - {@code SchemaWriter} refuses to build a schema that puts
+ *                            it anywhere else. This is a description, not an enforcement: jcore
+ *                            itself never refuses a removal, it only makes the rule readable to code
+ *                            that does
  */
 public record SchemaNode(
         @NotNull SettingKind kind,
@@ -71,7 +82,8 @@ public record SchemaNode(
         boolean secret,
         @Nullable SettingType type,
         @Nullable Choices choices,
-        @NotNull @Unmodifiable Map<String, SchemaNode> children
+        @NotNull @Unmodifiable Map<String, SchemaNode> children,
+        @Nullable ProtectedEntry protectedEntry
 ) {
 
     public SchemaNode {
@@ -94,5 +106,16 @@ public record SchemaNode(
         public Choices {
             values = List.copyOf(values);
         }
+    }
+
+    /**
+     * Identifies the one entry of a {@link SettingKind#LIST} of nested objects that a consumer must
+     * refuse to remove - see {@link eu.nordtal.jcore.config.spec.annotation.Protected @Protected},
+     * which is where this comes from.
+     *
+     * @param field the element's own field to match against, e.g. {@code tag}
+     * @param value the value that field must equal for that entry to be the protected one
+     */
+    public record ProtectedEntry(@NotNull String field, @NotNull String value) {
     }
 }

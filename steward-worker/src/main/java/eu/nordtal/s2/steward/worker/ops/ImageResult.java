@@ -22,11 +22,13 @@ import java.util.Set;
  *
  * @param reached      whether the images could be read at all
  * @param services     one entry per running compose service, service name to what was found
- * @param unverifiable the subset of {@code services} whose image could not be compared with a
- *                     registry - it carries no registry digest, or the registry did not answer.
- *                     They are {@link State#UNKNOWN} like any other unchecked image; this only
- *                     records <em>why</em>, so the report can say something true instead of
- *                     staying silent - see {@link #notCheckable()}
+ * @param unverifiable the subset of {@code services} whose image could not be identified at all -
+ *                     the registry did not answer, or the daemon no longer has the container's
+ *                     exact image on file. They are {@link State#UNKNOWN} like any other unchecked
+ *                     image; this only records <em>why</em>, so the report can say something true
+ *                     instead of staying silent - see {@link #notCheckable()}. A service built here
+ *                     and never published is {@link State#LOCAL}, not a member of this set: that is
+ *                     a known answer, not an unanswered question (steward/75)
  * @param message      why not, or {@code null} when they could be read
  */
 public record ImageResult(boolean reached, @NotNull Map<String, State> services,
@@ -47,9 +49,21 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
         UP_TO_DATE,
 
         /**
+         * Running from an image built on this host and never published - the opposite direction
+         * from {@link #OUTDATED}, not a milder version of it. steward/75: a container recreated
+         * from a local {@code docker build} answered {@code OUTDATED} before this state existed,
+         * which is backwards - the registry has nothing newer, this host has something the
+         * registry has never seen. Neutral, not a fault: drawn without warning colour in the
+         * interface, but carrying the one warning that <em>is</em> true of it - the next real
+         * update run replaces this image silently, because the updater installs from a release and
+         * this one is not on any.
+         */
+        LOCAL,
+
+        /**
          * This service's image could not be compared with a registry - it carries no registry
-         * digest, or the registry did not answer. Never treated as work and never reported as
-         * current; it is a note.
+         * digest, was not built here either, or the registry did not answer. Never treated as work
+         * and never reported as current; it is a note.
          */
         UNKNOWN
     }
@@ -75,6 +89,11 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
     /** @return whether that service is running an image the registry has moved past */
     public boolean isOutdated(final @NotNull String service) {
         return state(service) == State.OUTDATED;
+    }
+
+    /** @return whether that service is running an image built here and published nowhere */
+    public boolean isLocal(final @NotNull String service) {
+        return state(service) == State.LOCAL;
     }
 
     /**
@@ -103,17 +122,19 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
     }
 
     /**
-     * @return the sentence naming the services whose image could not be compared against a
-     *         registry, or empty when there are none
+     * @return the sentence naming the services whose image could not be identified at all, or
+     *         empty when there are none
      *
      * <h2>Why this is separate from {@link #nothingChecked()} and fires on its own</h2>
      * Because one service that <em>was</em> checked is enough to silence that method, and saying
      * nothing about the rest reads exactly like "checked, and current". On this deployment almost
-     * every image is a {@code ghcr.io/nordtal} reference that answers; what is left over is the one
-     * built on this host and pushed nowhere - {@code steward-ui} during the alpha - which has no
-     * registry digest to compare at all. Folding the two together produced the worst of the three
-     * possible behaviours: before 0.8.5 every run carried a note blaming a setting, and the first
-     * cut of the fix carried no note at all while the unverifiable images sat there.
+     * every image is a {@code ghcr.io/nordtal} reference that answers; a build performed here and
+     * never pushed is told apart from this on its own now (steward/75, {@link State#LOCAL}), so what
+     * is left in this set is a registry that did not answer, or a container whose exact image the
+     * daemon no longer has on file. Folding the local-build case into this one produced the worst of
+     * the three possible behaviours before that: before 0.8.5 every run carried a note blaming a
+     * setting, and the first cut of the fix carried no note at all while the unverifiable images sat
+     * there.
      */
     public Optional<String> notCheckable() {
         if (!reached || unverifiable.isEmpty()) {
@@ -121,11 +142,41 @@ public record ImageResult(boolean reached, @NotNull Map<String, State> services,
         }
         return Optional.of("The registry could not be asked about " + String.join(", ", unverifiable)
                 + ", so nothing here can tell a current image from a stale one for "
-                + (unverifiable.size() == 1 ? "it" : "them") + ". Every reference is asked about"
-                + " now, so what is left is an image that carries no registry digest - built on this"
-                + " host and pushed nowhere - or a registry that did not answer. Neither of those is"
+                + (unverifiable.size() == 1 ? "it" : "them") + ". A local build is told apart from"
+                + " this already, so what is left is a registry that did not answer, or an image"
+                + " whose exact identity the daemon no longer has on file. Neither of those is"
                 + " `up to date`, and a run that stayed silent about "
                 + (unverifiable.size() == 1 ? "it" : "them") + " would read exactly as if it had"
                 + " checked and found nothing to do.");
+    }
+
+    /**
+     * @return the sentence naming the services running an image built here and never published, or
+     *         empty when there are none
+     *
+     * <h2>Why this exists</h2>
+     * steward/75: {@link State#LOCAL} is neutral, not a fault - but the one fact about it worth
+     * putting in a report is the one nothing said before this state existed. The updater only ever
+     * installs from a release, so the next real update run replaces a local build silently, and a
+     * report that stays quiet about that reads exactly like one where every image is the published
+     * kind.
+     */
+    public Optional<String> localImages() {
+        if (services.isEmpty()) {
+            return Optional.empty();
+        }
+        final java.util.List<String> local = new java.util.ArrayList<>();
+        for (final Map.Entry<String, State> entry : services.entrySet()) {
+            if (entry.getValue() == State.LOCAL) {
+                local.add(entry.getKey());
+            }
+        }
+        if (local.isEmpty()) {
+            return Optional.empty();
+        }
+        java.util.Collections.sort(local);
+        return Optional.of("Built on this host and never published: " + String.join(", ", local)
+                + ". The next real update run replaces " + (local.size() == 1 ? "it" : "them")
+                + " with whatever the last release actually contains, without asking.");
     }
 }

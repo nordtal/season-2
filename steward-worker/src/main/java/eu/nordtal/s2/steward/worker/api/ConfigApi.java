@@ -61,10 +61,19 @@ public final class ConfigApi {
         ctx.json(locations().stream().map(ConfigApi::describe).toList());
     }
 
-    /** {@code GET /api/config/<file>} - one file, as a form. */
+    /**
+     * {@code GET /api/config/<file>} - one file, as a form, or as raw text (steward/56).
+     *
+     * <p>{@code discover()} (steward/55) no longer looks at the extension, so this route is now
+     * asked about files that were never YAML to begin with - a plugin's {@code README.txt}, a
+     * {@code voicechat-server.properties}. Whatever will not parse as a config file - one of those,
+     * or an ordinary {@code .yml} with a mistake in it - answers with 200 and the file's own bytes
+     * under {@code raw: true} rather than a 400: this route's job is to show what is on disk, and a
+     * file that cannot be split into keys can still be shown, just not as a form.</p>
+     */
     public void one(final @NotNull Context ctx) {
         final ConfigLocation location = locate(ctx);
-        ctx.json(document(location, read(location)));
+        ctx.json(read(location));
     }
 
     /**
@@ -180,7 +189,7 @@ public final class ConfigApi {
         return row;
     }
 
-    private ConfigDocument read(final ConfigLocation location) {
+    private Map<String, Object> read(final ConfigLocation location) {
         // NOT PERMITTED IS NOT A BAD REQUEST, and it used to be: every IOException became a 400,
         // so a file this process may not open answered the browser with its own path and the words
         // "Permission denied" under a red alert about the request. The request was fine. The
@@ -195,7 +204,7 @@ public final class ConfigApi {
                     + " missing or the file's permissions changed.");
         }
         try {
-            return ConfigFiles.read(location.file());
+            return document(location, ConfigFiles.read(location.file()));
         } catch (final AccessDeniedException denied) {
             // The same thing again, caught rather than asked - because a permission can change
             // between the two lines, and because a directory somewhere above this file can refuse
@@ -204,9 +213,13 @@ public final class ConfigApi {
             throw new InternalServerErrorResponse(location.name() + " is on this host but this"
                     + " service may not open it.");
         } catch (final IOException e) {
-            // What is left IS about the request, or rather about the file it names: it is not
-            // YAML, and the message says which line. That is the case this branch was written for.
-            throw new BadRequestResponse(e.getMessage());
+            // Not a config file this class can split into keys - a foreign file steward/55's
+            // broadened discover() now surfaces (a plugin's README, a .properties file), or a .yml
+            // with a mistake in it. Either way there is still something to show: the bytes on disk,
+            // read-only, rather than a 400 with a path and a line number in it (steward/56).
+            log.info("{} does not read as a config file; showing it as raw text: {}",
+                    location.file(), e.getMessage());
+            return rawDocument(location, e.getMessage());
         }
     }
 
@@ -223,12 +236,41 @@ public final class ConfigApi {
         return answer;
     }
 
+    /**
+     * A file that could not be read as YAML, shown as itself instead of as a 400 (steward/56).
+     *
+     * <p>{@code raw: true} is the whole of the contract: no {@code entries}, no {@code revision} -
+     * there is nothing here this class parsed, so there is nothing a save could be validated
+     * against. The interface draws this as text, never as a form, and never offers a save button
+     * for it; {@code writable} on the location is beside the point; this route is what makes it
+     * genuinely un-savable no matter what the interface does.</p>
+     */
+    private static Map<String, Object> rawDocument(final ConfigLocation location, final String reason) {
+        final Map<String, Object> answer = new LinkedHashMap<>(describe(location));
+        answer.put("raw", true);
+        answer.put("reason", reason);
+        try {
+            answer.put("content", java.nio.file.Files.readString(location.file(),
+                    java.nio.charset.StandardCharsets.UTF_8));
+        } catch (final IOException e) {
+            log.warn("{} could not be read as raw text either", location.file(), e);
+            throw new InternalServerErrorResponse(location.name() + " could not be read: "
+                    + e.getMessage());
+        }
+        return answer;
+    }
+
     private static Map<String, Object> describe(final ConfigEntry entry) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("path", entry.path());
         row.put("key", entry.key());
         row.put("label", entry.label());
         row.put("comments", entry.comments());
+        // The schema's own text (steward/55, steward/56): `explanation` is empty and
+        // `noExplanationNeeded` is false for a key no schema covers, which the interface then draws
+        // exactly as it always drew a key with no comment.
+        row.put("explanation", entry.explanation());
+        row.put("noExplanationNeeded", entry.noExplanationNeeded());
         // `filled` is what a secret is allowed to say about itself. It is sent for every key, not
         // only the secret ones, so the page has one rule to draw rather than two.
         row.put("filled", !entry.value().isEmpty() || !entry.items().isEmpty());
@@ -241,6 +283,13 @@ public final class ConfigApi {
         row.put("line", entry.line());
         row.put("editable", entry.editable());
         row.put("secret", entry.secret());
+        row.put("inSchema", entry.inSchema());
+        if (entry.choices() != null) {
+            final Map<String, Object> choices = new LinkedHashMap<>();
+            choices.put("values", entry.choices().values());
+            choices.put("strict", entry.choices().strict());
+            row.put("choices", choices);
+        }
         return row;
     }
 

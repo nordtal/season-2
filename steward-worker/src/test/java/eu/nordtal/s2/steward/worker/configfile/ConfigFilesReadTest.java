@@ -26,8 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * only has to read what jcore writes, and the only honest statement of what jcore writes is what
  * jcore wrote. Two of its habits would not have been guessed and are asserted below, because a
  * parser written against a guess breaks silently -
- * {@link #aCommentInsideANestedSectionIsIndentedWithItsKey()} and
- * {@link #jcoreWritesABlankCommentLineAsHashSpace()}.</p>
+ * {@link #aNestedSectionsKeyCarriesNoCommentAboveItAnyMore()} and
+ * {@link #jcoreWritesNoCommentCharacterAtAll()}. Both used to pin the opposite behaviour, jcore
+ * 3.1.0's, until the version bump to 4.0.0 for steward/54/steward/55 turned them red - see
+ * ConfigFilesSchemaTest for where the explanations those comments used to carry live now.</p>
  */
 class ConfigFilesReadTest {
 
@@ -44,28 +46,24 @@ class ConfigFilesReadTest {
 
     @Test
     void theHeaderIsTheCommentBlockAboveTheBlankLineAtTheTop() throws IOException {
+        // jcore 4.0.0 writes no header and no comments at all any more (steward/54) - the
+        // @ConfigSpec(header=…) text FixtureSpec carries never reaches a freshly-written file.
+        // This test used to pin the old jcore behaviour; ConfigFilesSchemaTest pins the new one.
         final ConfigDocument document = ConfigFiles.read(fixture);
 
-        assertEquals(List.of(
-                "A fixture, written by jcore.",
-                "",
-                "The second paragraph of the header, after a blank line."), document.header());
+        assertEquals(List.of(), document.header());
     }
 
     @Test
     void commentsAreTheBlockDirectlyAboveTheKey() throws IOException {
+        // Same as above: a file jcore 4.0.0 writes carries no comments, so a freshly-written
+        // fixture has none to read back. A hand-written file with a real comment block is covered
+        // by aWorkerStyleFileWithAListAndTwoSectionsReadsBack below, which never goes through jcore.
         final ConfigDocument document = ConfigFiles.read(fixture);
 
-        assertEquals(List.of(
-                "A whole number.",
-                "",
-                "With a blank line in the middle of its comment."), entry(document, "port").comments());
-        assertEquals(List.of(
-                "A list. Not editable in this alpha, and shown as one anyway.",
-                "The worker's backup.stop-services is the real one of these."),
-                entry(document, "stop-services").comments());
-        assertEquals(List.of("How many times."),
-                entry(document, "worker.limits.max-retries").comments());
+        assertEquals(List.of(), entry(document, "port").comments());
+        assertEquals(List.of(), entry(document, "stop-services").comments());
+        assertEquals(List.of(), entry(document, "worker.limits.max-retries").comments());
     }
 
     @Test
@@ -106,30 +104,27 @@ class ConfigFilesReadTest {
     }
 
     /**
-     * A comment inside a nested section is indented to the key it belongs to, and jcore puts a
-     * blank line between the section key and it. Neither is assumed by the reader - the comment
-     * block is found by stripping each line, not by matching a column - and both are asserted here
-     * so that a change in jcore shows up as a failure rather than as an empty form.
+     * A nested section's key is still indented to its own column - that is YAML nesting and has
+     * nothing to do with comments - but jcore 4.0.0 puts no comment line above it any more, where
+     * 3.1.0 always did. Pinned so a jcore change that brought comments back would show up as a
+     * failure here rather than as a page quietly gaining text nobody asked for.
      */
     @Test
-    void aCommentInsideANestedSectionIsIndentedWithItsKey() throws IOException {
+    void aNestedSectionsKeyCarriesNoCommentAboveItAnyMore() throws IOException {
         final List<String> lines = Files.readAllLines(fixture);
         final int keyLine = ConfigFiles.read(fixture).find("worker.base-url").orElseThrow().line();
 
         assertEquals("  base-url: http://steward-worker:8082", lines.get(keyLine - 1));
-        assertEquals("  # Where it is.", lines.get(keyLine - 2));
-        assertEquals("", lines.get(keyLine - 3), "jcore separates a section key from the first"
-                + " comment under it with a blank line");
-        assertEquals(List.of("Where it is."),
-                entry(ConfigFiles.read(fixture), "worker.base-url").comments());
+        assertFalse(lines.get(keyLine - 2).strip().startsWith("#"),
+                "jcore 4.0.0 writes no comment above a key: " + lines.get(keyLine - 2));
+        assertEquals(List.of(), entry(ConfigFiles.read(fixture), "worker.base-url").comments());
     }
 
-    /** A blank line inside a comment is written as {@code "# "}, with the trailing space. */
+    /** jcore 4.0.0 writes no comment at all, so a freshly-written file has no {@code #} in it. */
     @Test
-    void jcoreWritesABlankCommentLineAsHashSpace() throws IOException {
-        assertTrue(Files.readString(fixture).contains("\n# \n"), "jcore no longer writes '# '");
-
-        assertEquals("", entry(ConfigFiles.read(fixture), "port").comments().get(1));
+    void jcoreWritesNoCommentCharacterAtAll() throws IOException {
+        assertFalse(Files.readString(fixture).contains("#"),
+                "jcore 4.0.0 must write no comment line at all: " + Files.readString(fixture));
     }
 
     @Test
@@ -248,7 +243,9 @@ class ConfigFilesReadTest {
 
         final ConfigDocument document = ConfigFiles.read(file);
 
-        assertTrue(document.header().getFirst().contains("---"), document.header().toString());
+        // jcore 4.0.0 writes no header any more (steward/54) - StewardSpec's own header text is
+        // gone from the file itself; ConfigFilesSchemaTest is where the schema-driven text lives.
+        assertEquals(List.of(), document.header());
         assertEquals(Type.INTEGER, entry(document, "api.port").type());
         assertEquals("8082", entry(document, "api.port").value());
         assertEquals(Kind.MAP, entry(document, "api").kind());

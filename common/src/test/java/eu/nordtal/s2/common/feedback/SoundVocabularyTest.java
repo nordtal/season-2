@@ -156,9 +156,51 @@ class SoundVocabularyTest {
 
     private static String read(final Path path) {
         try {
-            return Files.readString(path, StandardCharsets.UTF_8);
+            return withoutComments(Files.readString(path, StandardCharsets.UTF_8));
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot read " + path, e);
         }
+    }
+
+    /**
+     * Code only. Block comments, javadoc and line comments are blanked before anything is searched.
+     *
+     * <h2>Why this exists, measured 2026-09-16</h2>
+     * This test used to scan the raw file, and {@code CommandGate}'s javadoc failed it - a comment
+     * that <em>explains this very rule</em> naturally spells out {@code playSound(} and the Adventure
+     * package name, and a naive text search cannot tell that apart from a call. The failure was
+     * real and the code was not: nothing in that file plays anything.
+     *
+     * <p>Blanking rather than deleting, so that no two lines are joined into something that reads
+     * like a call that was never written. A string literal containing {@code //} would confuse this
+     * - a URL in code, say - but the worst that costs is a false <em>pass</em> on the rest of one
+     * line, and this check is a tripwire rather than a parser. The rule it guards is still the
+     * rule: the adapter owns the platform, a call site owns a category.</p>
+     */
+    private static String withoutComments(final String source) {
+        final StringBuilder out = new StringBuilder(source.length());
+        int i = 0;
+        while (i < source.length()) {
+            final char c = source.charAt(i);
+            if (c == '/' && i + 1 < source.length() && source.charAt(i + 1) == '/') {
+                while (i < source.length() && source.charAt(i) != '\n') {
+                    out.append(' ');
+                    i++;
+                }
+            } else if (c == '/' && i + 1 < source.length() && source.charAt(i + 1) == '*') {
+                while (i < source.length()
+                        && !(source.charAt(i) == '*' && i + 1 < source.length()
+                                && source.charAt(i + 1) == '/')) {
+                    out.append(source.charAt(i) == '\n' ? '\n' : ' ');
+                    i++;
+                }
+                out.append("  ");
+                i += 2;
+            } else {
+                out.append(c);
+                i++;
+            }
+        }
+        return out.toString();
     }
 }

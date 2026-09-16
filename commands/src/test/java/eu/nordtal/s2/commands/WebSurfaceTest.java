@@ -25,7 +25,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class WebSurfaceTest {
 
     /**
-     * The five of concept §10a, and the two of 2FA package H.
+     * The five of concept §10a, the two of 2FA package H, and the four of {@code /phase}.
+     *
+     * <p><b>The four {@code /phase} commands joined on 2026-09-16</b>, and they arrived from the
+     * opposite direction to everything else here: they were not promoted onto the web, they were
+     * pushed off chat and Discord by {@code season-2-ops/18} and had to land somewhere. The
+     * alternative was the console alone, and the owner chose the console <em>and</em> the interface
+     * for a reason worth keeping next to this list: a WEB row is pinned to the asker's Discord id by
+     * a CHECK in V18, while V11 pins a CONSOLE row to having no identity at all - and "who launched
+     * the season" is the last question this project wants to be unable to answer.</p>
      *
      * <p>{@code /access settle} and {@code /access unlink} joined on 2026-09-14, and they are the
      * counter-example to {@code /smp aura} above rather than an exception to it: neither takes
@@ -42,12 +50,16 @@ class WebSurfaceTest {
             "/access unlink",
             "/announce",
             "/hg start",
+            "/phase launch",
+            "/phase set",
+            "/phase show",
+            "/phase smp-start",
             "/smp farmreset now",
             "/smp milestone unlock",
             "/smp objective complete");
 
     @Test
-    @DisplayName("exactly the five decided commands carry WEB")
+    @DisplayName("exactly the decided commands carry WEB, and no others")
     void nothingElseGrewAButton() {
         assertEquals(ON_THE_WEB, Catalogue.all().stream()
                         .filter(declaration -> declaration.surfaces().contains(Surface.WEB))

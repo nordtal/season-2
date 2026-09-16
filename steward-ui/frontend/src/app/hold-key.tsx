@@ -1,4 +1,4 @@
-import { Fingerprint, KeyRound, LogOut, ShieldAlert } from "lucide-react"
+import { Fingerprint, LogOut, ShieldAlert } from "lucide-react"
 
 import type { Me } from "@/lib/api"
 import { api } from "@/lib/api"
@@ -22,30 +22,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
  * full of pages that cannot load.
  *
  * **There is no "skip" and there is no "remind me later".** The only other button leaves.
+ *
+ * Till, 2026-09-16 (steward/78): as little text as possible, everywhere. The sentence naming
+ * which key belongs to this account - singular or the enumerated list for more than one - fell
+ * with it. The price is accepted: whoever is signing in is already holding a key, and WebAuthn
+ * itself only accepts the one that fits.
  */
 export function HoldKeyPage({ me }: { me: Me }) {
   const hold = useHoldKey()
   const supported = browserHasSecurityKeys()
-  // The names are on screen because a person with two keys has to know which one to reach for -
-  // that is the entire reason a key carries a name at all.
-  const names = (me.keys ?? []).map((key) => key.label)
 
   return (
     <div className="flex min-h-(--app-height) items-center justify-center bg-background px-6 py-12">
       <div className="flex w-full max-w-md flex-col gap-6">
-        <div className="flex items-center gap-3">
-          <StewardMark className="size-8" />
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
-            <span className="text-sm text-muted-foreground">
-              nordtal.eu · Season 2 · signed in as{" "}
-              <span className="text-foreground">{me.name ?? "an admin"}</span>
-            </span>
-          </div>
-        </div>
-
         <Card>
           <CardHeader>
+            <div className="flex items-center gap-3">
+              <StewardMark className="size-8" />
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold tracking-tight">Nordtal Steward</span>
+                <span className="text-sm text-muted-foreground">Season 2</span>
+                <span className="text-sm text-muted-foreground">
+                  Signed in as <span className="text-foreground">{me.name ?? "an admin"}</span>
+                </span>
+              </div>
+            </div>
             <CardTitle>Hold your security key</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -61,9 +62,7 @@ export function HoldKeyPage({ me }: { me: Me }) {
             )}
 
             <p className="text-sm text-muted-foreground">
-              {names.length === 1
-                ? `The key on this account is called “${names[0]}”.`
-                : `Any of your keys will do: ${names.map((name) => `“${name}”`).join(", ")}.`}
+              Please provide your security key in order to sign into your Nordtal admin account.
             </p>
 
             <Button
@@ -83,17 +82,6 @@ export function HoldKeyPage({ me }: { me: Me }) {
                 <AlertDescription>{hold.error.message}</AlertDescription>
               </Alert>
             ) : null}
-
-            <Alert>
-              <KeyRound aria-hidden />
-              <AlertTitle>If you no longer have it, somebody has to go to the server.</AlertTitle>
-              <AlertDescription>
-                {/* A danger, not an instruction: this screen loads for anyone signed in with
-                    Discord alone, so the exact recovery command does not belong on it. It is in
-                    the javadoc of StewardUi.forgetFactors instead. */}
-                <p>There is no email reset and no second route in.</p>
-              </AlertDescription>
-            </Alert>
 
             <Button
               type="button"

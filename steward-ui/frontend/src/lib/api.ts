@@ -511,6 +511,17 @@ export type ConfigLocation = {
 }
 
 /**
+ * The allowed (or suggested) values of a setting, from its schema (steward/55, steward/56).
+ *
+ * `strict` closes the list to exactly these values - the form draws a select and nothing else.
+ * Otherwise it is a suggestion: a select beside a free-text field that still accepts anything.
+ */
+export type ConfigChoices = {
+  values: string[]
+  strict: boolean
+}
+
+/**
  * One key of a config file, as the form draws it.
  *
  * **`value` and `items` are absent for a secret and that is the point.** A key whose name says
@@ -519,12 +530,23 @@ export type ConfigLocation = {
  * only reading the old one that does not.
  *
  * `filled` is sent for every key, secret or not, so there is one rule to draw rather than two.
+ *
+ * **Since jcore 4.0.0 (steward/55), `explanation` and `choices` come from the `<name>.schema.json`
+ * beside the file, not from `comments` any more** - a file that generation of jcore wrote carries no
+ * comments at all. `comments` is what is left for a file with no schema, or one nothing ever wrote a
+ * schema for. `inSchema` is `true` whenever there is nothing to be missing from (no schema at all)
+ * and `false` only when a schema exists here and does not mention this key - the file still wins
+ * and the key is still sent, just marked.
  */
 export type ConfigEntry = {
   path: string
   key: string
   label: string
   comments: string[]
+  /** The schema's short `@Explain` text. Empty when no schema entry covers this key. */
+  explanation: string
+  /** The schema says explicitly that this needs no explanation - draw no text, not empty text. */
+  noExplanationNeeded: boolean
   filled: boolean
   /** Absent when `secret`. A scalar's text; for a block scalar, with the newlines it holds. */
   value?: string
@@ -536,6 +558,10 @@ export type ConfigEntry = {
   /** False for a nested section, which has no value, and for a list of sections. */
   editable: boolean
   secret: boolean
+  /** Whether the schema declares this key. Always `true` when the file has no schema at all. */
+  inSchema: boolean
+  /** The schema's allowed or suggested values, or absent when it names none. */
+  choices?: ConfigChoices
 }
 
 /**
@@ -565,7 +591,21 @@ export type GuildList = {
   entries: GuildEntry[]
 }
 
-export type ConfigDocument = ConfigLocation & {
+/**
+ * A file steward could not split into keys - a foreign file steward/55's broadened `discover()`
+ * now finds (a plugin's `README.txt`, a `.properties` file), or a `.yml` with a mistake in it
+ * (steward/56). There is no `revision` and no `entries`: nothing here was parsed, so there is
+ * nothing a save could be checked against. The interface shows the bytes as text and offers no
+ * save button for them - `writable` on the location is beside the point.
+ */
+export type RawConfigDocument = ConfigLocation & {
+  raw: true
+  reason?: string
+  content: string
+}
+
+export type ParsedConfigDocument = ConfigLocation & {
+  raw?: never
   /**
    * What the file said when it was read, and what the next save has to still be about.
    *
@@ -578,6 +618,8 @@ export type ConfigDocument = ConfigLocation & {
   header: string[]
   entries: ConfigEntry[]
 }
+
+export type ConfigDocument = RawConfigDocument | ParsedConfigDocument
 
 /** What a PUT sends: a string is a scalar, an array is a list, and they are not interchangeable. */
 export type ConfigChanges = Record<string, string | string[]>

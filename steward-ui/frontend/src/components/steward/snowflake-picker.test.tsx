@@ -31,6 +31,8 @@ function entry(over: Partial<ConfigEntry>): ConfigEntry {
     key: "admin",
     label: "Admin",
     comments: [],
+    explanation: "",
+    noExplanationNeeded: false,
     filled: true,
     value: "",
     items: [],
@@ -39,6 +41,7 @@ function entry(over: Partial<ConfigEntry>): ConfigEntry {
     line: 1,
     editable: true,
     secret: false,
+    inSchema: true,
     ...over,
   }
 }

@@ -15,7 +15,6 @@ import { toast } from "sonner"
 
 import type {
   ConfigChanges,
-  ConfigChoices,
   ConfigEntry,
   ConfigLocation,
   GuildList,
@@ -29,24 +28,30 @@ import {
   useGuildRoles,
   useSaveConfig,
 } from "@/lib/queries"
+import { explanationOf, ScalarControl } from "@/components/steward/config-controls"
 import { Empty, Failure, QueryState } from "@/components/steward/query-state"
-import { SnowflakePicker } from "@/components/steward/snowflake-picker"
+import {
+  type SectionValues,
+  RepeatableCards,
+  sectionsFromEntry,
+} from "@/components/steward/repeatable-cards"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+
+/**
+ * `discordId` used to be defined here and stayed exported under this name for
+ * `snowflake-picker.test.tsx`, which imports it from this module. The implementation moved to
+ * `config-controls.tsx` (steward/57) so `repeatable-cards.tsx` could use it too without importing
+ * this file back - a card's own fields need the same "is this a role or a channel" heuristic as a
+ * top-level key, and a cycle between the two files would follow from importing it the other way.
+ */
+export { discordId } from "@/components/steward/config-controls"
 
 /**
  * A service's configuration files, on the service's own page (concept §10a).
@@ -82,20 +87,6 @@ function humanFileName(name: string): string {
   if (words.length === 0) return name
   const joined = words.map((word) => word.toLowerCase()).join(" ")
   return joined.charAt(0).toUpperCase() + joined.slice(1)
-}
-
-/**
- * The short text under a label: the schema's own words when there is a schema, the mechanical
- * comment block for a file with none, and nothing at all when the schema explicitly says there is
- * nothing to add (steward/55, steward/56). Three states, not two - `noExplanationNeeded` and "no
- * comment happened to be written above this key" must not read the same, and only the first of
- * them is drawn as literally no text regardless of what either string holds.
- */
-function explanationOf(entry: ConfigEntry): string | null {
-  if (entry.noExplanationNeeded) return null
-  if (entry.explanation) return entry.explanation
-  if (entry.comments.length > 0) return entry.comments.join("\n").trim()
-  return null
 }
 
 /** The marker for a key the file has but the schema does not mention (steward/50, steward/55). */
@@ -269,7 +260,7 @@ function RawConfigView({ document }: { document: RawConfigDocument }) {
   )
 }
 
-type Draft = Record<string, string | string[]>
+type Draft = Record<string, string | string[] | SectionValues[]>
 
 function ConfigForm({ file, document }: { file: string; document: ParsedConfigDocument }) {
   const [draft, setDraft] = useState<Draft>({})
@@ -433,6 +424,15 @@ function changed(document: ParsedConfigDocument, draft: Draft): ConfigChanges {
       }
       continue
     }
+    // A card's whole list of sections (steward/57) is sent the same way a plain LIST is: as one
+    // value under the parent path, compared whole against the sections the file itself held - a
+    // removed card is invisible in a diff of individual keys, since there is no key left to differ.
+    if (entry.kind === "SECTIONS") {
+      if (JSON.stringify(value) !== JSON.stringify(sectionsFromEntry(entry))) {
+        changes[entry.path] = value as SectionValues[]
+      }
+      continue
+    }
     // A secret has no value here to compare against, so any typed value is a change - including an
     // empty one, which empties it. The field says so out loud rather than doing it quietly.
     if (entry.secret || value !== (entry.value ?? "")) {
@@ -462,7 +462,7 @@ function Field({
   draft: Draft
   roles: GuildList | undefined
   channels: GuildList | undefined
-  onChange: (value: string | string[]) => void
+  onChange: (value: string | string[] | SectionValues[]) => void
   onReset: () => void
 }) {
   const depth = entry.path.split(".").length - 1
@@ -549,28 +549,12 @@ function Field({
 }
 
 /**
- * Which keys hold a Discord id, and whether it is a role or a channel.
- *
- * It is decided on the KEY, not on the value, because the whole point is to help with a key that is
- * still empty - a value-shaped test would offer the picker only once somebody had already typed the
- * thing they needed help typing. The names are the ones jcore writes: `roles.admin`,
- * `channels.admin`, and on each language entry `role`, `contribution-channel`, `link-channel`,
- * `hunger-games-channel`, `status-channel`, `announcement-channel`.
- *
- * `guild-id` matches none of them, and that is the intended answer rather than an oversight: the
- * guild is what the list is READ FROM, so offering to pick it out of itself is circular and would
- * draw an empty select on the one field that always has to be typed. It is asserted in the tests
- * so a later rule - anything keyed on `-id`, say - cannot quietly acquire it.
+ * Which control an entry gets: the repeatable cards for a `SECTIONS` entry (steward/57), the plain
+ * scalar list rows for a `LIST`, or a leaf's own scalar control - a secret, a schema's choices, a
+ * Discord id, a boolean or plain text, in that order of precedence. The leaf branch is
+ * `ScalarControl` in `config-controls.tsx`, shared with a field drawn inside a card, so the two
+ * never drift apart over what a "choices" or a "boolean" looks like.
  */
-export function discordId(entry: ConfigEntry): "role" | "channel" | null {
-  if (entry.kind !== "SCALAR" || !entry.editable || entry.secret) return null
-  const key = entry.key
-  const path = entry.path
-  if (key === "role" || key.endsWith("-role") || path.startsWith("roles.")) return "role"
-  if (key === "channel" || key.endsWith("-channel") || path.startsWith("channels.")) return "channel"
-  return null
-}
-
 function Control({
   entry,
   draft,
@@ -584,162 +568,41 @@ function Control({
   disabled: boolean
   roles: GuildList | undefined
   channels: GuildList | undefined
-  onChange: (value: string | string[]) => void
+  onChange: (value: string | string[] | SectionValues[]) => void
 }) {
   if (entry.kind === "LIST") {
     const items = (draft[entry.path] as string[] | undefined) ?? entry.items ?? []
     return <ListControl id={entry.path} items={items} disabled={disabled} onChange={onChange} />
   }
 
-  const typed = draft[entry.path] as string | undefined
-
-  if (entry.secret) {
+  if (entry.kind === "SECTIONS") {
+    const value = (draft[entry.path] as SectionValues[] | undefined) ?? sectionsFromEntry(entry)
     return (
-      <div className="flex flex-col gap-1.5">
-        <Input
-          id={entry.path}
-          type="password"
-          autoComplete="off"
-          disabled={disabled}
-          value={typed ?? ""}
-          placeholder={entry.filled ? "set - type a new one to replace it" : "empty"}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        <p className="text-sm text-muted-foreground">
-          {typed === ""
-            ? "Saving it empty deletes this secret from the file."
-            : "The stored value is never sent to the browser. It can be overwritten, not read back."}
-        </p>
-      </div>
+      <RepeatableCards
+        entry={entry}
+        value={value}
+        disabled={disabled}
+        roles={roles}
+        channels={channels}
+        onChange={onChange}
+      />
     )
   }
 
+  const typed = draft[entry.path] as string | undefined
   const value = typed ?? entry.value ?? ""
 
-  // A schema's allowed values (steward/55, steward/56) win over the Discord picker below: they are
-  // the more specific of the two, being data this particular key actually declared rather than a
-  // guess drawn from its name.
-  if (entry.choices) {
-    return (
-      <ChoicesControl
-        id={entry.path}
-        value={value}
-        choices={entry.choices}
-        disabled={disabled}
-        onChange={onChange}
-      />
-    )
-  }
-
-  const discord = discordId(entry)
-  if (discord) {
-    return (
-      <SnowflakePicker
-        id={entry.path}
-        value={value}
-        directory={discord === "role" ? roles : channels}
-        what={discord}
-        disabled={disabled}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (entry.type === "BOOLEAN") {
-    return (
-      <div className="flex items-center gap-3">
-        <Switch
-          id={entry.path}
-          disabled={disabled}
-          checked={value === "true"}
-          onCheckedChange={(on) => onChange(on ? "true" : "false")}
-        />
-        <span className="text-sm text-muted-foreground">{value === "true" ? "on" : "off"}</span>
-      </div>
-    )
-  }
-
-  // A value that already spans lines keeps a box it fits in. Typing a newline into the single-line
-  // field is allowed too - the backend turns it into a block scalar - but nobody would find that.
-  if (value.includes("\n")) {
-    return (
-      <Textarea
-        id={entry.path}
-        rows={Math.min(16, value.split("\n").length + 1)}
-        disabled={disabled}
-        value={value}
-        spellCheck={false}
-        className="font-mono text-sm"
-        onChange={(event) => onChange(event.target.value)}
-      />
-    )
-  }
-
   return (
-    <Input
+    <ScalarControl
       id={entry.path}
-      disabled={disabled}
+      entry={entry}
       value={value}
-      inputMode={entry.type === "INTEGER" || entry.type === "DECIMAL" ? "decimal" : undefined}
-      spellCheck={false}
-      className="font-mono text-sm"
-      onChange={(event) => onChange(event.target.value)}
+      edited={typed !== undefined}
+      disabled={disabled}
+      roles={roles}
+      channels={channels}
+      onChange={onChange}
     />
-  )
-}
-
-/**
- * A schema's allowed (or suggested) values (steward/55, steward/56).
- *
- * `strict` is the whole of the difference: a closed list is a select and nothing else, because
- * anything else it could hold is not a valid save. A suggestion is the same select beside a
- * free-text field that still takes anything - so the common case is a click and the uncommon one
- * is still just typing, the way it always was.
- */
-function ChoicesControl({
-  id,
-  value,
-  choices,
-  disabled,
-  onChange,
-}: {
-  id: string
-  value: string
-  choices: ConfigChoices
-  disabled: boolean
-  onChange: (value: string) => void
-}) {
-  // Radix refuses an item with an empty value, and a value the schema did not list is a normal
-  // state here - typed by hand before this shipped, or (when not strict) simply a suggestion not
-  // taken. Passing it through as "" leaves the select showing its placeholder rather than a value
-  // it does not have.
-  const known = choices.values.includes(value)
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select value={known ? value : ""} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger id={choices.strict ? id : undefined} className="min-w-48">
-          <SelectValue placeholder={choices.strict ? "choose one" : "choose a suggestion"} />
-        </SelectTrigger>
-        <SelectContent>
-          {choices.values.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {choices.strict ? null : (
-        <Input
-          id={id}
-          aria-label="Free text"
-          disabled={disabled}
-          value={value}
-          spellCheck={false}
-          className="min-w-40 flex-1 font-mono text-sm"
-          onChange={(event) => onChange(event.target.value)}
-        />
-      )}
-    </div>
   )
 }
 

@@ -564,6 +564,19 @@ class StewardUiIntegrationTest {
         assertFalse(built.body().contains("<div id=\"root\""),
                 assetPath + " came back as the page instead of itself");
 
+        // steward/79: a hashed bundle can never change under its own name, so a cold start must not
+        // re-fetch it - and the document that names it can, so a cold start must always revalidate
+        // it. The two headers are opposite on purpose; see StewardUi's cacheControl.
+        assertEquals(List.of("max-age=31536000, immutable"), built.headers().allValues("Cache-Control"),
+                assetPath + " is content-hashed and must be told to cache forever: "
+                        + built.headers().map());
+        assertEquals(List.of("no-cache"), page.headers().allValues("Cache-Control"),
+                "/ carries no hash in its name and must always be revalidated: "
+                        + page.headers().map());
+        assertEquals(List.of("no-cache"), deep.headers().allValues("Cache-Control"),
+                "a client-side route falls back to the same document and needs the same header: "
+                        + deep.headers().map());
+
         // And an endpoint that does not exist answers 404, not 200 with HTML. A caller expecting
         // JSON would otherwise report a parse error and send the next reader after the wrong bug.
         assertEquals(404, get(stranger, "/api/there-is-no-such-thing").statusCode());

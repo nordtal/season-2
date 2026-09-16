@@ -12,14 +12,14 @@ import eu.nordtal.jcore.config.spec.annotation.Order;
  * operator iterates on <b>by ear</b>, with players online: {@code /smp reload} re-reads it, while
  * {@code config.yml} is deliberately not reloadable.
  *
- * <p>Nine categories, ten entries - open and close are the two halves of one. A call site picks a
+ * <p>Ten categories, eleven entries - open and close are the two halves of one. A call site picks a
  * category and nothing else; {@code SoundVocabularyTest} in {@code :common} fails the build if one
  * ever names a sound directly.
  */
 @ConfigSpec(header = {
         "smp - sounds",
         "",
-        "What each feedback category sounds like. Nine categories, ten entries - open and close are",
+        "What each feedback category sounds like. Ten categories, eleven entries - open and close are",
         "the two halves of one - and a call site in the plugin can pick a category and nothing else.",
         "That is a structural rule: a codebase where every call site names its own sound drifts",
         "into nine different chimes for the same kind of event.",
@@ -94,6 +94,11 @@ public interface SoundsSpec {
             "its artwork and does not exist yet. An empty key is silence until then."
     })
     default SoundSpec staging() { return DefaultSounds.STAGING; }
+
+    @Order(12) @Key("reclaimed")
+    @Comment("A grave settling once it is empty. Played as a WORLD sound at the grave, not to the"
+            + " looter alone - everyone standing nearby hears it too.")
+    default SoundSpec reclaimed() { return DefaultSounds.RECLAIMED; }
 
     /** One sound: the key, how loud, how fast. */
     @ConfigSpec

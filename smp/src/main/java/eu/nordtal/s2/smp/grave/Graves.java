@@ -39,8 +39,9 @@ import java.util.UUID;
 /**
  * Graves: what a death leaves behind, everywhere except the duel arena.
  *
- * <p>A grave <em>looks</em> like a double dark oak chest with the player's head on top, but it is
- * three display entities plus an {@link Interaction} to click. Real blocks were rejected: a death in
+ * <p>A grave <em>looks</em> like a chest with the player's own head resting on it, tilted and half
+ * sunk into the lid as if it had fallen there, but it is three display entities plus an
+ * {@link Interaction} to click. Real blocks were rejected: a death in
  * the void, in lava, under the Nether roof or inside somebody's wall would each replace blocks that
  * belong to somebody, and graves stand forever. A display cannot land in a wall, cannot collide with
  * a second grave, and is gone when the grave is emptied.
@@ -149,16 +150,59 @@ public final class Graves implements InventoryHolder {
 
     // ------------------------------------------------------------------ drawing
 
+    /**
+     * The vanilla chest model's own height, in blocks - it is drawn at its native size now, with no
+     * stretch or squash (season-2-ingame/14: the old 0.6 squash was chosen for nothing).
+     */
+    private static final float CHEST_HEIGHT = 0.875f;
+
+    /**
+     * Half the height of a skull {@link ItemDisplay} drawn with
+     * {@link ItemDisplay.ItemDisplayTransform#NONE}, which centres the model on the display's own
+     * origin. A player head is eight pixels tall, not sixteen - it is the bottom half of a block
+     * cell when placed - so the model is 0.5 blocks high and half of that is 0.25.
+     *
+     * <p>An earlier version of this constant said 1.0 and half of 0.5, on the assumption that a head
+     * is a full block. It is not, and the difference is a quarter of a block of daylight between the
+     * skull and the chest lid it is supposed to be resting in. Corrected without a client, so it is
+     * still a starting point rather than a measurement - like the three below it.</p>
+     */
+    private static final float HEAD_HALF_HEIGHT = 0.25f;
+
+    /**
+     * How far the skull's centre dips below the chest's top edge, so it reads as fallen rather than
+     * placed. <b>A placeholder, not a measurement</b> - season-2-ingame/14 is explicit that this
+     * number is found by looking at it in the game, not by computing it, and nobody has done that yet.
+     */
+    private static final float HEAD_SINK_DEPTH = 0.15f;
+
+    /**
+     * Rotation around the X axis that tips the skull onto its side instead of standing it upright.
+     * Placeholder, same caveat as {@link #HEAD_SINK_DEPTH}.
+     */
+    private static final float HEAD_TILT_DEGREES = 65f;
+
+    /**
+     * A second, smaller rotation around the Z axis, so the skull does not look perfectly
+     * axis-aligned - two axes together are what makes it read as fallen rather than posed. Placeholder,
+     * same caveat as {@link #HEAD_SINK_DEPTH}.
+     */
+    private static final float HEAD_ROLL_DEGREES = 12f;
+
     private void draw(final GraveRow row, final Location at) {
         final World world = at.getWorld();
         final List<org.bukkit.entity.Entity> entities = new ArrayList<>(3);
 
+        // A chest, not a squashed plank: season-2-ingame/14, Till 2026-09-15. It is drawn at its own
+        // size - no scale override - the translation only re-centres the model on the block cell,
+        // because a BlockDisplay's model spans (0,0,0)-(1,1,1) from its entity location and `at` is
+        // already the cell's centre point.
         final BlockDisplay chest = world.spawn(at, BlockDisplay.class, display -> {
-            display.setBlock(Material.DARK_OAK_PLANKS.createBlockData());
+            display.setBlock(Material.CHEST.createBlockData());
             display.setPersistent(false);
             display.setTransformation(new Transformation(
                     new Vector3f(-0.5f, 0f, -0.5f), new AxisAngle4f(),
-                    new Vector3f(1f, 0.6f, 1f), new AxisAngle4f()));
+                    new Vector3f(1f, 1f, 1f), new AxisAngle4f()));
         });
         entities.add(chest);
 
@@ -169,10 +213,28 @@ public final class Graves implements InventoryHolder {
             head.editMeta(SkullMeta.class,
                     meta -> meta.setOwningPlayer(Bukkit.getOfflinePlayer(row.ownerUuid())));
         }
-        final ItemDisplay skull = world.spawn(at.clone().add(0, 0.6, 0), ItemDisplay.class, display -> {
+        // Spawned at the chest's own location, not lifted by adding to the spawn point: every part of
+        // "on top of the chest, sunk in, and tilted" is one Transformation (season-2-ingame/14 -
+        // "eine Zahl beide Teile hält"), so one number moves the skull and nothing has to be kept in
+        // step with it.
+        //
+        // What that does NOT buy is the pivot. Minecraft applies a Transformation as
+        // translation * leftRotation * scale * rightRotation, so both rotations turn the model about
+        // its own centre and the lift happens afterwards either way - the tilt cannot be made to
+        // pivot on the rim of the chest by writing it this way. It stays put over the chest instead
+        // of swinging off it, which is the part that matters here.
+        final ItemDisplay skull = world.spawn(at, ItemDisplay.class, display -> {
             display.setItemStack(head);
             display.setPersistent(false);
             display.setBillboard(Display.Billboard.FIXED);
+            // The default already, made explicit because the constants above are computed for
+            // exactly this transform: the head's own model, centred on the origin, unscaled.
+            display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
+            display.setTransformation(new Transformation(
+                    new Vector3f(0f, CHEST_HEIGHT + HEAD_HALF_HEIGHT - HEAD_SINK_DEPTH, 0f),
+                    new AxisAngle4f((float) Math.toRadians(HEAD_TILT_DEGREES), 1f, 0f, 0f),
+                    new Vector3f(1f, 1f, 1f),
+                    new AxisAngle4f((float) Math.toRadians(HEAD_ROLL_DEGREES), 0f, 0f, 1f)));
         });
         entities.add(skull);
 
@@ -413,6 +475,22 @@ public final class Graves implements InventoryHolder {
             }
             Bukkit.getScheduler().runTask(plugin, () -> {
                 erase(graveId);
+
+                // A WORLD sound, not a player one: anybody standing at the grave - not only the
+                // looter - is there to hear it settle (season-2-ingame/15, Till 2026-09-15: the
+                // grave used to disappear silently, and should not).
+                //
+                // And here rather than inside erase, which is the one place the ticket pointed at.
+                // erase has two other callers that are not a grave finishing: clearDisplays at
+                // plugin disable, and forgetWorld on the daily farm reset. A sound there would play
+                // a skeleton's death once per grave at every shutdown and every reset, to nobody's
+                // benefit.
+                final World graveWorld = Bukkit.getWorld(row.world());
+                if (graveWorld != null) {
+                    sounds.playAt(new Location(graveWorld, row.x() + 0.5, row.y() + 0.5, row.z() + 0.5),
+                            Feedback.RECLAIMED);
+                }
+
                 if (experience > 0 && player.isOnline()) {
                     player.giveExp(experience);
                     player.sendMessage(MessageRenderer.of(messages).format(
